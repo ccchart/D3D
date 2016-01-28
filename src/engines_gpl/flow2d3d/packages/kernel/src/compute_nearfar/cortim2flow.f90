@@ -94,7 +94,6 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
     real(fp)      , dimension(:) , allocatable  :: s_jet
     real(fp)      , dimension(:) , allocatable  :: bv_jet
     real(fp)      , dimension(:) , allocatable  :: bh_jet
-    real(fp)      , dimension(:) , allocatable  :: v_jet
 
     character*256 , dimension(:) , allocatable  :: modules
 !
@@ -133,7 +132,6 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
     allocate (s_jet   (nrow))
     allocate (bv_jet  (nrow))
     allocate (bh_jet  (nrow))
-    allocate (v_jet   (nrow))
     allocate (modules (no_modules))
     allocate (modstart(no_modules))
 
@@ -161,12 +159,24 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
 
 
 
-    call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
-            & kcs     ,xz       ,yz      ,dps     ,s0      , &
-            & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-            & ltem    ,bv_jet  ,bh_jet   ,v_jet   ,idis    , &
-            & xstart  ,xend    ,ystart   ,yend    ,r0      , &
-            & linkinf ,gdp     )
+    call desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
+	                & kcs     ,xz       ,yz      ,dps     ,s0      , &
+	                & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
+	                & ltem    ,bv_jet  ,bh_jet   ,idis    , &
+                    & xstart  ,xend    ,ystart   ,yend    ,r0      , &
+	                & linkinf ,gdp     )
+!
+! Fill sources and sinks following the Desa Method of Prof. Lee
+!
+!
+!
+!
+!   call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
+!                & kcs     ,xz       ,yz      ,dps     ,s0      , &
+!	             & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
+!	             & ltem    ,bv_jet  ,bh_jet   ,idis    , &
+!                & xstart  ,xend    ,ystart   ,yend    ,r0      , &
+!                & linkinf ,gdp     )
 
     !
     ! Temporarily, write cormix trajectory to tekal file for postprocessing
@@ -193,7 +203,6 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
     deallocate (s_jet)
     deallocate (bv_jet)
     deallocate (bh_jet)
-    deallocate (v_jet)
     deallocate (modules)
     deallocate (modstart)
     !

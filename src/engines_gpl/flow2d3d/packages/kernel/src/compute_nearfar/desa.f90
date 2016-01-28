@@ -1,7 +1,7 @@
 subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
               & kcs     ,xz       ,yz      ,dps     ,s0      , &
               & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-              & ltem    ,bv_jet   ,bh_jet  ,v_jet   ,idis    , &
+              & ltem    ,bv_jet   ,bh_jet   ,idis    , &
               & xstart  ,xend     ,ystart  ,yend    ,r0      , &
               & linkinf ,gdp      )
 !----- GPL ---------------------------------------------------------------------
@@ -85,7 +85,6 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     real(fp)   , dimension(nrow)                               , intent(in)    :: s_jet    !  Description and declaration in
     real(fp)   , dimension(nrow)                               , intent(in)    :: bv_jet   !  Description and declaration in
     real(fp)   , dimension(nrow)                               , intent(in)    :: bh_jet   !  Description and declaration in
-    real(fp)   , dimension(nrow)                               , intent(in)    :: v_jet    !  Description and declaration in
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: s0       !  Description and declaration in esm_alloc_real.f90 gs
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub,kmax,lstsci)  , intent(in)    :: r0       !  Description and declaration in esm_alloc_real.f90 gs
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: xz       !  Description and declaration in esm_alloc_real.f90 gs
@@ -126,6 +125,10 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     real(fp)                             :: dy
     real(fp),dimension(:), allocatable   :: weight
     integer, dimension(:), allocatable   :: nm_dis
+    
+    ! Temporary fix to ensure discharging of mass in case of S = 0 or T = 0
+    
+    real(fp)                             :: eps_conc 
 !
 !! executable statements -------------------------------------------------------
 !
@@ -144,7 +147,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     dis_dil   = 0.0_fp
     dis_tot   = 0.0_fp
     thick_tot = 0.0_fp
-    pi      = acos(-1.0_fp)
+    pi        = acos(-1.0_fp)
+    
+    eps_conc  = 1.0e-12_fp
 
     !
     ! Only if cormix simulation was succesfull
@@ -206,11 +211,6 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           !
           if (nm_last /= nm_end .or. k_last /= k_end_top) then
              dis_dil                  = 1.0_fp*(s_jet(irow) - s_jet(irow-1))*q_diff(idis)
-!            call det_qjet(q1    ,v_jet(irow-1),b_jet(irow-1)/2.)
-!            call det_qjet(q2    ,v_jet(irow)  ,b_jet(irow)/2.  )
-!            dis_dil = q2 - q1
-!            dis_dil = 0.35814_fp*0.125_fp*(v_jet(irow) + v_jet(irow-1))*(b_jet(irow) + b_jet(irow-1))* &
-!                                        & (s_jet(irow) - s_jet(irow-1))
              dis_tot                  = dis_tot + dis_dil
              disnf   (nm_last,k_last,idis) = disnf   (nm_last,k_last,idis) - dis_dil
           endif
@@ -223,19 +223,10 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) - bv_jet(nrow), nm_end , &
                      k_end_top ,gdp    )
 
-       !call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
-       !              thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) + bv_jet(nrow), nm_end , &
-       !              k_end_down,gdp    )
-
-
-       ! Tijdelijk, verdelen over halve waterdiepte (Geeft voor Kepco beste resulaten)
-
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
-                    thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow)               , nm_end , &
-                    k_end_down,gdp    )
-
-!      k_end_top  = k_last
-!      k_end_down = k_last
+                     thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) + bv_jet(nrow), nm_end , &
+                     k_end_down,gdp    )
+     
 
        !
        ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
@@ -309,16 +300,16 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
 
                 if (lsal /= 0) then
                    call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
-                   sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (s0_diff(idis) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                   sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 if (ltem /= 0) then
                    call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
-                   sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (t0_diff(idis) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                   sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 do lcon = ltem + 1, lstsci
                    if ( flbcktemp(lcon) ) then
                       ! Backgroundtemerature: discharge with the temeprature last time step in discharge point
-                      sournf (nm_dis(iidis), k, lcon,idis) = q_diff(idis) * r0(nm_dis(iidis),k,lcon)/(thick_tot/(weight(iidis)*thick(k)))
+                      sournf (nm_dis(iidis), k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*thick(k)))
                    else
                       sournf (nm_dis(iidis), k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*thick(k)))
                    endif

@@ -59,8 +59,8 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     !
 
     select case (nflmod)
-       case ('corjet','cortime')
-          call det_num_dis(no_dis, gdp)
+       case ('corjet','cortime','generic')
+          call det_num_dis(no_dis, gdp) !FIXME if generic actually is using xml input
        case ('jet3d')
           no_dis = 1
     end select
@@ -94,4 +94,23 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
 !   end select
 
     !
+gdp%gdnfl%m_diff   = 0.0_fp
+gdp%gdnfl%n_diff   = 0.0_fp
+gdp%gdnfl%m_amb    = 0.0_fp
+gdp%gdnfl%n_amb    = 0.0_fp
+gdp%gdnfl%m_intake = 0.0_fp
+gdp%gdnfl%n_intake = 0.0_fp
+gdp%gdnfl%k_intake = 0.0_fp
+gdp%gdnfl%q_diff   = 0.0_fp
+gdp%gdnfl%t0_diff  = 0.0_fp
+gdp%gdnfl%s0_diff  = 0.0_fp
+gdp%gdnfl%rho0_diff= 0.0_fp
+gdp%gdnfl%d0       = 0.0_fp
+gdp%gdnfl%h0       = 0.0_fp
+gdp%gdnfl%sigma0   = 0.0_fp
+gdp%gdnfl%theta0   = 0.0_fp
+gdp%gdnfl%basecase = ' '
+gdp%gdnfl%disnf    = 0.0_fp
+gdp%gdnfl%sournf   = 0.0_fp
+
 end subroutine init_nfl

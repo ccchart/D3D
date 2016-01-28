@@ -1436,7 +1436,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                         & lstsci      , lsal      , ltem      , r (xz    ), &
                         & r (yz    )  , nmmax     , i (kcs)   , i (kcs_nf), &
                         & r (r0    )  , 2*nst*hdt , saleqs    , temeqs    , &
-                        & gdp                   )
+                        & gdp, r (s1)      )
        endif
        !
        ! Calculate source and sink terms for fluid mud layer
