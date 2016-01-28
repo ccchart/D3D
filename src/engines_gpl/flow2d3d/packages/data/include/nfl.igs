@@ -1,0 +1,69 @@
+!----- GPL ---------------------------------------------------------------------
+!
+!  Copyright (C)  Stichting Deltares, 2011-2012.
+!
+!  This program is free software: you can redistribute it and/or modify
+!  it under the terms of the GNU General Public License as published by
+!  the Free Software Foundation version 3.
+!
+!  This program is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!  GNU General Public License for more details.
+!
+!  You should have received a copy of the GNU General Public License
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+!
+!  contact: delft3d.support@deltares.nl
+!  Stichting Deltares
+!  P.O. Box 177
+!  2600 MH Delft, The Netherlands
+!
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"
+!  are registered trademarks of Stichting Deltares, and remain the property of
+!  Stichting Deltares. All rights reserved.
+!
+!-------------------------------------------------------------------------------
+!  $Id$
+!  $HeadURL$
+!-------------------------------------------------------------------------------
+type gd_nfl
+    !
+    ! integers
+    !
+    integer                                :: no_dis  ! number of diffusers/discharges
+    !
+    ! integer arrays
+    !
+    integer , dimension(:), pointer        :: m_diff
+    integer , dimension(:), pointer        :: n_diff
+    integer , dimension(:), pointer        :: m_amb
+    integer , dimension(:), pointer        :: n_amb
+    integer , dimension(:), pointer        :: m_intake
+    integer , dimension(:), pointer        :: n_intake
+    integer , dimension(:), pointer        :: k_intake
+    !
+    ! Real arrays
+    !
+    real(fp), dimension(:)      , pointer        :: q_diff
+    real(fp), dimension(:)      , pointer        :: t0_diff
+    real(fp), dimension(:)      , pointer        :: s0_diff
+    real(fp), dimension(:)      , pointer        :: rho0_diff
+    real(fp), dimension(:)      , pointer        :: d0
+    real(fp), dimension(:)      , pointer        :: h0
+    real(fp), dimension(:)      , pointer        :: sigma0
+    real(fp), dimension(:)      , pointer        :: theta0
+    real(fp), dimension(:,:,:)  , pointer        :: disnf
+    real(fp), dimension(:,:,:,:), pointer        :: sournf
+    !
+    ! characters
+    !
+    character(256)                         :: nflmod    ! name of near field model to apply
+    character(256)                         :: base_path ! path were to put the cortime.linkinp file
+    !
+    ! character array
+    !
+    character(256),dimension(:,:), pointer :: basecase ! name of near field model to apply
+end type gd_nfl
+
+
