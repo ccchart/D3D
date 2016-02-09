@@ -5,7 +5,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" OutputDirectory="lib/$(ConfigurationName)" DeleteExtensionsOnClean="*.obj;*.mod;*.pdb;*.asm;*.map;*.dyn;*.dpi;*.tmp;*.log;*.lib;$(TargetPath)" BuildLogFile="$(IntDir)\BuildLog.txt" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="../data/lib/$(ConfigurationName);../data/include;../io_dol_f/lib/$(ConfigurationName);../../../../utils_lgpl/delftio/lib/$(ConfigurationName)/static;../../../../utils_lgpl/esmfsm/include;../../../../utils_lgpl/ec_module/lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/packages/deltares_common/include;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static;..\..\..\..\utils_gpl\morphology\lib\$(ConfigurationName)\static" PreprocessorDefinitions="w32" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OutDir)/" ObjectFile="$(INTDIR)/" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" DisableDefaultLibSearch="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="../data/lib/$(ConfigurationName);../data/include;../io_dol_f/lib/$(ConfigurationName);../../../../utils_lgpl/delftio/lib/$(ConfigurationName)/static;../../../../utils_lgpl/esmfsm/include;../../../../utils_lgpl/ec_module/lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/packages/deltares_common/include;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static;..\..\..\..\utils_gpl\morphology\lib\$(ConfigurationName)\static" PreprocessorDefinitions="w32" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OutDir)/" ObjectFile="$(INTDIR)/" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" DisableDefaultLibSearch="true"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TypeLibraryName="$(IntDir)/$(InputName).tlb"/>
@@ -15,7 +15,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|Win32" OutputDirectory="lib/$(ConfigurationName)" DeleteExtensionsOnClean="*.obj;*.mod;*.pdb;*.asm;*.map;*.dyn;*.dpi;*.tmp;*.log;*.lib;$(TargetPath)" BuildLogFile="$(IntDir)\BuildLog.txt" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" AdditionalIncludeDirectories="../data/lib/$(ConfigurationName);../data/include;../io_dol_f/lib/$(ConfigurationName);../../../../utils_lgpl/delftio/lib/$(ConfigurationName)/static;../../../../utils_lgpl/esmfsm/include;../../../../utils_lgpl/ec_module/lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/packages/deltares_common/include;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static;..\..\..\..\utils_gpl\morphology\lib\$(ConfigurationName)\static" PreprocessorDefinitions="w32" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OutDir)/" ObjectFile="$(INTDIR)/" DisableDefaultLibSearch="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" AdditionalIncludeDirectories="../data/lib/$(ConfigurationName);../data/include;../io_dol_f/lib/$(ConfigurationName);../../../../utils_lgpl/delftio/lib/$(ConfigurationName)/static;../../../../utils_lgpl/esmfsm/include;../../../../utils_lgpl/ec_module/lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/packages/deltares_common/include;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static;..\..\..\..\utils_gpl\morphology\lib\$(ConfigurationName)\static" PreprocessorDefinitions="w32" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OutDir)/" ObjectFile="$(INTDIR)/" RuntimeLibrary="rtMultiThreadedDLL" DisableDefaultLibSearch="true"/>
 				<Tool Name="VFLibrarianTool" AdditionalOptions="/LTCG"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TypeLibraryName="$(IntDir)/$(InputName).tlb"/>
@@ -171,6 +171,7 @@
 		<File RelativePath="src\compute\z_vihrov.f90"/></Filter>
 		<Filter Name="compute_nearfar">
 		<File RelativePath=".\src\compute_nearfar\corinp_gen.f90"/>
+		<File RelativePath=".\src\compute_nearfar\corinp_gen2.f90"/>
 		<File RelativePath=".\src\compute_nearfar\corjet2flow.f90"/>
 		<File RelativePath=".\src\compute_nearfar\cormix2flow.f90"/>
 		<File RelativePath=".\src\compute_nearfar\cortim2flow.f90"/>
@@ -179,19 +180,31 @@
 		<File RelativePath=".\src\compute_nearfar\coupled.f90"/>
 		<File RelativePath=".\src\compute_nearfar\ct2jettraj.f90"/>
 		<File RelativePath=".\src\compute_nearfar\desa.f90"/>
+		<File RelativePath=".\src\compute_nearfar\desa_kepco.f90"/>
 		<File RelativePath=".\src\compute_nearfar\det_num_dis.f90"/>
+		<File RelativePath=".\src\compute_nearfar\determine_densprof.f90"/>
 		<File RelativePath=".\src\compute_nearfar\dis_qjet.f90"/>
 		<File RelativePath=".\src\compute_nearfar\discha_nf.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\discharge_def.f90"/>
 		<File RelativePath=".\src\compute_nearfar\findnmk.f90"/>
 		<File RelativePath=".\src\compute_nearfar\init_nfl.f90"/>
 		<File RelativePath=".\src\compute_nearfar\interp_tk.f90"/>
 		<File RelativePath=".\src\compute_nearfar\jet3d2flow.f90"/>
 		<File RelativePath=".\src\compute_nearfar\near_field.f90"/>
+		<File RelativePath=".\src\compute_nearfar\nf_2_flow.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\read_xml_prims.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\readXML_getdata.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\tables.f90"/>
 		<File RelativePath=".\src\compute_nearfar\wait_a_sec.f90"/>
+		<File RelativePath=".\src\compute_nearfar\wait_until_finished.f90"/>
 		<File RelativePath=".\src\compute_nearfar\wri_cormix.f90"/>
 		<File RelativePath=".\src\compute_nearfar\wri_cortim.f90"/>
+		<File RelativePath=".\src\compute_nearfar\wri_FF2NF.f90"/>
 		<File RelativePath=".\src\compute_nearfar\wri_jet3d.f90"/>
-		<File RelativePath=".\src\compute_nearfar\wri_tek.f90"/></Filter>
+		<File RelativePath=".\src\compute_nearfar\wri_tek.f90"/>
+		<File RelativePath=".\src\compute_nearfar\write_to_matlab.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\write_xml_prims.f90"/>
+		<File RelativePath=".\src\compute_nearfar\read_xml_discharges\xmlparse.f90"/></Filter>
 		<Filter Name="compute_roller">
 		<File RelativePath="src\compute_roller\constwave.f90"/>
 		<File RelativePath="src\compute_roller\difuwe.f90"/>
@@ -258,7 +271,6 @@
 		<File RelativePath="src\general\distance_gdp.f90"/>
 		<File RelativePath="src\general\dittar.f90"/>
 		<File RelativePath="src\general\dtn.f90"/>
-		<File RelativePath="src\general\endscr.f90"/>
 		<File RelativePath="src\general\errmsg.f90"/>
 		<File RelativePath="src\general\evenquotes.f90"/>
 		<File RelativePath="src\general\filfmt.f90"/>
@@ -274,7 +286,6 @@
 		<File RelativePath="src\general\newlun.f90"/>
 		<File RelativePath="src\general\nm_to_diag.f90"/>
 		<File RelativePath="src\general\nm_to_n_and_m.f90"/>
-		<File RelativePath="src\general\noextspaces.f90"/>
 		<File RelativePath="src\general\nuliar.f90"/>
 		<File RelativePath="src\general\open_datdef.f90"/>
 		<File RelativePath="src\general\pldep.F90">
@@ -442,9 +453,10 @@
 		<File RelativePath="src\timedep\incbc.f90"/>
 		<File RelativePath="src\timedep\incbcc.f90"/>
 		<File RelativePath="src\timedep\incdis.f90"/>
-		<File RelativePath="src\timedep\inceva.f90"/>
+		<File RelativePath=".\src\timedep\inceva.f90"/>
 		<File RelativePath="src\timedep\incmeteo.f90"/>
 		<File RelativePath="src\timedep\incrbc.f90"/>
+		<File RelativePath=".\src\timedep\incsdu.f90"/>
 		<File RelativePath="src\timedep\inctem.f90"/>
 		<File RelativePath="src\timedep\incwav.f90"/>
 		<File RelativePath="src\timedep\rtc_comm_get.f90"/>
