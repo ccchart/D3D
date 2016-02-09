@@ -4,7 +4,7 @@ subroutine inibct(lundia    ,error     ,runid     , &
                 & hydrbc    ,bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,6 +41,7 @@ subroutine inibct(lundia    ,error     ,runid     , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall
     !
     implicit none
@@ -123,7 +124,7 @@ subroutine inibct(lundia    ,error     ,runid     , &
     !
     ! Define length of RUNID
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     filnam = 'TMP_' // runid(:lrid) // '.bct'
     !

@@ -4,7 +4,7 @@ function [fig,figoptions,createops]=qp_createfig(figtype,figname)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -94,11 +94,16 @@ if isequal(figtype,'quick')
 end
 %
 if isempty(fig)
+    if ismember('zbuffer',set(0,'defaultfigurerenderer'))
+       renderer = 'zbuffer';
+    else
+       renderer = 'opengl';
+    end
     fig=figure('closerequestfcn','d3d_qp closefigure', ...
         'inverthardcopy','off', ...
         'tag','QuickPlot - figure', ...
         'color',qp_settings('defaultfigurecolor')/255, ...
-        'renderer','zbuffer', ...
+        'renderer',renderer, ...
         'visible','off', ...
         'userdata',figoptions, ...
         xtraprops{:});
@@ -116,7 +121,7 @@ elseif strcmp(dfp,'qp main')
     MonPos = qp_getscreen(mfig);
 elseif length(dfp)>8 && strcmp(dfp(1:8),'monitor ')
     screen = sscanf(dfp(9:end),'%i',1);
-    MonPos = qp_getscreen('screen');
+    MonPos = qp_getscreen('screen',screen);
 else % strcmp(dfp,'auto') or unknown
     % nothing to do: keep default
     MonPos = [];
@@ -195,7 +200,11 @@ for i=m*n:-1:1
     if qp_settings('boundingbox')
         set(ax,'box','on');
     end
-    set(ax,'tag',tags{i},'drawmode','fast');
+    if matlabversionnumber>=8.04;
+        set(ax,'tag',tags{i},'sortMethod','childOrder');
+    else
+        set(ax,'tag',tags{i},'drawmode','fast');
+    end
 end
 md_paper('no edit',orient,'7box');
 

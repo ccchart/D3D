@@ -21,6 +21,7 @@ function [varargout]=qp_getdata(varargin)
 %   [Success,Times     ]            = QP_GETDATA(FI,Domain,DataFld,'times',T)
 %   [Success,StNames   ]            = QP_GETDATA(FI,Domain,DataFld,'stations',S)
 %   [Success,SubFields ]            = QP_GETDATA(FI,Domain,DataFld,'subfields',F)
+%   [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,Domain,DataFld,'timezone')
 %   [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -42,11 +43,11 @@ function [varargout]=qp_getdata(varargin)
 %
 %      [Success]                       = QP_GETDATA(FI,'options',OptionsFigure,'initialize')
 %      [Success,NewFI     ,cmdargs]    = QP_GETDATA(FI,'options',OptionsFigure,OptionsCommand, ...)
-%      [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+%      [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -154,7 +155,7 @@ try
             % [Success,Times     ]            = QP_GETDATA(FI,Domain,DataFld,'times',T)
             % [Success,StNames   ]            = QP_GETDATA(FI,Domain,DataFld,'stations',S)
             % [Success,SubFields ]            = QP_GETDATA(FI,Domain,DataFld,'subfields',F)
-            % [Success,hNew      ]            = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+            % [Success,hNew      ]            = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
             % [Success,Data      ]            = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
             %
             % Check for domain index ... add if necessary
@@ -204,7 +205,7 @@ try
                     % [Success,Times     ]            = QP_GETDATA(FI,Domain,DataFld,'times',T)
                     % [Success,StNames   ]            = QP_GETDATA(FI,Domain,DataFld,'stations',S)
                     % [Success,SubFields ]            = QP_GETDATA(FI,Domain,DataFld,'subfields',F)
-                    % [Success,hNew      ]            = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+                    % [Success,hNew      ]            = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
                     % [Success,Data      ]            = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
                     %
                     % Nothing to do, we already have a domain number.
@@ -226,7 +227,7 @@ try
                     % [Success,Times     ]            = QP_GETDATA(FI,DataFld,'times',T)
                     % [Success,StNames   ]            = QP_GETDATA(FI,DataFld,'stations',S)
                     % [Success,SubFields ]            = QP_GETDATA(FI,DataFld,'subfields',F)
-                    % [Success,hNew      ]            = QP_GETDATA(FI,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+                    % [Success,hNew      ]            = QP_GETDATA(FI,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
                     % [Success,Data      ]            = QP_GETDATA(FI,DataFld,'data',subf,t,station,m,n,k)
                     %
                     % No domain number, so use default domain number 0.
@@ -309,13 +310,14 @@ try
             end
         case 3
             %
+            % [Success,NewFI     ,cmdargs]    = QP_GETDATA(FI,'options',OptionsFigure,OptionsCommand, ...)
             % [Success,Data      ,NewFI]      = QP_GETDATA(FI,'data',Quantity,DimSelection)
+            % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,Domain,DataFld,'timezone')
             % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
             % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
             % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
             % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'gridcelldata',subf,t,station,m,n,k)
-            % [Success,NewFI     ,cmdargs]    = QP_GETDATA(FI,'options',OptionsFigure,OptionsCommand, ...)
-            % [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+            % [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
             %
             % If a NewFI argument is returned, it may have to be wrapped in a
             % QuickPlot wrapper. However, it is sometimes returned as the
@@ -331,7 +333,6 @@ try
                 %
                 % Add empty array for dummy domain argument.
                 %
-                calltype='options3';
                 calltype=sprintf('options3/%s',X{3});
                 X=cat(2,{[]},X);
                 [varargout{2:3}]=feval(Fcn,FI,X{:});
@@ -350,10 +351,8 @@ try
                 [varargout{2:3}]=feval(Fcn,FI,X{:});
             else
                 %
+                % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,...,'timezone')
                 % [Success,Data      ,NewFI]      = QP_GETDATA(FI,...)
-                % NewFI returned as third argument ...
-                %
-                fi=3;
                 %
                 % Check for domain number ... and add if necessary.
                 %
@@ -361,6 +360,7 @@ try
                     %
                     % Case with domain number ...
                     %
+                    % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,Domain,DataFld,'timezone')
                     % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,...)
                     % Nothing to do, we already have a domain number.
                     %
@@ -368,12 +368,14 @@ try
                     %
                     % Case without domain number ...
                     %
+                    % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,DataFld,'timezone')
                     % [Success,Data      ,NewFI]      = QP_GETDATA(FI,DataFld,...)
                     % No domain number, so use default domain number 0.
                     %
                     X=cat(2,{0},X);
                 end
                 %
+                % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,Domain,DataFld,'timezone')
                 % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,...)
                 %
                 % If DataFld is indicated by a character string (name) replace
@@ -384,20 +386,31 @@ try
                 end
                 %
                 calltype=X{3};
-                if isequal(calltype,'plot')
+                if strcmp(calltype,'timezone')
+                    % [Success,TZshift   ,TZstr]      = QP_GETDATA(FI,Domain,DataFld,'timezone')
                     %
-                    % [Success,hNew      ,NewFI]   = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+                    % NewFI not returned ...
+                    fi=[];
+                    [varargout{2:3}]=feval(Fcn,FI,X{:});
+                elseif strcmp(calltype,'plot')
                     %
+                    % [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
+                    %
+                    %
+                    % NewFI returned as third argument ...
+                    fi=3;
                     [varargout{2:3}]=feval(Fcn,FI,X{:});
                 else
                     %
-                    % [Success,Data      ,NewFI]   = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
-                    % [Success,Data      ,NewFI]   = QP_GETDATA(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
-                    % [Success,Data      ,NewFI]   = QP_GETDATA(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
-                    % [Success,Data      ,NewFI]   = QP_GETDATA(FI,Domain,DataFld,'gridcelldata',subf,t,station,m,n,k)
+                    % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
+                    % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
+                    % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
+                    % [Success,Data      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'gridcelldata',subf,t,station,m,n,k)
                     %
-                    % Catch v_slice options for further processing a bit further
-                    % down.
+                    % NewFI returned as third argument ...
+                    fi=3;
+                    %
+                    % Catch v_slice options for further processing a bit further down.
                     %
                     [arg2,arg3] = hvslice(Fcn,FI,X);
                     %
@@ -411,7 +424,9 @@ try
             %
             % If NewFI was returned, add QuickPlot wrapper if necessary ...
             %
-            varargout{fi}=qp_wrapfi(varargout{fi},Info);
+            if ~isempty(fi)
+                varargout{fi}=qp_wrapfi(varargout{fi},Info);
+            end
         case 4
             %
             % [Success,DataFields,Dims ,NVal] = QP_GETDATA(FI,Domain)
@@ -468,7 +483,7 @@ catch Ex
     if ~isempty(calltype)
         calltype = ['/' calltype];
     end
-    stacklist = stack2str(Ex.stack);
+    stacklist = stack2str(Ex.stack,'d3d_qp_core');
     ui_message('error',{sprintf('Caught in qp_getdata%s:',calltype),Ex.message,stacklist{:}})
 end
 
@@ -519,14 +534,11 @@ if dic
         triangles = 1;
     end
     if triangles
-        if isfield(arg2,'Val')
-            arg2.Val = mean(arg2.Val(arg2.TRI),2);
-        end
-        if isfield(arg2,'XComp')
-            arg2.XComp = mean(arg2.XComp(arg2.TRI),2);
-        end
-        if isfield(arg2,'YComp')
-            arg2.YComp = mean(arg2.YComp(arg2.TRI),2);
+        for flc = {'Val','XComp','YComp','ZComp'}
+            fld = flc{1};
+            if isfield(arg2,fld)
+                arg2.(fld) = mean(arg2.(fld)(arg2.TRI),2);
+            end
         end
     end
 end

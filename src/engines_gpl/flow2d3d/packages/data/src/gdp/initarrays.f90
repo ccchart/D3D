@@ -1,7 +1,7 @@
 subroutine initarrays(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -68,6 +68,9 @@ subroutine initarrays(gdp)
        gdp%gdfourier%ftmstr   = imissval
        gdp%gdfourier%ifoupt   = imissval
        gdp%gdfourier%iofset   = imissval
+       gdp%gdfourier%foumask  = imissval
+       gdp%gdfourier%idvar    = imissval
+       gdp%gdfourier%fouref   = imissval
        !
        gdp%gdfourier%fknfac   = rmissval
        gdp%gdfourier%foucomp  = rmissval
@@ -77,9 +80,12 @@ subroutine initarrays(gdp)
        gdp%gdfourier%fouvec   = rmissval
        gdp%gdfourier%fv0pu    = rmissval
        !
-       gdp%gdfourier%fouelp   = ' '
-       gdp%gdfourier%founam   = ' '
-       gdp%gdfourier%foutyp   = ' '
+       gdp%gdfourier%fouelp        = ' '
+       gdp%gdfourier%founam        = ' '
+       gdp%gdfourier%fouvarnam     = ' '
+       gdp%gdfourier%fouvarnamlong = ' '
+       gdp%gdfourier%fouvarunit    = ' '
+       gdp%gdfourier%foutyp        = ' '
     endif
     !
 end subroutine initarrays

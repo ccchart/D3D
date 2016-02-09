@@ -3,7 +3,7 @@ function State=qp_state_version(OldState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -132,6 +132,9 @@ State=setopt(State,'colour',[1 0 0]);
 State=setopt(State,'extend2edge',0);
 if strcmp(State.axestype,'Distance-Val')
     State=setopt(State,'plotcoordinate','path distance');
+end
+if isfield(State,'marker')
+    State=setopt(State,'markersize',6);
 end
 
 

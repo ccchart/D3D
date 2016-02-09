@@ -1,5 +1,5 @@
 function [Out,Out2]=arcgrid(cmd,varargin)
-%ARCGRID Read/write arcgrid files.
+%ARCGRID Read/write ESRI ASCII Raster files.
 %   FILEDATA = ARCGRID('open',FILENAME) opens the FILENAME as an arcgrid
 %   file and determines the dimensions of the grid. This call does not
 %   immediately read the actual data. Detects the presence of a time series
@@ -22,9 +22,26 @@ function [Out,Out2]=arcgrid(cmd,varargin)
 %   DATA = ARCGRID('read',FILENAME) opens the FILENAME and immediately
 %   reads the data.
 %
-%   ARCGRID('write',FILEDATA,FILENAME) writes data to an arcgrid file. The
-%   FILEDATA should mirror the structure obtained from an
-%   ARCGRID('open',FILENAME) call.
+%   ARCGRID('write',...) writes data to an arcgrid file. The
+%   following arguments are supported:
+%     *  FILENAME string indicating the name of the file to be written.
+%     *  FILEDATA structure that mirrors the structure with XCorner,
+%        YCorner, CellSize, and optional Data and NoData fields as
+%        obtained from an ARCGRID('open',FILENAME) call.
+%     *  DATA matrix which overrules the Data field of FILEDATA if
+%        specified.
+%     *  'xcorner',X0 pair indicating the X coordinate of the lower left
+%        corner of the grid (alternatively 'xllcenter' for the X coordinate
+%        of the center of the lower left cell of the grid - half a cellsize
+%        to the right of the actual grid corner).
+%     *  'ycorner',Y0 pair indicating the Y coordinate of the lower left
+%        corner of the grid (alternatively 'yllcenter' for the Y coordinate
+%        of the center of the lower left cell of the grid - half a cellsize
+%        up from the actual grid corner).
+%     *  'cellsize',[DX DY] pair indicating the grid cell size. If DY and
+%        DX are equal then just one value DX needs to be specified.
+%     *  'comment',COMMENT_STRING pair indicating the comments to be
+%        included in the header of the file.
 %
 %   H = ARCGRID('plot',FILEDATA,AXES) reads the data from an arcgrid file
 %   previously opened using an ARCGRID('open',FILENAME) call. The data is
@@ -35,7 +52,7 @@ function [Out,Out2]=arcgrid(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -137,9 +154,14 @@ Structure.XCorner=0;
 Structure.YCorner=0;
 Structure.NCols=0;
 Structure.NRows=0;
-Structure.CellSize=0;
-Structure.NoData=NaN;
+Structure.CellSize=[0 0];
+Structure.NoData=NaN; % ESRI's default NoData value is actually -9999
 Structure.DataStart=0;
+if time_in_file
+    Structure.TimeFormat = 1; % relative time in file
+else
+    Structure.TimeFormat = 0; % no time, or just file index
+end
 %
 while ischar(Line) && ~isempty(Line)
     [keyw,remLine]=strtok(Line);
@@ -182,6 +204,25 @@ end
 if isequal(Structure.YCorner,'centre')
     Structure.YCorner=YCentre-Structure.CellSize(2)/2;
 end
+
+% tested using example on http://en.wikipedia.org/wiki/Esri_grid
+% ncols         4
+% nrows         6
+% xllcorner     0.0
+% yllcorner     0.0
+% cellsize      50.0
+% NODATA_value  -9999
+% -9999 -9999 5 2
+% -9999 20 100 36
+% 3 8 35 10
+% 32 42 50 6
+% 88 75 27 9
+% 13 5 1 -9999
+%x=[ 25    75   125   175];
+%y=[ 25    75   125   175   225   275];
+Structure.x = Structure.XCorner+(0.5:Structure.NCols-0.5)*Structure.CellSize(1);
+Structure.y = Structure.YCorner-(0.5:Structure.NRows-0.5)*Structure.CellSize(2)+(Structure.NRows)*Structure.CellSize(2);
+
 %
 % End of normal reading of header. Now, let's check whether we have opened
 % a wind or pressure file of Delft3D which may include multiple data fields
@@ -203,6 +244,7 @@ Times=Time;
 % lines ...
 %
 if ~isempty(Time)
+    Structure.TimeFormat = 1; % relative time in file
     Time=[];
     while ~feof(fid)
         LineStartsAt=ftell(fid);
@@ -228,70 +270,83 @@ elseif Structure.CellSize<=0
     error('Cell size not specified or invalid')
 end
 Structure.Check='OK';
-if ~isempty(Times)
-    Structure.Times=Times;
+Structure.FileBase=[p filesep n];
+if isempty(Times)
+    Times=[];
     %
-    Structure.FileBase=[p filesep n];
-    lwc=Structure.Extension-upper(Structure.Extension);
-    switch lower(Structure.Extension)
-        case 'amu'
-            amv=char('AMV'+lwc);
-            fid=fopen([Structure.FileBase '.' amv],'r');
-            if fid>0
-                Structure.Extension=char('AMUV'+lwc([1:3 3]));
-                fclose(fid);
-            end
-        case 'amv'
-            amu=char('AMU'+lwc);
-            fid=fopen([Structure.FileBase '.' amu],'r');
-            if fid>0
-                Structure.Extension=char('AMUV'+lwc([1:3 3]));
-                fclose(fid);
-            end
-    end
+    % For case sensitive file systems assume that all extensions have the same
+    % case (upper/lower characters) on a character by character basis.
     %
-    return
-end
-Structure.Times=[];
-%
-% For case sensitive file systems assume that all extensions have the same
-% case (upper/lower characters) on a character by character basis.
-%
-ndigits=0;
-while ndigits<=length(n) && abs(n(end-ndigits))>47 && abs(n(end-ndigits))<58
-    ndigits=ndigits+1;
-end
-digits=n(length(n)-ndigits+1:end);
-if all(abs(digits)>47 & abs(digits)<58)
-    Structure.FileBase=[p filesep n(1:end-ndigits)];
-    Structure.NDigits=ndigits;
-    [Structure.Times,FileNr]=getfiletimes(Structure.FileBase,Structure.Extension,time_in_file);
-    if ~isempty(FileNr)
-        Structure.FileNr = FileNr;
+    ndigits=0;
+    while ndigits<=length(n) && abs(n(end-ndigits))>47 && abs(n(end-ndigits))<58
+        ndigits=ndigits+1;
+    end
+    digits=n(length(n)-ndigits+1:end);
+    if all(abs(digits)>47 & abs(digits)<58)
+        Structure.FileBase=[p filesep n(1:end-ndigits)];
+        Structure.NDigits=ndigits;
+        [Times,FileNr]=getfiletimes(Structure.FileBase,'',Structure.Extension,time_in_file);
+        if ~isempty(FileNr)
+            Structure.FileNr = FileNr;
+        end
     end
 end
-lwc=Structure.Extension-upper(Structure.Extension);
-if strcmpi(Structure.Extension,'amu')
-    amv=char('AMV'+lwc);
-    Times=getfiletimes(Structure.FileBase,amv,time_in_file);
-    if isequal(Times,Structure.Times)
-        Structure.Extension=char('AMUV'+lwc([1:3 3]));
+Structure.Times=Times;
+%
+am1=Structure.Extension;
+if strcmpi(am1,'amu') || strcmpi(am1,'amv')
+    vector = 2;
+else
+    am1 = Structure.FileBase(end);
+    if strcmpi(am1,'u') || strcmpi(am1,'v');
+        vector = 1;
+    else
+        vector = 0;
     end
-elseif strcmpi(Structure.Extension,'amv')
-    amu=char('AMU'+lwc);
-    Times=getfiletimes(Structure.FileBase,amu,time_in_file);
+end
+lwc=am1-upper(am1);
+if vector
+    if strcmpi(am1,'amu')
+        am2 = char('AMV'+lwc);
+    elseif strcmpi(am1,'amu')
+        am2 = char('AMU'+lwc);
+    elseif strcmpi(am1,'u')
+        am2 = char('V'+lwc);
+    else%if strcmpi(am1,'v')
+        am2 = char('U'+lwc);
+    end
+    if isfield(Structure,'NDigits')
+        if vector==2
+            Times=getfiletimes(Structure.FileBase,'',am2,time_in_file);
+        else
+            Times=getfiletimes(Structure.FileBase(1:end-1),am2,Structure.Extension,time_in_file);
+        end
+    else
+        fid=fopen([Structure.FileBase '.' am2],'r');
+        if fid>0
+            Times=Structure.Times;
+            fclose(fid);
+        else
+            Times=NaN;
+        end
+    end
     if isequal(Times,Structure.Times)
-        Structure.Extension=char('AMUV'+lwc([1:3 3]));
+        if vector==2
+            Structure.Extension=char('AMUV'+lwc([1:3 3]));
+        else
+            Structure.FileBase=Structure.FileBase(1:end-1);
+            Structure.FileBaseExtension=char('UV'+lwc);
+        end
     end
 end
 
 
-function [Times,FileNr]=getfiletimes(FileBase,Extension,time_in_file)
-[FilePath,FileName]=fileparts([FileBase '.x']); % dummy extension needed to avoid stripping off extension
+function [Times,FileNr]=getfiletimes(FileBase,BaseExtension,Extension,time_in_file)
+[FilePath,FileName]=fileparts([FileBase BaseExtension '.x']); % dummy extension needed to avoid stripping off extension
 last_char=length(FileName);
 len_ext=length(Extension)+1;
 %
-Files=dir([FileBase '*.' Extension]);
+Files=dir([FileBase BaseExtension '*.' Extension]);
 ntimes=length(Files);
 FileNr=cell(ntimes,1);
 Times=zeros(ntimes,1);
@@ -347,11 +402,24 @@ if strcmp(Structure.Check,'NotOK')
     return
 end
 
-ext=3;
 if strcmpi(Structure.Extension,'amuv')
-    ext=[3 4];
+    ncomp = 2;
+elseif isfield(Structure,'FileBaseExtension')
+    ncomp = 2;
+else
+    ncomp = 1;
 end
-for i=ext
+FileBaseExtension = '';
+for comp = 1:ncomp
+    if isfield(Structure,'FileBaseExtension')
+        FileBaseExtension = Structure.FileBaseExtension(comp);
+        Extension = Structure.Extension;
+    elseif ncomp>1
+        i = 2 + comp;
+        Extension = Structure.Extension([1 2 i]);
+    else
+        Extension = Structure.Extension;
+    end
     fil=Structure.FileName;
     subnr=1;
     if nargin>1 && length(Structure.DataStart)==1
@@ -366,10 +434,10 @@ for i=ext
             format=sprintf('%%%i.%ii',ndigits,ndigits);
             Nr=sprintf(format,Structure.Times(nr));
         end
-        fil=[Structure.FileBase Nr '.' Structure.Extension([1 2 i])];
+        fil=[Structure.FileBase FileBaseExtension Nr '.' Extension];
     elseif nargin>1
         subnr=nr;
-        fil=[Structure.FileBase '.' Structure.Extension([1 2 i])];
+        fil=[Structure.FileBase FileBaseExtension '.' Extension];
     end
     fid=fopen(fil,'r');
     fseek(fid,Structure.DataStart(subnr),-1);
@@ -402,7 +470,7 @@ for i=ext
     if ~isnan(Structure.NoData)
         Data(Data==Structure.NoData)=NaN;
     end
-    if i==3
+    if comp==1
         Structure.Data=Data;
     else
         Structure.Data2=Data;
@@ -411,7 +479,7 @@ for i=ext
     Structure.Check='OK';
 end
 if isstruct(filename)
-    if isequal(ext,3)
+    if ncomp==1
         Structure={Structure.Data};
     else
         Structure={Structure.Data Structure.Data2};
@@ -419,8 +487,94 @@ if isstruct(filename)
 end
 
 
-function Local_write_file(Structure,filename)
-
+function Local_write_file(varargin)
+Data = [];
+Structure = [];
+filename = '';
+format = '%f';
+xll = 'corner';
+yll = 'corner';
+i = 1;
+while i<=nargin
+    if isstruct(varargin{i})
+        if ~isstruct(Structure)
+            Structure = varargin{i};
+        else
+            error('Structure argument %i duplicates previous arguments.',i)
+        end
+    elseif ischar(varargin{i})
+        fld = '';
+        switch lower(varargin{i})
+            case {'xllcorner','xcorner'}
+                fld = 'XCorner';
+            case {'yllcorner','ycorner'}
+                fld = 'YCorner';
+            case {'xllcentre','xllcenter','xcentre','xcenter'}
+                fld = 'XCorner';
+                xll = 'centre';
+            case {'yllcentre','yllcenter','ycentre','ycenter'}
+                fld = 'YCorner';
+                yll = 'centre';
+            case 'cellsize'
+                fld = 'CellSize';
+            case 'nodata'
+                fld = 'NoData';
+            case 'comment'
+                fld = 'Comment';
+            case 'format'
+                format = varargin{i+1};
+                i = i+1;
+            otherwise
+                if isempty(filename)
+                    filename = varargin{i};
+                else
+                    error('Unrecognized string argument %i: %s',i,varargin{i})
+                end
+        end
+        if ~isempty(fld)
+            if i==nargin
+                error('Missing value for last argument: %s',varargin{i})
+            elseif isfield(Structure,fld)
+                error('Duplicate specification of %s detected as argument %i',fld,i)
+            else
+                Structure.(fld) = varargin{i+1};
+                i = i+1;
+            end
+        end
+    elseif isnumeric(varargin{i})
+        if isempty(Data)
+            Data = varargin{i};
+        else
+            error('Unsupported second numeric argument %i',i)
+        end
+    end
+    i = i+1;
+end
+if ~isfield(Structure,'XCorner') || numel(Structure.XCorner)~=1
+    error('Missing or invalid XCorner')
+end
+if ~isfield(Structure,'YCorner') || numel(Structure.YCorner)~=1
+    error('Missing or invalid YCorner')
+end
+if ~isfield(Structure,'CellSize') || isempty(Structure.CellSize) || numel(Structure.CellSize)>2
+    error('Missing or invalid CellSize')
+end
+if isfield(Structure,'NoData') && numel(Structure.NoData)~=1
+    error('Invalid NoData value')
+end
+if strcmp(xll,'centre')
+    Structure.XCorner = Structure.XCorner - Structure.CellSize(1)/2;
+end
+if strcmp(yll,'centre')
+    Structure.YCorner = Structure.YCorner - Structure.CellSize(end)/2;
+end
+if isempty(Data)
+    if isfield(Structure,'Data') && ~isempty(Structure.Data)
+        Data = Structure.Data;
+    else
+        error('No data specified')
+    end
+end
 if nargin==1
     [fn,fp]=uiputfile('*.arc');
     if ~ischar(fn)
@@ -430,11 +584,22 @@ if nargin==1
 end
 fid=fopen(filename,'wt');
 if fid<0
-    error(['Could not create or open: ',filename])
+    error('Could not create or open: %s',filename)
 end
-fprintf(fid,'/* arc grid file created by Matlab\n');
-fprintf(fid,'ncols         %i\n',Structure.NCols);
-fprintf(fid,'nrows         %i\n',Structure.NRows);
+if isfield(Structure,'Comment') 
+    comment = Structure.Comment;
+else
+    comment = ['ESRI ASCII Raster file generated from MATLAB on ' datestr(now)];
+end
+if isempty(comment)
+    % no header
+elseif iscell(comment)
+    fprintf(fid,'/* %s\n',comment{:});
+elseif ischar(comment)
+    fprintf(fid,'/* %s\n',comment);
+end
+fprintf(fid,'ncols         %i\n',size(Data,1));
+fprintf(fid,'nrows         %i\n',size(Data,2));
 fprintf(fid,'xllcorner     %f\n',Structure.XCorner);
 fprintf(fid,'yllcorner     %f\n',Structure.YCorner);
 if length(Structure.CellSize)==1
@@ -444,14 +609,13 @@ elseif Structure.CellSize(1)==Structure.CellSize(2)
 else
     fprintf(fid,'cellsize      %f %f\n',Structure.CellSize(1:2));
 end
-Data=Structure.Data;
 
-if ~isnan(Structure.NoData)
-    fprintf(fid,'nodata_value  %f\n',Structure.NoData);
+if isfield(Structure,'NoData') && ~isnan(Structure.NoData)
+    fprintf(fid,['nodata_value  ' format '\n'],Structure.NoData);
     Data(isnan(Data))=Structure.NoData;
 end
 
-FormatString=[repmat(' %f',[1 Structure.NCols]) '\n'];
+FormatString=[repmat([' ' format],[1 size(Data,1)]) '\n'];
 fprintf(fid,FormatString,Data);
 fclose(fid);
 

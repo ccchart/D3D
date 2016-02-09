@@ -3,7 +3,7 @@ subroutine rdbcq(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                & ntof      ,ntoq      ,bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -42,6 +42,7 @@ subroutine rdbcq(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -151,7 +152,7 @@ subroutine rdbcq(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! Read data from external file
     !
     if (filbcq/=fildef) then
-       call noextspaces(runid     ,lrid      )
+       call remove_leading_spaces(runid     ,lrid      )
        filout = 'TMP_' // runid(:lrid) // '.bcq'
        !
        ! Check filename and access
@@ -187,7 +188,7 @@ subroutine rdbcq(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        !
        ! define length of file name
        !
-       call noextspaces(filbcq    ,lf        )
+       call remove_leading_spaces(filbcq    ,lf        )
        !
        ! test file existence <YES> -> open file <NO> -> error
        !

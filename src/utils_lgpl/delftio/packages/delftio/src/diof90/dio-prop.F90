@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -143,8 +143,8 @@ module Dio_Prop
        !
        ! lun-id range for dio ASC/BIN/HIS streams
        !
-       integer, parameter :: dioStartLun = 800
-       integer, private   :: dioEndLun   = 900
+       integer, parameter :: dioStartLun =  800
+       integer, private   :: dioEndLun   = 4000
 
 
 contains

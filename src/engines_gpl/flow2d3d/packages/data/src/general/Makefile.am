@@ -14,7 +14,10 @@ noinst_LTLIBRARIES = libDataGeneral.la
 
 #-------------------------------------------------------------------------------
 #Includes
+AM_FCFLAGS += $(NETCDF_CFLAGS) $(NETCDF_FORTRAN_CFLAGS)
+
 FMODULES += \
+        -I$(NETCDFROOT)/include \
 	-I$(top_builddir)/engines_gpl/flow2d3d/packages/data/src/basics \
 	-I$(top_builddir)/engines_gpl/flow2d3d/packages/data/src/parallel_mpi \
 	-I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src \
@@ -24,7 +27,10 @@ FMODULES += \
 #-------------------------------------------------------------------------------
 #Sources
 libDataGeneral_la_SOURCES = \
-         griddims.f90
+         griddims.f90 \
+         griddims_admin.f90 \
+         nc_check_err.f90 \
+         nc_def_var.f90
 
 #-------------------------------------------------------------------------------
 #Libraries

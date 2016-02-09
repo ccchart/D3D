@@ -3,7 +3,7 @@ function hNew=genmarkers(hOld,Ops,Parent,Val,X,Y,Z)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -61,11 +61,19 @@ end
 FacesIndex=(1:length(Val))';
 %
 plot_using_patch=0;
-if strcmp(Ops.markercolour,'auto') && hasvals
-    plot_using_patch=1;
+if strcmp(Ops.markercolour,'auto')
+    if hasvals
+        plot_using_patch=1;
+    else
+        Ops.markercolour='b';
+    end
 end
-if strcmp(Ops.markerfillcolour,'flat') && hasvals
-    plot_using_patch=1;
+if strcmp(Ops.markerfillcolour,'flat')
+    if hasvals
+        plot_using_patch=1;
+    else
+        Ops.markerfillcolour='none';
+    end
 end
 
 if isfield(Ops,'Thresholds') && ~strcmp(Ops.Thresholds,'none')
@@ -94,6 +102,7 @@ if plot_using_patch
             'facecolor','none', ...
             'linestyle','none', ...
             'marker',Ops.marker, ...
+            'markersize',Ops.markersize, ...
             'markeredgecolor',Ops.markercolour, ...
             'markerfacecolor',Ops.markerfillcolour);
     else
@@ -122,6 +131,7 @@ if plot_using_patch
                 'facecolor','none', ...
                 'linestyle','none', ...
                 'marker',Ops.marker, ...
+                'markersize',Ops.markersize, ...
                 'markeredgecolor',markeredgecolor, ...
                 'markerfacecolor',markerfacecolor);
         end
@@ -132,14 +142,15 @@ else
     end
     if ~isempty(hOld)
         hNew=hOld;
-        set(hNew,'xdata',xyz(:,1), ...
-            'ydata',xyz(:,2));
     else
-        hNew=line('xdata',xyz(:,1), ...
-            'ydata',xyz(:,2), ...
+        hNew=line('xdata',1, ...
+            'ydata',1, ...
             'linestyle','none', ...
             'marker',Ops.marker, ...
+            'markersize',Ops.markersize, ...
             'markeredgecolor',Ops.markercolour, ...
             'markerfacecolor',Ops.markerfillcolour);
     end
+    set(hNew,'xdata',xyz(:,1), ...
+        'ydata',xyz(:,2));
 end

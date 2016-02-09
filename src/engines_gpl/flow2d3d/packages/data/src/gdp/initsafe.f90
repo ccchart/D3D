@@ -1,7 +1,7 @@
 subroutine initsafe(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -63,8 +63,8 @@ subroutine initsafe(gdp)
     call initcoup      (gdp)
     call initdischarge (gdp)
     call initveg3d     (gdp)
-    call initdredge    (gdp)
-    call initsedtra    (gdp%gderosed)
+    call initdredge    (gdp%gddredge)
+    call nullsedtra    (gdp%gderosed)
     call initf0isf1    (gdp)
     call initflwpar    (gdp)
     call initfmtbcc    (gdp)
@@ -72,15 +72,14 @@ subroutine initsafe(gdp)
     call initfmtdis    (gdp)
     call initfourier   (gdp)
     call initheat      (gdp)
-    call inithwid      (gdp)
     call initincbc     (gdp)
     call initincbcc    (gdp)
     call initincwav    (gdp)
     call initkeywtd    (gdp)
     call initmassbal   (gdp)
-    call initmorpar    (gdp%gdmorpar)
-    call initsedpar    (gdp%gdsedpar)
-    call inittrapar    (gdp%gdtrapar)
+    call nullmorpar    (gdp%gdmorpar)
+    call nullsedpar    (gdp%gdsedpar)
+    call nulltrapar    (gdp%gdtrapar)
     istat = initmorlyr (gdp%gdmorlyr)
     call initstack     (gdp%messages)
     call initpostpr    (gdp)
@@ -103,10 +102,12 @@ subroutine initsafe(gdp)
     call initwrline    (gdp)
     call initz_initcg  (gdp)
     call initzmodel    (gdp)
+    call initsdu       (gdp)
     !
     call sbuff_init
     !
-    call initdfparall  (gdp) 
+    call initdfparall  (gdp%gdparall) 
+    call initdfparall  (gdp%iopartit) 
     ! 
     ! Since GDP allocation has not yet succeeded, I can't call prterr(...,gdp) and d3stop(...)
     !

@@ -1,9 +1,9 @@
-function ifig=qp_showabout(qpversion,style)
+function ifig=qp_showabout(qpversion,style,qpdate)
 %QP_SHOWABOUT Show QuickPlot about window.
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -42,25 +42,14 @@ pos(4)=150;
 pos(1)=ssz(1)+ssz(3)/2-pos(3)/2;
 pos(2)=ssz(2)+ssz(4)/2-pos(4)/2;
 %
-uicontrolfont = qp_fontsettings('DefaultUicontrolFont');
-%
 switch style
     case 'matlab'
         name = 'About MATLAB';
     otherwise
         name = 'About Delft3D-QUICKPLOT';
 end
-ifig=figure('units','pixels', ...
-    'position',pos, ...
-    'integerhandle','off', ...
-    'menubar','none', ...
-    'name',name, ...
-    'resize','off', ...
-    'numbertitle','off', ...
-    'closerequestfcn','closereq', ...
-    'tag','AboutQP', ...
-    uicontrolfont, ...
-    'color',get(0,'defaultuicontrolbackgroundcolor'));
+ifig=qp_uifigure(name,'closereq','AboutQP',pos,'');
+set(ifig,'visible','on')
 
 vers = qpversion;
 if vers(1)=='v'
@@ -112,12 +101,19 @@ switch style
             'horizontalalignment','center', ...
             'String','Delft3D-QUICKPLOT');
         
+        if strcmp(qpdate,'<CREATIONDATE>')
+            voffset = 40;
+            str = vers;
+        else
+            voffset = 20;
+            str = {vers,qpdate};
+        end
         uicontrol('Parent',ifig, ...
             'Callback','closereq', ...
-            'Position',[0 40 300 20], ...
+            'Position',[0 voffset 300 60-voffset], ...
             'Style','text', ...
             'horizontalalignment','center', ...
-            'String',vers);
+            'String',str);
 end
 
 uicontrol('Parent',ifig, ...

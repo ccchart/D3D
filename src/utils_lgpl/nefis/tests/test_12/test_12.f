@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -38,9 +38,16 @@ C tegelijk open kunnen zijn.
      *          fds_c
       INTEGER clsdat,
      *        clsdef,
+     *        getnfv,
      *        NEFERR
       INTEGER error
       CHARACTER ERRSTR*1024
+      CHARACTER*255  version
+
+      error = getnfv(version)
+      write(*,*)
+      write(*,*) trim(version(5:))
+      write(*,*)
 
       CALL WriteFile( 'data_c12a', fds_a, 33 )
       CALL WriteFile( 'data_c12b', fds_b, 39 )

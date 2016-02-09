@@ -1,7 +1,7 @@
 module wave_data
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -54,12 +54,18 @@ integer, parameter :: WC_WESTHUYSEN = 2
 ! Module types
 !
 type wave_time_type
-   integer  :: refdate         ! [yyyymmdd] reference date, reference time is 0:00 h
-   integer  :: timtscale       ! [tscale]   Current time of simulation since reference date (0:00h)
-   real     :: tscale          ! [sec]      Basic time unit: default = 60.0,
-                               ! when running online with FLOW tscale = FLOW_time_step
-   real     :: timsec          ! [sec]      Current time of simulation since reference date (0:00h)
-   real     :: timmin          ! [min]      Current time of simulation since reference date (0:00h)
+   integer  :: refdate            ! [yyyymmdd] reference date, reference time is 0:00 h
+   integer  :: timtscale          ! [tscale]   Current time of simulation since reference date (0:00h)
+   integer  :: calctimtscale      ! [tscale]   Current time of SWAN calculation since reference date (0:00h)
+                                  !            calctimtscale = timtscale                 when sr%modsim /= 3
+                                  !            calctimtscale = timtscale+sr%deltcom*60.0 when sr%modsim == 3
+   integer  :: calctimtscale_prev ! calctimtscale from "previous" time point
+                                  ! Only used when sr%modsim == 3 for output at the start of the simulation
+   integer  :: calccount          ! [-]        Counts the number of calculations. Used for naming the sp2 output files
+   real     :: tscale             ! [sec]      Basic time unit: default = 60.0,
+                                  ! when running online with FLOW tscale = FLOW_time_step
+   real     :: timsec             ! [sec]      Current time of simulation since reference date (0:00h)
+   real     :: timmin             ! [min]      Current time of simulation since reference date (0:00h)
 end type wave_time_type
 !
 type wave_output_type
@@ -91,16 +97,19 @@ subroutine initialize_wavedata(wavedata)
    type(wave_data_type) :: wavedata
    character(30)        :: txthlp
 
-   wavedata%mode                   =  0
-   wavedata%time%refdate           =  0
-   wavedata%time%timtscale         =  0
-   wavedata%time%tscale            = 60.0
-   wavedata%time%timsec            =  0.0
-   wavedata%time%timmin            =  0.0
-   wavedata%output%count           =  0
-   wavedata%output%nexttim         =  0.0
-   wavedata%output%timseckeephot   =  0.0
-   wavedata%output%write_wavm      =  .false.
+   wavedata%mode                    =  0
+   wavedata%time%refdate            =  0
+   wavedata%time%timtscale          =  0
+   wavedata%time%calctimtscale      =  0
+   wavedata%time%calctimtscale_prev =  -999
+   wavedata%time%calccount          =  0
+   wavedata%time%tscale             = 60.0
+   wavedata%time%timsec             =  0.0
+   wavedata%time%timmin             =  0.0
+   wavedata%output%count            =  0
+   wavedata%output%nexttim          =  0.0
+   wavedata%output%timseckeephot    =  0.0
+   wavedata%output%write_wavm       =  .false.
    !
    ! platform definition
    !
@@ -108,6 +117,8 @@ subroutine initialize_wavedata(wavedata)
    call small(txthlp,999)
    if (txthlp == 'win32' .or. txthlp == 'w32') then
       arch = 'win32'
+   elseif (txthlp == 'win64') then
+      arch = 'win64'
    else
       arch = 'linux'
    endif
@@ -133,13 +144,21 @@ end subroutine setrefdate
 !
 !
 !===============================================================================
-subroutine settimtscale(wavetime, timtscale_in)
+subroutine settimtscale(wavetime, timtscale_in, modsim, deltcom)
    integer :: timtscale_in
+   integer :: modsim                ! 1: stationary, 2: quasi-stationary, 3: non-stationary
+   real    :: deltcom               ! used when modsim = 3: Interval of communication FLOW-WAVE
    type(wave_time_type) :: wavetime
 
    wavetime%timtscale = timtscale_in
    wavetime%timsec    = real(wavetime%timtscale) * wavetime%tscale
    wavetime%timmin    = wavetime%timsec / 60.0
+   if (modsim == 3) then
+      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale_prev = wavetime%timtscale
+   else
+      wavetime%calctimtscale = wavetime%timtscale
+   endif
 end subroutine settimtscale
 !
 !
@@ -155,25 +174,50 @@ end subroutine settscale
 !
 !
 !===============================================================================
-subroutine settimsec(wavetime, timsec_in)
+subroutine settimsec(wavetime, timsec_in, modsim, deltcom)
    real :: timsec_in
+   integer :: modsim                ! 1: stationary, 2: quasi-stationary, 3: non-stationary
+   real    :: deltcom               ! used when modsim = 3: Interval of communication FLOW-WAVE
    type(wave_time_type) :: wavetime
 
    wavetime%timsec    = timsec_in
    wavetime%timmin    = wavetime%timsec / 60.0
    wavetime%timtscale = nint(wavetime%timsec / wavetime%tscale)
+   if (modsim == 3) then
+      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale_prev = wavetime%timtscale
+   else
+      wavetime%calctimtscale = wavetime%timtscale
+   endif
 end subroutine settimsec
 !
 !
 !===============================================================================
-subroutine settimmin(wavetime, timmin_in)
+subroutine settimmin(wavetime, timmin_in, modsim, deltcom)
    real :: timmin_in
+   integer :: modsim                ! 1: stationary, 2: quasi-stationary, 3: non-stationary
+   real    :: deltcom               ! used when modsim = 3: Interval of communication FLOW-WAVE
    type(wave_time_type) :: wavetime
 
    wavetime%timmin    = timmin_in
    wavetime%timsec    = wavetime%timmin * 60.0
    wavetime%timtscale = nint(wavetime%timsec / wavetime%tscale)
+   if (modsim == 3) then
+      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale_prev = wavetime%timtscale
+   else
+      wavetime%calctimtscale = wavetime%timtscale
+   endif
 end subroutine settimmin
+!
+!
+!===============================================================================
+subroutine setcalculationcount(wavetime, count_in)
+   integer :: count_in
+   type(wave_time_type) :: wavetime
+
+   wavetime%calccount = count_in
+end subroutine setcalculationcount
 !
 !
 !===============================================================================

@@ -1,8 +1,8 @@
-subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
+subroutine iniid(error     ,prgnm     ,runid     ,filmd     ,filmrs    , &
                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -45,6 +45,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
     use dfparall
     !
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -64,7 +65,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
     character(*)               :: filmd  !  File name for MD FLOW file
     character(*)               :: runid  !  Run identification
     character(12), intent(in)  :: filmrs !  File name for DELFT3D_MOR FLOW input file (MD-flow.xxx)
-    character(6) , intent(in)  :: soort  !  Help var. determining the prog. name currently active
+    character(6) , intent(in)  :: prgnm  !  Help var. determining the prog. name currently active
 !
 ! Local variables
 !
@@ -126,7 +127,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
              read (lunid, '(a)') runid
              close (lunid)
           else
-             call prterr(lunscr, 'G003')
+             call prterr(lunscr, 'G003', 'dummy')
              error = .true.
              goto 9999
           endif
@@ -142,7 +143,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
        !
        ! Define length of RUNID
        !
-       call noextspaces(runid     ,lrid      )
+       call remove_leading_spaces(runid     ,lrid      )
        ! Overall maximum allowed length is 200
        if (lrid>200) then
           call prterr(lunscr    ,'G907'    ,'.mdf, md-file. and md-flow.'   )
@@ -271,7 +272,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
           if (lfil/=0) then
              lfil = lfil + 8
              filtmp = filmd(lfil:)
-             call noextspaces(filtmp    ,lrid      )
+             call remove_leading_spaces(filtmp    ,lrid      )
              if (lrid>len(runid)) then
                 error = .true.
                 call prterr(lunscr    ,'G907'    ,'md-file.')
@@ -291,7 +292,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
           if (lfil/=0) then
              lfil = lfil + 8
              filtmp = filmd(lfil:)
-             call noextspaces(filtmp    ,lrid      )
+             call remove_leading_spaces(filtmp    ,lrid      )
              if (lrid>len(runid)) then
                 error = .true.
                 call prterr(lunscr    ,'G907'    ,'md-flow.')
@@ -308,7 +309,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
        !
        if (.not.found) then
           error = .true.
-          call noextspaces(filmd     ,lfil      )
+          call remove_leading_spaces(filmd     ,lfil      )
           errmsg(1:12) = 'MD file for '
           errmsg(13:lfil + 12) = filmd(1:lfil)
           call prterr(lunscr    ,'G004'    ,errmsg(1:lfil + 12)  )
@@ -347,23 +348,10 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
        endif
     endif
     !
-    ! open LUNDIA (depends on value of SOORT = verify)
-    !
-    if (soort=='verify') then
-       filtmp(1:8 + lrid) = 'md-diag.' // runid(1:lrid)
-       inquire (file = filtmp(1:8 + lrid), exist = ex)
-       lundia = newlun(gdp)
-       if (ex) then
-          open (lundia, file = filtmp(1:8 + lrid), form = 'formatted')
-          close (lundia, status = 'delete')
-       endif
-       open (lundia, file = filtmp(1:8 + lrid), form = 'formatted',             &
-            & status = 'new')
-    !
-    ! open LUNDIA (depends on value of SOORT = tdatom)
+    ! open LUNDIA (depends on value of prgnm = tdatom)
     ! for DELFT3DMOR test if lundia was already in use by tri-diag
     !
-    elseif (soort=='tdatom') then
+    if (prgnm=='tdatom') then
        filtmp(1:9 + lrid) = 'tri-diag.' // runid(1:lrid)
        inquire (file = filtmp(1:9 + lrid), opened = opend)
        if (opend) then
@@ -388,7 +376,7 @@ subroutine iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
        open (lundia, file = filtmp(1:8 + lrid), form = 'formatted',             &
             & status = 'new')
     !
-    ! open LUNDIA (depends on value of SOORT = trisim)
+    ! open LUNDIA (depends on value of prgnm = trisim)
     !
     else
        !

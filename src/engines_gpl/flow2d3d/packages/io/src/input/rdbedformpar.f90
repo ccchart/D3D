@@ -2,7 +2,7 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
                       & nmmax     ,kcs       ,sedim     ,gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -118,6 +118,7 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
     logical           :: existD50
     logical           :: existD90
     integer           :: istat
+    integer           :: i
     character(11)     :: fmttmp ! Format file ('formatted  ') 
 !
 !! executable statements -------------------------------------------------------
@@ -236,7 +237,16 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
              endif
           endif
        else
-          bedformD90 = 1.5_fp * bedformD50
+          ! The do loop is needed (instead of an array operation), because otherwise
+          ! the full array is copied to the stack. This goes wrong with big models
+          ! 
+          if (spatial_bedform) then
+             do i = gdp%d%nmlb, gdp%d%nmub
+                bedformD90(i) = 1.5_fp * bedformD50(i)
+             enddo
+          else
+             bedformD90(1) = 1.5_fp * bedformD50(1)
+          endif 
        endif
     endif
     !

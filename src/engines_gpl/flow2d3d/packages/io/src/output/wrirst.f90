@@ -4,7 +4,7 @@ subroutine wrirst(lundia    ,runid     ,itrstc    ,nmaxus    ,mmax      , &
                 & vmnldf    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,6 +41,7 @@ subroutine wrirst(lundia    ,runid     ,itrstc    ,nmaxus    ,mmax      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -108,7 +109,7 @@ subroutine wrirst(lundia    ,runid     ,itrstc    ,nmaxus    ,mmax      , &
     !
     !-----get file name and test file existence
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     filrst(:8 + lrid) = 'tri-rst.' // runid(:lrid)
     write (filrst(8 + lrid + 1:8 + lrid + 16), '(a1,i8.8,a1,i6.6)') &

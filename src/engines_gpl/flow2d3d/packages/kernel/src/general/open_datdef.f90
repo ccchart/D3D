@@ -1,7 +1,7 @@
-function open_datdef(filnam    ,fds       )
+function open_datdef(filnam    ,fds       ,readonly)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -36,28 +36,34 @@ function open_datdef(filnam    ,fds       )
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
+    use string_module
+!
     implicit none
 !
 ! Global variables
 !
-    integer              :: open_datdef
-    integer, intent(out) :: fds
-    character(*)         :: filnam
+    integer                   :: open_datdef
+    integer     , intent(out) :: fds
+    character(*), intent(in)  :: filnam
+    logical     , intent(in)  :: readonly
 !
 ! Local variables
 !
     integer           :: len_fn
     integer, external :: crenef
+    character(1)      :: access
     character(1)      :: coding
     character(256)    :: dat_file
     character(256)    :: def_file
 !
 !! executable statements -------------------------------------------------------
 !
-    call noextspaces(filnam    ,len_fn    )
+    call remove_leading_spaces(filnam    ,len_fn    )
     dat_file = filnam(1:len_fn)//'.dat'
     def_file = filnam(1:len_fn)//'.def'
     !
+    access = 'u'
+    if (readonly) access = 'r'
     coding = 'N'
-    open_datdef = crenef(fds, dat_file, def_file, coding, 'u')
+    open_datdef = crenef(fds, dat_file, def_file, coding, access)
 end function open_datdef

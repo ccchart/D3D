@@ -1,7 +1,7 @@
 module m_d3d_state
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -29,7 +29,8 @@ module m_d3d_state
 !  $HeadURL$
 !-------------------------------------------------------------------------------
 !
-use precision   ! for fp
+use precision     ! for fp
+use string_module ! for remove_leading_spaces
 
 type t_d3d_corestate
     real(fp), dimension(:,:,:), allocatable  :: u
@@ -149,7 +150,7 @@ contains
    if (.false.) then
      ! doe dit nog even niet. Voorlopig willen we alleen bij mode 0 uitvoer schrijven!
      tmpchar = d3d_state%pseudo%trifil
-     call noextspaces(tmpchar, ic)
+     call remove_leading_spaces(tmpchar, ic)
      d3d_state%pseudo%trifil(1:ic) = tmpchar(1:ic)
      d3d_state%pseudo%trifil(ic+1:ic+3) = ch_imode(1:3)
 

@@ -9,7 +9,7 @@ function [data,scalar,vpt]=computecomponent(data,Ops)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -58,6 +58,9 @@ else
                 Mg = sqrt(dX.^2+dY.^2);
                 data(dU).X=(data(dU).X(:,1:end-1)+data(dU).X(:,2:end))/2;
                 data(dU).Y=(data(dU).Y(:,1:end-1)+data(dU).Y(:,2:end))/2;
+                if isfield(data,'Z')
+                    data(dU).Z=(data(dU).Z(:,1:end-1)+data(dU).Z(:,2:end))/2;
+                end
                 data(dU).YComp=-data(dU).XComp(:,2:end).*dX./Mg;
                 data(dU).XComp=data(dU).XComp(:,2:end).*dY./Mg;
                 %
@@ -66,6 +69,9 @@ else
                 Mg = sqrt(dX.^2+dY.^2);
                 data(dV).X=(data(dV).X(1:end-1,:)+data(dV).X(2:end,:))/2;
                 data(dV).Y=(data(dV).Y(1:end-1,:)+data(dV).Y(2:end,:))/2;
+                if isfield(data,'Z')
+                    data(dV).Z=(data(dV).Z(1:end-1,:)+data(dV).Z(2:end,:))/2;
+                end
                 data(dV).XComp=-data(dV).YComp(2:end,:).*dY./Mg;
                 data(dV).YComp=data(dV).YComp(2:end,:).*dX./Mg;
             end
@@ -114,6 +120,17 @@ else
     end
 end
 for d=1:length(data)
+    if strcmp(Ops.units,'**Hide**') || isempty(Ops.units) || ~isfield(data,'Units') || isempty(data(d).Units)
+        sf = 1;
+        if isfield(data,'Units')
+            Units = data(d).Units;
+        else
+            Units = '';
+        end
+    else
+        sf = qp_unitconversion(data(d).Units,Ops.units);
+        Units = Ops.units;
+    end
     switch lower(vpt)
         case {'vector','vector (split x,y)'}
         case 'magnitude'
@@ -124,7 +141,7 @@ for d=1:length(data)
             if isfield(data,'ZComp')
                 data(d).Val=data(d).Val+data(d).ZComp.^2;
             end
-            data(d).Val=sqrt(data(d).Val);
+            data(d).Val=sf*sqrt(data(d).Val);
         case 'magnitude in plane'
             if isfield(data,'XComp') && size(data(d).XComp,1)>1
                 data(d).Val=data(d).XComp.^2;
@@ -137,9 +154,15 @@ for d=1:length(data)
             if isfield(data,'ZComp') && size(data(d).ZComp,3)>1
                 data(d).Val=data(d).Val+data(d).ZComp.^2;
             end
-            data(d).Val=sqrt(data(d).Val);
+            data(d).Val=sf*sqrt(data(d).Val);
         case 'angle'
-            sf = qp_unitconversion('radians',Ops.units);
+            if strcmp(Ops.units,'**Hide**') || isempty(Ops.units)
+                sf = 1;
+                Ops.units = 'radians';
+                Units = 'radians';
+            else
+                sf = qp_unitconversion('radians',Ops.units);
+            end
             switch Ops.angleconvention
                 case {'Nautical','Nautical Positive'}
                     data(d).Val=sf*atan2(data(d).XComp,data(d).YComp); % Nautical convention
@@ -153,27 +176,79 @@ for d=1:length(data)
             data(d).Units=Ops.units;
             vpt='angle';
         case 'x component'
-            data(d).Val=data(d).XComp;
+            data(d).Val=sf*data(d).XComp;
         case 'y component'
-            data(d).Val=data(d).YComp;
+            data(d).Val=sf*data(d).YComp;
         case 'z component'
-            data(d).Val=data(d).ZComp;
+            data(d).Val=sf*data(d).ZComp;
         case 'm component'
-            data(d).Val=data(d).XComp; %MComp
+            data(d).Val=sf*data(d).XComp; %MComp
         case 'n component'
-            data(d).Val=data(d).YComp; %NComp
+            data(d).Val=sf*data(d).YComp; %NComp
         case 'k component'
-            data(d).Val=data(d).ZComp; %KComp
-        case 'normal component' % only for a vertical slice
+            data(d).Val=sf*data(d).ZComp; %KComp
+        case 'normal component'
             if  size(data(d).XComp,1)>1
-                data(d).Val=data(d).YComp; %NComp
+                data(d).Val=sf*data(d).YComp; %NComp
             else
-                data(d).Val=data(d).XComp; %MComp
+                data(d).Val=sf*data(d).XComp; %MComp
             end
+        case {'slice normal component','slice tangential component'}
+            Tangential = strcmp(lower(vpt),'slice tangential component');
+            if isfield(data,'Time')
+                Time = data(d).Time;
+            else
+                Time = [];
+            end
+            nEdge = size(data(d).dX_tangential,1);
+            if length(Time)>1
+                nVal = size(data(d).XComp,2);
+            else
+                nVal = size(data(d).XComp,1);
+            end
+            %
+            if nEdge==nVal % EDGE
+                dx = data(d).dX_tangential;
+                dy = data(d).dY_tangential;
+            else % NODE
+                dx = [data(d).dX_tangential;0];
+                dy = [data(d).dY_tangential;0];
+                dx(2:end) = dx(2:end)+data(d).dX_tangential;
+                dy(2:end) = dy(2:end)+data(d).dY_tangential;
+                dx(2:end-1) = dx(2:end-1)/2;
+                dy(2:end-1) = dy(2:end-1)/2;
+            end
+            ds = sqrt(dx.^2+dy.^2);
+            dx = dx./ds;
+            dy = dy./ds;
+            if length(Time)>1
+                Time = data(d).Time;
+                dx = dx';
+                dy = dy';
+                data(d).Val = zeros(size(data(d).XComp));
+                for t = 1:length(Time)
+                    if Tangential
+                        data(d).Val(t,:)=data(d).XComp(t,:).*dx + data(d).YComp(t,:).*dy;
+                    else
+                        data(d).Val(t,:)=-data(d).XComp(t,:).*dy + data(d).YComp(t,:).*dx;
+                    end
+                end
+            else 
+                if Tangential
+                    data(d).Val=data(d).XComp.*dx + data(d).YComp.*dy;
+                else
+                    data(d).Val=-data(d).XComp.*dy + data(d).YComp.*dx;
+                end
+            end
+        case 'edge normal component'
+            data(d).Val=data(d).NormalComp;
+        case 'edge tangential component'
+            data(d).Val=data(d).TangentialComp;
         otherwise
             ui_message('error','Unexpected colour/plot type encountered: %s.',vpt);
             scalar=0;
     end
+    data(d).Units = Units;
     if isfield(data,'Val')
         if isfield(data,'X') && isequal(size(data(d).Val),size(data(d).X))
             data(d).Val(isnan(data(d).X))=NaN;

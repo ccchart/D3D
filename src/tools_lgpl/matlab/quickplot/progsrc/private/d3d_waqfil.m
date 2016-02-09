@@ -6,6 +6,7 @@ function varargout=d3d_waqfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=d3d_waqfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,7 +50,7 @@ function varargout=d3d_waqfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -83,6 +84,9 @@ switch cmd
     case 'times'
         varargout={readtim(FI,Props,varargin{1})};
         return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
+        return
     case 'stations'
         varargout={readsts(FI,Props,0)};
         return
@@ -94,44 +98,100 @@ switch cmd
             % balance plot
             Parent=varargin{1};
             Ops=varargin{2};
-            Station=varargin{3};
+            hOld=varargin{3};
+            delete([hOld{:}])
+            Station=varargin{4};
             [Time,Data]=delwaq('read',FI,Props.BalSubFld{1},Station,0);
             Labels=Props.BalSubFld{2};
-            transin=strmatch('Transport In',Labels);
-            transout=strmatch('Transport Out',Labels);
-            if isfield(FI,'nettransport') && FI.nettransport
-                if ~isempty(transin) && ~isempty(transout)
-                    Data(transin,:,:) = Data(transin,:,:)+Data(transout,:,:);
-                    Labels(transin) = {'Net transport'};
-                    Labels(transout) = [];
-                    Data(transout,:,:) = [];
+            %
+            BalAreas=FI.SegmentName;
+            if strcmpi(BalAreas{end},'Sum_of_balance_areas')
+                BalAreas{end}=[];
+            end
+            ibal = -1;
+            %
+            FluxLabels=Labels;
+            InOut=zeros(1,length(Labels));
+            for i=1:length(Labels)
+                if length(Labels{i})>3 && (strcmpi(Labels{i}(end-2:end),'_in') || strcmpi(Labels{i}(end-2:end),' in'))
+                    InOut(i)=1;
+                    FluxLabels{i}=deblank(FluxLabels{i}(1:end-3));
+                elseif length(Labels{i})>4 && (strcmpi(Labels{i}(end-3:end),'_out') || strcmpi(Labels{i}(end-3:end),' out'))
+                    InOut(i)=-1;
+                    FluxLabels{i}=deblank(FluxLabels{i}(1:end-4));
                 else
-                    transin=strmatch('Transp in',Labels);
-                    transout=strmatch('Transp out',Labels);
-                    if ~isempty(transin) && ~isempty(transout)
-                        Data(transin,:,:) = Data(transin,:,:)+Data(transout,:,:);
-                        Labels{transin} = 'Net transport';
-                        Labels(transout) = [];
-                        Data(transout,:,:) = [];
+                    FluxLabels{i}='';
+                end
+                %
+                switch lower(FluxLabels{i})
+                    case ''
+                        Labels{i}=substdb(Labels{i});
+                    case 'all bo+lo'
+                        FluxLabels{i} = 'all boundaries and waste loads';
+                    case 'waste-loa'
+                        FluxLabels{i} = 'waste loads';
+                    case {'transp','transport'}
+                        FluxLabels{i} = 'other internal areas';
+                    case 'other'
+                        FluxLabels{i} = 'non-balance areas';
+                        ibal = 0;
+                    otherwise
+                        if ibal>=0
+                            if InOut(i)==1
+                                ibal=ibal+1;
+                                FluxLabels{i} = BalAreas{ibal};
+                            else
+                                FluxLabels{i} = BalAreas{ibal};
+                            end
+                        end
+                        % Can't expand boundary names
+                end
+            end
+            %
+            if isequal(qp_option(FI,'nettransport'),1)
+                transin            = InOut ==  1;
+                transout           = InOut == -1;
+                Data(transin,:,:)  = Data(transin,:,:)+Data(transout,:,:);
+                for i = find(transin)
+                   Labels{i} = ['Net transport in from ' FluxLabels{i}];
+                end
+                Labels(transout)   = [];
+                Data(transout,:,:) = [];
+            else
+                for i = 1:length(Labels)
+                    if InOut(i)==1
+                        Labels{i} = ['Transport in from ' FluxLabels{i}];
+                    elseif InOut(i)==-1
+                        Labels{i} = ['Transport out to ' FluxLabels{i}];
                     end
                 end
             end
+            %
+            NoContribution=all(Data==0,3);
+            Data(NoContribution,:,:)=[];
+            Labels(NoContribution)=[];
+            %
             hNew=balanceplot(Time,squeeze(Data)','parent',Parent,'color',Ops.colour);
             for i=1:length(Labels)
                 Labels{i}=strrep(Labels{i},'_','\_');
             end
             legend(Parent,hNew(end-(0:length(Labels)-1)),Labels,3);
-            tick(Parent,'x','autodate')
+            %
             setappdata(Parent,'AxesType','Time-<blocking>')
+            setappdata(Parent,'BasicAxesType','Time-<blocking>')
+            setappdata(Parent,'xquantity','time')
+            tick(Parent,'x','autodate')
+            %
             LocationStr=readsts(FI,Props,Station);
             set(get(Parent,'title'),'string',LocationStr,'interpreter','none')
             set(get(Parent,'xlabel'),'string','time \rightarrow')
+            setappdata(Parent,'xtickmode','autodate')
             set(get(Parent,'ylabel'),'string',[Props.Name,' (',Props.Units,') \rightarrow'])
         else
             % limiting factors
             Parent=varargin{1};
             Ops=varargin{2};
-            hNew=plotlimitingfactors(FI,Parent,varargin(3:end),'color',Ops.colour);
+            hNew=plotlimitingfactors(FI,Parent,varargin(4:end),'color',Ops.colour);
             setappdata(Parent,'AxesType','LimitingFactorsAxes')
             setappdata(getappdata(Parent,'LimitingFactorsAxes'), ...
                 'AxesType','LimitingFactorsAxes2')
@@ -180,11 +240,7 @@ end
 %  sz([M_ N_])=sz([N_ M_]);
 %  idx([M_ N_])=idx([N_ M_]);
 %end
-if isfield(FI,'clipwherezundefined')
-    clipZ = FI.clipwherezundefined;
-else
-    clipZ = 1;
-end
+clipZ = qp_option(FI,'clipwherezundefined','default',1);
 
 %========================= GENERAL CODE =======================================
 allidx=zeros(size(sz));
@@ -197,12 +253,17 @@ for i=[M_ N_ K_]
             error('Only scalars or ranges allowed for index %i',i)
         end
         if (i~=K_) && ~strcmp(subtype,'plot') && ~strcmp(Props.Geom,'POLYG')
-            if DataInCell && isequal(idx{i},1)
-                idx{i}=[1 2];
-                ind{i}=2;
-            elseif DataInCell && idx{i}(1)==1
-                ind{i}=2:length(idx{i});
-            else
+            if DataInCell
+                if isequal(idx{i},1)
+                    idx{i}=[1 2];
+                    ind{i}=2;
+                elseif idx{i}(1)==1
+                    ind{i}=2:length(idx{i});
+                else
+                    idx{i}=[idx{i}(1)-1 idx{i}];
+                    ind{i}=(1:(length(idx{i})-1))+1;
+                end
+            else % not DataInCell
                 if idx{i}(1)==1
                     idx{i}=idx{i};
                     ind{i}=1:length(idx{i});
@@ -216,7 +277,6 @@ for i=[M_ N_ K_]
         end
     end
 end
-
 if max(idx{T_})>sz(T_)
     error('Selected timestep (%i) larger than number of timesteps (%i) in file.',max(idx{T_}),sz(T_))
 end
@@ -246,7 +306,7 @@ switch subtype
         else
             stations = idx{M_};
         end
-        if isfield(FI,'treatas1d') && FI.treatas1d
+        if isequal(qp_option(FI,'treatas1d'),1)
             x = stations;
         end
         if DimFlag(K_)
@@ -276,6 +336,22 @@ switch subtype
                     case 'Serafin'
                         x=FI.Grid.Discr.X(idx{M_});
                         y=FI.Grid.Discr.Y(idx{M_});
+                    case 'ESRI-Shape'
+                        xy=shape('read',FI.Grid,0,'polyline');
+                        Sep=[0;find(isnan(xy(:,1)));size(xy,1)+1];
+                        MaxNPnt=max(diff(Sep))-1;
+                        x = NaN(FI.Grid.NShapes,MaxNPnt);
+                        y = NaN(FI.Grid.NShapes,MaxNPnt);
+                        for i=1:length(Sep)-1
+                            NPnt = Sep(i+1)-Sep(i)-1;
+                            x(i,1:NPnt) = xy(Sep(i)+1:Sep(i+1)-1,1)';
+                            y(i,1:NPnt) = xy(Sep(i)+1:Sep(i+1)-1,2)';
+                        end
+                        getPnt=ismember(FI.Grid.Index(:,1),idx{M_});
+                        if ~all(getPnt)
+                            x=x(getPnt,:);
+                            y=y(getPnt,:);
+                        end
                     case 'netCDF'
                         if DataInCell
                            [x, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.BCoordinates{1},FI.Grid.CoordDims);
@@ -325,7 +401,7 @@ switch subtype
                 x=repmat(X(1)+(X(2)-X(1))*(gidx{N_})/sz(N_),length(gidx{M_}),1);
                 y=repmat(transpose(X(3)+(X(4)-X(3))*(gidx{M_})/sz(M_)),1,length(gidx{N_}));
         end
-        if DimFlag(K_)
+        if DimFlag(K_) && ~strcmp(Props.Geom,'POLYG')
             if isbinary
                 names=LocFI.SubsName;
             else
@@ -413,18 +489,43 @@ switch subtype
                         wl=wl(:,max(FI.Grid.Index(:,:,1),1));
                         wl=reshape(wl,[size(z,1) size(FI.Grid.Index(:,:,1))]);
                     end
+                    %
+                    if strcmp(subtype,'map')
+                        for i=1:size(z,1)
+                            z(i,nact)=NaN;
+                        end
+                    end
                 end
+                %
+                %negdepth=0;
+                z0 = z(:,:,:,1);
+                for i=2:size(z,4)
+                    z1 = z(:,:,:,i);
+                    %if any(z1(:)<z0(:))
+                    %   negdepth=1;
+                    %end
+                    z1(z1<z0) = NaN;
+                    z0 = max(z0,z1);
+                    z(:,:,:,i) = z1;
+                end
+                %if negdepth
+                %   ui_message('warning',{'Cells with negative depth encountered!','These have been removed from the data set.'})
+                %end
+                %
+                %zerodepth=any(z(:)==0);
+                %if zerodepth
+                %    z(z==0)=NaN;
+                %    ui_message('warning',{'Cells with zero depth encountered!','These have been removed from the data set.'})
+                %end
+                %
                 if isempty(wlflag)
                     szz=[size(z) 1];
                     wl=repmat(0,szz([1 2 3]));
-                    wl(isnan(z(:,:,:,1)))=NaN;
+                    wl(all(isnan(z(:,:,:,:)),4))=NaN;
                 end
                 if DataInCell
+                    kmax=size(z,4);
                     for i=1:size(z,1)
-                        if strcmp(subtype,'map')
-                            z(i,nact)=NaN;
-                        end
-                        kmax=size(z,4);
                         for k=kmax+1:-1:2
                             z(i,:,:,k)=z(i,:,:,k-1)+wl(i,:,:);
                         end
@@ -432,22 +533,11 @@ switch subtype
                     end
                 else
                     for i=1:size(z,1)
-                        if strcmp(subtype,'map')
-                            z(i,nact)=NaN;
-                        end
                         for k=size(z,4):-1:2
                             z(i,:,:,k)=(z(i,:,:,k)+z(i,:,:,k-1))/2+wl(i,:,:);
                         end
                         z(i,:,:,1)=z(i,:,:,1)/2+wl(i,:,:);
                     end
-                end
-                %
-                z0 = z(:,:,:,1);
-                for i=2:size(z,4)
-                    z1 = z(:,:,:,i);
-                    z1(z1<z0) = NaN;
-                    z0 = max(z0,z1);
-                    z(:,:,:,i) = z1;
                 end
                 %
                 if isequal(idx{N_},0) % unstructured data sets
@@ -512,6 +602,68 @@ if strcmp(Props.Name,'grid') && ~strcmp(Props.Geom,'POLYG')
     TDam=1;
     Props.NVal=2;
 elseif (strcmp(subtype,'map') && mapgrid) || strcmp(subtype,'plot') || strcmp(subtype,'grid')
+    szPerTimestep = cellfun('length',elidx);
+    if strcmp(subtype,'plot')
+        if DimFlag(K_)
+            szV = sz([M_ N_ K_]);
+        else
+            szV = sz([M_ N_]);
+        end
+        if isfield(Props,'BedLayer') && Props.BedLayer == 1
+            if isfield(FI,'K')
+                nlyr = FI.K-1;
+            else
+                Info = vs_disp(FI,Props.Group,Props.Val1);
+                nlyr = Info.SizeDim/prod(szV)-1;
+            end
+            index = reshape(1:prod(szV),szV)+prod(szV)*max(1,nlyr);
+        else
+            index = reshape(1:prod(szV),szV);
+        end
+    else
+        if isfield(Props,'BedLayer') && Props.BedLayer == 1
+            index = FI.Grid.Index(:,:,1)+sign(FI.Grid.Index(:,:,1))*FI.Grid.NoSeg;
+        else
+            if mapgrid
+                index=FI.Grid.Index;
+            else
+                index=FI.Index;
+            end
+            if ~DimFlag(K_) && isempty(Props.SubFld)
+                index=index(:,:,1);
+            end
+        end
+    end
+    if iscell(Props.Val1) || (isnumeric(Props.Val1) && length(Props.Val1)>1)
+        % layers shouldn't be included in index because the segment numbers
+        % will be derived from index, and we don't have that many segments
+        % per quantity
+        index   = index(elidx{1:end-1},1);
+        Props.Val1 = Props.Val1(elidx{end});
+    else
+        index   = index(elidx{:});
+    end
+    missing = index<=0;
+    if any(missing(:))
+        mn = min(index(~missing));
+        if isempty(mn)
+            mn = 1;
+        end
+        index(missing) = mn;
+    end
+    %
+    [seg,ia,ic] = unique(index);
+    if iscell(Props.Val1) || (isnumeric(Props.Val1) && length(Props.Val1)>1)
+        nlyr = length(Props.Val1);
+        missing = repmat(missing,[ones(1,length(elidx)-1) nlyr]);
+        numic = length(ic);
+        maxic = max(ic);
+        for k = nlyr:-1:2
+            ic(numic*(k-1)+(1:numic)) = ic(1:numic)+maxic*(k-1);
+        end
+    end
+    %
+    val2=[];
     if isempty(Props.Val1)
         %
         % Requesting segment number
@@ -520,8 +672,10 @@ elseif (strcmp(subtype,'map') && mapgrid) || strcmp(subtype,'plot') || strcmp(su
     elseif strcmp(subtype,'grid')
         %
         % Delwaq Vol, Flux, ... file
+        % Supports current only a single time step per read
         %
         val1=waqfil('read',FI.Attributes.(Props.Val1),idx{T_},Props.AttPar{:})';
+        val1=val1(seg); % all segments have been read, extract segments needed
         if strcmp(Props.Name,'bed level')
             val1 = -val1;
         end
@@ -530,88 +684,41 @@ elseif (strcmp(subtype,'map') && mapgrid) || strcmp(subtype,'plot') || strcmp(su
         % Plot grid or non-aggregated map grid with multiple layers stored in
         % different substances.
         %
-        val1=zeros([length(idx{T_}) sz(N_) sz(M_) sz(K_)]);
-        for s=idx{K_}
-            [Tmp,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val1{s},'quiet'); % load all
-            val1(:,:,:,s)=reshape(Tmp,[size(val1,1) sz(N_) sz(M_)]);
+        val1=zeros([length(idx{T_}) szPerTimestep]);
+        szV = size(val1);
+        for s = 1:length(Props.Val1)
+            [Tmp,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val1{s},{seg},'quiet');
+            val1(:,:,:,s)=reshape(Tmp,szV(1:3));
         end
     else
         if isbinary
-            [T,val1]=delwaq('read',LocFI,Props.Val1,0,idx{T_});
+            [T,val1]=delwaq('read',LocFI,Props.Val1,seg,idx{T_});
             val1=permute(val1,[3 2 1]);
         else
-            [val1,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val1,'quiet'); % load all
+            [val1,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val1,{seg},'quiet');
         end
-        %
-        if isfield(Props,'BedLayer')
-            if Props.BedLayer == -1
-                NoSegFlow=prod(sz([M_ N_ K_]));
-                if size(val1,2)>NoSegFlow
-                    val1=val1(:,1:NoSegFlow);
-                end
-            elseif Props.BedLayer == 1
-                if strcmp(subtype,'plot')
-                   NoSegBedLayer=sz(M_)*sz(N_);
-                else
-                   NoSegBedLayer=FI.Grid.NoSegPerLayer;
-                end
-                val1=val1(:,end-NoSegBedLayer+1:end);
+        if ~isempty(Props.Val2)
+            if isbinary
+                 [T,val2]=delwaq('read',LocFI,Props.Val2,seg,idx{T_});
+                val2=permute(val2,[3 2 1]);
+            else
+                [val2,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val2,{seg},'quiet');
             end
         end
     end
-    if isempty(Props.Val2)
-        val2=[];
+    %
+    if isempty(val1) % segment number
+        val1=reshape(index,[1 szPerTimestep]);
+        val1(:,missing) = NaN;
     else
-        if isbinary
-            [T,val2]=delwaq('read',LocFI,Props.Val2,0,idx{T_});
-            val2=permute(val2,[3 2 1]);
-        else
-            [val2,Chk]=vs_let(LocFI,Props.Group,idx(T_),Props.Val2,'quiet'); % load all
-        end
-    end
-    if strcmp(subtype,'plot')
-        if DimFlag(K_)
-            val1=reshape(val1,[size(val1,1) sz([M_ N_ K_])]);
-            if ~isempty(val2)
-               val2=reshape(val2,[size(val2,1) sz([M_ N_ K_])]);
-            end
-        else
-            val1=reshape(val1,[size(val1,1) sz([M_ N_])]);
-            if ~isempty(val2)
-                val2=reshape(val2,[size(val2,1) sz([M_ N_])]);
-            end
-        end
-        %val1=permute(val1,[1 3 2 4]);
-    else
-        if mapgrid
-            index=FI.Grid.Index;
-            if Props.BedLayer == 1
-                index=index(:,:,1);
-            end
-        else
-            index=FI.Index;
-        end
-        if ~DimFlag(K_) && isempty(Props.SubFld)
-            index=index(:,:,1);
-        end
-        if isempty(val1) % segment number
-            val1=reshape(index,[1 size(index)]);
-        else
-            val1=val1(:,max(index,1));
-            if ~isempty(val2)
-                val2=val2(:,max(index,1));
-            end
-        end
-        val1(:,index<=0)=NaN;
-        val1=reshape(val1,[size(val1,1) size(index)]);
+        val1 = val1(:,ic);
+        val1(:,missing) = NaN;
+        val1 = reshape(val1,[size(val1,1) szPerTimestep]);
         if ~isempty(val2)
-            val2(:,index<=0)=NaN;
-            val2=reshape(val2,[size(val2,1) size(index)]);
+            val2 = val2(:,ic);
+            val2(:,missing) = NaN;
+            val2 = reshape(val2,[size(val2,1) szPerTimestep]);
         end
-    end
-    val1=val1(:,elidx{:});
-    if ~isempty(val2)
-        val2=val2(:,elidx{:});
     end
 else
     st_ = ST_;
@@ -657,14 +764,22 @@ if allt
 end
 if ~isempty(val1)
     if ~isempty(z) && clipZ
-        val1(isnan(z(:,:,:,2:end)))=NaN;
+        if DataInCell
+            val1(isnan(z(:,:,:,2:end)))=NaN;
+        else
+            val1(isnan(z))=NaN;
+        end
     end
     val1(val1==-999)=NaN;
     val1(val1==missingvalue)=NaN;
 end
 if ~isempty(val2)
     if ~isempty(z) && clipZ
-        val2(isnan(z(:,:,:,2:end)))=NaN;
+        if DataInCell
+            val2(isnan(z(:,:,:,2:end)))=NaN;
+        else
+            val2(isnan(z))=NaN;
+        end
     end
     val2(val2==-999)=NaN;
     val2(val2==missingvalue)=NaN;
@@ -742,6 +857,9 @@ if Props.NVal>0 && ~TDam && ~strcmp(subtype,'history')
     if act_from_z
         szz1=szz([1 4:end]);
         szz1(1)=szz(1)*szz(2)*szz(3);
+        if length(szz1)<2
+            szz1(1,2)=1;
+        end
         val1=reshape(val1,szz1);
         val1(act~=1,:)=NaN;
     else
@@ -842,7 +960,7 @@ if (~DimFlag(T_) || (DimFlag(T_) && isequal(size(idx{T_}),[1 1]))) && ~strcmp(Pr
         val1=reshape(val1,sz);
         val2=reshape(val2,sz);
     end
-    if DimFlag(K_)
+    if DimFlag(K_) && ~strcmp(Props.Geom,'POLYG')
         if ~isempty(x)
             sz=size(x); sz=[sz(2:end) 1];
             x=reshape(x,sz);
@@ -878,9 +996,12 @@ if XYRead
                     end
                 end
             end
+            if size(val1,2)>1
+                val1 = reshape(val1,[size(val1,1) 1 size(val1,2)]);
+            end
             val1 = repmat(val1,1,size(x,2));
-            val1 = val1';
-            val1 = val1(:);
+            val1 = permute(val1,[2 1 3]);
+            val1 = reshape(val1,[size(val1,1)*size(val1,2) size(val1,3)]);
             x = x';
             Ans.X = x(:);
             y = y';
@@ -1043,7 +1164,7 @@ switch Type
         return
     case {'delft3d-waq-history','delwaqhis','delft3d-par-his','delft3d-par-history'}
         DataProps={'--constituents'       ''      '' ''    [1 5 0 0 0]  0         1     ''       'z'   'z'       'c'     casemod('DELWAQ_RESULTS') casemod('SUBST_001')     ''    []       0 0};
-        if isfield(FI,'treatas1d') && FI.treatas1d
+        if isequal(qp_option(FI,'treatas1d'),1)
             DataProps{5}=[1 0 1 0 0];
         end
         mass_per='cell';
@@ -1071,7 +1192,7 @@ switch Type
                             DataProps{r,5}(M_)=6;
                             DataProps{r,5}(N_)=0;
                             %DataProps{r,6}=0;
-                        case {'netCDF'} % polygon bounds
+                        case {'netCDF','ESRI-Shape'} % polygon bounds
                             enablegridview=0;
                             %
                             DataProps{r,3}='POLYG';
@@ -1127,9 +1248,8 @@ end
 %======================== SPECIFIC CODE ADD ===================================
 icnst=strmatch('--constituents',{Out.Name});
 ii=0;
-if ~isfield(FI,'balancefile')
-    FI.balancefile=0;
-end
+FI=qp_option(FI,'balancefile','ifnew',0);
+minlen=20;
 if ~isempty(icnst)
     [Out.BedLayer]=deal(0);
     [Out.ShortName]=deal('');
@@ -1140,14 +1260,16 @@ if ~isempty(icnst)
     else
         [names,Chk]=vs_get(LocFI,casemod([DELWAQ '_PARAMS']),casemod('SUBST_NAMES'),'quiet');
     end
-    if FI.balancefile
+    if qp_option(FI,'balancefile')
         if iscell(names)
             names=strvcat(names{:});
         end
         if size(names,2)>7 && sum(names(:,7)=='_')>size(names,1)/2
+            minlen = 6;
             nn1 = names(:,1:6);
             nn2 = cellstr(names(:,8:end));
         elseif size(names,2)>11
+            minlen = 10;
             nn1 = names(:,1:10);
             nn2 = cellstr(names(:,11:end));
         else
@@ -1471,22 +1593,17 @@ if ~isempty(icnst)
     end
     for j=1:length(Ins)
         Ins(j).ShortName = Ins(j).Name;
-        [Ins(j).Name,Ins(j).Units,Ins(j).SubsGrp]=substdb(Ins(j).Name,mass_per);
+        [Ins(j).Name,Ins(j).Units,Ins(j).SubsGrp]=substdb(Ins(j).Name,mass_per,'minmatchlen',minlen);
         if Ins(j).BedLayer>0
             Ins(j).SubsGrp=[Ins(j).SubsGrp '-bedlayer'];
             Ins(j).Name=[Ins(j).Name ' (bed layer)'];
             Ins(j).Units='kg/m^2';
         end
-        if FI.balancefile
+        if qp_option(FI,'balancefile')
             %
             % balance file
             %
             Ins(j).Units = [Ins(j).Units '/d'];
-            if Ins(j).NVal<0
-                for k=1:length(Ins(j).BalSubFld{2})
-                    Ins(j).BalSubFld{2}{k}=substdb(Ins(j).BalSubFld{2}{k},mass_per);
-                end
-            end
             Out(1).BalSubFld=[];
         end
         if isequal(Ins(j).Name,'Limit Chlo') || isequal(Ins(j).Name,'total chlorophyll in algae')
@@ -1777,10 +1894,10 @@ end
 % -----------------------------------------------------------------------------
 
 
-function [Full,Unit,GroupID]=substdb(Abb,cmd)
+function [Full,Unit,GroupID]=substdb(Abb,cmd,varargin)
 % substance database
 persistent x
-if nargin==2
+if nargin>=2
     switch cmd
         case 'filename'
             if isempty(x)
@@ -1865,8 +1982,11 @@ if isempty(x)
     end
  else
     if isstruct(x)
-       db=strmatch(lower(Abb),x.ID,'exact');
-       if isequal(size(db),[1 1])
+       db=ustrcmpi(lower(Abb),cellstr(x.ID),'casematch',4,varargin{:});
+       % much faster:
+       %db=strmatch(lower(Abb),x.ID,'exact');
+       %if isempty(db), db=-1; end
+       if db>0
           Full=deblank(x.NM(db,:));
           if isequal(lower(Full),'undefined')
              Full=Abb;
@@ -1963,7 +2083,7 @@ elseif strcmp(DELWAQ,'DELWAQ')
     bool = 0;
 elseif strcmp(subtype,'grid')
     bool = 0;
-elseif isfield(FI,'balancefile') && FI.balancefile
+elseif isequal(qp_option(FI,'balancefile'),1)
     bool = 0;
 else
     bool = 0; % unknown
@@ -2003,16 +2123,13 @@ switch cmd
         for cellfld = cellflds
             Fld = cellfld{1};
             f = findobj(mfig,'tag',Fld);
-            if isfield(FI,Fld)
-                value = getfield(FI,Fld);
-            else
-                switch Fld
-                    case {'clipwherezundefined'}
-                        value = 1;
-                    otherwise
-                        value = 0;
-                end
+            switch Fld
+                case {'clipwherezundefined'}
+                    defval = 1;
+                otherwise
+                    defval = 0;
             end
+            value = qp_option(FI,Fld,'default',defval);
             set(f,'value',value,'enable','on')
             %
             switch Fld
@@ -2020,11 +2137,7 @@ switch cmd
                     Fld = 'nettransport';
                     f = findobj(mfig,'tag',Fld);
                     if value
-                        if isfield(FI,Fld)
-                            value = getfield(FI,Fld);
-                        else
-                            value = 0;
-                        end
+                        value = qp_option(FI,Fld,'default',0);
                         set(f,'value',value,'enable','on')
                     else
                         set(f,'value',0,'enable','off')
@@ -2125,18 +2238,14 @@ switch cmd
             value = get(f,'value');
         end
         set(f,'value',value)
-        NewFI = setfield(NewFI,cmd,value);
+        NewFI = qp_option(NewFI,cmd,value);
         cmdargs = {cmd value};
         %
         if isequal(cmd,'balancefile')
             Fld = 'nettransport';
             f = findobj(mfig,'tag',Fld);
             if value
-                if isfield(FI,Fld)
-                    value = getfield(FI,Fld);
-                else
-                    value = 0;
-                end
+                value = qp_option(FI,Fld,'default',0);
                 set(f,'value',value,'enable','on')
             else
                 set(f,'value',0,'enable','off')

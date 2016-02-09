@@ -116,6 +116,13 @@ rem =============================================================
     call :handle_error
 goto :endproc
 
+rem =============================================================
+rem === copyNetcdf copy the appropriate netcdf.dll            ===
+rem =============================================================
+:copyNetcdf
+    call :copyFile "third_party_open\netcdf\src\win32\2005\libsrc\Release\netcdf.dll" !dest_bin!
+goto :endproc
+
 
 
 rem ===============
@@ -127,12 +134,13 @@ rem ===============
     call :d_hydro
     call :flow2d3d
     call :flow2d3d_openda
-	call :delwaq1
-	call :delwaq1_lib
-	call :delwaq2
-	call :delwaq2_lib
-	call :delwaq2_openda_lib
-	call :waq_plugin_wasteload
+    call :delwaq1
+    call :delwaq1_lib
+    call :delwaq2
+    call :delwaq2_lib
+    call :delwaq2_openda_lib
+    call :waq_plugin_wasteload
+    call :part
     call :wave
     call :plugin_culvert
     call :plugin_delftflow_traform
@@ -225,10 +233,10 @@ rem ====================
     call :copyFile "third_party_open\mpich2\bin\*.exe"                          !dest_bin!
     call :copyFile "third_party_open\mpich2\lib\*.dll"                          !dest_bin!
     call :copyFile "third_party_open\expat\win32\bin\Release\libexpat.dll"      !dest_bin!
-    call :copyFile "third_party_open\intel_fortran\lib\win32\*.dll"             !dest_bin!
     call :copyFile "engines_gpl\flow2d3d\default\*"                             !dest_default!
     call :copyFile "utils_lgpl\delftonline\lib\Release\dynamic\delftonline.dll" !dest_bin!
     call :copyFile "utils_lgpl\delftonline\lib\Release\dynamic\delftonline.dll" !dest_plugins!
+    call :copyNetcdf
     
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -282,10 +290,11 @@ rem ===========================
     call :copyFile third_party_open\expat\win32\bin\Release\libexpat.dll      !dest_bin!
     call :copyFile third_party_open\netcdf\lib\win32\release\netcdf.dll       !dest_bin!
     call :copyFile "third_party_open\openda\core\native\lib\win32\*.dll"      !dest_bin!
-    call :copyFile "third_party_open\intel_fortran\lib\win32\*.dll"           !dest_bin!
     call :copyFile "engines_gpl\flow2d3d\default\*.*"                         !dest_default!
     call :copyFile utils_lgpl\delftonline\lib\Release\dynamic\delftonline.dll !dest_bin!
     call :copyFile utils_lgpl\delftonline\lib\Release\dynamic\delftonline.dll !dest_plugins!
+    call :copyNetcdf
+
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
     rem Some (older) libraries will be overwritten.
@@ -366,11 +375,7 @@ rem =======================
     
     call :copyFile engines_gpl\waq\bin\Release\delwaq2_lib.dll                 !dest_bin!
 	
-    call :copyFile third_party_open\openmp\lib\win32\libiomp5md.dll            !dest_bin!
-    call :copyFile third_party_open\intel_fortran\lib\win32\libifcoremd.dll    !dest_bin!
-    call :copyFile third_party_open\intel_fortran\lib\win32\libifportmd.dll    !dest_bin!
-    call :copyFile third_party_open\intel_fortran\lib\win32\libmmd.dll         !dest_bin!
-	
+
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
     rem Some (older) libraries will be overwritten.
@@ -406,10 +411,6 @@ rem ==============================
     call :makeDir !dest_bin!
     
     call :copyFile engines_gpl\waq\bin\Release\delwaq2_openda_lib.dll          !dest_bin!
-	
-    call :copyFile third_party_open\openmp\lib\win32\libiomp5md.dll            !dest_bin!
-    call :copyFile third_party_open\intel_fortran\lib\win32\libifportmd.dll    !dest_bin!
-    call :copyFile third_party_open\intel_fortran\lib\win32\libmmd.dll         !dest_bin!
 	
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -449,6 +450,36 @@ rem ================================
 goto :endproc
 
 
+
+rem ================
+rem === INSTALL PART
+rem ================
+:part
+    echo "installing part . . ."
+
+    set dest="!dest_main!\win32\part\bin"
+
+    call :makeDir !dest!
+
+    call :copyFile engines_gpl\part\bin\release\delpar.exe !dest!
+
+    rem
+    rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
+    rem Some (older) libraries will be overwritten.
+    rem
+    if !compiler_dir!=="" (
+        rem Compiler_dir not set
+    ) else (
+        rem "Compiler_dir:!compiler_dir!"
+        rem Note the awkward usage of !-characters
+        set localstring="!compiler_dir!libiomp5md.dll"
+        call :copyFile !localstring! !dest!
+    )
+	
+goto :endproc
+
+
+
 rem ================
 rem === INSTALL_WAVE
 rem ================
@@ -469,7 +500,7 @@ rem ================
 
     call :copyFile engines_gpl\wave\bin\release\wave.exe            !dest_bin!
     call :copyFile engines_gpl\flow2d3d\default\dioconfig.ini       !dest_default!
-    call :copyFile "third_party_open\intel_fortran\lib\win32\*.dll" !dest_bin!
+    call :copyFile "third_party_open\pthreads\bin\win32\*.dll"      !dest_bin!
     call :copyFile "third_party_open\swan\bin\win32\*.*"            !dest_swan_bin!
     call :copyFile third_party_open\swan\scripts\swan_install.bat " !dest_swan_scripts!\swan.bat"
     rem
@@ -634,7 +665,7 @@ rem ===================
 :nestwq1
     echo "installing nestwq1 . . ."
 
-    set dest_bin="!dest_main!\win32\flow2d3d\bin"
+    set dest_bin="!dest_main!\win32\waq\bin"
 
     call :makeDir !dest_bin!
 
@@ -649,7 +680,7 @@ rem ===================
 :nestwq2
     echo "installing nestwq2 . . ."
 
-    set dest_bin="!dest_main!\win32\flow2d3d\bin"
+    set dest_bin="!dest_main!\win32\waq\bin"
 
     call :makeDir !dest_bin!
 

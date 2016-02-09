@@ -1,7 +1,7 @@
 module globaldata
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -47,7 +47,7 @@ module globaldata
     use dio_plt_rw, only:dioplttype
     use handles
     use message_module
-    use ec_typedefs
+    !use ec_typedefs
     use bedcomposition_module, only:bedcomp_data
     use morphology_data_module, only:morpar_type, sedpar_type, moroutputtype, &
                               & mornumericstype, bedbndtype, cmpbndtype, &
@@ -63,7 +63,6 @@ module globaldata
     !
     include 'address.igs'
     include 'adv2d.igs'
-    include 'autok.igs'
     include 'bcdat.igs'
     include 'bedformpar.igs'
     include 'betaro.igs'
@@ -83,7 +82,6 @@ module globaldata
     include 'fourier.igs'
     include 'heat.igs'
     include 'htur2d.igs'
-    include 'hwid.igs'
     include 'inout.igs'
     include 'inttim.igs'
     include 'iwearr.igs'
@@ -102,6 +100,7 @@ module globaldata
     include 'rdpara.igs'
     include 'rivpro.igs'
     include 'scour.igs'
+    include 'sdu.igs' 
     include 'sobek.igs'
     include 'stations.igs'
     include 'tfzeta.igs'
@@ -138,7 +137,7 @@ module globaldata
     include 'wrirst.igs'
     include 'wrline.igs'
     include 'z_initcg.igs'
-    include 'nefisio.igs'
+    include 'iofiles.igs'
     include 'dddata.igs'
     include 'dfparall.igs'
     !
@@ -148,7 +147,6 @@ module globaldata
     type globdat
        type (gd_address)  , pointer :: gdaddress
        type (gd_adv2d)     , pointer :: gdadv2d
-       type (gd_autok)    , pointer :: gdautok
        type (gd_bcdat)    , pointer :: gdbcdat
        type (gd_bedformpar), pointer :: gdbedformpar
        type (gd_betaro)   , pointer :: gdbetaro
@@ -169,7 +167,6 @@ module globaldata
        type (gd_fourier)  , pointer :: gdfourier
        type (gd_heat)     , pointer :: gdheat
        type (gd_htur2d)   , pointer :: gdhtur2d
-       type (gd_hwid)     , pointer :: gdhwid
        type (gd_inout)    , pointer :: gdinout
        type (gd_inttim)   , pointer :: gdinttim
        type (gd_iwearr)   , pointer :: gdiwearr
@@ -190,6 +187,7 @@ module globaldata
        type (gd_rivpro)   , pointer :: gdrivpro
        type (gd_scour)    , pointer :: gdscour
        type (sedpar_type) , pointer :: gdsedpar
+       type (gd_sdu)      , pointer :: gdsdu
        type (gd_sobek)    , pointer :: gdsobek
        type (gd_stations) , pointer :: gdstations
        type (gd_tfzeta)   , pointer :: gdtfzeta
@@ -229,7 +227,7 @@ module globaldata
        type (sv_wrirst)   , pointer :: gdwrirst
        type (sv_wrline)   , pointer :: gdwrline
        type (sv_z_initcg) , pointer :: gdz_initcg
-       type (nefisio)     , pointer :: nefisio
+       type (iofile), dimension(:), pointer :: iofiles
        !
        ! DD data fields
        !
@@ -242,16 +240,17 @@ module globaldata
        ! data fields for parallel Delft3D-FLOW
        !
        type(dfparalltype) , pointer :: gdparall
+       type(dfparalltype) , pointer :: iopartit
        !
        ! ec-module
        !
-       type(tECHandle)              :: gd_ECHandle
+       !type(tECHandle)              :: gd_ECHandle
        integer                      :: gridECItemId  = -1
        integer                      :: patmECItemId  = -1
        integer                      :: uwindECItemId = -1
        integer                      :: vwindECItemId = -1
        !
-       ! arch is currently 'win32' or 'linux'
+       ! arch is currently 'win32', 'win64' or 'linux'
        !
        character(10)      , pointer :: arch
        !

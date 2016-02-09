@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -22,10 +22,10 @@
 !!  rights reserved.
 
       SUBROUTINE DATE(MMYYDD)
-C
+!
       CHARACTER*(*) MMYYDD
-C
+!
       MMYYDD = ' '
-C
+!
       RETURN
       END

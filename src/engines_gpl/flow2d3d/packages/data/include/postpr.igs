@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -35,16 +35,19 @@ type sv_postpr
     !
     ! integers
     !
-    integer :: nuprpg !  Current page number print file
-    integer :: nuprln !  Current line number in print page
+    integer :: nuprpg  !  Current page number print file
+    integer :: nuprln  !  Current line number in print page
+    integer :: nc_prec !  NetCDF precision identifier (nf90_float or nf90_double)
     !
     ! pointers
     !
     integer, dimension(:)  , pointer :: smlay   !  layers to be written to map output (default all layers)
     integer, dimension(:)  , pointer :: shlay   !  layers to be written to his output (default all layers)
+    integer, dimension(:)  , pointer :: kfst0   !  kfs at the start of the simulation
     ! 
     ! logicals
-    !
+	!
+	logical :: mergemap !  Flag indicating whether a parallel simulation should write one overall trim-file (TRUE) or one file per partition (FALSE) - always true for serial simulations
     !
     ! characters
     character*131 :: header(10) !  Print file header

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -123,7 +123,7 @@ end module waq_omi_utils
 logical function GetLastMessage( level, text )
 
     !DEC$ ATTRIBUTES DLLEXPORT::GetLastMessage
-    !DEC$ ATTRIBUTES ALIAS : '_GETLASTMESSAGE' :: GetLastMessage
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'GETLASTMESSAGE' :: GetLastMessage
 
     use waq_omi_utils
 
@@ -139,7 +139,7 @@ end function GetLastMessage
 logical function GetWQDimensions(notot, noseg)
 
     !DEC$ ATTRIBUTES DLLEXPORT::GetWQDimensions
-    !DEC$ ATTRIBUTES ALIAS : '_GETWQDIMENSIONS' :: GetWQDimensions
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'GETWQDIMENSIONS' :: GetWQDimensions
 
     use delwaq2_global_data
 
@@ -161,7 +161,7 @@ end function GetWQDimensions
 logical function SetSimulationTimes(startTime, endTime, timeStep)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetSimulationTimes
-    !DEC$ ATTRIBUTES ALIAS : '_SETSIMULATIONTIMES' :: SetSimulationTimes
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETSIMULATIONTIMES' :: SetSimulationTimes
 
     use delwaq2_global_data
 
@@ -187,7 +187,7 @@ end function SetSimulationTimes
 logical function GetSimulationTimes(startTime, endTime, timeStep)
 
     !DEC$ ATTRIBUTES DLLEXPORT::GetSimulationTimes
-    !DEC$ ATTRIBUTES ALIAS : '_GETSIMULATIONTIMES' :: GetSimulationTimes
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'GETSIMULATIONTIMES' :: GetSimulationTimes
 
     use delwaq2_global_data
 
@@ -211,7 +211,7 @@ end function GetSimulationTimes
 logical function SetTimeFormat(timeFormat)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetTimeFormat
-    !DEC$ ATTRIBUTES ALIAS : '_SETTIMEFORMAT' :: SetTimeFormat
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETTIMEFORMAT' :: SetTimeFormat
 
     implicit none
 
@@ -229,7 +229,7 @@ end function SetTimeFormat
 logical function SetReferenceDate( year_in, month_in, day_in, hour_in, minute_in, second_in )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetReferenceDate
-    !DEC$ ATTRIBUTES ALIAS : '_SETREFERENCEDATE' :: SetReferenceDate
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETREFERENCEDATE' :: SetReferenceDate
 
     use delwaq2_global_data
 
@@ -258,7 +258,7 @@ end function SetReferenceDate
 logical function SetOutputTimers(type, startTime, endTime, timeStep)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetOutputTimers
-    !DEC$ ATTRIBUTES ALIAS : '_SETOUTPUTTIMERS' :: SetOutputTimers
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETOUTPUTTIMERS' :: SetOutputTimers
 
     use delwaq2_global_data
 
@@ -301,7 +301,7 @@ end function SetOutputTimers
 logical function SetAttributeInit(idx, ivalue)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetAttributeInit
-    !DEC$ ATTRIBUTES ALIAS : '_SETATTRIBUTEINIT' :: SetAttributeInit
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETATTRIBUTEINIT' :: SetAttributeInit
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -352,7 +352,7 @@ end function SetAttributeInit
 logical function SetCurrentValueScalarInit(name, value)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetCurrentValueScalarInit
-    !DEC$ ATTRIBUTES ALIAS : '_SETCURRENTVALUESCALARINIT' :: SetCurrentValueScalarInit
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETCURRENTVALUESCALARINIT' :: SetCurrentValueScalarInit
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -401,7 +401,7 @@ end function SetCurrentValueScalarInit
 logical function SetCurrentValueFieldInit(name, value)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetCurrentValueFieldInit
-    !DEC$ ATTRIBUTES ALIAS : '_SETCURRENTVALUEFIELDINIT' :: SetCurrentValueFieldInit
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETCURRENTVALUEFIELDINIT' :: SetCurrentValueFieldInit
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -448,7 +448,7 @@ end function SetCurrentValueFieldInit
 logical function SetCurrentValueScalarRun(name, value)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetCurrentValueScalarRun
-    !DEC$ ATTRIBUTES ALIAS : '_SETCURRENTVALUESCALARRUN' :: SetCurrentValueScalarRun
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETCURRENTVALUESCALARRUN' :: SetCurrentValueScalarRun
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -495,7 +495,7 @@ end function SetCurrentValueScalarRun
 logical function SetCurrentValueFieldRun(name, value)
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetCurrentValueFieldRun
-    !DEC$ ATTRIBUTES ALIAS : '_SETCURRENTVALUEFIELDRUN' :: SetCurrentValueFieldRun
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETCURRENTVALUEFIELDRUN' :: SetCurrentValueFieldRun
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -537,7 +537,7 @@ end function SetCurrentValueFieldRun
 logical function GetCurrentValue(name, value)
 
     !DEC$ ATTRIBUTES DLLEXPORT::GetCurrentValue
-    !DEC$ ATTRIBUTES ALIAS : '_GETCURRENTVALUE' :: GetCurrentValue
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'GETCURRENTVALUE' :: GetCurrentValue
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -563,15 +563,16 @@ logical function GetCurrentValue(name, value)
             value(i) = dlwqd%rbuf(iconc+idx-1+(i-1)*notot)
         enddo
     else
-        ! TODO
-        !call find_index( name, procparam_const, idx )
-        !if ( idx > 0 ) then
-        !    value(1:noseg) = value
-        !else
+        call find_index( name, procparam_const, idx )
+        if ( idx > 0 ) then
+            do i = 1,noseg
+                value(i) = dlwqd%rbuf(iconc+idx-1+(i-1)*notot)
+            enddo
+        else
             call SetMessage(LEVEL_ERROR, &
                 'Name not found (not a substance of process parameter): ' // name)
             return
-        !endif
+        endif
     endif
 
     GetCurrentValue = .true.
@@ -583,7 +584,7 @@ end function GetCurrentValue
 !
 logical function SetIntegrationOptions(method, disp_flow_zero, disp_bound, first_order, forester, anticreep)
     !DEC$ ATTRIBUTES DLLEXPORT::SetIntegrationOptions
-    !DEC$ ATTRIBUTES ALIAS : '_SETINTEGRATIONOPTIONS' :: SetIntegrationOptions
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETINTEGRATIONOPTIONS' :: SetIntegrationOptions
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -621,7 +622,7 @@ end function SetIntegrationOptions
 !
 logical function SetBalanceOutputOptions(type, lump_processes, lump_loads, lump_transport, suppress_space, suppress_time, unit_type)
     !DEC$ ATTRIBUTES DLLEXPORT::SetBalanceOutputOptions
-    !DEC$ ATTRIBUTES ALIAS : '_SETBALANCEOUTPUTOPTIONS' :: SetBalanceOutputOptions
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETBALANCEOUTPUTOPTIONS' :: SetBalanceOutputOptions
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -671,7 +672,7 @@ end function SetBalanceOutputOptions
 !
 logical function DefineWQSchematisation(number_segments, pointer_table, number_exchanges)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineWQSchematisation
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEWQSCHEMATISATION' :: DefineWQSchematisation
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEWQSCHEMATISATION' :: DefineWQSchematisation
 
     use delwaq2_global_data
 
@@ -769,7 +770,7 @@ end function DefineWQSchematisation
 !
 logical function DefineWQDispersion(dispc, length)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineWQDispersion
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEWQDISPERSION' :: DefineWQDispersion
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEWQDISPERSION' :: DefineWQDispersion
 
     use delwaq2_global_data
 
@@ -799,7 +800,7 @@ end function DefineWQDispersion
 !
 logical function SetProcessDefinition(mode, procdef_file)
     !DEC$ ATTRIBUTES DLLEXPORT::SetProcessDefinition
-    !DEC$ ATTRIBUTES ALIAS : '_SETPROCESSDEFINITION' :: SetProcessDefinition
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETPROCESSDEFINITION' :: SetProcessDefinition
 
     character(len=*)                 :: mode
     character(len=*)                 :: procdef_file
@@ -814,7 +815,7 @@ end function SetProcessDefinition
 !
 logical function SetProcessDefinitionX(mode, procdef_file, sfrac_file )
     !DEC$ ATTRIBUTES DLLEXPORT::SetProcessDefinitionX
-    !DEC$ ATTRIBUTES ALIAS : '_SETPROCESSDEFINITIONX' :: SetProcessDefinitionX
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETPROCESSDEFINITIONX' :: SetProcessDefinitionX
 
     character(len=*)                 :: mode
     character(len=*)                 :: procdef_file
@@ -871,7 +872,7 @@ logical function DefineWQProcesses(substance, number_substances, number_transpor
                                    process_parameter, number_parameters, &
                                    process, number_processes)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineWQProcesses
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEWQPROCESSES' :: DefineWQProcesses
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEWQPROCESSES' :: DefineWQProcesses
 
     implicit none
 
@@ -905,7 +906,7 @@ logical function DefineWQProcessesX(substance, substance_mult, &
                                    field_parameter, number_fields, &
                                    process, number_processes)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineWQProcessesX
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEWQPROCESSESX' :: DefineWQProcessesX
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEWQPROCESSESX' :: DefineWQProcessesX
 
     implicit none
 
@@ -1058,7 +1059,7 @@ end function DefineWQProcessesCore
 !
 logical function DefineWQExtraOutputParameters(extra_output, number_output)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineWQExtraOutputParameters
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEWQEXTRAOUTPUTPARAMETERS' :: DefineWQEXTRAOUTPUTPARAMETERS
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEWQEXTRAOUTPUTPARAMETERS' :: DefineWQEXTRAOUTPUTPARAMETERS
 
     use delwaq2_global_data
 
@@ -1089,7 +1090,7 @@ end function DefineWQExtraOutputParameters
 !
 logical function DefineDischargeLocations(cell, number_loads)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineDischargeLocations
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEDISCHARGELOCATIONS' :: DefineDischargeLocations
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEDISCHARGELOCATIONS' :: DefineDischargeLocations
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1149,7 +1150,7 @@ end function DefineDischargeLocations
 !
 logical function DefineMonitoringLocations(cell, name, number_monitoring)
     !DEC$ ATTRIBUTES DLLEXPORT::DefineMonitoringLocations
-    !DEC$ ATTRIBUTES ALIAS : '_DEFINEMONITORINGLOCATIONS' :: DefineMonitoringLocations
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'DEFINEMONITORINGLOCATIONS' :: DefineMonitoringLocations
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1206,7 +1207,7 @@ end function DefineMonitoringLocations
 logical function SetInitialVolume( volume )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetInitialVolume
-    !DEC$ ATTRIBUTES ALIAS : '_SETINITIALVOLUME' :: SetInitialVolume
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETINITIALVOLUME' :: SetInitialVolume
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1243,7 +1244,7 @@ end function SetInitialVolume
 logical function SetFlowData( volume, area, flow )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetFlowData
-    !DEC$ ATTRIBUTES ALIAS : '_SETFLOWDATA' :: SetFlowData
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETFLOWDATA' :: SetFlowData
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1281,7 +1282,7 @@ end function SetFlowData
 logical function SetFlowDataVolume( volume )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetFlowDataVolume
-    !DEC$ ATTRIBUTES ALIAS : '_SETFLOWDATAVOLUME' :: SetFlowDataVolume
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETFLOWDATAVOLUME' :: SetFlowDataVolume
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1305,7 +1306,7 @@ end function SetFlowDataVolume
 logical function SetFlowDataVelocity( velocity )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetFlowDataVelocity
-    !DEC$ ATTRIBUTES ALIAS : '_SETFLOWDATAVELOCITY' :: SetFlowDataVelocity
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETFLOWDATAVELOCITY' :: SetFlowDataVelocity
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1340,7 +1341,7 @@ end function SetFlowDataVelocity
 integer function CorrectVolumeSurface( volume, surf, mass_per_m2 )
 
     !DEC$ ATTRIBUTES DLLEXPORT::CorrectVolumeSurface
-    !DEC$ ATTRIBUTES ALIAS : '_CORRECTVOLUMESURFACE' :: CorrectVolumeSurface
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'CORRECTVOLUMESURFACE' :: CorrectVolumeSurface
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1419,7 +1420,7 @@ end function CorrectVolumeSurface
 logical function SetWasteLoadValues( idx, value )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetWasteLoadValues
-    !DEC$ ATTRIBUTES ALIAS : '_SETWASTELOADVALUES' :: SetWasteLoadValues
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETWASTELOADVALUES' :: SetWasteLoadValues
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1477,7 +1478,7 @@ end function SetWasteLoadValues
 logical function SetBoundaryConditions( idx, value )
 
     !DEC$ ATTRIBUTES DLLEXPORT::SetBoundaryConditions
-    !DEC$ ATTRIBUTES ALIAS : '_SETBOUNDARYCONDITIONS' :: SetBoundaryConditions
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'SETBOUNDARYCONDITIONS' :: SetBoundaryConditions
 
     use waq_omi_utils
     use delwaq2_global_data
@@ -1524,7 +1525,7 @@ end function SetBoundaryConditions
 !
 integer function ModelPerformTimeStep ()
     !DEC$ ATTRIBUTES DLLEXPORT::ModelPerformTimeStep
-    !DEC$ ATTRIBUTES ALIAS : '_MODELPERFORMTIMESTEP' :: ModelPerformTimeStep
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELPERFORMTIMESTEP' :: ModelPerformTimeStep
 
     use delwaq2_global_data
 
@@ -1547,7 +1548,7 @@ end function ModelPerformTimeStep
 !
 integer function WriteRestartFileDefaultName ()
     !DEC$ ATTRIBUTES DLLEXPORT::WriteRestartFileDefaultName
-    !DEC$ ATTRIBUTES ALIAS : '_WRITERESTARTFILEDEFAULTNAME' :: WriteRestartFileDefaultName
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'WRITERESTARTFILEDEFAULTNAME' :: WriteRestartFileDefaultName
 
     use delwaq2_global_data
     
@@ -1578,7 +1579,7 @@ end function
 !
 integer function WriteRestartFile ( lcharmap )
     !DEC$ ATTRIBUTES DLLEXPORT::WriteRestartFile
-    !DEC$ ATTRIBUTES ALIAS : '_WRITERESTARTFILE' :: WriteRestartFile
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'WRITERESTARTFILE' :: WriteRestartFile
 
     use delwaq2_global_data
 
@@ -1611,7 +1612,7 @@ end function
 !
 integer function ModelInitialize ()
     !DEC$ ATTRIBUTES DLLEXPORT::ModelInitialize
-    !DEC$ ATTRIBUTES ALIAS : '_MODELINITIALIZE' :: ModelInitialize
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELINITIALIZE' :: ModelInitialize
 
     use delwaq2_global_data
     use waq_omi_utils
@@ -1963,7 +1964,7 @@ subroutine handle_output_requests( name )
         write( 10, '(a)' ) '2 ; all substances and extra output'
         write( 10, '(i5,a)' ) size(output_param), ' ; number of extra variables'
         do i = 1,size(output_param)
-            if ( k  < 4 ) then
+            if ( k.eq.1 .or. k.eq.3 ) then
                 write( 10, '(a,1x,a)' ) output_param(i), ''' '''
             else
                 write( 10, '(a,1x,a)' ) output_param(i)
@@ -1989,6 +1990,7 @@ end subroutine handle_output_requests
 subroutine handle_processes( name )
     use processet
     use output
+    use rd_token
 
     implicit none
 
@@ -2016,10 +2018,10 @@ subroutine handle_processes( name )
 
     integer, parameter                    :: icmax = 2000
     integer, parameter                    :: iimax = 2000
-    character(len=1)                      :: cchar
+!    character(len=1)                      :: cchar
     character(len=20), dimension(icmax)   :: car
     integer, dimension(iimax)             :: iar
-    integer                               :: npos
+!    integer                               :: npos
     integer                               :: iwidth
     integer                               :: ibflag
     integer                               :: iwar
@@ -2080,6 +2082,8 @@ subroutine handle_processes( name )
     ierr    = 0
     iwar    = 0
     ibflag  = 0 ! TODO: correct value
+    ilun(1) = 9
+    lch (1) = trim(name) // '.inp'
 
     call dlwq09( lun, lchar, filtype, car, iar, icmax, &
              iimax, iwidth, ibflag, version,           &
@@ -2261,7 +2265,7 @@ end function ModelInitialize
 !
 integer function ModelFinalize( )
     !DEC$ ATTRIBUTES DLLEXPORT::ModelFinalize
-    !DEC$ ATTRIBUTES ALIAS : '_MODELFINALIZE' :: ModelFinalize
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELFINALIZE' :: ModelFinalize
 
     use delwaq2_global_data
 !    use m_delwaq_2_openda
@@ -2297,7 +2301,7 @@ end function ModelFinalize
 !
 integer function ModelInitialize_By_Id( runid_given )
     !DEC$ ATTRIBUTES DLLEXPORT::ModelInitialize_By_id
-    !DEC$ ATTRIBUTES ALIAS : '_MODELINITIALIZE_BY_ID' :: ModelInitialize_By_Id
+    !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELINITIALIZE_BY_ID' :: ModelInitialize_By_Id
 
     use delwaq2_global_data
     use waq_omi_utils

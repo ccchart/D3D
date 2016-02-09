@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -34,9 +34,9 @@
       type(procespropcoll)  :: procesdef           ! all processes
       type(ProcesProp)      :: procha              ! charon process definition
 
-C
-C     Local declarations
-C
+!
+!     Local declarations
+!
       integer                   :: nproc           ! number of processes
       integer                   :: iproc           ! loop counter processes
       type(procesprop), pointer :: proc            ! process description

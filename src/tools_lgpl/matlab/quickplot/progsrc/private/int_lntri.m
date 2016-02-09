@@ -1,4 +1,4 @@
-function [xo,yo,po,mo,to,lo]=int_lntri(xi,yi,TRI,X,Y)
+function [xo,yo,po,mo,to,lo,dxt,dyt,out]=int_lntri(xi,yi,TRI,X,Y)
 %INT_LNTRI Intersection of line and triangular mesh.
 %   [XCROSS,YCROSS] = INT_LNTRI(XLINE,YLINE,TRI,X,Y)
 %   Computes the points where the line (XLINE,YLINE)
@@ -16,7 +16,7 @@ function [xo,yo,po,mo,to,lo]=int_lntri(xi,yi,TRI,X,Y)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -44,10 +44,26 @@ function [xo,yo,po,mo,to,lo]=int_lntri(xi,yi,TRI,X,Y)
 %   $HeadURL$
 %   $Id$
 
-TRI  = double(TRI); % fix in case TRI is provided as int32 (not supported by tsearch)
+if ~isa(TRI,'double')
+    TRI  = double(TRI); % fix in case TRI is provided as int32 (not supported by tsearch)
+end
+connect = size(TRI,2)>3;
+if connect
+    FACE = TRI;
+    ntri = sum(~isnan(TRI(:,3:end)));
+    TRI = zeros(sum(ntri),3);
+    iFACE = zeros(sum(ntri),1);
+    offset = 0;
+    for i = 1:length(ntri)
+        TRI(offset+(1:ntri(i)),:) = FACE(~isnan(FACE(:,2+i)),[1 1+i 2+i]);
+        iFACE(offset+(1:ntri(i))) = find(~isnan(FACE(:,2+i)));
+        offset = offset + ntri(i);
+    end
+end
 ntri = size(TRI,1);
 edge = TRI(:,[1 1 2 2 3 3]);
 edge = reshape(edge,[ntri*3 2]);
+edge = sort(edge,2); % if we don't sort then we intersect with N1-N2 and N2-N1 which may result in two points
 tri = repmat((1:ntri)',3,1);
 
 Xvec = X(:);
@@ -70,6 +86,9 @@ to=cN;
 xo=cN;
 yo=cN;
 lo=cN;
+dxt=cN;
+dyt=cN;
+out=cN;
 
 T=NaN;
 First=1;
@@ -87,6 +106,7 @@ for i=1:N
 
     dxi=xi(i)-xi(i+1);
     dyi=yi(i)-yi(i+1);
+    dti=sqrt(dxi^2+dyi^2);
 
     %
     % Determine the mu and lambda coefficients for which the vector equality
@@ -137,6 +157,8 @@ for i=1:N
     xo{i}=xo{i}(ind);
     yo{i}=yo{i}(ind);
     lo{i}=i+l;
+    dxt{i}=repmat(-dxi/dti,size(l));
+    dyt{i}=repmat(-dyi/dti,size(l));
 
     for j=2:ncross
         edges = rev==j;
@@ -213,6 +235,22 @@ for i=1:N
         T = T2;
         to{i}(j) = T;
     end
+    out{i} = isnan(to{i});
+    to{i}(out{i}) = 1;
+    %
+    if connect
+        indquad = iFACE(to{i});
+        rm = find((indquad(1:end-1)==indquad(2:end)));
+        xo{i}(rm+1,:)    =[];
+        yo{i}(rm+1,:)    =[];
+        po{i}(rm+1,:)    =[];
+        mo{i}(rm+1,:)    =[];
+        lo{i}(rm+1,:)    =[];
+        to{i}(rm,:)      =[];
+        dxt{i}(rm,:)     =[];
+        dyt{i}(rm,:)     =[];
+        out{i}(rm,:)     =[];
+    end
 end
 
 po{N} = PO;
@@ -221,6 +259,9 @@ to{N}=[];
 xo{N}=xi(N);
 yo{N}=yi(N);
 lo{N}=N;
+dxt{N}=[];
+dyt{N}=[];
+out{N}=logical([]);
 if First
     %
     % Rare exception: no crossing at all. So, all points are inside one
@@ -252,12 +293,15 @@ if First
     end
 end
 
-mo=cat(1,mo{:});
-po=cat(1,po{:});
-to=cat(1,to{:});
 xo=cat(1,xo{:});
 yo=cat(1,yo{:});
+po=cat(1,po{:});
+mo=cat(1,mo{:});
+to=cat(1,to{:});
 lo=cat(1,lo{:});
+dxt=cat(1,dxt{:});
+dyt=cat(1,dyt{:});
+out=cat(1,out{:});
 %
 % Coordinates could also have been determined at the end of this routine
 % using the two statements given below. However, then we would loose corner
@@ -265,6 +309,11 @@ lo=cat(1,lo{:});
 %
 % xo=sum(mo.*X(po),2);
 % yo=sum(mo.*Y(po),2);
+%
+if connect
+    to = iFACE(to);
+end
+
 
 
 function abc=trival(xtri,ytri,xi,yi)

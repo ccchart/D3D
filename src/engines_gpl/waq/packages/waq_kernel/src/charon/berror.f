@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -22,11 +22,11 @@
 !!  rights reserved.
 
       subroutine berror(bmax)
-c           4-69
-c           compute g(i) for each equation as the error in the current
-c        solution.  bmax is the absolute maximum error.
-c           berror uses double precision version of
-c              abs
+!           4-69
+!           compute g(i) for each equation as the error in the current
+!        solution.  bmax is the absolute maximum error.
+!           berror uses double precision version of
+!              abs
       include  'char1.inc'
       include  'char5.inc'
       equivalence (g(1),v1(1))

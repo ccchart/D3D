@@ -1,24 +1,25 @@
 Please check the following sites for additional information:
-General information: http://oss.deltares.nl/web/opendelft3d/source-code
-FAQ                : http://oss.deltares.nl/web/opendelft3d/faq-compiling-code
-Compile forum      : http://oss.deltares.nl/web/opendelft3d/general/-/message_boards?_19_mbCategoryId=22276
+General information: http://oss.deltares.nl/web/delft3d/source-code
+FAQ                : http://oss.deltares.nl/web/delft3d/faq
+Compile forum      : http://oss.deltares.nl/web/delft3d/general/-/message_boards?_19_mbCategoryId=200432
 
 
 Compiling on Windows
 ====================
   0) Be sure that you have installed:
-     Visual Studio 2008, including Fortran compiler Intel 11.0 (11.1)
-     OR
-     Visual Studio 2010, including Fortran compiler Intel 12.0 (Intel(R) Visual Fortran Composer XE 2011)
-     OR
-     Visual Studio 2012, including Fortran compiler Intel 13.0 (Intel(R) Visual Fortran Composer XE 2013)
-  1) Open "src\d_hydro_open_source.sln" in Visual Studio 2008
-     OR
-     Open "src\d_hydro_open_source_vs2010.sln" in Visual Studio 2010/Visual Studio 2012
-  2) Select the "solution configuration" you want: "Debug" or "Release" (normally "Release")
-  3) Select the "solution platform" you want: "Win32" or "x64" (default "Win32")
+     - Microsoft Visual Studio 2010 or newer (https://www.visualstudio.com)
+     - Intel Fortran compiler 11.1 or newer (https://software.intel.com)
+     - Python (https://www.python.org/downloads)
+       Both versions (2.7.xx and 3.4.xx) will do
+       Check that the path to "python.exe" is added to your environment parameter "PATH" (should work automatically)
+  1) Execute "...\src\prepare_sln.py" (double-clicking it in your file browser will do)
+     to create a "delft3d_open.sln" that fits to your tools
+     See the comments in "...\src\prepare_sln.py" for more information
+  2) Open "delft3d_open.sln" in Visual Studio
+  2) Select the "solution configuration": "Release" or "Debug" (normally "Release")
+  3) Select the "solution platform"     : "x64"     or "Win32" (normally "x64")
   4) <Ctrl><Shift>B will compile the full solution
-  5) The binaries are installed in directory "bin\win32" (Release, Win32), "bin\win64" (Release, x64)
+  5) The binaries are installed in directory "bin\win64" (Release, x64), "bin\win32" (Release, Win32), 
      or in the subdirectory of the executable, e.g. "src\engines_gpl\d_hydro\bin\Debug" (Debug)
 
 
@@ -44,13 +45,12 @@ Compiling on Linux
      - Be careful with tools/compilers located in different directories due to different revision/build numbers (e.q. /opt/mpich2-1.4.1-gcc-4.6.2)
        You have to take care of that yourself
      - Check both "common.am" and "build.sh"
-     - Check http://oss.deltares.nl/web/opendelft3d/faq-compiling-code
+     - Check http://oss.deltares.nl/web/delft3d/faq
      - When using a --prefix unequal to `pwd`, the specified directory will contain:
        - "bin" and "lib" subdirectories (due to the default Linux "install")
        - "lnx", ready to copy to an existing Delft3D installation (due to "ds-install"),
        The examples will not run "out of the box". The runscripts must be adapted to point to the --prefix location
        
-
 
 Compiling on OSX
 ================
@@ -64,8 +64,31 @@ The OSX version is only tested with Macports gcc45 + openmpi compilers. Make sur
 ** Set DYLD_LIBRARY_PATH to the directory containing DelftOnline if it's not in your default path
 
 
+Running examples without GUI
+============================
+In directory "examples\01_standard":
+Windows:
+- Execute script "run_flow2d3d.bat"
+  Parallel:
+  Execute "run_flow2d3d_parallel.bat"
+  This model is very small and can only be run using 5 partitions or less
+  Have a look at parameter %NPROC% in the script "run_flow2d3d_parallel.bat"
+Linux:
+- Execute script "run_flow2d3d.sh"
+  Parallel:
+  - Depending on your system settings, you might need to change the script "run_flow2d3d_parallel.sh"
+  - Execute script "run_flow2d3d_parallel.sh"
+
+
+Running your model
+==================
+Start with using the GUI, see http://oss.deltares.nl/web/delft3d/source-code#Run a calculation
+
+
 Debugging in Microsoft Visual Studio
 ====================================
+Debugging is not needed for daily computations, only for tracing the source code and solving problems.
+You must have some experience with Microsoft Visual Studio and Running Deft3D calculations using scripts.
 - Be sure to have compiled the "Debug configuration" (Build -> Configuration Manager...).
   All resulting binaries are copied automatically to directory "...\src\engines_gpl\d_hydro\bin\Debug".
 - In your model input directory: put a copy of file "...\oss\src\engines_gpl\d_hydro\scripts\config_d_hydro.xml",
@@ -82,7 +105,6 @@ Debugging in Microsoft Visual Studio
 
 Directory structure
 ===================
-engines     : Main programs
 engines_gpl : Open source engines, under GPL conditions, see ../gpl-3.0.txt
 tools_gpl   : Open source small programs which support the engines, under GPL conditions, see ../gpl-3.0.txt
 tools_lgpl  : Open source tools, under LGPL conditions, see ../lgpl-2.1.txt
@@ -97,5 +119,6 @@ common.am
 build.sh
 
 
-28 Nov 2013
+21 Oct 2015
 adri.mourits@deltares.nl
+

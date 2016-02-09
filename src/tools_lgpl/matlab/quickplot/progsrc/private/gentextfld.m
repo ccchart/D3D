@@ -3,7 +3,7 @@ function hNew=gentextfld(hOld,Ops,Parent,Val,X,Y,Z)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -61,26 +61,27 @@ if isempty(X)
     end
 end
 %
-hNew=repmat(0,1,length(Val)+1);
 if zcoord
-    hNew(1)=line([min(X) max(X)],[min(Y) max(Y)],[min(Z) max(Z)],'linestyle','none','marker','none','parent',Parent);
+    hNew = line([min(X) max(X)],[min(Y) max(Y)],[min(Z) max(Z)],'linestyle','none','marker','none','parent',Parent);
+    hNew = repmat(hNew,1,length(Val)+1); % pre-allocate hNew of appropriate length
     for i=1:length(Val)
         if convert
             Str=sprintf(Ops.numformat,Val(i));
         else
             Str=Val{i};
         end
-        hNew(i+1)=text(X(i),Y(i),Z(i),Str,'parent',Parent);
+        hNew(i+1)=text(X(i),Y(i),Z(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
     end
 else
-    hNew(1)=line([min(X) max(X)],[min(Y) max(Y)],'linestyle','none','marker','none','parent',Parent);
+    hNew = line([min(X) max(X)],[min(Y) max(Y)],'linestyle','none','marker','none','parent',Parent);
+    hNew = repmat(hNew,1,length(Val)+1); % pre-allocate hNew of appropriate length
     for i=1:length(Val)
         if convert
             Str=sprintf(Ops.numformat,Val(i));
         else
             Str=Val{i};
         end
-        hNew(i+1)=text(X(i),Y(i),Str,'parent',Parent);
+        hNew(i+1)=text(X(i),Y(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
     end
 end
 set(hNew(2:end),'clipping','on',Ops.FontParams{:})

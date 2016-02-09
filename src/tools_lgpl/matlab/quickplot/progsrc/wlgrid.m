@@ -25,17 +25,37 @@ function varargout=wlgrid(cmd,varargin)
 %                                      (default)
 %                         'OldRGF'   - single precision file
 %                         'SWANgrid' - SWAN formatted single precision file
-%     'MissingValue'    : Missing value to be used for NaN coordinates
+%     'MissingValue'    : Missing value MV to be used for NaN coordinates.
+%                         Any (X,Y) pair that matches (MV,MV) will be
+%                         shifted slightly to avoid clipping, hence don't
+%                         use MV to already mark clipped points in the X,Y
+%                         datasets provided.
 %
 %   Accepted without property name: x-coordinates, y-coordinates and
 %   enclosure array (in this order), file name, file format, coordinate
 %   system strings 'Cartesian' and 'Spherical' (non-abbreviated).
 %
+%   Delft3D requires a grid with counter-clockwise orientation, i.e. when
+%   looking in the direction of increasing first index, the second index
+%   should be increasing towards the left.
+%
+%          ^ second index
+%          |
+%          |
+%          --------------> first index
+%
+%   If the write call detects that you're writing a grid with clockwise
+%   orientation, then it will give a warning. The easiest way to correct
+%   it, is to transpose the X and Y matrices, i.e. write X.' and Y.'
+%   If you explicitly specify the Enclosure array, that array needs to be
+%   adjusted accordingly: flipud(fliplr(original enclosure)) if there are
+%   no holes in the domain.
+%
 %   See also ENCLOSURE, WLDEP.
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -70,7 +90,8 @@ if nargin==0
     return
 end
 
-switch lower(cmd)
+lcmd = lower(cmd);
+switch lcmd
     case {'read','open'}
         Grid=Local_read_grid(varargin{:});
         if nargout<=1
@@ -78,18 +99,18 @@ switch lower(cmd)
         else
             varargout={Grid.X Grid.Y Grid.Enclosure Grid.CoordinateSystem Grid.MissingValue};
         end
-    case {'write'}
-        Out=Local_write_grid('newrgf',varargin{:});
-        if nargout>0
-            varargout{1}=Out;
+    case {'struct','write','newrgf','writeold','oldrgf','writeswan','swangrid'}
+        switch lcmd
+            case 'write'
+                lcmd = 'newrgf';
+            case 'writeold'
+                lcmd = 'oldrgf';
+            case 'writeswan'
+                lcmd = 'swangrid';
+            otherwise
+                % just pass lcmd
         end
-    case {'writeold'}
-        Out=Local_write_grid('oldrgf',varargin{:});
-        if nargout>0
-            varargout{1}=Out;
-        end
-    case {'writeswan'}
-        Out=Local_write_grid('swangrid',varargin{:});
+        Out=Local_write_grid(lcmd,varargin{:});
         if nargout>0
             varargout{1}=Out;
         end
@@ -358,6 +379,7 @@ notdef=(GRID.X==GRID.MissingValue) & (GRID.Y==GRID.MissingValue);
 GRID.X(notdef)=NaN;
 GRID.Y(notdef)=NaN;
 GRID.Type = gridtype;
+GRID.Orient = getorientation(GRID,~notdef);
 
 % Grid enclosure file
 fid=fopen([basename '.enc']);
@@ -379,6 +401,28 @@ else
 end
 
 
+function O = getorientation(GRID,isdef)
+if nargin==1
+    isdef = ~isnan(GRID.X) & ~isnan(GRID.Y);
+end
+O = 'undefined';
+for n = 1:size(GRID.Y,2)-1
+    for m = 1:size(GRID.X,1)-1
+        if isdef(m,n) && isdef(m,n+1) && isdef(m+1,n) && isdef(m+1,n+1)
+            M = sub2ind(size(GRID.X),[m m+1 m+1 m],[n n n+1 n+1]);
+            switch clockwise(GRID.X(M),GRID.Y(M))
+                case 1
+                    O = 'clockwise';
+                    return
+                case -1
+                    O = 'anticlockwise';
+                    return
+            end
+        end
+    end
+end
+
+
 function OK = Local_write_grid(varargin)
 % GRDWRITE writes a grid file
 %       GRDWRITE(FILENAME,GRID) writes the GRID to files that
@@ -395,13 +439,9 @@ while i<=nargin
     if ischar(varargin{i})
         switch lower(varargin{i})
             case {'autoenc','autoenclosure'}
-                autoenc = 1;
-            case 'oldrgf'
-                fileformat      ='oldrgf';
-            case 'newrgf'
-                fileformat      ='newrgf';
-            case 'swangrid'
-                fileformat      ='swangrid';
+                autoenc    = 1;
+            case {'oldrgf','newrgf','swangrid','struct'}
+                fileformat = lower(varargin{i});
             case 'cartesian'
                 Grd.CoordinateSystem='Cartesian';
             case 'spherical'
@@ -500,8 +540,7 @@ switch j
     case 3
         Format='%15.8f';
     otherwise
-        Format=fileformat;
-        fileformat='newrgf';
+        Format='<dummy>';
 end
 if isfield(Grd,'Format')
     Format=Grd.Format;
@@ -519,9 +558,20 @@ end
 % value coordinate
 Grd.X(Grd.X==Grd.MissingValue)=Grd.MissingValue+coord_eps;
 Grd.Y(Grd.Y==Grd.MissingValue)=Grd.MissingValue+coord_eps;
+%Grd.X(Grd.X==Grd.MissingValue)=NaN;
+%Grd.Y(Grd.Y==Grd.MissingValue)=NaN;
 Idx=isnan(Grd.X.*Grd.Y);                % change indicator of grid point exclusion
 Grd.X(Idx)=Grd.MissingValue;            % from NaN in Matlab to (0,0) in grid file.
 Grd.Y(Idx)=Grd.MissingValue;
+
+if ~strcmp(getorientation(Grd,~Idx),'anticlockwise')
+    warning('WLGRID:Orientation','Delft3D requires an anticlockwise grid; the grid that you''re writing does not comply to this requirement. See the help of this function for more information.')
+end
+
+if strcmp(fileformat,'struct')
+    OK=Grd;
+    return
+end
 
 % detect extension
 [path,name,ext]=fileparts(filename);

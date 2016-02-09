@@ -8,7 +8,7 @@ function [OutTxt,OutFig]=simsteps(C,i)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -253,13 +253,15 @@ end
 function Fig=createplot(cmap,X,Y,V,ttl,clm,val)
 X(X==0 & Y==0)=NaN;
 Y(isnan(X))=NaN;
-Fig=figure('colormap',cmap);
-S=surf(X,Y,V); view(0,90); shading interp
+Fig=qp_createfig('quick',ttl);
+set(Fig,'colormap',cmap);
+S=surf(X,Y,V);
+view(0,90);
+shading interp
 title(ttl)
 A=get(S,'parent');
 set(A,'clim',clm,'da',[1 1 1]);
-C=colorbar('horz');
+C=qp_colorbar('horz');
 axes(C);
 xlabel([val ' \rightarrow'])
-set(Fig,'renderer','zbuffer')
 set(findall(gcf),'deletefcn','')

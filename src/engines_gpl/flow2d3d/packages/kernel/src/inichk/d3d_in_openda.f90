@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -559,7 +559,6 @@ subroutine compute_secundary_state(gdp       )
     character*4                          , pointer :: rouwav
     character*8                          , pointer :: dischy
     integer                              , pointer :: initia
-    integer                              , pointer :: ite
     integer                              , pointer :: initi
     integer                                        :: nmaxddb
     integer                                        :: nst
@@ -841,7 +840,6 @@ subroutine compute_secundary_state(gdp       )
     rouwav              => gdp%gdtricom%rouwav
     dischy              => gdp%gdtricom%dischy
     initia              => gdp%gdtricom%initia
-    ite                 => gdp%gdtricom%ite
     initi               => gdp%gdtricom%initi
 
 
@@ -1024,11 +1022,11 @@ subroutine compute_secundary_state(gdp       )
        call trtrou(lundia    ,nmax      ,mmax      ,nmaxus    ,kmax      , &
                  & r(cfurou) ,rouflo    ,.true.    ,r(guu)    ,r(gvu)    , &
                  & r(hu)     ,i(kcu)    ,r(u1)     ,r(v1)     ,r(sig)    , &
-                 & r(z0urou) ,1         ,gdp       )
+                 & r(z0urou) ,r(deltau) ,1         ,gdp       )
        call trtrou(lundia    ,nmax      ,mmax      ,nmaxus    ,kmax      , &
                  & r(cfvrou) ,rouflo    ,.true.    ,r(gvv)    ,r(guv)    , &
                  & r(hv)     ,i(kcv)    ,r(v1)     ,r(u1)     ,r(sig)    , &
-                 & r(z0vrou) ,2         ,gdp       )
+                 & r(z0vrou) ,r(deltav) ,2         ,gdp       )
     endif
     !
     ! INITAU: calculate inital roughness heights Z0U(V)ROU

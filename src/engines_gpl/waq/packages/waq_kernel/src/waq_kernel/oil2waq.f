@@ -1,3 +1,26 @@
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!
+!!  This program is free software: you can redistribute it and/or modify
+!!  it under the terms of the GNU General Public License version 3,
+!!  as published by the Free Software Foundation.
+!!
+!!  This program is distributed in the hope that it will be useful,
+!!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!!  GNU General Public License for more details.
+!!
+!!  You should have received a copy of the GNU General Public License
+!!  along with this program. If not, see <http://www.gnu.org/licenses/>.
+!!
+!!  contact: delft3d.support@deltares.nl
+!!  Stichting Deltares
+!!  P.O. Box 177
+!!  2600 MH Delft, The Netherlands
+!!
+!!  All indications and logos of, and references to registered trademarks
+!!  of Stichting Deltares remain the property of Stichting Deltares. All
+!!  rights reserved.
+
       subroutine oil2waq ( nopart  , nosys   , notot   , nosubs  , noseg   ,
      &                     nolay   , volume  , surface , nmax    , mmax    ,
      &                     lgrida  , syname  , itime   , iddtim  , npwndw  ,
@@ -82,7 +105,7 @@
 
 !      if ( iddtim .eq. 0 ) return
 
-      if ( timon ) call timstrt ( "par2waq", ithandl )
+      if ( timon ) call timstrt ( "oil2waq", ithandl )
 
       massbal = iaflag .eq. 1
       fluxes  = btest(intopt,3)
@@ -93,6 +116,7 @@
          do isub = 1, nosubs
             partsub = syname( ioff+isub ) ( 1 : len_trim(syname(ioff+isub))-1 ) ! cut the 'p' off
             call zoek20 ( partsub, ioff, syname, 20, iwaqsub(isub) )
+            if ( iwaqsub(isub) .lt. 0 ) iwaqsub(isub) = 0 ! not found!
             if ( iwaqsub(isub) .gt. nosys ) iwaqsub(isub) = -iwaqsub(isub)      ! not dissolved
          enddo
       endif

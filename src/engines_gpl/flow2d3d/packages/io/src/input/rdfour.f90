@@ -1,9 +1,9 @@
 subroutine rdfour(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
-                & noui      ,nofou     ,kmax      ,lstsc     ,lsal      , &
-                & ltem      ,gdp       )
+                & nofou     ,kmax      ,lstsc     ,lsal      ,ltem      , &
+                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,6 +38,7 @@ subroutine rdfour(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -59,7 +60,6 @@ subroutine rdfour(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                   :: nofou  !  Description and declaration in dimens.igs
     integer                   :: nrrec  !!  Pointer to the record number in the MD-file
     logical                   :: error  !!  Flag=TRUE if an error is encountered
-    logical      , intent(in) :: noui   !!  Flag = TRUE for every program but ui
     character(*)              :: mdfrec !!  Standard rec. length in MD-file (300)
 !
 ! Local variables
@@ -126,26 +126,21 @@ subroutine rdfour(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        !
        !-------define length of file name
        !
-       call noextspaces(filfou    ,lfile     )
+       call remove_leading_spaces(filfou    ,lfile     )
        !
        !-------test file existence <YES>
        !
        if (exifil(filfou, lundia)) then
           !
-          !---------read data from external file only if noui = .true.
+          !---------read data from external file
           !
-          if (noui) then
-             !
-             !-----------open input file
-             !
-             lunfou = newlun(gdp)
-             open (lunfou, file = filfou(1:lfile), form = fmtfou,               &
-                 & status = 'old')
-             call reafou(error     ,lundia    ,lunfou    ,filfou    ,kmax      , &
-                       & lstsc     ,lsal      ,ltem      ,nofou     ,gdp       )
-             !
-             close (lunfou)
-          endif
+          lunfou = newlun(gdp)
+          open (lunfou, file = filfou(1:lfile), form = fmtfou,               &
+              & status = 'old')
+          call reafou(error     ,lundia    ,lunfou    ,filfou    ,kmax      , &
+                    & lstsc     ,lsal      ,ltem      ,nofou     ,gdp       )
+          !
+          close (lunfou)
        !
        !-------test file existence <NO>
        !

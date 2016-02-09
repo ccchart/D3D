@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,19 +21,19 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C Character function to concat two strings into a new string.
-C The arguments of this function are similar to the EXEC2 function
-C &CONCAT OF.
-C
+!
+! Character function to concat two strings into a new string.
+! The arguments of this function are similar to the EXEC2 function
+! &CONCAT OF.
+!
       CHARACTER*(*) FUNCTION CONCAT (WORD1,WORD2,MAXLE1,MAXLE2)
       CHARACTER*(*) WORD1,WORD2
       character*1   DUMMY
       INTEGER MAXLE1, MAXLE2, LENSTR, STOSH
-C
-C Obtain the lengths of WORD1 and WORD2.
-C Use STOSH to write all significant characters into CONCAT.
-C
+!
+! Obtain the lengths of WORD1 and WORD2.
+! Use STOSH to write all significant characters into CONCAT.
+!
       CONCAT = DUMMY
       LEN1 = LENSTR (WORD1,MAXLE1)
       LEN2 = LENSTR (WORD2,MAXLE2)

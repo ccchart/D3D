@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -47,7 +47,7 @@ integer, parameter :: WQParMaxLen       = 100 ! Max len of domain / comm.block
 !
 ! Domain identification for current domain
 !
-character(Len=WQParMaxLen) :: WQParCurrDomName = 'NotDefinedYet'
+!haracter(Len=WQParMaxLen) :: WQParCurrDomName = 'NotDefinedYet'
 
 
 !

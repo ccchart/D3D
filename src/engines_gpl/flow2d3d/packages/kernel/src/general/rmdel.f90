@@ -1,7 +1,7 @@
 subroutine rmdel(filnam    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,6 +38,7 @@ subroutine rmdel(filnam    ,gdp       )
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -45,6 +46,7 @@ subroutine rmdel(filnam    ,gdp       )
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    integer                             , pointer :: lundia
 !
 ! Global variables
 !
@@ -60,16 +62,26 @@ subroutine rmdel(filnam    ,gdp       )
 !
 !! executable statements -------------------------------------------------------
 !
-    call noextspaces(filnam    ,lfil      )
+    lundia              => gdp%gdinout%lundia
+    !
+    call remove_leading_spaces(filnam    ,lfil      )
     inquire (file = filnam(:lfil), exist = ex)
     if (ex) then
        inquire (file = filnam(:lfil), opened = ex)
        if (ex) then
           inquire (file = filnam(:lfil), number = luntmp)
-       else
-          luntmp = newlun(gdp)
-          open (luntmp, file = filnam(:lfil), iostat = ierr)
+          ! Need to close this first. The status = 'delete' triggers an error when file was opened as readonly.
+          close (luntmp, iostat = ierr)
        endif
-       close (luntmp, status = 'delete', iostat = ierr)
+       luntmp = newlun(gdp)
+       open (luntmp, file = filnam(:lfil), iostat = ierr)
+       if (ierr==0) then
+          close (luntmp, status = 'delete', iostat = ierr)
+          if (ierr==0) then
+             call prterr(lundia,'G051','Removing file: '//filnam(:lfil))
+          else
+             call prterr(lundia,'U190','Unable to remove file: '//filnam(:lfil))
+          endif
+       endif
     endif
 end subroutine rmdel

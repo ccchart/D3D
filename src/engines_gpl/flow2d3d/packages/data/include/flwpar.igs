@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,6 +38,7 @@ type flwoutputtype
     logical :: cumdifuflux
     logical :: difuflux
     logical :: halfdt
+    logical :: kf_minmax           ! Z-layer KF[S/U/V][MIN/MAX] arrays
     logical :: layering
     logical :: momentum
     logical :: roughness

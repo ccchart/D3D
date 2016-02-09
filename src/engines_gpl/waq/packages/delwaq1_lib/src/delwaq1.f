@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -135,7 +135,7 @@
 !     variaous input-output structures
 !
       integer, parameter             :: noitm  = 11              ! number of items with time-functions
-      integer, parameter             :: noint  = 184             ! number of integration options implemented
+      integer, parameter             :: noint  = 192             ! number of integration options implemented
       integer, parameter             :: nooutp = 9               ! number of output files
       integer                        :: nrftot(noitm)            ! number of function per item
       integer                        :: nrharm(noitm)            ! number of harmoncs per item
@@ -237,7 +237,8 @@
      *              200 ,201 ,202 ,203 ,204 ,205 ,206 ,207 ,
      *              210 ,211 ,212 ,213 ,214 ,215 ,216 ,217 ,
      *              220 ,221 ,222 ,223 ,224 ,225 ,226 ,227 ,
-     *              230 ,231 ,232 ,233 ,234 ,235 ,236 ,237 /
+     *              230 ,231 ,232 ,233 ,234 ,235 ,236 ,237 ,
+     *              240 ,241 ,242 ,243 ,244 ,245 ,246 ,247 /
 
 !     Special system init
 
@@ -483,9 +484,9 @@
      +              noinfo       , iwar         ,
      +              ierr         )
       write ( lunrep,'(//'' Messages presented in this .lst file:'')')
-!jvb  write ( lunrep,'( /'' Number of INFOrmative messages:'',I3)') noinfo
-      write ( lunrep,'( /'' Number of WARNINGS            :'',I3)') iwar
-      write ( lunrep,'(  '' Number of ERRORS during input :'',I3)') ierr
+!jvb  write ( lunrep,'( /'' Number of INFOrmative messages:'',I6)') noinfo
+      write ( lunrep,'( /'' Number of WARNINGS            :'',I6)') iwar
+      write ( lunrep,'(  '' Number of ERRORS during input :'',I6)') ierr
       write ( lunrep,'(  '' '')')
 !
       call dlwqp1 ( lun          , lchar        ,
@@ -500,11 +501,11 @@
 !
   900 continue
       write ( lunrep,'(//'' Messages presented including .lsp file:'')')
-!jvb  write ( lunrep,'( /'' Number of INFOrmative messages:'',I3)') noinfo
+!jvb  write ( lunrep,'( /'' Number of INFOrmative messages:'',I6)') noinfo
       write ( lunrep,'(  '' Number of WARNINGS            :'',I6)') iwar
       write ( lunrep,'( /'' Number of ERRORS during input :'',I6)') ierr
-      write (   *   ,'(  '' Number of WARNINGS            :'',I3)') iwar
-      write (   *   ,'(  '' Number of ERRORS during input :'',I3)') ierr
+      write (   *   ,'(  '' Number of WARNINGS            :'',I6)') iwar
+      write (   *   ,'(  '' Number of ERRORS during input :'',I6)') ierr
       write (   *   ,'(  '' '')')
 !
       if ( ierr .eq. 0 ) then

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -224,7 +224,7 @@
       write ( lunut , 1050 ) nobrk
       if ( nobrk .eq. 1 )    write ( lunut , 1060 )
 
-c      times are converted to delwaq times
+!      times are converted to delwaq times
 
       data_block%no_brk = nobrk
       allocate(data_block%times(nobrk))
@@ -233,7 +233,8 @@ c      times are converted to delwaq times
          data_block%times(ibrk-i1+1) = a2/afact + 0.5
       enddo
 
-      iorder = data_block%iorder
+      iorder = ORDER_PARAM_LOC
+      data_block%iorder = iorder
       if ( iorder .eq. ORDER_PARAM_LOC ) then
          ndim1 = data_param%no_item
          ndim2 = data_loc%no_item
@@ -260,7 +261,7 @@ c      times are converted to delwaq times
       allocate(buffer2(nsubs,nlocs,nobrk),stat=ierr_alloc)
       if ( ierr_alloc .eq. 0 ) then
          maxdim = nsubs*nlocs*nobrk
-         call getmat2( cfile , 0 , ipar_ods(ipar), loc     , timdef   ,
+         call getmat2( cfile , 0 , ipar_ods      , loc     , timdef   ,
      *                 amiss , 0 , maxdim        , buffer2 , ierror   ,
      *                                                       cfile(3) )
          do ipar = 1 , data_param%no_item
@@ -337,5 +338,5 @@ c      times are converted to delwaq times
  1070 FORMAT (  ' WARNING: location : ',I8,' not found. Name is: ',A )
  1080 FORMAT (  ' ERROR  : location is used in a computation',
      *          ' that will become corrupted !' )
-C
+!
       END

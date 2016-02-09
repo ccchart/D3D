@@ -2,7 +2,7 @@
      *                   maxinc,fout                              )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -29,8 +29,6 @@
 !  $Id$
 !  $HeadURL$
 !-----------------------------------------------------------------------
-!         D e l f t      H y d r a u l i c s   -   Section    E & Z
-!
 !             Module: SUBROUTINE INCREM
 !           Function: Computes increments (-1, 0 or 1) in the x- and y-
 !                     coordinates of the given two points

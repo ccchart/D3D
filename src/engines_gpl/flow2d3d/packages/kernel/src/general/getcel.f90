@@ -3,7 +3,7 @@ subroutine getcel(filnam    ,grpnam    ,nelems    ,elmnms    ,elmdms    , &
                 & elmnam    ,celidt    ,wrilog    ,error     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,8 @@ subroutine getcel(filnam    ,grpnam    ,nelems    ,elmnms    ,elmdms    , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
+    use string_module
+!
     implicit none
 !
 ! Global variables
@@ -125,11 +127,11 @@ subroutine getcel(filnam    ,grpnam    ,nelems    ,elmnms    ,elmdms    , &
     !
     datnam = filnam
     datnam(ind:ind + 3) = '.dat'
-    call noextspaces(datnam    ,datlen    )
+    call remove_leading_spaces(datnam    ,datlen    )
     !
     defnam = filnam
     defnam(ind:ind + 3) = '.def'
-    call noextspaces(defnam    ,deflen    )
+    call remove_leading_spaces(defnam    ,deflen    )
     !
     ! write or read data from nefis files
     !

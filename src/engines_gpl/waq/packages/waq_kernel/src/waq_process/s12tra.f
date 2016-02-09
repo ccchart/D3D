@@ -4,33 +4,44 @@
 !>\file
 !>       Generic module to process resuspension, burial, digging S1 & S2
 
-C**********************************************************************
-C     +----------------------------------------+
-C     |    D E L F T   H Y D R A U L I C S     |
-C     |    WAter Resources and Environment     |
-C     +----------------------------------------+
-C
-C***********************************************************************
-C
-C     Author  : Jos van Gils  
-C
-C     History :
-C
-C     Date    Author          Description
-C     ------  --------------  -----------------------------------
-C     ......  ..............  ..............................
-C     110912  Jos van Gils    Create first version, merge RESCAR, SWBUR, DIGCAR
-C
-C***********************************************************************
-C
-C     Description of the module :
-C
-C     Logical Units : -
+!----- GPL ---------------------------------------------------------------------
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!                                                                               
+!  This program is free software: you can redistribute it and/or modify         
+!  it under the terms of the GNU General Public License as published by         
+!  the Free Software Foundation version 3.                                      
+!                                                                               
+!  This program is distributed in the hope that it will be useful,              
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU General Public License for more details.                                 
+!                                                                               
+!  You should have received a copy of the GNU General Public License            
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
+!  are registered trademarks of Stichting Deltares, and remain the property of  
+!  Stichting Deltares. All rights reserved.                                     
+!                                                                               
+!-------------------------------------------------------------------------------
+!  $Id$
+!  $HeadURL$
+!-------------------------------------------------------------------------------
+!
+!     Description of the module :
+!
+!     Logical Units : -
 
-C     Modules called : -
+!     Modules called : -
 
-C     Name     Type   Library
-C     ------   -----  ------------
+!     Name     Type   Library
+!     ------   -----  ------------
 
       IMPLICIT NONE
 
@@ -45,7 +56,7 @@ C     ------   -----  ------------
      J         DEPTH , SWITCH, FRACS3, SCALS3, B1, B2, D1, D2, R1, R2
 
       IP  = IPOINT
-C
+!
       IFLUX = 0
       DO 9000 ISEG = 1 , NOSEG
 !!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
@@ -53,7 +64,7 @@ C
       IF (BTEST(IKNMRK(ISEG),0)) THEN
       CALL DHKMRK(2,IKNMRK(ISEG),IKMRK2)
       IF ((IKMRK2.EQ.0).OR.(IKMRK2.EQ.3)) THEN
-C
+!
 
       FRACS1 = PMSA(IP( 1))
       SCALS1 = PMSA(IP( 2))
@@ -72,23 +83,23 @@ C
       DEPTH  = PMSA(IP(15))
       SWITCH = PMSA(IP(16))
 
-C*******************************************************************************
-C**** Processes connected to the BURIAL and DIGGING
-C***********************************************************************
+!*******************************************************************************
+!**** Processes connected to the BURIAL and DIGGING
+!***********************************************************************
 
-C     RESUSPENSION
+!     RESUSPENSION
       R1 = 0.0
       R2 = 0.0
       IF ( FRACS1*SCALS1 .GE. 0.0 ) R1 = FRESS1 * FRACS1*SCALS1
       IF ( FRACS2*SCALS2 .GE. 0.0 ) R2 = FRESS2 * FRACS2*SCALS2
 	
-C     BURIAL
+!     BURIAL
       B1 = 0.0
       B2 = 0.0
       IF ( FRACS1*SCALS1 .GE. 0.0 ) B1 = FBURS1 * FRACS1*SCALS1
       IF ( FRACS2*SCALS2 .GE. 0.0 ) B2 = FBURS2 * FRACS2*SCALS2
 
-C     DIGGING
+!     DIGGING
       D1 = 0.0
       D2 = 0.0
       IF ( (SWDS1 .LT. 0.5) .AND. (FRACS1*SCALS1 .GE. 0.0) ) THEN
@@ -102,16 +113,16 @@ C     DIGGING
            D2 = FDIGS2 * FRACS3*SCALS3
       ENDIF      
 
-C     Store results
+!     Store results
 
       PMSA(IP(17)) = R1
       PMSA(IP(18)) = R2
       IF (ABS(SWITCH).LT.0.5) THEN
-C       NO SWITCH
+!       NO SWITCH
         PMSA(IP(19)) = B1
         PMSA(IP(20)) = 0.0
       ELSE
-C       SWITCH
+!       SWITCH
         PMSA(IP(19)) = 0.0
         PMSA(IP(20)) = B1
       ENDIF
@@ -122,11 +133,11 @@ C       SWITCH
       FL( 1 + IFLUX ) = R1/DEPTH 
       FL( 2 + IFLUX ) = R2/DEPTH 
       IF (ABS(SWITCH).LT.0.5) THEN
-C       NO SWITCH
+!       NO SWITCH
         FL( 3 + IFLUX ) = B1/DEPTH 
         FL( 4 + IFLUX ) = 0.0
       ELSE
-C       SWITCH
+!       SWITCH
         FL( 3 + IFLUX ) = 0.0
         FL( 4 + IFLUX ) = B1/DEPTH 
       ENDIF
@@ -136,12 +147,12 @@ C       SWITCH
 
       ENDIF
       ENDIF
-C
+!
       IFLUX = IFLUX + NOFLUX
       IP    = IP    + INCREM
-c
+!
  9000 CONTINUE
-c
+!
       RETURN
-C
+!
       END

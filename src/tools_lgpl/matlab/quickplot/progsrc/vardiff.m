@@ -23,7 +23,7 @@ function out=vardiff(var1,var2,fid,formatflag,var1name,var2name)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -181,8 +181,21 @@ elseif ~isequal(size(s1),size(s2))  % different size?
     DiffFound=1;
     printdiff(fid,br,'size',size(s1),size(s2),substr);
 elseif iscell(s1)  % & s2 is also cell! if cell -> check per element
+    if ndims(s1)==2 && min(size(s1))==1
+        % vector
+        ivec = {[]};
+    else
+        ivec = cell(1,ndims(s1));
+    end
     for i=1:numel(s1)  % s2 has same size!
-        Diff=detailedcheck(s1{i},s2{i},fid,br,sprintf('%s{%i}',substr,i));
+        if length(ivec)>1
+            [ivec{:}] = ind2sub(size(s1),i);
+            istr = sprintf('%i,',ivec{:});
+            str = sprintf('%s{%s}',substr,istr(1:end-1));
+        else
+            str = sprintf('%s{%i}',substr,i);
+        end
+        Diff=detailedcheck(s1{i},s2{i},fid,br,str);
         if Diff
             if ~DiffFound
                 DiffFound=Diff;
@@ -196,7 +209,8 @@ elseif iscell(s1)  % & s2 is also cell! if cell -> check per element
     end
 elseif isstruct(s1) || isobject(s1)
     if isobject(s1)  % in case of objects convert into structures for detailed check
-        s1=struct(s1); s2=struct(s2);
+        s1=struct(s1);
+        s2=struct(s2);
     end
     fn1=fieldnames(s1);
     fn2=fieldnames(s2);

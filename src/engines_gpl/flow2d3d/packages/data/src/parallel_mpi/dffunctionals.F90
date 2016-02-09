@@ -5,7 +5,7 @@ module dffunctionals
 !
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,17 @@ module dffunctionals
    !
    implicit none
    !
+   integer , parameter :: FILTER_LAST     =  0
+   integer , parameter :: FILTER_MIN      =  1
+   integer , parameter :: FILTER_MAX      =  2
+   integer , parameter :: FILTER_SUM      =  3
+   integer , parameter :: MIN_INT_KIND_4  = -2147483647
+   integer , parameter :: MAX_INT_KIND_4  =  2147483646
+   real(sp), parameter :: MIN_REAL_KIND_4 = -3.4028e+38_sp
+   real(sp), parameter :: MAX_REAL_KIND_4 =  3.4028e+38_sp
+   real(hp), parameter :: MIN_REAL_KIND_8 = -1.7976e+308_hp
+   real(hp), parameter :: MAX_REAL_KIND_8 =  1.7976e+308_hp
+   !
    real(sp), dimension(:,:),     allocatable, save :: glbarr2
    real(sp), dimension(:,:,:),   allocatable, save :: glbarr3
    real(sp), dimension(:,:,:,:), allocatable, save :: glbarr4
@@ -52,14 +63,16 @@ module dffunctionals
    interface dfgather_filter
       module procedure dfgather_filter_C
       module procedure dfgather_filter_I1D
-      module procedure dfgather_filter_I2D
-      module procedure dfgather_filter_R1D_sp
-      module procedure dfgather_filter_R1D_hp
-      module procedure dfgather_filter_R1D_hphp
-      module procedure dfgather_filter_R2D_sp
-      module procedure dfgather_filter_R2D_hp
-      module procedure dfgather_filter_R3D_sp
-      module procedure dfgather_filter_R3D_hp
+      module procedure dfgather_filter_I2D_flipper
+      module procedure dfgather_filter_R1D_sp2sp
+      module procedure dfgather_filter_R1D_hp2sp
+      module procedure dfgather_filter_R1D_hp2hp
+      module procedure dfgather_filter_R2D_sp2sp_flipper
+      module procedure dfgather_filter_R2D_hp2sp_flipper
+      module procedure dfgather_filter_R2D_hp2hp_flipper
+      module procedure dfgather_filter_R3D_sp2sp
+      module procedure dfgather_filter_R3D_hp2sp
+      module procedure dfgather_filter_R3D_hp2hp
    end interface dfgather_filter
    !
    interface dfgather
@@ -102,55 +115,50 @@ subroutine dfgather_filter_C(lundia, nblocal, nbtotal, nbglobal, order, &
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                            :: gdp
-integer                                          :: lundia !  Description and declaration in inout.igs
-integer                                          :: nblocal
-integer                                          :: nbtotal
-integer                                          :: nbglobal
-integer      , dimension(nblocal)  , intent(in)  :: order
-character(20), dimension(1:nblocal), intent(in)  :: inbuff
-character(20), dimension(1:nbglobal)             :: oubuff
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer      , dimension(nblocal)     , intent(in)            :: order
+character(*) , dimension(1:nblocal)   , intent(in)            :: inbuff
+character(*) , dimension(1:nbglobal)                          :: oubuff
 !
 ! Local variables
 !
-integer                                   :: j
 integer                                   :: k
 integer                                   :: m
 integer                                   :: n
 integer, dimension(:), allocatable        :: ibuff
-character(20), dimension(:), allocatable  :: rbuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
+character(len(inbuff)), dimension(:), allocatable  :: rbuff
 !
 !! executable statements -------------------------------------------------------
 !
+    ! gather the data from all nodes to the master
     if (inode == master) then
        allocate( rbuff(nbtotal) )
        allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1) )
+       allocate( ibuff(1) )
     endif
-    call dfgather_lowlevel ( rbuff, 20*nbtotal, inbuff, 20*nblocal, dfchar, gdp )
+    call dfgather_lowlevel ( rbuff, len(inbuff)*nbtotal, inbuff, len(inbuff)*nblocal, dfchar, gdp )
     call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
     if (inode == master) then
+       ! only FILTER_LAST available
        do n = 1, nbtotal
           if (ibuff(n) /= 0) oubuff(ibuff(n)) = rbuff(n)
        enddo
-       deallocate( ibuff )
-       deallocate( rbuff )
     endif
+    deallocate( ibuff )
+    deallocate( rbuff )
     call dfsync(gdp)
 end subroutine dfgather_filter_C
 !
@@ -158,7 +166,7 @@ end subroutine dfgather_filter_C
 !
 !===============================================================================
 subroutine dfgather_filter_I1D(lundia, nblocal, nbtotal, nbglobal, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
+                             & inbuff, oubuff, gdp, filter_op )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
@@ -167,68 +175,87 @@ subroutine dfgather_filter_I1D(lundia, nblocal, nbtotal, nbglobal, order, &
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                      :: gdp
-integer                                    :: lundia !  Description and declaration in inout.igs
-integer                                    :: nblocal
-integer                                    :: nbtotal
-integer                                    :: nbglobal
-integer, dimension(nblocal)  , intent(in)  :: order
-integer, dimension(1:nblocal), intent(in)  :: inbuff
-integer, dimension(1:nbglobal)             :: oubuff
-logical, intent(in), optional              :: crosec_case
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer, dimension(nblocal)           , intent(in)            :: order
+integer, dimension(1:nblocal)         , intent(in)            :: inbuff
+integer, dimension(1:nbglobal)                                :: oubuff
+integer                               , intent(in) , optional :: filter_op
 !
 ! Local variables
 !
-integer                                   :: m
 integer                                   :: n
-integer, dimension(:), allocatable        :: tempbuff
+integer                                   :: ngl
+integer, dimension(:), allocatable        :: rbuff
 integer, dimension(:), allocatable        :: ibuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
-logical                                   :: crosec_case_l
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
-    if (present(crosec_case)) then
-        crosec_case_l = crosec_case
+    if (present(filter_op)) then
+        operation = filter_op
     else
-        crosec_case_l = .false.
+        operation = FILTER_LAST
     endif
+    ! gather the data from all nodes to the master
     if (inode == master) then
-       allocate( tempbuff(nbtotal) )
+       allocate( rbuff(1:nbtotal) )
        allocate( ibuff(1:nbtotal) )
-       tempbuff = 0
+       rbuff = 0
+    else
+       allocate( rbuff(1) )
+       allocate( ibuff(1) )
     endif
-    call dfgather_lowlevel ( tempbuff, nbtotal, inbuff, nblocal, dfint, gdp )
+    call dfgather_lowlevel ( rbuff   , nbtotal, inbuff, nblocal, dfint, gdp )
     call dfgather_lowlevel ( ibuff   , nbtotal, order , nblocal, dfint, gdp )
+    ! condense the data by applying the operator
     if (inode == master) then
-       oubuff = 0
-       if (crosec_case_l) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0
           do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = oubuff(ibuff(n)) + tempbuff(n)
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = oubuff(ngl) + rbuff(n)
+             endif
           enddo
-       else
+       case (FILTER_MAX)
+          oubuff = MIN_INT_KIND_4
           do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = tempbuff(n)
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = max(oubuff(ngl), rbuff(n))
+             endif
           enddo
-       endif
-       deallocate( ibuff )
-       deallocate( tempbuff )
+       case (FILTER_MIN)
+          oubuff = MAX_INT_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = min(oubuff(ngl), rbuff(n))
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = rbuff(n)
+             endif
+          enddo
+       end select
     endif
+    deallocate( ibuff )
+    deallocate( rbuff )
     call dfsync(gdp)
 end subroutine dfgather_filter_I1D
 !
@@ -236,7 +263,7 @@ end subroutine dfgather_filter_I1D
 !
 !===============================================================================
 subroutine dfgather_filter_I2D(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
-                             & inbuff, oubuff, gdp )
+                             & inbuff, oubuff, gdp, filter_op )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
@@ -245,66 +272,106 @@ subroutine dfgather_filter_I2D(lundia, nblocal, nbtotal, nbglobal, jf, jl, order
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                             :: gdp
-integer                                           :: lundia !  Description and declaration in inout.igs
-integer                                           :: nblocal
-integer                                           :: nbtotal
-integer                                           :: nbglobal
-integer                                           :: jf
-integer                                           :: jl
-integer, dimension(nblocal)         , intent(in)  :: order
-integer, dimension(jf:jl, 1:nblocal), intent(in)  :: inbuff
-integer, dimension(jf:jl, 1:nbglobal)             :: oubuff
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer, dimension(nblocal)           , intent(in)            :: order
+integer, dimension(jf:jl, 1:nblocal)  , intent(in)            :: inbuff
+integer, dimension(jf:jl, 1:nbglobal)                         :: oubuff
+integer                               , intent(in) , optional :: filter_op
 !
 ! Local variables
 !
-integer                                   :: j
 integer                                   :: k
 integer                                   :: m
 integer                                   :: n
+integer                                   :: ngl
 integer, dimension(:)  , allocatable      :: ibuff
 integer, dimension(:,:), allocatable      :: rbuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! gather the data from all nodes to the master
     if (inode == master) then
-       allocate( rbuff(jf:jl, nbtotal) )
+       allocate( rbuff(jf:jl, 1:nbtotal) )
        allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1, 1) )
+       allocate( ibuff(1) )
     endif
     call dfgather_lowlevel ( rbuff, (jl-jf+1)*nbtotal, inbuff, (jl-jf+1)*nblocal, dfint, gdp )
     call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
     if (inode == master) then
-       oubuff = 0
-       do n = 1, nbtotal
-          if (ibuff(n) /= 0) oubuff(jf:jl, ibuff(n)) = rbuff(jf:jl, n)
-       enddo
-       deallocate( ibuff )
-       deallocate( rbuff )
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = oubuff(m, ngl) + rbuff(m, n)
+                enddo
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_INT_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = max(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_INT_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = min(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = rbuff(m, n)
+                enddo
+             endif
+          enddo
+       end select
     endif
+    deallocate( ibuff )
+    deallocate( rbuff )
     call dfsync(gdp)
 end subroutine dfgather_filter_I2D
 !
 !
 !
 !===============================================================================
-subroutine dfgather_filter_R1D_sp(lundia, nblocal, nbtotal, nbglobal, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
+subroutine dfgather_filter_I2D_flipper(lundia, nblocal, nbtotal, nbglobal, &
+                & jf, jl, order, inbuff, oubuff, gdp, filter_op, dim )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
@@ -313,80 +380,94 @@ subroutine dfgather_filter_R1D_sp(lundia, nblocal, nbtotal, nbglobal, order, &
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                                 :: gdp
-integer                                               :: lundia !  Description and declaration in inout.igs
-integer                                               :: nblocal
-integer                                               :: nbtotal
-integer                                               :: nbglobal
-integer , dimension(nblocal)   , intent(in)           :: order
-real(sp), dimension(1:nblocal) , intent(in)           :: inbuff
-real(sp), dimension(1:nbglobal)                       :: oubuff
-logical                        , intent(in), optional :: crosec_case
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer, dimension(nblocal)           , intent(in)            :: order
+integer, dimension(:,:)               , intent(in)            :: inbuff
+integer, dimension(:,:)                                       :: oubuff
+integer                               , intent(in) , optional :: filter_op
+integer                               , intent(in) , optional :: dim
 !
 ! Local variables
 !
 integer                                   :: m
 integer                                   :: n
-real(sp), dimension(:), allocatable       :: rbuff
-integer , dimension(:), allocatable       :: ibuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
-logical                                   :: crosec_case_l
+integer, dimension(:,:), allocatable      :: tbuff_in
+integer, dimension(:,:), allocatable      :: tbuff_ou
+integer                                   :: operation
+integer                                   :: gather_dim
 !
 !! executable statements -------------------------------------------------------
 !
-    if (present(crosec_case)) then
-        crosec_case_l = crosec_case
+    if (present(filter_op)) then
+        operation = filter_op
     else
-        crosec_case_l = .false.
+        operation = FILTER_LAST
     endif
-    if (inode == master) then
-       allocate( rbuff(nbtotal) )
-       allocate( ibuff(1:nbtotal) )
-       rbuff = 0.0
+    if (present(dim)) then
+        gather_dim = dim
+    else
+        gather_dim = 2
     endif
-    call dfgather_lowlevel ( rbuff, nbtotal, inbuff, nblocal, dfreal, gdp )
-    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
-    if (inode == master) then
-       oubuff = 0.0
-       if (crosec_case_l) then
-          do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = oubuff(ibuff(n)) + rbuff(n)
+    !
+    if (gather_dim == 1) then
+       ! inbuff(1:nblocal, jf:jl)  ...or... inbuff(1:nblocal, 1:jl-jf+1)
+       ! oubuff(1:nbglobal, jf:jl) ...or... oubuff(1:nbglobal, 1:jl-jf+1)
+       ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
+       allocate( tbuff_in(1:jl-jf+1, 1:nblocal) )
+       do m = 1, jl-jf+1
+          do n = 1, nblocal
+             tbuff_in(m, n) = inbuff(n, m)
           enddo
+       enddo
+       if (inode==master) then
+          allocate( tbuff_ou(1:jl-jf+1, 1:nbglobal) )
        else
-          do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = rbuff(n)
+          allocate( tbuff_ou(1, 1) )
+       endif
+       ! do the gather filter operation
+       call dfgather_filter_I2D(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                              & tbuff_in, tbuff_ou, gdp, operation )
+       ! reorder the outgoing data
+       if (inode==master) then
+          do m = 1, jl-jf+1
+             do n = 1, nbglobal
+                oubuff(n, m) = tbuff_ou(m, n)
+             enddo
           enddo
        endif
-       deallocate( ibuff )
-       deallocate( rbuff )
+       deallocate( tbuff_ou )
+       deallocate( tbuff_in )
+       call dfsync(gdp)
+    elseif (gather_dim == 2) then
+       ! inbuff(jf:jl, 1:nblocal)  ...or... inbuff(1:jl-jf+1, 1:nblocal)
+       ! oubuff(jf:jl, 1:nbglobal) ...or... oubuff(1:jl-jf+1, 1:nbglobal)
+       call dfgather_filter_I2D(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                              & inbuff, oubuff, gdp, operation )
+    else
+       write(lundia,'(A,I5)') 'Trying to apply gather_filter along invalid dimension: ',gather_dim
     endif
-    call dfsync(gdp)
-end subroutine dfgather_filter_R1D_sp
+end subroutine dfgather_filter_I2D_flipper
 !
 !
 !
 !===============================================================================
-subroutine dfgather_filter_R1D_hp(lundia, nblocal, nbtotal, nbglobal, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
+subroutine dfgather_filter_R1D_sp2sp(lundia, nblocal, nbtotal, nbglobal, order, &
+                             & inbuff, oubuff, gdp, filter_op )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
-!              the input of this function is in high precision, and output is in single precision.  This function is used to wrihis.
 !    Method used:
 !
 !!--pseudo code and references--------------------------------------------------
@@ -398,204 +479,236 @@ subroutine dfgather_filter_R1D_hp(lundia, nblocal, nbtotal, nbglobal, order, &
 !
 ! Global variables
 !
-type(globdat), target                                 :: gdp
-integer                                               :: lundia !  Description and declaration in inout.igs
-integer                                               :: nblocal
-integer                                               :: nbtotal
-integer                                               :: nbglobal
-integer , dimension(nblocal)   , intent(in)           :: order
-real(hp), dimension(1:nblocal) , intent(in)           :: inbuff
-real(sp), dimension(1:nbglobal)                       :: oubuff
-logical                        , intent(in), optional :: crosec_case
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer , dimension(nblocal)          , intent(in)            :: order
+real(sp), dimension(1:nblocal)        , intent(in)            :: inbuff
+real(sp), dimension(1:nbglobal)                               :: oubuff
+integer                               , intent(in) , optional :: filter_op
+!
+! Local variables
+!
+integer                                   :: n
+integer                                   :: ngl
+real(sp), dimension(:), allocatable       :: rbuff
+integer , dimension(:), allocatable       :: ibuff
+integer                                   :: operation
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! gather the data from all nodes to the master
+    if (inode == master) then
+       allocate( rbuff(1:nbtotal) )
+       allocate( ibuff(1:nbtotal) )
+       rbuff = 0.0_sp
+    else
+       allocate( rbuff(1) )
+       allocate( ibuff(1) )
+    endif
+    call dfgather_lowlevel ( rbuff, nbtotal, inbuff, nblocal, dfreal, gdp )
+    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
+    if (inode == master) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = oubuff(ngl) + rbuff(n)
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = max(oubuff(ngl), rbuff(n))
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = min(oubuff(ngl), rbuff(n))
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = rbuff(n)
+             endif
+          enddo
+       end select
+    endif
+    deallocate( ibuff )
+    deallocate( rbuff )
+    call dfsync(gdp)
+end subroutine dfgather_filter_R1D_sp2sp
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R1D_hp2sp(lundia, nblocal, nbtotal, nbglobal, order, &
+                             & inbuff, oubuff, gdp, filter_op )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!              the input of this function is in high precision, and output is in single precision.
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer , dimension(nblocal)          , intent(in)            :: order
+real(hp), dimension(1:nblocal)        , intent(in)            :: inbuff
+real(sp), dimension(1:nbglobal)                               :: oubuff
+integer                               , intent(in) , optional :: filter_op
 !
 ! Local variables
 !
 real(sp), dimension(:), allocatable       :: rbuff
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
     allocate(rbuff(nblocal))
     rbuff = real(inbuff,sp)
-    call dfgather_filter_R1D_sp(lundia, nblocal, nbtotal, nbglobal, order, &
-                                 & rbuff, oubuff, gdp, crosec_case )
+    if (present(filter_op)) then
+       operation = filter_op
+    else
+       operation = FILTER_LAST
+    endif
+    call dfgather_filter_R1D_sp2sp(lundia, nblocal, nbtotal, nbglobal, order, &
+                                 & rbuff, oubuff, gdp, operation )
     deallocate(rbuff)
-end subroutine dfgather_filter_R1D_hp
+end subroutine dfgather_filter_R1D_hp2sp
 !
 !
 !
 !===============================================================================
-subroutine dfgather_filter_R1D_hphp(lundia, nblocal, nbtotal, nbglobal, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
+subroutine dfgather_filter_R1D_hp2hp(lundia, nblocal, nbtotal, nbglobal, order, &
+                             & inbuff, oubuff, gdp, filter_op )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
-!              the input of this function is in high precision, and output is in high precision.  This function is used for incbc.
+!              the input of this function is in high precision, and output is in high precision.
 !    Method used:
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                                 :: gdp
-integer                                               :: lundia !  Description and declaration in inout.igs
-integer                                               :: nblocal
-integer                                               :: nbtotal
-integer                                               :: nbglobal
-integer , dimension(nblocal)   , intent(in)           :: order
-real(hp), dimension(1:nblocal) , intent(in)           :: inbuff
-real(hp), dimension(1:nbglobal)                       :: oubuff
-logical                        , intent(in), optional :: crosec_case
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer , dimension(nblocal)          , intent(in)            :: order
+real(hp), dimension(1:nblocal)        , intent(in)            :: inbuff
+real(hp), dimension(1:nbglobal)                               :: oubuff
+integer                               , intent(in) , optional :: filter_op
 !
 ! Local variables
 !
-integer                                   :: m
 integer                                   :: n
+integer                                   :: ngl
 real(hp), dimension(:), allocatable       :: rbuff
 integer , dimension(:), allocatable       :: ibuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
-logical                                   :: crosec_case_l
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
-    if (present(crosec_case)) then
-        crosec_case_l = crosec_case
+    if (present(filter_op)) then
+        operation = filter_op
     else
-        crosec_case_l = .false.
+        operation = FILTER_LAST
     endif
+    ! gather the data from all nodes to the master
     if (inode == master) then
-       allocate( rbuff(nbtotal) )
+       allocate( rbuff(1:nbtotal) )
        allocate( ibuff(1:nbtotal) )
        rbuff = 0.0_hp
+    else
+       allocate( rbuff(1) )
+       allocate( ibuff(1) )
     endif
     call dfgather_lowlevel ( rbuff, nbtotal, inbuff, nblocal, dfdble, gdp )
     call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
     if (inode == master) then
-       oubuff = 0.0_hp
-       if (crosec_case_l) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_hp
           do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = oubuff(ibuff(n)) + rbuff(n)
-          enddo
-       else
-          do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n)) = rbuff(n)
-          enddo
-       endif
-       deallocate( ibuff )
-       deallocate( rbuff )
-    endif
-    call dfsync(gdp)
-end subroutine dfgather_filter_R1D_hphp
-!
-!
-!===============================================================================
-subroutine dfgather_filter_R2D_sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
-!!--description-----------------------------------------------------------------
-!
-!    Function: gather point-wise quantities, excluding duplicates over partitions
-!    Method used:
-!
-!!--pseudo code and references--------------------------------------------------
-! NONE
-!!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
-    use precision
-    use dfparall
-    use globaldata
-!
-! Global variables
-!
-type(globdat), target                                         :: gdp
-integer                                                       :: lundia !  Description and declaration in inout.igs
-integer                                                       :: nblocal
-integer                                                       :: nbtotal
-integer                                                       :: nbglobal
-integer                                                       :: jf
-integer                                                       :: jl
-integer , dimension(nblocal)          , intent(in)            :: order
-real(sp), dimension(1:nblocal, jf:jl) , intent(in)            :: inbuff
-real(sp), dimension(1:nbglobal, jf:jl)                        :: oubuff
-logical                               , intent(in) , optional :: crosec_case
-!
-! Local variables
-!
-integer                                   :: j
-integer                                   :: k
-integer                                   :: m
-integer                                   :: n
-integer , dimension(:)  , allocatable     :: ibuff
-real(sp), dimension(:,:), allocatable     :: rbuff
-real(sp), dimension(:,:), allocatable     :: tbuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
-logical                                   :: crosec_case_l
-!
-!! executable statements -------------------------------------------------------
-!
-    if (present(crosec_case)) then
-        crosec_case_l = crosec_case
-    else
-        crosec_case_l = .false.
-    endif
-    allocate( tbuff(jf:jl, 1:nblocal) )
-    do m = jf, jl
-       do n = 1, nblocal
-          tbuff(m, n) = inbuff(n, m)
-       enddo
-    enddo
-    if (inode == master) then
-       allocate( rbuff(jf:jl, nbtotal) )
-       allocate( ibuff(1:nbtotal) )
-    endif
-    call dfgather_lowlevel ( rbuff, (jl-jf+1)*nbtotal, tbuff, (jl-jf+1)*nblocal, dfreal, gdp )
-    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
-    deallocate( tbuff )
-    if (inode == master) then
-       oubuff = 0.0
-       if (crosec_case_l) then
-       ! for cross section records, we sum the contributions from each partition
-          do n = 1, nbtotal
-             if (ibuff(n) /= 0) oubuff(ibuff(n), jf:jl) = oubuff(ibuff(n), jf:jl) + rbuff(jf:jl, n)
-          enddo
-       else
-          do n = 1, nbtotal
-             if (ibuff(n) > 0 .and. ibuff(n) <= size(oubuff,1)) then
-                oubuff(ibuff(n), jf:jl) = rbuff(jf:jl, n)
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = oubuff(ngl) + rbuff(n)
              endif
           enddo
-       endif
-       deallocate( ibuff )
-       deallocate( rbuff )
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = max(oubuff(ngl), rbuff(n))
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = min(oubuff(ngl), rbuff(n))
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_hp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                oubuff(ngl) = rbuff(n)
+             endif
+          enddo
+       end select
     endif
+    deallocate( ibuff )
+    deallocate( rbuff )
     call dfsync(gdp)
-end subroutine dfgather_filter_R2D_sp
+end subroutine dfgather_filter_R1D_hp2hp
 !
 !
 !
 !===============================================================================
-subroutine dfgather_filter_R2D_hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
-                             & inbuff, oubuff, gdp, crosec_case )
+subroutine dfgather_filter_R2D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                             & inbuff, oubuff, gdp, filter_op )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
@@ -618,28 +731,92 @@ integer                                                       :: nbglobal
 integer                                                       :: jf
 integer                                                       :: jl
 integer , dimension(nblocal)          , intent(in)            :: order
-real(hp), dimension(1:nblocal, jf:jl) , intent(in)            :: inbuff
-real(sp), dimension(1:nbglobal, jf:jl)                        :: oubuff
-logical                               , intent(in) , optional :: crosec_case
+real(sp), dimension(jf:jl, 1:nblocal) , intent(in)            :: inbuff
+real(sp), dimension(jf:jl, 1:nbglobal)                        :: oubuff
+integer                               , intent(in) , optional :: filter_op
 !
 ! Local variables
 !
+integer                                   :: k
+integer                                   :: m
+integer                                   :: n
+integer                                   :: ngl
+integer , dimension(:)  , allocatable     :: ibuff
 real(sp), dimension(:,:), allocatable     :: rbuff
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
-    allocate(rbuff(1:nblocal,jf:jl))
-    rbuff = real(inbuff,sp)
-    call dfgather_filter_R2D_sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
-                             & rbuff, oubuff, gdp, crosec_case )
-    deallocate(rbuff)
-end subroutine dfgather_filter_R2D_hp
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! gather the data from all nodes to the master
+    if (inode == master) then
+       allocate( rbuff(jf:jl, 1:nbtotal) )
+       allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1, 1) )
+       allocate( ibuff(1) )
+    endif
+    call dfgather_lowlevel ( rbuff, (jl-jf+1)*nbtotal, inbuff, (jl-jf+1)*nblocal, dfreal, gdp )
+    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
+    if (inode == master) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = oubuff(m, ngl) + rbuff(m, n)
+                enddo
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = max(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = min(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = rbuff(m, n)
+                enddo
+             endif
+          enddo
+       end select
+    endif
+    deallocate( ibuff )
+    deallocate( rbuff )
+    call dfsync(gdp)
+end subroutine dfgather_filter_R2D_sp2sp
 !
 !
 !
 !===============================================================================
-subroutine dfgather_filter_R3D_sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
-                             & inbuff, oubuff, gdp )
+subroutine dfgather_filter_R2D_sp2sp_flipper(lundia, nblocal, nbtotal, nbglobal, &
+                & jf, jl, order, inbuff, oubuff, gdp, filter_op, dim )
 !!--description-----------------------------------------------------------------
 !
 !    Function: gather point-wise quantities, excluding duplicates over partitions
@@ -648,47 +825,617 @@ subroutine dfgather_filter_R3D_sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
 !
 ! Global variables
 !
-type(globdat), target                                      :: gdp
-integer                                                    :: lundia !  Description and declaration in inout.igs
-integer                                                    :: nblocal
-integer                                                    :: nbtotal
-integer                                                    :: nbglobal
-integer                                                    :: jf
-integer                                                    :: jl
-integer                                                    :: kf
-integer                                                    :: kl
-integer , dimension(nblocal)                 , intent(in)  :: order
-real(sp), dimension(1:nblocal, jf:jl, kf:kl) , intent(in)  :: inbuff
-real(sp), dimension(1:nbglobal, jf:jl, kf:kl)              :: oubuff
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer,  dimension(nblocal)          , intent(in)            :: order
+real(sp), dimension(:,:)              , intent(in)            :: inbuff
+real(sp), dimension(:,:)                                      :: oubuff
+integer                               , intent(in) , optional :: filter_op
+integer                               , intent(in) , optional :: dim
 !
 ! Local variables
 !
-integer                                   :: j
+integer                                   :: m
+integer                                   :: n
+real(sp), dimension(:,:), allocatable     :: tbuff_in
+real(sp), dimension(:,:), allocatable     :: tbuff_ou
+integer                                   :: operation
+integer                                   :: gather_dim
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    if (present(dim)) then
+        gather_dim = dim
+    else
+        gather_dim = 1
+    endif
+    !
+    if (gather_dim == 1) then
+       ! inbuff(1:nblocal, jf:jl)  ...or... inbuff(1:nblocal, 1:jl-jf+1)
+       ! oubuff(1:nbglobal, jf:jl) ...or... oubuff(1:nbglobal, 1:jl-jf+1)
+       ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
+       allocate( tbuff_in(1:jl-jf+1, 1:nblocal) )
+       do m = 1, jl-jf+1
+          do n = 1, nblocal
+             tbuff_in(m, n) = inbuff(n, m)
+          enddo
+       enddo
+       if (inode==master) then
+          allocate( tbuff_ou(1:jl-jf+1, 1:nbglobal) )
+       else
+          allocate( tbuff_ou(1, 1) )
+       endif
+       ! do the gather filter operation
+       call dfgather_filter_R2D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & tbuff_in, tbuff_ou, gdp, operation )
+       ! reorder the outgoing data
+       if (inode==master) then
+          do m = 1, jl-jf+1
+             do n = 1, nbglobal
+                oubuff(n, m) = tbuff_ou(m, n)
+             enddo
+          enddo
+       endif
+       deallocate( tbuff_ou )
+       deallocate( tbuff_in )
+       call dfsync(gdp)
+    elseif (gather_dim == 2) then
+       ! inbuff(jf:jl, 1:nblocal)  ...or... inbuff(1:jl-jf+1, 1:nblocal)
+       ! oubuff(jf:jl, 1:nbglobal) ...or... oubuff(1:jl-jf+1, 1:nbglobal)
+       call dfgather_filter_R2D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & inbuff, oubuff, gdp, operation )
+    else
+       write(lundia,'(A,I5)') 'Trying to apply gather_filter along invalid dimension: ',gather_dim
+    endif
+end subroutine dfgather_filter_R2D_sp2sp_flipper
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R2D_hp2sp_flipper(lundia, nblocal, nbtotal, nbglobal, &
+                & jf, jl, order, inbuff, oubuff, gdp, filter_op, dim )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer,  dimension(nblocal)          , intent(in)            :: order
+real(hp), dimension(:,:)              , intent(in)            :: inbuff
+real(sp), dimension(:,:)                                      :: oubuff
+integer                               , intent(in) , optional :: filter_op
+integer                               , intent(in) , optional :: dim
+!
+! Local variables
+!
+integer                                   :: m
+integer                                   :: n
+real(sp), dimension(:,:), allocatable     :: tbuff_in
+real(sp), dimension(:,:), allocatable     :: tbuff_ou
+integer                                   :: operation
+integer                                   :: gather_dim
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    if (present(dim)) then
+        gather_dim = dim
+    else
+        gather_dim = 1
+    endif
+    !
+    if (gather_dim == 1) then
+       ! inbuff(1:nblocal, jf:jl)  ...or... inbuff(1:nblocal, 1:jl-jf+1)
+       ! oubuff(1:nbglobal, jf:jl) ...or... oubuff(1:nbglobal, 1:jl-jf+1)
+       ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
+       allocate( tbuff_in(1:jl-jf+1, 1:nblocal) )
+       do m = 1, jl-jf+1
+          do n = 1, nblocal
+             tbuff_in(m, n) = inbuff(n, m)
+          enddo
+       enddo
+       if (inode==master) then
+          allocate( tbuff_ou(1:jl-jf+1, 1:nbglobal) )
+       else
+          allocate( tbuff_ou(1, 1) )
+       endif
+       ! do the gather filter operation
+       call dfgather_filter_R2D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & tbuff_in, tbuff_ou, gdp, operation )
+       ! reorder the outgoing data
+       if (inode==master) then
+          do m = 1, jl-jf+1
+             do n = 1, nbglobal
+                oubuff(n, m) = tbuff_ou(m, n)
+             enddo
+          enddo
+       endif
+       deallocate( tbuff_ou )
+       deallocate( tbuff_in )
+       call dfsync(gdp)
+    elseif (gather_dim == 2) then
+       ! inbuff(jf:jl, 1:nblocal)  ...or... inbuff(1:jl-jf+1, 1:nblocal)
+       ! oubuff(jf:jl, 1:nbglobal) ...or... oubuff(1:jl-jf+1, 1:nbglobal)
+       ! no flipping of dimensions needed, only convert to single precision
+       allocate(tbuff_in(1:jl-jf+1,1:nblocal))
+       tbuff_in = real(inbuff,sp)
+       call dfgather_filter_R2D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & tbuff_in, oubuff, gdp, operation )
+       deallocate( tbuff_in )
+    else
+       write(lundia,'(A,I5)') 'Trying to apply gather_filter along invalid dimension: ',gather_dim
+    endif
+end subroutine dfgather_filter_R2D_hp2sp_flipper
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R2D_hp2hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                             & inbuff, oubuff, gdp, filter_op )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer , dimension(nblocal)          , intent(in)            :: order
+real(hp), dimension(jf:jl, 1:nblocal) , intent(in)            :: inbuff
+real(hp), dimension(jf:jl, 1:nbglobal)                        :: oubuff
+integer                               , intent(in) , optional :: filter_op
+!
+! Local variables
+!
 integer                                   :: k
 integer                                   :: m
 integer                                   :: n
+integer                                   :: ngl
+integer , dimension(:)  , allocatable     :: ibuff
+real(hp), dimension(:,:), allocatable     :: rbuff
+integer                                   :: operation
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! gather the data from all nodes to the master
+    if (inode == master) then
+       allocate( rbuff(jf:jl, 1:nbtotal) )
+       allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1, 1) )
+       allocate( ibuff(1) )
+    endif
+    call dfgather_lowlevel ( rbuff, (jl-jf+1)*nbtotal, inbuff, (jl-jf+1)*nblocal, dfdble, gdp )
+    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    ! condense the data by applying the operator
+    if (inode == master) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_hp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = oubuff(m, ngl) + rbuff(m, n)
+                enddo
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = max(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = min(oubuff(m, ngl), rbuff(m, n))
+                enddo
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_hp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do m = jf, jl
+                   oubuff(m, ngl) = rbuff(m, n)
+                enddo
+             endif
+          enddo
+       end select
+    endif
+    deallocate( ibuff )
+    deallocate( rbuff )
+    call dfsync(gdp)
+end subroutine dfgather_filter_R2D_hp2hp
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R2D_hp2hp_flipper(lundia, nblocal, nbtotal, nbglobal, &
+                & jf, jl, order, inbuff, oubuff, gdp, filter_op, dim )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                         :: gdp
+integer                                                       :: lundia !  Description and declaration in inout.igs
+integer                                                       :: nblocal
+integer                                                       :: nbtotal
+integer                                                       :: nbglobal
+integer                                                       :: jf
+integer                                                       :: jl
+integer,  dimension(nblocal)          , intent(in)            :: order
+real(hp), dimension(:,:)              , intent(in)            :: inbuff
+real(hp), dimension(:,:)                                      :: oubuff
+integer                               , intent(in) , optional :: filter_op
+integer                               , intent(in) , optional :: dim
+!
+! Local variables
+!
+integer                                   :: m
+integer                                   :: n
+real(hp), dimension(:,:), allocatable     :: tbuff_in
+real(hp), dimension(:,:), allocatable     :: tbuff_ou
+integer                                   :: operation
+integer                                   :: gather_dim
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    if (present(dim)) then
+        gather_dim = dim
+    else
+        gather_dim = 1
+    endif
+    !
+    if (gather_dim == 1) then
+       ! inbuff(1:nblocal, jf:jl)  ...or... inbuff(1:nblocal, 1:jl-jf+1)
+       ! oubuff(1:nbglobal, jf:jl) ...or... oubuff(1:nbglobal, 1:jl-jf+1)
+       ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
+       allocate( tbuff_in(1:jl-jf+1, 1:nblocal) )
+       do m = 1, jl-jf+1
+          do n = 1, nblocal
+             tbuff_in(m, n) = inbuff(n, m)
+          enddo
+       enddo
+       if (inode==master) then
+          allocate( tbuff_ou(1:jl-jf+1, 1:nbglobal) )
+       else
+          allocate( tbuff_ou(1, 1) )
+       endif
+       ! do the gather filter operation
+       call dfgather_filter_R2D_hp2hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & tbuff_in, tbuff_ou, gdp, operation )
+       ! reorder the outgoing data
+       if (inode==master) then
+          do m = 1, jl-jf+1
+             do n = 1, nbglobal
+                oubuff(n, m) = tbuff_ou(m, n)
+             enddo
+          enddo
+       endif
+       deallocate( tbuff_ou )
+       deallocate( tbuff_in )
+       call dfsync(gdp)
+    elseif (gather_dim == 2) then
+       ! inbuff(jf:jl, 1:nblocal)  ...or... inbuff(1:jl-jf+1, 1:nblocal)
+       ! oubuff(jf:jl, 1:nbglobal) ...or... oubuff(1:jl-jf+1, 1:nbglobal)
+       call dfgather_filter_R2D_hp2hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, order, &
+                                    & inbuff, oubuff, gdp, operation )
+    else
+       write(lundia,'(A,I5)') 'Trying to apply gather_filter along invalid dimension: ',gather_dim
+    endif
+end subroutine dfgather_filter_R2D_hp2hp_flipper
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R3D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
+                             & inbuff, oubuff, gdp, filter_op )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                                :: gdp
+integer                                                              :: lundia !  Description and declaration in inout.igs
+integer                                                              :: nblocal
+integer                                                              :: nbtotal
+integer                                                              :: nbglobal
+integer                                                              :: jf
+integer                                                              :: jl
+integer                                                              :: kf
+integer                                                              :: kl
+integer , dimension(nblocal)                 , intent(in)            :: order
+real(sp), dimension(1:nblocal, jf:jl, kf:kl) , intent(in)            :: inbuff
+real(sp), dimension(1:nbglobal, jf:jl, kf:kl)                        :: oubuff
+integer                                      , intent(in) , optional :: filter_op
+!
+! Local variables
+!
+integer                                   :: k
+integer                                   :: m
+integer                                   :: n
+integer                                   :: ngl
 integer , dimension(:)    , allocatable   :: ibuff
 real(sp), dimension(:,:,:), allocatable   :: rbuff
 real(sp), dimension(:,:,:), allocatable   :: tbuff
-integer                                   :: onode
-integer                                   :: ierr                   ! error value of MPI call
-#ifdef HAVE_MPI
-    integer                               :: istat(mpi_status_size) ! MPI status array
-#endif
-character(80)                             :: msgstr                 ! string to pass message
-integer                                   :: itag
+integer                                   :: operation
 !
 !! executable statements -------------------------------------------------------
 !
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
+    allocate( tbuff(jf:jl, kf:kl, 1:nblocal) )
+    do k = kf, kl
+       do m = jf, jl
+          do n = 1, nblocal
+             tbuff(m, k, n) = inbuff(n, m, k)
+          enddo
+       enddo
+    enddo
+    ! gather the data from all nodes to the master
+    if (inode == master) then
+       allocate( rbuff(jf:jl, kf:kl, 1:nbtotal) )
+       allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1, 1, 1) )
+       allocate( ibuff(1) )
+    endif
+    call dfgather_lowlevel ( rbuff, (jl-jf+1)*(kl-kf+1)*nbtotal, tbuff, (jl-jf+1)*(kl-kf+1)*nblocal, dfreal, gdp )
+    call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
+    deallocate( tbuff )
+    ! condense the data by applying the operator - in the meantime change the dimensions back to original order
+    if (inode == master) then
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = oubuff(ngl, m, k) + rbuff(m, k, n)
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = max(oubuff(ngl, m, k), rbuff(m, k, n))
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_4
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = min(oubuff(ngl, m, k), rbuff(m, k, n))
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_sp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = rbuff(m, k, n)
+                   enddo
+                enddo
+             endif
+          enddo
+       end select
+    endif
+    deallocate( rbuff )
+    deallocate( ibuff )
+    call dfsync(gdp)
+end subroutine dfgather_filter_R3D_sp2sp
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R3D_hp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
+                             & inbuff, oubuff, gdp, filter_op )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                                :: gdp
+integer                                                              :: lundia !  Description and declaration in inout.igs
+integer                                                              :: nblocal
+integer                                                              :: nbtotal
+integer                                                              :: nbglobal
+integer                                                              :: jf
+integer                                                              :: jl
+integer                                                              :: kf
+integer                                                              :: kl
+integer , dimension(nblocal)                 , intent(in)            :: order
+real(hp), dimension(1:nblocal, jf:jl, kf:kl) , intent(in)            :: inbuff
+real(sp), dimension(1:nbglobal, jf:jl, kf:kl)                        :: oubuff
+integer                                      , intent(in) , optional :: filter_op
+!
+! Local variables
+!
+real(sp), dimension(:,:,:), allocatable   :: rbuff
+integer                                   :: operation
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    allocate(rbuff(1:nblocal, jf:jl, kf:kl))
+    rbuff = real(inbuff,sp)
+    call dfgather_filter_R3D_sp2sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
+                             & rbuff, oubuff, gdp, operation )
+    deallocate(rbuff)
+end subroutine dfgather_filter_R3D_hp2sp
+!
+!
+!
+!===============================================================================
+subroutine dfgather_filter_R3D_hp2hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
+                             & inbuff, oubuff, gdp, filter_op )
+!!--description-----------------------------------------------------------------
+!
+!    Function: gather point-wise quantities, excluding duplicates over partitions
+!    Method used:
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                                :: gdp
+integer                                                              :: lundia !  Description and declaration in inout.igs
+integer                                                              :: nblocal
+integer                                                              :: nbtotal
+integer                                                              :: nbglobal
+integer                                                              :: jf
+integer                                                              :: jl
+integer                                                              :: kf
+integer                                                              :: kl
+integer , dimension(nblocal)                 , intent(in)            :: order
+real(hp), dimension(1:nblocal, jf:jl, kf:kl) , intent(in)            :: inbuff
+real(hp), dimension(1:nbglobal, jf:jl, kf:kl)                        :: oubuff
+integer                                      , intent(in) , optional :: filter_op
+!
+! Local variables
+!
+integer                                   :: k
+integer                                   :: m
+integer                                   :: n
+integer                                   :: ngl
+integer , dimension(:)    , allocatable   :: ibuff
+real(hp), dimension(:,:,:), allocatable   :: rbuff
+real(hp), dimension(:,:,:), allocatable   :: tbuff
+integer                                   :: operation
+!
+!! executable statements -------------------------------------------------------
+!
+    if (present(filter_op)) then
+        operation = filter_op
+    else
+        operation = FILTER_LAST
+    endif
+    ! reorder the incoming data because the gather dimension should be the last (slowest) dimension
     allocate( tbuff(jf:jl, kf:kl, 1:nblocal) )
     do m = jf, jl
        do k = kf, kl
@@ -697,70 +1444,75 @@ integer                                   :: itag
           enddo
        enddo
     enddo
+    ! gather the data from all nodes to the master
     if (inode == master) then
        allocate( rbuff(jf:jl, kf:kl, 1:nbtotal) )
        allocate( ibuff(1:nbtotal) )
+    else
+       allocate( rbuff(1, 1, 1) )
+       allocate( ibuff(1) )
     endif
-    call dfgather_lowlevel ( rbuff, (jl-jf+1)*(kl-kf+1)*nbtotal, tbuff, (jl-jf+1)*(kl-kf+1)*nblocal, dfreal, gdp )
+    call dfgather_lowlevel ( rbuff, (jl-jf+1)*(kl-kf+1)*nbtotal, tbuff, (jl-jf+1)*(kl-kf+1)*nblocal, dfdble, gdp )
     call dfgather_lowlevel ( ibuff, nbtotal, order, nblocal, dfint, gdp )
     deallocate( tbuff )
+    ! condense the data by applying the operator - in the meantime change the dimensions back to original order
     if (inode == master) then
-       do n = 1, nbtotal
-          if (ibuff(n) /= 0) oubuff(ibuff(n), jf:jl, kf:kl) = rbuff(jf:jl, kf:kl, n)
-       enddo
-       deallocate( rbuff )
-       deallocate( ibuff )
+       select case (operation)
+       case (FILTER_SUM)
+          oubuff = 0.0_hp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = oubuff(ngl, m, k) + rbuff(m, k, n)
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_MAX)
+          oubuff = MIN_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = max(oubuff(ngl, m, k), rbuff(m, k, n))
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_MIN)
+          oubuff = MAX_REAL_KIND_8
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = min(oubuff(ngl, m, k), rbuff(m, k, n))
+                   enddo
+                enddo
+             endif
+          enddo
+       case (FILTER_LAST)
+          oubuff = 0.0_hp
+          do n = 1, nbtotal
+             ngl = ibuff(n)
+             if (ngl /= 0 .and. ngl <= nbglobal) then
+                do k = kf, kl
+                   do m = jf, jl
+                      oubuff(ngl, m, k) = rbuff(m, k, n)
+                   enddo
+                enddo
+             endif
+          enddo
+       end select
     endif
+    deallocate( rbuff )
+    deallocate( ibuff )
     call dfsync(gdp)
-end subroutine dfgather_filter_R3D_sp
+end subroutine dfgather_filter_R3D_hp2hp
 !
-!
-!
-!===============================================================================
-subroutine dfgather_filter_R3D_hp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
-                             & inbuff, oubuff, gdp )
-!!--description-----------------------------------------------------------------
-!
-!    Function: gather point-wise quantities, excluding duplicates over partitions
-!    Method used:
-!
-!!--pseudo code and references--------------------------------------------------
-! NONE
-!!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
-    use precision
-    use dfparall
-    use globaldata
-!
-! Global variables
-!
-type(globdat), target                                      :: gdp
-integer                                                    :: lundia !  Description and declaration in inout.igs
-integer                                                    :: nblocal
-integer                                                    :: nbtotal
-integer                                                    :: nbglobal
-integer                                                    :: jf
-integer                                                    :: jl
-integer                                                    :: kf
-integer                                                    :: kl
-integer , dimension(nblocal)                 , intent(in)  :: order
-real(hp), dimension(1:nblocal, jf:jl, kf:kl) , intent(in)  :: inbuff
-real(sp), dimension(1:nbglobal, jf:jl, kf:kl)              :: oubuff
-!
-! Local variables
-!
-real(sp), dimension(:,:,:), allocatable   :: rbuff
-!
-!! executable statements -------------------------------------------------------
-!
-    allocate(rbuff(1:nblocal, jf:jl, kf:kl))
-    rbuff = real(inbuff,sp)
-    call dfgather_filter_R3D_sp(lundia, nblocal, nbtotal, nbglobal, jf, jl, kf, kl, order, &
-                             & rbuff, oubuff, gdp )
-    deallocate(rbuff)
-end subroutine dfgather_filter_R3D_hp
 !
 !
 !===============================================================================
@@ -805,8 +1557,6 @@ integer                                   :: iil
 integer                                   :: jjf
 integer                                   :: jjl
 integer                                   :: ip
-integer                                   :: itag
-integer                                   :: istat
 integer                                   :: ierr
 integer                                   :: nfi
 integer                                   :: nla
@@ -838,6 +1588,8 @@ integer, dimension(:,:), allocatable      :: inparr_slice
           lengl = lengl + msiz*nsiz
        enddo
        allocate(tmp(lengl))
+    else
+       allocate(tmp(1))
     endif
     nfg => gdp%gdparall%nfg
     nlg => gdp%gdparall%nlg
@@ -878,8 +1630,8 @@ integer, dimension(:,:), allocatable      :: inparr_slice
           enddo
           is = is + msiz*nsiz
        enddo
-       deallocate(tmp)
     endif
+    deallocate(tmp)
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
@@ -928,8 +1680,6 @@ integer                                :: iil
 integer                                :: jjf
 integer                                :: jjl
 integer                                :: ip
-integer                                :: itag
-integer                                :: istat
 integer                                :: ierr
 integer                                :: nfi
 integer                                :: nla
@@ -961,6 +1711,8 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
           lengl = lengl + msiz*nsiz
        enddo
        allocate(tmp(lengl))
+    else
+       allocate(tmp(1))
     endif
     nfg => gdp%gdparall%nfg
     nlg => gdp%gdparall%nlg
@@ -1005,8 +1757,8 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
           is = is + msiz*nsiz
           !
        enddo
-       deallocate(tmp)
     endif
+    deallocate(tmp)
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
@@ -1097,8 +1849,6 @@ integer                                 :: jjl
 integer                                 :: kf
 integer                                 :: kl
 integer                                 :: ip
-integer                                 :: itag
-integer                                 :: istat
 integer                                 :: ierr
 integer                                 :: nfi
 integer                                 :: nla
@@ -1134,6 +1884,8 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
        enddo
        lengl = lengl*(kl-kf+1)
        allocate(tmp(lengl))
+    else
+       allocate(tmp(1))
     endif
     nfg => gdp%gdparall%nfg
     nlg => gdp%gdparall%nlg
@@ -1178,8 +1930,8 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
           enddo
           is = is + msiz*nsiz*(kl-kf+1)
        enddo
-       deallocate(tmp)
     endif
+    deallocate(tmp)
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
@@ -1199,9 +1951,6 @@ subroutine dfgather_R3e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
@@ -1275,7 +2024,6 @@ integer                                    :: kl
 integer                                    :: lf
 integer                                    :: ll
 integer                                    :: ip
-integer                                    :: itag
 integer                                    :: istat
 integer                                    :: ierr
 integer                                    :: nfi
@@ -1315,8 +2063,10 @@ real(sp), dimension(:,:,:,:), allocatable  :: inparr_slice
        enddo
        lengl = lengl*(kl-kf+1)*(ll-lf+1)
        allocate(tmp(lengl), stat=istat)
-       if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for tmp array'
+    else
+       allocate(tmp(1), stat=istat)
     endif
+    if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for tmp array'
     nfg => gdp%gdparall%nfg
     nlg => gdp%gdparall%nlg
     mfg => gdp%gdparall%mfg
@@ -1361,8 +2111,8 @@ real(sp), dimension(:,:,:,:), allocatable  :: inparr_slice
           enddo
           is = is + msiz*nsiz*(kl-kf+1)*(ll-lf+1)
        enddo
-       deallocate(tmp)
     endif
+    deallocate(tmp)
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
@@ -1382,9 +2132,6 @@ subroutine dfgather_R4e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-#ifdef HAVE_MPI
-    use mpi
-#endif
     use precision
     use dfparall
     use globaldata
@@ -1450,11 +2197,17 @@ character(20), dimension(:), allocatable    :: namto
 !
 !! executable statements -------------------------------------------------------
 !
-    if (inode == master) allocate( nbarr( nproc ) )
+    if (inode == master) then
+       allocate( nbarr( nproc ) )
+    else
+       allocate( nbarr( 1 ) )
+    endif
     call dfgather_lowlevel ( nbarr, nproc, nb, 1, dfint, gdp )
     if (inode == master) then
        nbto = SUM(nbarr)
        allocate( namto(1:nbto) )
+    else
+       allocate( namto(1) )
     endif
     call dfgather_lowlevel ( namto, 20*nbto, nam, 20*nb, dfchar, gdp )
     if (inode == master) then
@@ -1474,9 +2227,9 @@ character(20), dimension(:), allocatable    :: namto
           endif
        enddo
        nbgl = count(duplicate == 0)
-       deallocate( namto )
-       deallocate( nbarr )
     endif
+    deallocate( namto )
+    deallocate( nbarr )
     call dfbroadc_gdp( nbgl, 1, dfint, gdp)
     call dfbroadc_gdp( nbto, 1, dfint, gdp)
 end subroutine dffind_duplicate_C
@@ -1516,7 +2269,11 @@ integer, dimension(:), allocatable          :: nbarr
 !
 !! executable statements -------------------------------------------------------
 !
-    if (inode == master) allocate( nbarr( nproc ) )
+    if (inode == master) then
+       allocate( nbarr( nproc ) )
+    else
+       allocate( nbarr( 1 ) )
+    endif
     call dfgather_lowlevel ( nbarr, nproc, nb, 1, dfint, gdp )
     if (inode == master) then
        nbto = SUM(nbarr)
@@ -1539,8 +2296,8 @@ integer, dimension(:), allocatable          :: nbarr
           enddo search_loop
           if (.not.found) nbgl = nbgl + 1
        enddo
-       deallocate( nbarr )
     endif
+    deallocate( nbarr )
     call dfbroadc_gdp( nbgl, 1, dfint, gdp)
     call dfbroadc_gdp( nbto, 1, dfint, gdp)
 end subroutine dffind_duplicate_I
@@ -1732,7 +2489,6 @@ real(hp), dimension(:,:,:)      , intent(in) :: inparr
 ! Local variables
 !
 real(sp), dimension(:,:,:), allocatable    :: tmp
-integer :: istat
 !
 !! executable statements -------------------------------------------------------
 !
@@ -1847,6 +2603,3 @@ end subroutine dfcleanup_glbarrs
 
 
 end module
-
-
-

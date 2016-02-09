@@ -7,7 +7,7 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
                & grmsur    ,grmsvr    ,grfacu    ,grfacv    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -58,6 +58,7 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
     logical                 , pointer :: struct
     logical                 , pointer :: zmodel
     logical                 , pointer :: roller
+    integer                 , pointer :: rolcorr
     real(fp)                , pointer :: ag
     real(fp), dimension(:,:), pointer :: ustokes
     real(fp), dimension(:,:), pointer :: vstokes
@@ -130,6 +131,7 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
     struct     => gdp%gdprocs%struct
     zmodel     => gdp%gdprocs%zmodel
     roller     => gdp%gdprocs%roller
+    rolcorr    => gdp%gdbetaro%rolcorr
     ustokes    => gdp%gdtrisol%ustokes
     vstokes    => gdp%gdtrisol%vstokes
     gammax     => gdp%gdnumeco%gammax
@@ -149,6 +151,10 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
     p1   = 0.0_fp
     p2   = 0.0_fp
     if (wave) then
+       if (zmodel) then
+           uwork = 0.0_fp
+           vwork = 0.0_fp
+       endif
        if (kmax > 1) then
           !
           ! 3D case
@@ -189,9 +195,9 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
                           ustokes(nm, k) = 0.0
                       enddo
                       !
-                      ! First compute contribution of roller mass flux (distributed over top of water column (0.5*Hrms))
-                      !
-                      if (kmax>1) then
+                      if (rolcorr==2 .and. kmax>1) then
+                         !
+                         ! Compute contribution of roller mass flux (distributed over top of water column (0.5*Hrms))
                          !
                          ! Find index krol of lowest cell to which roller mass flux is added
                          ! 
@@ -288,9 +294,9 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
                           vstokes(nm, k) = 0.0
                       enddo
                       !
-                      ! First compute contribution of roller mass flux (distributed over top of water column (0.5*Hrms))
-                      !
-                      if (kmax>1) then
+                      if (rolcorr==2 .and. kmax>1) then
+                         !
+                         ! Compute contribution of roller mass flux (distributed over top of water column (0.5*Hrms))
                          !
                          ! Find index krol of lowest cell to which roller mass flux is added
                          ! 
@@ -361,12 +367,20 @@ subroutine euler(j         ,nmmax     ,nmmaxj    ,kmax      ,icx       , &
           !
           do nm = 1, nmmax
              if (kfu(nm)==1 .and. kcu(nm)>-1 .and. kcu(nm)<=2) then
-                uwork(nm, 1) = u1(nm, 1) - (grmasu(nm) + grfacu(nm))/hu(nm) 
+                if (rolcorr>0) then
+                   uwork(nm, 1) = u1(nm, 1) - (grmasu(nm) + grfacu(nm))/hu(nm) 
+                else
+                   uwork(nm, 1) = u1(nm, 1) - grfacu(nm)/hu(nm) 
+                endif
              else
                 uwork(nm, 1) = u1(nm, 1)
              endif
              if (kfv(nm)==1 .and. kcv(nm)>-1 .and. kcv(nm)<=2) then
-                vwork(nm, 1) = v1(nm, 1) - (grmasv(nm) + grfacv(nm))/hv(nm) 
+                if (rolcorr>0) then
+                   vwork(nm, 1) = v1(nm, 1) - (grmasv(nm) + grfacv(nm))/hv(nm) 
+                else
+                   vwork(nm, 1) = v1(nm, 1) - grfacv(nm)/hv(nm) 
+                endif                
              else
                 vwork(nm, 1) = v1(nm, 1)
              endif

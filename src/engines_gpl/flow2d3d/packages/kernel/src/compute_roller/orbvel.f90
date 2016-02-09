@@ -3,7 +3,7 @@ subroutine orbvel(nmmax     ,kfs       ,dps       ,ubot      , &
                 & hrms      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -48,6 +48,7 @@ subroutine orbvel(nmmax     ,kfs       ,dps       ,ubot      , &
     real(fp)               , pointer :: rhow
     real(fp)               , pointer :: ag
     logical                , pointer :: ubot_from_com
+    logical                , pointer :: wlen_from_com
 !
 ! Global variables
 !
@@ -55,7 +56,7 @@ subroutine orbvel(nmmax     ,kfs       ,dps       ,ubot      , &
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: kfs    !  Description and declaration in esm_alloc_int.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: ewave1 !  Description and declaration in esm_alloc_real.f90
-    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: rlabda !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: rlabda !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: s1     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: tp     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: ubot   !  Description and declaration in esm_alloc_real.f90
@@ -68,33 +69,62 @@ subroutine orbvel(nmmax     ,kfs       ,dps       ,ubot      , &
     real(fp) :: e
     real(fp) :: h
     real(fp) :: hk
+    real(fp) :: omega
+    real(fp) :: k0
+    real(fp) :: k0h
+    real(fp) :: k
 !
 !! executable statements -------------------------------------------------------
 !
     rhow            => gdp%gdphysco%rhow
     ag              => gdp%gdphysco%ag
     ubot_from_com   => gdp%gdprocs%ubot_from_com
+    wlen_from_com   => gdp%gdprocs%wlen_from_com
     !
     do nm = 1, nmmax
        if (kfs(nm)/=0) then
+          !
           h = max(0.01_fp, s1(nm) + real(dps(nm),fp))
           e = ewave1(nm)
+          !
           if (e>1.0e-2 .and. tp(nm)>1.0e-2 .and. rlabda(nm)>1.0e-2) then
-             hrms(nm) = sqrt(8.0*e/rhow/ag)
+             !
+             ! Wave height          
+             !          
+             hrms(nm) = sqrt(8.0_fp*e/rhow/ag)
+             !
+             ! Wave length          
+             !          
+             if (.not.wlen_from_com) then
+                omega      = 2.0_fp*pi/tp(nm)
+                k0         = omega*omega/ag
+                k0h        = k0*h
+                if (k0h>pi) then
+                   k = k0
+                elseif (k0h<0.005) then
+                   k = omega/sqrt(ag*h)
+                else
+                   call wavenr(h        ,tp(nm)       ,k         ,ag        )
+                endif
+                rlabda(nm) = 2.0_fp*pi/k
+             endif
+             !
+             ! Orbital velocity          
+             !          
              if (ubot_from_com) then
                 uorb(nm) = ubot(nm)
              else
-                hk = 2.0*pi/rlabda(nm)*h
+                hk = 2.0_fp*pi/rlabda(nm)*h
                 hk = min(100.0_fp, hk)
                 uorb(nm) = pi*hrms(nm)/tp(nm)/sinh(hk)
              endif
           else
-             uorb(nm) = 0.0
-             hrms(nm) = 0.0
+             uorb(nm) = 0.0_fp
+             hrms(nm) = 0.0_fp
           endif
        else
-          uorb(nm) = 0.0
-          hrms(nm) = 0.0
+          uorb(nm) = 0.0_fp
+          hrms(nm) = 0.0_fp
        endif
     enddo
 end subroutine orbvel

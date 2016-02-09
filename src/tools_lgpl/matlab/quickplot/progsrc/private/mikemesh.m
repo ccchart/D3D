@@ -14,7 +14,7 @@ function S = mikemesh(cmd,FileName)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -55,6 +55,9 @@ S.FileType = 'MikeFM mesh';
 fid = fopen(FileName,'r');
 try
     nNodes=fscanf(fid,'%i');
+    if length(nNodes)>1 % e.g. 100079 1000 4875
+        nNodes = nNodes(3);
+    end
     S.Proj=fgetl(fid);
     Coords=fscanf(fid,'%f',[5 nNodes]);
     if ~isequal(Coords(1,:),1:nNodes)

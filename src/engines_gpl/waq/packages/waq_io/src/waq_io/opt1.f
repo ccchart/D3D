@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -319,7 +319,9 @@
  2110 format (/' ERROR: This option is not supported here !')
  2120 format ( ' Work file = ',A,' Interpolation option:',I2)
  2130 format (/' ERROR: String is not a valid absolute timer:',A)
- 2140 format (/' ERROR: Absolute timer does not fit in timer format :',A)
+ 2140 format (/' ERROR: Absolute timer does not fit in timer format :',A,/
+     &          ' Is your T0 setting in block #1 correct?'/,
+     &          ' Allowed difference with T0 is usually ca. 68 years.' )
  2150 format (/' ERROR: Not a valid token at this position: ',A)
 
       end

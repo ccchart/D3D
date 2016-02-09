@@ -13,10 +13,19 @@
 #   keep up with every new compiler update.  This script should be ultra-low
 #   maintanence.
 #
-#   Irv.Elshoff@Deltares.NL
-#   2 jul 12
+#   irv.elshoff@deltares.nl
+#   adri.mourits@deltares.nl
+#   04 Feb 2015
 #
 #   Copyright (C)  Stichting Deltares, 2011-2013.
+#-------------------------------------------------------------------------------
+#
+#   WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+#
+#   This script contains references to Deltares specific systems.
+#   Use this script as an example and modify it to fit to your system.
+#   See file README for compiling without using this script.
+#
 #-------------------------------------------------------------------------------
 
 # This script must be executed in the directory where it resides
@@ -43,6 +52,7 @@ function usage {
     echo "    -intel11.0 (-intel11)"
     echo "    -intel11.1"
     echo "    -intel12"
+    echo "    -intel14 (-intel14.0.3)"
     }
 
 
@@ -109,6 +119,9 @@ while [ $# -gt 0 ]; do
         -intel12)
             compiler='intel12'
             ;;
+        -intel14|-intel14.0.3)
+            compiler='intel14'
+            ;;
         -m|-make)
             noMake=1
             ;;
@@ -154,6 +167,12 @@ case $compiler in
         addpath PATH /opt/gcc/bin
         addpath LD_LIBRARY_PATH /opt/gcc/lib /opt/gcc/lib64
         echo "Using GNU compilers in `witch gfortran`"
+        ;;
+
+    intel14)
+        ifortInit=". /opt/intel/composer_xe_2013_sp1.3.174/bin/compilervars.sh $platform"
+        iccInit=""
+        echo "Using Intel 14.0.3 Fortran ($platform) compiler"
         ;;
 
     intel12)
@@ -275,11 +294,11 @@ else
     export LDFLAGSMT_ADDITIONAL="-lifcoremt"
 fi
 
-
 #---------------------
 # netcdf
-# export PKG_CONFIG_PATH=/opt/netcdf-4.1.1/ifort/lib/pkgconfig:$PKG_CONFIG_PATH
-# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/netcdf-4.1.1/ifort/lib:/opt/hdf5-1.8.5/lib
+ export NETCDFROOT=/p/delft3d/opt/netcdf-4.1.3mt/intel11.1
+ export PKG_CONFIG_PATH=$NETCDFROOT/lib/pkgconfig:$PKG_CONFIG_PATH
+ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NETCDFROOT/lib
 
 
 #===============================================================================
@@ -352,23 +371,16 @@ fi
 # More information here:
 # http://www.gentoo.org/proj/en/base/amd64/howtos/index.xml?full=1#book_part1_chap3
 
-if [ "$platform" = 'intel64' ]; then
-    command=" \
-        CFLAGS='$flags $CFLAGS' \
-        CXXFLAGS='$flags $CXXFLAGS' \
-        FFLAGS='$flags $fflags $FFLAGS' \
-        FCFLAGS='$flags $fflags $FCFLAGS' \
-            ./configure --prefix=`pwd` $configureArgs &> $log \
-        "
-else
-    command=" \
-        CFLAGS='$flags $CFLAGS' \
-        CXXFLAGS='$flags $CXXFLAGS' \
-        FFLAGS='$flags $fflags $FFLAGS' \
-        FCFLAGS='$flags $fflags $FCFLAGS' \
-            ./configure --prefix=`pwd` $configureArgs &> $log \
-        "
-fi
+command=" \
+    CFLAGS='$flags $CFLAGS' \
+    CXXFLAGS='$flags $CXXFLAGS' \
+    AM_FFLAGS='$LDFLAGSMT_ADDITIONAL $AM_FFLAGS' \
+    FFLAGS='$flags $fflags $FFLAGS' \
+    AM_FCFLAGS='$LDFLAGSMT_ADDITIONAL $AM_FCFLAGS' \
+    FCFLAGS='$flags $fflags $FCFLAGS' \
+    AM_LDFLAGS='$LDFLAGSMT_ADDITIONAL $AM_LDFLAGS' \
+        ./configure --prefix=`pwd` $configureArgs &> $log \
+    "
 
 log "Running `echo $command | sed 's/ +/ /g'`"
 eval $command

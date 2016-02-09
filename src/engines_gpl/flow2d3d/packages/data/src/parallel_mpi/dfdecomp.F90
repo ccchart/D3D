@@ -1,7 +1,7 @@
 subroutine dfdecomp ( lunmd, lundia, error, runid, gdp )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -130,7 +130,18 @@ subroutine dfdecomp ( lunmd, lundia, error, runid, gdp )
     !
     ! if not parallel, return
     !
-    if (.not.parll) return
+    if (.not.parll) then
+       !
+       ! mf, ml, nf, nl and iarrc are passed through as parameters in some output files,
+       ! also without parall.
+       ! To avoid crashes (only release version, only DD simulations, only sometimes....):
+       allocate(gdparall%nf(0:0), &
+           & gdparall%nl(0:0), &
+           & gdparall%mf(0:0), &
+           & gdparall%ml(0:0), &
+           & gdparall%iarrc(4,0:0), stat=istat)
+       return
+    endif
     !
     ! allocate and initialize some work arrays (e.g. ICOM)
     !

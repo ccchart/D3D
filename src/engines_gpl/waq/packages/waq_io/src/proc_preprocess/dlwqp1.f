@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -94,6 +94,7 @@
       integer                   :: lurep           ! unit number report file
       integer                   :: lunblm          ! unit number bloom file
       integer                   :: lunfrm          ! unit number bloom frm file
+      integer                   :: lund09          ! unit number bloom d09 file
       integer                   :: mlevel          ! monitoring level
 
       integer                   :: isys            ! index variable
@@ -172,6 +173,7 @@
       ! information
 
       character*20   rundat
+      logical        ex
 
       ! bloom-species database
 
@@ -332,37 +334,53 @@
             pdffil = lchar(34)
          endif
          call rd_tabs( pdffil, lurep , versio, serial, noinfo,
-     +                 nowarn, ierr  )
-         write (lurep, *  )
-         write (lurep,2001) trim(lchar(34))
-         write (lurep,2002) versio
-         write (lurep,2003) serial
-         write (lurep, *  )
-
-         ! fill the old_items conversion table
-
-         call fill_old_items(old_items)
-
+     +                 nowarn, ierr )
+         if (ierr.gt.0) then
+            write(lurep,*) ' '
+            write(lurep,*) ' ERROR: Could not read the process definition file.'
+            write(lurep,*) '        Check if the filename after -p is correct, and exists.'
+            write(lurep,*) '        Use -np if you want to run without processes.'
+            write(lurep,*) ' '
+            write(*,*) ' error opening nefis file(s):', trim(pdffil)
+            write(*,*) ' '
+            write(*,*) ' ERROR: Could not read the process definition file.'
+            write(*,*) '        Check if the filename after -p is correct, and exists.'
+            write(*,*) '        Use -np if you want to run without processes.'
+            write(*,*) ' '
+            call srstop(1)
+         else
+            write (lurep, *  )
+            write (lurep,2001) trim(lchar(34))
+            write (lurep,2002) versio
+            write (lurep,2003) serial
+            write (lurep, *  )
+   
+            ! fill the old_items conversion table
+   
+            call fill_old_items(old_items)
+         endif
       endif
 
       ! old serial definitions
 
-      call getcom ( '-target_serial'  , 1    , lfound, target_serial, rdummy, cdummy, ierr2)
-      if ( lfound ) then
-         write(line,'(a)' ) ' found -target_serial command line switch'
-         call monsys(line,1)
-         if ( ierr2.ne. 0 ) then
-            old_items%target_serial = target_serial
-            write(line,'(a)')' no serial number given, using current'
+      if ( .not. swi_nopro ) then
+         call getcom ( '-target_serial'  , 1    , lfound, target_serial, rdummy, cdummy, ierr2)
+         if ( lfound ) then
+            write(line,'(a)' ) ' found -target_serial command line switch'
             call monsys(line,1)
-            old_items%target_serial = serial
+            if ( ierr2.ne. 0 ) then
+               old_items%target_serial = target_serial
+               write(line,'(a)')' no serial number given, using current'
+               call monsys(line,1)
+               old_items%target_serial = serial
+            else
+               write(line,'(a,i13)') ' using target serial number: ', target_serial
+               call monsys(line,1)
+               old_items%target_serial = target_serial
+            endif
          else
-            write(line,'(a,i13)') ' using target serial number: ', target_serial
-            call monsys(line,1)
-            old_items%target_serial = target_serial
+            old_items%target_serial = serial
          endif
-      else
-         old_items%target_serial = serial
       endif
 
       ! configuration
@@ -641,6 +659,14 @@
          call blmeff (lurep , lunblm, lunfrm, grpnam, nogrp )
          close(lunblm)
          close(lunfrm)
+         
+         inquire (file = 'bloominp.d09', exist = ex)
+         if(.not.ex) then
+            lund09 = 89
+            open ( lund09    , file='bloominp.d09' )
+            call blmd09 (lurep , lund09)
+            close(lund09)
+         endif
       endif
 
       ! calculate new totals

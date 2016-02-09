@@ -12,7 +12,7 @@ function svnstripfile(basedir)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -55,7 +55,7 @@ for i = 1:length(d)
         svnstripfile([basedir filesep d(i).name])
     else
         [p,f,e] = fileparts(d(i).name);
-        if ~strcmp(e,'.m') && ~strcmp(e,'.c') && ~strcmp(e,'.cpp')
+        if ~strcmp(e,'.m') && ~strcmp(e,'.c') && ~strcmp(e,'.cpp') && ~strcmp(e,'.ini')
             %
             % only process m, c and cpp files
             %

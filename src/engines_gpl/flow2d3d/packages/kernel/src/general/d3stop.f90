@@ -1,7 +1,7 @@
 subroutine d3stop(iexit, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -64,6 +64,7 @@ subroutine d3stop(iexit, gdp)
     logical                       , pointer :: sbkol
     integer                       , pointer :: numdomains
     logical                       , pointer :: rtcact
+    integer                       , pointer :: rtc_domainnr
 !
 ! Global variables
 !
@@ -87,6 +88,7 @@ subroutine d3stop(iexit, gdp)
     couplemod    => gdp%gdprocs%couplemod
     sbkol        => gdp%gdprocs%sbkol
     numdomains   => gdp%gdprognm%numdomains
+    rtc_domainnr => gdp%gdrtc%rtc_domainnr
     rtcact       => gdp%gdrtc%rtcact
     !
     idumda =  0
@@ -104,8 +106,7 @@ subroutine d3stop(iexit, gdp)
     ! Check if RTC-connection is active and if so
     ! send (negative) status to shut down RTC
     !
-    if (rtcact) then
-       call syncflowrtc_send(istate, idumda, idate)
+    if (rtcact .and. rtc_domainnr == 1) then
        call syncflowrtc_close
     endif
     !

@@ -3,7 +3,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
                 & s1     ,timhr  ,morhr  ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     use flow_tables
     use bedcomposition_module
     use m_alloc
+    use dfparall, only: parll, inode, nproc
     !
     use globaldata
     !
@@ -104,69 +105,64 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
 !
 ! Local variables
 !
-    integer,dimension(4) :: paract
-    integer  :: i
-    integer  :: i2
-    integer  :: ia
-    integer  :: ib
-    integer  :: ib2
-    integer  :: id
-    integer  :: il
-    integer  :: imax
-    integer  :: imaxdunes
-    integer  :: imin
-    integer  :: imindunes
-    integer  :: inm
-    integer  :: irock
-    integer  :: istat
-    integer  :: j
-    integer  :: jnm
-    integer  :: lsed
-    integer  :: nm
-    integer  :: np
-    integer  :: in_ndomains
-    integer  :: globalnpnt
-    integer  :: localoffset
-    real(fp) :: areatim
-    real(fp) :: availvolume ! volume available for dredging
-    real(fp) :: avg_alphadune
-    real(fp) :: avg_depth
-    real(fp) :: avg_trigdepth
-    real(fp) :: clr
-    real(fp) :: ddp
-    real(fp) :: div2h
-    real(fp) :: dmax
-    real(fp) :: dpadd
-    real(fp) :: dredge_area
-    real(fp) :: dump_area
-    real(fp) :: dz
-    real(fp) :: dzdump
-    real(fp) :: dzl        ! depth change due to one sediment fraction
-    real(fp) :: extravolume
-    real(fp) :: factor
-    real(fp) :: fracdumped
-    real(fp) :: fracoutlet
-    real(fp) :: lin_dz
-    real(fp) :: ltimhr
-    real(fp) :: maxdumpvol ! (maximum) volume to be dumped in current time step
-    real(fp) :: maxvol     ! maximum volume to be dredged in current time step
-    real(fp) :: plough_fac ! fraction of dune height that remains after ploughing
-    real(fp) :: qua_dz
-    real(fp) :: requiredvolume
-    real(fp) :: voltim     ! local volume variable, various meanings
-    real(fp), dimension(1) :: values
-    real(fp) :: voldredged
-    real(fp) :: voldumped
-    real(fp) :: voltot
-    real(fp) :: z_dredge
-    real(fp) :: z_dump
-    real(fp) :: zmin
-    real(fp) :: zmax
-    logical  :: local_cap
-    logical  :: dredged
-    logical  :: ploughed
-    type(dredtype), pointer :: pdredge
-    type(dumptype), pointer :: pdump
+    integer                         :: i
+    integer                         :: i2
+    integer                         :: ia
+    integer                         :: ib
+    integer                         :: ib2
+    integer                         :: id
+    integer                         :: il
+    integer                         :: imax
+    integer                         :: imaxdunes
+    integer                         :: imin
+    integer                         :: imindunes
+    integer                         :: inm
+    integer                         :: irock
+    integer                         :: istat
+    integer                         :: j
+    integer                         :: jnm
+    integer                         :: lsed
+    integer                         :: nm
+    integer                         :: np
+    integer                         :: in_ndomains
+    integer                         :: globalnpnt
+    integer                         :: localoffset
+    integer ,dimension(4)           :: paract
+    real(fp)                        :: areatim
+    real(fp)                        :: availvolume ! volume available for dredging
+    real(fp)                        :: avg_alphadune
+    real(fp)                        :: avg_depth
+    real(fp)                        :: avg_trigdepth
+    real(fp)                        :: clr
+    real(fp)                        :: ddp
+    real(fp)                        :: div2h
+    real(fp)                        :: dmax
+    real(fp)                        :: dpadd
+    real(fp)                        :: dredge_area
+    real(fp)                        :: dump_area
+    real(fp)                        :: dz
+    real(fp)                        :: dzdump
+    real(fp)                        :: dzl        ! depth change due to one sediment fraction
+    real(fp)                        :: extravolume
+    real(fp)                        :: factor
+    real(fp)                        :: fracdumped
+    real(fp)                        :: fracoutlet
+    real(fp)                        :: lin_dz
+    real(fp)                        :: ltimhr
+    real(fp)                        :: maxdumpvol ! (maximum) volume to be dumped in current time step
+    real(fp)                        :: maxvol     ! maximum volume to be dredged in current time step
+    real(fp)                        :: plough_fac ! fraction of dune height that remains after ploughing
+    real(fp)                        :: qua_dz
+    real(fp)                        :: requiredvolume
+    real(fp)                        :: voltim     ! local volume variable, various meanings
+    real(fp), dimension(1)          :: values
+    real(fp)                        :: voldredged
+    real(fp)                        :: voldumped
+    real(fp)                        :: voltot
+    real(fp)                        :: z_dredge
+    real(fp)                        :: z_dump
+    real(fp)                        :: zmin
+    real(fp)                        :: zmax
     real(fp), dimension(:), pointer :: numpoints
     real(fp), dimension(:), pointer :: dz_dredge
     real(fp), dimension(:), pointer :: area
@@ -178,8 +174,15 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     real(fp), dimension(:), pointer :: dz_dump
     real(fp), dimension(:), pointer :: troughlevel
     real(fp), dimension(:), pointer :: sedimentdepth
-    logical , dimension(:), pointer :: triggered
     real(fp), dimension(:), pointer :: dz_dummy
+    logical                         :: dredged
+    logical                         :: error
+    logical                         :: local_cap
+    logical                         :: ploughed
+    logical , dimension(:), pointer :: triggered
+    character(80)                   :: msgstr
+    type(dredtype),         pointer :: pdredge
+    type(dumptype),         pointer :: pdump
 !
 !! executable statements -------------------------------------------------------
 !
@@ -225,15 +228,20 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     !
     if (firstdredge) then
        globalareadump = localareadump
-       if (numdomains > 1) then
+       if (numdomains > 1 .or. parll) then
           !
           ! Start communication with other domains
           ! Determine number of domains that use dredging
           ! Determine "rank" of current domain (use 1-based number instead of
           ! the 0-based number returned by C routine)
           !
-          call dredgestartcommunicate (dredge_domainnr, dredge_ndomains)
-          dredge_domainnr = dredge_domainnr+1
+          if (parll) then
+              dredge_domainnr = inode
+              dredge_ndomains = nproc
+          else
+              call start_dd_dredgecommunication (dredge_domainnr, dredge_ndomains)
+              dredge_domainnr = dredge_domainnr+1
+          endif
           !
           ! For all dredge and dump areas count the global number of points
           ! Due to the way dredgecommunicate is implemented we need to
@@ -249,7 +257,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
              numpoints = 0.0_fp
              numpoints(dredge_domainnr) = real(pdredge%npnt,fp)
              !
-             call dredgecommunicate (numpoints, dredge_ndomains)
+             call dredgecommunicate(numpoints, dredge_ndomains, error, msgstr)
+             if (error) goto 999
              !
              in_ndomains = 0
              globalnpnt = 0
@@ -271,7 +280,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
                 !
                 istat = 0
                 call reallocP(pdredge%area         ,globalnpnt,fill=0.0_fp,shift=localoffset,stat=istat)
-                call dredgecommunicate (pdredge%area, pdredge%npnt)
+                call dredgecommunicate(pdredge%area, pdredge%npnt, error, msgstr)
+                if (error) goto 999
                 !
                 call reallocP(pdredge%hdune        ,globalnpnt       ,shift=localoffset,stat=istat)
                 call reallocP(pdredge%dz_dredge    ,globalnpnt       ,shift=localoffset,stat=istat)
@@ -308,7 +318,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
              numpoints = 0.0_fp
              numpoints(dredge_domainnr) = real(pdump%npnt,fp)
              !
-             call dredgecommunicate (numpoints, dredge_ndomains)
+             call dredgecommunicate(numpoints, dredge_ndomains, error, msgstr)
+             if (error) goto 999
              !
              in_ndomains = 0
              globalnpnt = 0
@@ -330,7 +341,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
                 !
                 istat = 0
                 call reallocP(pdump%area    ,globalnpnt,fill=0.0_fp,shift=localoffset,stat=istat)
-                call dredgecommunicate (pdump%area, pdump%npnt)
+                call dredgecommunicate(pdump%area, pdump%npnt, error, msgstr)
+                if (error) goto 999
                 !
                 call reallocP(pdump%hdune   ,globalnpnt       ,shift=localoffset,stat=istat)
                 call reallocP(pdump%reflevel,globalnpnt       ,shift=localoffset,stat=istat)
@@ -356,7 +368,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
           !
           ! Communicate dump areas with other domains
           !
-          call dredgecommunicate (globalareadump, nadump)
+          call dredgecommunicate(globalareadump, nadump, error, msgstr)
+          if (error) goto 999
        else
           !
           ! Only one domain, so no exchange needed for any dredge or dump area
@@ -444,11 +457,12 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
        endif
     enddo
     !
-    if (numdomains > 1) then
+    if (numdomains > 1 .or. parll) then
        !
        ! Communicate dump capacity with other domains
        !
-       call dredgecommunicate (globaldumpcap, nadump)
+       call dredgecommunicate(globaldumpcap, nadump, error, msgstr)
+       if (error) goto 999
     endif
     !
     ! For each dredging area carry out the dredging.
@@ -569,10 +583,14 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
           !
           ! communicate dredge data among domains
           !
-          call dredgecommunicate (reflevel, pdredge%npnt)
-          call dredgecommunicate (bedlevel, pdredge%npnt)
-          call dredgecommunicate (hdune, pdredge%npnt)
-          call dredgecommunicate (sedimentdepth, pdredge%npnt)
+          call dredgecommunicate(reflevel, pdredge%npnt, error, msgstr)
+          if (error) goto 999
+          call dredgecommunicate(bedlevel, pdredge%npnt, error, msgstr)
+          if (error) goto 999
+          call dredgecommunicate(hdune, pdredge%npnt, error, msgstr)
+          if (error) goto 999
+          call dredgecommunicate(sedimentdepth, pdredge%npnt, error, msgstr)
+          if (error) goto 999
        endif
        !
        availvolume = 0.0_fp
@@ -1268,6 +1286,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
              call writemessages(gdp%messages, lundia)
              call d3stop(1, gdp)
           endif
+       else
+          dbodsd = 0.0_fp
        endif
        !
        ! Use dbodsd to calculate voldred, and update dps
@@ -1292,11 +1312,12 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
        enddo
     enddo
     !
-    if (numdomains > 1) then
+    if (numdomains > 1 .or. parll) then
        !
        ! Communicate dredged volumes with other domains
        !
-       call dredgecommunicate (voldred, (nadred+nasupl)*(lsedtot+1))
+       call dredgecommunicate(voldred, (nadred+nasupl)*(lsedtot+1), error, msgstr)
+       if (error) goto 999
     endif
     !
     !--------------------------------------------------------------------------
@@ -1493,9 +1514,12 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
           !
           ! communicate dredge data among domains
           !
-          call dredgecommunicate (reflevel, pdump%npnt)
-          call dredgecommunicate (bedlevel, pdump%npnt)
-          call dredgecommunicate (dz_dump, pdump%npnt)
+          call dredgecommunicate(reflevel, pdump%npnt, error, msgstr)
+          if (error) goto 999
+          call dredgecommunicate(bedlevel, pdump%npnt, error, msgstr)
+          if (error) goto 999
+          call dredgecommunicate(dz_dump, pdump%npnt, error, msgstr)
+          if (error) goto 999
        endif
        !
        ! Go through dumping procedure only if some dump capacity is available
@@ -1692,4 +1716,28 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
        endif
        deallocate(dz_dummy, stat=istat)
     endif
+    return
+
+999 call prterr(lundia, 'U021', msgstr)
+    call d3stop(1, gdp)
 end subroutine dredge
+
+
+subroutine dredgecommunicate(a, n, error, msgstr)
+    use precision
+    use dfparall, only: parll, dfloat, dfsum
+    implicit none
+    !
+    integer               , intent(in)    :: n      ! length of real array
+    real(fp), dimension(n), intent(inout) :: a      ! real array to be accumulated
+    logical               , intent(out)   :: error  ! error flag
+    character(*)          , intent(out)   :: msgstr ! string to pass message
+    !
+    if (parll) then
+        call dfreduce ( a, n, dfloat, dfsum, error, msgstr )
+    else
+        error = .false.
+        msgstr = ' '
+        call dd_dredgecommunicate(a,n)
+    endif
+end subroutine dredgecommunicate

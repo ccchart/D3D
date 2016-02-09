@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -200,7 +200,7 @@
          endif
          dl = a / al
          e  = e*dl                              ! in m3/s
-C
+!
          if ( ifrom .lt. 0 ) goto 20
          if ( ito   .lt. 0 ) goto 40
 

@@ -9,7 +9,7 @@ function [Data, errmsg] = qp_netcdf_get(FI,var,RequestDims,RequestedSubset)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -53,6 +53,17 @@ if isempty(Info)
     error('Variable ''%s'' not found in file.',Info.Name)
 end
 %
+if nargin<4
+    if nargin<3
+        RequestDims = Info.Dimension;
+    end
+    RequestedSubset = cell(1,length(RequestDims));
+    for i = 1:length(RequestDims)
+        idim = strmatch(RequestDims{i},Info.Dimension,'exact');
+        RequestedSubset{i} = 1:Info.Size(idim);
+    end
+end
+%
 rank=Info.Rank;
 N=length(RequestDims);
 permuted=zeros(1,N);
@@ -92,10 +103,6 @@ fliporder = ~getpref('SNCTOOLS','PRESERVE_FVD',false);
    reverse=1:Info.Rank;
 %end
 %
-loadtype = 'double';
-if Info.Nctype == nc_char
-    loadtype = 'text';
-end
 if isempty(Info.Dimid)
     Data = nc_varget(FI.Filename,FI.Dataset(varid+1).Name);
 elseif nargin==3
@@ -122,16 +129,11 @@ else
         end
     end
     %
-    %if fliporder
-    %    start_coord = fliplr(start_coord);
-    %    count_coord = fliplr(count_coord);
-    %end
-    %
     Data = nc_varget(FI.Filename,FI.Dataset(varid+1).Name,start_coord,count_coord);
     if length(count_coord)>1
         Data = reshape(Data,count_coord);
     end
-    %Data=Data(RS_netcdf{reverse});
+    Data = Data(RS_netcdf{:});
 end
 %
 if ~isa(Data,'double') && ~isa(Data,'char')
@@ -174,10 +176,15 @@ if ~isempty(Info.Attribute)
     missval = strmatch('_FillValue',Attribs,'exact');
     if ~isempty(missval)
         missval = Info.Attribute(missval).Value;
-        if missval>0
-            Data(Data>=missval)=NaN;
-        else
-            Data(Data<=missval)=NaN;
+        switch qp_settings('netcdf_use_fillvalue')
+            case 'exact_match'
+                Data(Data==missval)=NaN;
+            otherwise % 'valid_range'
+                if missval>0
+                    Data(Data>=missval)=NaN;
+                else
+                    Data(Data<=missval)=NaN;
+                end
         end
     else
         % NCL standard or general standard?

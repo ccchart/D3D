@@ -1,3 +1,29 @@
+! ---- LGPL --------------------------------------------------------------------
+!
+! Copyright (C)  Stichting Deltares, 2011-2016.
+!
+! This library is free software; you can redistribute it and/or
+! modify it under the terms of the GNU Lesser General Public
+! License as published by the Free Software Foundation version 2.1.
+!
+! This library is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public
+! License along with this library; if not, see <http://www.gnu.org/licenses/>.
+!
+! contact: delft3d.support@deltares.nl
+! Stichting Deltares
+! P.O. Box 177
+! 2600 MH Delft, The Netherlands
+!
+! All indications and logos of, and references to, "Delft3D" and "Deltares"
+! are registered trademarks of Stichting Deltares, and remain the property of
+! Stichting Deltares. All rights reserved.
+!
+!------------------------------------------------------------------------------
 c        $Author: Markus $
 c        $Date: 1-04-03 10:52 $
 c        $Source: /u/cvsroot/gpp/libsrc/ods/tri_his.f,v $
@@ -49,8 +75,6 @@ c#endif
      *                  maxlst, lang  , parlst, paruni, partyp, parcod,
      *                  nrlst , ierror, option                        )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: parameter name selection for time histories
 c                     TRISULA NEFIS files
 c        Method used:
@@ -735,8 +759,6 @@ c#endif
      *                  (fname ,itype ,dimtyp, pardep, timdep,
      *                   locdep,ndim  ,ierror, option        )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: dimension selection for time histories
 c                     TRISULA NEFIS files
 c        Method used:
@@ -886,7 +908,7 @@ c--------------------------------------------------------------------
 c-----Read array-dimension nrcel from Nefis HIS-files group 1
 c--------------------------------------------------------------------
       grpdef = 'his-info-series'
-      grpndm = 5 
+      grpndm = 5
       celnam = grpdef
       ierror = INQGRP(hdefds   ,grpdef    ,celnam    ,grpndm    ,
      *                grpdms   ,grpord                          )
@@ -1253,8 +1275,6 @@ c#endif
      *                  maxlst ,        timlst,         timtyp ,
      *                  nrlst  ,ierror ,option                         )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: time selection for time histories
 c                     TRISULA NEFIS files
 c        Method used:
@@ -1410,7 +1430,7 @@ c--------------------------------------------------------------------
 c-----Read array-dimension nrcel from Nefis HIS-files group 1
 c--------------------------------------------------------------------
       grpdef = 'his-info-series'
-      grpndm = 5 
+      grpndm = 5
       celnam = grpdef
       ierror = INQGRP(hdefds   ,grpdef    ,celnam    ,grpndm    ,
      *                grpdms   ,grpord                          )
@@ -1586,8 +1606,6 @@ c-----------------------------------------------------------------------
 
       subroutine julind(hdefds, hdafds, tim, nindex, ierror)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: transform julian day to index in time series
 c        Method used:
 c
@@ -1716,7 +1734,7 @@ c--------------------------------------------------------------------
 c-----Read array-dimension nrcel from Nefis HIS-files group 1
 c--------------------------------------------------------------------
       grpdef = 'his-info-series'
-      grpndm = 5 
+      grpndm = 5
       celnam = grpdef
       ierror = INQGRP(hdefds   ,grpdef    ,celnam    ,grpndm    ,
      *                grpdms   ,grpord                          )
@@ -1873,8 +1891,6 @@ c#endif
      *                  maxlst ,        loclst ,        loctyp ,nrlst  ,
      *                  locnr  ,ierror ,zbuffs ,option                 )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: parameter name selection for time histories
 c                     TRISULA NEFIS files
 c        Method used:
@@ -2131,8 +2147,6 @@ c#endif
      *                  (fname ,itype  ,parcod, loc   , tim   ,misval,
      *                   i3gl  ,maxdim ,xdata , ierror, option,zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select history data out of
 c                     TRISULA NEFIS files
 c        Method used:
@@ -2519,8 +2533,6 @@ c-----------------------------------------------------------------------
       subroutine m3h2d  (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   , pardef, xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     pardef
 c
@@ -2617,8 +2629,6 @@ c-----------------------------------------------------------------------
       subroutine m3h15  (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   ,         xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     15 viscosity, ZVICWW
 c
@@ -2744,8 +2754,6 @@ c-----------------------------------------------------------------------
      *                   kmax  , lay   , lmax  , parcod, xdata , ierror,
      *                   zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     20 constituent ,<parcod-19>
 c
@@ -2850,8 +2858,6 @@ c-----------------------------------------------------------------------
      *                   kmax  , lay   , ltur  , zturid, xdata , ierror,
      *                   zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     20 turbulence constituent ,<zturid>
 c
@@ -2955,8 +2961,6 @@ c-----------------------------------------------------------------------
       subroutine m3h31  (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   ,         xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     31 density, ZRHO
 c
@@ -3056,8 +3060,6 @@ c-----------------------------------------------------------------------
       subroutine m3h32  (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   ,         xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     32 diffusivity, ZDICWW
 c
@@ -3185,8 +3187,6 @@ c-----------------------------------------------------------------------
       subroutine m3hfuv (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   , pardef, xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     PARDEF
 c
@@ -3267,7 +3267,7 @@ c
 c
 c-----Read array-dimension nrcel from Nefis HIS-files group 1
       grpdef = 'his-info-series'
-      grpndm = 5 
+      grpndm = 5
       celnam = grpdef
       okee   =
      *         INQGRP(hdefds   ,grpdef    ,celnam    ,grpndm    ,
@@ -3363,8 +3363,6 @@ c
       subroutine m3hcda (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  ,         parcod, xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                      3 dpt. aver. cur. u
 c                      4 dpt. aver. cur. v
@@ -3593,8 +3591,6 @@ c
      *                           lconst, lstci , parcod, xdata , ierror,
      *                   zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                     33 Momentary flow, FLTR
 c                     34 Accumulated flow, CTR
@@ -3743,8 +3739,6 @@ c-----------------------------------------------------------------------
       subroutine m3hcur (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                   kmax  , lay   , parcod, xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                      7 current u            zeta_position
 c                      8 current v            zeta_position
@@ -3956,8 +3950,6 @@ c
       subroutine m3hwat (hdefds, hdafds, nindex, maxdim, istat , nostat,
      *                                   parcod, xdata , ierror, zbuffs)
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select from TRISULA NEFIS-HIS:
 c                      1 water level
 c                      2 total water depth

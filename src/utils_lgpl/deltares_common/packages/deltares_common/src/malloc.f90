@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -31,7 +31,7 @@ module m_alloc
 implicit none
 private 
 
-public realloc, reallocP, reallocCharacter
+public realloc, reallocP, reallocCharacter, aerr
 
 ! TODO: Handle nondefault kinds properly? [AvD]
 
@@ -145,7 +145,48 @@ interface reallocP
    module procedure reallocPLogical4
 end interface
 contains
+!
+!
+!
+!===============================================================================
+!> Emit an allocation error message *if* an allocation error has occurred.
+!! The error message goes through the MessageHandling output channels, as configured by the calling application.
+subroutine aerr(name, iostat, isize, errmsg)
+   use MessageHandling, only: msgbuf, dbg_flush, err_flush
+   use precision
 
+   character(len=*), intent(in)  :: name   !< Name of the allocated array(s) or other description.
+   integer,          intent(in)  :: iostat !< IO status as returned by ALLOCATE(..stat=iostat) statement. When zero, do nothing.
+   integer,          intent(in)  :: isize  !< Size (nr of bytes divided by 8) of original ALLOCATE statement (i.e., for double precision arrays simply the array length).
+   character(len=*), intent(in), optional :: errmsg !< Optional error message as returned by ALLOCATE(..errmsg=errormsg) statement
+
+   real(kind=hp), save :: rmemtot = 0d0
+
+   integer      :: i3
+
+   if (iostat==0) then
+!$OMP CRITICAL
+      rmemtot = rmemtot + isize
+      i3 = 8*rmemtot*1e-6   ! convert size (in double/8 byte units) to megabytes
+      if (abs(isize) > 1000) then
+         write (msgbuf,*) i3, isize*1e-6, ' ', trim(name)
+         call dbg_flush()
+      endif
+!$OMP END CRITICAL
+   else
+      if (present(errmsg)) then
+         write (msgbuf,*) ' Allocation Error: ', trim(name), ', Allocate status = ', iostat, ', Integer parameter = ', isize, '=>', trim(errmsg)
+      else
+         write (msgbuf,*) ' Allocation Error: ', trim(name), ', Allocate status = ', iostat, ', Integer parameter = ', isize
+      end if
+      call err_flush()
+endif
+
+end subroutine aerr
+!
+!
+!
+!===============================================================================
 subroutine reallocReal2x(arr, u1, u2, l1, l2, stat, keepExisting)
    real, allocatable, intent(inout)             :: arr(:, :)
    integer                                      :: u1, u2
@@ -163,7 +204,10 @@ subroutine reallocReal2x(arr, u1, u2, l1, l2, stat, keepExisting)
       call reallocReal2(arr, uindex, stat = stat)
    endif
 end subroutine reallocReal2x
-
+!
+!
+!
+!===============================================================================
 subroutine reallocDouble2x(arr, u1, u2, l1, l2, stat)
    double precision, allocatable, intent(inout)             :: arr(:, :)
    integer                                      :: u1, u2
@@ -180,7 +224,10 @@ subroutine reallocDouble2x(arr, u1, u2, l1, l2, stat)
       call reallocDouble2(arr, uindex, stat = stat)
    endif
 end subroutine reallocDouble2x
-
+!
+!
+!
+!===============================================================================
 subroutine reallocInt2x(arr, u1, u2, l1, l2, stat)
    integer, allocatable, intent(inout)          :: arr(:, :)
    integer                                      :: u1, u2
@@ -197,7 +244,10 @@ subroutine reallocInt2x(arr, u1, u2, l1, l2, stat)
       call reallocInt2(arr, uindex, stat = stat)
    endif
 end subroutine reallocInt2x
-
+!
+!
+!
+!===============================================================================
 subroutine reallocCharacter2x(arr, u1, u2, l1, l2, stat)
    character(len=*), allocatable, intent(inout) :: arr(:, :)
    integer                                      :: u1, u2
@@ -214,7 +264,10 @@ subroutine reallocCharacter2x(arr, u1, u2, l1, l2, stat)
       call reallocCharacter2(arr, uindex, stat = stat)
    endif
 end subroutine reallocCharacter2x
-
+!
+!
+!
+!===============================================================================
 subroutine reallocReal3x(arr, u1, u2, u3, l1, l2, l3, stat)
    real, allocatable, intent(inout)             :: arr(:, :, :)
    integer                                      :: u1, u2, u3
@@ -231,24 +284,25 @@ subroutine reallocReal3x(arr, u1, u2, u3, l1, l2, l3, stat)
       call reallocReal3(arr, uindex, stat = stat)
    endif
 end subroutine reallocReal3x
-
-
+!
+!
+!
+!===============================================================================
 subroutine reallocPInt(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
-   integer, pointer, intent(inout)                 :: arr(:)
-   integer, intent(in)                          :: uindex
-   integer, intent(in), optional                :: lindex
-   integer, intent(out), optional               :: stat
-   integer, intent(in), optional                   :: fill
-   integer, intent(in), optional                :: shift
-   logical, intent(in), optional                :: keepExisting
+   integer, pointer,  intent(inout) :: arr(:)
+   integer,           intent(in)    :: uindex
+   integer, optional, intent(in)    :: lindex
+   integer, optional, intent(out)   :: stat
+   integer, optional, intent(in)    :: fill
+   integer, optional, intent(in)    :: shift
+   logical, optional, intent(in)    :: keepExisting
 
-   integer, pointer                                :: b(:)
-   integer        :: uind, lind, muind, mlind, lindex_, shift_
-
-   integer        :: localErr
-   logical        :: docopy
-   logical        :: equalSize
+   integer, pointer :: b(:)
+   integer          :: uind, lind, muind, mlind, lindex_, shift_, i
+   integer          :: localErr
+   logical          :: docopy
+   logical          :: equalSize
 
    if (present(lindex)) then
       lindex_ = lindex
@@ -293,14 +347,18 @@ subroutine reallocPInt(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
    if (present(fill) .and. localErr==0) arr = fill
    if (associated(b) .and. localErr==0 .and. size(b)>0) then
-      arr(mlind:muind) = b(mlind-shift_:muind-shift_)
+      do i=mlind, muind
+         arr(i) = b(i-shift_)
+      end do
       deallocate(b, stat = localErr)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPInt
+!
+!
+!
+!===============================================================================
 subroutine reallocInt(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, allocatable, intent(inout)             :: arr(:)
@@ -364,9 +422,11 @@ subroutine reallocInt(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocInt
+!
+!
+!
+!===============================================================================
 subroutine reallocPInt2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, pointer, intent(inout)                 :: arr(:,:)
@@ -436,9 +496,11 @@ subroutine reallocPInt2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPInt2
+!
+!
+!
+!===============================================================================
 subroutine reallocInt2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, allocatable, intent(inout)             :: arr(:,:)
@@ -510,9 +572,11 @@ subroutine reallocInt2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocInt2
+!
+!
+!
+!===============================================================================
 subroutine reallocPInt3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, pointer, intent(inout)                 :: arr(:,:,:)
@@ -584,9 +648,11 @@ subroutine reallocPInt3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPInt3
+!
+!
+!
+!===============================================================================
 subroutine reallocInt3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, allocatable, intent(inout)             :: arr(:,:,:)
@@ -662,9 +728,11 @@ subroutine reallocInt3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocInt3
+!
+!
+!
+!===============================================================================
 subroutine reallocPInt4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, pointer, intent(inout)                 :: arr(:,:,:,:)
@@ -738,9 +806,11 @@ subroutine reallocPInt4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPInt4
+!
+!
+!
+!===============================================================================
 subroutine reallocInt4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    integer, allocatable, intent(inout)             :: arr(:,:,:,:)
@@ -820,22 +890,23 @@ subroutine reallocInt4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocInt4
+!
+!
+!
+!===============================================================================
 subroutine reallocPCharacter(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
-   character(len=*), pointer, intent(inout)                 :: arr(:)
-   integer, intent(in)                          :: uindex
-   integer, intent(in), optional                :: lindex
-   integer, intent(out), optional               :: stat
-   character(len=*), intent(in), optional                   :: fill
-   integer, intent(in), optional                :: shift
-   logical, intent(in), optional                :: keepExisting
+   character(len=*), pointer,  intent(inout) :: arr(:)
+   integer,                    intent(in)    :: uindex
+   integer,          optional, intent(in)    :: lindex
+   integer,          optional, intent(out)   :: stat
+   character(len=*), optional, intent(in)    :: fill
+   integer,          optional, intent(in)    :: shift
+   logical,          optional, intent(in)    :: keepExisting
 
-   character(len=len(arr)), pointer                                :: b(:)
-   integer        :: uind, lind, muind, mlind, lindex_, shift_
-
+   character(len=len(arr)), pointer :: b(:)
+   integer                          :: uind, lind, muind, mlind, lindex_, shift_, i
    integer        :: localErr
    logical        :: docopy
    logical        :: equalSize
@@ -883,14 +954,18 @@ subroutine reallocPCharacter(arr, uindex, lindex, stat, fill, shift, keepExistin
    endif
    if (present(fill) .and. localErr==0) arr = fill
    if (associated(b) .and. localErr==0 .and. size(b)>0) then
-      arr(mlind:muind) = b(mlind-shift_:muind-shift_)
+      do i=mlind, muind
+         arr(i) = b(i-shift_)
+      end do
       deallocate(b, stat = localErr)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPCharacter
+!
+!
+!
+!===============================================================================
 subroutine reallocCharacter(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), allocatable, intent(inout)             :: arr(:)
@@ -954,9 +1029,11 @@ subroutine reallocCharacter(arr, uindex, lindex, stat, fill, shift, keepExisting
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocCharacter
+!
+!
+!
+!===============================================================================
 subroutine reallocPCharacter2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), pointer, intent(inout)                 :: arr(:,:)
@@ -1026,9 +1103,11 @@ subroutine reallocPCharacter2(arr, uindex, lindex, stat, fill, shift, keepExisti
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPCharacter2
+!
+!
+!
+!===============================================================================
 subroutine reallocCharacter2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), allocatable, intent(inout)             :: arr(:,:)
@@ -1100,9 +1179,11 @@ subroutine reallocCharacter2(arr, uindex, lindex, stat, fill, shift, keepExistin
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocCharacter2
+!
+!
+!
+!===============================================================================
 subroutine reallocPCharacter3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), pointer, intent(inout)                 :: arr(:,:,:)
@@ -1174,9 +1255,11 @@ subroutine reallocPCharacter3(arr, uindex, lindex, stat, fill, shift, keepExisti
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPCharacter3
+!
+!
+!
+!===============================================================================
 subroutine reallocCharacter3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), allocatable, intent(inout)             :: arr(:,:,:)
@@ -1252,9 +1335,11 @@ subroutine reallocCharacter3(arr, uindex, lindex, stat, fill, shift, keepExistin
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocCharacter3
+!
+!
+!
+!===============================================================================
 subroutine reallocPCharacter4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), pointer, intent(inout)                 :: arr(:,:,:,:)
@@ -1328,9 +1413,11 @@ subroutine reallocPCharacter4(arr, uindex, lindex, stat, fill, shift, keepExisti
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPCharacter4
+!
+!
+!
+!===============================================================================
 subroutine reallocCharacter4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    character(len=*), allocatable, intent(inout)             :: arr(:,:,:,:)
@@ -1410,25 +1497,26 @@ subroutine reallocCharacter4(arr, uindex, lindex, stat, fill, shift, keepExistin
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocCharacter4
+!
+!
+!
+!===============================================================================
 subroutine reallocPReal(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
-   real, pointer, intent(inout)                 :: arr(:)
-   integer, intent(in)                          :: uindex
-   integer, intent(in), optional                :: lindex
-   integer, intent(out), optional               :: stat
-   real, intent(in), optional                   :: fill
-   integer, intent(in), optional                :: shift
-   logical, intent(in), optional                :: keepExisting
+   real,    pointer,  intent(inout) :: arr(:)
+   integer,           intent(in)    :: uindex
+   integer, optional, intent(in)    :: lindex
+   integer, optional, intent(out)   :: stat
+   real,    optional, intent(in)    :: fill
+   integer, optional, intent(in)    :: shift
+   logical, optional, intent(in)    :: keepExisting
 
-   real, pointer                                :: b(:)
-   integer        :: uind, lind, muind, mlind, lindex_, shift_
-
-   integer        :: localErr
-   logical        :: docopy
-   logical        :: equalSize
+   real, pointer :: b(:)
+   integer       :: uind, lind, muind, mlind, lindex_, shift_, i
+   integer       :: localErr
+   logical       :: docopy
+   logical       :: equalSize
 
    if (present(lindex)) then
       lindex_ = lindex
@@ -1473,14 +1561,18 @@ subroutine reallocPReal(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
    if (present(fill) .and. localErr==0) arr = fill
    if (associated(b) .and. localErr==0 .and. size(b)>0) then
-      arr(mlind:muind) = b(mlind-shift_:muind-shift_)
+      do i=mlind, muind
+        arr(i) = b(i-shift_)
+      end do
       deallocate(b, stat = localErr)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPReal
+!
+!
+!
+!===============================================================================
 subroutine reallocReal(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, allocatable, intent(inout)             :: arr(:)
@@ -1544,9 +1636,11 @@ subroutine reallocReal(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocReal
+!
+!
+!
+!===============================================================================
 subroutine reallocPReal2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, pointer, intent(inout)                 :: arr(:,:)
@@ -1616,9 +1710,11 @@ subroutine reallocPReal2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPReal2
+!
+!
+!
+!===============================================================================
 subroutine reallocReal2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, allocatable, intent(inout)             :: arr(:,:)
@@ -1690,9 +1786,11 @@ subroutine reallocReal2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocReal2
+!
+!
+!
+!===============================================================================
 subroutine reallocPReal3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, pointer, intent(inout)                 :: arr(:,:,:)
@@ -1764,9 +1862,11 @@ subroutine reallocPReal3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPReal3
+!
+!
+!
+!===============================================================================
 subroutine reallocReal3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, allocatable, intent(inout)             :: arr(:,:,:)
@@ -1842,9 +1942,11 @@ subroutine reallocReal3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocReal3
+!
+!
+!
+!===============================================================================
 subroutine reallocPReal4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, pointer, intent(inout)                 :: arr(:,:,:,:)
@@ -1918,9 +2020,11 @@ subroutine reallocPReal4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPReal4
+!
+!
+!
+!===============================================================================
 subroutine reallocReal4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    real, allocatable, intent(inout)             :: arr(:,:,:,:)
@@ -2000,25 +2104,26 @@ subroutine reallocReal4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocReal4
+!
+!
+!
+!===============================================================================
 subroutine reallocPDouble(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
-   double precision, pointer, intent(inout)                 :: arr(:)
-   integer, intent(in)                          :: uindex
-   integer, intent(in), optional                :: lindex
-   integer, intent(out), optional               :: stat
-   double precision, intent(in), optional                   :: fill
-   integer, intent(in), optional                :: shift
-   logical, intent(in), optional                :: keepExisting
+   double precision, pointer,  intent(inout) :: arr(:)
+   integer,                    intent(in)    :: uindex
+   integer,          optional, intent(in)    :: lindex
+   integer,          optional, intent(out)   :: stat
+   double precision, optional, intent(in)    :: fill
+   integer,          optional, intent(in)    :: shift
+   logical,          optional, intent(in)    :: keepExisting
 
-   double precision, pointer                                :: b(:)
-   integer        :: uind, lind, muind, mlind, lindex_, shift_
-
-   integer        :: localErr
-   logical        :: docopy
-   logical        :: equalSize
+   double precision, pointer :: b(:)
+   integer                   :: uind, lind, muind, mlind, lindex_, shift_, i
+   integer                   :: localErr
+   logical                   :: docopy
+   logical                   :: equalSize
 
    if (present(lindex)) then
       lindex_ = lindex
@@ -2063,14 +2168,18 @@ subroutine reallocPDouble(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
    if (present(fill) .and. localErr==0) arr = fill
    if (associated(b) .and. localErr==0 .and. size(b)>0) then
-      arr(mlind:muind) = b(mlind-shift_:muind-shift_)
+      do i=mlind, muind
+         arr(i) = b(i-shift_)
+      end do
       deallocate(b, stat = localErr)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPDouble
+!
+!
+!
+!===============================================================================
 subroutine reallocDouble(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, allocatable, intent(inout)             :: arr(:)
@@ -2134,9 +2243,11 @@ subroutine reallocDouble(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocDouble
+!
+!
+!
+!===============================================================================
 subroutine reallocPDouble2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, pointer, intent(inout)                 :: arr(:,:)
@@ -2206,9 +2317,11 @@ subroutine reallocPDouble2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPDouble2
+!
+!
+!
+!===============================================================================
 subroutine reallocDouble2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, allocatable, intent(inout)             :: arr(:,:)
@@ -2280,9 +2393,11 @@ subroutine reallocDouble2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocDouble2
+!
+!
+!
+!===============================================================================
 subroutine reallocPDouble3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, pointer, intent(inout)                 :: arr(:,:,:)
@@ -2354,9 +2469,11 @@ subroutine reallocPDouble3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPDouble3
+!
+!
+!
+!===============================================================================
 subroutine reallocDouble3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, allocatable, intent(inout)             :: arr(:,:,:)
@@ -2432,9 +2549,11 @@ subroutine reallocDouble3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocDouble3
+!
+!
+!
+!===============================================================================
 subroutine reallocPDouble4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, pointer, intent(inout)                 :: arr(:,:,:,:)
@@ -2508,9 +2627,11 @@ subroutine reallocPDouble4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPDouble4
+!
+!
+!
+!===============================================================================
 subroutine reallocDouble4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    double precision, allocatable, intent(inout)             :: arr(:,:,:,:)
@@ -2590,25 +2711,26 @@ subroutine reallocDouble4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocDouble4
+!
+!
+!
+!===============================================================================
 subroutine reallocPLogical(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
-   logical, pointer, intent(inout)                 :: arr(:)
-   integer, intent(in)                          :: uindex
-   integer, intent(in), optional                :: lindex
-   integer, intent(out), optional               :: stat
-   logical, intent(in), optional                   :: fill
-   integer, intent(in), optional                :: shift
-   logical, intent(in), optional                :: keepExisting
+   logical, pointer,  intent(inout) :: arr(:)
+   integer,           intent(in)    :: uindex
+   integer, optional, intent(in)    :: lindex
+   integer, optional, intent(out)   :: stat
+   logical, optional, intent(in)    :: fill
+   integer, optional, intent(in)    :: shift
+   logical, optional, intent(in)    :: keepExisting
 
-   logical, pointer                                :: b(:)
-   integer        :: uind, lind, muind, mlind, lindex_, shift_
-
-   integer        :: localErr
-   logical        :: docopy
-   logical        :: equalSize
+   logical, pointer :: b(:)
+   integer          :: uind, lind, muind, mlind, lindex_, shift_, i
+   integer          :: localErr
+   logical          :: docopy
+   logical          :: equalSize
 
    if (present(lindex)) then
       lindex_ = lindex
@@ -2653,14 +2775,18 @@ subroutine reallocPLogical(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
    if (present(fill) .and. localErr==0) arr = fill
    if (associated(b) .and. localErr==0 .and. size(b)>0) then
-      arr(mlind:muind) = b(mlind-shift_:muind-shift_)
+      do i=mlind, muind
+         arr(i) = b(i-shift_)
+      end do
       deallocate(b, stat = localErr)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPLogical
+!
+!
+!
+!===============================================================================
 subroutine reallocLogical(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, allocatable, intent(inout)             :: arr(:)
@@ -2724,9 +2850,11 @@ subroutine reallocLogical(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocLogical
+!
+!
+!
+!===============================================================================
 subroutine reallocPLogical2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, pointer, intent(inout)                 :: arr(:,:)
@@ -2796,9 +2924,11 @@ subroutine reallocPLogical2(arr, uindex, lindex, stat, fill, shift, keepExisting
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPLogical2
+!
+!
+!
+!===============================================================================
 subroutine reallocLogical2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, allocatable, intent(inout)             :: arr(:,:)
@@ -2870,9 +3000,11 @@ subroutine reallocLogical2(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocLogical2
+!
+!
+!
+!===============================================================================
 subroutine reallocPLogical3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, pointer, intent(inout)                 :: arr(:,:,:)
@@ -2944,9 +3076,11 @@ subroutine reallocPLogical3(arr, uindex, lindex, stat, fill, shift, keepExisting
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPLogical3
+!
+!
+!
+!===============================================================================
 subroutine reallocLogical3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, allocatable, intent(inout)             :: arr(:,:,:)
@@ -3022,9 +3156,11 @@ subroutine reallocLogical3(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocLogical3
+!
+!
+!
+!===============================================================================
 subroutine reallocPLogical4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, pointer, intent(inout)                 :: arr(:,:,:,:)
@@ -3098,9 +3234,11 @@ subroutine reallocPLogical4(arr, uindex, lindex, stat, fill, shift, keepExisting
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
-
-
+end subroutine reallocPLogical4
+!
+!
+!
+!===============================================================================
 subroutine reallocLogical4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    implicit none
    logical, allocatable, intent(inout)             :: arr(:,:,:,:)
@@ -3180,7 +3318,7 @@ subroutine reallocLogical4(arr, uindex, lindex, stat, fill, shift, keepExisting)
    endif
 999 continue
    if (present(stat)) stat = localErr
-end subroutine
+end subroutine reallocLogical4
 
 
 end module m_alloc

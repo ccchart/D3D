@@ -6,6 +6,7 @@ function varargout=flexmeshfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=flexmeshfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,7 +50,7 @@ function varargout=flexmeshfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -79,9 +80,12 @@ cmd=lower(cmd);
 switch cmd
     case 'size'
         varargout={getsize(FI,Props)};
-        return;
+        return
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
+        return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
         return
     case 'stations'
         varargout={{}};
@@ -139,6 +143,13 @@ switch Props.Geom
         sz = size(FI.NodeCoor);
         Ans.XYZ = reshape(FI.NodeCoor,[1 sz(1) 1 sz(2)]);
         Ans.Val = FI.NodeCoor(:,3);
+    case 'UGRID-NODE'
+        Faces(Faces==0) = NaN;
+        Ans.FaceNodeConnect = Faces;
+        Ans.X = FI.NodeCoor(:,1);
+        Ans.Y = FI.NodeCoor(:,2);
+        Ans.Val = FI.NodeCoor(:,3);
+        Ans.ValLocation = 'NODE';
 end
 %
 varargout={Ans FI};
@@ -152,12 +163,20 @@ T_=1; ST_=2; M_=3; N_=4; K_=5;
 PropNames={'Name'                   'Units' 'Geom' 'Coords' 'DimFlag' 'DataInCell' 'NVal' 'SubFld' 'ClosedPoly'};
 DataProps={'mesh'                   ''     'POLYG' 'xy'    [0 0 6 0 0]  0            0      []         1
            'value'                  ''     'TRI'   'xy'    [0 0 6 0 0]  0            1      []         1};
-if size(FI.NodeCoor,2)<3
-    DataProps(2,:) = [];
-end
-Out=cell2struct(DataProps,PropNames,2);
-if isfield(FI,'ElmLyr') && domain<=length(FI.Layers)
-    [Out.ElmLayer] = deal(FI.Layers(domain));
+if strcmp(FI.FileType,'Gmsh')
+    DataProps(1:2,:) = [];
+    Out=cell2struct(DataProps,PropNames,2);
+else
+    if size(FI.NodeCoor,2)<3
+        DataProps(2,:) = [];
+    end
+    Out=cell2struct(DataProps,PropNames,2);
+    if isfield(FI,'ElmLyr') && domain<=length(FI.Layers)
+        [Out.ElmLayer] = deal(FI.Layers(domain));
+    end
+    if size(FI.Faces,2)>3
+        Out(2).Geom = 'UGRID-NODE';
+    end
 end
 % -----------------------------------------------------------------------------
 

@@ -40,7 +40,7 @@ function shapewrite(filename,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -69,6 +69,7 @@ function shapewrite(filename,varargin)
 %   $Id$
 
 DataType=5; % polygon
+IncludeID=1;
 ValLbl={};
 IN=varargin;
 if ischar(IN{1})
@@ -115,12 +116,17 @@ else
     else
         Patch=IN{2};
         NShp=size(Patch,1);
-        NPnt=size(Patch,2);
+        nPntPerPatch = sum(~isnan(Patch),2);
+        NPnt=min(nPntPerPatch);
         offset=1;
-        if NPnt<=2, error('Invalid number of columns in Patch, should be at least 3'); end
+        if NPnt<=2
+            error('Invalid number of columns in Patch, should be at least 3')
+        end
     end
     %data3d=size(XY,2)==3;
-    if size(XY,2)~=2, error('Invalid number of columns in XY'); end
+    if size(XY,2)~=2
+        error('Invalid number of columns in XY')
+    end
     switch length(IN)
         case 1+offset
             Val=[];
@@ -139,14 +145,14 @@ end
 if isempty(Val)
     Val=zeros(NShp,0);
 elseif size(Val,1)~=NShp
-    error('Invalid length of value vector.');
+    error('Invalid length of value vector.')
 end
 StoreVal=size(Val,2);
 if isempty(ValLbl)
     ValLbl(1:StoreVal)={''};
 else
     if length(ValLbl)>StoreVal
-        error('More value labels than values encountered.');
+        error('More value labels than values encountered.')
     else
         if length(ValLbl)<StoreVal
             ValLbl(end+1:StoreVal)={''};
@@ -208,8 +214,10 @@ switch DataType
               end
             end
         else
-            if ~isequal(Patch(:,end),Patch(:,1))
-                Patch(:,end+1)=Patch(:,1);
+            LastPnt = Patch((1:NShp)'+NShp*(nPntPerPatch-1));
+            if ~isequal(LastPnt,Patch(:,1))
+                Patch = [LastPnt Patch];
+                nPntPerPatch = nPntPerPatch+1;
             end
         end
         %
@@ -277,10 +285,11 @@ fwrite(fidx,ranges,'float64');
 fclose(fidx);
 fidx=fopen(shapeidxnm,'r+','b'); fseek(fidx,0,1);
 %
-FileStorage='A'; % (A - ascii or B - binary) % Binary doesn't work with ArcView 3.0
+FileStorage='A'; % (A - ascii or B - binary) % Shape files require dBase III file which doesn't support binary data
 switch FileStorage
    case 'A'
       WIDTH=19;
+      VALFORMAT='%19.8f';
    case 'B'
       WIDTH=8;
 end
@@ -291,7 +300,7 @@ fwrite(fidb,[dv(1)-1900 dv(2) dv(3)],'uint8');
 fwrite(fidb,NShp,'uint32');
 NFld=1+StoreVal;
 fwrite(fidb,33+32*NFld,'uint16');
-fwrite(fidb,1+11+WIDTH*StoreVal,'uint16'); % NBytesRec includes deleted flag (= first space): 1 + 11
+fwrite(fidb,1+IncludeID*11+WIDTH*StoreVal,'uint16'); % NBytesRec includes deleted flag (= first space)
 fwrite(fidb,[0 0],'uint8'); % reserved
 fwrite(fidb,0,'uint8'); % dBase IV flag
 fwrite(fidb,0,'uint8');
@@ -299,20 +308,20 @@ fwrite(fidb,zeros(1,12),'uint8'); % dBase IV multi-user environment
 fwrite(fidb,0,'uint8'); % Production Index Exists (Fp,dB4,dB5)
 fwrite(fidb,0,'uint8'); % 1: USA, 2: MultiLing, 3: Win ANSI, 200: Win EE, 0: ignored
 fwrite(fidb,[0 0],'uint8'); % reserved
-for i=1:1+StoreVal
+for i=1:IncludeID+StoreVal
     Str=zeros(1,11);
-    if i==1
+    if IncludeID && i==1
         Str(1:2)='ID';
-    elseif ~isempty(ValLbl{i-1})
-        LStr=length(ValLbl{i-1});
-        Str(1:LStr)=ValLbl{i-1};
+    elseif ~isempty(ValLbl{i-IncludeID})
+        LStr=length(ValLbl{i-IncludeID});
+        Str(1:LStr)=ValLbl{i-IncludeID};
     else
         Str(1:4)='Val_';
-        ValNr=sprintf('%i',i-1);
+        ValNr=sprintf('%i',i-IncludeID);
         Str(5:4+length(ValNr))=ValNr;
     end
     fwrite(fidb,Str,'uchar');
-    if i==1
+    if IncludeID && i==1
        fwrite(fidb,'N','uchar');
        fwrite(fidb,[0 0 0 0],'uint8'); % memory address, record offset, ignored in latest versions
        fwrite(fidb,11,'uint8'); % Width
@@ -325,7 +334,7 @@ for i=1:1+StoreVal
              fwrite(fidb,WIDTH,'uint8'); % Width
              fwrite(fidb,8,'uint8'); % Type='C' also Width
           case 'B'
-             fwrite(fidb,'8','uchar');
+             fwrite(fidb,'O','uchar');
              fwrite(fidb,[0 0 0 0],'uint8'); % memory address, record offset, ignored in latest versions
              fwrite(fidb,WIDTH,'uint8'); % Width
              fwrite(fidb,0,'uint8'); % Type='C' also Width
@@ -341,13 +350,22 @@ end
 fwrite(fidb,13,'uint8'); % end of header = 13
 switch FileStorage
    case 'A'
-      fprintf(fidb,[' %11i' repmat('%19.8f',1,StoreVal)],[1:NShp;Val']);
+       if IncludeID
+           fprintf(fidb,[' %11i' repmat(VALFORMAT,1,StoreVal)],[1:NShp;Val']);
+       else
+           fprintf(fidb,[' ' repmat(VALFORMAT,1,StoreVal)],Val');
+       end
    case 'B'
-      off = ftell(fidb);
-      fprintf(fidb,[' %11i' repmat('xxxxxxxx',1,StoreVal)],1:NShp);
-      fseek(fidb,0,-1); % search only works if we go back to beginning first
-      fseek(fidb,off,-1);
-      fwrite(fidb,Val',sprintf('%i*float64',StoreVal),12);
+       off = ftell(fidb);
+       BINARY = repmat('xxxxxxxx',1,StoreVal);
+       if IncludeID
+           fprintf(fidb,[' %11i' BINARY],1:NShp);
+       else
+           fprintf(fidb,['%c' BINARY],repmat(' ',1,NShp));
+       end
+       fseek(fidb,0,-1); % search only works if we go back to beginning first
+       fseek(fidb,off,-1);
+       fwrite(fidb,Val',sprintf('%i*float64',StoreVal),1+11*IncludeID);
 end
 fclose(fidb);
 %
@@ -390,15 +408,14 @@ elseif iscell(XY)
         fwrite(fid,xy','float64');
     end
 else
-    NPnt=size(Patch,2);
     Admin = zeros(2,NShp);
     Admin(1,:) = 1:NShp;
-    Admin(2,:) = 24+8*NPnt;
+    Admin(2,:) = 24+8*nPntPerPatch;
     nBytes = Admin(2,:)*2;
     Admin = int32_byteflip(Admin);
     Admin(3,:)=DataType;
     for i=1:NShp
-        ind=Patch(i,:);
+        ind=Patch(i,1:nPntPerPatch(i));
         xy=XY(ind,:);
         if checkclockwise && (DataType==5) && (clockwise(xy(:,1),xy(:,2))<0)
             xy=flipud(xy);
@@ -409,7 +426,7 @@ else
         ranges(3)=max(xy(:,1));
         ranges(4)=max(xy(:,2));
         fwrite(fid,ranges,'float64');
-        fwrite(fid,[1 NPnt 0],'int32'); % one part, # points, single part starting at point 0
+        fwrite(fid,[1 nPntPerPatch(i) 0],'int32'); % one part, # points, single part starting at point 0
         fwrite(fid,xy','float64');
     end
 end

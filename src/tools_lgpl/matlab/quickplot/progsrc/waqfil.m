@@ -6,9 +6,9 @@ function S = waqfil(cmd,file,varargin)
 %   based on the file extension. If the file extension does not correspond
 %   to the file contents, then the 'open' string should be changed to the
 %   string ['open' EXT] where EXT is the file extension that matches the
-%   file contents. Important (meta)data is returned as the structure FI.
-%   This routine does not support .his, .bal and .map files; use the DELWAQ
-%   function for those files.
+%   file contents, for instance 'open.vol'. Important (meta)data is
+%   returned as the structure FI. This routine does not support .his, .bal
+%   and .map files; use the DELWAQ function for those files.
 %
 %   Data = WAQFIL('read',FI,...extra arguments...) reads additional data
 %   from the file previously opened using a WAQFIL('open',...) call.
@@ -45,7 +45,7 @@ function S = waqfil(cmd,file,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -131,7 +131,7 @@ end
 
 %% Vol file
 function S = openvol(file,nseg)
-S = openfile(file,nseg);
+S = openfile(file,nseg,1);
 
 function D = readvol(file,itime,ipar)
 if nargin<3

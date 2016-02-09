@@ -27,7 +27,7 @@ function H=tricontour(tri,x,y,z,v,levels,color)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -55,7 +55,11 @@ function H=tricontour(tri,x,y,z,v,levels,color)
 %   $HeadURL$
 %   $Id$
 
-error(nargchk(5,7,nargin));
+if nargin<5
+    error('Not enough input arguments.')
+elseif nargin>7
+    error('Too many input arguments.')
+end
 getdata=0;
 if nargin==7
     if strcmp(color,'getdata')

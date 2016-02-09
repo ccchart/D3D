@@ -1,7 +1,7 @@
 subroutine gdp_alloc(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -55,11 +55,10 @@ subroutine gdp_alloc(gdp)
 !
 !! executable statements -------------------------------------------------------
 !
-    call nefisio_alloc(gdp)
+    call iofiles_alloc(gdp)
     !
     allocate (gdp%gdadv2d)
     allocate (gdp%gdaddress)
-    allocate (gdp%gdautok)
     allocate (gdp%gdbedformpar)
     allocate (gdp%gdbubble)
     allocate (gdp%gdconst)
@@ -77,7 +76,6 @@ subroutine gdp_alloc(gdp)
     allocate (gdp%gdfourier)
     allocate (gdp%gdheat)
     allocate (gdp%gdhtur2d)
-    allocate (gdp%gdhwid)
     allocate (gdp%gdinout)
     allocate (gdp%gdinttim)
     allocate (gdp%gdiwearr)
@@ -128,6 +126,7 @@ subroutine gdp_alloc(gdp)
     allocate (gdp%gdrestart)
     allocate (gdp%gdrtc)
     allocate (gdp%gdscour)
+    allocate (gdp%gdsdu)
     allocate (gdp%gdsnel)
     allocate (gdp%gdtimers)
     allocate (gdp%gdtricom)
@@ -146,6 +145,7 @@ subroutine gdp_alloc(gdp)
     ! runid may be already allocated. See d3df_dll.F90, module gdp_entry, subroutine gdpAlloc
     !
     allocate (gdp%gdparall)
+    allocate (gdp%iopartit)
     !
     if (.not. associated(gdp%runid)) then
        allocate (gdp%runid)

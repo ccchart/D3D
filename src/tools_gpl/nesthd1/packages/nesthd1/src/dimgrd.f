@@ -1,7 +1,7 @@
       subroutine dimgrd(lun, lunadm, mmax , nmax,name)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -63,7 +63,7 @@
          kw_found = .true.
       endif
 
-      l = index(rec,'missing value')
+      l = index(rec,'Missing Value')
       if (l .ne. 0) then
          kw_found = .true.
       endif

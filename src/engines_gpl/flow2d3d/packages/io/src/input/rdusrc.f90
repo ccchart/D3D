@@ -1,8 +1,8 @@
 subroutine rdusrc(lunmd     ,lundia    ,error     ,mdfrec    ,nrrec     , &
-                & noui      ,gdp       )
+                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -58,7 +58,6 @@ subroutine rdusrc(lunmd     ,lundia    ,error     ,mdfrec    ,nrrec     , &
     integer                    :: lunmd  !  Description and declaration in inout.igs
     integer                    :: nrrec  !!  Pointer to the record number in the MD-file
     logical      , intent(out) :: error  !!  Flag=TRUE if an error is encountered
-    logical      , intent(in)  :: noui   !!  Flag for reading from User Interface
     character(*)               :: mdfrec !!  Standard rec. length in MD-file (300)
 !
 !
@@ -128,7 +127,7 @@ subroutine rdusrc(lunmd     ,lundia    ,error     ,mdfrec    ,nrrec     , &
           lerror = .false.
           call prterr(lundia    ,'V221'    ,'real'    )
           !
-          if (noui) error = .true.
+          error = .true.
           goto 9999
        endif
     endif
@@ -158,7 +157,7 @@ subroutine rdusrc(lunmd     ,lundia    ,error     ,mdfrec    ,nrrec     , &
           lerror = .false.
           call prterr(lundia    ,'V221'    ,'integer' )
           !
-          if (noui) error = .true.
+          error = .true.
           goto 9999
        endif
     endif
@@ -191,7 +190,7 @@ subroutine rdusrc(lunmd     ,lundia    ,error     ,mdfrec    ,nrrec     , &
              lerror = .false.
              call prterr(lundia    ,'V221'    ,'character'          )
              !
-             if (noui) error = .true.
+             error = .true.
              exit
           endif
           !

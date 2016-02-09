@@ -5,7 +5,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" OutputDirectory="../../lib/$(ConfigurationName)/static" DeleteExtensionsOnClean="*.obj;*.mod;*.pdb;*.asm;*.map;*.dyn;*.dpi;*.tmp;*.log;*.lib;$(TargetPath)" BuildLogFile="$(IntDir)\BuildLog.txt" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="../../../../utils_lgpl/precision/lib/$(ConfigurationName)/static;../../../../third_party_open/mpich2/include" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OUTDIR)/" ObjectFile="$(INTDIR)/" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" DisableDefaultLibSearch="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="../../../../utils_lgpl/precision/lib/$(ConfigurationName)/static;../../../../third_party_open/mpich2/include" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OUTDIR)/" ObjectFile="$(INTDIR)/" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" DisableDefaultLibSearch="true"/>
 				<Tool Name="VFLibrarianTool" OutputFile="$(OUTDIR)/deltares_common.lib" LinkLibraryDependencies="true"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TypeLibraryName="$(IntDir)/$(InputName).tlb"/>
@@ -65,6 +65,7 @@
 				<Tool Name="VFFortranCompilerTool" FixedFormLineLength="fixedLength132"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" FixedFormLineLength="fixedLength132"/></FileConfiguration></File></Filter>
+		<File RelativePath=".\src\array_module.f90"/>
 		<File RelativePath="src\bilin5.f90"/>
 		<File RelativePath="src\buffer.f90"/>
 		<File RelativePath="src\combinepaths.f90"/>
@@ -79,14 +80,17 @@
 				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath=".\src\deltares_common_version.F90.svn"/>
 		<File RelativePath="src\distance.f90"/>
+		<File RelativePath=".\src\geometry_module.f90"/>
 		<File RelativePath=".\src\grid_dimens_module.f90"/>
 		<File RelativePath="src\handles.f90"/>
+		<File RelativePath=".\src\hash_search.f90"/>
 		<File RelativePath=".\src\iso_c_utils.F90"/>
 		<File RelativePath="src\juldat.f90"/>
 		<File RelativePath="src\malloc.f90"/>
 		<File RelativePath=".\src\mathconsts.f90"/>
 		<File RelativePath=".\src\message_module.f90"/>
 		<File RelativePath="src\MessageHandling.f90"/>
+		<File RelativePath=".\src\multi_file_io.f90"/>
 		<File RelativePath="src\nan_check_module.f90"/>
 		<File RelativePath="src\newunit.f90"/>
 		<File RelativePath=".\src\precision.F90"/>

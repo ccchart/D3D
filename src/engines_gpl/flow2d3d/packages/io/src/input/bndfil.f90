@@ -1,10 +1,10 @@
-subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
-                & lntof     ,lntoq     ,mxdnto    ,mxnto     ,filbnd    , &
-                & fmttmp    ,profil    ,nambnd    ,typbnd    ,datbnd    , &
-                & mnbnd     ,alpha     ,tprofu    ,statns    ,gdp       )
+subroutine bndfil(lundia    ,error     ,kmax      ,lnto      ,lntof     , &
+                & lntoq     ,mxdnto    ,mxnto     ,filbnd    ,fmttmp    , &
+                & profil    ,nambnd    ,typbnd    ,datbnd    ,mnbnd     , &
+                & alpha     ,tprofu    ,statns    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -42,6 +42,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -69,7 +70,6 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
     integer                            , intent(in)  :: mxnto  !!  Max. number of open boundaries
     integer     , dimension(7, mxdnto)               :: mnbnd  !  Description and declaration in esm_alloc_int.f90
     logical                            , intent(out) :: error  !!  Flag=TRUE if an error is encountered
-    logical                            , intent(in)  :: noui   !!  Flag for reading from User Interface
     real(fp)    , dimension(mxdnto)                  :: alpha  !  Description and declaration in esm_alloc_real.f90
     character(*)                                     :: filbnd !!  File name for the boundary definition file
     character(1), dimension(mxdnto)                  :: typbnd !  Description and declaration in esm_alloc_char.f90
@@ -134,7 +134,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
     !
     ! test if file exists; and if so, read.
     !
-    call noextspaces(filbnd    ,lfile     )
+    call remove_leading_spaces(filbnd    ,lfile     )
     !
     if (exifil(filbnd, lundia)) then
        !
@@ -156,7 +156,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                 & nambnd(n), typbnd(n), datbnd(n), mnbnd(1, n), mnbnd(2, n), mnbnd(3, n), mnbnd(4, n), alpha(n)
              if (iocond /= 0) then
                 if (iocond > 0) then
-                   if (noui) error = .true.
+                   error = .true.
                    call prterr(lundia, 'G007', filbnd(1:lfile))
                    write (lundia,'(a,i3)') 'Last record read for open boundary nr :', n - 1
                 endif
@@ -178,7 +178,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
           enddo
           !
           ! test if there are more than MXNTO opening definitions
-          ! if NOUI = .true. this will never appear while MXDNTO = NTO
+          ! this will never appear while MXDNTO = NTO
           !
           read (luntmp, iostat = iocond)
           if (iocond == 0) then
@@ -211,7 +211,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                       call prterr(lundia, 'G007', filbnd(1:lfile))
                       write (lundia, '(a)') 'Last correct record:'
                       write (lundia, '(2a)') recold(:72), '...'
-                      if (noui) error = .true.
+                      error = .true.
                    endif
                    goto 200
                 endif
@@ -236,7 +236,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    write (lundia, '(a)') 'Last correct record:'
                    write (lundia, '(2a)') recold(:72), '...'
                    typbnd(n) = cdeft
-                   if (noui) error = .true.
+                   error = .true.
                    goto 200
                 else
                    typbnd(n) = chulp(:1)
@@ -252,7 +252,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    write (lundia, '(a)') 'Last correct record:'
                    write (lundia, '(2a)') recold(:72), '...'
                    datbnd(n) = cdefd
-                   if (noui) error = .true.
+                   error = .true.
                    goto 200
                 else
                    datbnd(n) = chulp(:1)
@@ -271,7 +271,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    mnbnd(2, n) = idef
                    mnbnd(3, n) = idef
                    mnbnd(4, n) = idef
-                   if (noui) error = .true.
+                   error = .true.
                    goto 200
                 endif
                 !
@@ -285,7 +285,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    write (lundia, '(a)') 'Last correct record:'
                    write (lundia, '(2a)') recold(:72), '...'
                    alpha(n) = rdef
-                   if (noui) error = .true.
+                   error = .true.
                    goto 200
                 endif
                 !
@@ -308,7 +308,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                       write (lundia, '(a)') 'Last correct record:'
                       write (lundia, '(2a)') recold(:72), '...'
                       tprofu(n) = cdefp
-                      if (noui) error = .true.
+                      error = .true.
                    else
                       tprofu(n) = chulp
                    endif
@@ -323,7 +323,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    write (lundia, '(a)') 'Last correct record:'
                    write (lundia, '(2a)') recold(:72), '...'
                    tprofu(n) = cdefp
-                   if (noui) error = .true.
+                   error = .true.
                 endif
                 !
                 ! TPROFU may be "3d-profile" only for Time series (DATBND(N) = 'T')
@@ -333,7 +333,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                    write (lundia, '(a)') 'Last correct record:'
                    write (lundia, '(2a)') recold(:72), '...'
                    tprofu(n) = cdefp
-                   if (noui) error = .true.
+                   error = .true.
                 endif
                 !
                 ! Two stations specified after velocity profile for
@@ -349,7 +349,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                       call prterr(lundia, 'G007', filbnd(1:lfile))
                       write (lundia, '(a)') 'Last correct record:'
                       write (lundia, '(2a)') recold(:72), '...'
-                      if (noui) error = .true.
+                      error = .true.
                       goto 200
                    else
                       statns(n, 1) = chulp(:12)
@@ -373,7 +373,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                          call prterr(lundia, 'G007', filbnd(1:lfile))
                          write (lundia, '(a)') 'Last correct record:'
                          write (lundia, '(2a)') recold(:72), '...'
-                         if (noui) error = .true.
+                         error = .true.
                          goto 200
                       else
                          statns(n, 1) = chulp(:12)
@@ -390,7 +390,7 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
                       call prterr(lundia, 'G007', filbnd(1:lfile))
                       write (lundia, '(a)') 'Last correct record:'
                       write (lundia, '(2a)') recold(:72), '...'
-                      if (noui) error = .true.
+                      error = .true.
                       goto 200
                    else
                       statns(n, 2) = chulp(:12)
@@ -427,11 +427,11 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
              ! variables, not (yet) implemented
              !
              call prterr(lundia, 'U161', filbnd(1:lfile))
-             if (noui) error = .true.
+             error = .true.
           endif
           !
           ! test if there are more then MXNTO opening definitions
-          ! if NOUI = .true. this will never appear while MXDNTO = NTO
+          ! this will never appear while MXDNTO = NTO
           !
           read (luntmp, *, iostat = iocond)
           if (iocond == 0) then
@@ -451,6 +451,6 @@ subroutine bndfil(lundia    ,error     ,noui      ,kmax      ,lnto      , &
        !
        ! file does not exist
        !
-       if (noui) error = .true.
+       error = .true.
     endif
 end subroutine bndfil

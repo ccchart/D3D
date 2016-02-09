@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -22,11 +22,11 @@
 !!  rights reserved.
 
       subroutine xlog(w, wbar)
-c           4-69
-c           compute c(j) + log(w(j)/wbar(k)), where j is a species in
-c        compartment k.
-c           clog uses double precision version of
-c              alog
+!           4-69
+!           compute c(j) + log(w(j)/wbar(k)), where j is a species in
+!        compartment k.
+!           clog uses double precision version of
+!              alog
       include  'char1.inc'
       equivalence (x2(1),alpha(1))
       dimension w(1), wbar(1), alpha(1)

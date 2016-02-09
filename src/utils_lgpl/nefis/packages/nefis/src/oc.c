@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -51,7 +51,6 @@
 
 #if defined(WIN32) || defined(WIN64) || defined(salford32)
 #  include <io.h>
-#  include <wtypes.h>
 #  include <sys\stat.h>
 #elif defined(HAVE_CONFIG_H)
 #  include <sys/types.h>
@@ -156,7 +155,10 @@ BInt4 create_nefis_files ( BInt4 * fd_nefis   ,
   }
 
   /* Make sure we can read/write LONG_MAX bytes at once */
-  assert( ULONG_MAX == (size_t)ULONG_MAX );
+  if (ULONG_MAX != (size_t)ULONG_MAX) {
+      fprintf(stderr, "Incompatible ULONG_MAX:\n\tSize : %d /= %d\n", sizeof(ULONG_MAX), sizeof((size_t)ULONG_MAX));
+      exit(1);
+  }
 
 #if !defined(WIN32)
     assert( sizeof( off_t ) >= sizeof( long ) );
@@ -1165,6 +1167,25 @@ BInt4 close_nefis_files ( BInt4 * fd_nefis )
   return nefis_errno;
 }
 /*===================================================================*/
+BInt4 OC_close_all_nefis_files(void)
+{
+	BInt4 nefis_errno;
+	BInt4 i;
+	BInt4 set;
+
+	nefis_errno = 0;
+	for (i=0; i<MAX_NEFIS_FILES; i++)
+	{
+		if (nefis_errno!= 0) break;
+		if (nefis[i].exist == i) 
+		{
+			set = i; // copy because do not change loop variable
+			nefis_errno = close_nefis_files(&set);
+		}
+	}
+	return nefis_errno;
+}
+/*===================================================================*/
 
 BInt4 open_nefis_file( BText   file_name  ,
                        BChar   access_type,
@@ -1330,11 +1351,33 @@ BInt4 detect_version( BText file_header, File_Version * file_version )
 }
 /*==========================================================================*/
 /*
+ * Reset version of the NEFIS file
+ */
+BInt4 OC_reset_file_version( BInt4 set, BInt4 file_version )
+{
+    BInt4 error = 0;
+
+    if ( file_version==3 )
+    {
+        nefis[set].file_version = Version_1;
+    }
+    else if ( file_version==5 ) 
+    {
+        nefis[set].file_version = Version_5;
+    }
+    else
+    {
+        error = 1;
+    }
+    return error;
+}
+/*==========================================================================*/
+/*
  * Get the version string from the NEFIS library
  */
-BInt4 OC_get_version ( BText nefis_version)
+BInt4 OC_get_version ( BText * nefis_version)
 {
-   nefis_version = getfullversionstring_nefis();
+   *nefis_version = getfullversionstring_nefis();
    return 0;
 }
 /*==========================================================================*/

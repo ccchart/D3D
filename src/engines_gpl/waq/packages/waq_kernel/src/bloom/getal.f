@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,11 +21,11 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C  *********************************************************************
-C  *   REAL FUNCTION TO DETERMINE ROUNDED YMAX VALUES.                 *
-C  *********************************************************************
-C
+!
+!  *********************************************************************
+!  *   REAL FUNCTION TO DETERMINE ROUNDED YMAX VALUES.                 *
+!  *********************************************************************
+!
       FUNCTION GETAL (X)
       X=X-1.E-3
       X=X*1.E3

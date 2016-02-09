@@ -3,7 +3,7 @@ subroutine bchfil(lundia    ,error     ,filbch    ,fmttmp    ,ntof      , &
                 & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,7 @@ subroutine bchfil(lundia    ,error     ,filbch    ,fmttmp    ,ntof      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -54,7 +55,7 @@ subroutine bchfil(lundia    ,error     ,filbch    ,fmttmp    ,ntof      , &
     integer                                  , intent(in)  :: kc      ! Description and declaration in dimens.igs
     integer                                  , intent(in)  :: lundia  ! Description and declaration in inout.igs
     integer                                  , intent(in)  :: mxkc    ! Maximum number of frequencies
-    integer                                  , intent(in)  :: mxnto   ! Maximum number of open boundaries, for NOUI = .true. MXNTO := NTO
+    integer                                  , intent(in)  :: mxnto   ! Maximum number of open boundaries, MXNTO := NTO
     integer                                  , intent(in)  :: ntof    ! Description and declaration in dimens.igs
     logical                                  , intent(out) :: error   ! Flag=TRUE if an error is encountered
     real(fp)     , dimension(4, mxnto, mxkc)               :: hydrbc  ! Description and declaration in esm_alloc_real.f90
@@ -93,7 +94,7 @@ subroutine bchfil(lundia    ,error     ,filbch    ,fmttmp    ,ntof      , &
     !
     ! Test file existence and if so read
     !
-    call noextspaces(filbch, lfile)
+    call remove_leading_spaces(filbch, lfile)
     !
     if (exifil(filbch, lundia)) then
        luntmp = newlun(gdp)

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -24,9 +24,9 @@
       subroutine leave(k, niet)
       implicit none
       integer k, niet
-c        4-69
-c        if toggle is zero, exit
-c        if toggle is non-zero, increase value and return
+!        4-69
+!        if toggle is zero, exit
+!        if toggle is non-zero, increase value and return
       if (k.eq.0) go to 10
       k = k + 1
       return

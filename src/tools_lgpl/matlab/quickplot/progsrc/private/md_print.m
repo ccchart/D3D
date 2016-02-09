@@ -18,7 +18,7 @@ function [Settings,fn]=md_print(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -208,9 +208,7 @@ while i<length(figlist)
                 Printer=PL{LocSettings.PrtID,2};
                 Method = LocSettings.Method;
                 %
-                tmp = figure('visible','off');
-                delete(tmp)
-                HG2 = ~isnumeric(tmp);
+                HG2 = ~ismember('zbuffer',set(0,'defaultfigurerenderer'));
                 %
                 switch PL{LocSettings.PrtID,1}
                     case -1 % painters/zbuffer irrelevant
@@ -827,7 +825,7 @@ while ~gui_quit
             case 'OpenGL'
                 Method = update_renderer(PL{PrtID,1},GUI,3,DPI);
             case 'DPI'
-                X=eval(get(Resol,'string'),'NaN');
+                X=eval(get(GUI.Resol,'string'),'NaN');
                 if isnumeric(X) && isequal(size(X),[1 1]) && (round(X)==X)
                     if X<50
                         DPI=50;
@@ -837,7 +835,7 @@ while ~gui_quit
                         DPI=X;
                     end
                 end
-                set(Resol,'string',num2str(DPI));
+                set(GUI.Resol,'string',num2str(DPI));
 
             case 'Color'
                 Clr=get(GUI.Color,'value');

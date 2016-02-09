@@ -1,11 +1,11 @@
 subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
-                & noui      ,dt        ,filsta    ,fmtsta    ,nostat    , &
-                & filtra    ,fmttra    ,ntruv     ,fildro    ,fmtdro    , &
-                & ndro      ,drogue    ,namdro    ,mndro     ,itdro     , &
-                & dxydro    ,drodep    ,gdp       )
+                & dt        ,filsta    ,fmtsta    ,nostat    ,filtra    , &
+                & fmttra    ,ntruv     ,fildro    ,fmtdro    ,ndro      , &
+                & drogue    ,namdro    ,mndro     ,itdro     ,dxydro    , &
+                & drodep    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -68,7 +68,8 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     character(20)  , dimension(:)    , pointer :: namrtcsta
     character(256)                   , pointer :: filrtc
     type (handletype)                , pointer :: moving_stat_file
-    integer        , dimension(:)    , pointer :: line_orig    
+    integer        , dimension(:)    , pointer :: sta_orgline    
+    integer        , dimension(:)    , pointer :: tra_orgline    
     integer        , dimension(:)    , pointer :: stat_type
     integer        , dimension(:)    , pointer :: stat_drogue
     integer        , dimension(:)    , pointer :: stat_table
@@ -99,7 +100,6 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer       , dimension(2, ndro)               :: mndro  !  Description and declaration in esm_alloc_int.f90
     logical                                          :: drogue !  Description and declaration in procs.igs
     logical                                          :: error  !!  Flag=TRUE if an error is encountered
-    logical                            , intent(in)  :: noui   !!  Flag for reading from User Interface
     real(fp)                                         :: dt     !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(2, ndro)               :: dxydro !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(ndro)                  :: drodep !  Description and declaration in esm_alloc_real.f90
@@ -119,6 +119,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                                    :: it
     integer                                    :: lenc         ! Length of character var.
     integer                                    :: lkw
+    integer                                    :: luntri       ! Unit number for trigger file for TRISIM for running programs simultaniously all time dependent data if requested 
     integer                                    :: m1           ! m-index of observation/drogue point or begin point of cross-section
     integer                                    :: m2           ! m-index of end point of cross-section
     integer                                    :: n1           ! n-index of observation/drogue point or begin point of cross-section
@@ -127,6 +128,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                                    :: i            ! Help var.
     integer                                    :: mfl          ! first m-index of this local partition, excluding the halo
     integer                                    :: mll          ! last  m-index of this local partition, excluding the halo
+    integer, external                          :: newlun
     integer                                    :: nfl          ! first n-index of this local partition, excluding the halo
     integer                                    :: nll          ! last  n-index of this local partition, excluding the halo
     integer                                    :: nlook        ! Help var.: nr. of data to look for in the MD-file
@@ -144,6 +146,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     logical                                    :: dtn
     logical                                    :: found        ! FOUND=TRUE if KEYW in the MD-file was found
     logical                                    :: lerror       ! Flag=TRUE if an error is encountered
+    logical                                    :: lexist       ! Logical to determine file existence 
     logical                                    :: newkw        ! Logical var. specifying whether a new recnam should be read from the MD-file or just new data in the continuation line
     logical                                    :: nodef        ! Flag set to YES if default value may NOT be applied in case var. read is empty (ier <= 0, or nrread < nlook)
     real(fp)                                   :: rdef         ! Help var. containing default va- lue(s) for real variable
@@ -154,6 +157,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     character(11)                              :: fmtdef       ! Default file format (usually=blank)
     character(11)                              :: fmttmp       ! Help variable for file format
     character(12)                              :: fildef       ! Default file name (usually = blank)
+    character(12)                              :: filsim       ! Name for trigger file for TRISIM for running programs simultaniously 
     character(20)                              :: cdef         ! Default value when CVAR not found
     character(20)                              :: chulp        ! Help var.
     character(20), dimension(:) , allocatable  :: ctemp        ! work array to store namst/namtra/namdro temporarily
@@ -175,7 +179,8 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! Allocate arrays for stations and cross sections
     !
     istat = 0
-    if (istat == 0) allocate( gdp%gdstations%line_orig  (   ntruv ), stat=istat)
+    if (istat == 0) allocate( gdp%gdstations%sta_orgline(   nostat), stat=istat)
+    if (istat == 0) allocate( gdp%gdstations%tra_orgline(   ntruv ), stat=istat)
     if (istat == 0) allocate( gdp%gdstations%stat_type  (   nostat), stat=istat)
     if (istat == 0) allocate( gdp%gdstations%stat_drogue(   nostat), stat=istat)
     if (istat == 0) allocate( gdp%gdstations%stat_table (   nostat), stat=istat)
@@ -192,7 +197,8 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     endif
     !    
     moving_stat_file => gdp%gdstations%moving_stat_file
-    line_orig        => gdp%gdstations%line_orig
+    sta_orgline      => gdp%gdstations%sta_orgline
+    tra_orgline      => gdp%gdstations%tra_orgline
     stat_type        => gdp%gdstations%stat_type 
     stat_drogue      => gdp%gdstations%stat_drogue
     stat_table       => gdp%gdstations%stat_table
@@ -204,6 +210,10 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     namtra           => gdp%gdstations%namtra
     xystat           => gdp%gdstations%xystat
     filmst           => gdp%gdstations%filmst
+    !
+    do n = 1, nostat
+       sta_orgline(n) = n
+    enddo
     !
     mfg => gdp%gdparall%mfg
     mlg => gdp%gdparall%mlg
@@ -260,15 +270,13 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           fmtsta = 'FR'
        endif
        !
-       ! read monitoring station definitions from file only if
-       ! NOUI = .true. Stop if reading error occurred or file did not
+       ! read monitoring station definitions from file.
+       ! Stop if reading error occurred or file did not
        ! exist (error  = .true.)
        !
-       if (noui) then
-          call stafil(lundia    ,filsta    ,fmttmp    ,error     ,nostat    , &
-                    & namst     ,mnstat    ,gdp       )
-          if (error) goto 9999
-       endif
+       call stafil(lundia    ,filsta    ,fmttmp    ,error     ,nostat    , &
+                 & namst     ,mnstat    ,gdp       )
+       if (error) goto 9999
     !
     ! monitoring station definitions in file? <NO> and NOSTAT <> 0
     ! start from top and read a record first, because newkw = .true.
@@ -301,7 +309,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! there must be a name defined !!
           !
           if (namst(n)==cdef) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'V013'    ,' '       )
              exit
           endif
@@ -319,7 +327,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! reading error?
           !
           if (lerror) then
-             if (noui) error = .true.
+             error = .true.
              lerror = .false.
              exit
           else
@@ -338,7 +346,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     do n = 1, nostat
        do nn = 1, n - 1
           if (namst(nn)==namst(n)) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'U170'    ,namst(n)  )
           endif
        enddo
@@ -530,15 +538,13 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           fmttra = 'FR'
        endif
        !
-       ! read monitoring cross-section definitions from file only if
-       ! NOUI = .true. Stop if reading error occurred or file did not
+       ! read monitoring cross-section definitions from file.
+       ! Stop if reading error occurred or file did not
        ! exist (error  = .true.)
        !
-       if (noui) then
-          call trafil(lundia    ,filtra    ,fmttmp    ,error     ,ntruv     , &
-                    & namtra    ,mnit      ,gdp       )
-          if (error) goto 9999
-       endif
+       call trafil(lundia    ,filtra    ,fmttmp    ,error     ,ntruv     , &
+                 & namtra    ,mnit      ,gdp       )
+       if (error) goto 9999
     !
     ! monitoring cross-section definitions in file? <NO> and NTRUV <> 0
     ! start from top and read a record first, because newkw = .true.
@@ -570,7 +576,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! there must be a name defined !!
           !
           if (namtra(n)==cdef) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'V014'    ,' '       )
              exit
           endif
@@ -589,7 +595,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! reading error?
           !
           if (lerror) then
-             if (noui) error = .true.
+             error = .true.
              lerror = .false.
              exit
           else
@@ -610,7 +616,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     do n = 1, ntruv
        do nn = 1, n - 1
           if (namtra(nn)==namtra(n)) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'U171'    ,namtra(n) )
           endif
        enddo
@@ -630,16 +636,16 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        enddo
     endif
     !
-    ! line_orig is initialized here instead of chksit
+    ! tra_orgline is initialized here instead of chksit
     ! This makes the remapping in each partition easier
     !
     do n = 1, ntruv
-       line_orig(n) = n       
+       tra_orgline(n) = n       
     enddo
     !
     ! Reorder sections in U-V directions
     ! All U-oriented sections are placed in front of the V-oriented sections
-    ! line_orig is used to store the original order
+    ! tra_orgline is used to store the original order
     ! Output is written in the original order
     !
     nn = 1
@@ -649,23 +655,23 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        ! test first for U points (m1=m2)
        !
        if (mnit(1,i) == mnit(3,i)) then
-          m1            = mnit(1, nn)
-          n1            = mnit(2, nn)
-          m2            = mnit(3, nn)
-          n2            = mnit(4, nn)
-          chulp         = namtra(nn)
-          n             = line_orig(nn)
+          m1              = mnit(1, nn)
+          n1              = mnit(2, nn)
+          m2              = mnit(3, nn)
+          n2              = mnit(4, nn)
+          chulp           = namtra(nn)
+          n               = tra_orgline(nn)
           !
-          mnit(1:4, nn) = mnit(1:4, i)
-          namtra(nn)    = namtra(i)
-          line_orig(nn) = line_orig(i)
+          mnit(1:4, nn)   = mnit(1:4, i)
+          namtra(nn)      = namtra(i)
+          tra_orgline(nn) = tra_orgline(i)
           !
-          mnit(1:4, i)  = (/m1, n1, m2, n2/)
-          namtra(i)     = chulp
-          line_orig(i)  = n
+          mnit(1:4, i)    = (/m1, n1, m2, n2/)
+          namtra(i)       = chulp
+          tra_orgline(i)  = n
           !
-          i             = nn
-          nn            = nn + 1
+          i               = nn
+          nn              = nn + 1
        endif
        i = i + 1
     enddo
@@ -767,7 +773,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
              do i = 1, 4
                 itmp1(i,n) = mnit(i,nsd(n))
              enddo
-             itmp3(n) = line_orig(nsd(n))
+             itmp3(n) = tra_orgline(nsd(n))
           enddo
           !
           ! Resets effective nb of cross sections on each
@@ -777,35 +783,35 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! routine calls)
           !
           namtra = ' '
-          nullify(line_orig)
+          nullify(tra_orgline)
           nullify(mnit)
           nullify(namtra)
-          deallocate(gdp%gdstations%line_orig, stat=istat)
-          deallocate(gdp%gdstations%mnit     , stat=istat)
-          deallocate(gdp%gdstations%namtra   , stat=istat)
+          deallocate(gdp%gdstations%tra_orgline, stat=istat)
+          deallocate(gdp%gdstations%mnit       , stat=istat)
+          deallocate(gdp%gdstations%namtra     , stat=istat)
           ntruv = max(1, nn)
           istat = 0
-          if (istat == 0) allocate(gdp%gdstations%line_orig(ntruv), stat=istat)
-          if (istat == 0) allocate(gdp%gdstations%mnit(4,ntruv)   , stat=istat)
-          if (istat == 0) allocate(gdp%gdstations%namtra(ntruv)   , stat=istat)
+          if (istat == 0) allocate(gdp%gdstations%tra_orgline(ntruv), stat=istat)
+          if (istat == 0) allocate(gdp%gdstations%mnit(4,ntruv)     , stat=istat)
+          if (istat == 0) allocate(gdp%gdstations%namtra(ntruv)     , stat=istat)
           if (istat /= 0) then
              call prterr(lundia, 'U021', 'Rdsite: memory alloc error')
              call d3stop(1, gdp)
           endif
-          line_orig  => gdp%gdstations%line_orig
-          mnit       => gdp%gdstations%mnit
-          namtra     => gdp%gdstations%namtra
+          tra_orgline => gdp%gdstations%tra_orgline
+          mnit        => gdp%gdstations%mnit
+          namtra      => gdp%gdstations%namtra
           if (ntruv == 1 .and. order_tra(1) == 0) then
-             mnit(1:4,1) = (/1,1,1,1/)
-             namtra(1) = ''
-             line_orig(1) = 0
+             mnit(1:4,1)    = (/1,1,1,1/)
+             namtra(1)      = ''
+             tra_orgline(1) = 0
           else
              do n = 1, ntruv
                 namtra(n) = ctemp(n)
                 do i = 1, 4
                    mnit(i,n) = itmp1(i,n)
                 enddo
-                line_orig(n) = itmp3(n)
+                tra_orgline(n) = itmp3(n)
              enddo
           endif
           if (nn /= 0) deallocate(ctemp,itmp1,itmp3, stat=istat)
@@ -838,20 +844,18 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           fmtdro = 'FR'
        endif
        !
-       ! read drogue data from file only if NOUI = .true.
+       ! read drogue data from file only.
        ! goto end of subroutine if reading error occurred or file
        ! did not exist (error  = .true.)
        !
-       if (noui) then
-          call drofil(lundia    ,fildro    ,fmttmp    ,error     ,ndro      , &
-                    & dt        ,namdro    ,mndro     ,itdro     ,dxydro    , &
-                    & drodep    ,gdp       )
-          if (error) goto 9999
-          !
-          ! redefine DROGUE, for drogues read from file
-          !
-          drogue = .true.
-       endif
+       call drofil(lundia    ,fildro    ,fmttmp    ,error     ,ndro      , &
+                 & dt        ,namdro    ,mndro     ,itdro     ,dxydro    , &
+                 & drodep    ,gdp       )
+       if (error) goto 9999
+       !
+       ! redefine DROGUE, for drogues read from file
+       !
+       drogue = .true.
     !
     ! drogues in file? <NO>
     !
@@ -884,7 +888,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! there must be a name defined !!
           !
           if (namdro(n)==cdef) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'V034'    ,' '       )
              exit
           endif
@@ -900,7 +904,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! reading error?
           !
           if (lerror) then
-             if (noui) error = .true.
+             error = .true.
              rval(1) = rdef
              rval(2) = rdef
           endif
@@ -910,13 +914,13 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           itdro(1, n) = nint(rval(1)/dt)
           itdro(2, n) = nint(rval(2)/dt)
           if (dtn(itdro(1, n), rval(1), dt)) then
-             if (noui) error = .true.
+             error = .true.
              errmsg = 'start time'
              call prterr(lundia    ,'U044'    ,errmsg    )
              write (lundia, '(a,a)') ' for drogue: ', namdro(n)
           endif
           if (dtn(itdro(2, n), rval(2), dt)) then
-             if (noui) error = .true.
+             error = .true.
              errmsg = 'stop  time'
              call prterr(lundia    ,'U044'    ,errmsg    )
              write (lundia, '(a,a)') ' for drogue: ', namdro(n)
@@ -938,7 +942,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           ! reading error?
           !
           if (lerror) then
-             if (noui) error = .true.
+             error = .true.
              exit
           endif
           !
@@ -960,7 +964,7 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     do n = 1, ndro
        do nn = 1, n - 1
           if (namdro(nn)==namdro(n)) then
-             if (noui) error = .true.
+             error = .true.
              call prterr(lundia    ,'U172'    ,namdro(n) )
           endif
        enddo
@@ -1048,9 +1052,10 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        call dimstr(lunmd, filrtc, lundia, error, nrrec, stacnt, gdp)
        !
        istat = 0
-       if (istat == 0) allocate(gdp%gdrtc%mnrtcsta (2,stacnt)        , stat = istat)
+       if (istat == 0) allocate(gdp%gdrtc%mnrtcsta(2,stacnt)         , stat = istat)
        if (istat == 0) allocate(gdp%gdrtc%namrtcsta(stacnt)          , stat = istat)
        if (istat == 0) allocate(gdp%gdrtc%zrtcsta(gdp%d%kmax,stacnt) , stat = istat)
+       if (istat == 0) allocate(gdp%gdrtc%s1rtcsta(stacnt)           , stat = istat)
        if (istat /= 0) then
           call prterr(lundia, 'U021', 'Rdsite: memory alloc error')
           call d3stop(1, gdp)
@@ -1068,6 +1073,13 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        call stafil(lundia   , filrtc  , fmttmp, error, stacnt, &
                  & namrtcsta, mnrtcsta, gdp   )
        if (error) goto 9999
+    else
+       stacnt = 0
+       istat  = 0
+       if (istat == 0) allocate(gdp%gdrtc%mnrtcsta(2,stacnt)         , stat = istat)
+       if (istat == 0) allocate(gdp%gdrtc%namrtcsta(stacnt)          , stat = istat)
+       if (istat == 0) allocate(gdp%gdrtc%zrtcsta(gdp%d%kmax,stacnt) , stat = istat)
+       if (istat == 0) allocate(gdp%gdrtc%s1rtcsta(stacnt)           , stat = istat)
     endif
     !
     ! not twice the same name
@@ -1121,5 +1133,23 @@ subroutine rdsite(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           endif
        endif
     enddo
+    !
+    ! Create trigger file for TRISIM to indicate RTC running
+    !
+    if (rtcmod /= noRTC) then
+       luntri = newlun(gdp)
+       filsim = 'TMP_SYNC.RUN'
+       inquire (file = filsim, exist = lexist)
+       if (lexist) then
+          open (luntri, file = filsim)
+          close (luntri, status = 'delete')
+       endif
+       open (luntri, file = filsim, form = 'unformatted', status = 'unknown')
+       !
+       ! Write 'RUNRTC' by telephone
+       !
+       write (luntri) 786782
+       close (luntri)
+    endif
  9999 continue
 end subroutine rdsite

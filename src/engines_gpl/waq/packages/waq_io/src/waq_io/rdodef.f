@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -271,7 +271,7 @@
             case ( 1 )
                write (lunut,3000) ' NEFIS map file switched on'
                if ( mapsrt .eq. imap ) isrtou(7) = imnf
-               if ( hissrt .eq. ima2 ) isrtou(7) = imn2
+               if ( mapsrt .eq. ima2 ) isrtou(7) = imn2
                nrvar(7)  = mapnrv
                do ivar = 1 , nrvar(7)
                   ounam(ivar,7) = ounam(ivar,4)

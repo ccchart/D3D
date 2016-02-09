@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -126,14 +126,6 @@
                  fncralg= max(0.0,pmsa ( ipoint(itel) + (iseg-1)*increm(itel) ))
                  itel   = nipfix + itype + ntype*10
                  fixalg = nint(pmsa ( ipoint(itel) + (iseg-1)*increm(itel) ))
-
-                 ! biomass benthic algae in g/m2, convert to g/m3
-
-                 if ( fixalg .lt. 0 ) then
-                    if ( depth .gt. 1e-20 ) then
-                       biomas = biomas/depth
-                    endif
-                 endif
 
                  ! add ratios of mixotophic and n-fixing algae
 

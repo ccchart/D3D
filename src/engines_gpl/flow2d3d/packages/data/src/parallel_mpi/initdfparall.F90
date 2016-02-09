@@ -1,7 +1,7 @@
-subroutine initdfparall(gdp)
+subroutine initdfparall(partp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,18 +38,20 @@ subroutine initdfparall(gdp)
     !
     implicit none
     !
-    type(globdat), target    :: gdp
+    type(dfparalltype)    :: partp
 !
 ! Global variables
 !
 !! executable statements -------------------------------------------------------
 !
-    !
-    ! Initialize arrays for parallel Delft3D-FLOW
-    !
-    nullify(gdp%gdparall%iblkad)
-    nullify(gdp%gdparall%iweig)
-    nullify(gdp%gdparall%order_tra)
-    nullify(gdp%gdparall%order_sta)
-    nullify(gdp%gdparall%mnit_global)
+    nullify(partp%iblkad)
+    nullify(partp%iweig)
+    nullify(partp%order_tra)
+    nullify(partp%order_sta)
+    nullify(partp%mnit_global)
+    nullify(partp%iarrc)
+    nullify(partp%nf)
+    nullify(partp%nl)
+    nullify(partp%mf)
+    nullify(partp%ml)
 end subroutine initdfparall

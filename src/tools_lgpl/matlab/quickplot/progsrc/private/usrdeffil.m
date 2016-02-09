@@ -6,6 +6,7 @@ function varargout=usrdeffil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=usrdeffil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -80,9 +81,12 @@ cmd=lower(cmd);
 switch cmd
     case 'size'
         varargout={getsize(FI,Props)};
-        return;
+        return
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
+        return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
         return
     case 'stations'
         varargout={readsts(FI,Props,varargin{:})};
@@ -93,7 +97,8 @@ switch cmd
     case 'plot'
         Parent = varargin{1};
         Ops = varargin{2};
-        SubSelected = varargin(3:end);
+        hOld=varargin{3};
+        SubSelected = varargin(4:end);
         Selected = FI.Selected;
         j=0;
         for i = 1:5
@@ -103,7 +108,7 @@ switch cmd
             end
         end
         Selected(FI.DimFlag==0)=[];
-        [Chk,hNew,FI.FileInfo]=qp_getdata(FI.FileInfo,FI.Domain,FI.Props,'plot',Parent,Ops,Selected{:});
+        [Chk,hNew,FI.FileInfo]=qp_getdata(FI.FileInfo,FI.Domain,FI.Props,'plot',Parent,Ops,hOld,Selected{:});
         varargout={hNew FI};
         return
     otherwise
@@ -177,6 +182,7 @@ elseif Props.DimFlag(T_)
         end
     end
 end
+FieldList = {'XComp','YComp','ZComp','Val','XDamVal','YDamVal'};
 if isequal(Props.FileInfo,'operator')
     P=Props.Props.Data{1};
     Oper=Props.Props.Oper;
@@ -362,9 +368,8 @@ if isequal(Props.FileInfo,'operator')
                         end
                     case 'f(A,B) = user defined'
                         fun = Props.Props.Data{3};
-                        F = {'XComp','YComp','ZComp','Val'};
-                        for i = 1:length(F)
-                            f = F{i};
+                        for i = 1:length(FieldList)
+                            f = FieldList{i};
                             if isfield(Ans,f) && isfield(Ans2,f)
                                 Ans.(f)=usereval(fun,Ans.(f),Ans2.(f));
                             elseif isfield(Ans,f) && isfield(Ans2,'Val')
@@ -375,9 +380,8 @@ if isequal(Props.FileInfo,'operator')
                         end
                 end
             else
-                F = {'XComp','YComp','ZComp','Val'};
-                for i = 1:length(F)
-                    f = F{i};
+                for i = 1:length(FieldList)
+                    f = FieldList{i};
                     if isfield(Ans,f) && isfield(Ans2,f)
                         Ans.(f)=feval(OpFun,Ans.(f),Ans2.(f));
                     elseif isfield(Ans,f) && isfield(Ans2,'Val')
@@ -454,16 +458,19 @@ if isequal(Props.FileInfo,'operator')
             switch Oper
                 case '10log'
                     fun='log10';
+                    filter_negative=1;
                 case 'abs'
                     fun='abs';
+                    filter_negative=0;
             end
             [Ans,FI]=getdata(P,cmd,sel);
             Props.Props.Data{1}=FI;
-            F = {'XComp','YComp','ZComp','Val'};
-            for i = 1:length(F)
-                f = F{1};
+            for i = 1:length(FieldList)
+                f = FieldList{i};
                 if isfield(Ans,f);
-                    Ans.(f)(Ans.(f)<=0)=NaN;
+                    if filter_negative
+                        Ans.(f)(Ans.(f)<=0)=NaN;
+                    end
                     Ans.(f)=feval(fun,Ans.(f));
                 end
             end
@@ -471,9 +478,8 @@ if isequal(Props.FileInfo,'operator')
             fun=Props.Props.Data{2};
             [Ans,FI]=getdata(P,cmd,sel);
             Props.Props.Data{1}=FI;
-            F = {'XComp','YComp','ZComp','Val'};
-            for i = 1:length(F)
-                f = F{i};
+            for i = 1:length(FieldList)
+                f = FieldList{i};
                 if isfield(Ans,f)
                     Ans.(f)=usereval(fun,Ans.(f));
                 end
@@ -526,14 +532,14 @@ if isequal(Props.FileInfo,'operator')
             sel{m_}=0;
             [Ans,FI]=getdata(P,cmd,sel);
             Props.Props.Data{1}=FI;
-            for fldc={'Val','XComp','YComp','ZComp'}
-                fld = fldc{1};
-                if isfield(Ans,fld)
-                    data = getfield(Ans,fld);
+            for i=1:length(FieldList)
+                f = FieldList{i};
+                if isfield(Ans,f)
+                    data = Ans.(f);
                     dims = repmat({':'},1,ndims(data));
                     dims{dIndex} = size(data,dIndex):-1:1;
                     data = data(dims{:});
-                    Ans = setfield(Ans,fld,data);
+                    Ans.(f) = data;
                     data = [];
                 end
             end
@@ -877,28 +883,28 @@ switch cmd
             switch NVal
                 case {0,-1}
                     Ops={};
-                case {1,2,3}
+                case {1,1.9,2,3}
                     Ops={'A+B','A-B','A*B','A/B','max(A,B)','min(A,B)', ...
                         '+ constant','* constant','^ constant','max(A,constant)','min(A,constant)', ...
                         '10log','abs','series: A,B','A under condition B', ...
                         'f(A) = user defined','f(A,B) = user defined'};
                     if Vars(i).DimFlag(M_)
                         if NVal==1
-                            Ops(end+(1:4))={'max m' 'alg.mean m' 'min m' 'sum m'};
+                            Ops(end+(1:2))={'min m' 'max m'};
                         end
-                        Ops(end+1) = {'flip m'};
+                        Ops(end+(1:3)) = {'alg.mean m' 'sum m' 'flip m'};
                     end
                     if Vars(i).DimFlag(N_)
                         if NVal==1
-                            Ops(end+(1:4))={'max n' 'alg.mean n' 'min n' 'sum n'};
+                            Ops(end+(1:2))={'min n' 'max n'};
                         end
-                        Ops(end+1) = {'flip n'};
+                        Ops(end+(1:3)) = {'alg.mean n' 'sum n' 'flip n'};
                     end
                     if Vars(i).DimFlag(K_)
                         if NVal==1
-                            Ops(end+(1:4))={'max k' 'alg.mean k' 'min k' 'sum k'};
+                            Ops(end+(1:2))={'min k' 'max k'};
                         end
-                        Ops(end+1) = {'flip k'};
+                        Ops(end+(1:3)) = {'alg.mean k' 'sum k' 'flip k'};
                     end
                     if NVal>1
                         Ops(end+1)={'magnitude'};

@@ -1,8 +1,8 @@
-subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
-                & soort     ,gdp       )
+subroutine decarr(lunmd     ,lundia    ,error     ,runid     , &
+                & prgnm     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -90,19 +90,19 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     logical          , pointer :: sbkol
     logical          , pointer :: bubble
     logical          , pointer :: nfl
+    logical          , pointer :: lfsdu
+    logical          , pointer :: lfsdus1
 !
 ! Global variables
 !
     integer         :: lundia      !  Description and declaration in inout.igs
     integer         :: lunmd       !  Description and declaration in inout.igs
     logical         :: error       !!  Flag=TRUE if an error is encountered
-    logical         :: verify      !!  Flag=TRUE  if current program=MD-VER
-                                   !!      =FALSE if current program=TRISIM
     character(*)    :: runid       !!  Run identification code for the cur-
                                    !!  rent simulation (used to determine
                                    !!  the names of the in- /output files
                                    !!  used by the system)
-    character(6)    :: soort       !!  Help var. determining the prog. name
+    character(6)    :: prgnm       !!  Help var. determining the prog. name
                                    !!  currently active
 !
 ! Local variables
@@ -120,6 +120,8 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     culvert    => gdp%gdprocs%culvert
     dredge     => gdp%gdprocs%dredge
     drogue     => gdp%gdprocs%drogue
+    lfsdu      => gdp%gdprocs%lfsdu
+    lfsdus1    => gdp%gdprocs%lfsdus1
     wave       => gdp%gdprocs%wave
     waveol     => gdp%gdprocs%waveol
     threed     => gdp%gdprocs%threed
@@ -155,7 +157,6 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     nopest     => gdp%d%nopest
     !
     nopest    = 0
-    nlcest    = 0
     nmaxd     = 1
     mmaxd     = 1
     nflmod    = ' '
@@ -184,17 +185,19 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     sbkol     = .false.
     bubble    = .false.
     nfl       = .false.
+    lfsdu     = .false.    
+    lfsdus1   = .false.    
     !
     ! read dimensions out of md-file
     !
     call dimrd(lunmd     ,lundia    ,error     ,runid     ,nrver     , &
-             & soort     ,wind      ,salin     ,temp      ,sedim     , &
+             & prgnm     ,wind      ,salin     ,temp      ,sedim     , &
              & const     ,secflo    ,drogue    ,wave      ,iweflg    , &
              & htur2d    ,mudlay    , &
              & flmd2l    ,zmodel    ,nonhyd    ,roller    ,wavcmp    , &
              & culvert   ,dredge    ,cdwstruct ,snelli    ,cnstwv    , &
              & veg3d     ,waveol    ,lrdamp    ,sbkol     ,bubble    , &
-             & nfl       ,nflmod    ,gdp       )
+             & nfl       ,nflmod    ,lfsdu     ,lfsdus1   ,gdp       )
     if (error) goto 9999
     !
     ! carry out domain decomposition based on load balancing
@@ -209,7 +212,13 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     ! arrays declared yet; for WAVE not yet implemented)
     !
     nopest = 4 * (nmax+mmax)
-    nlcest = 7 * (nmax+mmax)
+    if (nlcest == 0) then
+       !
+       ! nlcest not specified (overwritten) by the user
+       ! define an estimation:
+       !
+       nlcest = 7 * (nmax+mmax)
+    endif
     if (kmax > 1) then
        threed = .true.
        nmaxd  = nmax
@@ -231,14 +240,13 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     ,verify    , &
     ! calculate indices of integer arrays
     !
     lerror = .false.
-    call esm_alloc_int(lundia    ,lerror    ,verify    ,zmodel    , &
-             & gdp       )
+    call esm_alloc_int(lundia    ,lerror    ,zmodel    ,gdp       )
     if (lerror) error = .true.
     !
     ! calculate indices of character arrays
     !
     lerror = .false.
-    call esm_alloc_char(lundia    ,lerror    ,verify    ,gdp       )
+    call esm_alloc_char(lundia    ,lerror    ,gdp       )
     if (lerror) error = .true.
     !
     ! Allocate arrays in GDP structure using read dimensions

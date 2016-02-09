@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -27,10 +27,6 @@
 !>\file
 !>       emersion of segments in z-layers, set segment features accordingly
 
-!***********************************************************************
-!     +----------------------------------------+
-!     |    d e l f t   h y d r a u l i c s     |
-!     +----------------------------------------+
 !***********************************************************************
 !
 !     function : emersion of segments, set segment features accordingly

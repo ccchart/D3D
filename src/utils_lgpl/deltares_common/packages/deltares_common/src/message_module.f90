@@ -1,7 +1,7 @@
 module message_module
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -65,7 +65,7 @@ public write_warning
 character( 16), parameter, public :: FILE_NOT_FOUND  = 'File not found: '
 character( 23), parameter, public :: PREMATURE_EOF   = 'Premature EOF in file: '
 character( 22), parameter, public :: FILE_READ_ERROR = 'Read error from file: '
-character( 19), parameter, public :: ERROR_FILE_OPEN = 'Error opening file: '
+character( 20), parameter, public :: ERROR_FILE_OPEN = 'Error opening file: '
 !
 type message_type
     private

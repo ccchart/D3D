@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,13 +21,13 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C  *********************************************************************
-C  *     SUBROUTINE PSHCUR TO PUSH CURSOR POSITION TO STACK            *
-C  *********************************************************************
-C
+!
+!  *********************************************************************
+!  *     SUBROUTINE PSHCUR TO PUSH CURSOR POSITION TO STACK            *
+!  *********************************************************************
+!
       SUBROUTINE PSHCUR
-C
+!
       WRITE (*,10)
 cjvb  FORMAT ('[s',\)
 10    FORMAT (' ')

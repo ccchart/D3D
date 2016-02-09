@@ -1,29 +1,29 @@
 function getpointer(pntnam, gdp)
 !----- GPL ---------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2011-2014.
-!
-!  This program is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation version 3.
-!
-!  This program is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"
-!  are registered trademarks of Stichting Deltares, and remain the property of
-!  Stichting Deltares. All rights reserved.
-!
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!                                                                               
+!  This program is free software: you can redistribute it and/or modify         
+!  it under the terms of the GNU General Public License as published by         
+!  the Free Software Foundation version 3.                                      
+!                                                                               
+!  This program is distributed in the hope that it will be useful,              
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU General Public License for more details.                                 
+!                                                                               
+!  You should have received a copy of the GNU General Public License            
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
+!  are registered trademarks of Stichting Deltares, and remain the property of  
+!  Stichting Deltares. All rights reserved.                                     
+!                                                                               
 !-------------------------------------------------------------------------------
 !  $Id$
 !  $HeadURL$
@@ -218,7 +218,6 @@ function getpointer(pntnam, gdp)
     integer(pntrsize) , pointer :: rnpl
     integer(pntrsize) , pointer :: rob
     integer(pntrsize) , pointer :: rsed
-    integer(pntrsize) , pointer :: rsedeq
     integer(pntrsize) , pointer :: rthbnd
     integer(pntrsize) , pointer :: rtu2d0
     integer(pntrsize) , pointer :: rtu2d1
@@ -570,7 +569,6 @@ function getpointer(pntnam, gdp)
     rnpl       => gdp%gdr_i_ch%rnpl
     rob        => gdp%gdr_i_ch%rob
     rsed       => gdp%gdr_i_ch%rsed
-    rsedeq     => gdp%gdr_i_ch%rsedeq
     rthbnd     => gdp%gdr_i_ch%rthbnd
     rtu2d0     => gdp%gdr_i_ch%rtu2d0
     rtu2d1     => gdp%gdr_i_ch%rtu2d1
@@ -695,6 +693,8 @@ function getpointer(pntnam, gdp)
     zwndsp     => gdp%gdr_i_ch%zwndsp
     zwnddr     => gdp%gdr_i_ch%zwnddr
     zairp      => gdp%gdr_i_ch%zairp
+    zevap      => gdp%gdr_i_ch%zevap
+    zprecp     => gdp%gdr_i_ch%zprecp
     drhodx     => gdp%gdr_i_ch%drhodx
     drhody     => gdp%gdr_i_ch%drhody
     dzs0       => gdp%gdr_i_ch%dzs0
@@ -1087,8 +1087,6 @@ function getpointer(pntnam, gdp)
        returnval = rob
     case ('rsed')
        returnval = rsed
-    case ('rsedeq')
-       returnval = rsedeq
     case ('rthbnd')
        returnval = rthbnd
     case ('rtur0')

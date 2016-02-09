@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -24,22 +24,22 @@
       SUBROUTINE DHREPC( NAME1 , NAME2, CARRAY, NOCAR , NCHAR )
 
       use timers       !   performance timers
-C
+!
       INTEGER            NOCAR , NCHAR
       CHARACTER*(*)      NAME1 , NAME2
       CHARACTER*(*)      CARRAY(NOCAR)
       integer(4) :: ithndl = 0
       if (timon) call timstrt( "dhrepc", ithndl )
-C
-C     Search and replace all occurences of NAME1 in CARRAY with NAME2
-C
+!
+!     Search and replace all occurences of NAME1 in CARRAY with NAME2
+!
       DO I = 1 , NOCAR
          CALL ZOEK(NAME1,1,CARRAY(I),NCHAR,ICAR)
          IF ( ICAR .GT. 0 ) THEN
             CARRAY(I) = NAME2
          ENDIF
       ENDDO
-C
+!
       if (timon) call timstop( ithndl )
       RETURN
       END

@@ -25,7 +25,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
              & precip    ,ustokes   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -867,7 +867,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
        ! determine global maximum of 'itr' over all nodes
        ! Note: this enables to synchronize the repeating computation
        !
-       call dfreduce( itr, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( itr, 1, dfint, dfmax, gdp )
        !
        ! REPEAT COMPUTATION IF POINT IS SET DRY
        !       FIRST RESET HU
@@ -1002,7 +1002,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
        enddo
        ierror = 0
        if (error) ierror = 1
-       call dfreduce( ierror, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( ierror, 1, dfint, dfmax, gdp )
        error = ierror==1
        if (error) then
           write (errtxt, '(a,e12.3,a,i0,a)') 'Mass closure error exceeds ', &

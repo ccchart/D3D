@@ -1,7 +1,7 @@
 program waves_main
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,12 @@ program waves_main
    use wave_data
    use meteo
    !
+   ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
+   ! Activate the following line
+   ! See also statements below
+   !
+   ! use ifcore
+   ! 
    implicit none
 !
 ! Global variables
@@ -50,6 +56,7 @@ program waves_main
    integer                                      :: i
    integer                                      :: ierr
    integer                                      :: mode_in
+   integer                                      :: mtdim
    integer                                      :: n_swan_grids ! number of SWAN grids
    integer                                      :: n_flow_grids ! number of FLOW grids
    integer                                      :: i_flow       ! counter
@@ -68,9 +75,21 @@ program waves_main
    character(256), dimension(:), pointer        :: meteotypes
    character(500)                               :: message
    type(wave_data_type),target                  :: wavedata
+   !
+   ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
+   ! Activate the following line
+   ! See also statements below
+   !
+   ! INTEGER*4 OLD_FPE_FLAGS, NEW_FPE_FLAGS
 !
 !! executable statements -----------------------------------------------
 !
+   ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
+   ! Activate the following two lines
+   ! See also use statement above
+   !
+   ! NEW_FPE_FLAGS = FPE_M_TRAP_OVF + FPE_M_TRAP_DIV0 + FPE_M_TRAP_INV
+   ! OLD_FPE_FLAGS = FOR_SET_FPE (NEW_FPE_FLAGS)
    !
    ! ====================================================================================
    ! INIT
@@ -183,6 +202,17 @@ program waves_main
          success  = initmeteo(swan_grids(i_swan)%grid_name)
          call checkmeteoresult_wave(success)
          !
+         ! Read the meteo files
+         !
+         do i_meteo = 1, swan_run%dom(i_swan)%n_meteofiles_dom
+            success = addmeteoitem(swan_grids(i_swan)%grid_name               , &
+                                 & swan_run%dom(i_swan)%meteofile_dom(i_meteo), &
+                                 & swan_grids(i_swan)%sferic                  , &
+                                 & swan_grids(i_swan)%mmax                    , &
+                                 & swan_grids(i_swan)%nmax                    )
+            call checkmeteoresult_wave(success)
+         enddo
+         !
          ! Allocate local copies of coordinate arrays
          ! Must be in flexible precision for the meteo module
          !
@@ -201,23 +231,13 @@ program waves_main
                               &    y_fp                        )
          call checkmeteoresult_wave(success)
          !
-         ! Read the meteo files
-         !
-         do i_meteo = 1, swan_run%dom(i_swan)%n_meteofiles_dom
-            success = addmeteoitem(swan_grids(i_swan)%grid_name               , &
-                                 & swan_run%dom(i_swan)%meteofile_dom(i_meteo), &
-                                 & swan_grids(i_swan)%sferic                  , &
-                                 & swan_grids(i_swan)%mmax                    , &
-                                 & swan_grids(i_swan)%nmax                    )
-            call checkmeteoresult_wave(success)
-         enddo
-         !
          ! Deallocate local copies of coordinate arrays
          !
          deallocate(x_fp)
          deallocate(y_fp)
          nullify(meteotypes)
-         success = getmeteotypes(swan_grids(i_swan)%grid_name, meteotypes)
+         mtdim = 0
+         success = getmeteotypes(swan_grids(i_swan)%grid_name, meteotypes,mtdim)
          call checkmeteoresult_wave(success)
          do i_meteo = 1, size(meteotypes)
             if (meteotypes(i_meteo) == "meteo_on_computational_grid") then
@@ -267,11 +287,13 @@ program waves_main
          ! Update wave and wind conditions
          !
          if (timtscale >= 0) then
-            call settimtscale(wavedata%time, timtscale)
+            call settimtscale(wavedata%time, timtscale, swan_run%modsim, swan_run%deltcom)
             !
             ! Run n_swan nested SWAN run
             !
             call swan_tot(n_swan_grids, n_flow_grids, wavedata)
+         else
+            write(*,'(a)') "  Received stop command from FLOW. Check FLOW diagnosis file."
          endif
          write(*,'(a)')'*  End of Delft3D-WAVE'
          write(*,'(a)')'*****************************************************************'

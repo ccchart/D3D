@@ -9,7 +9,7 @@ subroutine inidis(lundia    ,error     ,runid     ,cyclic    ,timnow    , &
                 & upwsrc    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -45,6 +45,7 @@ subroutine inidis(lundia    ,error     ,runid     ,cyclic    ,timnow    , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall
     !
     implicit none
@@ -116,7 +117,6 @@ subroutine inidis(lundia    ,error     ,runid     ,cyclic    ,timnow    , &
     integer                                    :: isrc        ! Index number of discharge location
     integer                                    :: isrc_nodup  ! isrc, skipping duplicate discharges, introduced by bubble screens
     integer                                    :: istart
-    integer                                    :: itfac       ! Interpolation factor 
     integer                                    :: ja_upw      ! Default only around momentum discharge locations upwind is expected = 1 For no upwind JA_UPW = -1
     integer                                    :: l           ! Loop counter over LSTSC 
     integer                                    :: lrec        ! Record length of direct access file 
@@ -171,7 +171,7 @@ subroutine inidis(lundia    ,error     ,runid     ,cyclic    ,timnow    , &
     !
     ! define length of RUNID
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     ! Time dependent discharges
     !

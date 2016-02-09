@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -40,6 +40,8 @@ character(20)  :: key
 character(20)  :: major
 character(20)  :: minor
 character(20)  :: revision
+character(20)  :: config_minor
+character(20)  :: config_major
 character(20)  :: value
 character(500) :: inputFile
 character(500) :: line
@@ -64,6 +66,8 @@ call GET_COMMAND_ARGUMENT(4,outputFile)
 major    = '**'
 minor    = '**'
 revision = '**'
+config_major    = '**'
+config_minor    = '**'
 
 handlein  = 33
 handleout = 34
@@ -79,13 +83,34 @@ do
   if ( pos < 1 ) cycle
   key   = line(:pos-1)
   value = line(pos+1:)
-  if (index(key,'major') /= 0) then
+  !if (index(key,'major') /= 0) then
+  !  major = trim(adjustl(value))
+  !endif
+  !if (index(key,'minor') /= 0) then
+  !  minor = trim(adjustl(value))
+  !endif
+  !if (index(key,'config_major') /= 0) then
+  !  config_major = trim(adjustl(value))
+  !endif
+  !if (index(key,'config_minor') /= 0) then
+  !  config_minor = trim(adjustl(value))
+  !endif
+  !if (index(key,'revision') /= 0) then
+  !  revision = trim(adjustl(value))
+  !endif
+  if (trim(adjustl(key))=='major') then 
     major = trim(adjustl(value))
   endif
-  if (index(key,'minor') /= 0) then
+  if (trim(adjustl(key))=='minor') then 
     minor = trim(adjustl(value))
   endif
-  if (index(key,'revision') /= 0) then
+  if (trim(adjustl(key))=='config_major') then 
+    config_major = trim(adjustl(value))
+  endif
+  if (trim(adjustl(key))=='config_minor') then 
+    config_minor = trim(adjustl(value))
+  endif
+  if (trim(adjustl(key))=='revision') then 
     revision = trim(adjustl(value))
   endif
 enddo
@@ -112,12 +137,21 @@ do
   value  = revision
   call sed(line, key, value)
 
+  key    = 'VN_CONFIG_MINOR'
+  value  = config_minor
+  call sed(line, key, value)
+
+  key    = 'VN_CONFIG_MAJOR'
+  value  = config_major
+  call sed(line, key, value)
+
   key    = 'VN_BUILD_NUMBER'
   value  = builtNumber
   call sed(line, key, value)
 
   write(handleout,'(a)') trim(line)
 enddo
+
 
 end program version_number
 

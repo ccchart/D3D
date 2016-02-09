@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -155,15 +155,27 @@
       IF ( ACTION == ACTION_INITIALISATION  .OR.
      &     ACTION == ACTION_FULLCOMPUTATION        ) THEN
 
-C
-C          some initialisation
-C
+!
+!          some initialisation
+!
           ithandl = 0
           ITIME   = ITSTRT
           NSTEP   = (ITSTOP-ITSTRT)/IDT
           IFFLAG  = 0
           IAFLAG  = 0
           ibflag  = 0
+
+!     Dummy variables - used in DLWQD
+          ITIMEL  = ITIME
+          lleng   = 0
+          ioptzb  = 0 
+          nopred  = 6
+          NOWARN  = 0
+          tol     = 0.0D0
+          forester = .FALSE.
+          updatr = .FALSE.
+          NOQT  = NOQ + NOQ4
+
           if ( btest(intopt,3) ) ibflag = 1
           LDUMMY = .FALSE.
           IF ( NDSPN .EQ. 0 ) THEN
@@ -182,19 +194,19 @@ C
           inwtyp = intyp + nobnd
 
           call initialise_progress( dlwqd%progress, nstep, lchar(44) )
-C
-C          initialize second volume array with the first one
-C
+!
+!          initialize second volume array with the first one
+!
           CALL MOVE   ( A(IVOL ), A(IVOL2) , nosss   )
       ENDIF
 
-C
-C     Save/restore the local persistent variables,
-C     if the computation is split up in steps
-C
-C     Note: the handle to the timer (ithandl) needs to be
-C     properly initialised and restored
-C
+!
+!     Save/restore the local persistent variables,
+!     if the computation is split up in steps
+!
+!     Note: the handle to the timer (ithandl) needs to be
+!     properly initialised and restored
+!
       IF ( ACTION == ACTION_INITIALISATION ) THEN
           if ( timon ) call timstrt ( "dlwqn5", ithandl )
           INCLUDE 'dlwqdata_save.inc'
@@ -292,9 +304,9 @@ C
      &                     notot   , idt     , a(iconc), a(iflow), a(iboun))
          endif
          call timer_stop(timer_bound)
-C
-C     Call OUTPUT system
-C
+!
+!     Call OUTPUT system
+!
       call timer_start(timer_output)
       CALL DLWQO2 ( NOTOT   , nosss   , NOPA    , NOSFUN  , ITIME   ,
      +              C(IMNAM), C(ISNAM), C(IDNAM), J(IDUMP), NODUMP  ,
@@ -318,7 +330,7 @@ C
      +              C(IBTYP), J(INTYP), C(ICNAM), noqtt   , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  )
+     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
          call timer_stop(timer_output)
 
 !          zero cummulative array's
@@ -460,7 +472,7 @@ C
 !     calculate closure error
          call collect_rdata(mypart,A(imass), notot,'noseg',1, ierr)
          if ( lrewin .and. lstrec ) then
-c collect information on master for computation of closure error before rewind
+! collect information on master for computation of closure error before rewind
             call collect_rdata(mypart,A(imass), notot,'noseg',1, ierr)
             if (mypart.eq.1)
      &      call dlwqce ( a(imass), a(ivoll), a(ivol2), nosys , notot ,
@@ -471,7 +483,7 @@ c collect information on master for computation of closure error before rewind
             call move   ( a(ivol2), a(ivol) , noseg   )
          endif
          call distribute_rdata(mypart,A(IMASS),notot,'noseg',1,'distrib_itf', ierr)
-c collect information on master for computation of closure error before rewind
+! collect information on master for computation of closure error before rewind
 
 !          integrate the fluxes at dump segments fill ASMASS with mass
 

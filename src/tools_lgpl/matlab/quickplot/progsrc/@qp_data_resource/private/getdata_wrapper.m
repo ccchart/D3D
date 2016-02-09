@@ -3,7 +3,7 @@ function Fcn = getdata_wrapper(Fcn)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -87,7 +87,7 @@ function varargout = classicoptions(FI,OptionsFigure,Cmd,varargin)
 [varargout{1:max(1,nargout)}] = qp_getdata(FI,'options',OptionsFigure,Cmd,varargin{:});
 
 function [hNew, NewFI, Success] = classicplot(FI,Domain,DataFld,varargin)
-%   [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,subf,t,station,m,n,k)
+%   [Success,hNew      ,NewFI]      = QP_GETDATA(FI,Domain,DataFld,'plot',Parent,Ops,hOld,subf,t,station,m,n,k)
 [Success, hNew, NewFI] = qp_getdata(FI,Domain,DataFld,'plot',varargin{:});
 
 %   [Success,StNames   ]            = QP_GETDATA(FI,Domain,DataFld,'stations',S)

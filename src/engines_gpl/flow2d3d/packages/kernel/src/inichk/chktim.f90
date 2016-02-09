@@ -6,7 +6,7 @@ subroutine chktim(lundia    ,nostat    ,ntruv     ,itstrt    ,itfinish  , &
                 & itnfli    ,itnfll    ,error     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -333,16 +333,6 @@ subroutine chktim(lundia    ,nostat    ,ntruv     ,itstrt    ,itfinish  , &
           ithisi = 0
           !
           call prterr(lundia    ,'V011'    ,' '       )
-       endif
-       if (nostat<=1 .and. .not. parll) then
-          !
-          ! parallel: dfwrihis and dfwrthis can handle 1 obs
-          ! not parallel: wrihis and wrthis must be adapted: if 0 do not write
-          !
-          write (message,'(a,a)') 'At least 2 observation points must be defined ', &
-                                & 'when writing to history file'
-          call prterr(lundia, 'U021', message)
-          error = .true.
        endif
     endif
     !

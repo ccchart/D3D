@@ -5,7 +5,7 @@ function qck_anim(cmd,afig,ANISteps)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -59,11 +59,14 @@ end
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 AnimSlid=findobj(afig,'tag','animslid');
 AS=get(AnimSlid,'userdata');
-if isempty(AS)
-    set(AnimSlid,'enable','off')
-    par_ax = [];
+if strcmp(cmd,'animselect')
     h = [];
-    par_fig = [];
+    par_fig = gcbo;
+    while ~isempty(par_fig) && ~isequal(get(par_fig,'type'),'figure')
+        par_fig=get(par_fig,'parent');
+    end
+elseif isempty(AS)
+    set(AnimSlid,'enable','off')
     return
 else
     t_=AS(1).Fld(1);
@@ -241,18 +244,11 @@ switch cmd
         set(findall(par_fig,'tag','startanim'),'enable','off');
         set(findall(par_fig,'tag','stopanim'),'enable','on');
         %
-        v72 = matlabversionnumber>=7.02;
+        mversion = matlabversionnumber;
         for fg = par_fig(:)'
-            if v72
-                %Disable listeners
-                mmgr = uigetmodemanager(fg);
-                set(mmgr.WindowListenerHandles,'Enable','off');
-            end
+            disable_listeners(fg,mversion)
             set(fg,'keypressfcn','qck_anim stopanimkey')
-            if v72
-                %Enable listeners
-                set(mmgr.WindowListenerHandles,'Enable','on');
-            end
+            enable_listeners(fg,mversion)
         end
         try
             if strcmp(output,'avi file')
@@ -377,16 +373,9 @@ switch cmd
             ish=ishandle(par_fig);
             if ish
                 for fg = par_fig(ish)'
-                    if v72
-                        %Disable listeners
-                        mmgr = uigetmodemanager(fg);
-                        set(mmgr.WindowListenerHandles,'Enable','off');
-                    end
+                    disable_listeners(fg,mversion)
                     set(fg,'keypressfcn','','vis','on')
-                    if v72
-                        %Enable listeners
-                        set(mmgr.WindowListenerHandles,'Enable','on');
-                    end
+                    enable_listeners(fg,mversion)
                 end
             end
             for i=1:length(sld)
@@ -529,7 +518,7 @@ switch cmd
         NStep=getappdata(animslid,'maxival');
         NoUpdateNec=1;
         ASold=get(animslid,'userdata');
-        if isstruct(ASold)
+        if isstruct(ASold) && ~isempty(ASold)
             ASoldFld=ASold(1).Fld;
         else
             ASoldFld=0;
@@ -597,7 +586,8 @@ for iobj=1:length(UDh)
     if ~isempty(findall(0,'tag',AS(iobj).Tag))
         try
             [hNew,Error,FileInfo]=qp_plot(AnimObj.PlotState);
-        catch
+        catch Ex
+            qp_error('Catch in qck_anim:',Ex,'qck_anim')
         end
     end
 end
@@ -863,3 +853,22 @@ b = uicontrol('Parent',a, ...
 %
 set(a,'visible','on')
 
+function disable_listeners(fg,mversion)
+%Disable listeners
+if mversion>=8.04
+    mmgr = uigetmodemanager(fg);
+    [mmgr.WindowListenerHandles(:).Enabled] = deal(0);
+elseif mversion>=7.02
+    mmgr = uigetmodemanager(fg);
+    set(mmgr.WindowListenerHandles,'Enable','off');
+end
+
+function enable_listeners(fg,mversion)
+%Enable listeners
+if mversion>=8.04
+    mmgr = uigetmodemanager(fg);
+    [mmgr.WindowListenerHandles(:).Enabled] = deal(1);
+elseif mversion>=7.02
+    mmgr = uigetmodemanager(fg);
+    set(mmgr.WindowListenerHandles,'Enable','on');
+end

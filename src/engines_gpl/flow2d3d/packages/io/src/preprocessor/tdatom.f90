@@ -1,7 +1,7 @@
-subroutine tdatom(runid, filmrs, nuerr, alone, gdp) 
+subroutine tdatom(runid, filmrs, nuerr, gdp) 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,18 +40,19 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
 !!--pseudo code and references-------------------------------------------------- 
 ! NONE 
 !!--declarations---------------------------------------------------------------- 
-    use precision 
-    use flow2d3d_timers 
+    use precision
+    use flow2d3d_timers
     ! 
-    use globaldata 
+    use globaldata
+    use string_module
     ! 
-    implicit none 
+    implicit none
     ! 
     ! parameters (hard coded, fixed dimensions)
     !
-    include 'pardef.igd'         
+    include 'pardef.igd'
     !
-    type(globdat),target :: gdp 
+    type(globdat),target :: gdp
     ! 
     ! The following list of pointer parameters is used to point inside the gdp structure 
     ! 
@@ -122,6 +123,9 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     logical                         , pointer :: sbkol 
     logical                         , pointer :: bubble 
     logical                         , pointer :: nfl 
+    logical                         , pointer :: v2dwbl
+    logical                         , pointer :: lfsdu
+    logical                         , pointer :: lfsdus1
     integer                         , pointer :: rtcmod 
     logical                         , pointer :: reusetmp !!  TRUE when temporary files will be reused 
                                                           !!  if possible 
@@ -135,8 +139,6 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
 ! Global variables 
 ! 
     integer        , intent(out) :: nuerr  !! Exit code: 0 := ok, < 0 then error
-    logical        , intent(in)  :: alone  !! TRUE when flow runs stand-alone, 
-                                           !! FALSE when flow is part of morsys     
     character(12)  , intent(in)  :: filmrs !! File name for DELFT3D_MOR FLOW 
                                            !! input file (MD-flow.xxx) 
     character(*)   , intent(in)  :: runid  !! Run identification code for the current simulation
@@ -185,30 +187,6 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
                                                                        !    MNBND(4,K)=Y-Coor. of the end   pnt. 
                                                                        !    K = 1,.....,NOPEN  
     integer, dimension(:,:), pointer                    :: mnksrc      ! MNK-coord. for discharges  
-    integer, dimension(:,:,:), pointer                  :: kspu        ! NT+2,0:MXKMAX Mask array for total water depth upwind in special (u-)points 
-                                                                       !    In KSPU(NM,0) the special point definition is given 
-                                                                       !       = 1 Discharge location 
-                                                                       !       = 2 Floating structure 
-                                                                       !       = 3 Local weir 
-                                                                       !       = 4 Gate 
-                                                                       !       = 5 Rigid sheet 
-                                                                       !       = 6 Porous plate 
-                                                                       !       = 7 Bridge 
-                                                                       !       = 8 Barrier 
-                                                                       !       = 9 2D Weir 
-                                                                       !    For type 1-3,5-8 the negative equivalence implice no upwind  
-    integer, dimension(:,:,:), pointer                  :: kspv        ! NT+2,0:MXKMAX Mask array for total water depth upwind in special (v-)points 
-                                                                       !    In KSPV(NM,0) the special point definition is given  
-                                                                       !       = 1 Discharge location 
-                                                                       !       = 2 Floating structure 
-                                                                       !       = 3 Local weir 
-                                                                       !       = 4 Gate 
-                                                                       !       = 5 Rigid sheet 
-                                                                       !       = 6 Porous plate 
-                                                                       !       = 7 Bridge 
-                                                                       !       = 8 Barrier 
-                                                                       !       = 9 2D Weir 
-                                                                       !    For type 1-3,5-8 the negative equivalence implice no upwind  
     integer, dimension(:), pointer                      :: nhsub       ! integer array to store sequence numbers of harmonic boundary condition in own subdomain 
     integer, external                                   :: newlun 
     logical                                             :: found       ! If FOUND = TRUE then recnam in the MD-file was found  
@@ -216,10 +194,8 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     logical                                             :: solrad_read ! Flag=TRUE means Nett Solar Radiation is to be read from .tem file 
     logical                                             :: lexist      ! Logical to determine file existence  
     logical                                             :: newkw       ! Logical var. specifying whether a new recnam should be read from the MD-file or just new data in the continuation line  
-    logical                                             :: noui        ! Flag for reading from User Interface
     logical                                             :: sferic      ! Flag for spherical coordinates (TRUE or FALSE)  
     logical                                             :: tmpexist    ! Flag for call from TDATOM (.true.) for time varying data  
-    logical                                             :: verify      ! Always FALSE, to be removed; was used for program=MD-VER
     logical                                             :: yestdd      ! Flag for call from TDATOM (.true.) for time varying data  
     real(fp)                                            :: anglat 
     real(fp)                                            :: betac       ! Coupling coefficient between intensity and impuls equations for secondary flows  
@@ -231,6 +207,7 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     real(fp)                                            :: dx 
     real(fp)                                            :: dy 
     real(fp)                                            :: fwfac 
+    real(fp)                                            :: ftauw 
     real(fp)                                            :: gammax 
     real(fp)                                            :: grdang
     real(fp)                                            :: nudvic
@@ -293,7 +270,7 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     character(8)                                        :: dpsopt 
     character(8)                                        :: dpuopt 
     character(55)                                       :: txtput 
-    character(6)                                        :: soort       ! Help var. determining the prog. name currently active  
+    character(6)                                        :: prgnm       ! Help var. determining the prog. name currently active  
     character(9)                                        :: keyw        ! Name of record to look for in the MD-file 
     character(5)                                        :: versio 
 ! 
@@ -336,6 +313,7 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     julday      => gdp%gdinttim%julday 
     nflmod      => gdp%gdnfl%nflmod 
     old_corio   => gdp%gdnumeco%old_corio
+    v2dwbl      => gdp%gdnumeco%v2dwbl
     wind        => gdp%gdprocs%wind 
     salin       => gdp%gdprocs%salin 
     temp        => gdp%gdprocs%temp 
@@ -363,6 +341,8 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     veg3d       => gdp%gdprocs%veg3d 
     snelli      => gdp%gdprocs%snelli 
     lrdamp      => gdp%gdprocs%lrdamp 
+    lfsdu       => gdp%gdprocs%lfsdu
+    lfsdus1     => gdp%gdprocs%lfsdus1
     sbkol       => gdp%gdprocs%sbkol 
     bubble      => gdp%gdprocs%bubble 
     nfl         => gdp%gdprocs%nfl 
@@ -376,12 +356,10 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     nflmod      = ' ' 
     ! 
     error       = .false. 
-    noui        = .true. 
     yestdd      = .true. 
     found       = .false. 
-    verify      = .false. 
     ! 
-    soort       = 'tdatom' 
+    prgnm       = 'tdatom' 
     cdwstruct   = .false. 
     cnstwv      = .false. 
     const       = .false. 
@@ -392,6 +370,8 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     drogue      = .false. 
     htur2d      = .false. 
     iweflg      = .false. 
+    lfsdu       = .false. 
+    lfsdus1     = .false. 
     lrdamp      = .false. 
     roller      = .false. 
     rtcmod      =  noRTC 
@@ -417,8 +397,6 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     nullify(namcon) 
     nullify(mnbnd )
     nullify(mnksrc)
-    nullify(kspu  )
-    nullify(kspv  )
     nullify(nhsub )
     nullify(wstcof)
     nullify(omega )
@@ -436,8 +414,8 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     ! 
     ! Initializing tdatom part of FLOW simulation program 
     ! 
-    call sysini(error     ,runid     ,filmrs    ,alone     ,soort     , & 
-              & verify    ,versio    ,filmd     ,gdp       ) 
+    call sysini(error     ,runid     ,filmrs    ,prgnm     , & 
+              & versio    ,filmd     ,gdp       ) 
     ! 
     if (error) goto 9991
     !    
@@ -449,7 +427,7 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
     ! But not if temporary files are reused and they all exist 
     ! 
     if (.not.tmpexist) then 
-        soort = 'tdatom' 
+        prgnm = 'tdatom' 
         ! 
         ! Define EOL 
         ! 
@@ -457,18 +435,18 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         ! 
         ! Define length of runid 
         ! 
-        call noextspaces(runid     ,lrid      ) 
+        call remove_leading_spaces(runid     ,lrid      ) 
         ! 
         ! Read processes and dimensions 
         ! 
         call dimrd(lunmd     ,lundia    ,error     ,runid     ,nrver     , & 
-                 & soort     ,wind      ,salin     ,temp      ,sedim     , & 
+                 & prgnm     ,wind      ,salin     ,temp      ,sedim     , & 
                  & const     ,secflo    ,drogue    ,wave      ,iweflg    , & 
                  & htur2d    ,mudlay    , & 
                  & flmd2l    ,zmodel    ,nonhyd    ,roller    ,wavcmp    , & 
                  & culvert   ,dredge    ,cdwstruct ,snelli    ,cnstwv    , & 
                  & veg3d     ,waveol    ,lrdamp    ,sbkol     ,bubble    , & 
-                 & nfl       ,nflmod    ,gdp       ) 
+                 & nfl       ,nflmod    ,lfsdu     ,lfsdus1   ,gdp       ) 
         if (error) goto 9990 
         !
         istat = 0
@@ -479,8 +457,6 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         !
         if (istat==0) allocate(mnbnd (7, mxnto)                       , stat = istat)
         if (istat==0) allocate(mnksrc(7, mxnsrc)                      , stat = istat)
-        if (istat==0) allocate(kspu  (mxnpnt, -1:mxnpnt + 2, 0:mxkmax), stat = istat)
-        if (istat==0) allocate(kspv  (mxnpnt, -1:mxnpnt + 2, 0:mxkmax), stat = istat)
         if (istat==0) allocate(nhsub (mxnto)                          , stat = istat)
         if (istat==0) allocate(wstcof(6)                              , stat = istat)
         if (istat==0) allocate(omega (mxkc)                           , stat = istat)
@@ -526,40 +502,38 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         nrrec = 1 
         ! 
         call rdnamc(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                  & noui      ,salin     ,temp      ,lconc     ,lstsc     , & 
-                  & namcon    ,gdp       ) 
+                  & salin     ,temp      ,lconc     ,lstsc     ,namcon    , & 
+                  & gdp       ) 
         if (error) goto 999 
         ! 
         ! X, Y, Z and Orientation, initialize global parameters 
         ! Initialize global and local parameters in subroutine 
         ! 
         !call rdxyzo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-        !          & noui      ,kmax      ,zbot      ,ztop      , & 
-        !          & dx        ,dy        ,filnam    ,fmtfil    ,thick     , & 
-        !          & anglat    ,grdang    ,sphere    ,sferic    ,zmodel    , & 
-        !          & gdp       ) 
+        !          & kmax      ,zbot      ,ztop      ,dx        ,dy        , & 
+        !          & filnam    ,fmtfil    ,thick     ,anglat    ,grdang    , & 
+        !          & sphere    ,sferic    ,zmodel    ,gdp       ) 
         !if (error) goto 999 
         ! 
         ! Read the simulation times 
         ! initialize global and local parameters in subroutine 
         ! 
         call rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                 & noui      ,citdat    ,tstart    ,tstop     ,tzone     , & 
-                 & itdate    ,julday    ,itstrt    ,itfinish  ,dt        , & 
-                 & ctunit    ,tunit     ,gdp       ) 
+                 & citdat    ,tstart    ,tstop     ,tzone     ,itdate    , & 
+                 & julday    ,itstrt    ,itfinish  ,dt        ,ctunit    , & 
+                 & tunit     ,gdp       ) 
         if (error) goto 999 
         ! 
         ! Read KTEMP (Process heat module) 
         ! initialize global and local parameters in subroutine 
         ! 
-        call rdproc(error    ,nrrec     ,mdfrec   ,noui        ,htur2d      , & 
-                  & salin    ,temp      ,wind     ,ktemp       , & 
-                  & keva     ,ivapop    ,irov     ,ctunit      , &
-                  & z0v      ,sferic    ,tgfcmp   ,temeqs      ,saleqs      , & 
-                  & wstcof   ,rhoa      ,secflo   ,betac       ,equili      , & 
-                  & lsec     ,chzmin    ,rmincf   ,rtcmod      ,couplemod   , & 
-                  & nonhyd   ,mmax      ,nmax     ,nmaxus      ,sedim       , & 
-                  & idensform ,solrad_read , gdp) 
+        call rdproc(error    ,nrrec     ,mdfrec    ,htur2d     ,salin    , & 
+                  & temp     ,wind      ,ktemp     ,keva       ,ivapop   , & 
+                  & irov     ,ctunit    ,z0v       ,sferic     ,tgfcmp   , &
+                  & temeqs   ,saleqs    ,wstcof    ,rhoa       ,secflo   , & 
+                  & betac    ,equili    ,lsec      ,chzmin     ,rmincf   , & 
+                  & rtcmod   ,couplemod ,nonhyd    ,mmax       ,nmax     , & 
+                  & nmaxus   ,sedim     ,idensform ,solrad_read, gdp) 
         if (error) goto 999 
         ! 
         ! Initialize global and local parameters in subroutine 
@@ -570,7 +544,7 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
                  & dgcuni    ,forfuv    ,forfww    ,ktemp     ,temint    , & 
                  & keva      ,evaint    ,old_corio , & 
                  & dpsopt    ,dpuopt    ,zmodel    ,gammax    ,fwfac     , & 
-                 & nudge     ,nudvic    ,gdp       ) 
+                 & nudge     ,nudvic    ,v2dwbl    ,ftauw     ,gdp       ) 
         ! 
         ! Read boundary definition. If specified in a separate file, 
         ! then check if TRIANA file is specified. If so, start tidals, the 
@@ -582,11 +556,11 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         if (nto > 0) then 
            mxdnto = mxnto 
            call rdbndd(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                     & noui      ,nto       ,ntof      ,ntoq      ,mmax      , & 
-                     & nmaxus    ,kmax      ,mxdnto    ,mxnto     ,filnam    , & 
-                     & fmtfil    ,ascon     ,nambnd    ,typbnd    ,datbnd    , & 
-                     & mnbnd     ,alpha     ,tprofu    ,statns    ,nhsub     , & 
-                     & yestdd    , gdp       ) 
+                     & nto       ,ntof      ,ntoq      ,mmax      ,nmaxus    , & 
+                     & kmax      ,mxdnto    ,mxnto     ,filnam    ,fmtfil    , & 
+                     & ascon     ,nambnd    ,typbnd    ,datbnd    ,mnbnd     , & 
+                     & alpha     ,tprofu    ,statns    ,nhsub     ,yestdd    , & 
+                     & gdp       ) 
            if (error) goto 999 
         endif 
         ! 
@@ -594,9 +568,9 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         ! initialize global and local parameters in subroutine 
         ! 
         call rdspec(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                  & noui      ,yestdd    ,filnam    ,fmtfil    ,nsrcd     , & 
-                  & mmax      ,nmax      ,nmaxus    ,mnksrc    ,namsrc    , & 
-                  & disint    ,upwsrc    ,gdp       ) 
+                  & yestdd    ,filnam    ,fmtfil    ,nsrcd     ,mmax      , & 
+                  & nmax      ,nmaxus    ,mnksrc    ,namsrc    ,disint    , & 
+                  & upwsrc    ,gdp       ) 
         if (error) goto 999 
         ! 
         ! Put header on the screen 
@@ -622,9 +596,8 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
            enddo 
            ! 
            call rdbch(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                    & noui      ,filnam    ,fmtfil    ,ntof      ,mxnto     , & 
-                    & kc        ,mxkc      ,omega     ,hydrbc    ,ascon     , & 
-                    & gdp       ) 
+                    & filnam    ,fmtfil    ,ntof      ,mxnto     ,kc        , & 
+                    & mxkc      ,omega     ,hydrbc    ,ascon     ,gdp       ) 
            if (error) goto 999 
            ! 
            if (ascon /= 'Y') then 
@@ -674,10 +647,10 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
            ! 
            ntot0 = ntof + ntoq 
            call rdbct(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                    & noui      ,nrver     ,runid     ,filnam    ,eol       , & 
-                    & nambnd    ,typbnd    ,tprofu    ,nto       ,ntot      , & 
-                    & ntot0     ,kmax      ,rtime     ,itstrt    ,itfinish  , & 
-                    & mxtime    ,ntimtm    ,rval      ,bubble    ,gdp       ) 
+                    & nrver     ,runid     ,filnam    ,eol       ,nambnd    , & 
+                    & typbnd    ,tprofu    ,nto       ,ntot      ,ntot0     , & 
+                    & kmax      ,rtime     ,itstrt    ,itfinish  ,mxtime    , & 
+                    & ntimtm    ,rval      ,bubble    ,gdp       ) 
            if (error) goto 999 
         endif 
         ! 
@@ -688,12 +661,11 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
            filnam = ' ' 
            ntimtm = 0 
            call rdbcc(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                    & noui      ,nrver     ,runid     ,filnam    ,eol       , & 
-                    & nambnd    ,namcon    ,nto       ,lstsc     ,kmax      , & 
-                    & rtime     ,itstrt    ,itfinish  ,mxtime    ,ntimtm    , & 
-                    & salin     ,temp      ,const     ,lconc     ,rval      , & 
-                    & rval      ,rval      ,rval      ,cval      ,bubble    , & 
-                    & gdp       ) 
+                    & nrver     ,runid     ,filnam    ,eol       ,nambnd    , & 
+                    & namcon    ,nto       ,lstsc     ,kmax      ,rtime     , & 
+                    & itstrt    ,itfinish  ,mxtime    ,ntimtm    ,salin     , & 
+                    & temp      ,const     ,lconc     ,rval      ,rval      , & 
+                    & rval      ,rval      ,cval      ,bubble    ,gdp       )
            if (error) goto 999 
         endif 
         ! 
@@ -704,41 +676,24 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
            filnam = ' ' 
            ntimtm = 0 
            call rddis(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                    & noui      ,nrver     ,runid     ,filnam    ,eol       , & 
-                    & namsrc    ,disint    ,namcon    ,nsrcd     ,rtime     , & 
-                    & itstrt    ,itfinish  ,mxnsrc    ,mxtime    ,ntimtm    , & 
-                    & lstsc     ,salin     ,temp      ,const     ,lconc     , & 
-                    & rval      ,rval      ,rval      ,rval      ,bubble    , & 
-                    & gdp       ) 
+                    & nrver     ,runid     ,filnam    ,eol       ,namsrc    , & 
+                    & disint    ,namcon    ,nsrcd     ,rtime     ,itstrt    , & 
+                    & itfinish  ,mxnsrc    ,mxtime    ,ntimtm    ,lstsc     , & 
+                    & salin     ,temp      ,const     ,lconc     ,rval      , & 
+                    & rval      ,rval      ,rval      ,bubble    ,gdp       ) 
            if (error) goto 999 
         endif 
         ! 
         ! Discharge sources Time series 
         ! only if NSLUV > 0 and RTC-coupling for Barrier heights to FLOW 
         ! 
-        if (rtcmod == dataFromRTCToFLOW .and. nsluv>0) then 
+        if (btest(rtcmod,dataFromRTCToFLOW) .and. nsluv>0) then
            filnam = ' ' 
            ntimtm = 0 
            ! 
            call rdbcb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
                     & runid     ,filnam    ,itstrt    ,itfinish  ,gdp       ) 
            if (error) goto 999 
-           ! 
-           ! Create trigger file for starting RTC
-           ! 
-           luntri = newlun(gdp) 
-           filsim = 'TMP_SYNC.RUN' 
-           inquire (file = filsim, exist = lexist) 
-           if (lexist) then 
-              open (luntri, file = filsim) 
-              close (luntri, status = 'delete') 
-           endif 
-           open (luntri, file = filsim, form = 'unformatted', status = 'unknown') 
-           ! 
-           ! Write 'RUNRTC' by telephone 
-           ! 
-           write (luntri) 786782 
-           close (luntri) 
         endif 
         ! 
         ! Temperature Time series for HEAT modules 
@@ -747,12 +702,9 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         if (ktemp > 0) then 
            filnam = ' ' 
            fmtfil = 'FR' 
-           ntimtm = 0 
-           call rdheat(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec      , & 
-                     & noui      ,runid     ,filnam    ,fmtfil    ,ktemp       , & 
-                     & rval      ,dt        ,itstrt    ,itfinish  ,mxtime      , & 
-                     & ntimtm    ,ivapop    ,rval      ,rval      ,rval        , & 
-                     & rval      ,rval      ,rval      ,rval      ,solrad_read , & 
+           call rdheat(lunmd     ,lundia    ,error     ,nrrec       ,mdfrec    , & 
+                     & runid     ,filnam    ,fmtfil    ,ktemp       ,dt        , & 
+                     & itstrt    ,itfinish  ,ivapop    ,solrad_read , & 
                      & gdp       ) 
            if (error) goto 999 
         endif 
@@ -763,12 +715,10 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
         if (keva > 0) then 
            filnam = ' ' 
            fmtfil = 'FR' 
-           ntimtm = 0 
            ! 
            call rdeva(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
-                    & noui      ,runid     ,filnam    ,fmtfil    ,rval      , & 
-                    & dt        ,itstrt    ,itfinish  ,mxtime    ,ntimtm    , & 
-                    & rval      ,rval      ,rval      ,gdp       ) 
+                    & runid     ,filnam    ,fmtfil    ,dt        ,itstrt    , & 
+                    & itfinish  ,gdp       ) 
            if (error) goto 999 
         endif 
         ! 
@@ -786,8 +736,6 @@ subroutine tdatom(runid, filmrs, nuerr, alone, gdp)
 
         if (associated(mnbnd )) deallocate(mnbnd , stat = istat)
         if (associated(mnksrc)) deallocate(mnksrc, stat = istat)
-        if (associated(kspu  )) deallocate(kspu  , stat = istat)
-        if (associated(kspv  )) deallocate(kspv  , stat = istat)
         if (associated(nhsub )) deallocate(nhsub , stat = istat)
         if (associated(wstcof)) deallocate(wstcof, stat = istat)
         if (associated(omega )) deallocate(omega , stat = istat)

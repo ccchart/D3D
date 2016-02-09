@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -93,6 +93,7 @@
       integer(4) iraai                       !  loop counter monitoring transects
       integer(4) nsc                         !  number of volumes in that monitoring area
       integer(4) nq                          !  number of exchanges in mon. area or transect
+      integer(4) idmpq                       !  loop counter number of exchanges in mon. area or transect
       integer(4) iseg                        !  volume number
       integer(4) is                          !  volume number within an area
       integer(4) iq                          !  exchange number
@@ -293,7 +294,9 @@
                         write ( lurep , 2040 ) ierr2, max_ntdmpq
                         goto 1000
                      endif
-                     p2_ipdmpq(1:ntdmpq-1) = ipdmpq(1:ntdmpq-1)
+                     do idmpq = 1, ntdmpq-1
+                        p2_ipdmpq(idmpq) = ipdmpq(idmpq)
+                     end do
                      deallocate(ipdmpq)
                      ipdmpq => p2_ipdmpq
                   endif

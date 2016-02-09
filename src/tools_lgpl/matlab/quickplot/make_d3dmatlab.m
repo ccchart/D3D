@@ -7,7 +7,7 @@ function make_d3dmatlab(basedir,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -74,6 +74,7 @@ if nargin<2
     qpversion=read_identification(sourcedir,'d3d_qp.m');
     T=now;
 end
+qpversion = deblank(sscanf(qpversion,'%[^(]')); % strip off the 32/64 bit flag (the toolbox is platform independent)
 disp(['Delft3D-MATLAB interface version: ' qpversion]);
 TStr=datestr(T);
 disp(['Current date and time           : ' TStr]);

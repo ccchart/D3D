@@ -11,7 +11,7 @@ function d0=pathdistance(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -46,7 +46,7 @@ y0=[];
 z0=[];
 for i=1:length(varargin)
     if ischar(varargin{i})
-        switch varargin{i}
+        switch lower(varargin{i})
             case {'geographic','spherical','deg'}
                 igeo=1;
         end

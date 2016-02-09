@@ -3,7 +3,7 @@ subroutine rddept(lundia    ,error     , &
                 & nmax      ,nmaxus    ,dp        ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -106,7 +106,7 @@ subroutine rddept(lundia    ,error     , &
           write(lundia,'(10x,a,f7.3)') 'Using Depuni = ', depuni
        endif
        !
-       ! write per nmaxus mmax depuni in dp array only if noui = .true.
+       ! write per nmaxus mmax depuni in dp array
        !
        do m = 1, mmax
           do n = 1, nmaxus

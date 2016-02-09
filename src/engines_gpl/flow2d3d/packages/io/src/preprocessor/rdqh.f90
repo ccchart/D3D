@@ -3,7 +3,7 @@ subroutine rdqh(lundia    ,lunout    ,lunrd     ,error     ,filout    , &
               & ntoq      ,nambnd    ,bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,7 @@ subroutine rdqh(lundia    ,lunout    ,lunrd     ,error     ,filout    , &
     use precision
     !
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -138,7 +139,7 @@ subroutine rdqh(lundia    ,lunout    ,lunrd     ,error     ,filout    , &
     interp = 'Y'
     irec   = 0
     !
-    call noextspaces(filout    ,lflout    )
+    call remove_leading_spaces(filout    ,lflout    )
     !
     ! Start reading the QH relations.
     !

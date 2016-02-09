@@ -17,7 +17,7 @@ subroutine difu(icreep    ,timest    ,lundia    ,nst       ,icx       , &
               & rscale    ,bruvai    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1005,7 +1005,7 @@ integer                 :: nm_pos ! indicating the array to be exchanged has nm 
        ! determine global maximum of 'itr' over all nodes
        ! Note: this enables to synchronize the iteration process
        !
-       call dfreduce( itr, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( itr, 1, dfint, dfmax, gdp )
        !
        if (itr>0 .and. iter<50) goto 1100
        !

@@ -1,14 +1,13 @@
-subroutine rdproc(error    ,nrrec     ,mdfrec   ,noui        ,htur2d      , &
-                & salin    ,temp      ,wind     ,ktemp       , &
-                & keva     ,ivapop2   ,irov     ,ctunit      , &
-                & z0v      ,sferic    ,tgfcmp   ,temeqs      ,saleqs      , &
-                & wstcof   ,rhoa      ,secflo   ,betac       ,equili      , &
-                & lsec     ,chzmin    ,rmincf   ,rtcmod      ,couplemod   , &
-                & nonhyd   ,mmax      ,nmax     ,nmaxus      ,sedim       , &
-                & idensform,solrad_read2, gdp)
+subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
+                & temp     ,wind      ,ktemp     ,keva        ,ivapop2  , &
+                & irov     ,ctunit    ,z0v       ,sferic      ,tgfcmp   , &
+                & temeqs   ,saleqs    ,wstcof    ,rhoa        ,secflo   , &
+                & betac    ,equili    ,lsec      ,chzmin      ,rmincf   , &
+                & rtcmod   ,couplemod ,nonhyd    ,mmax        ,nmax     , &
+                & nmaxus   ,sedim     ,idensform ,solrad_read2, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -114,7 +113,6 @@ subroutine rdproc(error    ,nrrec     ,mdfrec   ,noui        ,htur2d      , &
     logical    , intent(out) :: error       !!  Flag=TRUE if an error is encountered
     logical    , intent(in)  :: htur2d      !  Description and declaration in procs.igs
     logical    , intent(in)  :: nonhyd
-    logical    , intent(in)  :: noui        !!  Flag for reading from User Interface
     logical    , intent(in)  :: salin       !  Description and declaration in procs.igs
     logical    , intent(in)  :: secflo      !  Description and declaration in procs.igs
     logical    , intent(in)  :: sedim       !  Description and declaration in procs.igs
@@ -786,7 +784,7 @@ subroutine rdproc(error    ,nrrec     ,mdfrec   ,noui        ,htur2d      , &
           kend = k*3
           if (index(tgfhlp, tgfcmp(kbeg:kend))==0) then
              call prterr(lundia    ,'V081'    ,tgfcmp(kbeg:kend)    )
-             if (noui) error = .true.
+             error = .true.
           endif
        enddo
        !
@@ -1033,10 +1031,9 @@ subroutine rdproc(error    ,nrrec     ,mdfrec   ,noui        ,htur2d      , &
     ! default = no ('N') which means RTCMOD = noRTC (= 0)
     !
     lhelp = .false.
-    rtcmod = noRTC
     call prop_get_logical(gdp%mdfile_ptr, '*', 'Rtcmod', lhelp)
     if (lhelp) then
-       rtcmod = dataFromRTCToFLOW
+       rtcmod = ibset(rtcmod,dataFromRTCToFLOW)
     endif
     !
     ! locate and read 'Waqmod' run Flow together with Couple

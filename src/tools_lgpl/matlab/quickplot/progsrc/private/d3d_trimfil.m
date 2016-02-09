@@ -6,6 +6,7 @@ function varargout=d3d_trimfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=d3d_trimfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,7 +50,7 @@ function varargout=d3d_trimfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -85,6 +86,9 @@ switch cmd
         return
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
+        return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
         return
     case 'stations'
         varargout={{}};
@@ -187,7 +191,13 @@ switch Props.Name
         if zlayermodel, computeDZ=1; end
 end
 XYRead = XYRead & ~strcmp(Props.Loc,'NA');
-if XYRead
+
+compute_unitvalue = (strcmp(Props.Val1,'R1FLX_UU') || strcmp(Props.Val1,'R1FLX_UUC')) && length(Props.Name)>9 && strcmp(Props.Name(end-8:end),'unit flux');
+[coordtype,ok]=vs_get(FI,'map-const','COORDINATES','quiet');
+Info=vs_disp(FI,'map-const','XZ');
+coord_spherical = (isstruct(Info) && isequal(Info.ElmUnits,'[  DEG  ]')) || (ok && strcmp(deblank(coordtype),'SPHERICAL'));
+
+if XYRead || compute_unitvalue || computeDZ
 
     %======================== SPECIFIC CODE ===============================
     if DimFlag(M_) && DimFlag(N_)
@@ -368,6 +378,13 @@ if XYRead
 
     %========================= GENERAL CODE ===============================
     % grid interpolation ...
+    if compute_unitvalue
+        if coord_spherical
+            error('unit vector not yet supported for spherical coordinates')
+        end % assuming grid locations don't vary in time
+        guu = sqrt(diff(x(1,[1 1:end],:,1),1,2).^2 + diff(y(1,[1 1:end],:,1),1,2).^2);
+        gvv = sqrt(diff(x(1,:,[1 1:end],1),1,3).^2 + diff(y(1,:,[1 1:end],1),1,3).^2);
+    end
     [x,y]=gridinterp(DataInCell,DimFlag(K_),Props.ReqLoc,x,y);
 end
 
@@ -404,15 +421,18 @@ if DataRead
         case {'thin dams','temporarily inactive velocity points','domain decomposition boundaries','open boundaries','closed boundaries'}
             Props.NVal=2;
             ThinDam=1;
-        case {'bed level in velocity points'}
-            Props.NVal=2;
-            ThinDam=2;
         case 'base level of sediment layer'
             if strcmp(Props.Val1,'THLYR')
                 elidx{end+1}=0;
             end
         case {'cum. erosion/sedimentation','initial bed level','bed level in water level points','cumulative mass error'}
             DepthInZeta=DataInCell | strcmp(Props.ReqLoc,'z');
+        case {'Shepard deposit classification','USDA deposit classification'}
+            elidx{end+1}=0;
+    end
+    if Props.NVal==0.9
+            Props.NVal=2;
+            ThinDam=2;
     end
     if isequal(subforig,'s') || isequal(subforig,'sb')
         if isequal(Props.SubFld,length(subf)) && length(subf)>1
@@ -427,6 +447,9 @@ if DataRead
         end
     end
 
+    if ~DimFlag(T_)
+        idx{T_} = 1;
+    end
     elidx(~DimFlag(2:end))=[];
     if (Props.NVal==0) || DepthInZeta
         val1=[];
@@ -445,20 +468,41 @@ if DataRead
         gravity = 9.81;
     end
 
-    if strmatch('total transport',Props.Name)
-        val1r=vs_let(FI,Props.Group,idx(T_),'SBUU',elidx,'quiet!');
-        val1=val1+val1r;
-        clear val1r
-        val2r=vs_let(FI,Props.Group,idx(T_),'SBVV',elidx,'quiet!');
-        val2=val2+val2r;
-        clear val2r
-    elseif strmatch('mean total transport',Props.Name)
-        val1r=vs_let(FI,Props.Group,idx(T_),'SBUUA',elidx,'quiet!');
-        val1=val1+val1r;
-        clear val1r
-        val2r=vs_let(FI,Props.Group,idx(T_),'SBVVA',elidx,'quiet!');
-        val2=val2+val2r;
-        clear val2r
+    if compute_unitvalue
+        guu(guu==0) = 1;
+        gvv(gvv==0) = 1;
+        for t = size(val1,1):-1:1
+            for k = size(val1,4):-1:1
+                val1(t,:,:,k) = val1(t,:,:,k)./guu;
+                val2(t,:,:,k) = val2(t,:,:,k)./gvv;
+            end
+        end
+    end
+    switch Props.Name
+        case 'total transport'
+            val1r=vs_let(FI,Props.Group,idx(T_),'SBUU',elidx,'quiet!');
+            val1=val1+val1r;
+            clear val1r
+            val2r=vs_let(FI,Props.Group,idx(T_),'SBVV',elidx,'quiet!');
+            val2=val2+val2r;
+            clear val2r
+        case 'mean total transport'
+            val1r=vs_let(FI,Props.Group,idx(T_),'SBUUA',elidx,'quiet!');
+            val1=val1+val1r;
+            clear val1r
+            val2r=vs_let(FI,Props.Group,idx(T_),'SBVVA',elidx,'quiet!');
+            val2=val2+val2r;
+            clear val2r
+        case {'Shepard deposit classification','USDA deposit classification'}
+            Props.SubFld='sb1';
+            subf=lower(getsubfields(FI,Props));
+            isand = wildstrmatch('*sand*',subf);
+            isilt = wildstrmatch('*silt*',subf);
+            iclay = wildstrmatch('*clay*',subf);
+            sand = sum(val1(:,:,:,:,isand),5);
+            silt = sum(val1(:,:,:,:,isilt),5);
+            clay = sum(val1(:,:,:,:,iclay),5);
+            [val1,Ans.Classes] = classify_Sediment(sand,silt,clay,strtok(Props.Name));
     end
     if isequal(subforig,'s') || isequal(subforig,'sb')
         if length(Props.SubFld)>1
@@ -555,6 +599,7 @@ if DataRead
                 if zlayermodel
                     val1(val1==-999)=0;
                     val2(val2==-999)=0;
+                    dz(isnan(dz))=0;
                     val1=val1.*dz;
                     val2=val2.*dz;
                     h=sum(dz,4);
@@ -722,7 +767,7 @@ else
 end
 %======================== SPECIFIC CODE ===================================
 % select active points ...
-act=vs_get(FI,'map-const','KCS',idx([M_ N_]),'quiet!');
+act=abs(vs_get(FI,'map-const','KCS',idx([M_ N_]),'quiet!'));
 switch Props.ReqLoc
     case 'd'
         %  act=vs_get(FI,'TEMPOUT','CODB',idx([M_ N_]),'quiet!');
@@ -895,14 +940,12 @@ end
 if XYRead
     Ans.X=x;
     Ans.Y=y;
-    Ans.XUnits='m';
-    Ans.YUnits='m';
-    [coordtype,ok]=vs_get(FI,'map-const','COORDINATES','quiet');
-    Info=vs_disp(FI,'map-const','XZ');
-    if (isstruct(Info) && isequal(Info.ElmUnits,'[  DEG  ]')) || ...
-       (ok && strcmp(deblank(coordtype),'SPHERICAL'))
+    if coord_spherical
         Ans.XUnits='deg';
         Ans.YUnits='deg';
+    else
+        Ans.XUnits='m';
+        Ans.YUnits='m';
     end
     if DimFlag(K_)
         Ans.Z=z;
@@ -934,10 +977,22 @@ switch Props.NVal
 end
 
 % read time ...
-T=readtim(FI,Props,idx{T_});
-Ans.Time=T;
+if DimFlag(T_)
+    Ans.Time=readtim(FI,Props,idx{T_});
+end
 
 varargout={Ans FI};
+% -------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------
+function [TZshift,TZstr]=gettimezone(FI,domain,Props)
+TZstr = '';
+Info = vs_disp(FI,'map-const','TZONE');
+if isstruct(Info)
+    TZshift = vs_get(FI,'map-const','TZONE','quiet');
+else
+    TZshift = NaN;
+end
 % -------------------------------------------------------------------------
 
 % -------------------------------------------------------------------------
@@ -951,21 +1006,31 @@ FI = guarantee_options(FI);
 PropNames={'Name'                   'Units'   'DimFlag' 'DataInCell' 'NVal' 'VecType' 'Loc' 'ReqLoc'  'Loc3D' 'Group'          'Val1'    'Val2'  'SubFld' 'MNK' };
 DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'XCOR'    ''       []       0
     'hydrodynamic grid'                ''       [1 0 1 1 1]  0         0    ''        'z'   'z'       'i'     'map-series'     'S1'      ''       []       0
-    'domain decomposition boundaries'  ''       [1 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
-    'open boundaries'                  ''       [1 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
-    'closed boundaries'                ''       [1 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
-    'thin dams'                        ''       [1 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCU'     'KCV'    []       0
+    'domain decomposition boundaries'  ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
+    'open boundaries'                  ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
+    'closed boundaries'                ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
+    'thin dams'                        ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCU'     'KCV'    []       0
     'temporarily inactive water level points' ...
     ''       [1 0 1 1 0]  2         5    ''        'z'   'z'       ''      'map-series'     'KFU'     ''       []       0
     'temporarily inactive velocity points' ...
     ''       [1 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-series'     'KFU'     'KFV'    []       0
-    'parallel partition numbers'       ''       [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-const'      'PPARTITION'  ''       []       0
+    'top active layer at water level point (kfsmax)' ...
+                                       ''       [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'KFSMAX'  ''       []       0
+    'top active layer at velocity points (kfu/vmax)' ...
+                                       ''       [1 0 1 1 0]  1         0.9  ''        'd'   'd'       ''      'map-series'     'KFUMAX'  'KFVMAX' []       0
+    'bottom active layer at water level point (kfsmin)' ...
+                                       ''       [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'KFSMIN'  ''       []       0
+    'bottom active layer at velocity points (kfu/vmin)' ...
+                                       ''       [1 0 1 1 0]  1         0.9  ''        'd'   'd'       ''      'map-series'     'KFUMIN'  'KFVMIN' []       0
+    'parallel partition numbers'       ''       [0 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-const'      'PPARTITION'  ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
     'air pressure'                     'N/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'PATM'    ''       []       0
     'air temperature'                  '°C'     [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'AIRTEM'  ''       []       0
     'cloud coverage'                   '%'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'CLOUDS'  ''       []       0
     'relative air humidity'            '%'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'AIRHUM'  ''       []       0
     'wind speed'                       'm/s'    [1 0 1 1 0]  1         2    'x'       'z'   'z'       ''      'map-series'     'WINDU'   'WINDV'  []       0
+    'precipitation rate'               'mm/h'   [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'PRECIP'  ''       []       0
+    'evaporation rate'                 'mm/h'   [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'EVAP'    ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
     'wave height'                        'm'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'WAVE_HEIGHT' ''  []       0
     'significant wave height'            'm'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-rol-series'  'HS'     ''       []       0
@@ -990,6 +1055,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'depth averaged velocity'          'm/s'    [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-series'     'U1'      'V1'     []       1
     'staggered depth averaged velocities' 'm/s' [1 0 1 1 0]  1         1.9  ''        'd'   'd'       ''      'map-series'     'U1'      'V1'     []       2
     'horizontal velocity'              'm/s'    [1 0 1 1 1]  1         2    'u'       'u'   'z'       'c'     'map-series'     'U1'      'V1'     []       1
+    'staggered horizontal velocity'    'm/s'    [1 0 1 1 5]  1         1.9  ''        'd'   'd'       'c'     'map-series'     'U1'      'V1'     []       1
     'velocity'                         'm/s'    [1 0 1 1 1]  1         3    'u'       'u'   'z'       'c'     'map-series'     'U1'      'V1'     []       1
     'vertical velocity'                'm/s'    [1 0 1 1 1]  1         1    ''        'w'   'z'       'c'     'map-series'     'WPHY'    ''       []       0
     'velocity in depth averaged flow direction' ...
@@ -1020,9 +1086,12 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'total pressure'                   'Pa'     [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-series'     'RHO'     'HYDPRES' []      0
     'relative hydrostatic pressure'    'Pa'     [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-series'     'RHO'     ''       []       0
     'relative total pressure'          'Pa'     [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-series'     'RHO'     'HYDPRES' []      0
+    'concentration'                    'kg/m^3' [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-sedgs-series' 'RZED1' ''       's'      0
     '--constituents'                   ''       [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-series'     'R1'      ''       []       0
-    '--constituents flux'              ''       [1 0 1 1 1]  1         2    'u'       'u'   'z'       'c'     'map-series'     'R1FLX_UU' 'R1FLX_VV' []    0
-    '--constituents cumulative flux'   ''       [1 0 1 1 1]  1         2    'u'       'u'   'z'       'c'     'map-series'     'R1FLX_UUC' 'R1FLX_VVC' []  0
+    '--constituents flux staggered'    ''       [1 0 1 1 1]  1         1.9  ''        'd'   'd'       'c'     'map-series'     'R1FLX_UU' 'R1FLX_VV' []    2
+    '--constituents unit flux'         ''       [1 0 1 1 1]  1         2    'u'       'u'   'z'       'c'     'map-series'     'R1FLX_UU' 'R1FLX_VV' []    0
+    '--constituents cumulative flux staggered' '' [1 0 1 1 1] 1        1.9  ''        'd'   'd'       'c'     'map-series'     'R1FLX_UUC' 'R1FLX_VVC' []  2
+    '--constituents cumulative unit flux'      '' [1 0 1 1 1] 1        2    'u'       'u'   'z'       'c'     'map-series'     'R1FLX_UUC' 'R1FLX_VVC' []  0
     '--turbquant'                      ''       [1 0 1 1 1]  1         1    ''        'z'   'z'       'i'     'map-series'     'RTUR1'   ''       []       0
     'vertical eddy viscosity'          'm^2/s'  [1 0 1 1 1]  1         1    ''        'z'   'z'       'i'     'map-series'     'VICWW'   ''       []       0
     'vertical eddy diffusivity'        'm^2/s'  [1 0 1 1 1]  1         1    ''        'z'   'z'       'i'     'map-series'     'DICWW'   ''       []       0
@@ -1036,6 +1105,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'height above bed for characteristic velocity' ...
     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'ZUMOD'   ''       []       0
     'bed shear velocity magnitude'     'm/s'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'USTAR'   ''       []       0
+    'settling velocity'                'm/s'    [1 0 1 1 1]  1         1    ''        ''    'z'       'i'     'map-sedgs-series' 'WSS'   ''       's1'     0
     'settling velocity'                'm/s'    [1 0 1 1 1]  1         1    ''        ''    'z'       'i'     'map-sed-series' 'WS'      ''       's1'     0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
     'equilibrium concentration'        'kg/m^3' [1 0 1 1 1]  1         1    ''        ''    'z'       'c'     'map-sed-series' 'RSEDEQ'  ''       's1'     0
@@ -1050,12 +1120,13 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'suspended transport due to waves (zeta point)' ...
     '*'      [1 0 1 1 0]  1         2    'u'       'z'   'z'       ''      'map-sed-series' 'SSWU'    'SSWV'   'sb'     1
     'suspended transport due to waves' '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'SSWUU'   'SSWVV'  'sb'     1
-    'staggered suspended transp. due to waves' '*' [1 0 1 1 0] 1     1.9    ''        'd'   'd'       ''      'map-sed-series' 'SSWUU'   'SSWVV'  'sb'     2
+    'staggered suspended transp. due to waves' '*' [1 0 1 1 0] 1       1.9  ''        'd'   'd'       ''      'map-sed-series' 'SSWUU'   'SSWVV'  'sb'     2
     'bed load transport'               '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'SBUU'    'SBVV'   'sb'     1
-    'staggered bedload transport'      '*'      [1 0 1 1 0]  1       1.9    ''        'd'   'd'       ''      'map-sed-series' 'SBUU'    'SBVV'   'sb'     2
+    'staggered bedload transport'      '*'      [1 0 1 1 0]  1         1.9  ''        'd'   'd'       ''      'map-sed-series' 'SBUU'    'SBVV'   'sb'     2
     'near-bed transport correction'    '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'SUCOR'   'SVCOR'  's'      1
+    'staggered near-bed transport correction' '*' [1 0 1 1 0]  1       1.9  ''        'd'   'd'       ''      'map-sed-series' 'SUCOR'   'SVCOR'  's'      2
     'd.a. suspended transport'         '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'SSUU'    'SSVV'   's'      1
-    'staggered d.a. suspended transport' '*'    [1 0 1 1 0]  1       1.9    ''        'd'   'd'       ''      'map-sed-series' 'SSUU'    'SSVV'   's'      2
+    'staggered d.a. suspended transport' '*'    [1 0 1 1 0]  1         1.9  ''        'd'   'd'       ''      'map-sed-series' 'SSUU'    'SSVV'   's'      2
     'total transport'                  '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'SSUU'    'SSVV'   's'      1
     'mean bed load transport'          '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-avg-series' 'SBUUA'   'SBVVA'  'sb'     1
     'mean d.a. suspended transport'    '*'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-avg-series' 'SSUUA'   'SSVVA'  's'      1
@@ -1065,21 +1136,19 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'sink term suspended sediment fractions'   ...
     '1/s'           [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'SINKSE'  ''       's'      1
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
-    'concentration'                    'kg/m^3' [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'map-sedgs-series' 'RZED1' ''       's'      0
-    'settling velocity'                'm/s'    [1 0 1 1 1]  1         1    ''        ''    'z'       'i'     'map-sedgs-series' 'WSS'   ''       's1'     0
-    '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
     'near bed reference concentration' 'kg/m^3' [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'RCA'     ''       's'      0
     'bed shear stress'                 'N/m^2'  [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-series'     'TAUKSI'  'TAUETA' []       1
+    'staggered bed shear stress'       'N/m^2'  [1 0 1 1 0]  1         1.9  ''        'd'   'd'       ''      'map-series'     'TAUKSI'  'TAUETA' []       1
     'maximum bed shear stress'         'N/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'TAUMAX'  ''       []       0
     'excess bed shear ratio'           '-'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'TAURAT'  ''       'sb1'    0
-    'initial bed level'                'm'      [1 0 1 1 0]  1         1    ''        'd'   'd'       ''      'map-const'      'DP0'     ''       []       0
+    'initial bed level'                'm'      [0 0 1 1 0]  1         1    ''        'd'   'd'       ''      'map-const'      'DP0'     ''       []       0
     'bed level in water level points'  'm'      [1 0 1 1 0]  1         1    ''        'd'   'z'       ''      'map-const'      'DP0'     ''       []       0
     'bed level in velocity points'     'm'      [1 0 1 1 0]  1         0.9  ''        'd'   'd'       ''      'map-const'      'DPU0'    'DPV0'   []       0
     'bed slope'                        '-'      [1 0 1 1 0]  1         2    'u'       'u'   'z'       ''      'map-sed-series' 'DZDUU'   'DZDVV'  []       1
     'cum. erosion/sedimentation'       'm'      [1 0 1 1 0]  1         1    ''        'd'   'z'       ''      'map-const'      'DP0'     ''       []       0
     'morphological acceleration factor' '-'     [1 0 0 0 0]  0         1    ''        'NA'  ''        ''    'map-infsed-serie' 'MORFAC'  ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
-    'available mass in fluff layer'    'kg/m^2' [1 0 1 1 0]  1         1    ''        ''    'z'       'b'     'map-sed-series' 'MFLUFF'  ''       's'      0
+    'available mass in fluff layer'    'kg/m^2' [1 0 1 1 0]  1         1    ''        ''    'z'       ''      'map-sed-series' 'MFLUFF'  ''       's'      0
     'available mass of sediment'       'kg/m^2' [1 0 1 1 1]  1         1    ''        ''    'z'       'b'     'map-sed-series' 'MSED'    ''       'sb'     0
     'available mass of sediment'       'kg/m^2' [1 0 1 1 0]  1         1    ''        ''    'z'       ''      'map-sed-series' 'BODSED'  ''       'sb'     0
     'available mass of sediment'       'kg/m^2' [1 0 1 1 0]  1         1    ''        ''    'z'       ''      'map-mor-series' 'BODSED'  ''       'sb'     0
@@ -1087,6 +1156,8 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'mud fraction in top layer'        '-'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'MUDFRAC' ''       []       0
     'sediment fraction'                '-'      [1 0 1 1 1]  1         1    ''        'z'   'z'       'b'     'map-sed-series' 'LYRFRAC' ''       'sb1'    0
     'cumulative mass error'            'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'LYRFRAC' ''       []       0
+    'Shepard deposit classification'   ''       [1 0 1 1 1]  1         6    ''        'z'   'z'       'b'     'map-sed-series' 'LYRFRAC' ''       []       0
+    'USDA deposit classification'      ''       [1 0 1 1 1]  1         6    ''        'z'   'z'       'b'     'map-sed-series' 'LYRFRAC' ''       []       0
     'bed porosity'                     '-'      [1 0 1 1 1]  1         1    ''        'z'   'z'       'b'     'map-sed-series' 'EPSPOR'  ''       []       0
     'maximum historical load'          'kg/m^2' [1 0 1 1 1]  1         1    ''        'z'   'z'       'b'     'map-sed-series' 'PRELOAD' ''       []       0
     'arithmetic mean sediment diameter' 'm'     [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DM'      ''       []       0
@@ -1098,7 +1169,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'THLYR'   ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DPSED'   ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
-    'grid cell surface area'           'm^2'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-const'      'XCOR'    ''       []       0
+    'grid cell surface area'           'm^2'    [0 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-const'      'XCOR'    ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0};
 
 %============================= AUTODETECTION ==============================
@@ -1237,6 +1308,16 @@ for i=size(Out,1):-1:1
             Out(i).Loc='z';
             Out(i).ReqLoc='z';
         end
+    elseif strcmp(Out(i).Name,'Shepard deposit classification') || strcmp(Out(i).Name,'USDA deposit classification')
+        Props = Out(i);
+        Props.SubFld='sb1';
+        subf=lower(getsubfields(FI,Props));
+        isand = wildstrmatch('*sand*',subf);
+        isilt = wildstrmatch('*silt*',subf);
+        iclay = wildstrmatch('*clay*',subf);
+        if ~all(isand|isilt|iclay)
+            Out(i)=[];
+        end
     end
 end
 
@@ -1256,41 +1337,44 @@ lstci=vs_get(FI,'map-const','LSTCI','quiet!');
 if ischar(lstci), lstci=0; end
 ltur=vs_get(FI,'map-const','LTUR','quiet!');
 if ischar(ltur), ltur=0; end
-i=find(strcmp('--constituents',{Out.Name}));
+i=strcmp('concentration',{Out.Name});
+if any(i)
+    % general sigma
+    txt_append = ' (averaged to flow layers)';
+    i=find(strcmp('settling velocity',{Out.Name}) & strcmp('map-sed-series',{Out.Group}));
+    Out(i).Name = [Out(i).Name txt_append];
+else
+    txt_append = '';
+end
+i = find(strcmp('--constituents',{Out.Name}));
 if (lstci>0) && ~isempty(i)
-    Ins=Out(i*ones(lstci,1));
-    for j=1:lstci
-        Ins(j).Name=names{j};
-        Ins(j).SubFld=j;
-        Ins(j).Units=getunit(names{j},sednames);
+    Ins = Out(i*ones(lstci,1));
+    for j = 1:lstci
+        Ins(j).Name   = [names{j} txt_append];
+        Ins(j).SubFld = j;
+        Ins(j).Units  = getunit(names{j},sednames);
     end
     Out=insstruct(Out,i,Ins);
 end
-i=find(strcmp('--constituents flux',{Out.Name}));
-if (lstci>0) && ~isempty(i)
-    Ins=Out(i*ones(lstci,1));
-    for j=1:lstci
-        Ins(j).Name=[names{j} ' flux'];
-        Ins(j).SubFld=j;
-        Ins(j).Units=getunit(names{j},sednames);
-        if ~isempty(Ins(j).Units)
-            Ins(j).Units = [Ins(j).Units '*m^3/s'];
+for c = {{'--constituents flux staggered','m^3/s'}, ...
+        {'--constituents unit flux','m^2/s'} ...
+        {'--constituents cumulative flux staggered','m^3'}, ...
+        {'--constituents cumulative unit flux','m^2'}}
+    nm = c{1}{1};
+    un = c{1}{2};
+    i=find(strcmp(nm,{Out.Name}));
+    if (lstci>0) && ~isempty(i)
+        Ins=Out(i*ones(lstci,1));
+        for j=1:lstci
+            Ins(j).Name=[names{j} nm(15:end)];
+            Ins(j).SubFld=j;
+            Ins(j).Units=getunit(names{j},sednames);
+            if ~isempty(Ins(j).Units)
+                Ins(j).Units = [Ins(j).Units '*' un];
+            end
         end
+        Out=insstruct(Out,i,Ins);
     end
-    Out=insstruct(Out,i,Ins);
-end
-i=find(strcmp('--constituents cumulative flux',{Out.Name}));
-if (lstci>0) && ~isempty(i)
-    Ins=Out(i*ones(lstci,1));
-    for j=1:lstci
-        Ins(j).Name=[names{j} ' cumulative flux'];
-        Ins(j).SubFld=j;
-        Ins(j).Units=getunit(names{j},sednames);
-        if ~isempty(Ins(j).Units)
-            Ins(j).Units = [Ins(j).Units '*m^3'];
-        end
-    end
-    Out=insstruct(Out,i,Ins);
 end
 i=find(strcmp('--turbquant',{Out.Name}));
 if (ltur>0) && ~isempty(i)
@@ -1406,6 +1490,8 @@ DataProps = {...
     'cloud coverage'                                     '%'      'float'       'Time' 'Faces2D'  ''       ''       'map-series'       'CLOUDS'         ''
     'relative air humidity'                              '%'      'float'       'Time' 'Faces2D'  ''       ''       'map-series'       'AIRHUM'         ''
     'wind speed'                                         'm/s'    'vector(xy)'  'Time' 'Faces2D'  ''       ''       'map-series'       'WINDU'          'WINDV'
+    'precipitation rate'                                 'mm/h'   'float'       'Time' 'Faces2D'  ''       ''       'map-series'       'PRECIP'         ''
+    'evaporation rate'                                   'mm/h'   'float'       'Time' 'Faces2D'  ''       ''       'map-series'       'EVAP'           ''
     %   '-------'                                            ''       ''            ''     ''         ''       ''       ''                 ''               ''
     'wave height'                                        'm'      'float'       'Time' 'Faces2D'  ''       ''       'map-trit-series'  'WAVE_HEIGHT'    ''
     'significant wave height'                            'm'      'float'       'Time' 'Faces2D'  ''       ''       'map-rol-series'   'HS'             ''
@@ -2360,11 +2446,13 @@ if TLikeFlow
                 % The following approach assumes Tstart equal to 0.
                 T=vs_let(FI,'map-info-series',{t},'ITMAPC','quiet!');
                 T=T*Dt*Tunit/60; % Determine relative time in minutes
-                if isfield(FI,'morstt')
-                    T=max(0,T-FI.morstt);
+                morstt = qp_option(FI,'morstt');
+                morfac = qp_option(FI,'morfac');
+                if ~isempty(morstt)
+                    T=max(0,T-morstt);
                 end
-                if isfield(FI,'morfac')
-                    T=T*FI.morfac;
+                if ~isempty(morfac)
+                    T=T*morfac;
                 end
                 T=d0+T/(24*60);
             end
@@ -2386,19 +2474,19 @@ tmpidx{1}=1;
 % change the qp_option dps value of the main FI, storing it
 % locally is the only correct thing to do.
 %
-if strcmp(Name,'cum. erosion/sedimentation')
-    dps0=0;
-else
-    %
-    % In case of cumulative mass error, the bed composition is
-    % always based on the first time step. So, also use that bed
-    % level otherwise that will introduce a consistent invalid mass
-    % error.
-    %
-    dps0=1;
-end
-if isfield(FI,'dps0')
-    dps0=FI.dps0;
+dps0 = qp_option(FI,'dps0');
+if isempty(dps0)
+    if strcmp(Name,'cum. erosion/sedimentation')
+        dps0=0;
+    else
+        %
+        % In case of cumulative mass error, the bed composition is
+        % always based on the first time step. So, also use that bed
+        % level otherwise that will introduce a consistent invalid mass
+        % error.
+        %
+        dps0=1;
+    end
 end
 %
 % There are two ways for determining the initial bed level. The
@@ -2430,10 +2518,10 @@ switch dps0
     case 0
         if all(abs(dp0a(:)-dp0b(:))<=2.4e-7*abs(dp0a(:)) | isnan(dp0b(:)))
             dp0=dp0a;
-            FI.dps0=1;
+            FI = qp_option(FI,'dps0',1);
         else
             dp0=dp0b;
-            FI.dps0=2;
+            FI = qp_option(FI,'dps0',2);
         end
     case 1
         dp0=dp0a;
@@ -2570,7 +2658,7 @@ switch cmd,
         dpstxt=findobj(mfig,'tag','dpstxt');
         dpslst=findobj(mfig,'tag','dpslst');
         dpsops=get(dpslst,'string');
-        if ~isfield(FI,'dps')
+        if isempty(qp_option(FI,'dps'))
             nfltp=vs_get(FI,'map-const','DRYFLP','quiet!');
             nfltp=lower(deblank(nfltp));
             %if isempty(nfltp)
@@ -2594,6 +2682,10 @@ switch cmd,
                 set(findobj(mfig,'tag','Wrestart'),'enable','on');
                 Ht=findobj(mfig,'tag','Erestart');
                 set(Ht,'string',sprintf('%i',Nt),'userdata',Nt,'enable','on','backgroundcolor',Active)
+                %
+                set(findobj(mfig,'tag','reduce_optxt'),'enable','on')
+                set(findobj(mfig,'tag','reduce_operator'),'enable','on','backgroundcolor',Active)
+                set(findobj(mfig,'tag','reduce_trim'),'enable','on')
             end
             set(findobj(mfig,'tag','checktstep'),'enable','on');
         end
@@ -2606,11 +2698,8 @@ switch cmd,
         Info=vs_disp(FI,'map-infsed-serie',[]);
         if isstruct(Info)
             set(findobj(mfig,'tag','displaytime'),'enable','on');
-            dispnr=1;
             Hdispt=findobj(mfig,'tag','displaytime=?');
-            if isfield(FI,'displaytime')
-                dispnr=ustrcmpi(qp_option(FI,'displaytime'),get(Hdispt,'string'));
-            end
+            dispnr=ustrcmpi(qp_option(FI,'displaytime'),get(Hdispt,'string'));
             set(Hdispt,'enable','on','backgroundcolor',Active,'value',dispnr);
             Info=vs_disp(FI,'map-infsed-serie','MORFAC');
             if ~isstruct(Info)
@@ -2638,7 +2727,7 @@ switch cmd,
                 '*.ini' 'initial conditions file (*.ini)'};
         end
         [f,p]=uiputfile(filterspec,'Specify restart file name');
-        cd(cwd);
+        cd(cwd)
         if ischar(f)
             pf = [p f];
             [p,f,e] = fileparts(pf);
@@ -2646,29 +2735,62 @@ switch cmd,
                 e = '';
                 pf = fullfile(p,f);
             end
-            Ht=findobj(mfig,'tag','Erestart');
-            t=get(Ht,'userdata');
+            t=get(findobj(mfig,'tag','Erestart'),'userdata');
             if ustrcmpi('tri-rst',f)>0 || (ustrcmpi('.dat',e)<0 && ~isempty(e))
                 trim2rst(FI,t,pf);
             else
-                pf = fullfile(p,f);
-                grps = {'map-series','map-info-series', ...
-                    'map-sed-series','map-infsed-serie','map-sedgs-series', ...
-                    'map-rol-series','map-infrol-serie', ...
-                    'map-trit-series','map-inftri-serie'};
-                grps(2,:) = {{t}};
-                for i=length(grps):-1:1
-                    if ~isstruct(vs_disp(FI,grps{1,i},[]))
-                        grps(:,i) = [];
-                    end
-                end
-                NFS2 = vs_ini([pf '.dat'],[pf '.def']);
-                vs_copy(FI,NFS2,'*',[],'map-const','map-version',grps{:},'quiet');
+                pf = fullfile(p,f); % get rid of .dat extension
+                write_trimfile(FI,pf,t);
+            end
+        end
+    case 'reduce_trim'
+        hOp = findobj(mfig,'tag','reduce_operator');
+        Ops = get(hOp,'string');
+        if nargin>3
+            op = varargin{1};
+            iop = ustrcmpi(op,Ops);
+            if iop<0
+                ui_message('error',['Invalid operator specified in reduce_trim call: ',var2str(op)])
+                return
+            end
+        else
+            iop = get(hOp,'value');
+        end
+        op = Ops{iop};
+        %
+        if nargin>4
+            pf = varargin{2};
+            [p,f,e] = fileparts(pf);
+        else
+            cwd = pwd;
+            if isempty(FI.FileName)
+                p = fileparts(FI.DatExt);
+            else
+                p = fileparts(FI.FileName);
+            end
+            cd(p)
+            if matlabversionnumber<6
+                filterspec='trim-*.dat';
+            else
+                filterspec = ...
+                    {'trim-*.dat' 'map file (trim-*.dat)'};
+            end
+            [f,p]=uiputfile(filterspec,'Specify file name');
+            cd(cwd)
+        end
+        if ischar(f)
+            [tmp,f,e] = fileparts(f); % get rid of .dat extension
+            pf = [p f];
+            t=get(findobj(mfig,'tag','Erestart'),'userdata');
+            switch op
+                case 'compress'
+                    write_trimfile(FI,pf,t);
+                otherwise
+                    average_trim(FI,pf,t,op)
             end
         end
     case 'simsteps'
-        Ht=findobj(mfig,'tag','Erestart');
-        t=get(Ht,'userdata');
+        t=get(findobj(mfig,'tag','Erestart'),'userdata');
         Txt=simsteps(FI,t);
         ui_message('error',Txt);
     case 'dz'
@@ -2694,21 +2816,33 @@ switch cmd,
         catch
             ui_message('error',lasterr);
         end
-    case 't_restart'
+    case {'t_select','t_restart'}
+        Info=vs_disp(FI,'map-series',[]);
+        Nt=Info.SizeDim;
+        %
         Ht=findobj(mfig,'tag','Erestart');
         if nargin>3
             t=varargin{1};
-            if ischar(t), t=str2num(t); end
+            if ischar(t), t=str2vec(t,'range',[1 Nt],'applylimit'); end
         else
-            t=str2num(get(Ht,'string'));
+            t=str2vec(get(Ht,'string'),'range',[1 Nt],'applylimit');
         end
-        t=round(t);
-        Info=vs_disp(FI,'map-series',[]);
-        Nt=Info.SizeDim;
-        if t<0 || t>Nt
+        t=round(unique(t));
+        if isempty(t)
             t=get(Ht,'userdata');
         end
-        set(Ht,'string',sprintf('%i',t),'userdata',t)
+        set(Ht,'string',vec2str(t,'nobrackets'),'userdata',t)
+        %
+        if length(t)==1
+           e = 'on';
+           eg = get(findobj(mfig,'tag','Edz'),'enable');
+        else
+           e = 'off';
+           eg = 'off';
+        end
+        set(findobj(mfig,'tag','Wrestart'),'enable',e)
+        set(findobj(mfig,'tag','checktstep'),'enable',e)
+        set(findobj(mfig,'tag','map2golder'),'enable',eg)
     case {'morfac','morstt'}
         Hv=findobj(mfig,'tag',['E' cmd]);
         if nargin>3
@@ -2722,7 +2856,7 @@ switch cmd,
         if isnan(v)
             v=get(Hv,'userdata');
         end
-        NewFI.(cmd)=v;
+        NewFI = qp_option(NewFI,cmd,v);
         set(Hv,'string',sprintf('%g',v),'userdata',v)
     case 'dps'
         dpslst=findobj(mfig,'tag','dpslst');
@@ -2758,6 +2892,20 @@ switch cmd,
         error(['Unknown option command: ',cmd])
 end
 % -------------------------------------------------------------------------
+
+function write_trimfile(FI,pf,t)
+grps = {'map-series','map-info-series', ...
+    'map-sed-series','map-infsed-serie','map-sedgs-series', ...
+    'map-rol-series','map-infrol-serie', ...
+    'map-trit-series','map-inftri-serie'};
+grps(2,:) = {{t}};
+for i=length(grps):-1:1
+    if ~isstruct(vs_disp(FI,grps{1,i},[]))
+        grps(:,i) = [];
+    end
+end
+NFS2 = vs_ini([pf '.dat'],[pf '.def']);
+vs_copy(FI,NFS2,'*',[],'map-const','map-version',grps{:},'progressbar');
 
 % -------------------------------------------------------------------------
 function OK=optfig(h0)
@@ -2797,7 +2945,7 @@ uicontrol('Parent',h0, ...
     'Style','edit', ...
     'BackgroundColor',Inactive, ...
     'Horizontalalignment','right', ...
-    'Callback','d3d_qp fileoptions t_restart', ...
+    'Callback','d3d_qp fileoptions t_select', ...
     'Position',[91 voffset 80 20], ...
     'String','', ...
     'Value',0, ...
@@ -2844,6 +2992,31 @@ uicontrol('Parent',h0, ...
     'String','Export to Golder', ...
     'Enable','off', ...
     'Tag','map2golder');
+voffset=voffset-30;
+uicontrol('Parent',h0, ...
+    'Style','text', ...
+    'BackgroundColor',Inactive, ...
+    'Horizontalalignment','left', ...
+    'Position',[11 voffset 70 18], ...
+    'String','Operator', ...
+    'Enable','off', ...
+    'Tag','reduce_optxt');
+uicontrol('Parent',h0, ...
+    'Style','popupmenu', ...
+    'BackgroundColor',Inactive, ...
+    'Horizontalalignment','right', ...
+    'Position',[91 voffset 80 20], ...
+    'String',{'compress','min','mean','max','std','median'}, ...
+    'Value',1, ...
+    'Enable','off', ...
+    'Tag','reduce_operator');
+uicontrol('Parent',h0, ...
+    'BackgroundColor',Inactive, ...
+    'Callback','d3d_qp fileoptions reduce_trim', ...
+    'Position',[181 voffset 150 20], ...
+    'String','Write Reduced Trim File', ...
+    'Enable','off', ...
+    'Tag','reduce_trim');
 voffset=voffset-30;
 uicontrol('Parent',h0, ...
     'Style','text', ...
@@ -2968,4 +3141,127 @@ for i = 1:size(defopt,1)
     if isequal(qp_option(FI,opt),[])
         FI = qp_option(FI,opt,val);
     end
+end
+% -------------------------------------------------------------------------
+
+function [class,classes] = classify_Sediment(sand,silt,clay,method)
+% classify_Sediment determines the sediment type according to the USDA
+% classification in 12 major classes or Shepard's classification in 10 
+% classes(see below)
+%
+%   Input: sand/silt/clay fraction (not %), each a matrix with the same
+%   dimensions
+%
+%   Output: class       
+%
+%   Example: 
+%     class = classify_Sediment(0.6,0.3,0.1,'Shepard'); %determines the class for a
+%     sediment sample with 60% sand, 30% silt and 10% clay, returning '3'
+%     (=SANDY LOAM)
+%
+% USDA classification in 12 major classes:
+% SAND = 1: 
+% LOAMY SAND = 2: 
+% SANDY LOAM = 3:
+% LOAM = 4:
+% SILT LOAM = 5:
+% SILT = 6:
+% SANDY CLAY LOAM = 7:
+% CLAY LOAM = 8:
+% SILTY CLAY LOAM = 9:
+% SANDY CLAY = 10:
+% SILTY CLAY = 11:
+% CLAY = 12:
+% See also: http://soils.usda.gov/technical/aids/investigations/texture/
+% See also: http://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/?cid=nrcs142p2_054167
+
+% Shepard's classification: 
+% SAND = 1
+% SILTY SAND = 2
+% CLAYEY SAND = 3
+% SILT = 4
+% SANDY SILT = 5
+% CLAYEY SILT = 6
+% CLAY = 7
+% SANDY CLAY = 8
+% SILTY CLAY = 9
+% SAND-SILT-CLAY = 10
+% See also: http://pubs.usgs.gov/of/2004/1003/htmldocs/figures/shepfig.htm
+
+class = nan(size(sand));
+
+if strcmp(method,'USDA')
+    classes = {'sand','loamy sand','sandy loam','loam','silt loam','silt','sandy clay loam','clay loam','silty clay loadm','sandy clay','silty clay','clay'};
+    % SAND = 1: 
+    ind = sand>=.85 & (silt + clay*1.5)<0.15;
+    class(ind)=1;
+    % LOAMY SAND = 2: 
+    ind = sand>=.7 & sand<=.9 & (silt + clay*1.5)>=0.15 & (silt + clay*2)<=0.3;
+    class(ind)=2;
+    % SANDY LOAM = 3:
+    ind  = clay<=.2 & ((silt + clay*2)>0.3) & sand>=.52;
+    class(ind)=3;
+    ind = clay<.07 & silt<.5 & sand>.43 & sand<.53;
+    class(ind)=3;
+    % LOAM = 4:
+    ind = clay>=.07 & clay<=.27 & silt>=.28 & silt<.5 & sand<.52;
+    class(ind)=4;
+    % SILT LOAM = 5:
+    ind = silt>=.5 & clay>=.12 & clay<=.27;
+    class(ind)=5;
+    ind = silt>=.5 & silt<.8 & clay<=.12;
+    class(ind)=5;
+    % SILT = 6:
+    ind = silt>=.8 & clay<.12;
+    class(ind)=6;
+    % SANDY CLAY LOAM = 7:
+    ind  = clay>.2 & clay<.35 & silt<.28 & sand>=.45;
+    class(ind)=7;
+    % CLAY LOAM = 8:
+    ind  = clay>.27 & clay<.4 & sand>.2 & sand<.45;
+    class(ind)=8;
+    % SILTY CLAY LOAM = 9:
+    ind  = clay>.27 & clay<.4 & sand<=.2;
+    class(ind)=9;
+    % SANDY CLAY = 10:
+    ind  = clay>=.35 & sand>=.45;
+    class(ind)=10;
+    % SILTY CLAY = 11:
+    ind  = clay>=.4 & silt>=.4;
+    class(ind)=11;
+    % CLAY = 12:
+    ind  = clay>=.4 & sand<.45 & silt<.4;
+    class(ind)=12;
+elseif strcmp(method,'Shepard')
+    classes = {'sand','silty sand','clayey sand','silt','sandy silt','clayey silt','clay','sandy clay','silty clay','sand-silt-clay'};
+    % SAND = 1
+    ind = sand>=.75;
+    class(ind)=1;
+    % SILTY SAND = 2
+    ind = sand>=silt & sand<.75 & clay<=silt;
+    class(ind)=2;
+    % CLAYEY SAND = 3
+    ind = sand>=clay & sand<.75 & clay>silt;
+    class(ind)=3;
+    % SILT = 4
+    ind = silt>=.75;
+    class(ind)=4;
+    % SANDY SILT = 5
+    ind = silt>sand & silt<.75 & clay<=sand;
+    class(ind)=5;
+    % CLAYEY SILT = 6
+    ind = silt>=clay & silt<.75 & clay>sand;
+    class(ind)=6;
+    % CLAY = 7
+    ind = clay>=.75;
+    class(ind)=7;
+    % SANDY CLAY = 8
+    ind = clay>sand & clay<.75 & sand>=silt;
+    class(ind)=8;
+    % SILTY CLAY = 9
+    ind = clay>silt & clay<.75 & sand<silt;
+    class(ind)=9;
+    % SAND-SILT-CLAY = 10
+    ind = sand>.2 & silt >.2 & clay>.2;
+    class(ind)=10;    
 end

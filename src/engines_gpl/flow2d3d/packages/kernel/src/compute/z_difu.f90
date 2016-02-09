@@ -18,7 +18,7 @@ subroutine z_difu(lundia    ,nst       ,icx       ,icy       ,j         , &
                 & eqmbcmud  ,lsts      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -651,6 +651,7 @@ subroutine z_difu(lundia    ,nst       ,icx       ,icy       ,j         , &
              ! WATCH OUT: icx and icy are swapped
              !
              nfm  = (m+ddb)*icx + (nf+ddb)*icy - icxy
+             nfum = nfm + icy
              nlm  = (m+ddb)*icx + (nl+ddb)*icy - icxy
              nlum = nlm + icy
              if (kcv(nfm) == 1) then
@@ -1505,7 +1506,7 @@ subroutine z_difu_solv_impl( )
     ! Determine global maximum of 'itr' over all nodes
     ! Note: this enables to synchronize the iteration process
     !
-    call dfreduce( itr, 1, dfint, dfmax, gdp )
+    call dfreduce_gdp( itr, 1, dfint, dfmax, gdp )
     !
     if (itr>0 .and. iter<50) goto 333
     !

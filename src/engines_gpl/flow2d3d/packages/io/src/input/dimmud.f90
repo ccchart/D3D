@@ -1,7 +1,7 @@
 subroutine dimmud(lunmd     ,lundia    ,error     ,nrrec     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -45,6 +45,7 @@ subroutine dimmud(lunmd     ,lundia    ,error     ,nrrec     ,gdp       )
     use properties
     !
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -140,7 +141,7 @@ subroutine dimmud(lunmd     ,lundia    ,error     ,nrrec     ,gdp       )
           !
           ! Test file's existence
           !
-          call noextspaces(filmud    ,lfile     )
+          call remove_leading_spaces(filmud    ,lfile     )
           inquire (file = filmud(1:lfile), exist = ex)
           if (.not.ex) then
              call prterr(lundia    ,'G004'    ,filmud(1:lfile)      )

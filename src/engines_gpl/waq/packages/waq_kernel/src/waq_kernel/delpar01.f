@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -32,7 +32,6 @@
       use parths_mod                 ! explicit interface
 !      use rdhydr_mod                 ! explicit interface
       use partwq_mod                 ! explicit interface
-      use partwr_mod                 ! explicit interface
       use oildsp_mod                 ! explicit interface
       use part09_mod                 ! explicit interface
       use part10_mod                 ! explicit interface
@@ -251,26 +250,22 @@
      &                    t0cf     , acf      , nwaste   , mwaste   , kpart    ,
      &                    mapsub   , layt     , mnmaxk   )
 
-         case ( 3 )     ! = red tide model
-            call partwr ( lgrid    , nmaxp    , concp    , volumep  , area     ,
-     &                    npart    , mpart    , wpart    , zpart    , npwndw   ,
-     &                    nopart   , idelt    , const    , noconsp  , rbuffr   ,
-     &                    lunut    , noslay   , mmaxp    , itime    , kpart    ,
-     &                    mapsub   , isfile   , mnmaxk   , mnmax2   , finnh4   ,
-     &                    finno3   )
+         case ( 3 )     ! = obsolete
 
          case ( 4 )     ! = oil model
             call oildsp ( lgrid    , nmaxp    , concp    , volumep  , area     ,    
      &                    npart    , mpart    , wpart    , radius   , nodye    ,    
      &                    npwndw   , nopart   , itime    , idelt    , wvelo    ,    
      &                    const    , lunut    , nosubs   , noslay   , lgrid2   ,    
+     &                    lgrid3   ,
      &                    mmaxp    , xb       , yb       , kpart    , mapsub   ,    
      &                    isfile   , nfract   , mstick   , nstick   , fstick   ,    
      &                    xa       , ya       , pg(1)    , lsettl   , xpart    ,    
      &                    ypart    , zpart    , za       , locdep   , dpsp     ,    
-     &                    tcktot   , substi   , hmin     , npmax    , rhow     ,    
+     &                    tcktot   , substi   ,            npmax    , rhow     ,    
      &                    amassd   , ioptrad  , ndisapp  , idisset  , tydisp   ,    
-     &                    efdisp   , xpoldis  , ypoldis  , nrowsdis)
+     &                    efdisp   , xpoldis  , ypoldis  , nrowsdis , wpartini ,
+     &                    iptime)
       end select
 
 !     two-layer system with stratification
@@ -292,7 +287,8 @@
      &                 wpart    , iptime   , nopart   , radius   , lgrid    ,
      &                 dx       , dy       , ndprt    , nosubs   , kpart    ,
      &                 layt     , tcktot   , nplay    , kwaste   , nolayp   ,
-     &                 modtyp   , zwaste   , track    , nmdyer   , substi   )
+     &                 modtyp   , zwaste   , track    , nmdyer   , substi   ,
+     &                 rhopart)
 
 !      add continuous release
 
@@ -306,7 +302,7 @@
      &                 ncheck   , t0buoy   , modtyp   , abuoy    , t0cf     ,
      &                 acf      , lunut    , kpart    , layt     , tcktot   ,
      &                 nplay    , kwaste   , nolayp   , linear   , track    ,
-     &                 nmconr   )
+     &                 nmconr   , spart    , rhopart  , noconsp  , const   )
 
 !     write particle tracks
 
@@ -324,22 +320,17 @@
 
       if ( noudef .gt. 0 )  then
 
-!       particle generation red tide model
-!       v3.30: general possibility for several substances
-!              input from a delwaq xxx.map or xxx.res file
-
 !       add release in a way defined by the user
-!       also check splitting of particles for red tide model
 !       array isub contains references to substances
 
-         call partur ( itime    , noudef   , iutime   , mpart    , npart    ,
-     &                 kpart    , xpart    , ypart    , zpart    , wpart    ,
-     &                 iptime   , nopart   , lgrid    , modtyp   , nmaxp    ,
-     &                 mmaxp    , tmasud   , ipntp    , substi   , nosubs   ,
-     &                 nolayp   , nocont   , ndprt    , npmax    , const    ,
-     &                 nodye    , lunut    , mapsub   , rbuffr   , volumep  ,
-     &                 aconud   , uscal    , isub     , finud    , iftime   ,
-     &                 ifopt    , nosyss   , isfud    , nosubud  , subsud   )
+         call partur (  itime    , noudef   , iutime   , mpart    , npart    , 
+     &                  kpart    , xpart    , ypart    , zpart    , wpart    ,
+     &                  iptime   , nopart   , lgrid    , nmaxp    , mmaxp    ,
+     &                  tmasud   , ipntp    , substi   , nosubs   , nolayp   ,
+     &                  nocont   , ndprt    , nodye    , lunut    , rbuffr   ,
+     &                  volumep  , aconud   , uscal    , isub     , finud    ,
+     &                  iftime   , ifopt    , nosyss   , isfud    , nosubud  ,
+     &                  subsud   )
 
       endif
 
@@ -358,7 +349,10 @@
          wsettl = 1.0  ! whole array assignment
       endif
       call partvs ( lunut    , itime    , nosubs   , nopart   , ivtset   ,
-     &              ivtime   , vsfour   , vsfact   , wpart    , wsettl   )
+     &              ivtime   , vsfour   , vsfact   , wpart    , wsettl   ,
+     &              modtyp   , nmaxp    , mmaxp    , lgrid3   , noslay   ,
+     &              npart    , mpart    , kpart    , nosegp   , noseglp  ,
+     &              rhopart  , rhowatc  , spart    , iptime)
 
 !      calculate actual decaycoefficient
 

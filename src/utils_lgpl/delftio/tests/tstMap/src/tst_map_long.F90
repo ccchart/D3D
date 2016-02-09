@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -105,13 +105,13 @@ subroutine read_map_long
     integer :: resLun, ls
     integer :: nPar, NLoc
     character(Len=DioMaxParLen), dimension(:), pointer :: pars
-    character(Len=DioMaxLocLen), dimension(:), pointer :: locs
+    ! character(Len=DioMaxLocLen), dimension(:), pointer :: locs
 
     logical :: readRes
     integer :: i, ierr
 
     nullify(pars)
-    nullify(locs)
+    ! nullify(locs)
 !   Open file for storing results
 
     resLun = 11
@@ -132,13 +132,13 @@ subroutine read_map_long
             write(resLun,*) 'Par: ', i, ': ', trim(pars(i))
         enddo
         write(resLun,*) 'NLoc: ', nLoc
-        if (associated(locs)) then
-            do i = 1, nLoc
-                write(resLun,*) 'Loc: ', i, ': ', trim(locs(i))
-            enddo
-        else
-            write(resLun,*) 'MAP: No Locations'
-        endif
+        !if (associated(locs)) then
+        !    do i = 1, nLoc
+        !        write(resLun,*) 'Loc: ', i, ': ', trim(locs(i))
+        !    enddo
+        !else
+        !    write(resLun,*) 'MAP: No Locations'
+        !endif
 
     !   Get Values
 

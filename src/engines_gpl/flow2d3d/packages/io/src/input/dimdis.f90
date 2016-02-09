@@ -1,8 +1,8 @@
-subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
-                & nsrc      ,gdp       )
+subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,nsrc      , &
+                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -31,8 +31,7 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
 !!--description-----------------------------------------------------------------
 !
 !    Function: Reads the dimension for discharge definition,
-!              sources and sinks, from the MD-file or from the
-!              attribute file for NOUI
+!              sources and sinks, from the MD-file
 ! Method used:
 !
 !!--pseudo code and references--------------------------------------------------
@@ -40,6 +39,7 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use system_utils, only: exifil
     !
     implicit none
@@ -57,7 +57,6 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     integer               :: nrrec  !!  Record counter keeping the track of the last record read
     integer               :: nsrc   !  Description and declaration in esm_alloc_int.f90
     logical , intent(out) :: error  !!  Flag=TRUE if an error is encountered
-    logical , intent(in)  :: noui   !!  Flag true if program calling routine is not User Interface
 !
 !
 ! Local variables
@@ -71,7 +70,7 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     integer                  :: nlook   ! Nr. of values to look for in a record 
     integer                  :: ntrec   ! Current record counter. It's value is changed to detect if all records in the MD-file have been read 
     logical                  :: found   ! Flag is true if KEYWRD is found 
-    logical                  :: lerror  ! Flag=TRUE if an local error is encountered For NOUI this can mean error will be set TRUE 
+    logical                  :: lerror  ! Flag=TRUE if an local error is encountered
     logical                  :: newkw   ! Flag to specify if the keyword to look for is a new keyword 
     character(11)            :: fmtdef  ! Default format of an attribute file = blank 
     character(11)            :: fmttmp  ! Format of FILTMP (UN/FRee formatted) 
@@ -121,12 +120,8 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
        ! reading error?
        !
        if (lerror) then
-          if (noui) then
-             error = .true.
-             goto 520
-          endif
-          lerror = .false.
-          filtmp = fildef
+          error = .true.
+          goto 520
        endif
     endif
     if (filtmp/=fildef) then
@@ -157,13 +152,9 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
           fmttmp = fmtdef(3:)
        endif
        !
-       ! skip reading from file for UI
-       !
-       if (.not.noui) goto 520
-       !
        ! test file existence
        !
-       call noextspaces(filtmp    ,lfile     )
+       call remove_leading_spaces(filtmp    ,lfile     )
        !
        if (exifil(filtmp, lundia)) then
           !
@@ -266,11 +257,7 @@ subroutine dimdis(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
                     & ntrec     ,lundia    ,gdp       )
           !
           if (lerror .or. nlook<0) then
-             if (noui) then
-                error = .true.
-                goto 520
-             endif
-             lerror = .false.
+             error = .true.
              goto 520
           endif
           if (nlook==999) goto 520

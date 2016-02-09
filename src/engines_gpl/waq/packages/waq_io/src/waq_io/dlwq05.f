@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -90,7 +90,7 @@
       real     ( 4), intent(in   ) :: vrsion            !< version number of this input
 
       integer       idef
-C
+!
       CHARACTER*1   CDUMMY
       CHARACTER*255 CHULP
       LOGICAL       DISPER   , VOLUME
@@ -103,12 +103,12 @@ C
       real     (  8), allocatable :: drar        (:) !  double precission workspace (very large !lp)
       logical                         :: no_id_check            ! command line argument to skip double ID check
       real                            :: rdummy                 ! dummy real in argument list
-      real                            :: idummy                 ! dummy integer in argument list
+      integer                         :: idummy                 ! dummy integer in argument list
       integer(4) :: ithndl = 0
       if (timon) call timstrt( "dlwq05", ithndl )
-C
-C     Init
-C
+!
+!     Init
+!
       DISPER  = .FALSE.
       VOLUME  = .FALSE.
       IFACT   =  1
@@ -117,16 +117,25 @@ C
       IPOSR   =  0
       IERR2   =  0
       Iwar2   =  0
-C
+!
       IF ( NOBND .EQ. 0 ) THEN
          WRITE ( LUNUT , 2000 )
-         GOTO 170
+         IFOUND = GETTOKEN ( CHULP, IDUMMY, RDUMMY, ITYPE, IERR2 )
+         IF (IERR2 .EQ. 2) THEN
+            GOTO 175
+         ELSE IF (ITYPE.EQ.2 .AND. IDUMMY.EQ.0) THEN
+            WRITE ( LUNUT , 2120 )
+            GOTO 170
+         ENDIF
+         WRITE ( LUNUT , 2001 )
+         IERR = IERR + 1
+         GOTO 175
       ENDIF
-C
-C     read boundary names, from version 4.9 on names are ID's
-C                                              names are 40 characters
-C                                              types are 20 characters
-C
+!
+!     read boundary names, from version 4.9 on names are ID's
+!                                              names are 40 characters
+!                                              types are 20 characters
+!
       ALLOCATE(BNDID(NOBND),BNDNAME(NOBND),BNDTYPE(NOBND),BNDID_LONG(NOBND),BNDTYPE_LONG(NOBND),IBNDTYPE(NOBND),STAT=IERR_ALLOC)
       IF ( IERR_ALLOC .NE. 0 ) THEN
          WRITE ( LUNUT , 2300 ) IERR_ALLOC
@@ -249,17 +258,17 @@ C
       WRITE ( LUNWR )  ( BNDTYPE(I) , I = 1, NOBTYP )
       WRITE ( LUNWR )  ( IBNDTYPE(I), I = 1, NOBND  )
       DEALLOCATE(BNDNAME,BNDID_LONG,BNDTYPE_LONG,IBNDTYPE)
-C
-C     dummy time lags
-C
+!
+!     dummy time lags
+!
       IF ( NOSYS .EQ. 0 ) THEN
          WRITE ( LUNWR ) ( 0 , I=1, NOBND )
          WRITE ( LUNUT , 2090 )
          GOTO 170
       ENDIF
-C
-C        Read time lags
-C
+!
+!        Read time lags
+!
       ITYPE = 2
       CALL RDTOK1 ( LUNUT , ILUN  , LCH   , LSTACK, CCHAR ,
      *              IPOSR , NPOS  , CDUMMY, IAROPT, RHULP ,
@@ -270,15 +279,15 @@ C
       WRITE ( LUNUT , 2110 )
       IERR = IERR+1
       GOTO 160
-C
-C        no time lags
-C
+!
+!        no time lags
+!
    60 WRITE ( LUNUT , 2120 )
       WRITE ( LUNWR ) ( 0 , I=1, NOBND )
       GOTO 160
-C
-C       time lags constant without defaults
-C
+!
+!       time lags constant without defaults
+!
    70 WRITE ( LUNUT , 2130 )
       IF ( IIMAX .LT. NOBND ) THEN
         WRITE ( LUNUT , 2140 ) NOBND,IIMAX,NOBND-IIMAX
@@ -322,9 +331,9 @@ C
   100 CONTINUE
       WRITE ( LUNWR ) ( IAR(K) , K=1,NOBND )
       GOTO 160
-C
-C       time lags constant with defaults
-C
+!
+!       time lags constant with defaults
+!
   110 WRITE ( LUNUT , 2190 )
       ITYPE = 2
       CALL RDTOK1 ( LUNUT , ILUN  , LCH   , LSTACK, CCHAR ,
@@ -335,11 +344,11 @@ C
          WRITE ( LUNUT , 2180 ) IDEF
          IERR = IERR+1
       ENDIF
-C            fill the array with the default
+!            fill the array with the default
       DO 120 I = 1,MIN(IIMAX,NOBND)
          IAR(I) = IDEF
   120 CONTINUE
-C            nr of overridings
+!            nr of overridings
       ITYPE = 2
       CALL RDTOK1 ( LUNUT , ILUN  , LCH   , LSTACK, CCHAR ,
      *              IPOSR , NPOS  , CDUMMY, NOVER , RHULP ,
@@ -355,7 +364,7 @@ C            nr of overridings
            WRITE ( LUNUT , 2220 ) IDEF, NOVER
       ENDIF
       MXOVER = IIMAX - NOBND
-C            overridings
+!            overridings
       DO 130 K = 1, MIN( NOVER, MXOVER)
          ITYPE = 2
          CALL RDTOK1 ( LUNUT , ILUN  , LCH   , LSTACK      , CCHAR ,
@@ -369,7 +378,7 @@ C            overridings
      *                 ITYPE , IERR2 )
          IF ( IERR2 .GT. 0 ) GOTO 170
   130 CONTINUE
-C
+!
       DO 140 K = 1, NOVER-MXOVER
          ITYPE = 2
          CALL RDTOK1 ( LUNUT , ILUN  , LCH   , LSTACK, CCHAR ,
@@ -408,12 +417,12 @@ C
          ENDIF
   150 CONTINUE
       WRITE ( LUNWR ) ( IAR(K) , K=1,NOBND )
-C
-C        Read boundary concentrations
-C
-C
-C           This IF block stands for the new input processing
-C
+!
+!        Read boundary concentrations
+!
+!
+!           This IF block stands for the new input processing
+!
   160 WRITE ( LUNUT , 2260 )
       IF ( VRSION .GE. 4.90 ) THEN
          K = NOBND+1
@@ -439,7 +448,7 @@ C
       ELSE
          NOSUBS = NOSYS
       ENDIF
-C          IERRH = -1 signals OPT0 that it is boundaries to deal with
+!          IERRH = -1 signals OPT0 that it is boundaries to deal with
       IERRH = -1
       call opt0   ( lun    , 14     , 0        , 0        , nobnd  ,
      &              nosubs , nosubs , nrftot(8), nrharm(8), ifact  ,
@@ -447,20 +456,21 @@ C          IERRH = -1 signals OPT0 that it is boundaries to deal with
      &              filtype, dtflg3 , vrsion   , ioutpt   , ierrh  ,
      &              iwar   )
       IERR = IERR + IERRH
-C
+!
       IERR2 = 0
   170 CONTINUE
       IF ( ALLOCATED(BNDID  ) ) DEALLOCATE(BNDID  )
       IF ( ALLOCATED(BNDTYPE) ) DEALLOCATE(BNDTYPE)
       IF ( IERR2 .GT. 0 ) IERR = IERR + 1
       IF ( IERR2 .EQ. 3 ) CALL SRSTOP(1)
-      call check  ( chulp  , iwidth , 5      , ierr2  , ierr   )
+  175 call check  ( chulp  , iwidth , 5      , ierr2  , ierr   )
   180 if ( timon ) call timstop( ithndl )
       RETURN
-C
-C       Output formats
-C
+!
+!       Output formats
+!
  2000 FORMAT ( //,' No boundary conditions' )
+ 2001 FORMAT ( //,' ERROR: Without boundary conditions only optional specification of zero time lags allowed!' )
  2005 FORMAT (  /,' Names of open boundaries are printed for',
      *            ' output option 3 and higher !' )
  2010 FORMAT (  /,' Boundary-IDs:       boundary-names:    ',20X,
@@ -517,5 +527,5 @@ C
  2290 FORMAT (    ' ERROR: truncated boundary type is not unique:',A)
  2300 FORMAT (    ' ERROR: allocating boundary arrays:',I7)
  2310 FORMAT (    ' number of boundaries             :',I7)
-C
+!
       END

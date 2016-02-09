@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -35,6 +35,7 @@
      *        Defgrp,
      *        Opndat,
      *        Credat,
+     *        getnfv,
      *        Putelt,
      *        Defcel,
      *        Clsdat,
@@ -50,6 +51,12 @@
       COMPLEX*16 val
       CHARACTER coding*1
       CHARACTER ERRSTR*1024
+      CHARACTER*255  version
+
+      error = getnfv(version)
+      write(*,*)
+      write(*,*) trim(version(5:))
+      write(*,*)
 
       write(*,'(''Maak file met Complexe getallen'')')
 

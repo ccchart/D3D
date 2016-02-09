@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param,Parent]=qp_plot_default(hNew,Parent,Param,data,O
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -60,7 +60,7 @@ switch NVal
     
     case {0,0.5}
         switch axestype
-            case {'X-Y','Lon-Lat'}
+            case {'X-Y','Lon-Lat','X-Y-Val','Lon-Lat-Val'}
                 
                 if isfield(data,'TRI')
                     if FirstFrame
@@ -76,6 +76,7 @@ switch NVal
                             'linewidth',Ops.linewidth, ...
                             'linestyle',Ops.linestyle, ...
                             'marker',Ops.marker, ...
+                            'markersize',Ops.markersize, ...
                             'markeredgecolor',Ops.markercolour, ...
                             'markerfacecolor',Ops.markerfillcolour, ...
                             'parent',Parent);
@@ -90,7 +91,9 @@ switch NVal
                         hNew=thindam(data.X,data.Y,data.XDam,data.YDam,'color',data.XDamVal,data.YDamVal,'parent',Parent);
                         set(hNew,'linewidth',Ops.linewidth, ...
                             'linestyle',Ops.linestyle, ...
+                            'edgecolor','flat', ...
                             'marker',Ops.marker, ...
+                            'markersize',Ops.markersize, ...
                             'markeredgecolor',Ops.markercolour, ...
                             'markerfacecolor',Ops.markerfillcolour);
                     else
@@ -106,6 +109,7 @@ switch NVal
                             'linewidth',Ops.linewidth, ...
                             'linestyle',Ops.linestyle, ...
                             'marker',Ops.marker, ...
+                            'markersize',Ops.markersize, ...
                             'markeredgecolor',Ops.markercolour, ...
                             'markerfacecolor',Ops.markerfillcolour, ...
                             'facecolor','none');
@@ -180,6 +184,7 @@ switch NVal
                         'linewidth',Ops.linewidth, ...
                         'linestyle',Ops.linestyle, ...
                         'marker',Ops.marker, ...
+                        'markersize',Ops.markersize, ...
                         'markeredgecolor',Ops.markercolour, ...
                         'markerfacecolor',Ops.markerfillcolour, ...
                         'facecolor','none');
@@ -229,9 +234,9 @@ switch NVal
                 hNew=gentext(hNew,Ops,Parent,'Plot not defined');
         end
         
-    case {1,5}
+    case {1,5,6}
         switch axestype
-            case {'X-Y','Lon-Lat'}
+            case {'X-Y','Lon-Lat','X-Y-Val','X-Y-Z','Lon-Lat-Val','Lon-Lat-Z'}
                 if isfield(data,'TRI')
                     set(Parent,'NextPlot','add');
                     switch Ops.presentationtype
@@ -253,8 +258,10 @@ switch NVal
                     data = qp_dimsqueeze(data,Ops.axestype,multiple,DimFlag,Props);
                     if isfield(data,'Z') && 0
                         hNew = qp_scalarfield(Parent,hNew,Ops.presentationtype,'QUAD',data.X,data.Y,data.Z,data.Val,Ops);
-                    else
+                    elseif isfield(data,'X')
                         hNew = qp_scalarfield(Parent,hNew,Ops.presentationtype,'QUAD',data.X,data.Y,[],data.Val,Ops);
+                    else
+                        hNew = qp_scalarfield(Parent,hNew,Ops.presentationtype,'QUAD',data.XY(:,1),data.XY(:,2),[],data.Val,Ops);
                     end
                     if isempty(Selected{K_})
                         str=PName;
@@ -282,7 +289,10 @@ switch NVal
                     qp_title(Parent,tit,'quantity',Quant,'unit',Units)
                 end
                 
-            case {'Distance-Val','X-Val','X-Z','X-Time','Time-X'}
+            case {'Distance-Val','X-Val','X-Z','X-Time','Time-X','Time-Z','Time-Val'}
+                if ~isfield(Ops,'plotcoordinate')
+                    Ops.plotcoordinate = 'time';
+                end
                 if multiple(K_)
                     data = qp_dimsqueeze(data,Ops.axestype,multiple,DimFlag,Props);
                     Mask=repmat(min(data.Z,[],3)==max(data.Z,[],3),[1 1 size(data.Z,3)]);
@@ -306,7 +316,7 @@ switch NVal
                             else
                                 s=pathdistance(x,y);
                             end
-                            if ~isequal(size(data.X),size(data.Val))
+                            if ~isequal(size(data.X),size(data.Val)) && ~isfield(data,'dX_tangential')
                                 ds=s(min(find(s>0)))/2;
                                 if ~isempty(ds)
                                     s=s-ds;
@@ -320,6 +330,8 @@ switch NVal
                             s=data.X;
                         case 'y coordinate'
                             s=data.Y;
+                        case 'time'
+                            s=repmat(data.Time,[1 size(data.X,3)]);
                     end
                     s=squeeze(s);
                     data.X=squeeze(data.X);
@@ -330,6 +342,9 @@ switch NVal
                     data.Val=squeeze(data.Val);
                     %
                     set(Parent,'NextPlot','add');
+                    if size(s,2)==1 && size(data.Z,2)~=1
+                        s = repmat(s,[1 size(data.Z,2)]);
+                    end
                     switch Ops.presentationtype
                         case {'patches','patches with lines'}
                             if isfield(Props,'ThreeD')
@@ -349,7 +364,7 @@ switch NVal
                             hNew=genmarkers(hNew,Ops,Parent,data.Val,s,data.Z);
                             
                         case {'contour lines','coloured contour lines','contour patches','contour patches with lines'}
-                            if isequal(size(s),size(data.Val)+1)
+                            if ~isequal(size(s),size(data.Val))
                                 [s,data.Z,data.Val]=face2surf(s,data.Z,data.Val);
                             end
                             data.Val(isnan(s) | isnan(data.Z))=NaN;
@@ -365,40 +380,94 @@ switch NVal
                         %set(get(Parent,'ylabel'),'string','elevation (m) \rightarrow')
                     end
                     if strcmp(Ops.colourbar,'none')
-                        qp_title(Parent,{PName,TStr},'quantity',Quant,'unit',Units,'time',TStr)
+                        tit = {PName};
                     else
-                        qp_title(Parent,{TStr},'quantity',Quant,'unit',Units,'time',TStr)
+                        tit = {};
                     end
-                else
+                    if ~isempty(TStr)
+                        tit{end+1} = TStr;
+                    end
+                    if ~isempty(stn)
+                        tit{end+1}=stn;
+                    end
+                    qp_title(Parent,tit,'quantity',Quant,'unit',Units,'time',TStr)
+                elseif strcmp(Ops.plotcoordinate,'time')
+                    if multiple(T_)
+                        if FirstFrame
+                            hNew=line(data.Time,data.Val, ...
+                                'parent',Parent, ...
+                                Ops.LineParams{:});
+                            if Props.DimFlag(T_)~=5
+                                tick(Parent,'x','autodate')
+                            end
+                        else
+                            set(hNew,'xdata',data.Time,'ydata',data.Val);
+                        end
+                        if ~isempty(stn)
+                            Str=stn;
+                        else
+                            Str='';
+                        end
+                        qp_title(Parent,Str,'quantity',Quant,'unit',Units,'time',TStr)
+                    else
+                        strval=sprintf(Ops.numformat,data.Val);
+                        if isfield(Ops,'axestype') && ...
+                                (isequal(strtok(Ops.axestype),'Time-Val') || ...
+                                isequal(strtok(Ops.axestype),'Time-Z'))
+                            ylim = get(Parent,'ylim');
+                            yval = min(ylim(2),max(ylim(1),data.Val));
+                            if isempty(hNew)
+                                hNew(2)=line(data.Time*[1 1],ylim,'parent',Parent,'color',Ops.colour);
+                                hNew(1)=text('position',[data.Time yval 0],'string',strval,'parent',Parent,Ops.FontParams{:});
+                            else
+                                i1 = strmatch('text',get(hNew,'type')); % 1 or 2
+                                i2 = 3-i1; % consequently, 2 or 1
+                                set(hNew(i2),'xdata',data.Time*[1 1],'ydata',ylim);
+                                set(hNew(i1),'position',[data.Time yval 0],'string',strval);
+                            end
+                        else
+                            unit = '';
+                            if ~isempty(Ops.units)
+                                unit = [' ' Ops.units];
+                            end
+                            hNew=gentext(hNew,Ops,Parent,['Val = ',strval,unit]);
+                        end
+                    end
+                else % distance-Val, X-Val, X-Time, Time-X
                     %Ops.plotcoordinate='(x,y)';
+                    if isfield(data,'Time') && length(data.Time)>1
+                        mask = all(isnan(data.Val(:,:)),1);
+                    else
+                        mask = isnan(data.Val);
+                    end
                     switch Ops.plotcoordinate
                         case 'x coordinate'
-                            data.X(isnan(data.Val))=NaN;
+                            data.X(mask)=NaN;
                             x=data.X;
                             y=data.Val;
                             z=zeros(size(x));
                         case 'y coordinate'
-                            data.Y(isnan(data.Val))=NaN;
+                            data.Y(mask)=NaN;
                             x=data.Y;
                             y=data.Val;
                             z=zeros(size(x));
                         case '(x,y)'
-                            data.X(isnan(data.Val))=NaN;
-                            data.Y(isnan(data.Val))=NaN;
+                            data.X(mask)=NaN;
+                            data.Y(mask)=NaN;
                             x=data.X;
                             y=data.Y;
                             z=data.Val;
                         otherwise %case {'path distance','reverse path distance'}
-                            %data.X(isnan(data.Val))=NaN;
+                            data.X(mask)=NaN;
                             xx=data.X;
                             if isfield(data,'Y')
-                                %data.Y(isnan(data.Val))=NaN;
+                                data.Y(mask)=NaN;
                                 yy=data.Y;
                             else
                                 yy=0*xx;
                             end
                             if isfield(data,'Z')
-                                %data.Z(isnan(data.Val))=NaN;
+                                data.Z(mask)=NaN;
                                 zz=data.Z;
                             else
                                 zz=0*xx;
@@ -419,7 +488,7 @@ switch NVal
                             y=data.Val;
                             z=zeros(size(x));
                     end
-                    if length(data.Time)>1
+                    if isfield(data,'Time') && length(data.Time)>1
                         nx = numel(x);
                         nt = numel(data.Time);
                         if strcmp(Ops.axestype,'X-Time')
@@ -465,6 +534,11 @@ switch NVal
                         end
                     else
                         if strcmp(Ops.facecolour,'none')
+                            if length(y)==length(x)-1
+                                x = x(ceil(1:.5:length(x)-0.5));
+                                y = y(ceil(.5:.5:length(y)));
+                                z = z(ceil(1:.5:length(z)-0.5));
+                            end
                             if FirstFrame
                                 hNew=line(x,y,z, ...
                                     'parent',Parent, ...
@@ -502,6 +576,7 @@ switch NVal
                                         'linestyle',Ops.linestyle, ...
                                         'linewidth',Ops.linewidth, ...
                                         'marker',Ops.marker, ...
+                                        'markersize',Ops.markersize, ...
                                         'markeredgecolor',Ops.markercolour, ...
                                         'markerfacecolor',Ops.markerfillcolour, ...
                                         'cdata',[], ...
@@ -578,49 +653,7 @@ switch NVal
                     end
                     qp_title(Parent,Str,'quantity',Quant,'unit',Units,'time',TStr)
                 end
-                
-            case {'Time-Val','Time-Z'}
-                if multiple(T_)
-                    if FirstFrame
-                        hNew=line(data.Time,data.Val, ...
-                            'parent',Parent, ...
-                            Ops.LineParams{:});
-                        if Props.DimFlag(T_)~=5
-                            tick(Parent,'x','autodate')
-                        end
-                    else
-                        set(hNew,'xdata',data.Time,'ydata',data.Val);
-                    end
-                    if ~isempty(stn)
-                        Str=stn;
-                    else
-                        Str='';
-                    end
-                    qp_title(Parent,Str,'quantity',Quant,'unit',Units,'time',TStr)
-                else
-                    strval=sprintf(Ops.numformat,data.Val);
-                    if isfield(Ops,'axestype') && ...
-                            (isequal(strtok(Ops.axestype),'Time-Val') || ...
-                            isequal(strtok(Ops.axestype),'Time-Z'))
-                        ylim = get(Parent,'ylim');
-                        yval = min(ylim(2),max(ylim(1),data.Val));
-                        if isempty(hNew)
-                            hNew(2)=line(data.Time*[1 1],ylim,'parent',Parent,'color',Ops.colour);
-                            hNew(1)=text('position',[data.Time yval 0],'string',strval,'parent',Parent,Ops.FontParams{:});
-                        else
-                            i1 = strmatch('text',get(hNew,'type')); % 1 or 2
-                            i2 = 3-i1; % consequently, 2 or 1
-                            set(hNew(i2),'xdata',data.Time*[1 1],'ydata',ylim);
-                            set(hNew(i1),'position',[data.Time yval 0],'string',strval);
-                        end
-                    else
-                        unit = '';
-                        if ~isempty(Ops.units)
-                            unit = [' ' Ops.units];
-                        end
-                        hNew=gentext(hNew,Ops,Parent,['Val = ',strval,unit]);
-                    end
-                end
+
             otherwise % Text
                 strval = sprintf(Ops.numformat,data.Val);
                 hNew=gentext(hNew,Ops,Parent,['Val=',strval]);
@@ -781,7 +814,16 @@ switch NVal
                 % get right component to plot: select the component in the plane
                 % to be plotted.
                 %
-                if multiple(M_)
+                if isfield(data,'dX_tangential')
+                    % arbcross
+                    ex=data.dX_tangential([1:end end]);
+                    ey=data.dY_tangential([1:end end]);
+                    ex(data.dX_tangential([1:end end])~=data.dX_tangential([1 1:end]))=NaN;
+                    ey(isnan(ex))=NaN;
+                    ex = repmat(ex,[1 1 size(data.XComp,3)]);
+                    ey = repmat(ey,[1 1 size(data.XComp,3)]);
+                    planecomp=ex.*data.XComp + ey.*data.YComp;
+                elseif multiple(M_)
                     planecomp=data.XComp;
                 else % multiple(N_)
                     planecomp=data.YComp;
@@ -817,7 +859,7 @@ switch NVal
                             end
                     end
                     if ScaleFacZ==1
-                        hNew=qp_vector(Ops.vectorstyle,s,Zvector,[],planecomp,data.ZComp,[],quivopt{:});
+                        hNew=qp_vector(Parent,Ops.vectorstyle,s,Zvector,[],planecomp,data.ZComp,[],quivopt{:});
                     else
                         
                         %       ----------
@@ -830,9 +872,9 @@ switch NVal
                         %        mag1=sqrt(planecomp.^2+data.ZComp.^2);
                         %        mag2=sqrt(planecomp.^2+(ScaleFacZ*data.ZComp).^2); mag2(mag2==0)=1;
                         %        mfac=mag1./mag2;
-                        %        hNew=qp_vector(Ops.vectorstyle,s,ScaleFacZ*Zvector,[],mfac.*planecomp,ScaleFacZ*mfac.*data.ZComp,[],quivopt{:});
+                        %        hNew=qp_vector(Parent,Ops.vectorstyle,s,ScaleFacZ*Zvector,[],mfac.*planecomp,ScaleFacZ*mfac.*data.ZComp,[],quivopt{:});
                         %       ----------
-                        hNew=qp_vector(Ops.vectorstyle,s,ScaleFacZ*Zvector,[],planecomp,ScaleFacZ*data.ZComp,[],quivopt{:});
+                        hNew=qp_vector(Parent,Ops.vectorstyle,s,ScaleFacZ*Zvector,[],planecomp,ScaleFacZ*data.ZComp,[],quivopt{:});
                         for i=1:length(hNew)
                             set(hNew(i),'ydata',get(hNew(i),'ydata')/ScaleFacZ)
                         end
@@ -843,7 +885,7 @@ switch NVal
                     else                        
                         set(hNew,'color',Ops.colour)
                     end
-                    
+                    set(hNew,'linewidth',Ops.linewidth)
                 else
                     hNew=line(1,1,'xdata',[],'ydata',[]);
                 end
@@ -855,7 +897,7 @@ switch NVal
                     qp_title(Parent,{TStr},'quantity',Quant,'unit',Units,'time',TStr)
                 end
                 
-            case {'X-Y','Lon-Lat'}
+            case {'X-Y','Lon-Lat','X-Y-Val','Lon-Lat-Val'}
                 data.XComp((data.XComp==0) & (data.YComp==0))=NaN;
                 I=~isnan(data.XComp(:));
                 %
@@ -883,9 +925,9 @@ switch NVal
                     end
                     %
                     if isfield(data,'ZComp')
-                        hNew=qp_vector(Ops.vectorstyle,data.X,data.Y,data.Z,data.XComp,data.YComp,data.ZComp,quivopt{:});
+                        hNew=qp_vector(Parent,Ops.vectorstyle,data.X,data.Y,data.Z,data.XComp,data.YComp,data.ZComp,quivopt{:});
                     else
-                        hNew=qp_vector(Ops.vectorstyle,data.X,data.Y,[],data.XComp,data.YComp,[],quivopt{:});
+                        hNew=qp_vector(Parent,Ops.vectorstyle,data.X,data.Y,[],data.XComp,data.YComp,[],quivopt{:});
                     end
                     
                     if ~isempty(Ops.vectorcolour)
@@ -901,7 +943,7 @@ switch NVal
                     else
                         set(hNew,'color',Ops.colour)
                     end
-                    
+                    set(hNew,'linewidth',Ops.linewidth)
                     hNew(end+1)=line([minx maxx],[miny maxy],'linestyle','none','marker','none');
                 else
                     hNew=line(1,1,'xdata',[],'ydata',[]);

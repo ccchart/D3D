@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -34,7 +34,6 @@ type gd_procs
    logical :: const                = .false. !  Constituent(s)
    logical :: culvert              = .false. !  Culvert(s)
    logical :: dredge               = .false. ! Dredge and Dump
-   logical :: dadsmonly            = .false. ! Dredge and Dump; sand mining specified without dredge/dump
    logical :: drogue               = .false. ! Drogue(s)
    logical :: wave                 = .false. ! Waves
    logical :: waveol               = .false. ! Waves computed by Delft3D-WAVES online
@@ -74,4 +73,6 @@ type gd_procs
    logical :: bubble               = .false. ! Bubble screen
    logical :: nfl                  = .false. ! Near field computations   
    logical :: xbeach               = .false. ! XBeach wave driver is used   
+   logical :: lfsdu                = .false. ! Subsidence and Uplift included  
+   logical :: lfsdus1              = .false. ! Subsidence and Uplift effects waterlevel  
 end type gd_procs

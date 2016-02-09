@@ -4,7 +4,7 @@
 subroutine dfgather_lowlevel ( ioptr, iolen, iiptr, iilen, itype, gdp )
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -89,6 +89,9 @@ subroutine dfgather_lowlevel ( ioptr, iolen, iiptr, iilen, itype, gdp )
        allocate(icount(0:nproc-1))
        allocate(idsplc(0:nproc-1))
        icount = 0
+    else
+       allocate(icount(1))
+       allocate(idsplc(1))
     endif
     !
     ! gather the array sizes to the master
@@ -163,6 +166,6 @@ subroutine dfgather_lowlevel ( ioptr, iolen, iiptr, iilen, itype, gdp )
 !
 #endif
 
-    if (inode == master) deallocate(icount,idsplc)
+    deallocate(icount,idsplc)
 
 end subroutine dfgather_lowlevel

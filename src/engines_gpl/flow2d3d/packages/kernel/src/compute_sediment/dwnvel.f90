@@ -2,10 +2,11 @@ subroutine dwnvel(nmmax     ,kmax      ,icx       , &
                 & kcs       ,kfu       ,kfv       , &
                 & kcu       ,kcv       ,s1        ,dps       ,u0eul     , &
                 & v0eul     ,uuu       ,vvv       ,umod      ,zumod     , &
-                & sig       ,hu        ,hv        ,kfsed     ,gdp       )
+                & sig       ,hu        ,hv        ,kfsed     ,deltau    , &
+                & deltav    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -55,6 +56,7 @@ subroutine dwnvel(nmmax     ,kmax      ,icx       , &
     !
     real(fp)                             , pointer :: eps
     type (mornumericstype)               , pointer :: mornum
+    logical                              , pointer :: v2dwbl
 !
 ! Global variables
 !
@@ -68,6 +70,8 @@ subroutine dwnvel(nmmax     ,kmax      ,icx       , &
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: kfu   !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: kfv   !  Description and declaration in esm_alloc_int.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: dps   !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: deltau !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: deltav !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: hu    !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: hv    !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: s1    !  Description and declaration in esm_alloc_real.f90
@@ -96,16 +100,20 @@ subroutine dwnvel(nmmax     ,kmax      ,icx       , &
     integer  :: num
     integer  :: numd
     real(fp) :: cc
+    real(fp) :: fact
+    real(fp) :: maxdepfrac
     real(fp) :: h1
     real(fp) :: ufac
     real(fp) :: uu
     real(fp) :: vfac
     real(fp) :: vv
+    real(fp) :: deltas
 !
 !! executable statements -------------------------------------------------------
 !
     eps                 => gdp%gdconst%eps
     mornum              => gdp%gdmorpar%mornum
+    v2dwbl              => gdp%gdnumeco%v2dwbl
     !
     do nm = 1, nmmax
        !
@@ -129,17 +137,26 @@ subroutine dwnvel(nmmax     ,kmax      ,icx       , &
        vv = 0.0_fp
        h1 = s1(nm) + real(dps(nm),fp)
        !
+       if (v2dwbl) then
+          fact   = max(kfu(nm) + kfu(nmd) + kfv(nm) + kfv(ndm), 1)
+          deltas = (deltau(nm) + deltau(nmd) + deltav(nm) + deltav(ndm)) / fact
+          maxdepfrac = 0.5_fp
+       else
+          deltas = 0.05_fp
+          maxdepfrac = 0.05_fp
+       endif       
+       !
        do k = kmax, 1, -1
           cc  = (1.0 + sig(k))*h1
           kmx = k
-          if (cc>=0.05*h1 .or. cc>=0.05) then
+          if (cc>=maxdepfrac*h1 .or. cc>=deltas) then
              exit
           endif         
        enddo
        !
        ufac = 0.5_fp
        vfac = 0.5_fp
-       if (kcs(nm) == 1) then
+       if (abs(kcs(nm)) == 1) then
           !
           ! Internal point
           ! Set velocity in U direction.

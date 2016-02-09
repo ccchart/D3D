@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -27,7 +27,7 @@
       CHARACTER*255 TOKEN
       INTEGER MAXLEN,GETS,MATCH,UPRCAS,POSIT
       DATA YESNO /'YES','NO '/
-C
+!
       IF (MAXLEN .GT. 0 .OR. MAXLEN .LE. 255) GO TO 10
       ANSWER = -1
       RETURN

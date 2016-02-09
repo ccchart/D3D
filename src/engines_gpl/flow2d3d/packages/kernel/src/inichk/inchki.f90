@@ -6,7 +6,7 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
                 & lturi     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -389,6 +389,8 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
              & noroco    ,norow     ,mmax      ,nmax      ,i(irocol) , &
              & i(kcu)    ,i(kcv)    ,i(kcs)    ,gdp       )
     if (error) goto 9999
+    !
+    call griddims_admin( i(kcs), gdp )
     !
     ! check important geometry parameters and
     ! redefine THICK array and initialize SIG

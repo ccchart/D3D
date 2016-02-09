@@ -3,7 +3,7 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
                 & mnbar     ,nambar    ,cbuv      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,7 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall
     use system_utils, only: exifil
     !
@@ -97,6 +98,7 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
     integer                          :: n2                   ! Last n-index for barrier 
     integer, external                :: newlun
     integer                          :: nlook                ! Nr. of values to look for in a record 
+    integer                          :: npar                 ! Number of parameters on input line before barrier velocity
     integer                          :: nrflds
     integer                          :: numbarlinesread      ! Nr. of barier lines read. This will always sum up to (the old value of) nsluv.
     integer, dimension(4)            :: ival                 ! Help array (integer) where the data, recently read from the MD-file, are stored temporarily 
@@ -104,6 +106,7 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
     integer, dimension(maxfld)       :: itype
     integer, dimension(maxfld)       :: lenchr 
     logical                          :: outside              ! indicating whether a line of thin dams is outside subdomain (.TRUE.) or not (.FALSE.)
+    logical                          :: onParbndIsInside
     real(fp)                         :: brlosc               ! Barrier energy loss coefficient 
     real(fp)                         :: gate                 ! Initial gate height for barrier 
     real(fp)                         :: rdef                 ! Help var. containing default va- lue(s) for real variable 
@@ -131,7 +134,7 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
     !
     ! test file existence
     !
-    call noextspaces(filbar    ,lfile     )
+    call remove_leading_spaces(filbar    ,lfile     )
     error = .not.exifil(filbar, lundia)
     if (error) goto 9999
     !
@@ -184,17 +187,24 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
        call scannr(rec132    ,ibeg      ,iend      ,nrflds    ,itype     , &
                  & ifield    ,rfield    ,cfield    ,lenchr    ,maxfld    , &
                  & .true.    ,.false.   ,.false.   )
+       !
+       ! stop when there are less than 7 parameters behind the barrier name
+       ! or when the first parameter is not of type character
+       !
        if (nrflds<7 .or. itype(1)/=3) then
           error = .true.
           call prterr(lundia    ,'G007'    ,filbar(1:lfile)      )
+          call prterr(lundia    ,'P004'    ,'Invalid number of parameters specified for barrier "'//rec132(1:20)//'": '//trim(rec132(21:)) )
           goto 300
        endif
        !
        ! barrier location is defined in M,N coordinates
+       ! parameter 2, 3, 4 and 5 all must be an integer
        !
        if (itype(2)/=1 .or. itype(3)/=1 .or. itype(4)/=1 .or. itype(5)/=1) then
           error = .true.
           call prterr(lundia    ,'G007'    ,filbar(1:lfile)      )
+          call prterr(lundia    ,'P004'    ,'Non-integer data specified for M,N coordinates of barrier "'//rec132(1:20)//'": '//trim(rec132(21:)) )
           goto 300
        endif
        !
@@ -211,7 +221,8 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
        ! Check if barrier is fully (.TRUE.) outside subdomain/partition
        ! If partly outside, ival is changed, specifying the interior part
        !
-       call adjlin (ival,outside,gdp%d%mmax,gdp%d%nmaxus)
+       onParbndIsInside = .true.
+       call adjlin (ival, outside, gdp%d%mmax, gdp%d%nmaxus, onParbndIsInside)
        if (.not. parll) then
           !
           ! If ival is changed (compared with the copy in m/n1/2) the barrier is partly outside the domain
@@ -259,12 +270,13 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
        !
        call small(nambar(ibar), 20)
        !
-       ! there must be a name defined !!
+       ! There must be a name defined! Would be more logical to move this to top,
+       ! but leave it here for the time being (backward consistent).
        !
        if (nambar(ibar) == '') then
-          errmsg(12:) = ': no name defined'
           error = .true.
-          call prterr(lundia    ,'U021'    ,errmsg    )
+          call prterr(lundia    ,'G007'    ,filbar(1:lfile)      )
+          call prterr(lundia    ,'P004'    ,'Empty barrier name specified on line: '//trim(rec132) )
           goto 300
        endif
        !
@@ -343,12 +355,14 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
        endif
        !
        ! switch between old barriers with BRLOSC and GATEHEIGHT versus
-       !        new barriers that continue with barrier formulation type
+       ! new barriers that continue with barrier formulation type:
+       ! if parameter 7 is not of type character: old format
        !
        if (itype(7) < 3) then
           !
-          !--> old barrier format:
+          ! old barrier format:
           ! read BRLOSC from record, default value not allowed
+          ! stop when parameter 6 or 7 is of type character
           !
           if (itype(6)>2 .or. itype(7)>2) then
              error = .true.
@@ -368,9 +382,11 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
           cbuv(1, ibar) = gate
           cbuv(2, ibar) = 1.0_fp
           cbuv(3, ibar) = brlosc
+          !
+          npar = 7
        else
           !
-          !---> new barrier format:
+          ! new barrier format:
           !
           if (itype(6) > 2) then
              error = .true.
@@ -414,6 +430,8 @@ subroutine barfil(lundia    ,filbar    ,error     ,mmax      ,nmax      , &
                 call prterr(lundia    ,'V234'    ,errmsg(:22)          )
                 goto 300
              endif
+             !
+             npar = 9
           end select
        endif
        !

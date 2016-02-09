@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -149,7 +149,8 @@
      *         /' Time step  :',I2,'Y-',I3,'D-',I2,'H-',I2,'M-',I2,'S ')
  2020 format (  ' Start time :',I8,
      *         /' Stop time  :',I8     ,/,' Time step  :',I8)
- 2030 format ( /' ERROR: Absolute timer does not fit in timer format :',A)
+ 2030 format ( /' ERROR: Absolute timer does not fit in timer format :',A,/
+     &          ' Is your T0 setting in block #1 correct?'/,
+     &          ' Allowed difference with T0 is usually ca. 68 years.' )
  2040 format ( /' ERROR: String is not a valid absolute timer :',A)
-
       end

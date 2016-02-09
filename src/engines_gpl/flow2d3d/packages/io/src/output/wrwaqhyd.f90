@@ -9,7 +9,7 @@
      &                      mub    , kfsmin , ksrwaq )
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -89,6 +89,9 @@
       integer       n, m, nl           !! grid indices
       real     ( 4) anl                !! for waq layers
       integer  ( 4) kfmin, kfmax       !! help variables z-model
+      character(256) version_full      !! Delft3D FLOW version information
+      character(20)  rundat            !! Current date and time containing a combination of DATE and TIME
+      character(21)  datetime          !! Date/time to be filled in the header
       character(256) filstring
       character(5) sf                  !! character variable for s(ediment)f(iles)
       integer, external :: newunit
@@ -99,8 +102,21 @@
       lunout = newunit()
       filstring = trim(filnam)//'hyd'
       open  ( lunout , file=trim(filstring) )
+
+      version_full  = ' '
+      call getfullversionstring_flow2d3d(version_full)
+      write(lunout,'(A,A)') 'file-created-by  '//trim(version_full)
+
+      call dattim(rundat)
+      datetime = rundat(1:4)//'-'//rundat(6:7)//'-'//rundat(9:10)//','//rundat(11:19)
+      write(lunout,'(A,A)') 'file-creation-date  '//datetime
+
       write ( lunout , '(A      )' ) 'task      full-coupling'
-      write ( lunout , '(A      )' ) 'geometry  curvilinear-grid'
+      if (zmodel) then
+         write ( lunout , '(A      )' ) 'geometry  curvilinear-grid  z-layers'
+      else
+         write ( lunout , '(A      )' ) 'geometry  curvilinear-grid'
+      end if
       if ( aggre .lt. 0 )                                                &
      &   write ( lunout , '(A,A    )' ) 'horizontal-aggregation       ','no'
       if ( aggre .eq. 0 )                                                &
@@ -313,7 +329,7 @@
                   write ( lunout , '(3(I0,3X),A)' ) n, m, ilay, trim(filstring)
                enddo
             else
-               nl = ilaggr(kmax-max(kfmin,mnksrc(3,i))+1)
+               nl = ilaggr(kmax-max(kfmin,mnksrc(6,i))+1)
                write ( lunout , '(3(I0,3X),A)' ) n, m, nl, trim(filstring)
             endif
          else 

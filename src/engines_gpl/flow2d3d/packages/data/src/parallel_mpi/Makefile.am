@@ -16,6 +16,7 @@ noinst_LTLIBRARIES = libDataParallelMPI.la
 #Includes
 # TODO:/opt/mpich2/include should be configured....
 FINCLUDES += \
+        -I$(top_builddir)/utils_lgpl/esmfsm/include \
         -I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/include \
         -I$(top_builddir)/engines_gpl/flow2d3d/packages/data/include
 
@@ -55,10 +56,7 @@ libDataParallelMPI_la_SOURCES = \
 	 dfwaitr_nm_pos2.F90 \
 	 dfsendnb.F90 \
 	 dfrecvnb.F90 \
-	 dfreduce.F90 \
-	 cparri.F90 \
-	 cparrd.F90 \
-	 cparrr.F90 \
+	 dfreduce_gdp.f90 \
 	 dfexchg.F90 \
 	 dfdecomp.F90 \
 	 dfpartit.F90 \
@@ -71,14 +69,9 @@ libDataParallelMPI_la_SOURCES = \
 	 dfgather.F90 \
 	 dfgather_grddim.F90 \
 	 dfwrirst.F90 \
-	 dfwrmfluff.F90 \
-	 dfwrmorm1.F90 \
-	 dfwrmorm2.F90 \
-	 dfwrsedm.F90 \
-	 dfwrsedmavg.F90 \
-	 dfwrsedh.F90 \
 	 adjlin.F90 \
 	 rdencl.F90 \
+	 removeDuplicateDDBFiles.f90 \
 	 strgrd.F90
 
 #-------------------------------------------------------------------------------

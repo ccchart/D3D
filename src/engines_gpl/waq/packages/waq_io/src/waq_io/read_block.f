@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -258,7 +258,7 @@
             chkflg = 1
             call read_items( lunut      , inpfil    , ioutpt    , chkflg   , callr ,
      +                       waq_param  , data_param, substances, types    , noits ,
-     +                       ierr2     )
+     +                       ierr2      , iwar)
 
             if ( ierr2 .ne. 0 ) then
                write ( lunut , 2120 )
@@ -278,10 +278,10 @@
             waq_loc%ipnt(1) = 1
 
             chkflg = 0
-c
+!
             call read_items( lunut      , inpfil    , ioutpt    , chkflg   , callr ,
      +                       waq_param  , data_param, constants , types    , noits ,
-     +                       ierr2     )
+     +                       ierr2      , iwar)
 
 
             if ( ierr2 .ne. 0 ) then
@@ -309,7 +309,7 @@ c
 
             call read_items( lunut      , inpfil    , ioutpt    , chkflg   , callr ,
      +                       waq_param  , data_param, functions , types    , noits ,
-     +                       ierr2     )
+     +                       ierr2      , iwar)
 
 
             if ( ierr2 .ne. 0 ) then
@@ -328,7 +328,7 @@ c
 
             call read_items( lunut      , inpfil    , ioutpt    , chkflg   , strng1,
      +                       waq_param  , data_param, parameters, types    , noits ,
-     +                       ierr2     )
+     +                       ierr2      , iwar)
 
 
             if ( ierr2 .ne. 0 ) then
@@ -338,7 +338,7 @@ c
             if ( data_param%no_item .ne. 0 .and. data_block%iorder .eq. ORDER_UNKNOWN ) data_block%iorder = ORDER_PARAM_LOC
             cycle
          endif
-c
+!
          if ( ctoken.eq.'SEG_FUNCTIONS' ) then
             strng1 = 'seg-funct.'
             chkflg = 0
@@ -348,7 +348,7 @@ c
 
             call read_items( lunut      , inpfil    , ioutpt    , chkflg   , strng1,
      +                       waq_param  , data_param, segfuncs  , types    , noits ,
-     +                       ierr2     )
+     +                       ierr2      , iwar)
 
 
             if ( ierr2 .ne. 0 ) then
@@ -358,7 +358,7 @@ c
             if ( data_param%no_item .ne. 0 .and. data_block%iorder .eq. ORDER_UNKNOWN ) data_block%iorder = ORDER_LOC_PARAM
             cycle
          endif
-c
+!
          if ( ctoken  .eq. 'SEGMENTS' .or. ctoken .eq. 'ALL' .or. ctoken .eq. 'INPUTGRID' ) then
             if ( waq_loc%no_item  .eq. -1   ) then
                write ( lunut , 2170 )
@@ -398,7 +398,7 @@ c
 
                call read_items( lunut    , inpfil  , ioutpt  , chkflg, callr    ,
      +                          waq_loc  , data_loc, segments, types , noits_loc,
-     +                          ierr2    )
+     +                          ierr2    , iwar)
 
                if ( ierr2 .ne. 0 ) then
                   write ( lunut , 2180 )
@@ -417,7 +417,7 @@ c
             endif
             cycle
          endif
-c
+!
          if ( ctoken .eq. 'DEFAULTS' ) then
             if ( data_block%subject .eq. SUBJECT_PARAMETER .or.
      +           data_block%subject .eq. SUBJECT_INITIAL   .or.
@@ -444,7 +444,7 @@ c
                goto 100
             endif
          endif
-c
+!
          if ( ctoken .eq. 'DATA' .or. data_block%extern ) then
             if ( data_block%subject .eq. SUBJECT_CONSTANT ) then
                strng1 = 'constants'
@@ -575,16 +575,16 @@ c
 
       write ( lunut , 1140 )
 
-c
+!
    50 continue
       goto 110
-c
+!
   100 continue
       if ( ierr2 .ne. 0 ) then
          write ( lunut , 2090 )
          ierr = ierr2
       endif
-c
+!
   110 continue
 
       ierr2 = dlwq_cleanup(waq_param)
@@ -595,7 +595,7 @@ c
 
       if (timon) call timstop( ithndl )
       return
-C
+!
  1140 FORMAT(/' ====> input item completed <==== '//   )
  1340 FORMAT (  ' Output on administration only writen for output',
      *          ' option 3 and higher !' )

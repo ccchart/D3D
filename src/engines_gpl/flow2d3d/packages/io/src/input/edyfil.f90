@@ -3,7 +3,7 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
                 & dicuv     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -110,7 +110,7 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
        ! 
        allocate(tmp(nmaxgl,mmaxgl), stat = istat)
        istat = abs(istat)
-       call dfreduce( istat, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( istat, 1, dfint, dfmax, gdp )
        if (istat /= 0) then
           call prterr(lundia, 'G020', 'vicuv/dicuv')
           error = .true.

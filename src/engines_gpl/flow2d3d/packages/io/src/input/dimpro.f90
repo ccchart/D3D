@@ -1,15 +1,15 @@
-subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
-                & lsts      ,lstsc     ,lstsci    ,lsal      ,ltem      , &
-                & lsed      ,lsedtot   ,lsecfl    ,salin     ,temp      , &
-                & sedim     ,const     ,secflo    ,wind      ,drogue    , &
-                & wave      ,mudlay    ,flmd2d    ,roller    , &
-                & wavcmp    ,ncmax     ,culvert   ,dredge    ,filbar    , &
-                & filcdw    ,snelli    ,cnstwv    ,veg3d     ,waveol    , &
-                & filbub    ,lrdamp    ,sbkol     ,bubble    ,nfl       , &
-                & nflmod    ,soort     ,gdp       )
+subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
+                & lstsc     ,lstsci    ,lsal      ,ltem      ,lsed      , &
+                & lsedtot   ,lsecfl    ,salin     ,temp      ,sedim     , &
+                & const     ,secflo    ,wind      ,drogue    ,wave      , &
+                & mudlay    ,flmd2d    ,roller    ,wavcmp    , &
+                & ncmax     ,culvert   ,dredge    ,filbar    ,filcdw    , &
+                & snelli    ,cnstwv    ,veg3d     ,waveol    ,filbub    , &
+                & lrdamp    ,sbkol     ,bubble    ,nfl       ,nflmod    , &
+                & prgnm     ,lfsdu     ,lfsdus1   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -64,6 +64,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     logical                             , pointer :: wlen_from_com !  Description and declaration in procs.igs
     integer                             , pointer :: numdomains
     integer                             , pointer :: itis
+    integer                             , pointer :: rolcorr
     character(256)                      , pointer :: sbkConfigFile
 !
 ! Global variables
@@ -89,8 +90,9 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     logical        , intent(out) :: drogue  !  Description and declaration in procs.igs
     logical                      :: error   !! Flag=TRUE if an error is encountered
     logical                      :: mudlay  !  Description and declaration in procs.igs
+    logical        , intent(out) :: lfsdu   !  Description and declaration in procs.igs
+    logical        , intent(out) :: lfsdus1 !  Description and declaration in procs.igs
     logical        , intent(out) :: lrdamp  !  Description and declaration in procs.igs
-    logical        , intent(in)  :: noui    !! Flag true if program calling routine is not User Interface
     logical        , intent(out) :: nfl     !! Flag true if Near field computations are requested
     logical                      :: roller
     logical                      :: cnstwv  !  Description and declaration in procs.igs
@@ -104,22 +106,24 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     logical        , intent(out) :: wave    !  Description and declaration in procs.igs
     logical        , intent(out) :: waveol  !  Description and declaration in procs.igs
     logical        , intent(out) :: wind    !  Description and declaration in procs.igs
-    character(6)   , intent(in)  :: soort   !! Help var. determining the prog. name currently active
+    character(6)   , intent(in)  :: prgnm   !! Help var. determining the prog. name currently active
     character(256)               :: filbar
     character(256)               :: filbub
     character(256)               :: filcdw
     character(256)               :: nflmod
+    character(256)               :: filsdu  ! Temporary file name for the subsidence/uplift option   
 !
 ! Local variables
 !
     integer                   :: istof  ! Flag to detect if any constituent has been specified 
+    integer                   :: isdu   ! Flag to detect if subsidence/uplift should affect water level 
     integer                   :: lconst ! number of constituents, including sediments
     integer                   :: lenc   ! Help variable 
     integer        , external :: newlun
     integer                   :: nlook  ! Nr. of values to look for in a record 
     integer                   :: ntrec  ! Current record counter. It's value is changed to detect if all records in the MD-file have been read 
     integer                   :: uw
-    logical                   :: lerror ! Flag=TRUE if an local error is encountered For NOUI this can mean error will be set TRUE 
+    logical                   :: lerror ! Flag=TRUE if an local error is encountered
     logical                   :: found
     logical                   :: newkw  ! Flag to specify if the keyword to look for is a new keyword 
     character(20)             :: cdef   ! Default value for chulp 
@@ -139,6 +143,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     wlen_from_com     => gdp%gdprocs%wlen_from_com
     numdomains        => gdp%gdprognm%numdomains
     itis              => gdp%gdrdpara%itis
+    rolcorr           => gdp%gdbetaro%rolcorr
     sbkConfigFile     => gdp%gdsobek%sbkConfigFile
     !
     ! initialize local parameters
@@ -247,8 +252,10 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     !
     ! locate and read 'Roller' run Flow together with Roller Energy
     ! default = no ('N') which means Roller = .false.
+    ! rolcorr must be initialized to 2, especially when roller is not switched on
     !
-    roller = .false.
+    roller  = .false.
+    rolcorr = 2
     call prop_get_logical(gdp%mdfile_ptr, '*', 'Roller', roller)
     !
     if (roller) then
@@ -316,14 +323,14 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     call prop_get_string(gdp%mdfile_ptr, '*', 'Fildad', dredgefile)
     if (dredgefile /= ' ') then
        dredge = .true.
-    elseif (soort /= 'tdatom') then
+    elseif (prgnm /= 'tdatom') then
        if (numdomains > 1) then
           !
           ! Notify the dredge merge iterator that this subdomain
           ! is not interested in dredge volumes
           ! If numdomains=1, there is no dredge merge iterator
           !
-          call dredgenocommunication ()
+          call no_dd_dredgecommunication ()
        endif
     endif
     !
@@ -385,5 +392,18 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,noui      , &
     if (sbkConfigFile /= ' ') then
        sbkol = .true.
     endif
+    !
+    ! Subsidence/Uplift 
+    !
+    filsdu = ' '
+    lfsdu = .false.
+    call prop_get_string(gdp%mdfile_ptr, '*', 'Filsdu', filsdu)
+    if (filsdu /= ' ') then
+       lfsdu = .true.
+    endif
+    !    
+    lfsdus1 = .false.
+    call prop_get_logical(gdp%mdfile_ptr, '*', 'SduS1', lfsdus1)
+    !
  9999 continue
 end subroutine dimpro

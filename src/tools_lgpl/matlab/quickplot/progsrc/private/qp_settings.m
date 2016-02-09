@@ -15,7 +15,7 @@ function valo=qp_settings(param,val)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -77,10 +77,10 @@ end
 
 function val=qp_settings_default(param,defval)
 steelblue3 = [79 148 205]/255;
-if 0%isunix
-   Set.UIActiveColor      = steelblue3;
-   Set.UIInActiveColor    = steelblue3;
-   Set.UIForeGroundColor  = [1 1 1];
+if isunix
+   Set.UIActiveColor      = [1 1 1];           %steelblue3;
+   Set.UIInActiveColor    = [235 233 237]/255; %steelblue3;
+   Set.UIForeGroundColor  = [0 0 0];           %[1 1 1];
 else
    Set.UIActiveColor      = [1 1 1];
    Set.UIInActiveColor    = get(0,'factoryuicontrolbackgroundcolor');
@@ -119,6 +119,9 @@ Set.filefilterselection       = '"ARC/INFO Ascii Grid Files","Delft3D Grid Files
 Set.debugging                 = 0;
 Set.showinactiveopt           = 0;
 Set.stopruniferror            = 1;
+Set.timezone                  = 'Ignored';
+%
+Set.netcdf_use_fillvalue      = 'valid_range';
 %
 Set.delwaq_procdef            = 'auto';
 %

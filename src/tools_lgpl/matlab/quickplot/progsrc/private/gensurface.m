@@ -3,7 +3,7 @@ function hNew=gensurface(hOld,Ops,Parent,Val,X,Y,Z)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -43,7 +43,7 @@ end
 if ~isa(Val,'double')
     Val=double(Val);
 end
-if isequal(size(X),size(Val)+1)
+if ~isequal(size(X),size(Val))
     [X,Y,vv]=face2surf(X,Y,{Val Z});
     Val = vv{1};
     Z = vv{2};

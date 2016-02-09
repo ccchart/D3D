@@ -1,7 +1,7 @@
-subroutine chkcom(lundia    ,error     ,neffil    ,soort     ,gdp       )
+subroutine chkcom(lundia    ,error     ,neffil    ,ftype     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine chkcom(lundia    ,error     ,neffil    ,soort     ,gdp       )
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -56,7 +57,7 @@ subroutine chkcom(lundia    ,error     ,neffil    ,soort     ,gdp       )
     integer     , intent(in)  :: lundia !  Description and declaration in inout.igs
     logical     , intent(out) :: error  !  Flag=TRUE if an error is encountered
     character(*), intent(in)  :: neffil !  File name for FLOW NEFIS output files: tri"h/m/d"-"casl""labl" or for Comm. file com-"casl""labl"
-    character(3), intent(in)  :: soort  !  String containing to which output file version group or to diagnostic file should be written
+    character(3), intent(in)  :: ftype  !  String containing to which output file version group or to diagnostic file should be written
 !
 ! Local variables
 !
@@ -102,7 +103,7 @@ subroutine chkcom(lundia    ,error     ,neffil    ,soort     ,gdp       )
     hlptxt(1) = refnr
     filnam = neffil
     !
-    grnam4 = soort // '-version'
+    grnam4 = ftype // '-version'
     elnms4 = 'FILE-VERSION'
     !
     grnam5 = 'DWQTIM'
@@ -118,11 +119,11 @@ subroutine chkcom(lundia    ,error     ,neffil    ,soort     ,gdp       )
     !
     datnam = filnam
     datnam(ind:ind + 3) = '.dat'
-    call noextspaces(datnam    ,datlen    )
+    call remove_leading_spaces(datnam    ,datlen    )
     !
     defnam = filnam
     defnam(ind:ind + 3) = '.def'
-    call noextspaces(defnam    ,deflen    )
+    call remove_leading_spaces(defnam    ,deflen    )
     !
     !-----Open NEFIS files with read access
     !

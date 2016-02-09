@@ -1,7 +1,7 @@
 function openexistingfile_meteo(minp, filename) result(success)
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -59,7 +59,7 @@ function openexistingfile_meteo(minp, filename) result(success)
        success = .false.
        return
     endif
-    do i = 32, 100
+    do i = 32, 200
        inquire (unit = i, opened = unitused) 
        if (.not. unitused) exit
     enddo

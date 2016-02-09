@@ -1,7 +1,7 @@
 subroutine initflwpar(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -60,6 +60,7 @@ subroutine initflwpar(gdp)
     gdp%gdflwpar%flwoutput%cumdifuflux     = .false.
     gdp%gdflwpar%flwoutput%difuflux        = .false.
     gdp%gdflwpar%flwoutput%halfdt          = .false.
+    gdp%gdflwpar%flwoutput%kf_minmax       = .false.
     gdp%gdflwpar%flwoutput%layering        = .false.
     gdp%gdflwpar%flwoutput%momentum        = .false.
     gdp%gdflwpar%flwoutput%roughness       = .false.

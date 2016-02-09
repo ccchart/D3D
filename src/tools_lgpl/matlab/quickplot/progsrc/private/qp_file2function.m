@@ -3,7 +3,7 @@ function Fcn=qp_file2function(Info)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -63,6 +63,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'Skylla'                     'skyllafil'
     'Pharos'                     'pharosfil'
     'arcgrid'                    'arcgridfil'
+    'SURFER'                     'arcgridfil'
     'asciiwind'                  'asciiwindfil'
     'PCraster'                   'pcrasterfil'
     'SIMONA SDS FILE'            'waquafil'
@@ -82,6 +83,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'DelwaqTimFile'              'tekalfil'
     'LexYacc_TimeTable'          'tekalfil'
     'NOOS time series'           'tekalfil'
+    'WaterML2'                   'tekalfil'
     'Unibest'                    'unibestfil'
     'Samples'                    'samplesfil'
     'MorfTree'                   'morftreefil'
@@ -96,6 +98,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'SOBEK network'              'sobekfil'
     'SOBEK River network'        'sobekfil'
     'NetCDF'                     'netcdffil'
+    'HDF5'                       'hdffil'
     'SWAN spectral'              'swanfil'
     'TRITON'                     'nfs_tritonfil'
     'bil/hdr'                    'bilhdrfil'
@@ -107,6 +110,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'Adcirc 14 mesh'             'flexmeshfil'
     'SHYFEM mesh'                'flexmeshfil'
     'GeoSystems mesh'            'flexmeshfil'
+    'Gmsh'                       'flexmeshfil'
     'diff'                       'difffil'
     'shipma'                     'shipmafil'
     'geodata'                    'geodatafil'
@@ -152,6 +156,7 @@ F={'Delft3D-com'                'd3d_comfil'
 %#function matlabfil
 %#function sobekfil
 %#function netcdffil
+%#function hdffil
 %#function swanfil
 %#function usrdeffil
 %#function nfs_tritonfil
@@ -183,7 +188,7 @@ if ~any(id)
         end
     end
     if ~previousMessage
-        ui_message('warning','No function associated with file of type %s.',tp)
+        ui_message('warning','No function associated with a file of type "%s".',tp)
     end
     return
 end

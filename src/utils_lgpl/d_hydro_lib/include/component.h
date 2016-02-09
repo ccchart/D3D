@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2012.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -50,6 +50,41 @@ class Component {
 
         virtual void
         Run (
+            void
+            );
+
+        virtual void
+        Init (
+            void
+            );
+
+        virtual void
+        Step (
+            double stepSize
+            );
+
+        virtual void
+        Finish (
+            void
+            );
+
+        virtual double
+        GetStartTime (
+            void
+            );
+
+        virtual double
+        GetEndTime (
+            void
+            );
+
+        virtual double
+        GetCurrentTime (
+            void
+            );
+
+        virtual double
+        GetTimeStep (
             void
             );
 

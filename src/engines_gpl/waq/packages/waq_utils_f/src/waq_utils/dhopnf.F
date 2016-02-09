@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -34,19 +34,19 @@
 !                          February 2011 by Leo Postma  : Fortran 90 look and feel
 !                                                          support of unformatted and big-endian files
 
-C*********************************************************************
-C     System dependent routine
-C     configuration
-C     PC - WINDOWS operating system - , CDF compiler (ARCH=w32)
-C
-C*********************************************************************
-C     SHARED is used for those files which are optionally prepared
-C     at runtime by another programme, running on-line.
-C     To enable this, the reading is synchronised (DLWQI0, DLWQT4)
-C     Files opened with this option are:
-C     volumes, flows, areas, lengths, segment functions
-C     and harmonics (see local comments)
-C*********************************************************************
+!*********************************************************************
+!     System dependent routine
+!     configuration
+!     PC - WINDOWS operating system - , CDF compiler (ARCH=w32)
+!
+!*********************************************************************
+!     SHARED is used for those files which are optionally prepared
+!     at runtime by another programme, running on-line.
+!     To enable this, the reading is synchronised (DLWQI0, DLWQT4)
+!     Files opened with this option are:
+!     volumes, flows, areas, lengths, segment functions
+!     and harmonics (see local comments)
+!*********************************************************************
 
 !     SUBROUTINE CALLED  : SRSTOP, stopexecution
 
@@ -329,7 +329,7 @@ C*********************************************************************
                   ierr = 3
             end select
 
-         case ( 19 )                          !     monitoring file
+         case ( 19 )                          !     DELWAQ2 monitoring file (.mon)
             select case ( opmode )
                case ( 1 )
                   call dhdelf ( finam, ierr2 )
@@ -419,7 +419,7 @@ C*********************************************************************
                   ierr = 3
             end select
 
-         case ( 29 )                          !     DELWAQ1 input report file
+         case ( 29 )                          !     DELWAQ1 input report file (.lst)
             select case ( opmode )
                case ( 1 )
                   open ( lun, file = finam, err = 910 )
@@ -477,7 +477,7 @@ C*********************************************************************
                   ierr = 3
             end select
 
-         case ( 35 )                          !     DELWAQ1P report file
+         case ( 35 )                          !     DELWAQ1 proceses report file (.lsp)
             select case ( opmode )
                case ( 1 )
                   open ( lun, file = finam, err = 910 )
@@ -542,6 +542,24 @@ C*********************************************************************
             select case ( opmode )
                case ( 1 )
                   open ( lun, file = finam, err = 900, status = 'old' )
+               case default
+                  ierr = 3
+            end select
+
+         case ( 44 )                          !     pointer file
+            select case ( opmode )
+               case ( 1 )
+                  open ( lun, file = finam, err = 910, form='unformatted', access='stream'  )
+               case ( 2 )
+                  open ( lun, file = finam, err = 910, form='unformatted', access='stream'  )
+               case ( 11, 12 )
+                  open ( lun, file = finam, err = 910, form='unformatted' )
+               case ( 21, 22 )
+                  open ( lun, file = finam, err = 910, form='unformatted', access='stream' ,
+     &                                                 convert='big_endian' )
+               case ( 31, 32 )
+                  open ( lun, file = finam, err = 910, form='unformatted',
+     &                                                 convert='big_endian' )
                case default
                   ierr = 3
             end select

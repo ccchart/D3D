@@ -1,7 +1,7 @@
 subroutine griddims( gdp )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -64,11 +64,11 @@ subroutine griddims( gdp )
 !
 ! Global variables
 !
-!
+!   NONE
 !
 ! Local variables
 !
-!
+    integer                :: istat
 !
 !! executable statements -------------------------------------------------------
 !
@@ -135,4 +135,9 @@ subroutine griddims( gdp )
     gdp%griddim%nmaxgl = gdp%gdparall%nmaxgl
     !
     gdp%griddim%aggrtable => null()
+    !
+    allocate(gdp%griddim%celltype(gdp%d%nmlb:gdp%d%nmub), stat=istat)
+    gdp%griddim%celltype(:) = 1
+    !
+    allocate(gdp%griddim%nmbnd(0,2), stat=istat)
 end subroutine griddims

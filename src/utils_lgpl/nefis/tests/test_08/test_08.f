@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -45,7 +45,14 @@
       INTEGER OPNDAT, OPNDEF, DEFELM, CLSDEF, CLSDAT, DEFCEL,
      *        DEFGRP, INQELM, INQCEL, INQGRP, FLSDAT, FLSDEF,
      *        CREDAT, PUTIAT, PUTSAT, PUTELT, GETELT, PUTRAT,
-     *        INQFST, INQNXT, NEFERR
+     *        INQFST, INQNXT, NEFERR, GETNFV
+
+      CHARACTER*255  version
+
+      error = getnfv(version)
+      write(*,*)
+      write(*,*) trim(version(5:))
+      write(*,*)
 
       start = 1
       stop  = 2

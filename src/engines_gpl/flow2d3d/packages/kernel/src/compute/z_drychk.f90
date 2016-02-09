@@ -6,7 +6,7 @@ subroutine z_drychk(idry      ,j         ,nmmaxj    ,nmmax     ,kmax      , &
                   & lstsci    ,dzs1      ,zk        ,nst       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -117,7 +117,7 @@ subroutine z_drychk(idry      ,j         ,nmmaxj    ,nmmax     ,kmax      , &
     do nm = 1, nmmax
        nmd = nm - icx
        ndm = nm - icy
-       if ( kcs(nm)/=0 ) then
+       if ( (kcs(nm)==1 .or. kcs(nm)==2) ) then
           !
           ! Check on kfs(nm) == 1 is necessary, because when the last active cell edge of a cell
           ! was set dry in Z_SUD, all KFU/KFV are zero and this check would not be performed
@@ -152,7 +152,7 @@ subroutine z_drychk(idry      ,j         ,nmmaxj    ,nmmax     ,kmax      , &
     ! Determine global maximum of 'idry' over all nodes
     ! Note: this enables to synchronize the repeating computation of SUD
     !
-    call dfreduce( idry, 1, dfint, dfmax, gdp )
+    call dfreduce_gdp( idry, 1, dfint, dfmax, gdp )
     !
     ! CHECK FOR FOUR DRY VELOCITY POINTS
     !

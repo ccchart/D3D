@@ -6,6 +6,7 @@ function varargout=pcrasterfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=pcrasterfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,7 +50,7 @@ function varargout=pcrasterfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -76,23 +77,27 @@ else
 end
 
 cmd=lower(cmd);
-switch cmd,
-    case 'size',
+switch cmd
+    case 'size'
         varargout={getsize(FI,Props)};
-        return;
-    case 'times',
+        return
+    case 'times'
         varargout={readtim(FI,Props,varargin{:})};
         return
-    case 'stations',
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
+        return
+    case 'stations'
         varargout={{}};
         return
     case 'subfields'
         varargout={{}};
         return
-    case 'plot',
+    case 'plot'
         PlotIt=1;
         Parent=varargin{1};
         Ops=varargin{2};
+        hOld=varargin{3};
         hNew=lddplot(FI,Parent);
         set(hNew,'color',Ops.colour);
         setaxesprops(Parent,'X-Y')
@@ -186,15 +191,27 @@ end
 val1=val1(idx{[M_ N_]});
 val2=[];
 
-switch Props.Name
-    case 'negated data'
-        val1=-val1;
+if isnumeric(Props.Val1)
+    if Props.Val1==-1
+        if strcmp(FI.PCRType,'boolean')
+            val1=~val1;
+        else
+            val1=-val1;
+        end
+    else
+        mask = val1==Props.Val1;
+        val1(mask) = 1;
+        val1(~mask) = NaN;
+    end
 end
 
 % read time ...
 %T=readtim(FI,Props,idx{T_});
 
 % generate output ...
+if Props.NVal==6
+    Ans.Classes = FI.Table(:,2);
+end
 if XYRead
     Ans.X=x;
     Ans.Y=y;
@@ -217,7 +234,7 @@ varargout={Ans FI};
 
 
 % -----------------------------------------------------------------------------
-function Out=infile(FI,domain);
+function Out=infile(FI,domain)
 %
 %======================== SPECIFIC CODE =======================================
 PropNames={'Name'                         'DimFlag' 'DataInCell' 'NVal' 'VecType' 'Loc' 'ReqLoc' 'Loc3D' 'Group'          'Val1'          'Val2'};
@@ -231,7 +248,20 @@ else
         datatitle=datatitle(dt+1:end);
     end
     DataProps={datatitle                     [5 0 1 1 0]  1         1     ''        'z'   'z'      'c'     ''               ''              ''
-        ['negated ',datatitle]        [5 0 1 1 0]  1         1     ''        'z'   'z'      'c'     ''               ''              ''    };
+        ['negative ',datatitle]              [5 0 1 1 0]  1         1     ''        'z'   'z'      'c'     ''               -1              ''    };
+    switch FI.PCRType
+        case 'boolean'
+            DataProps{2,1} = ['negated ',datatitle];
+        case 'nominal'
+            for i = size(FI.Table,1):-1:1
+                DataProps(2+i,:) = DataProps(1,:);
+                DataProps{2+i,1} = FI.Table{i,2};
+                DataProps{2+i,end-1} = FI.Table{i,1};
+                DataProps{2+i,4} = 5;
+            end
+            DataProps(2,1:4) = {'-------' [0 0 0 0 0] 0 0};
+            DataProps(1,4) = {6};
+    end
 end
 Out=cell2struct(DataProps,PropNames,2);
 %======================== SPECIFIC CODE REMOVE ================================

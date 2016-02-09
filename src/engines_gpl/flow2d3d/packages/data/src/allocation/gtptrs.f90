@@ -1,29 +1,29 @@
 subroutine gtptrs(gdp)
 !----- GPL ---------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2011-2014.
-!
-!  This program is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation version 3.
-!
-!  This program is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"
-!  are registered trademarks of Stichting Deltares, and remain the property of
-!  Stichting Deltares. All rights reserved.
-!
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!                                                                               
+!  This program is free software: you can redistribute it and/or modify         
+!  it under the terms of the GNU General Public License as published by         
+!  the Free Software Foundation version 3.                                      
+!                                                                               
+!  This program is distributed in the hope that it will be useful,              
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU General Public License for more details.                                 
+!                                                                               
+!  You should have received a copy of the GNU General Public License            
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
+!  are registered trademarks of Stichting Deltares, and remain the property of  
+!  Stichting Deltares. All rights reserved.                                     
+!                                                                               
 !-------------------------------------------------------------------------------
 !  $Id$
 !  $HeadURL$
@@ -53,7 +53,6 @@ subroutine gtptrs(gdp)
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
-    integer(pntrsize), pointer :: aks
     integer(pntrsize), pointer :: alfas
     integer(pntrsize), pointer :: alpha
     integer(pntrsize), pointer :: ampbc
@@ -126,7 +125,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: rint1
     integer(pntrsize), pointer :: dsdeta
     integer(pntrsize), pointer :: dsdksi
-    integer(pntrsize), pointer :: dss
     integer(pntrsize), pointer :: dtdeta
     integer(pntrsize), pointer :: dtdksi
     integer(pntrsize), pointer :: dteu
@@ -153,7 +151,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: ewave0
     integer(pntrsize), pointer :: ewave1
     integer(pntrsize), pointer :: excbed
-    integer(pntrsize), pointer :: facdss
     integer(pntrsize), pointer :: fcorio
     integer(pntrsize), pointer :: fltr
     integer(pntrsize), pointer :: fuiwe
@@ -210,7 +207,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: r1
     integer(pntrsize), pointer :: rbnd
     integer(pntrsize), pointer :: rbuff
-    integer(pntrsize), pointer :: rca
     integer(pntrsize), pointer :: rettim
     integer(pntrsize), pointer :: rho
     integer(pntrsize), pointer :: rhowat
@@ -221,7 +217,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: rnpl
     integer(pntrsize), pointer :: rob
     integer(pntrsize), pointer :: rsed
-    integer(pntrsize), pointer :: rsedeq
     integer(pntrsize), pointer :: rthbnd
     integer(pntrsize), pointer :: rtu2d0
     integer(pntrsize), pointer :: rtu2d1
@@ -253,8 +248,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: sourw
     integer(pntrsize), pointer :: sstr
     integer(pntrsize), pointer :: sstrc
-    integer(pntrsize), pointer :: ssuu
-    integer(pntrsize), pointer :: ssvv
     integer(pntrsize), pointer :: stbf
     integer(pntrsize), pointer :: stbl
     integer(pntrsize), pointer :: stif
@@ -531,7 +524,6 @@ subroutine gtptrs(gdp)
 !
 !! executable statements -------------------------------------------------------
 !
-    aks        => gdp%gdr_i_ch%aks
     alfas      => gdp%gdr_i_ch%alfas
     alpha      => gdp%gdr_i_ch%alpha
     ampbc      => gdp%gdr_i_ch%ampbc
@@ -604,7 +596,6 @@ subroutine gtptrs(gdp)
     rint1      => gdp%gdr_i_ch%rint1
     dsdeta     => gdp%gdr_i_ch%dsdeta
     dsdksi     => gdp%gdr_i_ch%dsdksi
-    dss        => gdp%gdr_i_ch%dss
     dtdeta     => gdp%gdr_i_ch%dtdeta
     dtdksi     => gdp%gdr_i_ch%dtdksi
     dteu       => gdp%gdr_i_ch%dteu
@@ -631,7 +622,6 @@ subroutine gtptrs(gdp)
     ewave0     => gdp%gdr_i_ch%ewave0
     ewave1     => gdp%gdr_i_ch%ewave1
     excbed     => gdp%gdr_i_ch%excbed
-    facdss     => gdp%gdr_i_ch%facdss
     fcorio     => gdp%gdr_i_ch%fcorio
     fltr       => gdp%gdr_i_ch%fltr
     fuiwe      => gdp%gdr_i_ch%fuiwe
@@ -688,7 +678,6 @@ subroutine gtptrs(gdp)
     r1         => gdp%gdr_i_ch%r1
     rbnd       => gdp%gdr_i_ch%rbnd
     rbuff      => gdp%gdr_i_ch%rbuff
-    rca        => gdp%gdr_i_ch%rca
     rettim     => gdp%gdr_i_ch%rettim
     rho        => gdp%gdr_i_ch%rho
     rhowat     => gdp%gdr_i_ch%rhowat
@@ -699,7 +688,6 @@ subroutine gtptrs(gdp)
     rnpl       => gdp%gdr_i_ch%rnpl
     rob        => gdp%gdr_i_ch%rob
     rsed       => gdp%gdr_i_ch%rsed
-    rsedeq     => gdp%gdr_i_ch%rsedeq
     rthbnd     => gdp%gdr_i_ch%rthbnd
     rtu2d0     => gdp%gdr_i_ch%rtu2d0
     rtu2d1     => gdp%gdr_i_ch%rtu2d1
@@ -731,8 +719,6 @@ subroutine gtptrs(gdp)
     sourw      => gdp%gdr_i_ch%sourw
     sstr       => gdp%gdr_i_ch%sstr
     sstrc      => gdp%gdr_i_ch%sstrc
-    ssuu       => gdp%gdr_i_ch%ssuu
-    ssvv       => gdp%gdr_i_ch%ssvv
     stbf       => gdp%gdr_i_ch%stbf
     stbl       => gdp%gdr_i_ch%stbl
     stif       => gdp%gdr_i_ch%stif
@@ -1067,7 +1053,6 @@ subroutine gtptrs(gdp)
 !
 ! REAL POOL ARRAY
 !
-    aks        = gtrpnt('aks'   , gdp)
     alfas      = gtrpnt('alfas' , gdp)
     alpha      = gtrpnt('alpha' , gdp)
     ampbc      = gtrpnt('ampbc' , gdp)
@@ -1146,7 +1131,6 @@ subroutine gtptrs(gdp)
     drodep     = gtrpnt('drodep', gdp)
     dsdeta     = gtrpnt('dsdeta', gdp)
     dsdksi     = gtrpnt('dsdksi', gdp)
-    dss        = gtrpnt('dss'   , gdp)
     dtdeta     = gtrpnt('dtdeta', gdp)
     dtdksi     = gtrpnt('dtdksi', gdp)
     dteu       = gtrpnt('dteu'  , gdp)
@@ -1180,7 +1164,6 @@ subroutine gtptrs(gdp)
     ewave1     = gtrpnt('ewave1', gdp)
     excbed     = gtrpnt('excbed', gdp)
     fcorio     = gtrpnt('fcorio', gdp)
-    facdss     = gtrpnt('facdss', gdp)
     fltr       = gtrpnt('fltr'  , gdp)
     fuiwe      = gtrpnt('fuiwe' , gdp)
     fviwe      = gtrpnt('fviwe' , gdp)
@@ -1242,7 +1225,6 @@ subroutine gtptrs(gdp)
     r0         = gtrpnt('r0'    , gdp)
     r1         = gtrpnt('r1'    , gdp)
     rbnd       = gtrpnt('rbnd'  , gdp)
-    rca        = gtrpnt('rca'   , gdp)
     rettim     = gtrpnt('rettim', gdp)
     rho        = gtrpnt('rho'   , gdp)
     rhowat     = gtrpnt('rhowat', gdp)
@@ -1252,7 +1234,6 @@ subroutine gtptrs(gdp)
     rmneg      = gtrpnt('rmneg' , gdp)
     rob        = gtrpnt('rob'   , gdp)
     rsed       = gtrpnt('rsed'  , gdp)
-    rsedeq     = gtrpnt('rsedeq', gdp)
     rthbnd     = gtrpnt('rthbnd', gdp)
     rtu2d0     = gtrpnt('rtu2d0', gdp)
     rtu2d1     = gtrpnt('rtu2d1', gdp)
@@ -1284,8 +1265,6 @@ subroutine gtptrs(gdp)
     sourw      = gtrpnt('sourw' , gdp)
     sstr       = gtrpnt('sstr'  , gdp)
     sstrc      = gtrpnt('sstrc' , gdp)
-    ssuu       = gtrpnt('ssuu'  , gdp)
-    ssvv       = gtrpnt('ssvv'  , gdp)
     stbf       = gtrpnt('stbf'  , gdp)
     stbl       = gtrpnt('stbl'  , gdp)
     stif       = gtrpnt('stif'  , gdp)

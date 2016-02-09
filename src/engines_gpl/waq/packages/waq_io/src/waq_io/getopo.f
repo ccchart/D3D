@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -87,7 +87,7 @@
                if ( ivarip .eq. -1 ) then
                   nmis = nmis + 1
                   write(lurep,'(3a)') '   INFO:',varnam,
-     &            '; NOT FOUND, delwaq1p will detect variables from process library'
+     &            '; NOT FOUND, delwaq will detect variables from process library'
                endif
             endif
             iopoin(inrv,iout) = ivarip

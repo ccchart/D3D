@@ -1,7 +1,7 @@
 subroutine initem(runid, cyclic, timnow, ktemp, temint, patm, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine initem(runid, cyclic, timnow, ktemp, temint, patm, gdp)
     use precision
     !
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -188,7 +189,7 @@ subroutine initem(runid, cyclic, timnow, ktemp, temint, patm, gdp)
     !
     ! define length of RUNID
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     ! Time dependent temperature
     ! Only if KTEMP > 0 FLTEM = .true. (See READMD)

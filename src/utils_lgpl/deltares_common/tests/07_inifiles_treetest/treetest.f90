@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -36,7 +36,7 @@ implicit none
    type(tree_data), pointer   :: tree
    type(tree_data), pointer   :: node1, node2, dadptr, polptr
 
-   character(len=1), dimension(1)          :: dummy
+   character(len=1), dimension(1)          :: dummy = ' '
    character(len=1), dimension(:), pointer :: data_ptr
    character(len=8) :: node_name, node_type, stored_data, type
 

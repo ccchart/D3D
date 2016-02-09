@@ -134,6 +134,20 @@ dnl check if open(...shared) works
 ACX_F77_SHARED_SPECIFIER
 AC_LANG_POP
 
+# NetCDF, for fortran 90...
+AC_LANG_PUSH([Fortran])
+AC_ARG_WITH(netcdf,[AS_HELP_STRING([--with-netcdf],[Build with netcdf support @<:@default=check@:>@])], [],[with_netcdf=check])
+AS_IF([test "x$with_netcdf" != "xno"],
+        [
+        # For netcdf >= 4.2 (separate fortran)
+        # Check for netcdf 4 if not found...
+        PKG_CHECK_MODULES([NETCDF_FORTRAN], [netcdf-fortran],[],[PKG_CHECK_MODULES(NETCDF, netcdf >= 4)])
+        AC_DEFINE([HAVE_NETCDF],1,[Defined if you have NETCDF library.])
+        ],
+        [])
+AM_CONDITIONAL([USENETCDF], test "x$with_netcdf" != "xno")
+AC_LANG_POP
+
 dnl Fortran compiler defaults (this could be a separate m4 file)
 AC_MSG_CHECKING([whether using Fortran preset flags])
 AC_ARG_ENABLE(fortran-flags-preset,
@@ -257,19 +271,24 @@ dnl Check for MPI (sets MPIFC, MPILIBS, HAVE_MPI), compile everything with mpi i
 AC_ARG_WITH(mpi, [AS_HELP_STRING([--with-mpi],[Build with mpi support @<:@default=yes@:>@])], [],[with_mpi=yes])
 AS_IF([test "x$with_mpi" != xno],
 [
-AC_LANG_PUSH([Fortran])
+AC_LANG_PUSH([C++])
 ACX_MPI
 AC_LANG_POP
+
 dnl needed for linking
 AC_LANG_PUSH([Fortran 77])
 ACX_MPI
 AC_LANG_POP
-AC_LANG_PUSH([C++])
+
+AC_LANG_PUSH([Fortran])
 ACX_MPI
 AC_LANG_POP
+
 F77=$MPIF77
 FC=$MPIFC
 CXX=$MPICXX
+dnl add the fortran f90 libraries to the link flags, in case mpicxx is used as linker
+MPILIBS="$MPILIBS $($MPIFC -showme:link)"
 ],
 [])
 AM_CONDITIONAL(HAVE_MPI, [test "x$with_mpi" != xno])
@@ -335,19 +354,21 @@ engines_gpl/flow2d3d/packages/data/src/general/Makefile
 engines_gpl/flow2d3d/packages/data/src/Makefile
 engines_gpl/flow2d3d/packages/data/src/parallel_mpi/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/Makefile
+engines_gpl/flow2d3d/packages/flow2d3d_openda/Makefile
+engines_gpl/flow2d3d/packages/flow2d3d_openda/src/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/iterators/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/mapper/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/Makefile
-engines_gpl/flow2d3d/packages/flow2d3d_openda/Makefile
-engines_gpl/flow2d3d/packages/flow2d3d_openda/src/Makefile
+engines_gpl/flow2d3d/packages/io_dol_f/Makefile
+engines_gpl/flow2d3d/packages/io_dol_f/src/Makefile
 engines_gpl/flow2d3d/packages/io/Makefile
 engines_gpl/flow2d3d/packages/io/src/input/Makefile
 engines_gpl/flow2d3d/packages/io/src/Makefile
 engines_gpl/flow2d3d/packages/io/src/output/Makefile
 engines_gpl/flow2d3d/packages/io/src/preprocessor/Makefile
-engines_gpl/flow2d3d/packages/io_dol_f/Makefile
-engines_gpl/flow2d3d/packages/io_dol_f/src/Makefile
+engines_gpl/flow2d3d/packages/kernel_dd_f/Makefile
+engines_gpl/flow2d3d/packages/kernel_dd_f/src/Makefile
 engines_gpl/flow2d3d/packages/kernel/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/Makefile
@@ -361,8 +382,6 @@ engines_gpl/flow2d3d/packages/kernel/src/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/non_hydro/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/taylor/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/timedep/Makefile
-engines_gpl/flow2d3d/packages/kernel_dd_f/Makefile
-engines_gpl/flow2d3d/packages/kernel_dd_f/src/Makefile
 engines_gpl/flow2d3d/packages/Makefile
 engines_gpl/flow2d3d/packages/manager/Makefile
 engines_gpl/flow2d3d/packages/manager/src/Makefile
@@ -371,32 +390,31 @@ engines_gpl/flow2d3d/packages/plugin_culvert_c/src/Makefile
 engines_gpl/flow2d3d/packages/plugin_user/Makefile
 engines_gpl/flow2d3d/packages/plugin_user/src/Makefile
 engines_gpl/Makefile
-engines/Makefile
-engines/part/Makefile
-engines/part/packages/data_f/Makefile
-engines/part/packages/data_f/src/Makefile
-engines/part/packages/io_f/Makefile
-engines/part/packages/io_f/src/Makefile
-engines/part/packages/kernel_c/Makefile
-engines/part/packages/kernel_c/src/Makefile
-engines/part/packages/kernel_f/Makefile
-engines/part/packages/kernel_f/src/Makefile
-engines/part/packages/version_number/Makefile
-engines/part/packages/version_number/src/Makefile
-engines/part/packages/Makefile
-engines/part/packages/utils_f/Makefile
-engines/part/packages/utils_f/src/Makefile
+engines_gpl/part/Makefile
+engines_gpl/part/packages/data_f/Makefile
+engines_gpl/part/packages/data_f/src/Makefile
+engines_gpl/part/packages/delpar/Makefile
+engines_gpl/part/packages/delpar/src/Makefile
+engines_gpl/part/packages/io_f/Makefile
+engines_gpl/part/packages/io_f/src/Makefile
+engines_gpl/part/packages/kernel_f/Makefile
+engines_gpl/part/packages/kernel_f/src/Makefile
+engines_gpl/part/packages/Makefile
+engines_gpl/part/packages/utils_f/Makefile
+engines_gpl/part/packages/utils_f/src/Makefile
+engines_gpl/part/packages/version_number/Makefile
+engines_gpl/part/packages/version_number/src/Makefile
 engines_gpl/waq/Makefile
-engines_gpl/waq/packages/delwaq1/Makefile
-engines_gpl/waq/packages/delwaq1/src/Makefile
 engines_gpl/waq/packages/delwaq1_lib/Makefile
 engines_gpl/waq/packages/delwaq1_lib/src/Makefile
+engines_gpl/waq/packages/delwaq1/Makefile
+engines_gpl/waq/packages/delwaq1/src/Makefile
 engines_gpl/waq/packages/delwaq1_version_number/Makefile
 engines_gpl/waq/packages/delwaq1_version_number/src/Makefile
-engines_gpl/waq/packages/delwaq2/Makefile
-engines_gpl/waq/packages/delwaq2/src/Makefile
 engines_gpl/waq/packages/delwaq2_lib/Makefile
 engines_gpl/waq/packages/delwaq2_lib/src/Makefile
+engines_gpl/waq/packages/delwaq2/Makefile
+engines_gpl/waq/packages/delwaq2/src/Makefile
 engines_gpl/waq/packages/delwaq2_version_number/Makefile
 engines_gpl/waq/packages/delwaq2_version_number/src/Makefile
 engines_gpl/waq/packages/Makefile
@@ -451,26 +469,26 @@ third_party_open/version_number/packages/Makefile
 third_party_open/version_number/packages/version_number/Makefile
 third_party_open/version_number/packages/version_number/src/Makefile
 tools_gpl/datsel/Makefile
-tools_gpl/datsel/packages/datsel/Makefile
-tools_gpl/datsel/packages/datsel/src/Makefile
 tools_gpl/datsel/packages/datsel_f/Makefile
 tools_gpl/datsel/packages/datsel_f/src/Makefile
+tools_gpl/datsel/packages/datsel/Makefile
+tools_gpl/datsel/packages/datsel/src/Makefile
 tools_gpl/datsel/packages/datsel_version_number/Makefile
 tools_gpl/datsel/packages/datsel_version_number/src/Makefile
 tools_gpl/datsel/packages/Makefile
 tools_gpl/kubint/Makefile
-tools_gpl/kubint/packages/kubint/Makefile
-tools_gpl/kubint/packages/kubint/src/Makefile
 tools_gpl/kubint/packages/kubint_f/Makefile
 tools_gpl/kubint/packages/kubint_f/src/Makefile
+tools_gpl/kubint/packages/kubint/Makefile
+tools_gpl/kubint/packages/kubint/src/Makefile
 tools_gpl/kubint/packages/kubint_version_number/Makefile
 tools_gpl/kubint/packages/kubint_version_number/src/Makefile
 tools_gpl/kubint/packages/Makefile
 tools_gpl/lint/Makefile
-tools_gpl/lint/packages/lint/Makefile
-tools_gpl/lint/packages/lint/src/Makefile
 tools_gpl/lint/packages/lint_f/Makefile
 tools_gpl/lint/packages/lint_f/src/Makefile
+tools_gpl/lint/packages/lint/Makefile
+tools_gpl/lint/packages/lint/src/Makefile
 tools_gpl/lint/packages/lint_version_number/Makefile
 tools_gpl/lint/packages/lint_version_number/src/Makefile
 tools_gpl/lint/packages/Makefile
@@ -506,61 +524,65 @@ utils_gpl/morphology/packages/morphology_kernel/Makefile
 utils_gpl/morphology/packages/morphology_kernel/src/Makefile
 utils_gpl/morphology/packages/morphology_plugins_c/Makefile
 utils_gpl/morphology/packages/morphology_plugins_c/src/Makefile
-utils_lgpl/d_hydro_lib/Makefile
-utils_lgpl/d_hydro_lib/packages/d_hydro_lib/Makefile
-utils_lgpl/d_hydro_lib/packages/d_hydro_lib/src/Makefile
-utils_lgpl/d_hydro_lib/packages/Makefile
-utils_lgpl/delftio/Makefile
+utils_gpl/morphology/packages/morphology_waq/Makefile
+utils_gpl/morphology/packages/morphology_waq/src/Makefile
 utils_lgpl/delftio/include/Makefile
+utils_lgpl/delftio/Makefile
 utils_lgpl/delftio/packages/delftio/Makefile
+utils_lgpl/delftio/packages/delftio_shm/include/Makefile
+utils_lgpl/delftio/packages/delftio_shm/Makefile
+utils_lgpl/delftio/packages/delftio_shm/src/diof90/Makefile
+utils_lgpl/delftio/packages/delftio_shm/src/Makefile
+utils_lgpl/delftio/packages/delftio/src/delftio_sync/Makefile
 utils_lgpl/delftio/packages/delftio/src/diof90/Makefile
 utils_lgpl/delftio/packages/delftio/src/diof90Nefis/Makefile
 utils_lgpl/delftio/packages/delftio/src/Makefile
-utils_lgpl/delftio/packages/delftio/src/delftio_sync/Makefile
-utils_lgpl/delftio/packages/delftio_shm/Makefile
-utils_lgpl/delftio/packages/delftio_shm/include/Makefile
-utils_lgpl/delftio/packages/delftio_shm/src/diof90/Makefile
-utils_lgpl/delftio/packages/delftio_shm/src/Makefile
 utils_lgpl/delftio/packages/Makefile
-utils_lgpl/delftonline/Makefile
 utils_lgpl/delftonline/include/Makefile
+utils_lgpl/delftonline/Makefile
 utils_lgpl/delftonline/src/delftonline/Makefile
 utils_lgpl/delftonline/src/dolcli/Makefile
 utils_lgpl/delftonline/src/dolprint/Makefile
 utils_lgpl/deltares_common/Makefile
-utils_lgpl/deltares_common/packages/deltares_common/Makefile
-utils_lgpl/deltares_common/packages/deltares_common/src/Makefile
-utils_lgpl/deltares_common/packages/deltares_common/src/rd_token/Makefile
 utils_lgpl/deltares_common/packages/deltares_common_c/include/Makefile
 utils_lgpl/deltares_common/packages/deltares_common_c/Makefile
 utils_lgpl/deltares_common/packages/deltares_common_c/src/Makefile
+utils_lgpl/deltares_common/packages/deltares_common/Makefile
 utils_lgpl/deltares_common/packages/deltares_common_mpi/Makefile
 utils_lgpl/deltares_common/packages/deltares_common_mpi/src/Makefile
+utils_lgpl/deltares_common/packages/deltares_common/src/Makefile
+utils_lgpl/deltares_common/packages/deltares_common/src/rd_token/Makefile
 utils_lgpl/deltares_common/packages/Makefile
+utils_lgpl/d_hydro_lib/include/Makefile
+utils_lgpl/d_hydro_lib/Makefile
+utils_lgpl/d_hydro_lib/packages/d_hydro_lib/include/Makefile
+utils_lgpl/d_hydro_lib/packages/d_hydro_lib/Makefile
+utils_lgpl/d_hydro_lib/packages/d_hydro_lib/src/Makefile
+utils_lgpl/d_hydro_lib/packages/Makefile
 utils_lgpl/ec_module/Makefile
 utils_lgpl/ec_module/packages/ec_module/Makefile
-utils_lgpl/ec_module/packages/ec_module/src/Makefile
 utils_lgpl/ec_module/packages/ec_module/src/ectest/Makefile
+utils_lgpl/ec_module/packages/ec_module/src/Makefile
 utils_lgpl/ec_module/packages/ec_module/src/meteo/Makefile
 utils_lgpl/ec_module/packages/Makefile
-utils_lgpl/esmfsm/Makefile
 utils_lgpl/esmfsm/include/Makefile
-utils_lgpl/esmfsm/packages/esmfsm/Makefile
-utils_lgpl/esmfsm/packages/esmfsm/src/fsm/Makefile
-utils_lgpl/esmfsm/packages/esmfsm/src/Makefile
-utils_lgpl/esmfsm/packages/esmfsm_c/Makefile
+utils_lgpl/esmfsm/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_c/include/Makefile
+utils_lgpl/esmfsm/packages/esmfsm_c/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_c/src/esm/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_c/src/fsm/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_c/src/Makefile
-utils_lgpl/esmfsm/packages/esmfsm_version_number/Makefile
+utils_lgpl/esmfsm/packages/esmfsm/Makefile
+utils_lgpl/esmfsm/packages/esmfsm/src/fsm/Makefile
+utils_lgpl/esmfsm/packages/esmfsm/src/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_version_number/include/Makefile
+utils_lgpl/esmfsm/packages/esmfsm_version_number/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_version_number/src/Makefile
 utils_lgpl/esmfsm/packages/Makefile
-utils_lgpl/esmfsm/tests/Makefile
 utils_lgpl/esmfsm/tests/esm_create/Makefile
 utils_lgpl/esmfsm/tests/esm_delete/Makefile
 utils_lgpl/esmfsm/tests/esm_info/Makefile
+utils_lgpl/esmfsm/tests/Makefile
 utils_lgpl/ftnunit/Makefile
 utils_lgpl/ftnunit/packages/ftnunit/Makefile
 utils_lgpl/ftnunit/packages/ftnunit/src/Makefile

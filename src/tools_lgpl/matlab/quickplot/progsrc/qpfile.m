@@ -6,7 +6,7 @@ function Out = qpfile(DataRes)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -51,12 +51,19 @@ if nargin>0
     else
         i = length(File)+1;
     end
-    if ischar(DataRes) && strcmp(DataRes,'unwrapped')
+    if ischar(DataRes) && strcmpi(DataRes,'unwrapped')
         if isempty(File)
             Out = -1;
         else
             Out = File(NrInList);
             Out = qp_unwrapfi(Out);
+        end
+        return
+    elseif ischar(DataRes) && strcmpi(DataRes,'name')
+        if isempty(File)
+            Out = '';
+        else
+            Out = File(NrInList).Name;
         end
         return
     elseif isa(DataRes,'qp_data_resource')

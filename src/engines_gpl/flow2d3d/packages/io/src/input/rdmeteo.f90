@@ -1,7 +1,7 @@
 subroutine rdmeteo(gdp, ecwind)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -37,7 +37,7 @@ subroutine rdmeteo(gdp, ecwind)
 ! NONE
 !!--declarations----------------------------------------------------------------
    use meteo
-   use ec_module
+   !use ec_module
    use precision
    use properties
    !
@@ -81,6 +81,8 @@ subroutine rdmeteo(gdp, ecwind)
    type (gd_heat)           , pointer :: gdheat
    integer                  , pointer :: lundia
    real(fp)                 , pointer :: paver
+   logical                  , pointer :: lfsdu
+   logical                  , pointer :: lfsdus1
    logical                  , pointer :: pcorr
    logical                  , pointer :: wind
    logical                  , pointer :: temp
@@ -113,7 +115,7 @@ subroutine rdmeteo(gdp, ecwind)
    character(256)                       :: filename
    character(500)                       :: message
    type(tmeteoitem)           , pointer :: meteoitem
-   type(tECHandle)            , pointer :: ECHandle
+   !type(tECHandle)            , pointer :: ECHandle
 !
 !! executable statements -------------------------------------------------------
 !
@@ -142,6 +144,8 @@ subroutine rdmeteo(gdp, ecwind)
    swrf_file     => gdp%gdheat%swrf_file
    solrad_read   => gdp%gdheat%solrad_read
    gdheat        => gdp%gdheat
+   lfsdu         => gdp%gdprocs%lfsdu 
+   lfsdus1       => gdp%gdprocs%lfsdus1
    lundia        => gdp%gdinout%lundia
    paver         => gdp%gdnumeco%paver
    pcorr         => gdp%gdnumeco%pcorr
@@ -149,11 +153,11 @@ subroutine rdmeteo(gdp, ecwind)
    temp          => gdp%gdprocs%temp
    ktemp         => gdp%gdtricom%ktemp
    sferic        => gdp%gdtricom%sferic
-   ECHandle      => gdp%gd_ECHandle
-   gridECItemId  => gdp%gridECItemId
-   patmECItemId  => gdp%patmECItemId
-   uwindECItemId => gdp%uwindECItemId
-   vwindECItemId => gdp%vwindECItemId
+   !ECHandle      => gdp%gd_ECHandle
+   !gridECItemId  => gdp%gridECItemId
+   !patmECItemId  => gdp%patmECItemId
+   !uwindECItemId => gdp%uwindECItemId
+   !vwindECItemId => gdp%vwindECItemId
    !
    error     = .false.
    success   = initmeteo(gdp%runid)
@@ -167,20 +171,20 @@ subroutine rdmeteo(gdp, ecwind)
       v_file    = .false.
       !
       if (ecwind) then
-         qId      = addQuantity(ECHandle, 'air_pressure')
-         patmECItemId = addECItem(ECHandle, qId, gridECItemId)
-         allocate(ectmp1(nmax,mmax))
-         success   = addECItemField(ECHandle, patmECItemId, ectmp1)
-         !
-         qId       = addQuantity(ECHandle, 'x_wind')
-         uwindECItemId = addECItem(ECHandle, qId, gridECItemId)
-         allocate(ectmp2(nmax,mmax))
-         success   = addECItemField(ECHandle, uwindECItemId, ectmp2)
-         !
-         qId       = addQuantity(ECHandle, 'y_wind')
-         vwindECItemId = addECItem(ECHandle, qId, gridECItemId)
-         allocate(ectmp3(nmax,mmax))
-         success   = addECItemField(ECHandle, vwindECItemId, ectmp3)
+         !qId      = addQuantity(ECHandle, 'air_pressure')
+         !patmECItemId = addECItem(ECHandle, qId, gridECItemId)
+         !allocate(ectmp1(nmax,mmax))
+         !success   = addECItemField(ECHandle, patmECItemId, ectmp1)
+         !!
+         !qId       = addQuantity(ECHandle, 'x_wind')
+         !uwindECItemId = addECItem(ECHandle, qId, gridECItemId)
+         !allocate(ectmp2(nmax,mmax))
+         !success   = addECItemField(ECHandle, uwindECItemId, ectmp2)
+         !!
+         !qId       = addQuantity(ECHandle, 'y_wind')
+         !vwindECItemId = addECItem(ECHandle, qId, gridECItemId)
+         !allocate(ectmp3(nmax,mmax))
+         !success   = addECItemField(ECHandle, vwindECItemId, ectmp3)
       endif
       !
       filename = ' '
@@ -195,21 +199,21 @@ subroutine rdmeteo(gdp, ecwind)
                !
                ! flow dimensions needed here
                !
-               if (patmECItemId == -1) then
+               !if (patmECItemId == -1) then
                   success = addmeteoitem(gdp%runid, filename, sferic, mmaxgl, nmaxgl)
                   call checkmeteoresult(success, gdp)
                   call prterr(lundia, 'G051', 'Wind and pressure specified on the hydrodynamic grid')
                   p_file = .true.
                   u_file = .true.
                   v_file = .true.
-               else
+               !else
                   ! the same but using ec-module
                   !
-                  provId   = addProvider(ECHandle, provType_file, filename, provFile_svwp)
-                  if (provId == 0) call checkResult(ECHandle)
-                  success  = initProvider(ECHandle, provId)
-                  call checkResult(ECHandle, success)
-               endif
+               !   provId   = addProvider(ECHandle, provType_file, filename, provFile_svwp)
+               !   if (provId == 0) call checkResult(ECHandle)
+               !   success  = initProvider(ECHandle, provId)
+               !   call checkResult(ECHandle, success)
+               !endif
             else
                !
                ! Wind on a separate equidistant grid specified in Filwu, Filwv, Filwp
@@ -490,6 +494,28 @@ subroutine rdmeteo(gdp, ecwind)
       endif
    else
       swrf_file = .false.
+   endif
+   !
+   !  Subsidence/Uplift 
+   !
+   filename = ' '
+   call prop_get_string(gdp%mdfile_ptr,'*','Filsdu',filename)
+   if (filename /= ' ') then
+      if (.not.associated(gdp%gdsdu%sdu_t0)) then 
+          allocate (gdp%gdsdu%sdu_t0(gdp%d%nmlb:gdp%d%nmub), stat = istat)
+          if (istat == 0) allocate(gdp%gdsdu%sdu_tp(gdp%d%nmlb:gdp%d%nmub), stat=istat)
+          if (istat == 0) allocate(gdp%gdsdu%sdu_tn(gdp%d%nmlb:gdp%d%nmub), stat=istat)
+          if (istat /= 0) then
+             call prterr(lundia, 'P004', 'memory alloc error for subsidence/uplift')
+             call d3stop(1, gdp)
+          endif    
+      endif          
+      call prterr(lundia, 'G051', 'Reading subsidence/uplift input on computational grid')
+      success = addmeteoitem(gdp%runid, filename, sferic, mmaxgl, nmaxgl)
+      call checkmeteoresult(success, gdp)
+      if (lfsdus1) then 
+         call prterr(lundia, 'G051', '   Subsidence/uplift effect on water level included.')
+      endif    
    endif
    !
    ! If block 'interpolation', notify meteo module

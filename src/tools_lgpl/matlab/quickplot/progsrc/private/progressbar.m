@@ -33,7 +33,7 @@ function Fg0=progressbar(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -198,7 +198,7 @@ if ~isequal(frac,fracprev) && ~First
         tremain = (1-frac)*24*3600*(now-UD.StartTime)/(frac-UD.StartFrac);
         if tremain>3600
             thrs = floor(tremain/3600);
-            tmin = tremain-thrs*3600;
+            tmin = round((tremain-thrs*3600)/60);
             TRem = sprintf('%i hours and %.0f minutes',thrs,tmin);
         elseif tremain>60
             tmin = floor(tremain/60);

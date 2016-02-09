@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -22,16 +22,16 @@
 !!  rights reserved.
 
       INTEGER FUNCTION STOI(SOURCE, STPOS, LENGTH, NUMBER)
-C
+!
       IMPLICIT INTEGER (A-Z)
       INTEGER STOD
       CHARACTER*1 SOURCE(1)
       DOUBLE PRECISION DP
-C
+!
       RC = STOD(SOURCE, STPOS, LENGTH, DP)
       IF (RC.NE.0) GOTO 1
       IF (DP.GT.2147483647.0D0) GOTO 1010
-C     IF (DP.LT.-2147483648.0D0) GOTO 1011
+!     IF (DP.LT.-2147483648.0D0) GOTO 1011
       IF (DP.LT.-2147483647.0D0) GOTO 1011
       NUMBER = DP
 1     STOI = RC

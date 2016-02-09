@@ -3,7 +3,7 @@ function [cmd,cmdargs]=qp_cmdstr(cmdstr)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -54,7 +54,13 @@ while ~isempty(rmndr)
                 if isempty(endquote)
                     error('Invalid command argument: unterminated string ''%s',rmndr)
                 else
-                    cmdargs{end+1}=rmndr(1:endquote-1);
+                    unquoted=rmndr(1:endquote-1);
+                    % reduce double quotes inside
+                    quotes_inside=quotes(quotes<endquote);
+                    quotes_inside(2:2:end)=[];
+                    unquoted(quotes_inside)=[];
+                    %
+                    cmdargs{end+1}=unquoted;
                     rmndr=rmndr(endquote+1:end);
                 end
             case '['

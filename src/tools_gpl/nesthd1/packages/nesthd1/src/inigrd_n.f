@@ -2,7 +2,7 @@
      *                                  itotpx  ,itotpy , nrptot )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -29,8 +29,6 @@
 !  $Id$
 !  $HeadURL$
 !-----------------------------------------------------------------------
-!         D e l f t      H y d r a u l i c s   -   Section    E & Z
-!
 !             Module: SUBROUTINE INIGRD
 !           Function: - Reads the computational grid enclosure file
 !                     - Lines formed by the vertices of the polygons are

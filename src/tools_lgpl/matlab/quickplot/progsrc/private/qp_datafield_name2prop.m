@@ -5,7 +5,7 @@ function Prop=qp_datafield_name2prop(FI,Domain,Name)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -51,8 +51,10 @@ if Id<0
     if isempty(IdAll)
         error('Unknown data field: %s.',Name)
     else
-        error(cat(2,sprintf('Datafield name ''%s'' not unique, matching:\n',Name), ...
-            sprintf('''%s'' ',Names{IdAll})));
+        message = cat(2,sprintf('Datafield name ''%s'' not unique, matching:\n',Name), ...
+            sprintf('''%s''\n',Names{IdAll}));
+        message(end)=[];
+        error(message)
     end
 end
 Prop = DataProps(Id);

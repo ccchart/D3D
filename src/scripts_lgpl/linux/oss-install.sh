@@ -7,7 +7,8 @@ gatherScript=scripts_lgpl/linux/gatherlibraries.rb
 # The following libraries must be removed from the list created by gatherScript:
 # - system dependent libraries in the directories /lib and /lib64
 # - libraries generated in the oss tree itself
-gatherFilter="-e '^/lib/' -e '^/lib64/' -e 'flow2d3d' -e 'DelftOnline'"
+gatherExcludeFilter="-e '^/lib/' -e '^/lib64/' -e 'flow2d3d' -e 'DelftOnline'"
+gatherIncludeFilter="-e 'expat' -e 'libssl' -e 'libcrypto'"
 
 # ===============================
 # === copyFile: handles error ===
@@ -40,6 +41,7 @@ function install_all () {
     flow2d3d
     # flow2d3d_openda is currently not added to the Linux installation
     #flow2d3d_openda
+	part
     waq
     wave
     plugin_culvert
@@ -83,8 +85,8 @@ function delft3d_flow () {
 function d_hydro () {
     echo "installing d_hydro . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
-    dest_menu="$dest_main/lnx/menu/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
+    dest_menu="$dest_main/lnx64/menu/bin"
 
     mkdir -p $dest_bin
     mkdir -p $dest_menu
@@ -93,7 +95,8 @@ function d_hydro () {
     copyFile "$srcdir/engines_gpl/d_hydro/scripts/create_config_xml.tcl"    $dest_menu
 
     echo "Gathering libraries for d_hydro..."
-    cp -u `$gatherScript $prefix/bin/d_hydro.exe | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/d_hydro.exe | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/d_hydro.exe | eval grep $gatherIncludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/d_hydro.exe
 
@@ -108,10 +111,10 @@ function d_hydro () {
 function flow2d3d () {
     echo "installing flow2d3d . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
-    dest_default="$dest_main/lnx/flow2d3d/default"
-    dest_scripts="$dest_main/lnx/flow2d3d/scripts"
-    dest_plugins="$dest_main/lnx/plugins/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
+    dest_default="$dest_main/lnx64/flow2d3d/default"
+    dest_scripts="$dest_main/lnx64/flow2d3d/scripts"
+    dest_plugins="$dest_main/lnx64/plugins/bin"
 
     mkdir -p $dest_bin
     mkdir -p $dest_default
@@ -136,8 +139,8 @@ function flow2d3d () {
     copyFile "$srcdir/engines_gpl/flow2d3d/default/*"               $dest_default
 
     echo "Gathering libraries for flow2d3d..."
-    cp -u `$gatherScript $prefix/lib/libflow2d3d*.so $prefix/lib/libDelftOnline.so $prefix/bin/esm_* | eval grep -v $gatherFilter` $dest_bin
-    cp -u `$gatherScript $prefix/lib/libDelftOnline.so | eval grep -v $gatherFilter` $dest_plugins
+    cp -u `$gatherScript $prefix/lib/libflow2d3d*.so $prefix/lib/libDelftOnline.so $prefix/bin/esm_* | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/lib/libDelftOnline.so | eval grep -v $gatherExcludeFilter` $dest_plugins
 
     return
 }
@@ -150,10 +153,10 @@ function flow2d3d () {
 function flow2d3d_openda () {
     echo "installing flow2d3d_openda . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
-    dest_default="$dest_main/lnx/flow2d3d/default"
-    dest_scripts="$dest_main/lnx/flow2d3d/scripts"
-    dest_plugins="$dest_main/lnx/plugins/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
+    dest_default="$dest_main/lnx64/flow2d3d/default"
+    dest_scripts="$dest_main/lnx64/flow2d3d/scripts"
+    dest_plugins="$dest_main/lnx64/plugins/bin"
 
     mkdir -p $dest_bin
     mkdir -p $dest_default
@@ -178,8 +181,8 @@ function flow2d3d_openda () {
     copyFile "$srcdir/engines_gpl/flow2d3d/default/*.*"             $dest_default
 
     echo "Gathering libraries for flow2d3d_openda..."
-    cp -u `$gatherScript $prefix/lib/libflow2d3d_openda*.so $prefix/lib/libDelftOnline.so $prefix/bin/esm_* | eval grep -v $gatherFilter` $dest_bin
-    cp -u `$gatherScript $prefix/lib/libDelftOnline.so | eval grep -v $gatherFilter` $dest_plugins
+    cp -u `$gatherScript $prefix/lib/libflow2d3d_openda*.so $prefix/lib/libDelftOnline.so $prefix/bin/esm_* | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/lib/libDelftOnline.so | eval grep -v $gatherExcludeFilter` $dest_plugins
 
     return
 }
@@ -192,8 +195,8 @@ function flow2d3d_openda () {
 function waq () {
     echo "installing delwaq . . ."
 
-    dest_bin="$dest_main/lnx/waq/bin"
-    dest_default="$dest_main/lnx/waq/default"
+    dest_bin="$dest_main/lnx64/waq/bin"
+    dest_default="$dest_main/lnx64/waq/default"
 
     mkdir -p $dest_bin
     mkdir -p $dest_default
@@ -204,10 +207,33 @@ function waq () {
     copyFile "$srcdir/engines_gpl/waq/default/*"          $dest_default
 
     echo "Gathering libraries for delwaq..."
-    cp -u `$gatherScript $prefix/bin/delwaq1 $prefix/bin/delwaq2 | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/delwaq1 $prefix/bin/delwaq2 | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/delwaq1 $prefix/bin/delwaq2 | eval grep $gatherIncludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/delwaq1
     # chrpath -r \$ORIGIN $dest_bin/delwaq2
+
+    return
+}
+
+
+
+# ======================
+# === INSTALL DELPAR ===
+# ======================
+function part () {
+    echo "installing delpar . . ."
+
+    dest_bin="$dest_main/lnx64/part/bin"
+
+    mkdir -p $dest_bin
+
+    copyFile "$prefix/bin/delpar"                    $dest_bin
+    copyFile "$prefix/bin/delpar"                    $dest_bin
+
+    echo "Gathering libraries for delpar..."
+    cp -u `$gatherScript $prefix/bin/delpar | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/delpar | eval grep $gatherIncludeFilter` $dest_bin
 
     return
 }
@@ -220,10 +246,10 @@ function waq () {
 function wave () {
     echo "installing wave . . ."
 
-    dest_bin="$dest_main/lnx/wave/bin"
-    dest_default="$dest_main/lnx/wave/default"
-    dest_swan_bin="$dest_main/lnx/swan/bin"
-    dest_swan_scripts="$dest_main/lnx/swan/scripts"
+    dest_bin="$dest_main/lnx64/wave/bin"
+    dest_default="$dest_main/lnx64/wave/default"
+    dest_swan_bin="$dest_main/lnx64/swan/bin"
+    dest_swan_scripts="$dest_main/lnx64/swan/scripts"
 
     mkdir -p $dest_bin
     mkdir -p $dest_default
@@ -236,9 +262,9 @@ function wave () {
     copyFile "$srcdir/third_party_open/swan/scripts/swan_install.sh" $dest_swan_scripts/swan.sh
 
     echo "Gathering libraries for wave..."
-    cp -u `$gatherScript $prefix/bin/wave.exe | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/wave.exe | eval grep -v $gatherExcludeFilter` $dest_bin
     echo "Gathering libraries for swan..."
-    cp -u `$gatherScript $srcdir/third_party_open/swan/bin/linux/*.exe | eval grep -v $gatherFilter` $dest_swan_bin
+    cp -u `$gatherScript $srcdir/third_party_open/swan/bin/linux/*.exe | eval grep -v $gatherExcludeFilter` $dest_swan_bin
 
     # chrpath -r \$ORIGIN $dest_bin/wave.exe
 
@@ -253,14 +279,14 @@ function wave () {
 function plugin_culvert () {
     echo "installing plugin_culvert . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/lib/libplugin_culvert.so" $dest_bin/plugin_culvert.so
 
     echo "Gathering libraries for plugin_culvert..."
-    cp -u `$gatherScript $prefix/lib/libplugin_culvert.so | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/lib/libplugin_culvert.so | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/plugin_culvert.so
 
@@ -275,14 +301,14 @@ function plugin_culvert () {
 function plugin_delftflow_traform () {
     echo "installing plugin_delftflow_traform . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/lib/libplugin_delftflow_traform.so" $dest_bin/plugin_delftflow_traform.so
 
     echo "Gathering libraries for plugin_delftflow_traform..."
-    cp -u `$gatherScript $prefix/lib/libplugin_delftflow_traform.so | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/lib/libplugin_delftflow_traform.so | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/plugin_delftflow_traform.so
 
@@ -297,14 +323,14 @@ function plugin_delftflow_traform () {
 function datsel () {
     echo "installing datsel . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/bin/datsel" $dest_bin
 
     echo "Gathering libraries for datsel..."
-    cp -u `$gatherScript $prefix/bin/datsel | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/datsel | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/datsel
 
@@ -319,14 +345,14 @@ function datsel () {
 function kubint () {
     echo "installing kubint . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/bin/kubint" $dest_bin
 
     echo "Gathering libraries for kubint..."
-    cp -u `$gatherScript $prefix/bin/kubint | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/kubint | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/kubint
 
@@ -341,14 +367,14 @@ function kubint () {
 function lint () {
     echo "installing lint . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/bin/lint" $dest_bin
 
     echo "Gathering libraries for lint..."
-    cp -u `$gatherScript $prefix/bin/lint | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/lint | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/lint
 
@@ -363,8 +389,8 @@ function lint () {
 function mormerge () {
     echo "installing mormerge . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
-    dest_scripts="$dest_main/lnx/flow2d3d/scripts"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
+    dest_scripts="$dest_main/lnx64/flow2d3d/scripts"
 
     mkdir -p $dest_bin
     mkdir -p $dest_scripts
@@ -373,7 +399,7 @@ function mormerge () {
     copyFile "$prefix/bin/mormerge.exe"                          $dest_bin
 
     echo "Gathering libraries for mormerge..."
-    cp -u `$gatherScript $prefix/bin/mormerge.exe | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/mormerge.exe | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/mormerge.exe
 
@@ -388,14 +414,14 @@ function mormerge () {
 function vs () {
     echo "installing vs . . ."
 
-    dest="$dest_main/lnx/util/bin"
+    dest="$dest_main/lnx64/util/bin"
 
     mkdir -p $dest
 
     copyFile "$prefix/bin/vs" $dest
 
     echo "Gathering libraries for vs..."
-    cp -u `$gatherScript $prefix/bin/vs | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/vs | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest/vs
 
@@ -410,14 +436,14 @@ function vs () {
 function nesthd1 () {
     echo "installing nesthd1 . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/bin/nesthd1" $dest_bin
 
     echo "Gathering libraries for nesthd1..."
-    cp -u `$gatherScript $prefix/bin/nesthd1 | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/nesthd1 | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/nesthd1
 
@@ -432,14 +458,14 @@ function nesthd1 () {
 function nesthd2 () {
     echo "installing nesthd2 . . ."
 
-    dest_bin="$dest_main/lnx/flow2d3d/bin"
+    dest_bin="$dest_main/lnx64/flow2d3d/bin"
 
     mkdir -p $dest_bin
 
     copyFile "$prefix/bin/nesthd2" $dest_bin
 
     echo "Gathering libraries for nesthd2..."
-    cp -u `$gatherScript $prefix/bin/nesthd2 | eval grep -v $gatherFilter` $dest_bin
+    cp -u `$gatherScript $prefix/bin/nesthd2 | eval grep -v $gatherExcludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/nesthd2
 

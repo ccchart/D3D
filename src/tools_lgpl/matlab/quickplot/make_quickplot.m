@@ -7,7 +7,7 @@ function make_quickplot(basedir,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -67,14 +67,19 @@ if ~exist('progsrc','dir')
 end
 sourcedir=[pwd,filesep,'progsrc'];
 disp('Copying files ...')
-if ~exist([pwd,filesep,'quickplot'])
-    [success,message] = mkdir('quickplot');
+if strncmp(fliplr(computer),'46',2)
+    qpdir = 'quickplot64';
+else
+    qpdir = 'quickplot32';
+end
+if ~exist([pwd,filesep,qpdir])
+    [success,message] = mkdir(qpdir);
     if ~success,
         err=message;
         return
     end
 end
-cd('quickplot');
+cd(qpdir);
 diary make_quickplot_diary
 if isunix
     unix('cp -rf ../progsrc/* .');
@@ -106,6 +111,9 @@ fstrrep('wl_identification.c','<CREATIONDATE>',TStr)
 g = which('-all','gscript');
 copyfile(g{1},'.')
 make_exe
+if ispc
+   movefile('d3d_qp.exe','d3d_qp.exec');
+end
 X={'*.asv'
     '*.bak'
     '*.m'

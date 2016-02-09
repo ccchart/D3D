@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,14 +21,14 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C Integer function to replace part of a character string with blanks.
-C
+!
+! Integer function to replace part of a character string with blanks.
+!
       INTEGER FUNCTION WIPE (SOURCE,FIRST,LAST)
       CHARACTER*1 SOURCE(*),BLANK
       INTEGER FIRST, LAST
       DATA BLANK /' '/
-C
+!
       IF (LAST .LE. 0 .OR. LAST .GT. 236) GOTO 100
       IF (FIRST .LE. 0 .OR. FIRST .GT. 236) GOTO 100
       IF (FIRST .GT. LAST) GO TO 200

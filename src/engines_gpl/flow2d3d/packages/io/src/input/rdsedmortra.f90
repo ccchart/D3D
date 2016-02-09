@@ -1,10 +1,10 @@
 subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
-                     & lsedtot   ,lstsci    ,ltur      ,facdss    ,namcon    , &
-                     & iopsus    ,filnam    ,mmax      ,nmax      ,nmaxus    , &
-                     & nmmax     ,nto       ,nambnd    ,lsec      ,gdp       )
+                     & lsedtot   ,lstsci    ,ltur      ,namcon    ,iopsus    , &
+                     & mmax      ,nmax      ,nmaxus    ,nmmax     ,nto       , &
+                     & nambnd    ,lsec      ,tstart    ,tunit     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -47,8 +47,10 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     !
     implicit none
     !
-    type(globdat),target :: gdp
+    type(globdat)             ,target        :: gdp
     integer                   , parameter    :: NPARDEF = 20
+    real(hp)                  , pointer      :: morft
+    real(hp)                  , pointer      :: morft0
 !
 ! Global variables
 !
@@ -60,16 +62,16 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     integer                                  , intent(in)  :: ltur    !  Description and declaration in iidim.f90
     integer                                                :: lundia  !  Description and declaration in inout.igs
     logical                                  , intent(out) :: error   !!  Flag=TRUE if an error is encountered
-    real(fp)      , dimension(lsed)                        :: facdss  !  Description and declaration in rjdim.f90
     character(20) , dimension(lstsci + ltur)               :: namcon  !  Description and declaration in ckdim.f90
     integer                                                :: iopsus
-    character(*)                                           :: filnam
     integer                                  , intent(in)  :: mmax
     integer                                  , intent(in)  :: nmax
     integer                                  , intent(in)  :: nmaxus
     integer                                  , intent(in)  :: nmmax
     integer                                  , intent(in)  :: nto
     integer                                  , intent(in)  :: lsec
+    real(fp)                                 , intent(in)  :: tstart
+    real(fp)                                 , intent(in)  :: tunit
     character(20) , dimension(nto)                         :: nambnd  !  Description and declaration in ckdim.f90
 !
 ! Local variables
@@ -87,6 +89,18 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
 !
 !! executable statements -------------------------------------------------------
 !
+    morft               => gdp%gdmorpar%morft
+    morft0              => gdp%gdmorpar%morft0
+    !
+    if (morft == 0.0_hp) then
+        !
+        ! if the morphological start time is not set to some positive value due
+        ! to restart from trim-file, then make sure that the morphological start
+        ! time corresponds to the hydrodynamic start time. This includes TStart!
+        !
+        morft  = real(tstart*tunit,hp)/86400.0_hp
+        morft0 = morft
+    endif
     !
     ! Read name of default transport formula
     !
@@ -109,9 +123,9 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     ! Read data from that file
     !
     call rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
-             & lsedtot   ,lstsci    ,ltur      ,facdss    ,namcon    , &
-             & iopsus    ,gdp%d%nmlb,gdp%d%nmub,filsed    , &
-             & sed_ptr   ,gdp%gdsedpar,gdp%gdtrapar)
+             & lsedtot   ,lstsci    ,ltur      ,namcon    ,iopsus    , &
+             & gdp%d%nmlb,gdp%d%nmub,filsed    ,sed_ptr   , &
+             & gdp%gdsedpar,gdp%gdtrapar, gdp%griddim)
     if (error) goto 999
     !
     ! Read name of morphology input file
@@ -169,7 +183,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     !
     ! Echo sediment and transport parameters
     !
-    call echosed(lundia    ,error     ,lsed      ,lsedtot   ,facdss    , &
+    call echosed(lundia    ,error     ,lsed      ,lsedtot   , &
                & iopsus    ,gdp%gdsedpar, gdp%gdtrapar)
     if (error) goto 999
     !

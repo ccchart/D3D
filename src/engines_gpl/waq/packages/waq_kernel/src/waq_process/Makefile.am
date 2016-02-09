@@ -60,6 +60,7 @@ libwaq_process_la_SOURCES = \
        flxfrc.f90 \
        harves.f \
        hdisp.f \
+       hdispa.f \
        hdispv.f \
        heatfl.f \
        intpol.f \
@@ -106,6 +107,10 @@ libwaq_process_la_SOURCES = \
        sedsod.f \
        set_effi.f \
        simph.f \
+       solvesaphe/mod_precision.f90 \
+       solvesaphe/mod_chemconst.f90 \
+       solvesaphe/mod_acbw_phsolvers.F90 \
+       phcarb.f \
        somsed.f \
        ssedph.f \
        staday.f \
@@ -150,7 +155,16 @@ libwaq_process_la_SOURCES = \
        vbmrt.f90 \
        vbstat.f90 \
        vbupt.f90 \
-       veloc.f90
+       veloc.f90 \
+	   macdis.f \
+       npps12.f90 \
+       mac3du.f90 \
+       maxmac.f \
+       macrop.f \
+       radmac.f \
+       grzmac.f \
+       macnut.f90 \
+       covmac.f
 	   
 #-------------------------------------------------------------------------------
 # Libraries

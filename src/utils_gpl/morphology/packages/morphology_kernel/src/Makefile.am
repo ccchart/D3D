@@ -36,12 +36,14 @@ libMorphologyKernel_la_SOURCES = \
          comphidexp.f90 \
          compbsskin.f90 \
          compsandfrac.f90 \
+         eqsettle.f90 \
          eqtran.f90 \
          erosilt.f90 \
          factor3d2d.f90 \
          fgyint.f90 \
          fluff_burial.f90 \
          getfixfac.f90 \
+         initsedtra.f90 \
          osmom.f90 \
          sand_mud.f90 \
          shld.f90 \

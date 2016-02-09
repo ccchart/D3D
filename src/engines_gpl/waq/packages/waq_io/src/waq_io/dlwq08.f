@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -68,6 +68,7 @@
       use dlwq_data      ! for definition and storage of data
       use rd_token
       use timers         ! performance timers
+      use string_module  ! string manipulation tools
       implicit none
 
 !     Arguments           :
@@ -99,6 +100,7 @@
       integer  (  4)  ierr2                         ! local error indicator
       integer  (  4)  itype                         ! 0 = all, 1 = string, 2 = integer, 3 = real
       character(255)  cdummy                        ! workspace for reading
+      character(  4)  cext                          ! inital conditions file extention
       integer  (  4)  icopt1                        ! first file option (ASCII/Binary/external etc)
       integer  (  4)  icopt2                        ! constants with or without defaults
       logical         ldummy                        ! dummy variable
@@ -124,7 +126,8 @@
 
       if ( gettoken( cdummy, icopt1, itype, ierr2 ) .gt. 0 ) goto 10
       if ( itype .eq. STRING ) then
-         if ( cdummy .eq. 'MASS/M2' ) then
+         if ( cdummy .eq. 'mass/m2' .or.
+     &        cdummy .eq. 'MASS/M2' ) then
             masspm2 = .true.
             write ( lunut, 2030 )
             if ( gettoken( cdummy, icopt1, itype, ierr2 ) .gt. 0 ) goto 10
@@ -164,11 +167,15 @@
       if ( ierr2  .gt. 0 ) goto 10
       if ( icopt1 .eq. BINARY ) then
          ip = scan ( lchar(18), '.', back = .true. )              ! look for the file type
-         if ( lchar(18)(ip:ip+3) .eq. '.map' ) then               ! if .map, it is a map-file
+         cext = lchar(18)(ip:ip+3)
+         call str_lower(cext)
+         if ( cext .eq. '.map' .or. cext .eq. '.rmp' .or.
+     &        cext .eq. '.rm2' ) then                             ! if .rmp or .rm2 (Sobek) or .map, it is a map-file
             call dhopnf  ( lun(18) , lchar(18) , 18    , 2     , ierr2 )
             read ( lun(18) ) cdummy(1:160)                        ! read title of simulation
             close ( lun(18) )
-            if ( cdummy(114:120) .eq. 'mass/m2' ) then            !  at end of third line ...
+            if ( cdummy(114:120) .eq. 'mass/m2' .or.
+     &           cdummy(114:120) .eq. 'MASS/M2' ) then            !  at end of third line ...
                write ( lunut , 2070 )
             else if ( masspm2 ) then
                write ( lunut , 2080 )

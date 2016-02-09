@@ -1,7 +1,7 @@
 subroutine gdp_dealloc(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,7 +41,7 @@ subroutine gdp_dealloc(gdp)
     use bedcomposition_module
     use message_module
     use flow_tables
-    use ec_module
+    !use ec_module
     use globaldata
     use dfparall
     !
@@ -61,7 +61,8 @@ subroutine gdp_dealloc(gdp)
     integer :: i
     integer :: istat
     !
-    integer :: locallsedtot
+    type(dfparalltype) , pointer :: partp
+    !
     integer :: localnofou
     logical :: localrhum_file
     logical :: localtair_file
@@ -79,16 +80,9 @@ subroutine gdp_dealloc(gdp)
 !! executable statements -------------------------------------------------------
 !
     !
-    ! copy 
-    !    lsedtot
-    !    maxpolyp 
-    !    scour
-    !    lftrto
-    !    etc.
-    ! to local parameters, because their gdp entries will be deallocated
-    ! before they are used to deallocate their related structures
+    ! copy a number of logical flags to local parameters, because their gdp entries
+    ! will be deallocated before they are used to deallocate their related structures
     !
-    locallsedtot     = gdp%d%lsedtot
     localnofou       = gdp%d%nofou
     localrhum_file   = gdp%gdheat%rhum_file
     localtair_file   = gdp%gdheat%tair_file
@@ -102,12 +96,11 @@ subroutine gdp_dealloc(gdp)
     localbubble      = gdp%gdprocs%bubble
     localscour       = gdp%gdscour%scour
     !
-    call nefisio_dealloc(gdp)
+    call iofiles_dealloc(gdp)
     !
     call clradv2d(istat, gdp)
     deallocate (gdp%gdadv2d  , STAT = istat)
     deallocate (gdp%gdaddress, STAT = istat)
-    deallocate (gdp%gdautok  , STAT = istat)
     if (localbubble) then
        if (associated(gdp%gdbubble%cpdis)) deallocate (gdp%gdbubble%cpdis, STAT = istat)
        if (associated(gdp%gdbubble%hsink)) deallocate (gdp%gdbubble%hsink, STAT = istat)
@@ -145,23 +138,29 @@ subroutine gdp_dealloc(gdp)
     deallocate (gdp%gdfmtbct, STAT = istat)
     deallocate (gdp%gdfmtdis, STAT = istat)
     if (localnofou > 0) then
-       if (associated(gdp%gdfourier%fconno )) deallocate (gdp%gdfourier%fconno   , STAT = istat)
-       if (associated(gdp%gdfourier%flayno )) deallocate (gdp%gdfourier%flayno   , STAT = istat)
-       if (associated(gdp%gdfourier%fnumcy )) deallocate (gdp%gdfourier%fnumcy   , STAT = istat)
-       if (associated(gdp%gdfourier%ftmsto )) deallocate (gdp%gdfourier%ftmsto   , STAT = istat)
-       if (associated(gdp%gdfourier%ftmstr )) deallocate (gdp%gdfourier%ftmstr   , STAT = istat)
-       if (associated(gdp%gdfourier%ifoupt )) deallocate (gdp%gdfourier%ifoupt   , STAT = istat)
-       if (associated(gdp%gdfourier%iofset )) deallocate (gdp%gdfourier%iofset   , STAT = istat)
-       if (associated(gdp%gdfourier%fknfac )) deallocate (gdp%gdfourier%fknfac   , STAT = istat)
-       if (associated(gdp%gdfourier%foucomp)) deallocate (gdp%gdfourier%foucomp  , STAT = istat)
-       if (associated(gdp%gdfourier%foufas )) deallocate (gdp%gdfourier%foufas   , STAT = istat)
-       if (associated(gdp%gdfourier%fousma )) deallocate (gdp%gdfourier%fousma   , STAT = istat)
-       if (associated(gdp%gdfourier%fousmb )) deallocate (gdp%gdfourier%fousmb   , STAT = istat)
-       if (associated(gdp%gdfourier%fouvec )) deallocate (gdp%gdfourier%fouvec   , STAT = istat)
-       if (associated(gdp%gdfourier%fv0pu  )) deallocate (gdp%gdfourier%fv0pu    , STAT = istat)
-       if (associated(gdp%gdfourier%fouelp )) deallocate (gdp%gdfourier%fouelp   , STAT = istat)
-       if (associated(gdp%gdfourier%founam )) deallocate (gdp%gdfourier%founam   , STAT = istat)
-       if (associated(gdp%gdfourier%foutyp )) deallocate (gdp%gdfourier%foutyp   , STAT = istat)
+       if (associated(gdp%gdfourier%fconno       )) deallocate (gdp%gdfourier%fconno       , STAT = istat)
+       if (associated(gdp%gdfourier%flayno       )) deallocate (gdp%gdfourier%flayno       , STAT = istat)
+       if (associated(gdp%gdfourier%fnumcy       )) deallocate (gdp%gdfourier%fnumcy       , STAT = istat)
+       if (associated(gdp%gdfourier%ftmsto       )) deallocate (gdp%gdfourier%ftmsto       , STAT = istat)
+       if (associated(gdp%gdfourier%ftmstr       )) deallocate (gdp%gdfourier%ftmstr       , STAT = istat)
+       if (associated(gdp%gdfourier%ifoupt       )) deallocate (gdp%gdfourier%ifoupt       , STAT = istat)
+       if (associated(gdp%gdfourier%iofset       )) deallocate (gdp%gdfourier%iofset       , STAT = istat)
+       if (associated(gdp%gdfourier%foumask      )) deallocate (gdp%gdfourier%foumask      , STAT = istat)
+       if (associated(gdp%gdfourier%fknfac       )) deallocate (gdp%gdfourier%fknfac       , STAT = istat)
+       if (associated(gdp%gdfourier%foucomp      )) deallocate (gdp%gdfourier%foucomp      , STAT = istat)
+       if (associated(gdp%gdfourier%foufas       )) deallocate (gdp%gdfourier%foufas       , STAT = istat)
+       if (associated(gdp%gdfourier%fousma       )) deallocate (gdp%gdfourier%fousma       , STAT = istat)
+       if (associated(gdp%gdfourier%fousmb       )) deallocate (gdp%gdfourier%fousmb       , STAT = istat)
+       if (associated(gdp%gdfourier%fouvec       )) deallocate (gdp%gdfourier%fouvec       , STAT = istat)
+       if (associated(gdp%gdfourier%fv0pu        )) deallocate (gdp%gdfourier%fv0pu        , STAT = istat)
+       if (associated(gdp%gdfourier%fouelp       )) deallocate (gdp%gdfourier%fouelp       , STAT = istat)
+       if (associated(gdp%gdfourier%founam       )) deallocate (gdp%gdfourier%founam       , STAT = istat)
+       if (associated(gdp%gdfourier%fouvarnam    )) deallocate (gdp%gdfourier%fouvarnam    , STAT = istat)
+       if (associated(gdp%gdfourier%fouvarnamlong)) deallocate (gdp%gdfourier%fouvarnamlong, STAT = istat)
+       if (associated(gdp%gdfourier%fouvarunit   )) deallocate (gdp%gdfourier%fouvarunit   , STAT = istat)
+       if (associated(gdp%gdfourier%foutyp       )) deallocate (gdp%gdfourier%foutyp       , STAT = istat)
+       !
+       if (associated(gdp%gdpostpr%kfst0)) deallocate (gdp%gdpostpr%kfst0, STAT = istat)
     endif
     deallocate (gdp%gdfourier, STAT = istat)
     if (associated(gdp%gdheat%secchi)) deallocate (gdp%gdheat%secchi, STAT = istat)
@@ -180,7 +179,6 @@ subroutine gdp_dealloc(gdp)
     if (associated(gdp%gdheat%flbcktemp)) deallocate (gdp%gdheat%flbcktemp, STAT = istat)
     deallocate (gdp%gdheat    , STAT = istat)
     deallocate (gdp%gdhtur2d  , STAT = istat)
-    deallocate (gdp%gdhwid    , STAT = istat)
     deallocate (gdp%gdinout   , STAT = istat)
     deallocate (gdp%gdinttim  , STAT = istat)
     deallocate (gdp%gdiwearr  , STAT = istat)
@@ -200,7 +198,8 @@ subroutine gdp_dealloc(gdp)
     deallocate (gdp%gdrdpara  , STAT = istat)
     deallocate (gdp%gdrivpro  , STAT = istat)
     deallocate (gdp%gdsobek   , STAT = istat)
-    if (associated(gdp%gdstations%line_orig  )) deallocate(gdp%gdstations%line_orig  , STAT = istat)
+    if (associated(gdp%gdstations%sta_orgline)) deallocate(gdp%gdstations%sta_orgline, STAT = istat)
+    if (associated(gdp%gdstations%tra_orgline)) deallocate(gdp%gdstations%tra_orgline, STAT = istat)
     if (associated(gdp%gdstations%stat_type  )) deallocate(gdp%gdstations%stat_type  , STAT = istat)
     if (associated(gdp%gdstations%stat_drogue)) deallocate(gdp%gdstations%stat_drogue, STAT = istat)
     if (associated(gdp%gdstations%stat_table )) deallocate(gdp%gdstations%stat_table , STAT = istat)
@@ -271,11 +270,14 @@ subroutine gdp_dealloc(gdp)
     call clrtrapar(istat, gdp%gdtrapar)
     istat = clrmorlyr(gdp%gdmorlyr)
     deallocate (gdp%gdmorlyr , STAT = istat)
-    call clrdredge(istat, gdp)
-    call cleartable(gdp%gddredge%tseriesfile)
+    call clrdredge(istat, gdp%gddredge)
     deallocate (gdp%gddredge , STAT = istat)
     deallocate (gdp%gdtrapar , STAT = istat)
     deallocate (gdp%gderosed , STAT = istat)
+    if (associated(gdp%gdsdu%sdu_t0))     deallocate (gdp%gdsdu%sdu_t0    , STAT = istat)
+    if (associated(gdp%gdsdu%sdu_tp))     deallocate (gdp%gdsdu%sdu_tp    , STAT = istat)
+    if (associated(gdp%gdsdu%sdu_tn))     deallocate (gdp%gdsdu%sdu_tn    , STAT = istat)
+    deallocate (gdp%gdsdu    , STAT = istat)    
     deallocate (gdp%gdsedpar , STAT = istat)
     deallocate (gdp%gdmorpar , STAT = istat)
     call clrmassbal(istat, gdp)
@@ -294,10 +296,11 @@ subroutine gdp_dealloc(gdp)
     if (associated(gdp%gdpostpr%shlay))     deallocate (gdp%gdpostpr%shlay    , STAT = istat)
     deallocate (gdp%gdpostpr , STAT = istat)
     deallocate (gdp%gdrestart, STAT = istat)
-    if (gdp%gdrtc%rtcmod == dataFromFLOWToRTC) then
+    if (gdp%gdrtc%rtcmod /= noRTC) then
        if (associated(gdp%gdrtc%mnrtcsta))   deallocate (gdp%gdrtc%mnrtcsta  , STAT = istat)
        if (associated(gdp%gdrtc%namrtcsta))  deallocate (gdp%gdrtc%namrtcsta , STAT = istat)
        if (associated(gdp%gdrtc%zrtcsta))    deallocate (gdp%gdrtc%zrtcsta   , STAT = istat)
+       if (associated(gdp%gdrtc%s1rtcsta))   deallocate (gdp%gdrtc%s1rtcsta  , STAT = istat)
     endif
     deallocate (gdp%gdrtc, STAT = istat)
     if (localscour) then
@@ -329,15 +332,29 @@ subroutine gdp_dealloc(gdp)
     deallocate (gdp%runid   , STAT = istat)
     !
     if (parll) then
-       if (associated(gdp%gdparall%iblkad))       deallocate (gdp%gdparall%iblkad      , STAT = istat)
-       if (associated(gdp%gdparall%iweig ))       deallocate (gdp%gdparall%iweig       , STAT = istat)
-       if (associated(gdp%gdparall%order_tra ))   deallocate (gdp%gdparall%order_tra   , STAT = istat)
-       if (associated(gdp%gdparall%order_sta ))   deallocate (gdp%gdparall%order_sta   , STAT = istat)
-       if (associated(gdp%gdparall%mnit_global )) deallocate (gdp%gdparall%mnit_global , STAT = istat)
+        do i = 1,2
+            if (i==1) then
+                partp => gdp%gdparall
+            else
+                partp => gdp%iopartit
+            endif
+            !
+            if (associated(partp%iblkad))       deallocate (partp%iblkad      , STAT = istat)
+            if (associated(partp%iweig ))       deallocate (partp%iweig       , STAT = istat)
+            if (associated(partp%order_tra ))   deallocate (partp%order_tra   , STAT = istat)
+            if (associated(partp%order_sta ))   deallocate (partp%order_sta   , STAT = istat)
+            if (associated(partp%mnit_global )) deallocate (partp%mnit_global , STAT = istat)
+            if (associated(partp%iarrc       )) deallocate (partp%iarrc       , STAT = istat)
+            if (associated(partp%nf          )) deallocate (partp%nf          , STAT = istat)
+            if (associated(partp%nl          )) deallocate (partp%nl          , STAT = istat)
+            if (associated(partp%mf          )) deallocate (partp%mf          , STAT = istat)
+            if (associated(partp%ml          )) deallocate (partp%ml          , STAT = istat)
+       enddo
     endif
     deallocate (gdp%gdparall , STAT = istat)
+    deallocate (gdp%iopartit , STAT = istat)
     !
-    success = free(gdp%gd_ECHandle)
+    !success = free(gdp%gd_ECHandle)
     deallocate (gdp%arch     , STAT = istat)
     deallocate (gdp%errorcode, STAT = istat)
     !

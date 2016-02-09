@@ -4,7 +4,7 @@ function version=read_identification(sourcedir,file)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -62,6 +62,14 @@ end
 %
 [a,b] = strtok(baseversion);
 version = sprintf('%s.%s%s',a,revstring,b);
+%
+% Append 32 or 64 bit flag
+%
+if strncmp(fliplr(computer),'46',2)
+    version=[version ' (64bit)'];
+else
+    version=[version ' (32bit)'];
+end
 %
 % Done.
 %

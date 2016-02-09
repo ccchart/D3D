@@ -2,7 +2,7 @@ subroutine inieva(runid     ,cyclic    ,timnow    ,evaint    ,j         , &
                 & nmmaxj    ,nmmax     ,evap      ,precip    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine inieva(runid     ,cyclic    ,timnow    ,evaint    ,j         , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -110,7 +111,7 @@ subroutine inieva(runid     ,cyclic    ,timnow    ,evaint    ,j         , &
     !
     ! define length of RUNID
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     ! Time dependent rainfall / evaporation
     ! Only if KEVA > 0 FLEVA = .true. (See READMD)

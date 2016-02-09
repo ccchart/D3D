@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,16 +21,16 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C  *********************************************************************
-C  *     SUBROUTINE VIDEO TO CHANGE CHARATERISTICS OF DISPLAY          *
-C  *********************************************************************
-C
+!
+!  *********************************************************************
+!  *     SUBROUTINE VIDEO TO CHANGE CHARATERISTICS OF DISPLAY          *
+!  *********************************************************************
+!
       SUBROUTINE VIDEO (CODE)
-C
+!
       INTEGER CODE
-C
-C     Dummy unix version
-C
+!
+!     Dummy unix version
+!
       RETURN
       END

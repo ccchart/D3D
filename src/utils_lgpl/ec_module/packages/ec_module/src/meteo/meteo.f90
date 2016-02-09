@@ -1,7 +1,7 @@
 module meteo
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -33,6 +33,7 @@ module meteo
 ! uniform                     : Delft3D-FLOW format: time, uniform windspeed, direction and pressure
 ! meteo_on_computational_grid : Space varying wind and pressure on the computational grid: time and fields of patm, windu, windv
 !                               on the computational (m,n) grid
+! field_on_computational_grid : same as meteo_on_computational_grid but more general
 ! meteo_on_equidistant_grid   : time and fields on on equidistant grid
 ! meteo_on_spiderweb_grid     : time and fields of patm, windspeed, wind_from_direction op spiderweb grid
 ! meteo_on_curvilinear_grid   : time and fields on own curvilinear grid
@@ -221,6 +222,9 @@ function addmeteoitem(runid, inputfile, gridsferic, mmax, nmax) result(success)
            meteoitem%filetype = 4
         case ('meteo_on_curvilinear_grid')
            meteoitem%filetype = 5
+        case ('field_on_computational_grid')
+           meteoitem%meteotype = 'meteo_on_computational_grid'
+           meteoitem%filetype = 2
     end select
     !
     kxr = 3
@@ -233,7 +237,7 @@ function addmeteoitem(runid, inputfile, gridsferic, mmax, nmax) result(success)
     case ( meteo_on_computational_grid )
        mxr     = nmax
        nxr     = mmax
-       kxr     = 3
+       kxr     = meteoitem%n_quantity
     case ( meteo_on_equidistant_grid )
        mxr = meteoitem%n_cols
        nxr = meteoitem%n_rows
@@ -403,11 +407,15 @@ function meteoupdateitem(meteoitem, flow_itdate, flow_tzone, tim) result(success
    !
    ! locals
    !
+   integer                             :: m
    integer                             :: mx
+   integer                             :: n
    integer                             :: nx
    integer                             :: kx
+   integer                             :: k
    integer                             :: minp
    integer                             :: it1
+   logical                             :: all_nodata
    real(fp)                            :: tread
    real(hp), dimension(:),     pointer :: uz     ! 1-dim array
    real(hp), dimension(:,:),   pointer :: vz     ! 2-dim array
@@ -481,6 +489,20 @@ function meteoupdateitem(meteoitem, flow_itdate, flow_tzone, tim) result(success
             !
             wz      => meteoitem%field(it1)%arr3d
             success =  read_spv_block(minp, meteoitem, wz, mx, nx, kx)
+            ! 
+            do k = 1,kx
+               !
+               ! Conversion of pressure to Pa (N/m2). If already Pa, p_conv = 1.0_hp 
+               !
+               if (meteoitem%quantities(k) == 'air_pressure' .or. meteoitem%quantities(k) == 'patm'.or. meteoitem%quantities(k) == 'p_drop') then
+                  do m = 1, size(wz,2)
+                     do n = 1, size(wz,1)
+                        wz(n,m,k) = wz(n,m,k) * meteoitem%p_conv
+                     enddo
+                  enddo
+               endif 
+            end do    
+            !
             if (.not. success) then
                return
             endif
@@ -504,12 +526,13 @@ function meteoupdateitem(meteoitem, flow_itdate, flow_tzone, tim) result(success
          case ( meteo_on_spiderweb_grid )
             !
             wz      => meteoitem%field(it1)%arr3d
-            success =  read_spiderweb_block(minp, wz, mx, nx, meteoitem, x_spw_eye, y_spw_eye)
+            success =  read_spiderweb_block(minp, wz, mx, nx, meteoitem, x_spw_eye, y_spw_eye, all_nodata)
             if (.not. success) then
                return
             endif
-            meteoitem%field(it1)%x_spw_eye = x_spw_eye
-            meteoitem%field(it1)%y_spw_eye = y_spw_eye            
+            meteoitem%field(it1)%x_spw_eye  = x_spw_eye
+            meteoitem%field(it1)%y_spw_eye  = y_spw_eye            
+            meteoitem%field(it1)%all_nodata = all_nodata
             !
       end select
       !
@@ -549,19 +572,31 @@ function setmeteodefault(quantity, gapres) result(success)
 !
 ! Global variables
 !
-   real(fp)              , intent(in)  :: gapres    ! Global atmospheric pressure specified and/or read from 
-                                                    ! MD-file in rdproc.f90 for Delft3D-FLOW
+   real(fp)              , intent(in)  :: gapres    ! Global atmospheric pressure specified and/or read from MD-file in rdproc.f90 for Delft3D-FLOW
    character(*)          , intent(in)  :: quantity
 !
-
 ! Local variables
 !
+   integer :: i
+   integer :: j
 !
 !! executable statements -------------------------------------------------------
 !
    if (quantity == 'patm') then
       patm_default = gapres
       success = .true.
+      !
+      ! patm_default is copied to meteoitem%pref when pref_option=use_from_kernel
+      ! Normally, setmeteodefault('patm', value) is called after meteoitem%pref has been set
+      ! This means that pref has to be reset in all meteoitemscase using this flag
+      !
+      do i = 1, num_meteopointers
+         do j = 1, meteopointers(i)%pntr%nummeteoitems
+             if (meteopointers(i)%pntr%item(j)%ptr%pref_option == opt_use_from_kernel) then
+                meteopointers(i)%pntr%item(j)%ptr%pref = patm_default
+             endif
+         enddo
+      enddo
    else
       write(meteomessage,'(2a)') 'Setmeteodefault: Incorrect quantity found: ',trim(quantity)
       success = .false.
@@ -571,7 +606,7 @@ end function setmeteodefault
 !
 !
 !===============================================================================
-function getmeteotypes(runid, meteotypes) result(success)
+function getmeteotypes(runid, meteotypes, mtdim) result(success)
    use m_alloc
    implicit none
 !
@@ -581,8 +616,9 @@ function getmeteotypes(runid, meteotypes) result(success)
 !
 ! Global variables
 !
-   character(*) , intent(in)  :: runid
+   character(*)                         , intent(in)   :: runid
    character(256), dimension(:), pointer, intent(out)  :: meteotypes
+   integer, optional                                   :: mtdim
 !
 ! Local variables
 !
@@ -603,15 +639,19 @@ function getmeteotypes(runid, meteotypes) result(success)
       success = .false.
       return
    endif
-   ierr = 0
-   do i = 1, meteo%nummeteoitems
-      curtype = meteo%item(i)%ptr%meteotype
-      newtype = .true.
+   if (present(mtdim)) then
+      dimmeteotypes = mtdim
+   else
       if (associated(meteotypes)) then
          dimmeteotypes = size(meteotypes)
       else
          dimmeteotypes = 0
       endif
+   endif
+   ierr = 0
+   do i = 1, meteo%nummeteoitems
+      curtype = meteo%item(i)%ptr%meteotype
+      newtype = .true.
       do j = 1, dimmeteotypes
          if (meteotypes(j) == curtype) then
             newtype = .false.
@@ -619,12 +659,16 @@ function getmeteotypes(runid, meteotypes) result(success)
          endif
       enddo
       if (newtype) then
-         call reallocP(meteotypes, size(meteotypes)+1, stat=ierr, keepExisting=.true.)
-         meteotypes(size(meteotypes)) = curtype
+         dimmeteotypes = dimmeteotypes + 1
+         call reallocP(meteotypes, dimmeteotypes, stat=ierr, keepExisting=.true.)
+         meteotypes(dimmeteotypes) = curtype
       endif
    enddo
    if (ierr /= 0) then
       success = .false.
+   endif
+   if (present(mtdim)) then
+      mtdim = dimmeteotypes
    endif
 end function getmeteotypes
 !
@@ -686,6 +730,9 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
    integer                               :: nv
    integer                               :: iyx
    integer                               :: iyy
+   logical                               :: nodata0
+   logical                               :: nodata1
+   real(fp)                              :: alpha
    real(fp)                              :: unival
    real(fp)                              :: t1
    real(fp)                              :: t0
@@ -851,8 +898,10 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
                   k = 2
                case ( 'patm'  )
                   k = 3
+               case ( 'sdu' )
+                  k = 1
                case default
-                  meteomessage = 'meteo_on_computational_grid can only be used for windu, windv and patm'
+                  meteomessage = 'field_on_computational_grid can only be used for windu, windv and patm or uplift_rate_reference_elevation'
                   success = .false.
                   return
                end select
@@ -1054,15 +1103,43 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
                   !
                   x01_eye =  meteoitem%field(it1)%x_spw_eye
                   y01_eye =  meteoitem%field(it1)%y_spw_eye
+                  nodata1 =  meteoitem%field(it1)%all_nodata
                   dx1     =  meteoitem%field(it1)%dx
                   dy1     =  meteoitem%field(it1)%dy
+                  !
                   x00_eye =  meteoitem%field(it0)%x_spw_eye
                   y00_eye =  meteoitem%field(it0)%y_spw_eye
+                  nodata0 =  meteoitem%field(it0)%all_nodata
                   !
                   ! Current position of cyclone eye
                   !
-                  x01   = a0*x00_eye + a1*x01_eye
-                  y01   = a0*y00_eye + a1*y01_eye
+                  if (nodata0 .and. x00_eye == nodata_default) then
+                     x01   = x01_eye
+                     y01   = y01_eye
+                  elseif (nodata1 .and. x01_eye == nodata_default) then
+                     x01   = x00_eye
+                     y01   = y00_eye
+                  else
+                     x01   = a0*x00_eye + a1*x01_eye
+                     y01   = a0*y00_eye + a1*y01_eye
+                  endif
+                  !
+                  if (nodata0 .and. nodata1) then
+                     alpha = 0.0_fp
+                  elseif (nodata0) then
+                     alpha = a1
+                     a1 = 1.0_fp
+                     a0 = 0.0_fp
+                  elseif (nodata1) then
+                     alpha = a0
+                     a0 = 1.0_fp
+                     a1 = 0.0_fp
+                  else
+                     alpha = 1.0_fp
+                  endif
+                  !
+                  ! Radius of cyclone
+                  !
                   rcycl = dy1 * real((nx-1),fp)
                   !
                   ! Factor used for merging spiderweb and background winds
@@ -1091,6 +1168,9 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
                            !
                            call distance2(msferic, x, y, x01, y01, yy)
                            if (yy > rcycl) cycle
+                           !
+                           ! We are located within the radius of the cyclone
+                           !
                            if (.not. (dy == 0.0_fp .and. dx == 0.0_fp)) then
                               xx = atan2(dy, dx)
                               !
@@ -1106,8 +1186,8 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
                            !
                            ! Spatial merge function
                            !
-                           fm = fm0*yy/rcycl - fm0 + 1.0_fp
-                           spw%spwf(n, m) = max(0.0_fp, min(1.0_fp,fm))
+                           fm = fm0*(1.0_fp - yy/rcycl)
+                           spw%spwf(n, m) = 1.0_fp - (max(0.0_fp, min(1.0_fp,fm)))*alpha
                            x1  = xx / dx1
                            y1  = yy / dy1
                            i1  =  1 + int(x1)
@@ -1192,7 +1272,12 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
          do m = 1,meteo%flowgrid%mmax
             do n = 1,meteo%flowgrid%nmax
                if (meteo%flowgrid%kcs(n,m) /= 0) then
-                  qarray(n,m) = qarray(n,m) - (1.0_fp-spw%spwf(n,m))*spw%spwarr(3,n,m)
+                  if (meteoitem%pref_option == opt_not_defined) then
+                     qarray(n,m) = qarray(n,m) - (1.0_fp-spw%spwf(n,m))*spw%spwarr(3,n,m)
+                  else
+                     qarray(n,m) = spw%spwf(n,m)*qarray(n,m) &
+                                 & + (1.0_fp-spw%spwf(n,m))*(meteoitem%pref - spw%spwarr(3,n,m))
+                  endif
                endif
             enddo
          enddo

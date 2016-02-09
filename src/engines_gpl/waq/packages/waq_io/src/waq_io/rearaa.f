@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -215,7 +215,8 @@
 
 !     Error handling
 
-   20 ierr = ierr+1
+   20 write ( lunut , 2500 )
+      ierr = ierr+1
    30 if (timon) call timstop( ithndl )
       return
 
@@ -237,4 +238,5 @@
  2390 format (  /,' ERROR. allocating memory for transect exch.:',I8)
  2400 format (  /,' ERROR reallocating memory for transect exch.:',I8)
  2410 format (  /,' ERROR. observation ID not unique:',A)
+ 2500 format (  /,' ERROR. while reading transects' )
       end

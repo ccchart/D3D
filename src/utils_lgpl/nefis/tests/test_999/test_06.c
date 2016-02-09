@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -121,7 +121,7 @@ int main()
   strcpy( cel_name    ,"cel_name_1");
   if (error == 0 ) {
     printf(" Define first cel     \n");
-    error  = Defcel( &fds, cel_name, cel_num_dim , elm_names);
+    error  = Defcel2( &fds, cel_name, cel_num_dim , elm_names);
   }
   if (error!=0) {error = Neferr( 1, error_string);}
 

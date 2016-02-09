@@ -8,7 +8,7 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
                 & gvv       ,qxk       ,qyk       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -58,12 +58,15 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
-    integer        , pointer :: lundia
-    real(fp)       , pointer :: dryflc
-    logical        , pointer :: temp
-    logical        , pointer :: zmodel
-    logical        , pointer :: kfuv_from_restart
-    character(256) , pointer :: restid
+    integer              , pointer :: lundia
+    integer, dimension(:), pointer :: kfst0
+    real(fp)             , pointer :: dryflc
+    logical              , pointer :: temp
+    logical              , pointer :: zmodel
+    logical              , pointer :: kfuv_from_restart
+    character(256)       , pointer :: restid
+    integer              , pointer :: nofou
+    integer, dimension(:), pointer :: foumask
 !
 ! Global variables
 !
@@ -117,22 +120,20 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
     integer                             :: nmd         ! Help var. nm-icx
     integer                             :: nm_pos      ! indicating the array to be exchanged has nm index at the 2nd place, e.g., dbodsd(lsedtot,nm)
     integer , dimension(:), allocatable :: mask        ! temporary array for masking flow arrays
-    real(fp)                            :: dzfound     ! Thinnest layer found in the initial grid distribution
-    real(fp)                            :: dzin        ! Help var. in determining the thinnest layer
-    real(fp)                            :: dzmin_trsh  ! Minimum layer thickness (0.1*dryflc) as threshold
-    real(fp)                            :: dzmin_input ! Minimum layer thickness from initial input
     real(fp)                            :: hucres
     real(fp)                            :: hvcres
-    logical                             :: found
 !
 !! executable statements -------------------------------------------------------
 !
     lundia             => gdp%gdinout%lundia
+    kfst0              => gdp%gdpostpr%kfst0
     temp               => gdp%gdprocs%temp
     zmodel             => gdp%gdprocs%zmodel
     dryflc             => gdp%gdnumeco%dryflc
     kfuv_from_restart  => gdp%gdrestart%kfuv_from_restart
     restid             => gdp%gdrestart%restid
+    nofou              => gdp%d%nofou
+    foumask            => gdp%gdfourier%foumask
     !
     nm_pos             =  1
     !
@@ -247,28 +248,6 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
                 endif
              endif
           enddo
-       endif
-       !
-       ! Check whether the minimum layer thickness (0.1*Dryflc) is smaller 
-       ! than the thinnest layer defined in the MD-File
-       !
-       dzmin_trsh  = 0.1_fp*dryflc
-       dzmin_input = minval(thick)
-       dzfound     = dryflc
-       found       = .false.
-       do nm = 1, nmmax
-          if (kfs(nm) == 1) then
-             dzin = dzmin_input*max(0.0_fp, (real(dps(nm))+s1(nm)))
-             if (dzmin_trsh > dzin) then
-                found  = .true.
-                dzfound = min(dzfound, dzin)
-             endif
-          endif
-       enddo
-       if (found) then
-          call prterr(lundia, 'U190',  'Minimum layer thickness (0.1*Dryflc) is too large for the vertical')
-          write (lundia, '(a,f10.4,a)')'            grid layering. Decrease Dryflc to smaller than ', 10.0_fp*dzfound, ' m,'
-          write (lundia, '(a)')        '            to avoid problems with the vertical layering.'
        endif
        !
        ! Delft3D-16494: NOT NECESSARY? Could the loop above for determining kfs also be done with kcs/=0?
@@ -410,6 +389,11 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
           nmd = nm - icx
           ndm = nm - icy
           kfs(nm) = max(kfu(nm), kfu(nmd), kfv(nm), kfv(ndm))
+          if (nofou > 0) then
+             if (maxval(foumask) == 1) then
+                kfst0(nm) = kfs(nm)
+             endif
+          endif
        endif
     enddo
     !

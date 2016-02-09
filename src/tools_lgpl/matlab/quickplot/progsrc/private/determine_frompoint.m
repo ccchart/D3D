@@ -3,7 +3,7 @@ function DistanceState = determine_frompoint(DistanceState,point)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -79,7 +79,7 @@ if point>0
     curdist = distfromlast(point);
 end
 %
-while ~isempty(ds) & curdist==0
+while ~isempty(ds) && curdist==0
     %
     [dd,j]=min(ds);
     ilast=inext(j);
@@ -93,7 +93,7 @@ while ~isempty(ds) & curdist==0
     done=logical(ones(N2,1));
     for j2=1:N2
         inext2j2=inext2(j2);
-        if ~distfromlast(inext2j2)
+        if distfromlast(inext2j2)==0
             % check for shorter distances.
             %[alreadyinlist,jj]=max(inext==inext2j2);
             %if alreadyinlist

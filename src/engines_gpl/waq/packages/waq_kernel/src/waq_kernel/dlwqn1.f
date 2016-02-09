@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -157,6 +157,22 @@
           IFFLAG  = 0
           IAFLAG  = 0
           IBFLAG  = 0
+
+!     Dummy variables - used in DLWQD
+          ITIMEL  = ITIME
+          lleng   = 0
+          ioptzb  = 0 
+          nopred  = 6
+          NOWARN  = 0
+          tol     = 0.0D0
+          forester = .FALSE.
+          updatr = .FALSE.
+
+          nosss  = noseg + nseg2
+          noqtt  = noq   + noq4
+          NOQT   = NOQ + NOQ4
+          inwtyp = intyp + nobnd
+
           IF ( MOD(INTOPT,16) .GE. 8 ) IBFLAG = 1
           LDUMMY = .FALSE.
           IF ( NDSPN .EQ. 0 ) THEN
@@ -181,13 +197,13 @@
           CALL MOVE   ( A(IVOL ), A(IVOL2) , NOSSS   )
 
       endif
-C
-C     Save/restore the local persistent variables,
-C     if the computation is split up in steps
-C
-C     Note: the handle to the timer (ithandl) needs to be
-C     properly initialised and restored
-C
+!
+!     Save/restore the local persistent variables,
+!     if the computation is split up in steps
+!
+!     Note: the handle to the timer (ithandl) needs to be
+!     properly initialised and restored
+!
       IF ( ACTION == ACTION_INITIALISATION ) THEN
           if ( timon ) call timstrt ( "dlwqn1", ithandl )
           INCLUDE 'dlwqdata_save.inc'
@@ -199,10 +215,6 @@ C
           INCLUDE 'dlwqdata_restore.inc'
           call apply_operations( dlwqd )
       ENDIF
-
-      nosss  = noseg + nseg2
-      noqtt  = noq   + noq4
-      inwtyp = intyp + nobnd
 
       if ( timon ) call timstrt ( "dlwqn1", ithandl )
 
@@ -325,7 +337,7 @@ C
      +              C(IBTYP), J(INTYP), C(ICNAM), noqtt   , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  )
+     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
          call timer_stop(timer_output)
 
 !          zero cummulative array's

@@ -1,7 +1,7 @@
 subroutine delnef(filnam, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -29,19 +29,22 @@ subroutine delnef(filnam, gdp)
 !  $HeadURL$
 !!--description-----------------------------------------------------------------
 !
-!    Function: Delete DELFT3D-NEFIS files if exists
-! Method used:
+!    Function: Delete NEFIS and NetCDF output files if they exist
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
-    use dfparall
+    use string_module
     !
     implicit none
     !
     type(globdat),target :: gdp
+    !
+    ! The following list of pointer parameters is used to point inside the gdp structure
+    !
+    integer                             , pointer :: lundia
 !
 ! Global variables
 !
@@ -57,27 +60,43 @@ subroutine delnef(filnam, gdp)
 !
 !! executable statements -------------------------------------------------------
 !
-    if (parll .and. (inode /= master)) return
+    lundia              => gdp%gdinout%lundia
     !
     locfnm = ' '
     locfnm = filnam
-    call noextspaces(locfnm    ,ind       )
+    call remove_leading_spaces(locfnm    ,ind       )
     !
-    ! test files existence
-    !
-    inquire (file = locfnm(:ind) // '.def', exist = exists)
-    if (exists) then
-       luntmp = newlun(gdp)
-       open (luntmp, file = locfnm(:ind) // '.def')
-       close (luntmp, status = 'delete')
-    endif
-    !
-    ! test files existence
-    !
-    inquire (file = locfnm(:ind) // '.dat', exist = exists)
-    if (exists) then
-       luntmp = newlun(gdp)
-       open (luntmp, file = locfnm(:ind) // '.dat')
-       close (luntmp, status = 'delete')
+    if (locfnm(ind-2:ind) == '.nc') then
+       !
+       ! test files existence - NetCDF version
+       !
+       inquire (file = locfnm(:ind), exist = exists)
+       if (exists) then
+          call prterr(lundia,'G051','Removing old output file: '//locfnm(:ind))
+          luntmp = newlun(gdp)
+          open (luntmp, file = locfnm(:ind))
+          close (luntmp, status = 'delete')
+       endif
+    else
+       !
+       ! test files existence - NEFIS DAT file
+       !
+       inquire (file = locfnm(:ind) // '.dat', exist = exists)
+       if (exists) then
+          call prterr(lundia,'G051','Removing old output file: '//locfnm(:ind)// '.dat')
+          luntmp = newlun(gdp)
+          open (luntmp, file = locfnm(:ind) // '.dat')
+          close (luntmp, status = 'delete')
+       endif
+       !
+       ! test files existence - NEFIS DEF file
+       !
+       inquire (file = locfnm(:ind) // '.def', exist = exists)
+       if (exists) then
+          call prterr(lundia,'G051','Removing old output file: '//locfnm(:ind)// '.def')
+          luntmp = newlun(gdp)
+          open (luntmp, file = locfnm(:ind) // '.def')
+          close (luntmp, status = 'delete')
+       endif
     endif
 end subroutine delnef

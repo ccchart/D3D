@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -68,4 +68,134 @@ Component::Run (
     // a try/catch block.  Why?
 
     throw new Exception (true, message);
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+void
+Component::Init (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's Init method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+void
+Component::Step (
+    double stepSize
+    ) {
+
+    char * message = "A DeltaresHydro component's Step method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+void
+Component::Finish (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's Finish method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+double
+Component::GetStartTime (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's GetStartTime method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+	return -1.0;
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+double
+Component::GetEndTime (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's GetEndTime method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+	return -1.0;
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+double
+Component::GetCurrentTime (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's GetCurrentTime method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+	return -1.0;
+    }
+
+
+//------------------------------------------------------------------------------
+
+
+double
+Component::GetTimeStep (
+    void
+    ) {
+
+    char * message = "A DeltaresHydro component's GetTimeStep method was not overridden";
+    printf ("ERROR: %s\n", message);
+
+    // This throw is not caught, even though the invocation of Run() is in
+    // a try/catch block.  Why?
+
+    throw new Exception (true, message);
+	return -1.0;
     }

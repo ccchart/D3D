@@ -3,7 +3,7 @@ subroutine get_cur(wavetime  ,kfu       ,kfv       ,u1        ,v1         , &
                  & flowVelocityType     ,dps       ,s1)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -120,10 +120,6 @@ subroutine get_cur(wavetime  ,kfu       ,kfv       ,u1        ,v1         , &
 !
 !! executable statements -------------------------------------------------------
 !
-    !
-    ! cyclic reduction of wavtim
-    ! wavtim = mod(wavtim, itlen)
-    !
     call filldm(elmdmt    ,1         ,1         ,1         ,0         , &
               & 0         ,0         ,0         )
     call filldm(elmdms    ,1         ,1         ,1         ,0         , &

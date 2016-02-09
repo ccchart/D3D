@@ -5,7 +5,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" OutputDirectory=".\lib\$(ConfigurationName)" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\include;src\mod_couplib;..\..\..\..\third_party_open\mpich2\include" FixedFormLineLength="fixedLength132" ModulePath="$(OutDir)" Traceback="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\include;src\mod_couplib;..\..\..\..\third_party_open\mpich2\include" FixedFormLineLength="fixedLength132" ModulePath="$(OutDir)" Traceback="true" NullPointerCheck="true" UninitializedVariablesCheck="true"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
@@ -230,7 +230,6 @@
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\waq_utils\dhkmst.f"/>
-		<File RelativePath=".\src\waq_utils\dhlic.f"/>
 		<File RelativePath=".\src\waq_utils\dhltim.f"/>
 		<File RelativePath=".\src\waq_utils\dhmmar.f"/>
 		<File RelativePath=".\src\waq_utils\dhmmca.f"/>
@@ -262,6 +261,8 @@
 		<File RelativePath=".\src\waq_utils\getcom.f"/>
 		<File RelativePath=".\src\waq_utils\getper.f"/>
 		<File RelativePath=".\src\waq_utils\gkwini.f"/>
+		<File RelativePath=".\src\waq_utils\gregor.f"/>
+		<File RelativePath=".\src\waq_utils\julian.f"/>
 		<File RelativePath=".\src\waq_utils\makpnt.f"/>
 		<File RelativePath=".\src\waq_utils\monsys.f"/>
 		<File RelativePath=".\src\waq_utils\movchr.f"/>

@@ -23,7 +23,7 @@ function varargout=enclosure(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -99,33 +99,40 @@ end
 
 % Grid enclosure file
 fid=fopen(filename);
+err=[];
 if fid>0
-    while 1
-        line=fgetl(fid);
-        if ~ischar(line)
-            break
-        end
-        
-        %
-        % TK : X returned empty on comgrid scaloost model waqua,
-        %      remove the delimiters
-        %
-        for i_lim = 1: length(delimiters)
-            line(line == delimiters{i_lim}) = ' ';
-        end
-        
-        X=sscanf(line,'%i');
-       
-       if length(X)>=2,
-            %
-            % Multiple coordinate pairs on 1 single line ==> reshape
-            %
-            X = reshape(X,2,size(X,1)/2)';
+    try
+        while 1
+            line=fgetl(fid);
+            if ~ischar(line)
+                break
+            end
             
-            Enc=[Enc; X];
+            %
+            % TK : X returned empty on comgrid scaloost model waqua,
+            %      remove the delimiters
+            %
+            for i_lim = 1: length(delimiters)
+                line(line == delimiters{i_lim}) = ' ';
+            end
+            
+            X=sscanf(line,'%i');
+            
+            if length(X)>=2
+                %
+                % Multiple coordinate pairs on 1 single line ==> reshape
+                %
+                X = reshape(X,2,size(X,1)/2)';
+                
+                Enc=[Enc; X];
+            end
         end
+    catch err
     end
     fclose(fid);
+    if ~isempty(err)
+        rethrow(err)
+    end
 else
     error('Error opening file.')
 end
@@ -665,7 +672,7 @@ fid=fopen(filename,'w');
 if fid<0
     error('Error opening output file.')
 end
-if nargin>3 % waqua format
+if nargin>2 % waqua format
     fprintf(fid,'e=\n');
 end
 fprintf(fid,'%5i%5i\n',MN);

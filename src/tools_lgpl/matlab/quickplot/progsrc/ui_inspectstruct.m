@@ -5,7 +5,7 @@ function ui_inspectstruct(cmd,Title)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -507,7 +507,7 @@ scroll = 0;
 switch strtok(Str{j})
     case '+'
         open   = strcmp(key,'open') | strcmp(key,'rightarrow');
-    case '-'
+    case {'-','*'}
         scroll = strcmp(get(H.ISld,'enable'),'on')& (strcmp(key,'leftarrow') | strcmp(key,'rightarrow'));
         close  = strcmp(key,'open') | strcmp(key,'leftarrow');
     otherwise

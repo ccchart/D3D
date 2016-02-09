@@ -1,7 +1,7 @@
 subroutine merge (inputfile, workdir, runid)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -101,6 +101,9 @@ subroutine merge (inputfile, workdir, runid)
    call small(value,1000)
    if (value == 'win32' .or. value == 'w32') then
       arch = 'win32'
+      slash = '\'
+   elseif (value == 'win64') then
+      arch = 'win64'
       slash = '\'
    else
       arch = 'linux'

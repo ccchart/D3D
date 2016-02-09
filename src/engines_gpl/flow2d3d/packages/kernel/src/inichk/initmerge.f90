@@ -1,7 +1,7 @@
 subroutine initmerge (nmmax, lsed, runid, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -94,7 +94,7 @@ subroutine initmerge (nmmax, lsed, runid, gdp)
        ! mmsync file name is going to be:
        ! <path>/sync/<condition>flow<runid>
        !
-       if (gdp%arch == 'win32') then
+       if (gdp%arch == 'win32' .or. gdp%arch == 'win64') then
           slash = '\'
           !
           ! In filhand: replace all occurences of / by \

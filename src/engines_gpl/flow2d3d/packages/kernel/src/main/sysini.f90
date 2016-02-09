@@ -1,30 +1,30 @@
-subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
-                & verify    ,version_short ,filmd     ,gdp       )
+subroutine sysini(error     ,runid     ,filmrs    ,prgnm     , &
+                & version_short ,filmd     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2011-2014.
-!
-!  This program is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation version 3.
-!
-!  This program is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"
-!  are registered trademarks of Stichting Deltares, and remain the property of
-!  Stichting Deltares. All rights reserved.
-!
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!                                                                               
+!  This program is free software: you can redistribute it and/or modify         
+!  it under the terms of the GNU General Public License as published by         
+!  the Free Software Foundation version 3.                                      
+!                                                                               
+!  This program is distributed in the hope that it will be useful,              
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU General Public License for more details.                                 
+!                                                                               
+!  You should have received a copy of the GNU General Public License            
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
+!  are registered trademarks of Stichting Deltares, and remain the property of  
+!  Stichting Deltares. All rights reserved.                                     
+!                                                                               
 !-------------------------------------------------------------------------------
 !  $Id$
 !  $HeadURL$
@@ -41,6 +41,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     use precision
     use mathconsts
     use globaldata
+    use string_module
     use deltares_common_version_module
     use dfparall
     !
@@ -50,8 +51,6 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
-    character*256 , pointer :: pathd
-    character*256 , pointer :: pathp
     integer       , pointer :: lunmd
     integer       , pointer :: lundia
     integer       , pointer :: lunprt
@@ -66,23 +65,17 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
 !
 ! Global variables
 !
-    logical                     :: alone         !!  TRUE when flow runs stand-alone, FALSE when flow is part of morsys
     logical                     :: error         !!  Flag=TRUE if an error is encountered
-    logical       , intent(out) :: verify        !!  Always FALSE to be removed: was used for program=MD-VER
     character(*)                :: filmd         !!  File name for MD FLOW file
     character(*)                :: runid         !!  Run identification code for the current simulation
     character(*)                :: version_short !!  Version nr. of the current package
     character(12)               :: filmrs        !!  File name for DELFT3D_MOR FLOW input file (MD-flow.xxx)
-    character(6)                :: soort         !!  Help var. determining the prog. name currently active
+    character(6)                :: prgnm         !!  Help var. determining the prog. name currently active
 !
 ! Local variables
 !
     integer                    :: ierr
     integer                    :: lfil
-    integer                    :: lfpathd      ! Length of FPATHD without trailing blanks
-    integer                    :: lfpathp      ! Length of FPATHP without trailing blanks
-    integer                    :: lpathd       ! Length of PATHD without trailing blanks
-    integer                    :: lpathp       ! Length of PATHP without trailing blanks
     integer                    :: lrid         ! Help var. to determine the actual length of RUNID
     integer                    :: lridmx       ! Help var. for lunprt: LRID < 47
     integer                    :: lunhlp       ! Help var.
@@ -94,10 +87,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     character(20)              :: rundat       ! Current date and time containing a combination of DATE and TIME
     character(256)             :: version_full
     character(256)             :: filtmp       ! Help var. to specify file name
-    character(256)             :: fpathd       ! ..../flow/default directory FPATHD = PATHD when alone = TRUE PATHD =  ..../mor/default when alone = FALSE
-    character(256)             :: fpathp       ! See FPATHD and PATHP
     character(55)              :: txtput       ! Texts to be filled in the header
-    character(256)             :: usernm       ! Licensee name set in 'userfil'
     type(message_stack)        :: stack
 !
 !! executable statements -------------------------------------------------------
@@ -113,14 +103,9 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     lundia     => gdp%gdinout%lundia
     lunprt     => gdp%gdinout%lunprt
     lunscr     => gdp%gdinout%lunscr
-    pathd      => gdp%gdhwid%pathd
-    pathp      => gdp%gdhwid%pathp
     !
-    ! initialisation of constants in const.inc
-    ! NOTE: data-statement is not used to avoid problems with the
-    !           order of declarations-data-code
+    ! initialisation of constants in gdconst and gdconstd
     !
-    call init_mathconsts()
     earthrad = 6378137.0   ! Mathworld, IUGG
     eps      = 1.0e-6
     amiss    = -999.0_fp
@@ -135,16 +120,11 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     !           in triend when lundia is not yet opened
     !
     txtput = ' '
-    if (soort=='tdatom') then
+    if (prgnm=='tdatom') then
        txtput = 'Part I    - Initialisation Time Dep. Data module...'
-    elseif (soort=='verify') then
-       txtput = 'Part III  - Initialisation of the Verify module...'
     else
        txtput = 'Part III  - Initialisation of the Execution module...'
     endif
-    !
-    verify = .false.
-    if (soort=='verify') verify = .true.
     !
     ! initialisation unit numbers
     ! a lun gets fake unit number (< 10), for the inquire statement
@@ -154,32 +134,18 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     lundia = 0
     lunmd  = 8
     !
-    ! computer system
-    !
-    call gethw(error     ,pathp     ,pathd     ,alone     ,fpathp    , &
-             & fpathd    )
-    if (error) goto 9999
-    !
     ! platform definition
     !
     call util_getenv('ARCH',txthlp)
     call small(txthlp,message_len)
     if (txthlp == 'win32' .or. txthlp == 'w32') then
        gdp%arch = 'win32'
+    elseif (txthlp == 'win64') then
+       gdp%arch = 'win64'
     else
        gdp%arch = 'linux'
     endif
     gdp%errorcode = 0
-    !
-    ! check if errfil exist
-    !
-    call noextspaces(pathd     ,lpathd    )
-    call noextspaces(fpathd    ,lfpathd   )
-    call noextspaces(pathp     ,lpathp    )
-    call noextspaces(fpathp    ,lfpathp   )
-    !
-    ! file errfil is not used anymore
-    !
     !
     ! check userfile consistency
     !
@@ -191,9 +157,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     call getfullversionstring_deltares_common(version_full)
     call getfullversionstring_flow2d3d(version_full)
     call getshortversionstring_flow2d3d(version_short)
-    call flwlic(lunscr    ,error     ,usernm    ,version_full ,version_short   , &
-              & soort     ,gdp       )
-    if (error) goto 9999
+    call flwlic(lunscr    ,version_full ,prgnm     ,gdp       )
     !
     ! put header on screen
     !
@@ -203,12 +167,12 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     !
     ! initialisation id's (computer, runid ) and open lundia
     !
-    call iniid(error     ,soort     ,runid     ,filmd     ,filmrs    , &
+    call iniid(error     ,prgnm     ,runid     ,filmd     ,filmrs    , &
              & gdp       )
     if (error) goto 9999
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     if (.not.parll .or. (parll .and. inode==master)) then
-       if (soort == 'tdatom') then
+       if (prgnm == 'tdatom') then
           write (lunscr, '(a,a)') '            runid : ', runid(:lrid)
        endif
     endif
@@ -223,7 +187,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     date(8:8)  = '-'
     date(9:10) = rundat(9:10)
     !
-    call noextspaces(filmd     ,lfil      )
+    call remove_leading_spaces(filmd     ,lfil      )
     !
     ! get source code location
     !
@@ -256,7 +220,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,alone     ,soort     , &
     write (lundia, '(80a1)') ('*', n = 1, 80)
     write (lundia, '(a)')
     !
-    if (soort=='tdatom') goto 9999
+    if (prgnm=='tdatom') goto 9999
     !
     ! copy contents of old td-diag file created by tdatom
     ! test for ERRORS and if found, stop

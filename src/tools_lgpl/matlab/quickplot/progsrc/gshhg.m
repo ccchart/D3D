@@ -38,7 +38,7 @@ function data = gshhg(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -87,7 +87,7 @@ while i<=nargin-1
         case 'type'
             type = varargin{i+1};
             switch lower(type)
-                case {'s','shoreline','shorelines','shore','shores','gshhs','c','coastline','coastlines','coast','coasts','gshhc'}
+                case {'s','shoreline','shorelines','shore lines','shore','shores','gshhs','c','coastline','coastlines','coast','coasts','gshhc'}
                     type = 'GSHHS';
                 case {'r','river','rivers'}
                     type = 'river';

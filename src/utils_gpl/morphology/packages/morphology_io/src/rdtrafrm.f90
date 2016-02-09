@@ -1,7 +1,7 @@
 module m_rdtrafrm
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,7 +51,7 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
 !
 !!--declarations----------------------------------------------------------------
     use precision
-    use morphology_data_module, only: trapar_type, MAX_RP, MAX_IP, MAX_SP
+    use morphology_data_module, only: trapar_type, MAX_RP, MAX_IP, MAX_SP, WS_MAX_RP, WS_MAX_IP, WS_MAX_SP
     use message_module
     !
     implicit none
@@ -79,6 +79,8 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
     real(hp)         , dimension(:)  , pointer :: dll_reals_settle
     character(256)   , dimension(:)  , pointer :: dll_strings_settle
     character(256)   , dimension(:)  , pointer :: dll_usrfil_settle
+    integer          , dimension(:)  , pointer :: iform_settle
+    real(fp)         , dimension(:,:), pointer :: par_settle
     character(256)   , dimension(:)  , pointer :: dll_function
     character(256)   , dimension(:)  , pointer :: dll_name
     integer(pntrsize), dimension(:)  , pointer :: dll_handle
@@ -126,9 +128,9 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
        if (istat==0) allocate (trapar%dll_reals   (max_reals   ), stat = istat)
        if (istat==0) allocate (trapar%dll_strings (max_strings ), stat = istat)
        !
-       max_integers_settle =  5
-       max_reals_settle    = 21
-       max_strings_settle  =  2
+       max_integers_settle = WS_MAX_IP
+       max_reals_settle    = WS_MAX_RP
+       max_strings_settle  = WS_MAX_SP
        if (istat==0) allocate (trapar%dll_handle_settle  (lsedtot), stat = istat)
        if (istat==0) allocate (trapar%dll_name_settle    (lsedtot), stat = istat)
        if (istat==0) allocate (trapar%dll_function_settle(lsedtot), stat = istat)
@@ -136,6 +138,8 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
        if (istat==0) allocate (trapar%dll_integers_settle(max_integers_settle), stat = istat)
        if (istat==0) allocate (trapar%dll_reals_settle   (max_reals_settle   ), stat = istat)
        if (istat==0) allocate (trapar%dll_strings_settle (max_strings_settle ), stat = istat)
+       if (istat==0) allocate (trapar%iform_settle       (lsedtot), stat = istat)
+       if (istat==0) allocate (trapar%par_settle         (npar,lsedtot), stat = istat)
        !
        if (istat/=0) then
           errmsg = 'IniTraFrm: memory alloc error'
@@ -182,6 +186,8 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
     dll_integers_settle  => trapar%dll_integers_settle
     dll_reals_settle     => trapar%dll_reals_settle
     dll_strings_settle   => trapar%dll_strings_settle
+    iform_settle         => trapar%iform_settle
+    par_settle           => trapar%par_settle
     !
     dll_function_settle  = ' '
     dll_name_settle      = ' '
@@ -190,6 +196,8 @@ subroutine initrafrm(lundia    ,error     ,lsedtot   ,trapar    )
     dll_integers_settle  = 0
     dll_reals_settle     = 0.0_hp
     dll_strings_settle   = ' '
+    iform_settle         = 0
+    par_settle           = 0.0_fp
 end subroutine initrafrm
 
 
@@ -211,6 +219,7 @@ subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
     !
     ! Call variables
     !
+    integer                      , intent(in)   :: npardef
     integer                      , intent(in)   :: lundia
     logical                      , intent(out)  :: error
     integer                      , intent(in)   :: lsedtot !  Description and declaration in iidim.f90
@@ -218,7 +227,6 @@ subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
     character(*)                 , intent(in)   :: filtrn
     integer, dimension(2,npardef), intent(in)   :: ipardef
     real(fp), dimension(npardef) , intent(in)   :: rpardef
-    integer                      , intent(in)   :: npardef
     integer, dimension(:)        , intent(in)   :: sedtyp
     type(tree_data), dimension(:), intent(in)   :: sedblock
     type (griddimtype), target   , intent(in)   :: dims    !  grid dimensions
@@ -371,6 +379,7 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
 !
 ! Call variables
 !
+    integer                       , intent(in)   :: npardef
     integer                                      :: lundia  !  Description and declaration in inout.igs
     logical                       , intent(out)  :: error
     integer, dimension(:)                        :: iform
@@ -388,7 +397,6 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
     character(*), dimension(:)                   :: dll_usrfil
     integer, dimension(2,npardef) , intent(in)   :: ipardef
     real(fp), dimension(npardef)  , intent(in)   :: rpardef
-    integer                       , intent(in)   :: npardef
     type(tree_data), dimension(:) , intent(in)   :: sedblock
 !
 ! Local variables
@@ -616,6 +624,7 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
        else
           par(10+i,l) = pardef(i)
           !
+          parfile = ' '
           if (ifrac>0 .and. associated(sed_ptr%node_name)) then
              ! try to locate parameter in sedblock
              call prop_get(sed_ptr,'Sediment',parkeyw(i),parfile)
@@ -958,7 +967,7 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        parkeyw(6) = 'ParFluff1'
        pardef(6)  = 0.0_fp
        parkeyw(7) = 'DepEff'
-       pardef(7)  = 0.0_fp
+       pardef(7)  = -1.0_fp
     elseif (iform == -2) then
        name       = 'Van Rijn (2007): TRANSPOR2004'
        nparopt    = 7
@@ -974,8 +983,8 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        pardef(5)  = 0.0_fp ! false
        parkeyw(6) = 'GamTcr'
        pardef(6)  = 1.5_fp
-       parkeyw(7) = 'GamFloc'
-       pardef(7)  = 1.0_fp
+       parkeyw(7) = 'SalMax'
+       pardef(7)  = 0.0_fp
     elseif (iform == -1) then
        name       = 'Van Rijn (1993)'
        nparopt    = 7

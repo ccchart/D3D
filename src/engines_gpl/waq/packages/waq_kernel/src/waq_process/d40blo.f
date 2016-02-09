@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -27,302 +27,300 @@
 !>\file
 !>       BLOOM II algae module
 
-C**********************************************************************
-C     +----------------------------------------+
-C     |    D E L F T   H Y D R A U L I C S     |
-C     |    WAter Resources and Environment     |
-C     +----------------------------------------+
-C
-C***********************************************************************
-C
-C     Project : STANDAARDISATIE PROCES FORMULES T721.72
-C     Author  : Jos van Gils
-C     Date    : 940725             Version : 0.01
-C
-C     History :
-C
-C     Date    Author          Description
-C     ------  --------------  -----------------------------------
-C     981113  Marnix vd Vat   Added Depth as alternative to Bloomdepth
-C                             salinity dependend mortality added
-C     980702  Jos van Gils    Bug fixed: respflux mult. with depth
-C     971222  Jos van Gils    Switch for oxygen prod., sep. flux for OXY
-C                             Computation of respiration
-C     971217  Marnix vd Vat   MrtExAlg added, output pointers adapted
-C     940725  Jos van Gils    First Version
-C***********************************************************************
-C
-C     Description of the module :
-C
-C Name    T   L I/O   Description                                   Units
-C ----    --- -  -    -------------------                            ----
+!
+!     Description of the module :
+!
+! Name    T   L I/O   Description                                   Units
+! ----    --- -  -    -------------------                            ----
 
-C     Logical Units : -
+!     Logical Units : -
 
-C     Modules called : -
+!     Modules called : -
 
-C     Name     Type   Library
-C     ------   -----  ------------
+!     Name     Type   Library
+!     ------   -----  ------------
 
       USE      DATA_3DL
       USE      DATA_VTRANS
 
+      IMPLICIT NONE
+
       REAL     PMSA  ( * ) , FL    (*)
       INTEGER  IPOINT( * ) , INCREM(*) , NOSEG , NOFLUX,
-     +         IEXPNT(4,*) , IKNMRK(*) , NOQ1, NOQ2, NOQ3, NOQ4
-C
-C     Local
-C
-C     Name    Type  Length   I/O  Description
+     +         IEXPNT(4,*) , IKNMRK(*) , IQ, IFROM, ITO, NOQ1, NOQ2, NOQ3, NOQ4
+!
+!     Local (species groups arrays are now dimensioned as species/types arrays)
+!
+!     Name    Type  Length   I/O  Description
 
-C     ALGDM   R     1             Dry matter in algae (gDM/m3)
-C     AMMONI  R     1             Ammonium concentration (gN/m3)
-C     BIOMAS  R     NTYP          Species biomass (gC/m3)
-C     BLDEP   R     1             Bloomdepth (DEPTH averaged over BLSTEP)
-C     BLSTEP  R*4   1             Time step Bloom (days)
-C     CHLORO  R     1             Total chlorophyl in algae (mg/m3)
-C     CL      R     1             Chlorinity (gCl/m3)
-C     DEPTHW  R     1             Depth (m)
-C     DAYLEN  R     1             Day length (h)
-C     DELTAT  R     1             Time step DELWAQ (d)
-C     DEAT4   R*4   1             ??$Necessity to transfer?$
-C     EXTALG  R     1             Extinction by algae (1/m)
-C     EXTTOT  R     1             Total extinction (1/m)
-C     FAUT    R     NTYP          Fraction autolysis per species (-)
-C     FDET    R     NTYP          Fraction detritus per species (-)
-C     FL(IFPROD)    NTYP_A        Primary production per type (g/m3/d)
-C     FL(IFMORT)    NTYP_A        Mortality per type (g/m3/d)
-C     FL(IFAUTO)    4             Autolysis fluxes per nutrient (g/m3/d)
-C                                 (C, N, P, Si)
-C     FL(IFDETR)    4             Detritus production per nutrient
-C                                 (C, N, P, Si)  (g/m3/d)
-C     FL(IFOOXP)    4             OOx production
-C                                 (C, N, P, Si)  (g/m3/d)
-C     FL(IFUPTA)    5             Uptake of nutrients
-C                                 (CO2, NH4, NO3, PO4, SiOx)  (g/m3/d)
-C     FRAMMO  R     1             Fraction of NH4 in N-Uptake (-)
-C     FBOD5   R     1             BOD5/BODinf in algae (-)
-C     HISTOR  L     1             Indicates call for history element at
-C                                 an history output timestep
-C     ID      I     1             Week number (-)
-C     ISWVTR  I     1             Switch if 3DL is to be used
-C     LIMFAC  R     6             Limiting factors (-)
-C     LPRINO  I     1             Saves original value of LPRINT
-C     LCOUPL  I     1             Flag for BLOOM II
-C     LDUMPO  I     1             Saves original value of IDUMP
-C     NTYP_A  I     1             Actual number of types
-C     NTYP_M  I     1             Limit number of types
-C     NGRO_A  I     1             Actual number of groups
-C     NGRO_M  I     1             Limit number of groups
-C     NSET    I     1             Counter for subroutine SETABC of BLOOM II
-C     NITRAT  R     1             Nitrate (gN/m3)
-C     NUPTAK  R     1             N-Uptake (gN/m3/d)
-C     PHOSPH  R     1             Phosphate (gP/m3)
-C     RATGRO  R     NGRO          Effective growth rate per group (1/d)
-C     RATMOR  R     NGRO          Effective mortality per group (1/d)
-C     RUNNAM  C*12  1             Filename consisting of runid without
-C     RADIAT  R     1             Irradiation (W/m2)
-C     SILICA  R     1             Silicate (gSi/m3)
-C     TIMMUL  R     1             Time step multiplyer Bloom call (-)
-C     TEMPER  R     1             Temperature (degrees C)
-C     TOTNUT  R     4             C, N, P, Si in algae (gX/m3)
-
-      INTEGER  NTYP_M
+!     ALGDM   R     1             Dry matter in algae (gDM/m3)
+!     ALGTYP  R     0:20,NTYP     Algae type properties
+!     AMMONI  R     1             Ammonium concentration (gN/m3)
+!     BIOMAS  R     NTYP          Species biomass (gC/m3)
+!     BLDEP   R     1             Bloomdepth (DEPTH averaged over BLSTEP)
+!     BLSTEP  R*4   1             Time step Bloom (days)
+!     CHLORO  R     1             Total chlorophyl in algae (mg/m3)
+!     CGROUP  R     NGRO          Algae species group biomass (gC/m3)
+!     CL      R     1             Chlorinity (gCl/m3)
+!     DEPTHW  R     1             Depth (m)
+!     DAYLEN  R     1             Day length (h)
+!     DELTAT  R     1             Time step DELWAQ (d)
+!     DEAT4   R*4   1             ??$Necessity to transfer?$
+!     EXTALG  R     1             Extinction by algae (1/m)
+!     EXTTOT  R     1             Total extinction (1/m)
+!     FAUT    R     NTYP          Fraction autolysis per species (-)
+!     FDET    R     NTYP          Fraction detritus per species (-)
+!     FL(IFPROD)    NTYP_A        Primary production per type (g/m3/d)
+!     FL(IFMORT)    NTYP_A        Mortality per type (g/m3/d)
+!     FL(IFAUTO)    4             Autolysis fluxes per nutrient (g/m3/d)
+!                                 (C, N, P, Si)
+!     FL(IFDETR)    4             Detritus production per nutrient
+!                                 (C, N, P, Si)  (g/m3/d)
+!     FL(IFOOXP)    4             OOx production
+!                                 (C, N, P, Si)  (g/m3/d)
+!     FL(IFUPTA)    5             Uptake of nutrients
+!                                 (CO2, NH4, NO3, PO4, SiOx)  (g/m3/d)
+!     FRAMMO  R     1             Fraction of NH4 in N-Uptake (-)
+!     FBOD5   R     1             BOD5/BODinf in algae (-)
+!     HISTOR  L     1             Indicates call for history element at
+!                                 an history output timestep
+!     ID      I     1             Week number (-)
+!     IFIX    I     NTYP          Flag indicating fixed (attached, immobile algae)
+!     ISWVTR  I     1             Switch if 3DL is to be used
+!     LIMFAC  R     6             Limiting factors (-)
+!     LPRINO  I     1             Saves original value of LPRINT
+!     LCOUPL  I     1             Flag for BLOOM II
+!     LDUMPO  I     1             Saves original value of IDUMP
+!     MRTM1   I     NTYP          Mortality parameter
+!     MRTM2   I     NTYP          Mortality parameter
+!     MRTB1   I     NTYP          Mortality parameter
+!     MRTB2   I     NTYP          Mortality parameter
+!     NTYP_A  I     1             Actual number of types
+!     NTYP_M  I     1             Limit number of types
+!     NGRO_A  I     1             Actual number of groups
+!     NGRO_M  I     1             Limit number of groups
+!     NSET    I     1             Counter for subroutine SETABC of BLOOM II
+!     NITRAT  R     1             Nitrate (gN/m3)
+!     NUPTAK  R     1             N-Uptake (gN/m3/d)
+!     PHOSPH  R     1             Phosphate (gP/m3)
+!     RATGRO  R     NGRO          Effective growth rate per group (1/d)
+!     RATMOR  R     NGRO          Effective mortality per group (1/d)
+!     RUNNAM  C*12  1             Filename consisting of runid without
+!     RADIAT  R     1             Irradiation (W/m2)
+!     SILICA  R     1             Silicate (gSi/m3)
+!     SWCLIM  I     1             Carbon limitation switch (0 inactive, 1 active)
+!     TIMMUL  R     1             Time step multiplyer Bloom call (-)
+!     TEMPER  R     1             Temperature (degrees C)
+!     TOTNUT  R     4             C, N, P, Si in algae (gX/m3)
+!     NUTCON  I*4   8             Nutrients involved in active nutrient constraints
+!     FLXCON  I*4   8             Uptake fluxes involved in active nutrient constra
+      INTEGER  NTYP_M, NIPFIX, NIPVAR, NOUTLIM, NUNUCOM, NOPFIX
       PARAMETER ( NTYP_M = 30 )
+!     NIPFIX      Nr of input items independent of BLOOM types, preceding BLOOM types input
+!     NIPVAR      Nr of input items for BLOOM types
       PARAMETER ( NIPFIX = 28 , NIPVAR= 26 )
+      PARAMETER ( NOPFIX = 29 )
+      PARAMETER (NUNUCOM = 8)
+      PARAMETER (NOUTLIM = NUNUCOM + 2 + 2*NTYP_M)
       REAL     BIOMAS(NTYP_M), FAUT  (NTYP_M), FDET  (NTYP_M),
      1         ALGTYP(0:20,NTYP_M), MRTM1(NTYP_M), MRTM2(NTYP_M),
      2         MRTB1(NTYP_M), MRTB2(NTYP_M), CGROUP(NTYP_M)
       INTEGER  IFIX(NTYP_M)
-C     PARAMETER ( NGRO_M = 10 )
       REAL     RATGRO(NTYP_M), RATMOR(NTYP_M)
       CHARACTER*12    RUNNAM
-      LOGICAL  HISTOR, THIS
+      LOGICAL  HISTOR, THIS, LMIXO,LFIXN,LCARB
       INTEGER  NTYP_A, NGRO_A,
      J         NSET  , LCOUPL, LPRINO, LDUMPO, ID
-      REAL     TIMMUL, TEMPER, RADIAT, DEPTHW, DAYLEN,
+      REAL     TIMMUL, TEMPER, RADIAT, DEPTHW, DEPTH,  DAYLEN,
      J         AMMONI, NITRAT, PHOSPH, SILICA, DELTAT, BLSTEP,
      J         EXTTOT, DEAT4 , NUPTAK, FRAMMO, FBOD5 , EXTALG,
      J         CHLORO, TOTNUT(4)     ,                 ALGDM ,
      J         THRNH4, THRNO3, THRPO4, THRSI , RCRESP, TCRESP,
-     M         BLDEP , CL    , TIC   , CO2   , KCO2  , CO2LIM
-      REAL  :: LIMFAC(6+2*NTYP_M)
+     M         BLDEP , CL    , TIC   , CO2   ,         CO2LIM,
+     j         PPMCO2, DETN  , DETP  , RDCNT , SDMIXN, VOLUME
+      REAL  :: LIMFAC(6)
       INTEGER  IP1 , IP2 , IP3 , IP4 , IP5 , IP6 , IP7 , IP8 , IP9 ,
      J         IP10, IP11, IP12, IP13, IP14, IP15, IP16, IP17, IP18,
      J         IP19, IP20, IP21, IP22, IP23, IP24, IP25, IP26, IP27,
      J         IP28
-     J         IO1 , IO2 , IO3 , IO4 , IO5 , IO6 , IO7  ,IO8 , IO9 ,
-     J         IO10, IO11, IO12, IO13, IO14, IO15, IO16 ,IO17, IO18,
-     J         IO19
+      INTEGER  IO(NOPFIX)
+      INTEGER  NOSEGW, NOLAY, NOSEGL, IKMRK1, IKMRK2
+      integer  ipo17, ipo18, ipo19
+      integer  ino17, ino18, ino19
       INTEGER  INIT , IFLUX, ISEG, IALG, IOFF, IP, IGRO
       INTEGER  IFAUTO, IFDETR, IFOOXP, IFUPTA, IFPROD, IFMORT
       INTEGER  ISWVTR
       INTEGER  SWBLOOMOUT
-      INTEGER  SWTICCO2
+      INTEGER  SWCLIM
+      INTEGER  LUNREP
       CHARACTER CDUMMY
       REAL*8 ORG_AVAILN
-C
-C     JVB much more variables needs to be saved, for the time being all
-C
-C     SAVE     INIT,RDCNT,ID
+      INTEGER NUTCON(NUNUCOM), FLXCON(NUNUCOM), CON2OUT(NUNUCOM)
+      REAL    OUTLIM(NOUTLIM)
+!
+!     JVB much more variables needs to be saved, for the time being all
+!
+!     SAVE     INIT,RDCNT,ID
       SAVE
-C
+!
       DATA     INIT   / 1 /
       DATA     NSET   / 0 /
       DATA     LCOUPL / 1 /
-C
+!
       IF ( INIT .EQ. 1 ) THEN
-c        OPEN(78,FILE='DBSDW4.DBG')
          INIT = 0
          TIMMUL = PMSA(IPOINT(1))
          DELTAT = PMSA(IPOINT(19))
          BLSTEP = TIMMUL * DELTAT
          RDCNT  = - BLSTEP
          ID = 0
+         SWCLIM = NINT(PMSA(IPOINT(28)))
+         IF (INCREM(28).NE.0) CALL BLSTOP('SWCLIM',ID)
+         LCARB = .FALSE.
+         IF (SWCLIM.GT.0) LCARB = .TRUE.
 
-C     Set logical numbers and open autonomous I/O files Bloom
-C     $ Get RUNNAM from some place (DELWAQ intermediate files?)
-
+!     Set logical numbers and open autonomous I/O files Bloom
          RUNNAM = 'bloominp.XXX'
          CALL BLFILE (RUNNAM)
 
-C        Copy algae type properties for input
-         DO 40 I=1,NTYP_M
-C          BLOOMALG
-           IO1 = NIPFIX + I
-           IO1 = IPOINT(IO1)
-C
-C          Hier ook voor ulva van (g) naar (g/m3) lijkt me niet wordt
-C          hier alleen naar negatieve waarde gekeken
-C
-           ALGTYP(0,I) = PMSA(IO1)
-C          SPECALG
-           IO1 = NIPFIX + 1*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('SpecAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(1,I) = NINT(PMSA(IO1))
-C          FAUTALG
-           IO1 = NIPFIX + 2*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('FrAutAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(15,I) = PMSA(IO1)
-C          EXTVLALG
-           IO1 = NIPFIX + 4*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('ExtVlAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(2,I) = PMSA(IO1)
-C          DMCFALG
-           IO1 = NIPFIX + 5*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('DMCFAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(3,I) = PMSA(IO1)
-C          NCRALG
-           IO1 = NIPFIX + 6*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('NCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(4,I) = PMSA(IO1)
-C          PCRALG
-           IO1 = NIPFIX + 7*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('PCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(5,I) = PMSA(IO1)
-C          SCRALG
-           IO1 = NIPFIX + 8*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('SCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(6,I) = PMSA(IO1)
-C          XNCRALG
-           IO1 = NIPFIX + 9*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('XNCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(16,I) = PMSA(IO1)
-C          XPCRALG
-           IO1 = NIPFIX +10*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('XPCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(17,I) = PMSA(IO1)
-C          FNCRALG
-           IO1 = NIPFIX +11*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('FNCRAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(18,I) = PMSA(IO1)
-C          CHLACALG
-           IO1 = NIPFIX +12*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('ChlaCAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(7,I) = PMSA(IO1)
-C          PPMAXALG
-           IO1 = NIPFIX + 13*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('PPMaxAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(8,I) = PMSA(IO1)
-C          TCPMXALG
-           IO1 = NIPFIX + 14*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('TcPMxAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(9,I) = PMSA(IO1)
-C          TFPMXALG
-           IO1 = NIPFIX + 15*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('TFPMxAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(10,I) = PMSA(IO1)
-C          MORT0ALG
-           IO1 = NIPFIX + 16*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('Mort0Alg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(11,I) = PMSA(IO1)
-C          TCMRTALG
-           IO1 = NIPFIX + 17*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('TcMrtAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(12,I) = PMSA(IO1)
-C          MRESPALG
-           IO1 = NIPFIX + 18*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('MRespAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(13,I) = PMSA(IO1)
-C          TCRSPALG
-           IO1 = NIPFIX + 19*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('TcRspAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(14,I) = PMSA(IO1)
-C          SDMIXALG
-           IO1 = NIPFIX + 20*NTYP_M + I
-cjvb       set SDMIX for all types, time/space dependent
-cjvb       IF (INCREM(IO1).NE.0) CALL BLSTOP('SDMixAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(19,I) = PMSA(IO1)
-C          MRTEXALG
-           IO1 = NIPFIX + 21*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('MrtExAlg',I)
-           IO1 = IPOINT(IO1)
-           ALGTYP(20,I) = PMSA(IO1)
-C          FIXALG
-           IO1 = NIPFIX + 25*NTYP_M + I
-           IF (INCREM(IO1).NE.0) CALL BLSTOP('FixAlg',I)
-           IO1 = IPOINT(IO1)
-           IFIX(I) = NINT(PMSA(IO1))
+!        Copy algae type properties for input
+         DO 40 IALG=1,NTYP_M
+!          BLOOMALG
+           IP = NIPFIX + IALG
+           IP = IPOINT(IP)
+!
+!          Hier ook voor ulva van (g) naar (g/m3) lijkt me niet wordt
+!          hier alleen naar negatieve waarde gekeken
+!
+           ALGTYP(0,IALG) = PMSA(IP)
+!          SPECALG
+           IP = NIPFIX + 1*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('SpecAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(1,IALG) = NINT(PMSA(IP))
+!          FAUTALG
+           IP = NIPFIX + 2*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('FrAutAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(15,IALG) = PMSA(IP)
+!          EXTVLALG
+           IP = NIPFIX + 4*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('ExtVlAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(2,IALG) = PMSA(IP)
+!          DMCFALG
+           IP = NIPFIX + 5*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('DMCFAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(3,IALG) = PMSA(IP)
+!          NCRALG
+           IP = NIPFIX + 6*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('NCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(4,IALG) = PMSA(IP)
+!          PCRALG
+           IP = NIPFIX + 7*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('PCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(5,IALG) = PMSA(IP)
+!          SCRALG
+           IP = NIPFIX + 8*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('SCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(6,IALG) = PMSA(IP)
+!          XNCRALG
+           IP = NIPFIX + 9*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('XNCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(16,IALG) = PMSA(IP)
+!          XPCRALG
+           IP = NIPFIX +10*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('XPCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(17,IALG) = PMSA(IP)
+!          FNCRALG
+           IP = NIPFIX +11*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('FNCRAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(18,IALG) = PMSA(IP)
+!          CHLACALG
+           IP = NIPFIX +12*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('ChlaCAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(7,IALG) = PMSA(IP)
+!          PPMAXALG
+           IP = NIPFIX + 13*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('PPMaxAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(8,IALG) = PMSA(IP)
+!          TCPMXALG
+           IP = NIPFIX + 14*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('TcPMxAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(9,IALG) = PMSA(IP)
+!          TFPMXALG
+           IP = NIPFIX + 15*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('TFPMxAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(10,IALG) = PMSA(IP)
+!          MORT0ALG
+           IP = NIPFIX + 16*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('Mort0Alg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(11,IALG) = PMSA(IP)
+!          TCMRTALG
+           IP = NIPFIX + 17*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('TcMrtAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(12,IALG) = PMSA(IP)
+!          MRESPALG
+           IP = NIPFIX + 18*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('MRespAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(13,IALG) = PMSA(IP)
+!          TCRSPALG
+           IP = NIPFIX + 19*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('TcRspAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(14,IALG) = PMSA(IP)
+!          SDMIXALG
+           IP = NIPFIX + 20*NTYP_M + IALG
+!jvb       set SDMIX for all types, time/space dependent
+!jvb       IF (INCREM(IP).NE.0) CALL BLSTOP('SDMixAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(19,IALG) = PMSA(IP)
+!          MRTEXALG
+           IP = NIPFIX + 21*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('MrtExAlg',IALG)
+           IP = IPOINT(IP)
+           ALGTYP(20,IALG) = PMSA(IP)
+!          FIXALG
+           IP = NIPFIX + 25*NTYP_M + IALG
+           IF (INCREM(IP).NE.0) CALL BLSTOP('FixAlg',IALG)
+           IP = IPOINT(IP)
+           IFIX(IALG) = NINT(PMSA(IP))
    40    CONTINUE
 
-C     Read BLOOM-input and set some parameters
+!     Read BLOOM-input and set some parameters
+!     JvG 11102013 set NUNUCO dependent of LCARB
 
-         CALL BLINPU (NTYP_M,NTYP_A,NGRO_A,ALGTYP)
+         CALL BLINPU (NTYP_M, NTYP_A, NGRO_A, ALGTYP, LMIXO , LFIXN ,
+     J                LCARB , NUNUCOM, NUTCON, FLXCON, CON2OUT)
          IF (NTYP_A.GT.NTYP_M) GOTO 901
-C        IF (NGRO_A.GT.NGRO_M) GOTO 902
 
-C     set common CBLBAL communication with balance routines
+!     set common CBLBAL communication with balance routines
 
          CALL IBLBAL ( NTYP_M, NTYP_A, ALGTYP, IPOINT(NIPFIX+1))
 
-C     Initialize BLOOM (Unit conversions and filling of A-matrix)
+!     Initialize BLOOM (Unit conversions and filling of A-matrix)
 
          CALL BLINIT (LPRINO,LDUMPO)
 
-C     initialise 3DLight data
+!     initialise 3DLight data
 
          IF ( NOQ3 .GT. 0 ) THEN
-            call dhnoseg(nosegw)
-            call dhnolay(nolay)
+            CALL DHNOSEG(NOSEGW)
+            CALL DHNOLAY(NOLAY)
             NOSEGL = NOSEGW/NOLAY
             IF ( NOSEGL*NOLAY .NE. NOSEGW ) THEN
                CALL GETMLU(LUNREP)
@@ -353,7 +351,7 @@ C     initialise 3DLight data
          ALLOCATE(IFIX_3DL(NTYP_A))
          IFIX_3DL=IFIX
 
-C     Return after initialization
+!     Return after initialization
 
          RETURN
 
@@ -388,26 +386,10 @@ C     Return after initialization
       IP27 = IPOINT(27)
       IP28 = IPOINT(28)
 
-      IO1  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 1)
-      IO2  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 2)
-      IO3  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 3)
-      IO4  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 4)
-      IO5  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 5)
-      IO6  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 6)
-      IO7  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 7)
-      IO8  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 8)
-      IO9  = IPOINT(NIPFIX+NIPVAR*NTYP_M+ 9)
-      IO10 = IPOINT(NIPFIX+NIPVAR*NTYP_M+10)
-      IO11 = IPOINT(NIPFIX+NIPVAR*NTYP_M+11)
-      IO12 = IPOINT(NIPFIX+NIPVAR*NTYP_M+12)
-      IO13 = IPOINT(NIPFIX+NIPVAR*NTYP_M+13)
-      IO14 = IPOINT(NIPFIX+NIPVAR*NTYP_M+14)
-      IO15 = IPOINT(NIPFIX+NIPVAR*NTYP_M+15)
-      IO16 = IPOINT(NIPFIX+NIPVAR*NTYP_M+16)
-      IO17 = IPOINT(NIPFIX+NIPVAR*NTYP_M+17)
-      IO18 = IPOINT(NIPFIX+NIPVAR*NTYP_M+18)
-      IO19 = IPOINT(NIPFIX+NIPVAR*NTYP_M+19)
-C
+      DO IP = 1,NOPFIX
+          IO(IP) = IPOINT(NIPFIX+NIPVAR*NTYP_M+IP)
+      ENDDO
+!
       ISWVTR = NINT(PMSA(IPOINT(24)))
       IF ( ACTIVE_3DL .AND. ISWVTR .EQ. 0 ) THEN
          CALL GETMLU(LUNREP)
@@ -431,7 +413,7 @@ C
         THIS   = .FALSE.
       ENDIF
 
-C     First segment loop set efficiencies
+!     First segment loop set efficiencies
 
       DO ISEG = 1 , NOSEG
          CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
@@ -455,45 +437,19 @@ C     First segment loop set efficiencies
             IF (BLDEP.GT.0.) DEPTHW = BLDEP
             CL     = PMSA(IP22)
 
-            ! CO2 limitation
-
-            TIC      = MAX(0.0,PMSA(IP25))
-            CO2      = MAX(0.0,PMSA(IP26))
-            SWTICCO2 = NINT(PMSA(IP27))
-            KCO2     = PMSA(IP28)
-
-            ! use tic or co2 depending on the switch
-
-            IF ( SWTICCO2 .EQ. 1 ) THEN
-               TIC  = CO2*12./44.
-            ENDIF
-
-            ! set limitation
-
-            IF ( KCO2 .GT. 1.0E-20 ) THEN
-               CO2LIM = MIN(1.0,TIC/KCO2)
-            ELSE
-               CO2LIM = 1.0
-            ENDIF
-
-!nt2
             DO IALG = 1,NTYP_A
-!nt2           scale PP with co2 limitation
-               PPMCO2 = ALGTYP(8,IALG)*CO2LIM
-               CALL BLSPPM(IALG,PPMCO2)
-!nt2
 
-cjvb           set SDMIX for all types, time/space dependent
-C              SDMIXALG
+!jvb           set SDMIX for all types, time/space dependent
+!              SDMIXALG
                IOFF = NIPFIX + 20*NTYP_M + IALG
                IP = IPOINT(IOFF) + (ISEG-1)*INCREM(IOFF)
                SDMIXN = PMSA(IP)
                CALL BLSSDM(IALG,SDMIXN)
-cjvb
+!jvb
                IF (IFIX(IALG).LT.0) THEN
-C
-C                 No PP for fixed ulva in non bottom segment, unless sdmix is set positive for this segment
-C
+!
+!                 No PP for fixed ulva in non bottom segment, unless sdmix is set positive for this segment
+!
                   IF ( SDMIXN .LT. -1.E-10 ) THEN
                      IF ((IKMRK2.EQ.1).OR.(IKMRK2.EQ.2)) THEN
                         CALL BLSPPM(IALG,0.0)
@@ -517,9 +473,6 @@ C
 
             CALL SET_EFFI( TEMPER, RADIAT, EXTTOT, DEPTHW, DAYLEN,
      +                     ID    )
-c           EXTNOP = EXTTOT - EXTALG
-c           CALL SET_EFFINOP( TEMPER, RADNOP, EXTNOP, DEPTHW, DAYLEN,
-c    +                        ID    )
 
             IF ( IKMRK1 .EQ. 3 ) THEN
                CALL BL_RESTORE_AUTOLYSE(ORG_AVAILN) ! WAQ-G restore autolyse
@@ -556,23 +509,23 @@ c    +                        ID    )
       IP27 = IPOINT(27)
       IP28 = IPOINT(28)
 
-C     Second segment loop, actual bloom call
+!     Second segment loop, actual bloom call
 
       IFLUX = 0
       DO 9000 ISEG = 1 , NOSEG
       CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
       IF (IKMRK1.EQ.1 .OR. IKMRK1.EQ.3) THEN
       CALL DHKMRK(2,IKNMRK(ISEG),IKMRK2)
-C
+!
       ISEG_3DL = ISEG
       ILAY_3DL = (ISEG-1)/NOSEGL_3DL+1
-C
+!
       TIMMUL = PMSA(IP1 )
       EXTTOT = PMSA(IP2 )
       EXTALG = PMSA(IP3 )
       TEMPER = PMSA(IP4 )
 
-C     Conversion from standard Delwaq 4.0 [W/m2] to [J/cm2/week] for Bloom
+!     Conversion from standard Delwaq 4.0 [W/m2] to [J/cm2/week] for Bloom
 
       RADIAT = PMSA(IP5 ) * 60.48
       IF ( IKMRK1 .EQ. 3 ) THEN
@@ -581,11 +534,11 @@ C     Conversion from standard Delwaq 4.0 [W/m2] to [J/cm2/week] for Bloom
       ENDIF
       DEPTH  = PMSA(IP6 )
       BLDEP  = PMSA(IP7 )
-C     Replace DEPTHW with BLDEP if BLDEP > 0.0
+!     Replace DEPTHW with BLDEP if BLDEP > 0.0
       DEPTHW = DEPTH
       IF (BLDEP.GT.0.) DEPTHW = BLDEP
 
-C     Conversion from standard Delwaq 4.0 [d] to [h] for Bloom
+!     Conversion from standard Delwaq 4.0 [d] to [h] for Bloom
 
       DAYLEN = PMSA(IP8 ) * 24.
       IF (DAYLEN.GT.24.) GOTO 903
@@ -600,7 +553,6 @@ C     Conversion from standard Delwaq 4.0 [d] to [h] for Bloom
       DETN   = PMSA(IP17)
       DETP   = PMSA(IP18)
       DELTAT = PMSA(IP19)
-c     write (*,*) iseg, ammoni, nitrat, phosph, silica
       SWBLOOMOUT = NINT(PMSA(IP20))
       IF ((SWBLOOMOUT.NE.0).AND.(THIS)) THEN
         HISTOR = .TRUE.
@@ -609,30 +561,11 @@ c     write (*,*) iseg, ammoni, nitrat, phosph, silica
       ENDIF
       CL     = PMSA(IP22)
       VOLUME = PMSA(IP23)
-
-      ! CO2 limitation
-
       TIC      = MAX(0.0,PMSA(IP25))
       CO2      = MAX(0.0,PMSA(IP26))
-      SWTICCO2 = NINT(PMSA(IP27))
-      KCO2     = PMSA(IP28)
 
-      ! use tic or co2 depending on the switch
-
-      IF ( SWTICCO2 .EQ. 1 ) THEN
-         TIC  = CO2*12./44.
-      ENDIF
-
-      ! set limitation
-
-      IF ( KCO2 .GT. 1.0E-20 ) THEN
-         CO2LIM = MIN(1.0,TIC/KCO2)
-      ELSE
-         CO2LIM = 1.0
-      ENDIF
-
-C     SUBTRACT THRESHOLDS FROM DISSOLVED CONCENTRATION, NOT BELOW ZERO,
-C     BUT BELOW ZERO IF ORIGINAL CONCENTRATION BELOW ZERO
+!     SUBTRACT THRESHOLDS FROM DISSOLVED CONCENTRATION, NOT BELOW ZERO,
+!     BUT BELOW ZERO IF ORIGINAL CONCENTRATION BELOW ZERO
       AMMONI = MAX(MIN(AMMONI,0.0),AMMONI - THRNH4)
       NITRAT = MAX(MIN(NITRAT,0.0),NITRAT - THRNO3)
       PHOSPH = MAX(MIN(PHOSPH,0.0),PHOSPH - THRPO4)
@@ -640,26 +573,22 @@ C     BUT BELOW ZERO IF ORIGINAL CONCENTRATION BELOW ZERO
 
       DO 20 IALG = 1,NTYP_A
 
-!nt2      scale PP with co2 limitation
-          PPMCO2 = ALGTYP(8,IALG)*CO2LIM
-          CALL BLSPPM(IALG,PPMCO2)
-!nt2
-cjvb     set SDMIX for all types, time/space dependent
-C        SDMIXALG
+!jvb     set SDMIX for all types, time/space dependent
+!        SDMIXALG
          IOFF = NIPFIX + 20*NTYP_M + IALG
          IP = IPOINT(IOFF) + (ISEG-1)*INCREM(IOFF)
          SDMIXN = PMSA(IP)
          CALL BLSSDM(IALG,SDMIXN)
-cjvb
-c         scale ulva from (g/m2) to (g/m3)
-c
+!jvb
+!         scale ulva from (g/m2) to (g/m3)
+!
           IOFF = NIPFIX
           IP = IPOINT(IOFF+IALG) + (ISEG-1)*INCREM(IOFF+IALG)
           IF (IFIX(IALG).LT.0) THEN
              BIOMAS(IALG) = PMSA(IP)/DEPTH
-C
-C            No PP for fixed ulva in non bottom segment, unless sdmix is set positive for this segment
-C
+!
+!            No PP for fixed ulva in non bottom segment, unless sdmix is set positive for this segment
+!
              IF ( SDMIXN .LT. -1.E-10 ) THEN
                 IF ((IKMRK2.EQ.1).OR.(IKMRK2.EQ.2)) THEN
                    CALL BLSPPM(IALG,0.0)
@@ -670,7 +599,7 @@ C
           ELSE
              BIOMAS(IALG) = PMSA(IP)
           ENDIF
-cjvb
+!jvb
           IOFF = NIPFIX + NTYP_M*2
           IP = IPOINT(IOFF+IALG) + (ISEG-1)*INCREM(IOFF+IALG)
           FAUT  (IALG) = PMSA(IP)
@@ -700,37 +629,37 @@ cjvb
       IFUPTA = IFLUX + 13
       IFPROD = IFLUX + 23
       IFMORT = IFLUX + 23 + NTYP_M
-C
-C     Set output control variables
-C     $ How can we couple this to the DELWAQ history flag?
-C     HISTOR should be true for history elements at history times
-C     Present .true. gives independent output of Bloom
-C     .false. prohibits independent output of Bloom
+!
+!     Set output control variables
+!     $ How can we couple this to the DELWAQ history flag?
+!     HISTOR should be true for history elements at history times
+!     Present .true. gives independent output of Bloom
+!     .false. prohibits independent output of Bloom
 
 
-CJVB  tijdelijk altijd om de weekcyclus te negeren
-cjvb  HISTOR = .TRUE.
+!JVB  tijdelijk altijd om de weekcyclus te negeren
+!jvb  HISTOR = .TRUE.
       CALL BLOUTC (HISTOR,LPRINO,LDUMPO)
 
-C     Salinity dependend mortality
-C     Adapt mortality rates
+!     Salinity dependend mortality
+!     Adapt mortality rates
 
       CALL BLCLST (MRTM1,MRTM2,MRTB1,MRTB2,NTYP_A,CL)
 
-C     Compute mortality
+!     Compute mortality
 
       CALL BLMORT ( BIOMAS        , TEMPER        , FAUT          ,
      J              FDET          , FL(IFAUTO)    , FL(IFDETR)    ,
      J              FL(IFOOXP)    , FL(IFMORT)    , DEAT4         ,
-     J              BLSTEP                                        )
+     J              BLSTEP        , LMIXO         , LFIXN         ,
+     J              LCARB         , NUTCON        , FLXCON        )
 
-C     Compute primary production and nutrient uptake
-
-c     WRITE(78,'(I3,74E12.3)') ISEG,(PMSA(IPOINT(I)),I=1,74)
+!     Compute primary production and nutrient uptake
 
       CALL BLPRIM ( BIOMAS        , AMMONI        , NITRAT        ,
      J              PHOSPH        , SILICA        , DETN          ,
-     M              DETP          , FL(IFMORT)    ,
+     M              DETP          ,                 CO2           , 
+     J              TIC           , FL(IFMORT)    ,
      J              FL(IFDETR)    , BLSTEP        , EXTTOT        ,
      J              EXTALG        , TEMPER        , RADIAT        ,
      J              DEPTHW        , DAYLEN        , ID            ,
@@ -739,15 +668,18 @@ c     WRITE(78,'(I3,74E12.3)') ISEG,(PMSA(IPOINT(I)),I=1,74)
      J              FL(IFUPTA)    , LIMFAC        , NUPTAK        ,
      J              FRAMMO        , FBOD5         , RATGRO        ,
      J              RATMOR        , ALGDM         , ISEG          ,
-     J              CGROUP        )
+     J              CGROUP        , LMIXO         , LFIXN         ,
+     J              LCARB         , NUTCON        , FLXCON        , 
+     J              NOUTLIM       , OUTLIM        , NUNUCOM       , 
+     J              NTYP_M        , CON2OUT                       )
 
-C     Copy C-uptake flux to seperate flux for Oxygen
+!     Copy C-uptake flux to seperate flux for Oxygen
 
       IF ( NINT(PMSA(IP21)).EQ.0 )
      JFL(IFUPTA+9) = FL(IFUPTA)
 
-C     Salinity dependend mortality
-C     Reset mortality rates
+!     Salinity dependend mortality
+!     Reset mortality rates
 
       CALL BLCLRS (MRTM1,NTYP_A)
 
@@ -756,64 +688,83 @@ C     Reset mortality rates
          CALL BLSPPM(IALG,ALGTYP(8,IALG))
       ENDDO
 
-C     Reset PPMAX for ulva-fixed if necessary
-
-      IF ((IKMRK2.EQ.1).OR.(IKMRK2.EQ.2)) THEN
-         DO IALG = 1,NTYP_A
-            IF (IFIX(IALG).LT.0) THEN
-               CALL BLSPPM(IALG,ALGTYP(8,IALG))
-            ENDIF
-         ENDDO
-      ENDIF
       IF ( IKMRK1 .EQ. 3 ) THEN
          CALL BL_RESTORE_AUTOLYSE(ORG_AVAILN) ! WAQ-G restore autolyse
       ENDIF
 
-      PMSA(IO1 ) = NUPTAK
-      PMSA(IO2 ) = FRAMMO
-      PMSA(IO3 ) = TOTNUT(1)
-      PMSA(IO4 ) = TOTNUT(2)
-      PMSA(IO5 ) = TOTNUT(3)
-      PMSA(IO6 ) = TOTNUT(4)
-      PMSA(IO7 ) = ALGDM
-      PMSA(IO8 ) = FBOD5
-      PMSA(IO9 ) = CHLORO
-      PMSA(IO10) = CHLORO
-      PMSA(IO11) = LIMFAC(1)
-      PMSA(IO12) = LIMFAC(2)
-      PMSA(IO13) = LIMFAC(3)
-      PMSA(IO14) = LIMFAC(4)
-      PMSA(IO15) = LIMFAC(5)
-      PMSA(IO16) = LIMFAC(6)
-      PMSA(IO17) = FL(IFUPTA)*DEPTHW
-      PMSA(IO19) = FL(IFUPTA+7)*DEPTHW
+      PMSA(IO(1 )) = NUPTAK
+      PMSA(IO(2 )) = FRAMMO
+      PMSA(IO(3 )) = TOTNUT(1)
+      PMSA(IO(4 )) = TOTNUT(2)
+      PMSA(IO(5 )) = TOTNUT(3)
+      PMSA(IO(6 )) = TOTNUT(4)
+      PMSA(IO(7 )) = ALGDM
+      PMSA(IO(8 )) = FBOD5
+      PMSA(IO(9 )) = CHLORO
+      PMSA(IO(10)) = CHLORO
+      PMSA(IO(11)) = LIMFAC(1)
+      PMSA(IO(12)) = LIMFAC(2)
+      PMSA(IO(13)) = LIMFAC(3)
+      PMSA(IO(14)) = LIMFAC(4)
+      PMSA(IO(15)) = LIMFAC(5)
+      PMSA(IO(16)) = LIMFAC(6)
+      PMSA(IO(17)) = FL(IFUPTA)*DEPTHW
 
-      PMSA(IO18) = 0.0
-      DO 30 IGRO = 1,NTYP_A
-          IOFF = NIPFIX + NIPVAR*NTYP_M + 19
+!     RECONSTRUCT RESPIRATION FLUXES
+      PMSA(IO(18)) = 0.0
+      DO IGRO = 1,NTYP_A
+          RCRESP = ALGTYP(13,IGRO)
+          TCRESP = ALGTYP(14,IGRO)
+          PMSA(IO(18)) = PMSA(IO(18)) 
+     J                 + RCRESP*TCRESP**TEMPER*BIOMAS(IGRO)
+      ENDDO
+      PMSA(IO(18)) = PMSA(IO(18))*DEPTHW
+      PMSA(IO(19)) = FL(IFUPTA+7)*DEPTHW
+      
+!     New limitation factors (nutrients + light)
+      DO IP = 1,NUNUCOM+2
+          PMSA(IO(19+IP)) = OUTLIM(IP)
+      ENDDO
+
+!     Growth rate of all groups
+      IOFF = NIPFIX + NIPVAR*NTYP_M + NOPFIX
+      DO IGRO = 1,NTYP_A
           IP = IPOINT(IOFF+IGRO) + (ISEG-1)*INCREM(IOFF+IGRO)
           PMSA(IP) = RATGRO(IGRO)
-          IOFF = NIPFIX + NIPVAR*NTYP_M + 19 + NTYP_M
+      ENDDO
+
+!     Mortality rate of all groups
+      IOFF = NIPFIX + NIPVAR*NTYP_M + NOPFIX + NTYP_M
+      DO IGRO = 1,NTYP_A
           IP = IPOINT(IOFF+IGRO) + (ISEG-1)*INCREM(IOFF+IGRO)
           PMSA(IP) = RATMOR(IGRO)
-          IOFF = NIPFIX + NIPVAR*NTYP_M + 19 + 2*NTYP_M
+      ENDDO
+      
+!     Biomass of all groups
+      IOFF = NIPFIX + NIPVAR*NTYP_M + NOPFIX + 2*NTYP_M
+      DO IGRO = 1,NTYP_A
           IP = IPOINT(IOFF+IGRO) + (ISEG-1)*INCREM(IOFF+IGRO)
           PMSA(IP) = CGROUP(IGRO)
+      ENDDO
 
-          IOFF = NIPFIX + 18*NTYP_M
+!     Growth limitation of all groups
+      IOFF = NIPFIX + NIPVAR*NTYP_M + NOPFIX + 3*NTYP_M
+      DO IGRO = 1,NTYP_A
           IP = IPOINT(IOFF+IGRO) + (ISEG-1)*INCREM(IOFF+IGRO)
-          RCRESP = PMSA(IP)
-          IOFF = NIPFIX + 19*NTYP_M
+          PMSA(IP) = OUTLIM(NUNUCOM+2+IGRO)
+      ENDDO
+
+!     Mort limitation of all groups
+      IOFF = NIPFIX + NIPVAR*NTYP_M + NOPFIX + 4*NTYP_M
+      DO IGRO = 1,NTYP_A
           IP = IPOINT(IOFF+IGRO) + (ISEG-1)*INCREM(IOFF+IGRO)
-          TCRESP = PMSA(IP)
-          PMSA(IO18) = PMSA(IO18) + RCRESP*TCRESP**TEMPER*BIOMAS(IGRO)
-   30 CONTINUE
-      PMSA(IO18) = PMSA(IO18)*DEPTHW
+          PMSA(IP) = OUTLIM(NUNUCOM+2+NTYP_M+IGRO)
+      ENDDO
 
       ENDIF
-C
+!
       IFLUX = IFLUX + NOFLUX
-C
+!
       IP1  = IP1  + INCREM( 1)
       IP2  = IP2  + INCREM( 2)
       IP3  = IP3  + INCREM( 3)
@@ -843,32 +794,47 @@ C
       IP27 = IP27 + INCREM(27)
       IP28 = IP28 + INCREM(28)
 
-      IO1  = IO1   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 1)
-      IO2  = IO2   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 2)
-      IO3  = IO3   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 3)
-      IO4  = IO4   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 4)
-      IO5  = IO5   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 5)
-      IO6  = IO6   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 6)
-      IO7  = IO7   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 7)
-      IO8  = IO8   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 8)
-      IO9  = IO9   + INCREM(NIPFIX+NIPVAR*NTYP_M+ 9)
-      IO10 = IO10  + INCREM(NIPFIX+NIPVAR*NTYP_M+10)
-      IO11 = IO11  + INCREM(NIPFIX+NIPVAR*NTYP_M+11)
-      IO12 = IO12  + INCREM(NIPFIX+NIPVAR*NTYP_M+12)
-      IO13 = IO13  + INCREM(NIPFIX+NIPVAR*NTYP_M+13)
-      IO14 = IO14  + INCREM(NIPFIX+NIPVAR*NTYP_M+14)
-      IO15 = IO15  + INCREM(NIPFIX+NIPVAR*NTYP_M+15)
-      IO16 = IO16  + INCREM(NIPFIX+NIPVAR*NTYP_M+16)
-      IO17 = IO17  + INCREM(NIPFIX+NIPVAR*NTYP_M+17)
-      IO18 = IO18  + INCREM(NIPFIX+NIPVAR*NTYP_M+18)
-      IO19 = IO19  + INCREM(NIPFIX+NIPVAR*NTYP_M+19)
-C
+      DO IP = 1,NOPFIX
+          IO(IP) = IO(IP) + INCREM(NIPFIX+NIPVAR*NTYP_M+IP)
+      ENDDO
+!
  9000 CONTINUE
-C
+
+      ! cummulate output per square metre over the depth towards lowest layer
+
+      ipo17 = ipoint(nipfix+nipvar*ntyp_m+17)
+      ino17 = increm(nipfix+nipvar*ntyp_m+17)
+      ipo18 = ipoint(nipfix+nipvar*ntyp_m+18)
+      ino18 = increm(nipfix+nipvar*ntyp_m+18)
+      ipo19 = ipoint(nipfix+nipvar*ntyp_m+19)
+      ino19 = increm(nipfix+nipvar*ntyp_m+19)
+
+      do iq = noq1+noq2+1 , noq1+noq2+noq3
+         ifrom = iexpnt(1,iq)
+         ito   = iexpnt(2,iq)
+         if ( ifrom.gt.0 .and. ito.gt.0 ) then
+            pmsa(ipo17+(ito-1)*ino17) = pmsa(ipo17+(ifrom-1)*ino17) + pmsa(ipo17+(ito-1)*ino17)
+            pmsa(ipo18+(ito-1)*ino18) = pmsa(ipo18+(ifrom-1)*ino18) + pmsa(ipo18+(ito-1)*ino18)
+            pmsa(ipo19+(ito-1)*ino19) = pmsa(ipo19+(ifrom-1)*ino19) + pmsa(ipo19+(ito-1)*ino19)
+         endif
+      enddo
+
+      ! set the accumulated value for every layer
+
+      do iq = noq1+noq2+noq3, noq1+noq2+1,-1
+         ifrom = iexpnt(1,iq)
+         ito   = iexpnt(2,iq)
+         if ( ifrom.gt.0 .and. ito.gt.0 ) then
+            pmsa(ipo17+(ifrom-1)*ino17) = pmsa(ipo17+(ito-1)*ino17)
+            pmsa(ipo18+(ifrom-1)*ino18) = pmsa(ipo18+(ito-1)*ino18)
+            pmsa(ipo19+(ifrom-1)*ino19) = pmsa(ipo19+(ito-1)*ino19)
+         endif
+      enddo
+
       RETURN
-C
+!
   901 STOP 'ERROR D40BLO: DIMENSION NTYP_M TOO SMALL'
-C 902 STOP 'ERROR D40BLO: DIMENSION NGRO_M TOO SMALL'
+! 902 STOP 'ERROR D40BLO: DIMENSION NGRO_M TOO SMALL'
   903 STOP 'ERROR D40BLO: DAYLEN > 1.0 DAY'
       END
 

@@ -1,7 +1,7 @@
  subroutine initstations(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,7 +41,8 @@
 !
 !! executable statements -------------------------------------------------------
 !
-    nullify(gdp%gdstations%line_orig)
+    nullify(gdp%gdstations%sta_orgline)
+    nullify(gdp%gdstations%tra_orgline)
     nullify(gdp%gdstations%stat_type)
     nullify(gdp%gdstations%stat_drogue)
     nullify(gdp%gdstations%mnit)

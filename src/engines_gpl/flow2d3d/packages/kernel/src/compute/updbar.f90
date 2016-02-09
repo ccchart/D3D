@@ -5,7 +5,7 @@ subroutine updbar(nsluv     ,mnbar     ,cbuv      ,cbuvrt    ,nmax      , &
                 & zk        ,zcor      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -53,6 +53,7 @@ subroutine updbar(nsluv     ,mnbar     ,cbuv      ,cbuvrt    ,nmax      , &
     !
     logical                       , pointer :: zmodel
     integer                       , pointer :: rtcmod
+    integer                       , pointer :: lundia
 !
 ! Global variables
 !
@@ -113,18 +114,17 @@ subroutine updbar(nsluv     ,mnbar     ,cbuv      ,cbuvrt    ,nmax      , &
     real(fp)                       :: ubrlsuv              ! Local variable for UBRLSU or UBRLSV
     real(fp)                       :: zk_bot               ! Lower vertical coordinate relative to reference plane of layer k
     real(fp)                       :: zk_top               ! Upper vertical coordinate relative to reference plane of layer k
-!
+    character(80)                  :: errmsg
 !
 !! executable statements -------------------------------------------------------
 !
-    !
-    !
     zmodel     => gdp%gdprocs%zmodel
     rtcmod     => gdp%gdrtc%rtcmod
+    lundia       => gdp%gdinout%lundia
     !
     do ibar = 1, nsluv
        !
-       !--------barrier location is defined in M,N coordinates
+       ! barrier location is defined in M,N coordinates
        !
        m1 = mnbar(1, ibar)
        n1 = mnbar(2, ibar)
@@ -132,20 +132,27 @@ subroutine updbar(nsluv     ,mnbar     ,cbuv      ,cbuvrt    ,nmax      , &
        n2 = mnbar(4, ibar)
        dir= mnbar(5, ibar)
        !
-       !--------Increments from coordinate pairs (tested in subroutine filbar)
+       ! Increments from coordinate pairs (tested in subroutine filbar)
        !
        call increm(m1        ,n1        ,m2        ,n2        ,incx      , &
                  & incy      ,maxinc    ,error     )
        m = m1 - incx
        n = n1 - incy
        !
-       !------- Only update if Flow is in RTC-Mode 1 (dataFromRTCToFLOW) and 
-       !        there is a valid barrier height available from RTC, 
-       !        otherwise take the initial value read from the barrier file.
+       if (btest(rtcmod,dataFromRTCToFLOW)) then
+          !
+          ! barriers are updated by RTC
        !
-       if (rtcmod == dataFromRTCToFLOW .and. cbuvrt(1, ibar)>=0.0_fp) then
+          if (comparereal(cbuvrt(1,ibar),0.0_fp) == -1) then
+             write(errmsg,'(a,i0)') 'No valid value obtained from RTC for barrier number ', ibar
+             call prterr(lundia, 'P004', trim(errmsg))
+             call d3stop(1,gdp)
+          endif
           hgate = cbuvrt(2, ibar)
        else
+          !
+          ! Use constant barrier height as read from file
+          !
           hgate = cbuv(1, ibar)
        endif
        !

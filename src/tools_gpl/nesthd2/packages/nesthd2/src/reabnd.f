@@ -3,7 +3,7 @@
      *                   nobnd                                 )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,7 +51,7 @@
       character*  1 char
       character*  1 time
       character*  1 typbnd (nobnd)
-      character* 20 nambnd (nobnd)
+      character* (*) nambnd (nobnd)
       character* 20 nmbnd
       character* 80 record
 !

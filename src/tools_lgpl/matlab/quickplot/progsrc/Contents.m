@@ -2,7 +2,7 @@
 % Version <VERSION> (<CREATIONDATE>)
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -27,11 +27,10 @@
 %                                                                               
 %-------------------------------------------------------------------------------
 %
-% Graphical user interfaces
+% Graphical tools
 %   d3d_qp              - QuickPlot user interface: plotting interface for Delft3D output data.
 %   ecoplot             - EcoPlot: Case Analysis Tool for Delft3D-WAQ/ECO/SED data.
-%   qpsa                - Get handle to the current QuickPlot axis.
-%   qpsf                - Get handle to the current QuickPlot figure.
+%   delwaq2raster       - Rasterize delwaq MAP results.
 %
 % Delft3D QuickPlot functions
 %   qpfopen             - General routine for open various types of data files.
@@ -43,6 +42,8 @@
 %   vrange              - Selection of data based on a vertical coordinate range.
 %   qpcross             - Cross-section of data: one point in time.
 %   qpcrosst            - Cross-section of data: time-dependent track.
+%   qpsa                - Get handle to the current QuickPlot axis.
+%   qpsf                - Get handle to the current QuickPlot figure.
 %
 % NEFIS Viewer Selector functions
 %   vs_use              - Initiates the use of a NEFIS file.
@@ -59,6 +60,7 @@
 %   bct_io              - Read/write boundary condition tables.
 %   bil                 - Read/write bil/hdr files.
 %   d3d_attrib          - Read/write a various Delft3D attribute files.
+%   dxf                 - File operations for AutoCad DXF files
 %   ecomsed             - Read an ECOMSED data file.
 %   enclosure           - Read/write enclosure files and convert enclosures.
 %   golder              - Read/write a Golder data file.
@@ -97,6 +99,7 @@
 %   floodmask           - Find connected points in an array.
 %   qp_unitconversion   - Convert unit strings.
 %   ustrcmpi            - Find a unique string.
+%   var2str             - Generic "display" function with string output.
 %   vardiff             - Determines the differences between two variables.
 %   wildstrmatch        - Find matching strings using wildcards.
 
@@ -128,6 +131,7 @@
 %   qp_getdata          - General interface for various data files
 %   qp_gridview         - Helper routine for Grid View interface.
 %   qp_validate         - Helper function to validate Delft3D-QUICKPLOT.
+%   reducepoints        - Filters a set of points using a distance threshold.
 %   setzcoord           - Sets the z coordinate.
 %   splitcellstr        - Split cell string at delimiters.
 %   stagprint           - Convert stagger name into string for printing.

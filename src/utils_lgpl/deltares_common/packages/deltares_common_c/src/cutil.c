@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -236,17 +236,201 @@ CUTIL_SYSTEM (
     }
 
 
-/*------------------------------------------------------------------------------
-/*  Routines to determine the location of D3D program and data files based */
-/*  on the values of the D3D_HOME and ARCH environment variables. */
+
+
+///*------------------------------------------------------------------------------*/
+//// Some routines for reading from gfortran from a single file with multiple file handles simultaneously 
+//
+//#define _MAX_LENGTH_ 6666
+//
+//typedef struct FileHandle {
+//	FILE * fp;
+//	long prevFilePos;
+//} FileHandle;
+//
+//long long int STDCALL
+//CUTIL_OPEN (
+//    char* fname
+//    ) {
+//	FileHandle *fh = (FileHandle*) malloc(sizeof(FileHandle));
+//	fh->fp = fopen(fname,"r");
+//	fh->prevFilePos = 0;
+//    /*---- Open file, return filepointer */
+//    return ((long long int) fh);
+//    }
+//
+//int STDCALL
+//CUTIL_BACKSPACE (
+//    long long int* ifh
+//    ) {
+//	FileHandle* fh = (FileHandle*)ifh;
+//	fseek(fh->fp, fh->prevFilePos, SEEK_SET);
+//    return (0);
+//    }
+//
+//int STDCALL
+//CUTIL_EOF (
+//    long long int* ifh
+//    ) {
+//	FileHandle* fh = (FileHandle*)ifh;
+//    /*---- EOF reached ? */
+//	return (feof(fh->fp));
+//    }
+//
+//int STDCALL
+//CUTIL_REWIND (
+//    long long int* ifh
+//    ) {
+//	FileHandle* fh = (FileHandle*)ifh;
+//    /*---- rewind file */
+//	rewind(fh->fp);
+//    }
+//
+//int STDCALL
+//CUTIL_READ (
+//    long long int*  ifh,
+//    char* resultstr
+//    ) {
+//	FileHandle* fh = (FileHandle*)ifh;
+//	fh->prevFilePos = ftell(fh->fp);
+//    /*---- read a line from file */
+//    resultstr = fgets(resultstr,_MAX_LENGTH_,fh->fp);
+//    return(0);
+//    }
+//
+//int STDCALL
+//CUTIL_CLOSE (
+//    long long int* ifh
+//    ) {
+//	FileHandle* fh = (FileHandle*)ifh;
+//    /*---- close file */
+//	fclose (fh->fp);
+//	free(fh);					
+//    return(0);
+//    }
+//
+///*------------------------------------------------------------------------------*/
+
+/*------------------------------------------------------------------------------*/
+// Some routines for reading from a single file with multiple file handles simultaneously 
+
+#define _MAX_LENGTH_ 6666
+
+long long int STDCALL
+CUTIL_MF_OPEN (
+    char* fname
+    ) {
+	FILE *fh; 
+	fh = fopen(fname,"rb");
+    /*---- Open file, return filepointer */
+    return ((long long int) fh);
+    }
+
+int STDCALL
+CUTIL_MF_BACKSPACE (
+    long long int* ifh,
+	long long int* prevpos
+    ) {
+	fseek((FILE*)*ifh, *prevpos, SEEK_SET);
+    return (0);
+    }
+
+int STDCALL
+CUTIL_MF_EOF (
+    long long int* ifh
+    ) {
+    /*---- EOF reached ? */
+	return (feof((FILE*)*ifh));
+    }
+
+int STDCALL
+CUTIL_MF_REWIND (
+    long long int* ifh
+    ) {
+    /*---- rewind file */
+	rewind((FILE*)*ifh);
+	return(0);
+    }
+
+int STDCALL
+CUTIL_MF_READ (
+    long long int*  ifh,
+    char* resultstr,
+	long long int* currentpos
+    ) {
+	*currentpos = ftell((FILE*)*ifh);							/*---- save current pos in the file b4 reading */ 
+    resultstr = fgets(resultstr,_MAX_LENGTH_,(FILE*)*ifh);		/*---- read a line from file */
+    return(0);
+    }
+
+int STDCALL
+CUTIL_MF_CLOSE (
+    long long int* ifh
+    ) {
+    /*---- close file */
+	fclose ((FILE*)*ifh);
+    return(0);
+    }
+
+/*-------------------------------------------------------------------------------------------*/
+// Some routines for comparing doubles and floats by converting to their integer representation
+// These two are for testing equality between floats by using integers (as a cheaper alternative 
+// to comparedouble in fortran) and WILL be removed as soon as they are deemed obsolete. 
+
+int STDCALL
+	CUTIL_CMP_DOUBLE (
+	    double* val1,
+		double* val2,
+		int* eps
+		) {
+		long longDiff;
+        if (*val1 == *val2)
+           return 0;                   // exactly equal
+        longDiff = abs(*(long*)val1 - *(long*)val2);
+        if (longDiff <= *eps)
+           return 0;                   // equal within tolerance
+        return ((*val1)>(*val2)?1:-1); // greater than, less than
+        }
+
+int STDCALL
+	CUTIL_CMP_SINGLE (
+	    float* val1,
+		float* val2,
+		int* eps
+		) {
+		long longDiff;
+        if (*val1 == *val2)
+           return 0;                   // exactly equal
+        longDiff = abs(*(long*)val1 - *(long*)val2);
+        if (longDiff <= *eps)
+           return 0;                   // equal within tolerance
+        return ((*val1)>(*val2)?1:-1); // greater than, less than
+        }
+
+/*------------------------------------------------------------------------------*/
+
+
+/*  Routines to locate the "default" directory */
 
 
 #define SUCCESS     0
 #define FAILURE     1
 
 
-static    int     getpath         (char **, char **, char **, char *);
 static    void    report_error    (char *);
+
+/* FTN_CAPITAL is assumed to be the default value */
+
+#if HAVE_CONFIG_H
+#   include "config.h"
+#   define STDCALL  /* nothing */
+#   define CUTIL_GETEXEDIR FC_FUNC(cutil_getexedir,CUTIL_GETEXEDIR)
+#else
+// WIN32
+#   define STDCALL  /* nothing */
+#   define CUTIL_GETEXEDIR  CUTIL_GETEXEDIR
+#endif
+
 
 void STDCALL
 CUTIL_GETMP (
@@ -309,119 +493,50 @@ CUTIL_GETMP (
 
 
 void STDCALL
-CUTIL_GETHW (
+CUTIL_GETEXEDIR (
 #if !defined (WIN32)
-    char *  pathp,
-    int *   lenpathp,
-    char *  pathd,
-    int *   lenpathd,
-    int *   aloneint,
-    char *  fpathp,
-    int *   lenfpathp,
-    char *  fpathd,
-    int *   lenfpathd,
+    char *  path,
+    int *   lenpath,
     int *   result
 #else
-    char *  pathp,
-    int *   lenpathp,
-    char *  pathd,
-    int *   lenpathd,
-    int *   aloneint,
-    char *  fpathp,
-    int *   lenfpathp,
-    char *  fpathd,
-    int *   lenfpathd,
-    int *   result
+    char *  path,
+    int *   lenpath,
+    int *   result,
+    int     path_LENGTH
 #endif
     ) {
 
-    char *  modname;
-    char *  arch        = NULL;
-    char *  d3d_home    = NULL;
-
-    char *  envpath        = NULL;
     char    slash;                    /* UNIX or Windows directory separator */
-    char    pathp_buf  [10000];
-    char    pathd_buf  [10000];
-    char    fpathp_buf [10000];
-    char    fpathd_buf [10000];
+    char    buf [1000];
+    char    path_buffer[1000];
+    char    drive[1000];
+    char    dir[1000];
+    char    fname[1000];
+    char    ext[1000];
+    int     err;
+    int     len;
+    len = 1000;
+    /*----  Get and validate default directory using the location of this binary */
 
-
-    modname = "flow";
-
-    /*----  Get and validate paths from environment variables */
-
-    if (getpath (&arch, &d3d_home, &envpath, &slash) == FAILURE) {
-    *result = FAILURE;
-    return;
-        }
-
-    /*----  Assemble final path strings */
-
-    if (envpath = d3d_home) {
-        if (arch == NULL) {
-            sprintf (pathp_buf,  "%s%c%s%cbin%c",       envpath, slash, modname, slash, slash);
-            sprintf (pathd_buf,  "%s%c%s%cdefault%c",   envpath, slash, modname, slash, slash);
-            sprintf (fpathp_buf, "%s%cflow%cbin%c",     envpath, slash, slash, slash);
-            sprintf (fpathd_buf, "%s%cflow%cdefault%c", envpath, slash, slash, slash);
-        }
-    else {
-            sprintf (pathp_buf,  "%s%c%s%c%s%cbin%c",       envpath, slash, arch, slash, modname, slash, slash);
-            sprintf (pathd_buf,  "%s%c%s%c%s%cdefault%c",   envpath, slash, arch, slash, modname, slash, slash);
-            sprintf (fpathp_buf, "%s%c%s%cflow%cbin%c",     envpath, slash, arch, slash, slash, slash);
-            sprintf (fpathd_buf, "%s%c%s%cflow%cdefault%c", envpath, slash, arch, slash, slash, slash);
-            }
-    }
-    else {
-        sprintf (pathp_buf,  "%s%cbin%c",     envpath, slash, slash);
-        sprintf (pathd_buf,  "%s%cdefault%c", envpath, slash, slash);
-        sprintf (fpathp_buf, "%s%cbin%c",     envpath, slash, slash);
-        sprintf (fpathd_buf, "%s%cdefault%c", envpath, slash, slash);
-    }
-
-    if ((int) strlen (pathp_buf)  >= *lenpathp  ||
-        (int) strlen (pathd_buf)  >= *lenpathd  ||
-        (int) strlen (fpathp_buf) >= *lenfpathp ||
-        (int) strlen (fpathd_buf) >= *lenfpathd
-    ) {
-        report_error ("The D3D_HOME environment variable is too long");
+#ifdef WIN32
+    slash = '\\';
+    GetModuleFileName(NULL,path_buffer,len);
+    err = _splitpath_s(path_buffer, drive, len, dir, len, fname, len, ext, len);
+    if (err != 0) {
+        report_error ("Unable to read/split the executable directory");
         *result = FAILURE;
         return;
-      }
-
-    cstr2fstr (pathp_buf,  *lenpathp,  pathp);
-    cstr2fstr (pathd_buf,  *lenpathd,  pathd);
-    cstr2fstr (fpathp_buf, *lenfpathp, fpathp);
-    cstr2fstr (fpathd_buf, *lenfpathd, fpathd);
-
+        }
+    sprintf (path_buffer, "%s%s", drive, dir);
+#else
+    slash = '/';
+    readlink("/proc/self/exe", path_buffer,len);
+    sprintf (path_buffer, "%s%c", dirname(path_buffer), slash);
+#endif
+    cstr2fstr (path_buffer, *lenpath, path);
     *result = SUCCESS;
     }
 
-
-static int
-getpath (
-    char *  *arch,
-    char *  *d3d_home,
-    char *  *envpath,
-    char    *slash
-    ) {
-
-    //  The ARCH and D3D_HOME envars are no longer necessary.
-    //  This routine now just returns dummy values.
-    //  Irv.Elshoff@Deltares.NL, 27 apr 11
-
-    *arch     = "ARCH";     // getenv ("ARCH");
-    *d3d_home = "D3D_HOME"; // getenv ("D3D_HOME");
-    *envpath  = *d3d_home;
-
-#ifdef WIN32
-    *slash = '\\';
-#else
-    *slash = '/';
-#endif
-
-    return SUCCESS;
-}
 
 static void
 report_error (

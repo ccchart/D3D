@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -36,6 +36,7 @@ type gd_numeco
    real(fp)     :: dryflc            !  Drying & flooding threshold [m]
    real(fp)     :: fwfac             !  factor for adjusting intensity of energy dissipation in wave boundary layer
                                      !  (Tuning parameter for wave streaming)
+   real(fp)     :: ftauw             !  factor for adjusting wave-related bed shear stress in taubot.f90
    real(fp)     :: gammax            !  Maximum wave height/water depth ratio
    real(fp)     :: hdt               !  Description and declaration in esm_alloc_real.f90
    real(fp)     :: nudvic            !  Viscosity at open boundaries for nudging 
@@ -61,6 +62,7 @@ type gd_numeco
                                      !  (used in cucnp/z_cucnp and uzd/z_uzd)
    logical      :: use_zavg_for_qtot !  Flag indicating whether discharge distribution at total discharge is based
                                      !  on local water level (false) or average water level (true)
+   logical      :: v2dwbl            !  Flag for the use of velocity above wave boundary layer for computing 2d representative velocity
    character(8) :: dpsopt            !  Drying & Flooding procedure at cell centres
                                      !  [MEAN/MAX/MIN/NO]
    character(8) :: dpuopt

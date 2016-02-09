@@ -10,7 +10,7 @@ subroutine u_whis(lundat    ,header    ,runid     ,itime     ,idate     , &
                 & dtr       ,fltr      ,gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -97,7 +97,7 @@ subroutine u_whis(lundat    ,header    ,runid     ,itime     ,idate     , &
     real(fp)       , dimension(nostat, kmax)         , intent(in) :: zqxk   !  Description and declaration in esm_alloc_real.f90
     real(fp)       , dimension(nostat, kmax)         , intent(in) :: zqyk   !  Description and declaration in esm_alloc_real.f90
     real(fp)       , dimension(nostat, kmax)         , intent(in) :: zrho   !  Description and declaration in esm_alloc_real.f90
-    real(fp)       , dimension(nostat, kmax, lsed)   , intent(in) :: zrsdeq !  Description and declaration in esm_alloc_real.f90
+    real(fp)       , dimension(nostat, lsed)         , intent(in) :: zrsdeq !  Description and declaration in esm_alloc_real.f90
     real(fp)       , dimension(nostat, kmax, lstsci) , intent(in) :: gro    !  Description and declaration in esm_alloc_real.f90
     real(fp)       , dimension(nostat, lsed)         , intent(in) :: zbdsed !  Description and declaration in esm_alloc_real.f90
     real(fp)       , dimension(ntruv)                , intent(in) :: ctr    !  Description and declaration in esm_alloc_real.f90

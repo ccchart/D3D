@@ -8,7 +8,7 @@ function [G,GridFileName]=get_matching_grid(MapSeg,pn,filterspec)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -43,7 +43,8 @@ filters = {'*.cco;*.lga' 'Delft3D Grid (Aggregation) Files'
    '*.m2b' 'SOBEK Grid Aggregation Files'
    '*.geo;geo*;*.slf' 'Telemac Grid Files'
    'T2DD12;*.dwq' 'DIDO Aggregation File (for Telemac)'
-   '*.nc' 'UGRID netCDF Files (D-Flow FM, Untrim)'};
+   '*.nc' 'UGRID netCDF Files (D-Flow FM, Untrim)'
+   '*.shp' 'Shape File'};
 telemacfilter = filters(3,:);
 if nargin<3
    filterspec = '';
@@ -105,6 +106,24 @@ while 1
                PerLayer=G.NoSegPerLayer;
                CouldReadGridData = 1;
             catch
+               trytp = '.shp';
+            end
+         case '.shp'
+            try
+               G=shape('open',GridFileName);
+               G.AggregationFld=ustrcmpi('DWAQ_AGG',{G.dBase.Fld.Name});
+               if G.AggregationFld>0
+                   Agg=dbase('read',G.dBase,0,G.AggregationFld);
+                   G.Index=Agg{1};
+                   GridSeg=max(G.Index);
+               else
+                   GridSeg=G.NShapes;
+                   G.Index=(1:GridSeg)';
+               end
+               G.MNK=[G.NShapes 1];
+               PerLayer=GridSeg;
+               CouldReadGridData = 1;
+            catch
                trytp = '.grd';
             end
          case '.grd'
@@ -138,7 +157,7 @@ while 1
                        if strcmp(G.Dataset(i).Attribute(j).Name,'delwaq_role') && ...
                                 strcmp(G.Dataset(i).Attribute(j).Value,'segment_aggregation_table')
                             table = nc_varget(G.Filename,G.Dataset(i).Name);
-                            if max(table)==MapSeg
+                            if max(table(:))==MapSeg
                                AggrTable(i) = true;
                             end
                             break
@@ -149,7 +168,12 @@ while 1
                if any(AggrTable)
                    iAggr = find(AggrTable);
                    iAggr = iAggr(1);
-                   GridSeg = MapSeg;
+                   table = nc_varget(G.Filename,G.Dataset(iAggr).Name);
+                   if numel(table)==length(table)
+                       GridSeg = MapSeg;
+                   else
+                       GridSeg = min(max(table,[],2)); % should be recoded, because it could be any dimension
+                   end
                    CouldReadGridData = 1;
                    xbounds = G.Dataset(iAggr).XBounds;
                    ybounds = G.Dataset(iAggr).YBounds;
@@ -159,7 +183,7 @@ while 1
                    G.AggregationDims = [G.Dataset(x).Dimension setdiff(G.Dataset(iAggr).Dimension,G.Dataset(x).Dimension)];
 %                   [G.Index, errmsg] = qp_netcdf_get(G,G.Aggregation,G.AggregationDims);
 %                   G.Index(isnan(G.Index))=0;
-                   G.MNK=[GridSeg 1 1];
+                   G.MNK=[GridSeg 1 MapSeg/GridSeg];
                    G.Index=(1:GridSeg)';
                else
                    C = cell(0,4);
@@ -184,7 +208,18 @@ while 1
                        end
                        %
                        if ~matching
-                           error('Unable to identify coordinate bounds variables for %i segments.',segdim)
+                           matching = 0;
+                           for i=1:size(C,1)
+                               K = MapSeg/C{i,4};
+                               if isequal(K,round(K))
+                                   matching = i;
+                                   break
+                               end
+                           end
+                       end
+                       %
+                       if ~matching
+                           error('Unable to identify coordinate bounds variables for %i segments.',MapSeg)
                        else
                            segdim = C{matching,3};
                            GridSeg = C{matching,4};

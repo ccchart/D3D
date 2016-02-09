@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -24,15 +24,15 @@
       INTEGER FUNCTION UPRCAS (LOWCAS,UPPCAS,LENGTH)
       CHARACTER*1 LOWCAS(1),UPPCAS(1)
       INTEGER LENGTH,ILOW
-C
+!
       DO 10 I=1,LENGTH
       UPPCAS(I) = LOWCAS(I)
       ILOW = ICHAR(LOWCAS(I))
-C     IF (ILOW .GT. 169 .OR.  ILOW .LT. 129) GO TO 10
-C *** Replace previous line by following line on ASCI computers.
+!     IF (ILOW .GT. 169 .OR.  ILOW .LT. 129) GO TO 10
+! *** Replace previous line by following line on ASCI computers.
       IF (ILOW .GT. 122 .OR.  ILOW .LT.  97) GO TO 10
-C     ILOW = ILOW + 64
-C *** Replace previous line by following line on ASCI computers.
+!     ILOW = ILOW + 64
+! *** Replace previous line by following line on ASCI computers.
       ILOW = ILOW - 32
       UPPCAS(I) = CHAR(ILOW)
   10  CONTINUE

@@ -8,7 +8,7 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
                & anglon    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -181,6 +181,7 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     real(fp)      :: corr
     real(fp)      :: d       ! Declination angle at given time (radians)
     real(fp)      :: decln   ! Maximum declination angle of the earth
+    real(fp)      :: delvap  ! Vapour pressure difference (see also Rob Uittenbogaard's 1DV model
     real(fp)      :: eal     ! Vapour pressure in air remote for given humidity
     real(fp)      :: easp
     real(fp)      :: efree   ! Free convection of latent heat
@@ -411,16 +412,17 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
           endif
        endif
     endif
-    
 do l=1,lstsci
    if ( l==ltem .or. flbcktemp(l) ) then   
     !
     !
+    ! ---------------------------------------------------------------
     ! KTEMP=1
     !
     ! ABSOLUTE TEMPERATURE MODEL
     ! No heat exchange when nm is a floating structure:
     ! (kspu(nm,0)=kspu(nmd,0)=kspv(nm,0)=kspv(ndm,0)=2)
+    ! ---------------------------------------------------------------
     !
     if (ktemp == 1) then
        do nm = 1, nmmax
@@ -449,6 +451,13 @@ do l=1,lstsci
              easp     = (rhum/100.0_fp) * 23.38_fp * exp( 18.1_fp - 5303.3_fp/(tdryb      +273.15_fp) )
              esvp     =                   23.38_fp * exp( 18.1_fp - 5303.3_fp/(r0(nm,k0,l)+273.15_fp) )
              !
+             ! No negative evaporation
+             ! Assumption: Negative evaporation is caused by
+             ! "poor" modelling/parameter choice and not by the actual physical process
+             ! of water condensation out ot the air into the water
+             !
+             delvap = max(0.0_fp , esvp-easp)
+             !
              ! Previous formulation, with EVAP computed in caleva.f90:
              ! qeva = evap(nm) * tl * rhoa 
              !
@@ -457,7 +466,7 @@ do l=1,lstsci
                 !
                 ! No evap from fileva, evap and qeva calculated internally
                 !
-                qeva     = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * (esvp-easp)
+                qeva     = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * delvap
                 evap(nm) = qeva / tl
              case (2)
                 !
@@ -468,7 +477,7 @@ do l=1,lstsci
                 !
                 ! evap from fileva, qeva is calculated internally
                 !
-                qeva = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * (esvp-easp)
+                qeva = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * delvap
              case default
                 ! nothing
              end select
@@ -536,12 +545,14 @@ do l=1,lstsci
           endif
        enddo
     !
+    ! ---------------------------------------------------------------
     ! KTEMP=2
     !
     ! ABSOLUTE TEMPERATURE MODEL
     !
     ! No heat exchange when nm is a floating structure:
     ! (kspu(nm,0)=kspu(nmd,0)=kspv(nm,0)=kspv(ndm,0)=2)
+    ! ---------------------------------------------------------------
     !
     elseif (ktemp == 2) then
        !
@@ -571,6 +582,13 @@ do l=1,lstsci
              easp = (rhum/100.0_fp) * 23.38_fp * exp( 18.1_fp - 5303.3_fp/(tdryb      +273.15_fp) )
              esvp =                   23.38_fp * exp( 18.1_fp - 5303.3_fp/(r0(nm,k0,l)+273.15_fp) )
              !
+             ! No negative evaporation
+             ! Assumption: Negative evaporation is caused by
+             ! "poor" modelling/parameter choice and not by the actual physical process
+             ! of water condensation out of the air into the water
+             !
+             delvap = max(0.0_fp , esvp-easp)
+             !
              ! Previous formulation, with EVAP computed in caleva.f90:
              ! qeva = evap(nm) * tl * rhoa
              !
@@ -579,7 +597,7 @@ do l=1,lstsci
                 !
                 ! No evap from fileva, evap and qeva calculated internally
                 !
-                qeva     = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * (esvp-easp)
+                qeva     = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * delvap
                 evap(nm) = qeva / tl
              case (2)
                 !
@@ -590,7 +608,7 @@ do l=1,lstsci
                 !
                 ! evap from fileva, qeva is calculated internally
                 !
-                qeva = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * (esvp-easp)
+                qeva = fwind * (3.5_fp + 2.05_fp*w10mag(nm)) * delvap
              case default
                 ! nothing
              end select
@@ -650,11 +668,13 @@ do l=1,lstsci
           endif
        enddo
     !
+    ! ---------------------------------------------------------------
     ! KTEMP=3  QTOT=QLE+QS
     !
     ! EXCESS TEMPERATURE MODEL
     ! No heat exchange when nm is a floating structure:
     ! (kspu(nm,0)=kspu(nmd,0)=kspv(nm,0)=kspv(ndm,0)=2)
+    ! ---------------------------------------------------------------
     !
     elseif (ktemp==3) then
        !
@@ -729,21 +749,23 @@ do l=1,lstsci
              endif
           endif
        enddo
+    !
+    ! ---------------------------------------------------------------
+    ! KTEMP=4 Murakami Heat model
+    !
+    ! ABSOLUTE TEMPERATURE MODEL: - RHUM in %
+    !                             - EASP & ESVP in Mbar
+    !                             - PRECIP & EVAPOR in KG/(M2 S)
+    !                             - CMTOMT = CM to Meters
+    !
+    ! S_SIGM = 0.9 * SBOLTZ replaced by EM * SBOLTZ in eq.
+    ! to obtain the same eq. as Proctor module
+    !
+    ! No heat exchange when nm is a floating structure:
+    ! (kspu(nm,0)=kspu(nmd,0)=kspv(nm,0)=kspv(ndm,0)=2)
+    ! ---------------------------------------------------------------
+    !
     elseif (ktemp==4) then
-       !
-       ! KTEMP=4 Murakami Heat model
-       !
-       ! ABSOLUTE TEMPERATURE MODEL: - RHUM in %
-       !                             - EASP & ESVP in Mbar
-       !                             - PRECIP & EVAPOR in KG/(M2 S)
-       !                             - CMTOMT = CM to Meters
-       !
-       ! S_SIGM = 0.9 * SBOLTZ replaced by EM * SBOLTZ in eq.
-       ! to obtain the same eq. as Proctor module
-       !
-       ! No heat exchange when nm is a floating structure:
-       ! (kspu(nm,0)=kspu(nmd,0)=kspv(nm,0)=kspv(ndm,0)=2)
-       !
        em = 0.9_fp
        do nm = 1, nmmax
           nmd = nm - icx
@@ -779,6 +801,13 @@ do l=1,lstsci
              endif
              esvp =                      23.38_fp * exp(18.1_fp - 5303.3_fp/(r0(nm,k0,l) + 273.15_fp))
              !
+             ! No negative evaporation
+             ! Assumption: Negative evaporation is caused by
+             ! "poor" modelling/parameter choice and not by the actual physical process
+             ! of water condensation out of the air into the water
+             !
+             delvap = max(0.0_fp , esvp-easp)
+             !
              ! Formulation for EVAP moved from CALEVA to HEATU
              !
              select case (keva)
@@ -786,7 +815,7 @@ do l=1,lstsci
                 !
                 ! No evap from fileva, evap and qeva calculated internally
                 !
-                evap(nm) = 1.2e-9_fp * w10mag(nm) * (esvp-easp) * rhow
+                evap(nm) = 1.2e-9_fp * w10mag(nm) * delvap * rhow
                 qeva     = evap(nm) * tl
              case (2)
                 !
@@ -797,7 +826,7 @@ do l=1,lstsci
                 !
                 ! evap from fileva, qeva is calculated internally
                 !
-                qeva = 1.2e-9_fp * w10mag(nm) * (esvp-easp) * rhow * tl
+                qeva = 1.2e-9_fp * w10mag(nm) * delvap * rhow * tl
              case default
                 ! nothing
              end select
@@ -806,6 +835,11 @@ do l=1,lstsci
              !                       Bowens ratio = 0.66*(r0-tair)/(esvp-easp)
              !
              bowrat = 0.66_fp * (r0(nm, k0, l) - tair) / (esvp - easp)
+             if (delvap > eps) then
+                bowrat = 0.66_fp * (r0(nm, k0, l) - tair) / delvap
+             else
+                bowrat = 0.66_fp * (r0(nm, k0, l) - tair) / eps
+             endif
              qco    = bowrat * qeva
              !
              ! LONG WAVE INCOMING AND BACK RADIATION 
@@ -927,9 +961,11 @@ do l=1,lstsci
           endif
        enddo
     !
+    ! ---------------------------------------------------------------
     ! KTEMP=5
     !
     ! HEAT FLUX THROUGH FREE SURFACE (PROCTOR)
+    ! ---------------------------------------------------------------
     !
     elseif (ktemp==5) then
        !
@@ -1076,8 +1112,15 @@ do l=1,lstsci
              ! Specific humidity (qal) of air remote and
              ! saturated air (qw) near water surface; eq.(A.9)+(A.10):
              !
-             qw  = (0.62_fp*ew ) / (presa - 0.38_fp*ew )
-             qal = (0.62_fp*eal) / (presa - 0.38_fp*eal)
+             qw     = (0.62_fp*ew ) / (presa - 0.38_fp*ew )
+             qal    = (0.62_fp*eal) / (presa - 0.38_fp*eal)
+             !
+             ! No negative evaporation
+             ! Assumption: Negative evaporation is caused by
+             ! "poor" modelling/parameter choice and not by the actual physical process
+             ! of water condensation out of the air into the water
+             !
+             delvap = max(0.0_fp , qw-qal)
              !
              ! Heat loss of water by evaporation through forced convection,
              ! Evaporation calculation moved from caleva to heatu
@@ -1087,7 +1130,7 @@ do l=1,lstsci
                 !
                 ! No evap from fileva, evap and qeva calculated internally
                 !
-                evap(nm) = dalton * rhoa * w10mag(nm) * (qw-qal)
+                evap(nm) = dalton * rhoa * w10mag(nm) * delvap
                 qeva     = evap(nm) * tl
              case (2)
                 !
@@ -1098,7 +1141,7 @@ do l=1,lstsci
                 !
                 ! evap from fileva, qeva is calculated internally
                 !
-                qeva = dalton * rhoa * w10mag(nm) * (qw-qal) * tl
+                qeva = dalton * rhoa * w10mag(nm) * delvap * tl
              case default
                 ! nothing
              end select
@@ -1153,7 +1196,7 @@ do l=1,lstsci
                    ! mass flux due to free convection added to evap
                    ! heat flux due to free convection added to qeva
                    !
-                   efree    = fheat * (qw-qal) * tl * (rhoa0+rhoa10)/2.0_fp
+                   efree    = fheat * delvap * tl * (rhoa0+rhoa10)/2.0_fp
                    evap(nm) = evap(nm) + efree/tl
                    qeva     = qeva + efree
                 case (2)
@@ -1167,7 +1210,7 @@ do l=1,lstsci
                    ! evap from fileva, qeva is calculated internally
                    ! heat flux due to free convection added to qeva
                    !
-                   efree    = fheat * (qw-qal) * tl * (rhoa0+rhoa10)/2.0_fp
+                   efree    = fheat * delvap * tl * (rhoa0+rhoa10)/2.0_fp
                    qeva     = qeva + efree
                 case default
                    ! nothing
@@ -1319,7 +1362,7 @@ do l=1,lstsci
        call prterr(lundia, 'U190', trim(errmsg))
     endif
     !
-   endif    
+   endif
 enddo
 !
 end subroutine heatu

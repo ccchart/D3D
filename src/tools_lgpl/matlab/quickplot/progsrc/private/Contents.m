@@ -15,7 +15,6 @@
 %   delwaqt0                    - Parse Delwaq T0 string.
 %   dbase                       - Read data from a dBase file.
 %   delwaqtimfile               - Reads in a Delwaq .tim input file (Lex Yacc type).
-%   dxf                         - File operations for AutoCad DXF files
 %   fls                         - Read Delft-FLS and SOBEK2D incremental files.
 %   geomesh                     - Read a Geo mesh topology file.
 %   getlds                      - Get LDS information from SDS file.
@@ -45,6 +44,7 @@
 %   telemac                     - Read Telemac selafin files.
 %   trtarea                     - Read Delft3D trachytope/WAQUA ecotope area files.
 %   unibest                     - Read Unibest files.
+%   waterml2                    - Read WaterML 2.0 files.
 %
 % Special graphics routines
 %   balanceplot                 - Create a balance plot.
@@ -80,7 +80,6 @@
 %   legendbox                   - Display legend.
 %   multiline                   - Converts a string containing LineFeeds to a char matrix.
 %   realset                     - Manipulate sets of real values.
-%   reducepoints                - Filters a set points using a distance threshold.
 %   reducepoints_r13_6p5        - MEX file for REDUCEPOINTS compiled with R13.
 %   reducepoints_r2007a_7p4     - MEX file for REDUCEPOINTS compiled with R2007A.
 %   relativepath                - Determine file name relative to second file.
@@ -256,7 +255,6 @@
 %   update_option_positions     - Update vertical position of plot option controls.
 %   updateuicontrols            - Force an update of the uicontrol properties.
 %   uv2cen                      - Interpolate velocities.
-%   var2str                     - Generic "display" function with string output.
 %   vec2str                     - Create a string representation of a vector.
 %   writelog                    - Write QuickPlot logfile or MATLAB script.
 %   xx_constants                - Define several constants.
@@ -265,7 +263,7 @@
 %
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   

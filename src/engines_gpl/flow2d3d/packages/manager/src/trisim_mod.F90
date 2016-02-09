@@ -1,7 +1,7 @@
 module mod_trisim
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -56,6 +56,7 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     ! global data declaration; compare with include 'globdat.igd'
     !
     use globaldata
+    use string_module
     implicit none
     type(globDat)  , target   :: gdp
     !
@@ -98,8 +99,6 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
                                                         ! = 3 no initialization 
     integer        , pointer            :: it01         ! Reference date in yymmdd 
     integer        , pointer            :: it02         ! Reference time in hhmmss 
-    integer        , pointer            :: itb          ! Start time of computational interval 
-    integer        , pointer            :: ite          ! End time of computational interval 
     integer        , pointer            :: itima        ! Time to start simulation (N * tscale) according to DELFT3D conventions 
     integer        , pointer            :: itlen        ! Lenght of the tide cycle 
     integer                             :: lenid
@@ -108,11 +107,9 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     integer                             :: nhystp
     integer                  , external :: newlun
     integer                  , external :: fsmtrf
-    logical        , pointer            :: alone        ! TRUE when flow runs stand-alone, FALSE when flow is part of morsys 
     logical                             :: ex
     logical                             :: init         ! Flag=TRUE when initialisation is required (always the case if FLOW is used stand alone) 
     logical                             :: lexist
-    logical        , pointer            :: mainys       ! Logical flag for FLOW is main porgram (TRUE) for writing output 
     logical                             :: opend        ! Help logical var. to determine whether each of the output files was opened 
     real(fp)       , pointer            :: tscale       ! Basic unit time 
     character(12)                       :: filmrs       ! File name for DELFT3D_MOR FLOW input file (MD-flow.xxx) 
@@ -168,12 +165,8 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     initi        => gdp%gdtricom%initi 
     it01         => gdp%gdtricom%it01
     it02         => gdp%gdtricom%it02
-    itb          => gdp%gdtricom%itb
-    ite          => gdp%gdtricom%ite
     itima        => gdp%gdtricom%itima
     itlen        => gdp%gdtricom%itlen
-    alone        => gdp%gdtricom%alone
-    mainys       => gdp%gdtricom%mainys
     tscale       => gdp%gdtricom%tscale
     comfil       => gdp%gdtricom%comfil
     trifil       => gdp%gdtricom%trifil
@@ -186,7 +179,6 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     
     init     = .true.
     filmrs   = ' '
-    alone    = .true.
     !
     iphisi   = 0
     ipmap(1) = -1
@@ -241,7 +233,7 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     ! Run TDATOM
     !
     if (.not.parll .or. inode == master) then
-       call tdatmain(runid, alone, filmrs, icheck, gdp) 
+       call tdatmain(runid, filmrs, icheck, gdp) 
     endif
     call dfbroadc_gdp(icheck, 1, dfint,gdp)
     call dfsync(gdp)
@@ -255,37 +247,16 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     !
     prognm = 'TRISIM'
     !
-    ! Determine by trigger-file if RTC is running as well
-    !
-    luntri = newlun(gdp)
-    filsim = 'TMP_SYNC.RUN'
-    inquire (file = filsim, exist = lexist)
-    if (lexist) then
-       open (luntri, file = filsim, form = 'unformatted', status = 'unknown')
-       read (luntri) icheck
-       close (luntri)
-       !
-       ! Check 'RUNRTC' by telephone
-       !
-       if (icheck==786782) then
-          rtcmod = dataFromRTCToFLOW
-       else
-          write (*, '(a)') 'Trigger-file TMP_SYNC.RUN not made by TDATOM'
-          call d3stop(1         ,gdp       )
-       endif
-    endif
-    !
     ! Start FLOW simulation program
     !
-    call noextspaces(runid     ,lenid     )
+    call remove_leading_spaces(runid     ,lenid     )
     if (init) then
        !
        ! Read  dimensions of arrays and declare array pointers
        !
-       call tripoi(runid, filmrs, versio, filmd, &
-                 & alone, gdp)
+       call tripoi(runid, filmrs, versio, filmd, gdp)
        if (gdp%errorcode > 0) then
-          if (rtcmod == dataFromRTCToFLOW) then
+          if (btest(rtcmod,dataFromRTCToFLOW)) then
              call timer_start(timer_wait, gdp)
              call syncflowrtc_quit
              call timer_stop(timer_wait, gdp)
@@ -309,21 +280,16 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     it01   = 0
     it02   = 0
     !
-    itb    = 1
-    ite    = -1
     itlen  = 0
     tscale = 1.0
     !
-    itima  = 0
-    !
-    mainys = .true.
     itima  = 0
     !
     ! Initialize communication file name
     ! NOTE: case may never be only blanks
     !
     case = runid
-    call noextspaces(case      ,ic        )
+    call remove_leading_spaces(case      ,ic        )
     !
     comfil(1:4) = 'com-'
     comfil(5:)  = case(1:ic)
@@ -366,6 +332,7 @@ end function trisim_init
 !----------------------------------------------------------------------
 integer function trisim_step(olv_handle, gdp) result(retval)
     use globaldata
+    use string_module
     use d3d_olv_class
     !
     implicit none
@@ -393,6 +360,7 @@ end function trisim_step
 !-----------------------------------------------------------------------
 integer function trisim_finish(olv_handle, gdp) result(retVal)
     use globaldata
+    use string_module
     use dfparall
     use d3d_olv_class
     !    
@@ -439,6 +407,7 @@ integer function trisim_close(gdp) result (retval)
     use flow2d3d_timers
     use meteo
     use globaldata
+    use string_module
     !    
     implicit none
     !    
@@ -531,6 +500,7 @@ end function trisim_close
 !==============================================================================
 integer function trisim_initialise_single_step(gdp) result(retval)
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -559,6 +529,7 @@ end function trisim_initialise_single_step
 !==============================================================================
 integer function trisim_prepare_next_step(gdp) result(retval)
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -584,6 +555,7 @@ end function trisim_prepare_next_step
 !==============================================================================
 integer function trisim_check_step(gdp) result(retval)
     use globaldata
+    use string_module
     !
     implicit none
     !

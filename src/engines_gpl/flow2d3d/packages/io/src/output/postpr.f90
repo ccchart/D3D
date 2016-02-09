@@ -1,13 +1,12 @@
 subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
-                & trifil    ,mainys    ,runid     ,prsmap    ,prshis    , &
-                & selmap    ,selhis    ,rhow      ,grdang    , &
-                & initi     ,dtsec     ,nst       ,iphisc    ,npmap     , &
-                & itcomc    ,itimc     ,itcur     ,ntcur     ,ithisc    , &
-                & itmapc    ,itdroc    ,itrstc    ,ktemp     ,halftime  , &
-                & gdp       )
+                & trifil    ,runid     ,prsmap    ,prshis    ,selmap    , &
+                & selhis    ,rhow      ,grdang    ,initi     ,dtsec     , &
+                & nst       ,iphisc    ,npmap     ,itcomc    ,itimc     , &
+                & itcur     ,ntcur     ,ithisc    ,itmapc    ,itdroc    , &
+                & itrstc    ,ktemp     ,halftime  ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -133,10 +132,10 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer                              , pointer :: iphisl
     integer          , dimension(:)      , pointer :: ipmap
     integer                              , pointer :: julday
+    integer                              , pointer :: ntstep
     real(fp)                             , pointer :: bed
     real(fp)                             , pointer :: tmor
     integer                              , pointer :: itmor
-    type (moroutputtype)                 , pointer :: moroutput
     logical                              , pointer :: multi
     logical                              , pointer :: first
     integer                              , pointer :: nuprpg
@@ -145,7 +144,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     logical                              , pointer :: wind
     logical                              , pointer :: culvert
     logical                              , pointer :: dredge
-    logical                              , pointer :: dadsmonly
     logical                              , pointer :: drogue
     logical                              , pointer :: wave
     logical                              , pointer :: waveol
@@ -156,7 +154,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     logical                              , pointer :: roller
     logical                              , pointer :: xbeach
     integer(pntrsize)                    , pointer :: alfas
-    integer(pntrsize)                    , pointer :: aks
     integer(pntrsize)                    , pointer :: areau
     integer(pntrsize)                    , pointer :: areav
     integer(pntrsize)                    , pointer :: atr
@@ -215,13 +212,11 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer(pntrsize)                    , pointer :: qykw
     integer(pntrsize)                    , pointer :: r1
     integer(pntrsize)                    , pointer :: rbuff
-    integer(pntrsize)                    , pointer :: rca
     integer(pntrsize)                    , pointer :: rho
     integer(pntrsize)                    , pointer :: rich
     integer(pntrsize)                    , pointer :: rint
     integer(pntrsize)                    , pointer :: rlabda
     integer(pntrsize)                    , pointer :: rsed
-    integer(pntrsize)                    , pointer :: rsedeq
     integer(pntrsize)                    , pointer :: rtur1
     integer(pntrsize)                    , pointer :: s1
     integer(pntrsize)                    , pointer :: sbtr
@@ -231,8 +226,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer(pntrsize)                    , pointer :: sig
     integer(pntrsize)                    , pointer :: sstr
     integer(pntrsize)                    , pointer :: sstrc
-    integer(pntrsize)                    , pointer :: ssuu
-    integer(pntrsize)                    , pointer :: ssvv
     integer(pntrsize)                    , pointer :: taubmx
     integer(pntrsize)                    , pointer :: taubpu
     integer(pntrsize)                    , pointer :: taubpv
@@ -354,38 +347,37 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
 !
 ! Global variables
 !
-    integer                     :: initi
-    integer                     :: iphisc !!  Current time counter for printing history data
-    integer                     :: itcomc
-    integer                     :: itcur  !!  Current time counter for the communication file, where starting point depend on CYCLIC
-    integer                     :: itdroc !!  Current time counter for the drogue data file
-    integer                     :: ithisc !!  Current time counter for the history data file
-    integer                     :: itimc  !!  Current time step counter for 2D system
-    integer                     :: itmapc !!  Current time counter for the MAP
-    integer                     :: itrstc !!  Current time counter for the restart file.
-                                          !!  Start writing after first interval is passed.
-                                          !!  Last time will always be written to file for ITRSTI > 0
-    integer                     :: ktemp  !! Description and declaration in tricom.igs
-    integer                     :: lundia !  Description and declaration in inout.igs
-    integer                     :: lunprt !  Description and declaration in inout.igs
-    integer                     :: npmap
-    integer                     :: nst    !!  Current time step counter
-    integer                     :: ntcur  !!  Total number of timesteps on communication file (to write to)
-    logical                     :: error  !!  Flag=TRUE if an error is encountered
-    logical       , intent(in)  :: halftime !!  Update time of next write if Flag=TRUE
-    logical       , intent(in)  :: mainys !!  Flag for running main routines
-    real(fp)                    :: dtsec  !!  Integration time step [in seconds]
-    real(fp)                    :: grdang !  Description and declaration in tricom.igs
-    real(fp)                    :: rhow   !  Description and declaration in esm_alloc_real.f90
-    character(*)                :: comfil !!  Name for communication file com-<case><label>
-    character(*)                :: runid  !!  Run identification code for the current simulation
-                                          !!  (used to determine the names of the in- /output files used by the system)
-    character(*)                :: selmap !  Description and declaration in tricom.igs
-    character(*)                :: trifil !!  File name for FLOW NEFIS output files (tri"h/m"-"casl""labl".dat/def)
-    character(19)               :: prsmap !  Description and declaration in tricom.igs
-    character(23)               :: prshis !  Description and declaration in tricom.igs
-    character(23)               :: selhis !  Description and declaration in tricom.igs
-    character(5)                :: versio !!  Version nr. of the current package
+    integer                                    :: initi
+    integer                                    :: iphisc !!  Current time counter for printing history data
+    integer                                    :: itcomc
+    integer                                    :: itcur  !!  Current time counter for the communication file, where starting point depend on CYCLIC
+    integer                                    :: itdroc !!  Current time counter for the drogue data file
+    integer                                    :: ithisc !!  Current time counter for the history data file
+    integer                                    :: itimc  !!  Current time step counter for 2D system
+    integer                                    :: itmapc !!  Current time counter for the MAP
+    integer                                    :: itrstc !!  Current time counter for the restart file.
+                                                         !!  Start writing after first interval is passed.
+                                                         !!  Last time will always be written to file for ITRSTI > 0
+    integer                                    :: ktemp  !! Description and declaration in tricom.igs
+    integer                                    :: lundia !  Description and declaration in inout.igs
+    integer                                    :: lunprt !  Description and declaration in inout.igs
+    integer                                    :: npmap
+    integer                                    :: nst    !!  Current time step counter
+    integer                                    :: ntcur  !!  Total number of timesteps on communication file (to write to)
+    logical                                    :: error  !!  Flag=TRUE if an error is encountered
+    logical                      , intent(in)  :: halftime !!  Update time of next write if Flag=TRUE
+    real(fp)                                   :: dtsec  !!  Integration time step [in seconds]
+    real(fp)                                   :: grdang !  Description and declaration in tricom.igs
+    real(fp)                                   :: rhow   !  Description and declaration in esm_alloc_real.f90
+    character(*)                               :: comfil !!  Name for communication file com-<case><label>
+    character(*)                               :: runid  !!  Run identification code for the current simulation
+                                                         !!  (used to determine the names of the in- /output files used by the system)
+    character(*)                               :: selmap !  Description and declaration in tricom.igs
+    character(*)                               :: trifil !!  File name for FLOW NEFIS output files (tri"h/m"-"casl""labl".dat/def)
+    character(19)                              :: prsmap !  Description and declaration in tricom.igs
+    character(23)                              :: prshis !  Description and declaration in tricom.igs
+    character(23)                              :: selhis !  Description and declaration in tricom.igs
+    character(5)                               :: versio !!  Version nr. of the current package
 !
 ! Local variables
 !
@@ -399,7 +391,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer                  :: ipmapc         ! Current time counter for printing map data (IPMAP (NPMAPC)) 
     integer                  :: kmaxz          ! = KMAX for Z-model, = 0 for sigma-model
                                                ! Needed for correct dimensioning of DZU1 and DZV1
-    integer                  :: msteps
     integer                  :: nmaxddb
     integer(pntrsize)        :: velu           ! U velocity array (FSM r-index)
     integer(pntrsize)        :: velv           ! V velocity array (FSM r-index)
@@ -412,6 +403,7 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     logical                  :: chez           ! if true there is a chezy value
     logical                  :: divByCellWidth !  Flag for scaling parameters to the correct dimensions in uv2zeta.f90
                                                !  Here used for scaling discharges to unit discharges for Fourier Analysis
+    character(30) , dimension(10)              :: runtxt ! Dummy variable for wrh_main call (actual parameter needed in INIPPR)
 !
 !! executable statements -------------------------------------------------------
 !
@@ -489,10 +481,10 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     iphisl              => gdp%gdinttim%iphisl
     ipmap               => gdp%gdinttim%ipmap
     julday              => gdp%gdinttim%julday
+    ntstep              => gdp%gdinttim%ntstep
     bed                 => gdp%gdmorpar%bed
     tmor                => gdp%gdmorpar%tmor
     itmor               => gdp%gdmorpar%itmor
-    moroutput           => gdp%gdmorpar%moroutput
     multi               => gdp%gdmorpar%multi
     nuprpg              => gdp%gdpostpr%nuprpg
     nuprln              => gdp%gdpostpr%nuprln
@@ -500,7 +492,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     wind                => gdp%gdprocs%wind
     culvert             => gdp%gdprocs%culvert
     dredge              => gdp%gdprocs%dredge
-    dadsmonly           => gdp%gdprocs%dadsmonly
     drogue              => gdp%gdprocs%drogue
     wave                => gdp%gdprocs%wave
     waveol              => gdp%gdprocs%waveol
@@ -511,7 +502,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     roller              => gdp%gdprocs%roller
     xbeach              => gdp%gdprocs%xbeach
     alfas               => gdp%gdr_i_ch%alfas
-    aks                 => gdp%gdr_i_ch%aks
     areau               => gdp%gdr_i_ch%areau
     areav               => gdp%gdr_i_ch%areav
     atr                 => gdp%gdr_i_ch%atr
@@ -569,13 +559,11 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     precip              => gdp%gdr_i_ch%precip
     r1                  => gdp%gdr_i_ch%r1
     rbuff               => gdp%gdr_i_ch%rbuff
-    rca                 => gdp%gdr_i_ch%rca
     rho                 => gdp%gdr_i_ch%rho
     rich                => gdp%gdr_i_ch%rich
     rint                => gdp%gdr_i_ch%rint
     rlabda              => gdp%gdr_i_ch%rlabda
     rsed                => gdp%gdr_i_ch%rsed
-    rsedeq              => gdp%gdr_i_ch%rsedeq
     rtur1               => gdp%gdr_i_ch%rtur1
     s1                  => gdp%gdr_i_ch%s1
     sbtr                => gdp%gdr_i_ch%sbtr
@@ -585,8 +573,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     sig                 => gdp%gdr_i_ch%sig
     sstr                => gdp%gdr_i_ch%sstr
     sstrc               => gdp%gdr_i_ch%sstrc
-    ssuu                => gdp%gdr_i_ch%ssuu
-    ssvv                => gdp%gdr_i_ch%ssvv
     taubmx              => gdp%gdr_i_ch%taubmx
     taubpu              => gdp%gdr_i_ch%taubpu
     taubpv              => gdp%gdr_i_ch%taubpv
@@ -872,13 +858,14 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
              !
              ! for waq veg only....
              !
-             if (lsedtot > 0) then 
-                !
-                ! for waq veg and without sediment only...
-                !
-                call wrsedmgrp(lundia    ,error     ,trifil    ,itmapc    ,mmax      , &
-                             & kmax      ,nmaxus    ,lsed      ,lsedtot   ,gdp       )
-             endif
+             !if (lsedtot > 0) then 
+             !   !
+             !   ! for waq veg and without sediment only...
+             !   !
+             !   call wrsedmgrp(lundia    ,error     ,trifil    ,itmapc    ,mmax      , &
+             !                & kmax      ,nmaxus    ,lsed      ,lsedtot   , &
+             !                & gdp       ,i(kfsmin) ,i(kfsmax) )
+             !endif
           endif
        endif
     endif
@@ -906,318 +893,189 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
        velt = 'GLM'
     endif
     !
-    ! Output for specific FLOW files (MAINYS = .true.)
+    ! Output for specific FLOW files
     !
-    if (mainys) then
-       !
-       ! HIS file
-       !
-       !
-       ! Store flow- and concentration fluxes in defined cross-sections
-       ! for every NST when or ITHISI or IPHISI or both are > 0
-       !
-       if (ithisi+iphisi > 0) then
-          call tcross(dtsec     ,prshis    ,selhis    ,ntruv     ,ntru      , &
-                    & lstsci    ,nmaxus    ,nmax      ,mmax      ,kmax      , &
-                    & i(kfu)    ,i(kfv)    ,r(ctr)    ,r(fltr)   , &
-                    & r(atr)    ,r(dtr)    ,r(guu)    ,r(gvv)    ,r(guv)    , &
-                    & r(gvu)    ,r(thick)  ,r(r1)     ,r(qxk)    ,r(qyk)    , &
-                    & r(hu)     ,r(hv)     ,r(dicuv)  ,lsed      ,lsedtot   , &
-                    & r(sbtr)   ,r(sstr)   ,r(sbtrc)  ,r(sstrc)  ,r(sbuu)   , &
-                    & r(sbvv)   ,r(ssuu)   ,r(ssvv)   ,gdp       )
-          ftcros = .true.
-       endif
-       !
-       ! Store water-levels and concentrations in defined stations
-       ! and calculated velocities and discharges to zeta points
-       ! for defined stations
-       ! Only in case NST = ITHISC or NST = IPHISC
-       ! The following workarrays are used to transport results to wrwavh:
-       ! wrka1 zhs
-       ! wrka2 ztp
-       ! wrka3 zdir
-       ! wrka4 zrlabd
-       ! wrka5 zuorb
-       !
-       if (nst==ithisc .or. nst==iphisc) then
-          call update_stat_locations(nostat    ,ndro      ,i(mndro)  , &
-                                   & r(xydro)  ,timhr     ,julday    , &
-                                   & lundia    ,gdp       )
-          call tstat(prshis    ,selhis    ,rhow      ,zmodel    ,nostat    , &
-                   & nmax      ,mmax      ,kmax      ,lmax      ,lstsci    , &
-                   & ltur      ,lsal      ,ltem      ,lsed      ,lsedtot   , &
-                   & i(kfs)    ,i(kfu)    ,i(kfv)    ,i(kcs)    ,i(kfuz1)  , &
-                   & i(kfvz1)  ,i(kfumin) ,i(kfumax) ,i(kfvmin) ,i(kfvmax) , &
-                   & i(kfsmin) ,i(kfsmax) ,i(zkfs)   ,r(s1)     ,r(velu)   , &
-                   & r(velv)   ,r(r1)     ,r(rtur1)  ,r(wphy)   ,r(qxk)    , &
-                   & r(qyk)    ,r(taubpu) ,r(taubpv) ,r(taubsu) ,r(taubsv) , &
-                   & r(alfas)  ,r(vicww)  ,r(dicww)  ,r(rich)   ,r(rho)    , &
-                   & r(rsedeq) ,r(ws)     ,d(dps)    , &
-                   & r(zwl)    ,r(zalfas) ,r(zcuru)  ,r(zcurv)  ,r(zcurw)  , &
-                   & r(zqxk)   ,r(zqyk)   ,r(gro)    ,r(ztur)   ,            &
-                   & r(ztauks) ,r(ztauet) ,r(zvicww) ,r(zdicww) ,r(zrich)  , &
-                   & r(zrho)   ,r(zbdsed) ,r(zrsdeq) ,r(zdpsed) ,r(zdps)   , &
-                   & r(zws)    ,r(hydprs) ,r(p1)     ,r(vortic) ,r(enstro) , &
-                   & r(zvort)  ,r(zenst)  ,r(zsbu)   ,r(zsbv)   ,r(zssu)   , &
-                   & r(zssv)   ,r(sbuu)   ,r(sbvv)   ,r(ssuu)   ,r(ssvv)   , &
-                   & r(wrka1)  ,r(wrka2)  ,r(wrka3)  ,r(wrka4)  ,r(wrka5)  , &
-                   & r(hrms)   ,r(tp)     ,r(teta)   ,r(rlabda) ,r(uorb)   , &
-                   & wave      ,r(rca)    ,r(zrca)   ,r(windu)  ,r(windv)  , &
-                   & r(zwndsp) ,r(zwnddr) ,r(patm)   ,r(zairp)  ,wind      , &
-                   & r(precip) ,r(evap)   ,r(zprecp),r(zevap)  ,gdp       )
-          ftstat = .true.
-       endif
-       !
-       ! Call USER OUTPUT ROUTINE
-       !
-       call u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
-                & prshis    ,selmap    ,selhis    ,runid     ,rhow      , &
-                & grdang    ,dtsec     ,nst       ,iphisc    , &
-                & npmap     ,ithisc    ,itmapc    ,itdroc    ,itrstc    , &
-                & ftstat    ,ftcros    ,gdp       )
+    ! HIS file
+    !
+    ! Store flow- and concentration fluxes in defined cross-sections
+    ! for every NST when or ITHISI or IPHISI or both are > 0
+    !
+    if (ithisi+iphisi > 0) then
+       call tcross(dtsec     ,prshis    ,selhis    ,ntruv     ,ntru      , &
+                 & lstsci    ,nmaxus    ,nmax      ,mmax      ,kmax      , &
+                 & i(kfu)    ,i(kfv)    ,r(ctr)    ,r(fltr)   , &
+                 & r(atr)    ,r(dtr)    ,r(guu)    ,r(gvv)    ,r(guv)    , &
+                 & r(gvu)    ,r(thick)  ,r(r1)     ,r(qxk)    ,r(qyk)    , &
+                 & r(hu)     ,r(hv)     ,r(dicuv)  ,lsed      ,lsedtot   , &
+                 & r(sbtr)   ,r(sstr)   ,r(sbtrc)  ,r(sstrc)  ,r(sbuu)   , &
+                 & r(sbvv)   ,gdp       )
+       ftcros = .true.
+    endif
+    !
+    ! Store water-levels and concentrations in defined stations
+    ! and calculated velocities and discharges to zeta points
+    ! for defined stations
+    ! Only in case NST = ITHISC or NST = IPHISC
+    ! The following workarrays are used to transport results to wrwavh:
+    ! wrka1 zhs
+    ! wrka2 ztp
+    ! wrka3 zdir
+    ! wrka4 zrlabd
+    ! wrka5 zuorb
+    !
+    if (nst==ithisc .or. nst==iphisc) then
+       call update_stat_locations(nostat    ,ndro      ,i(mndro)  , &
+                                & r(xydro)  ,timhr     ,julday    , &
+                                & lundia    ,gdp       )
+       call tstat(prshis    ,selhis    ,rhow      ,zmodel    ,nostat    , &
+                & nmax      ,mmax      ,kmax      ,lmax      ,lstsci    , &
+                & ltur      ,lsal      ,ltem      ,lsed      ,lsedtot   , &
+                & i(kfs)    ,i(kfu)    ,i(kfv)    ,i(kcs)    ,i(kfuz1)  , &
+                & i(kfvz1)  ,i(kfumin) ,i(kfumax) ,i(kfvmin) ,i(kfvmax) , &
+                & i(kfsmin) ,i(kfsmax) ,i(zkfs)   ,r(s1)     ,r(velu)   , &
+                & r(velv)   ,r(r1)     ,r(rtur1)  ,r(wphy)   ,r(qxk)    , &
+                & r(qyk)    ,r(taubpu) ,r(taubpv) ,r(taubsu) ,r(taubsv) , &
+                & r(alfas)  ,r(vicww)  ,r(dicww)  ,r(rich)   ,r(rho)    , &
+                & r(ws)     ,d(dps)    , &
+                & r(zwl)    ,r(zalfas) ,r(zcuru)  ,r(zcurv)  ,r(zcurw)  , &
+                & r(zqxk)   ,r(zqyk)   ,r(gro)    ,r(ztur)   ,            &
+                & r(ztauks) ,r(ztauet) ,r(zvicww) ,r(zdicww) ,r(zrich)  , &
+                & r(zrho)   ,r(zbdsed) ,r(zrsdeq) ,r(zdpsed) ,r(zdps)   , &
+                & r(zws)    ,r(hydprs) ,r(p1)     ,r(vortic) ,r(enstro) , &
+                & r(zvort)  ,r(zenst)  ,r(zsbu)   ,r(zsbv)   ,r(zssu)   , &
+                & r(zssv)   ,r(sbuu)   ,r(sbvv)   , &
+                & r(wrka1)  ,r(wrka2)  ,r(wrka3)  ,r(wrka4)  ,r(wrka5)  , &
+                & r(hrms)   ,r(tp)     ,r(teta)   ,r(rlabda) ,r(uorb)   , &
+                & wave      ,r(zrca)   ,r(windu)  ,r(windv)  , &
+                & r(zwndsp) ,r(zwnddr) ,r(patm)   ,r(zairp)  ,wind      , &
+                & r(precip) ,r(evap)   ,r(zprecp) ,r(zevap)  ,gdp       )
+       ftstat = .true.
+    endif
+    !
+    ! Call USER OUTPUT ROUTINE
+    !
+    call u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
+             & prshis    ,selmap    ,selhis    ,runid     ,rhow      , &
+             & grdang    ,dtsec     ,nst       ,iphisc    , &
+             & npmap     ,ithisc    ,itmapc    ,itdroc    ,itrstc    , &
+             & ftstat    ,ftcros    ,gdp       )
+    if (error) goto 9999
+    !
+    ! Print water-levels and concentrations in defined stations
+    ! and calculated velocities to zeta points for defined stations
+    ! Only in case NST = IPHISC
+    !
+    if (nst == iphisc) then
+       call prthis(lundia    ,error     ,prshis    ,grdang    ,lunprt    , &
+                 & nuprpg    ,nuprln    ,header    ,iphisc    ,julday    , &
+                 & dtsec     ,nostat    ,ntruv     ,ntru      ,kmax      , &
+                 & lstsci    ,lsal      ,ltem      ,ltur      ,lmax      , &
+                 & namst     ,namtra    ,ch(namcon),mnstat    ,mnit      , &
+                 & r(zwl)    ,r(zalfas) ,r(zcuru)  ,r(zcurv)  ,r(zcurw)  , &
+                 & r(zvicww) ,r(zdicww) ,r(zrich)  ,r(zrho)   ,r(gro)    , &
+                 & r(ztur)   ,r(ctr)    ,r(fltr)   ,r(atr)    ,r(dtr)    )
        if (error) goto 9999
        !
-       ! Print water-levels and concentrations in defined stations
-       ! and calculated velocities to zeta points for defined stations
-       ! Only in case NST = IPHISC
+       ! Update timestep to print HIS data
+       ! ITSTRT <= IPHISF <= IPHISC <= IPHISL <= ITFINISH
        !
-       if (nst == iphisc) then
-          call prthis(lundia    ,error     ,prshis    ,grdang    ,lunprt    , &
-                    & nuprpg    ,nuprln    ,header    ,iphisc    ,julday    , &
-                    & dtsec     ,nostat    ,ntruv     ,ntru      ,kmax      , &
-                    & lstsci    ,lsal      ,ltem      ,ltur      ,lmax      , &
-                    & namst     ,namtra    ,ch(namcon),mnstat    ,mnit      , &
-                    & r(zwl)    ,r(zalfas) ,r(zcuru)  ,r(zcurv)  ,r(zcurw)  , &
-                    & r(zvicww) ,r(zdicww) ,r(zrich)  ,r(zrho)   ,r(gro)    , &
-                    & r(ztur)   ,r(ctr)    ,r(fltr)   ,r(atr)    ,r(dtr)    )
+       if (.not.halftime .and. iphisc+iphisi <= iphisl) iphisc = iphisc + iphisi
+    endif
+    !
+    ! Write to binary HIS file
+    ! only in case NST = ITHISC
+    !
+    if (nst == ithisc) then
+       call wrh_main(lundia    ,error     ,selhis    ,grdang    ,dtsec     , &
+                   & ithisc    ,runtxt    ,trifil    ,gdp       )
+       if (error) goto 9999
+       !
+       ! Update timestep to write HIS files
+       ! ITSTRT <= ITHISF <= ITHISC <= ITHISL <= ITFINISH
+       !
+       if (.not.halftime .and. nst==ithisc .and. ithisc+ithisi<=ithisl) then
+          ithisc = ithisc + ithisi
+       endif
+    endif
+    !
+    ! MAP file
+    !
+    ! Print water-levels and concentrations and calculated velocities
+    ! to zeta points for 2dH maps
+    ! Only in case NST = IPMAP (NPMAPC)
+    !
+    ipmapc = ipmap(npmap)
+    if (nst == ipmapc) then
+       call prtmap(lundia    ,error     ,prsmap    ,lunprt    ,nuprpg    , &
+                 & nuprln    ,header    ,ipmapc    ,julday    ,dtsec     , &
+                 & grdang    ,nmax      ,mmax      ,kmax      ,nmaxus    , &
+                 & lstsci    ,ltur      ,lmaxd     ,lsal      ,ltem      , &
+                 & ch(namcon),i(kfu)    ,i(kfv)    ,i(kcs)    ,r(s1)     , &
+                 & r(velu)   ,r(velv)   ,r(wphy)   ,r(alfas)  ,r(r1)     , &
+                 & r(rtur1)  ,r(vicww)  ,r(dicww)  ,r(rich)   ,r(rho)    , &
+                 & r(rbuff)  ,r(rbuff)  ,velt      ,gdp       )
+       if (error) goto 9999
+       !
+       ! Update timestep to print MAP data
+       ! ITSTRT <= IPMAP (NPMAP) <= IPMAP (NPMAP+1) <= ITFINISH
+       !
+       if (.not.halftime) then
+          npmap = npmap + 1
+       endif
+    endif
+    !
+    ! Write to binary MAP file
+    ! Only in case ITMAPI>0 and NST = ITMAPC
+    !
+    if (itmapi > 0) then
+       if (nst == itmapc) then
+          call wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
+                      & itmapc    ,runtxt    ,trifil    ,.false.   ,initi     , &
+                      & gdp       )
           if (error) goto 9999
+       endif
+
+       if (wave .and. waveol .and. nst==itmapc) then
           !
-          ! Update timestep to print HIS data
-          ! ITSTRT <= IPHISF <= IPHISC <= IPHISL <= ITFINISH
+          ! Create file TMP_write_wavm
+          ! waves.exe will only write wave maps if file TMP_write_wavm exists 
+          ! The file will be deleted by waves.exe after the map is written
+          ! Note: the creation of file TMP_write_wavm will be repeated for each domain, but doesn't matter
           !
-          if (.not.halftime .and. iphisc+iphisi <= iphisl) iphisc = iphisc + iphisi
+          filwri = newlun(gdp)
+          open(filwri, file='TMP_write_wavm', status='unknown')
+          close(filwri, status='keep')
        endif
        !
-       ! Write to NEFIS HIS files (trih-ext.dat and trih-ext.def)
-       ! only in case NST = ITHISC
+       ! Update timestep to write MAP files
+       ! ITSTRT <= ITMAPF <= ITMAPC <= ITMAPL <= ITFINISH
        !
-       if (nst == ithisc) then
-          call wrthisbal(ithisc    ,trifil    ,lundia    ,error     ,gdp       )
-          call wrthis(lundia    ,error     ,trifil    ,selhis    ,ithisc    , &
-                       & itstrt    ,ithisi    ,zmodel    ,nostat    ,ntruv     , &
-                       & kmax      ,lmax      ,lstsci    ,lsal      ,ltem      , &
-                       & ltur      ,i(zkfs)   ,r(zwl)    ,r(zcuru)  ,r(zcurv)  , &
-                       & r(zcurw)  ,r(zqxk)   ,r(zqyk)   ,r(ztauks) ,r(ztauet) , &
-                       & r(zvicww) ,r(zdicww) ,r(zrich)  ,r(zrho)   ,r(gro)    , &
-                       & r(ztur)   ,r(zvort)  ,r(zenst)  ,r(hydprs) ,r(fltr)   , &
-                       & r(ctr)    ,r(atr)    ,r(dtr)    ,velt      ,r(zdps)   , &
-                       & r(zwndsp) ,r(zwnddr) ,r(zairp)  ,wind      ,sferic    , &
-                       & r(zprecp),r(zevap)  ,gdp       )
-          if (error) goto 9999
-          if (dredge .and. .not. dadsmonly) then
-             call wrthisdad(lundia    ,error     ,trifil    ,ithisc    , &
-                          & lsedtot   ,gdp       )
-             if (error) goto 9999
-          endif
-          if (culvert) then
-             call wrthisdis(lundia    ,error     ,trifil    ,ithisc    , &
-                          & zmodel    ,kmax      ,lstsci    ,nsrc      , &
-                          & i(mnksrc) ,r(disch)  ,d(dps)    ,r(rint)   , &
-                          & r(s1)     ,r(sig)    ,r(sig)    ,r(voldis) , &
-                          & r(xcor)   ,r(ycor)   ,sferic    ,gdp      )
-             if (error) goto 9999
-          endif          
-          !
-          ! Write additional data for sediment to NEFIS HIS files
-          ! (trih-ext.dat and trih-ext.def)
-          ! only when (nostat+ntruv) > 0 and lsed > 0
-          !
-          if (.not. parll) then
-             if ((nostat+ntruv)>0 .and. lsedtot>0) then
-                call wrsedh(lundia    ,error     ,trifil    ,ithisc    , &
-                          & nostat    ,kmax      ,lsed      ,lsedtot   , &
-                          & r(zws)    ,r(zrsdeq) ,r(zbdsed) ,r(zdpsed) ,r(zdps)   , &
-                          & ntruv     , &
-                          & r(zsbu)   ,r(zsbv)   ,r(zssu)   ,r(zssv)   ,r(sbtr)   , &
-                          & r(sstr)   ,r(sbtrc)  ,r(sstrc)  ,r(zrca)   ,gdp       )
-             endif
-             if (error) goto 9999
-          else
-             if (lsedtot>0) then
-                call dfwrsedh(lundia    ,error     ,trifil    ,ithisc    , &
-                            & nostat    ,kmax      ,lsed      ,lsedtot   , &
-                            & r(zws)    ,r(zrsdeq) ,r(zbdsed) ,r(zdpsed) ,r(zdps)   , &
-                            & ntruv     , &
-                            & r(zsbu)   ,r(zsbv)   ,r(zssu)   ,r(zssv)   ,r(sbtr)   , &
-                            & r(sstr)   ,r(sbtrc)  ,r(sstrc)  ,r(zrca)   ,gdp       )
-             endif
-             if (error) goto 9999
-          endif
-          !
-          ! Write additional data for waves to NEFIS HIS files
-          ! only when nostat > 0 and wave
-          !
-          if (.not. parll) then
-             if (nostat>0 .and. wave) then
-                call wrwavh(lundia    ,error     ,trifil    ,ithisc    , &
-                          & nostat    ,r(wrka1)  ,r(wrka2)  , &
-                          & r(wrka3)  ,r(wrka4)  ,r(wrka5)  ,gdp       )
-                if (error) goto 9999
-             endif
-          else
-              ! dfwrwavh
-          endif
-          !
-          ! Update timestep to write HIS files
-          ! ITSTRT <= ITHISF <= ITHISC <= ITHISL <= ITFINISH
-          !
-          if (.not.halftime .and. nst==ithisc .and. ithisc+ithisi<=ithisl) then
-             ithisc = ithisc + ithisi
-          endif
+       if (.not.halftime .and. nst==itmapc .and. itmapc+itmapi<=itmapl) then
+          itmapc = itmapc + itmapi
        endif
+    endif
+    !
+    ! DRO file
+    !
+    ! Write to binary DRO file
+    ! Only in case NST = ITDROC
+    !
+    if (drogue .and. nst==itdroc .and. .not.halftime) then
+       call wrd_main(lundia    ,error     ,ndro      ,itdroc    ,runtxt    , &
+                   & trifil    ,dtsec     ,gdp       )
+       if (error) goto 9999
        !
-       ! MAP file
+       ! Update timestep to write drogue file
+       ! ITSTRT <= ITDROF <= ITDROC <= ITDROL <= ITFINISH
        !
-       !
-       ! Print water-levels and concentrations and calculated velocities
-       ! to zeta points for 2dH maps
-       ! Only in case NST = IPMAP (NPMAPC)
-       !
-       ipmapc = ipmap(npmap)
-       if (nst == ipmapc) then
-          call prtmap(lundia    ,error     ,prsmap    ,lunprt    ,nuprpg    , &
-                    & nuprln    ,header    ,ipmapc    ,julday    ,dtsec     , &
-                    & grdang    ,nmax      ,mmax      ,kmax      ,nmaxus    , &
-                    & lstsci    ,ltur      ,lmaxd     ,lsal      ,ltem      , &
-                    & ch(namcon),i(kfu)    ,i(kfv)    ,i(kcs)    ,r(s1)     , &
-                    & r(velu)   ,r(velv)   ,r(wphy)   ,r(alfas)  ,r(r1)     , &
-                    & r(rtur1)  ,r(vicww)  ,r(dicww)  ,r(rich)   ,r(rho)    , &
-                    & r(rbuff)  ,r(rbuff)  ,velt      ,gdp       )
-          if (error) goto 9999
-          !
-          ! Update timestep to print MAP data
-          ! ITSTRT <= IPMAP (NPMAP) <= IPMAP (NPMAP+1) <= ITFINISH
-          !
-          if (.not.halftime) then
-             npmap = npmap + 1
-          endif
-       endif
-       !
-       ! NEFIS MAP files
-       ! Only in case ITMAPI>0 and NST = ITMAPC
-       !
-       if (itmapi > 0) then
-          if (nst == itmapc) then
-             !
-             ! Write to NEFIS MAP files (trim-ext.dat and trim-ext.def)
-             !
-             call wrtmap(lundia      ,error     ,trifil    ,selmap    ,itmapc      , &
-                          & rhow        ,mmax      , &
-                          & kmax        ,nmaxus    ,lstsci    ,ltur      , &
-                          & nsrc        ,zmodel    ,i(kcs)    ,i(kfs)    ,i(kfu)    , &
-                          & i(kfv)      ,i(kfumin) ,i(kfvmin) ,i(kfumax) ,i(kfvmax)   , &
-                          & i(kfsmin)   ,i(kfsmax) ,i(mnksrc) ,i(ibuff)  ,r(s1)       , &
-                          & d(dps)      ,r(dzs1)   ,r(thick)  , &
-                          & r(velu)     ,r(velv)   ,r(w1)     ,r(wphy)   ,r(r1)       , &
-                          & r(rtur1)    ,r(taubpu) ,r(taubpv) ,r(taubsu) ,r(taubsv)   , &
-                          & r(vicww)    ,r(dicww)  ,r(rich)   ,r(rho)    ,r(p1)       , &
-                          & r(vortic)   ,r(enstro) ,r(umnldf) ,r(vmnldf) ,r(vicuv)    , &
-                          & r(taubmx)   ,r(windu)  ,r(windv)  ,velt      ,r(cvalu0)   , &
-                          & r(cvalv0)   ,r(cfurou) ,r(cfvrou) ,rouflo    ,r(patm)     , &
-                          & r(z0ucur)   ,r(z0vcur) ,r(z0urou) ,r(z0vrou) ,ktemp       , &
-                          & r(precip)   ,gdp       )
-             if (error) goto 9999
-             if (roller) then
-                call wrrolm(lundia    ,error     ,trifil    ,itmapc    ,nmax      , &
-                          & mmax      ,nmaxus    ,r(ewave1) ,r(eroll1) ,r(qxkr)   , &
-                          & r(qykr)   ,r(qxkw)   ,r(qykw)   ,r(fxw)    ,r(fyw)    , &
-                          & r(wsu)    ,r(wsv)    ,r(guu)    ,r(gvv)    ,r(rbuff)  , &
-                          & r(hrms)   ,gdp       )
-                if (error) goto 9999
-             endif
-             if (xbeach) then
-                call wrxbm(lundia    ,error     ,trifil    ,itmapc    ,nmax      , &
-                         & mmax      ,nmaxus    ,r(fxw)    ,r(fyw)    , &
-                         & r(wsu)    ,r(wsv)    ,r(guu)    ,r(gvv)    ,r(rbuff)  , &
-                         & r(hrms)   ,gdp       )
-                if (error) goto 9999
-             endif
-          endif
-          ! Write additional data for bedforms, sediment and morphology to
-          ! NEFIS MAP files (trim-ext.dat and trim-ext.def)
-          !
-          if (lsedtot>0 .or. lfbedfrm) then
-             if (nst == itmapc) then
-                if (.not.parll) then
-                   call wrsedmgrp(lundia    ,error     ,trifil    ,itmapc    ,mmax      , &
-                                & kmax      ,nmaxus    ,lsed      ,lsedtot   ,gdp       )
-                else
-                   call dfwrsedm(lundia    ,error     ,trifil    ,itmapc    , &
-                               & mmax      ,kmax      ,nmaxus    ,lsed      ,lsedtot   , &
-                               & r(sbuu)   ,r(sbvv)   ,r(ssuu)   ,r(ssvv)   ,r(ws)     , &
-                               & r(rsedeq) ,d(dps)    ,r(rca)    ,r(aks)    ,gdp       )
-                endif
-                if (error) goto 9999
-             endif
-          endif
-          if (lsedtot > 0) then
-             if (initi>=4 .or. (nst==itmapc .and. moroutput%cumavg)) then
-                msteps = max(nst - itmor, 1)
-                if (.not.parll) then
-                   call wrsedmavg(lundia    ,error     ,trifil    ,nst       ,mmax      , &
-                                & nmaxus    ,lsed      ,lsedtot   ,initi     ,gdp       )
-                else
-                   call dfwrsedmavg(lundia    ,error     ,trifil    ,nst       ,mmax      , &
-                                  & nmaxus    ,lsed      ,lsedtot   ,initi     ,gdp       )
-                endif
-                if (error) goto 9999
-             endif
-          endif
-          if (wave .and. waveol .and. nst==itmapc) then
-             !
-             ! Create file TMP_write_wavm
-             ! waves.exe will only write wave maps if file TMP_write_wavm exists 
-             ! The file will be deleted by waves.exe after the map is written
-             ! Note: the creation of file TMP_write_wavm will be repeated for each domain, but doesn't matter
-             !
-             filwri = newlun(gdp)
-             open(filwri, file='TMP_write_wavm', status='unknown')
-             close(filwri, status='keep')
-          endif
-          !
-          ! Update timestep to write MAP files
-          ! ITSTRT <= ITMAPF <= ITMAPC <= ITMAPL <= ITFINISH
-          !
-          if (.not.halftime .and. nst==itmapc .and. itmapc+itmapi<=itmapl) then
-             itmapc = itmapc + itmapi
-          endif
-       endif
-       !
-       ! DRO file
-       !
-       !
-       ! Only in case NST = ITDROC
-       !
-       if (drogue .and. nst==itdroc .and. .not.halftime) then
-          !
-          ! write to NEFIS DRO files (trid-ext.dat and trid-ext.def)
-          !
-          call wrtdro(lundia    ,error     ,trifil    ,itdroc    ,itdrof    , &
-                    & itdroi    ,ndro      ,r(xydro)  ,sferic    ,gdp       )
-          if (error) goto 9999
-          !
-          ! Update timestep to write drogue file
-          ! ITSTRT <= ITDROF <= ITDROC <= ITDROL <= ITFINISH
-          !
-          if (itdroc+itdroi <= itdrol) then
-             itdroc = itdroc + itdroi
-          endif
+       if (itdroc+itdroi <= itdrol) then
+          itdroc = itdroc + itdroi
        endif
     endif
     !
     if (halftime) goto 9999
     !
-    ! Fourier analysis to "TEKAL" data file
+    ! Perform analysis and write to Fourier file
     !
     if (nofou > 0) then
        ifou = 1
@@ -1234,8 +1092,9 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
              ! Get Fourier component pointer
              !
              call getfpt(nmax    ,mmax     ,kmax    ,nofou    ,ifou      ,gdp  )
-             call fouana(mmax    ,nmaxus     ,nofou     ,ifou      ,i(kcs)    , &
-                       & nst     ,r(ifoupt(ifou) + iofset(ifou))   ,gdp       )
+             call fouana(mmax    ,nmaxus    ,nofou     ,ifou    ,i(kcs)    , &
+                       & i(kfs)  ,i(kfu)    ,i(kfv)    ,nst     ,r(ifoupt(ifou) + iofset(ifou))   , &
+                       & r(umean),r(vmean)  ,d(dps)    ,gdp     )
              ifou = ifou + 1
           elseif (foutyp(ifou) == 'v') then
              !
@@ -1288,13 +1147,15 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
              !
              ! Perform fourier analysis for first vector component
              !
-             call fouana(mmax     ,nmaxus              ,nofou   ,ifou     ,i(kcs)   , &
-                       & nst      ,foucomp(:,:,ifou)   ,gdp     )
+             call fouana(mmax     ,nmaxus    ,nofou   ,ifou     ,i(kcs)   , &
+                       & i(kfs)   ,i(kfu)    ,i(kfv)  ,nst      ,foucomp(:,:,ifou)   , &
+                       & r(umean) ,r(vmean)  ,d(dps)  ,gdp      )
              !
              ! Perform fourier analysis for second vector component
              !
-             call fouana(mmax     ,nmaxus              ,nofou   ,ifou+1   ,i(kcs)   , &
-                       & nst      ,foucomp(:,:,ifou+1) ,gdp     )
+             call fouana(mmax     ,nmaxus    ,nofou   ,ifou+1   ,i(kcs)   , &
+                       & i(kfs)   ,i(kfu)    ,i(kfv)  ,nst      ,foucomp(:,:,ifou+1) , &
+                       & r(umean) ,r(vmean)  ,d(dps)  ,gdp      )
              !
              ! Determine the maximum or minimum of the magnitude of the vector
              ! Done for velocity (u,v), discharge (qxk,qyk) and bed shear stress (taubpu,taubpv)
@@ -1314,15 +1175,12 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
           endif
        enddo
        !
-       ! Write results of fourier analysis to "TEKAL" data file
+       ! Write results of fourier analysis to data file
        ! only once when all fourier periods are complete
-       ! "if (nst==itfinish) then" doesn't work for morsys simulations with
-       ! multiple flow calls because wrfou gets called multiple times and this
-       ! messes up the averageing.
        !
-       if (nst == fouwrt) then
+       if (nst==fouwrt .or. ntstep==1) then
           call wrfou(nmax      ,mmax      ,nmaxus    ,kmax      ,lmax       , &
-                   & nofou     ,runid     ,dtsec     ,versio    ,ch(namcon) , &
+                   & nofou     ,runid     ,trifil    ,dtsec     ,versio    ,ch(namcon) , &
                    & i(kcs)    ,r(xz)     ,r(yz)     ,r(alfas)  ,r(xcor)    , &
                    & r(ycor)   ,i(kfu)    ,i(kfv)    ,itdate    ,gdp        )
           if (error) goto 9999

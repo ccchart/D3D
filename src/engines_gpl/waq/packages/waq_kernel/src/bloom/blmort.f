@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,160 +21,141 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C    Version 0.3 16 August 2010
-C    Version 0.2 22 July 1994
-C    Version 0.1 7 Januari 1994
-C    Program:    BLMORT.FOR
-C    Programmer: Jos van Gils
-C
-C    Compute fluxes associated with mortality
-C
-C    Called by: BLOOMC
-C    Calls    : NATMOR
+!    Version 0.3 16 August 2010
+!    Version 0.2 22 July 1994
+!    Version 0.1 7 Januari 1994
+!    Program:    BLMORT.FOR
+!    Programmer: Jos van Gils
+!
+!    Compute fluxes associated with mortality
+!
+!    Called by: BLOOMC
+!    Calls    : NATMOR
 
       SUBROUTINE BLMORT (BIOMAS, TEMP  , FAUT  , FDET  , FLAUTN, FLDETN,
-     J                   FLOOXN, FLMORA, DEAT4 , TSTEPI)
+     J                   FLOOXN, FLMORA, DEAT4 , TSTEPI, LMIXO , LFIXN ,
+     J                   LCARB , NUTCON, FLXCON)
 
-C     Arguments
-C
-C     Name    Type  Length   I/O  Description
-C
-C     BIOMAS  R*4   NUSPEC   I    Biomass (gC/m3)
-C     TEMP    R*4   1        I    Temperature (deg.C)
-C     FAUT    R*4   NUSPEC   I    Fraction autolysis (-)
-C     FDET    R*4   NUSPEC   I    Fraction detritus (-)
-C     FLAUTN  R*4   4        O    Nutrient autolysis fluxes (g/m3/d)
-C     FLDETN  R*4   4        O    Detritus production fluxes (g/m3/d)
-C     FLOOXN  R*4   4        O    OOX production fluxes (g/m3/d)
-C     FLMORA  R*4   NUSPEC   O    Algae mortality fluxes (gC/m3/d)
-C     DEAT4   R*4   1        O    ??$Check necessity to transfer$
-C     TSTEPI  R*4   1        I    Time step (d)
+      IMPLICIT NONE
+
+!     Arguments
+!
+!     Name    Type  Length   I/O  Description
+!
+!     BIOMAS  R*4   NUSPEC   I    Biomass (gC/m3)
+!     TEMP    R*4   1        I    Temperature (deg.C)
+!     FAUT    R*4   NUSPEC   I    Fraction autolysis (-)
+!     FDET    R*4   NUSPEC   I    Fraction detritus (-)
+!     FLAUTN  R*4   4        O    Nutrient autolysis fluxes (g/m3/d)
+!     FLDETN  R*4   4        O    Detritus production fluxes (g/m3/d)
+!     FLOOXN  R*4   4        O    OOX production fluxes (g/m3/d)
+!     FLMORA  R*4   NUSPEC   O    Algae mortality fluxes (gC/m3/d)
+!     DEAT4   R*4   1        O    ??$Check necessity to transfer$
+!     TSTEPI  R*4   1        I    Time step (d)
+!     LMIXO   L     1        O    Flag mixotrophy
+!     LFIXN   L     1        O    Flag N-fixation
+!     LCARB   L     1        I    Flag carbon limitation
+!     NUTCON  I*4   8        O    Nutrients involved in active nutrient constraints
+!     FLXCON  I*4   8        O    Uptake fluxes involved in active nutrient constraints
+
+      LOGICAL      LMIXO,LFIXN,LCARB
+      INTEGER      NUTCON(*), FLXCON(*)
 
       REAL            BIOMAS(*), TEMP, FAUT(*), FDET(*), FLAUTN(*),
      J                FLDETN(*), FLOOXN(*), FLMORA(*), DEAT4, TSTEPI
 
-C     Common block variables used
-C
-C     Name    Type  Length   I/O  Inc-file  Description
-C
-C     NUSPEC  I     1        I    phyt2     Number of types
-C     RMORT   R*8   MT       O    size      Mortality rate (1/day)
-C     AA      R*8   MN,MT    I    phyt1     Stoichiometry matrix (g/gDW)
-C     CTODRY  R*8   MT       I    size      Conversion (gDW/gC)
+!     Common block variables used
+!
+!     Name    Type  Length   I/O  Inc-file  Description
+!
+!     NUSPEC  I     1        I    phyt2     Number of types
+!     RMORT   R*8   MT       O    size      Mortality rate (1/day)
+!     AA      R*8   MN,MT    I    phyt1     Stoichiometry matrix (g/gDW)
+!     CTODRY  R*8   MT       I    size      Conversion (gDW/gC)
 
       INCLUDE 'blmdim.inc'
       INCLUDE 'phyt1.inc'
       INCLUDE 'phyt2.inc'
       INCLUDE 'size.inc'
-C
-C     Local variables
-C
-C     Name    Type  Length   I/O  Description
-C
-C     TEMP8   R*8   1             Temperature (deg.C)
-C     DEAT    R*8   1             ??
-C     ZOODD   R*8   1             Dummy??$Check$
-C     CPHYT   R*4   1             Biomass (gC/m3)
-C     CMORT   R*4   1             Mortality flux (gC/m3/d)
-C     CMORTA  R*4   1             Autolysis flux (gC/m3/d)
-C     CMORTD  R*4   1             Detritus prod. (gC/m3/d)
-C     CMORTO  R*4   1             OOx production (gC/m3/d)
-C     J       I     1
+!
+!     Local variables
+!
+!     Name    Type  Length   I/O  Description
+!
+!     TEMP8   R*8   1             Temperature (deg.C)
+!     DEAT    R*8   1             ??
+!     ZOODD   R*8   1             Dummy??$Check$
+!     CPHYT   R*4   1             Biomass (gC/m3)
+!     CMORT   R*4   1             Mortality flux (gC/m3/d)
+!     CMORTA  R*4   1             Autolysis flux (gC/m3/d)
+!     CMORTD  R*4   1             Detritus prod. (gC/m3/d)
+!     CMORTO  R*4   1             OOx production (gC/m3/d)
+!     J       I     1
 
       REAL            CMORT , CMORTA, CMORTD, CMORTO, CPHYT
-      REAL*8          TEMP8 , ZOODD , DEAT
-      INTEGER         J
-C
-C  Zero fluxes
-C
+      REAL*8          FOOX  , TEMP8 , ZOODD , DEAT
+      INTEGER         I, J, K
+!
+!  Zero fluxes
+!
       DO 1 J = 1,4
          FLAUTN(J) = 0.0
          FLDETN(J) = 0.0
          FLOOXN(J) = 0.0
     1 CONTINUE
-C
-C  Call subroutine NATMOR: calculate natural mortality rate constants.
-C
+!
+!  Call subroutine NATMOR: calculate natural mortality rate constants.
+!
       DEAT  = 0D0
       ZOODD = 0D0
       TEMP8 = DBLE(TEMP)
       CALL NATMOR ( DEAT  , ZOODD , TEMP8 , 1)
       DEAT4 = SNGL(DEAT)
-C
-C  Mortality module.
-C
-C  Objective: obtain nutrient fluxes to detritus, OOx and dissolved
-C  nutrient pools due to mortality.
-C
-C  Again note that nutrient fluxes are computed from BLOOM's
-C  stochiometry matrix and hence follow from biomasses in units dry
-C  weight. The biomass mortality flux for DLWQWQ, however, is in units
-C  of carbon.
-C
-C  Loop over algae species
+!
+!  Mortality module.
+!
+!  Objective: obtain nutrient fluxes to detritus, OOx and dissolved
+!  nutrient pools due to mortality.
+!
+!  Again note that nutrient fluxes are computed from BLOOM's
+!  stochiometry matrix and hence follow from biomasses in units dry
+!  weight. The biomass mortality flux for DLWQWQ, however, is in units
+!  of carbon.
+!
+!  Loop over algae species
 
-      DO 220 J=1,NUSPEC
-C$ For the sake of testing we allow mortality with small negative
-C$ biomasses. This should be corrected eventually
+      DO J=1,NUSPEC
          CPHYT = MAX ( BIOMAS(J) , 0.0 )
-c        CPHYT =       BIOMAS(J)
 
-C  Compute total mortality for this species and store the flux
-c  JvG 16-8-2010 avoid undershoots leading to negative biomass
+!  Compute total mortality for this species and store the flux
+!  JvG 16-8-2010 avoid undershoots leading to negative biomass
 
          CMORT = MIN ( CPHYT * SNGL(RMORT(J)) , CPHYT/TSTEPI )
          FLMORA(J) = CMORT
-C
-C Partition the mortality flux over detritus(D)/OOx(O)/autolysis(A)
-C
+!
+! Partition the mortality flux over detritus(D)/OOx(O)/autolysis(A)
+!
          FOOX   = (1. - FAUT(J) - FDET(J))
          CMORTA = CMORT * FAUT(J)
          CMORTD = CMORT * FDET(J)
          CMORTO = CMORT * FOOX
-C
-C Detritus production for C, N, P, Si (for C including part autolysis)
-C
+!
+! Detritus production for C, N, P, Si (for C including part autolysis)
+! Autolysis for C, N, P, Si (NOT for carbon)
+! OOx production for C, N, P, Si (for C including part autolysis)
+!
          FLDETN(1) = FLDETN(1) + CMORTD + CMORTA *FDET(J)/(FDET(J)+FOOX)
-         FLDETN(2) = FLDETN(2) + CMORTD * SNGL(CTODRY(J)*AA(1,J))
-         FLDETN(3) = FLDETN(3) + CMORTD * SNGL(CTODRY(J)*AA(2,J))
-         FLDETN(4) = FLDETN(4) + CMORTD * SNGL(CTODRY(J)*AA(3,J))
-C        DETN,DETP or FIXN
-         IF (NUNUCO.GE.4) FLDETN(2) = FLDETN(2) +
-     1                                CMORTD * SNGL(CTODRY(J)*AA(4,J))
-         IF (NUNUCO.GE.5) FLDETN(3) = FLDETN(3) +
-     1                                CMORTD * SNGL(CTODRY(J)*AA(5,J))
-         IF (NUNUCO.EQ.6) FLDETN(2) = FLDETN(2) +
-     1                                CMORTD * SNGL(CTODRY(J)*AA(6,J))
-C
-C Autolysis for C, N, P, Si (0 for carbon)
-C
-         FLAUTN(1) = FLAUTN(1) + 0.0
-         FLAUTN(2) = FLAUTN(2) + CMORTA * SNGL(CTODRY(J)*AA(1,J))
-         FLAUTN(3) = FLAUTN(3) + CMORTA * SNGL(CTODRY(J)*AA(2,J))
-         FLAUTN(4) = FLAUTN(4) + CMORTA * SNGL(CTODRY(J)*AA(3,J))
-C        DETN,DETP or FIXN
-         IF (NUNUCO.GE.4) FLAUTN(2) = FLAUTN(2) + CMORTA *
-     1                                SNGL(CTODRY(J)*AA(4,J))
-         IF (NUNUCO.GE.5) FLAUTN(3) = FLAUTN(3) + CMORTA *
-     1                                SNGL(CTODRY(J)*AA(5,J))
-         IF (NUNUCO.EQ.6) FLAUTN(2) = FLAUTN(2) + CMORTA *
-     1                                SNGL(CTODRY(J)*AA(6,J))
-C
-C OOx production for C, N, P, Si (for C including part autolysis)
-C
          FLOOXN(1) = FLOOXN(1) + CMORTO + CMORTA * FOOX / (FDET(J)+FOOX)
-         FLOOXN(2) = FLOOXN(2) + CMORTO * SNGL(CTODRY(J)*AA(1,J))
-         FLOOXN(3) = FLOOXN(3) + CMORTO * SNGL(CTODRY(J)*AA(2,J))
-         FLOOXN(4) = FLOOXN(4) + CMORTO * SNGL(CTODRY(J)*AA(3,J))
-C        DETN,DETP or FIXN
-         IF (NUNUCO.GE.4) FLOOXN(2) = FLOOXN(2) + CMORTO *
-     1                                SNGL(CTODRY(J)*AA(4,J))
-         IF (NUNUCO.GE.5) FLOOXN(3) = FLOOXN(3) + CMORTO *
-     1                                SNGL(CTODRY(J)*AA(5,J))
-         IF (NUNUCO.EQ.6) FLOOXN(2) = FLOOXN(2) + CMORTO *
-     1                                SNGL(CTODRY(J)*AA(6,J))
+         DO K=1,NUNUCO
+            I = NUTCON(K)
+            IF (I.LE.3) THEN
+            FLDETN(I+1) = FLDETN(I+1) + CMORTD * SNGL(CTODRY(J)*AA(K,J))
+            FLAUTN(I+1) = FLAUTN(I+1) + CMORTA * SNGL(CTODRY(J)*AA(K,J))
+            FLOOXN(I+1) = FLOOXN(I+1) + CMORTO * SNGL(CTODRY(J)*AA(K,J))
+            ENDIF
+         ENDDO
 
-  220 CONTINUE
+      ENDDO
 
       RETURN
       END

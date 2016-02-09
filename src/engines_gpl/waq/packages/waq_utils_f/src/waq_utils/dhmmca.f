@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -98,7 +98,7 @@
      &                      iiprna, iionam, iidina, iivnam, iidana,
      &                      iirnam, iicbuf, iilunt
       integer            :: i_car,  iartyp, iarlen, ip
-C
+!
       IIANAM = IASIZE + IJSIZE +  1
       IIMNAM = IASIZE + IJSIZE +  2
       IISNAM = IASIZE + IJSIZE +  3
@@ -122,10 +122,10 @@ C
       IIRNAM = IASIZE + IJSIZE + 21
       IICBUF = IASIZE + IJSIZE + 22
       IILUNT = IASIZE + IJSIZE + 23
-C
-C     Set defaults, no name no length
-C     Don't declare the first array , ARRNAM
-C
+!
+!     Set defaults, no name no length
+!     Don't declare the first array , ARRNAM
+!
       DO I_CAR = IASIZE + IJSIZE + 1 , IASIZE + IJSIZE + NR_CAR
          ARRNAM(I_CAR) = ' '
          ARRTYP(I_CAR) = CHTYP
@@ -136,72 +136,72 @@ C
          ARRDM3(I_CAR) = 1
          ARRLEN(I_CAR) = 0
       ENDDO
-C
-C     Set the characteristics
-C
+!
+!     Set the characteristics
+!
       ARRNAM(IIMNAM) = 'MNAME '
       ARRDM1(IIMNAM) = 8
-C
+!
       ARRNAM(IISNAM) = 'SNAME '
       ARRDM1(IISNAM) = NOTOT
-C
+!
       ARRNAM(IIDNAM) = 'DNAME '
       ARRDM1(IIDNAM) = NODUMP
-C
+!
       ARRNAM(IIBNID) = 'BNDID '
       ARRDM1(IIBNID) = NOBND
-C
+!
       ARRNAM(IIBNAM) = 'BNAME '
       ARRDM1(IIBNAM) = NOBND*2
-C
+!
       ARRNAM(IIBTYP) = 'BNTYP '
       ARRDM1(IIBTYP) = NOBTYP
-C
+!
       ARRNAM(IIWSID) = 'WASTID'
       ARRDM1(IIWSID) = NOWST
-C
+!
       ARRNAM(IIWNAM) = 'WNAME '
       ARRDM1(IIWNAM) = NOWST*2
-C
+!
       ARRNAM(IIWTYP) = 'WTYPE '
       ARRDM1(IIWTYP) = NOWTYP
-C
+!
       ARRNAM(IICNAM) = 'CONAM '
       ARRDM1(IICNAM) = NOCONS
-C
+!
       ARRNAM(IIPNAM) = 'PANAM '
       ARRDM1(IIPNAM) = NOPA
-C
+!
       ARRNAM(IIFNAM) = 'FUNAM '
       ARRDM1(IIFNAM) = NOFUN
-C
+!
       ARRNAM(IISFNA) = 'SFNAM '
       ARRDM1(IISFNA) = NOSFUN
-C
+!
       ARRNAM(IIEDIT) = 'CGRID '
       ARRDM1(IIEDIT) = NY*6
-C
+!
       ARRNAM(IIPRNA) = 'PRNAM '
       ARRDM1(IIPRNA) = NPROC
-C
+!
       ARRNAM(IIONAM) = 'OUNAM '
       ARRDM1(IIONAM) = NRVART
-C
+!
       ARRNAM(IIDINA) = 'DINAM '
       ARRDM1(IIDINA) = NODISP
-C
+!
       ARRNAM(IIVNAM) = 'VENAM '
       ARRDM1(IIVNAM) = NOVELO
-C
+!
       ARRNAM(IIDANA) = 'DANAM '
       ARRDM1(IIDANA) = NDMPAR
-C
+!
       ARRNAM(IIRNAM) = 'RANAM '
       ARRDM1(IIRNAM) = NORAAI
-C
+!
       ARRNAM(IICBUF) = 'CBUFF '
       ARRDM1(IICBUF) = NCBUFM
-C
+!
       ARRNAM(IILUNT) = 'LUNT  '
       ARRDM1(IILUNT) = NUFIL*10
 
@@ -219,11 +219,15 @@ C
          arrlen(i_car) = arrdm1(i_car)*arrdm2(i_car)*arrdm3(i_car)*5
          if ( .not. l_decl ) write ( 328, 2040 ) i_car-iasize-ijsize, arrnam(i_car), arrlen(i_car)
          itotc         = itotc + arrlen(i_car)
+         if ( itotc .lt. 0 ) then
+            write(lunrep,2005)
+            call srstop(1)
+         endif
          arrlen(i_car) = arrlen(i_car)*4
       enddo
 cjvb                                     ??lp
-c     raaien behind the dump areas
-c
+!     raaien behind the dump areas
+!
       ARRLEN(IIDANA) = ARRLEN(IIDANA) + ARRLEN(IIRNAM)
       ARRLEN(IIRNAM) = 0
 
@@ -237,7 +241,7 @@ c
             namarr = arrnam(i_car)
             if ( iarlen .gt. 0 ) then
                ip = makptr(part, namarr, iartyp ,iarlen)
-               if ( ip .eq. 0 ) then
+               if ( ip .le. 0 ) then
                   write(lunrep,2010) namarr
                   call srstop(1)
                endif
@@ -255,18 +259,19 @@ c
       endif
       if ( .not. l_decl ) write ( 328, '(/5x,a20,i12)' ) "Total (4 byte words)",itotc
 cjvb                                     ??lp
-c     raaien behind the dump areas
-c
+!     raaien behind the dump areas
+!
       IP_CAR(IIRNAM-IASIZE-IJSIZE)=IP_CAR(IIDANA-IASIZE-IJSIZE)+
      +                             NDMPAR*20
       ARRPOI(IIRNAM) = ARRPOI(IIDANA) + NDMPAR*20
       ITOTC = ITOTC + NDMPAR
 cjvb
-C
+!
       close ( 328 )
       return
 
  2000 format ( ' total character array space: ',I8)
+ 2005 format ( ' ERROR  : character array is too big. Unable to create pointer. ' )
  2010 format ( ' ERROR  : allocating character array. Name   : ',A)
  2040 format (   i4,1x,a20,i12 )
 

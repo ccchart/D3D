@@ -5,7 +5,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" OutputDirectory="bin\$(ConfigurationName)" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\..\..\utils_lgpl\deltares_common\lib\$(ConfigurationName)\static;..\data\bin\$(ConfigurationName)" WarnInterfaces="true" ModulePath="$(OutDir)/" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\..\..\utils_lgpl\deltares_common\lib\$(ConfigurationName)\static;..\data\bin\$(ConfigurationName)" WarnInterfaces="true" ModulePath="$(OutDir)/" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
@@ -60,7 +60,6 @@
 		<File RelativePath=".\src\get_vegi_map.f90"/>
 		<File RelativePath=".\src\get_visc.f90"/>
 		<File RelativePath=".\src\get_wind.f90"/>
-		<File RelativePath=".\src\noextspaces.f90"/>
 		<File RelativePath=".\src\out2d.f90"/>
 		<File RelativePath=".\src\put_wave_fields.f90"/>
 		<File RelativePath=".\src\putgtc.f90"/>

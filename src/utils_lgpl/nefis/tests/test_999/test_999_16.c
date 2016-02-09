@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -62,7 +62,7 @@ int main()
     strcpy(names[0], "ELEM_I_4");
     strcpy(names[1], "ELEM_R_4");
     cel_name = strdup("CEL_TEST_16");
-    error= Defcel( &fds, cel_name, 2, names);
+    error= Defcel2( &fds, cel_name, 2, names);
     if (error!=0) {error = Neferr( 1, errstr);}
 
     grpdms[0]= 4;

@@ -4,7 +4,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
                 & evaint    ,initia    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -148,6 +148,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     logical                              , pointer :: lftrto
     logical                              , pointer :: veg3d
     logical                              , pointer :: bubble
+    logical                              , pointer :: lfsdu
     integer(pntrsize)                    , pointer :: alfas
     integer(pntrsize)                    , pointer :: areau
     integer(pntrsize)                    , pointer :: areav
@@ -182,7 +183,6 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     integer(pntrsize)                    , pointer :: dpv
     integer(pntrsize)                    , pointer :: rint0
     integer(pntrsize)                    , pointer :: rint1
-    integer(pntrsize)                    , pointer :: dss
     integer(pntrsize)                    , pointer :: umdis0
     integer(pntrsize)                    , pointer :: umdis1
     integer(pntrsize)                    , pointer :: vmdis0
@@ -244,8 +244,6 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     integer(pntrsize)                    , pointer :: sbuu
     integer(pntrsize)                    , pointer :: sbvv
     integer(pntrsize)                    , pointer :: sig
-    integer(pntrsize)                    , pointer :: ssuu
-    integer(pntrsize)                    , pointer :: ssvv
     integer(pntrsize)                    , pointer :: sumrho
     integer(pntrsize)                    , pointer :: taubmx
     integer(pntrsize)                    , pointer :: taubpu
@@ -508,6 +506,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     lftrto              => gdp%gdprocs%lftrto
     veg3d               => gdp%gdprocs%veg3d
     bubble              => gdp%gdprocs%bubble
+    lfsdu               => gdp%gdprocs%lfsdu
     alfas               => gdp%gdr_i_ch%alfas
     areau               => gdp%gdr_i_ch%areau
     areav               => gdp%gdr_i_ch%areav
@@ -542,7 +541,6 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     dpv                 => gdp%gdr_i_ch%dpv
     rint0               => gdp%gdr_i_ch%rint0
     rint1               => gdp%gdr_i_ch%rint1
-    dss                 => gdp%gdr_i_ch%dss
     umdis0              => gdp%gdr_i_ch%umdis0
     umdis1              => gdp%gdr_i_ch%umdis1
     vmdis0              => gdp%gdr_i_ch%vmdis0
@@ -559,7 +557,6 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     ewabr1              => gdp%gdr_i_ch%ewabr1
     ewave0              => gdp%gdr_i_ch%ewave0
     ewave1              => gdp%gdr_i_ch%ewave1
-    facdss              => gdp%gdr_i_ch%facdss
     grmasu              => gdp%gdr_i_ch%grmasu
     grmasv              => gdp%gdr_i_ch%grmasv
     grmsur              => gdp%gdr_i_ch%grmsur
@@ -604,8 +601,6 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     sbuu                => gdp%gdr_i_ch%sbuu
     sbvv                => gdp%gdr_i_ch%sbvv
     sig                 => gdp%gdr_i_ch%sig
-    ssuu                => gdp%gdr_i_ch%ssuu
-    ssvv                => gdp%gdr_i_ch%ssvv
     sumrho              => gdp%gdr_i_ch%sumrho
     taubmx              => gdp%gdr_i_ch%taubmx
     taubpu              => gdp%gdr_i_ch%taubpu
@@ -745,7 +740,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
                  & i(kcs)    ,r(xyzsrc) ,r(sig)    ,r(sig)    ,d(dps)    , &
                  & r(s1)     ,r(xz)     ,r(yz)     ,gdp       )
        if (error) ierror = 1
-       call dfreduce( ierror, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( ierror, 1, dfint, dfmax, gdp )
        error = ierror==1
        if (error) goto 9999
     endif
@@ -841,7 +836,8 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     ! before the first call to postpr.
     ! - windu, windv, patm
     ! - rhumarr, tairarr, clouarr, swrfarr
-    !
+    ! - sdu_t0 (subsidence/uplift) 
+    ! 
     if (wind) then
        call incmeteo(timhr     , grdang   , &
                    & r (windu ),r (windv ),r (patm  ), &
@@ -849,30 +845,34 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
                    & r (windsu),r (windsv),r (w10mag), gdp)
     endif
     if (rhum_file) then
-       success = getmeteoval(gdp%runid, 'relhum', timhr * 60.0, &
+       success = getmeteoval(gdp%runid, 'relhum', timhr * 60.0_fp, &
                            & gdp%gdparall%mfg, gdp%gdparall%nfg, nlb, nub, mlb, mub, rhumarr , 0)
        call checkmeteoresult(success, gdp)
     endif
     if (tair_file) then
-       success = getmeteoval(gdp%runid, 'airtemp', timhr * 60.0, &
+       success = getmeteoval(gdp%runid, 'airtemp', timhr * 60.0_fp, &
                            &gdp%gdparall%mfg, gdp%gdparall%nfg,  nlb, nub, mlb, mub, tairarr , 0)
        call checkmeteoresult(success, gdp)
     endif
     if (clou_file) then
-       success = getmeteoval(gdp%runid, 'cloud', timhr * 60.0, &
+       success = getmeteoval(gdp%runid, 'cloud', timhr * 60.0_fp, &
                            &gdp%gdparall%mfg, gdp%gdparall%nfg, nlb, nub, mlb, mub, clouarr , 0)
        call checkmeteoresult(success, gdp)
     endif
     if (prcp_file) then
-       success = getmeteoval(gdp%runid, 'precipitation', timhr * 60.0, &
+       success = getmeteoval(gdp%runid, 'precipitation', timhr * 60.0_fp, &
                            &gdp%gdparall%mfg, gdp%gdparall%nfg, nlb, nub, mlb, mub, r(precip) , 0)
        call checkmeteoresult(success, gdp)
     endif
     if (swrf_file) then
-       success = getmeteoval(gdp%runid, 'swrf', timhr * 60.0, &
+       success = getmeteoval(gdp%runid, 'swrf', timhr * 60.0_fp, &
                            &gdp%gdparall%mfg, gdp%gdparall%nfg, nlb, nub, mlb, mub, swrfarr , 0)
        call checkmeteoresult(success, gdp)
     endif
+    if (lfsdu) then 
+       call incsdu(timhr  ,d(dps)   ,r(s1)   ,i(kcs)  ,i(kfs) ,gdp    )
+    endif                  
+
     !
     ! INIEVA: read initial arrays values for time dependent data for
     ! rainfall / evaporation model
@@ -898,8 +898,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     !
     if (sedim .and. initia/=3) then
        call inised(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , &
-                 & nmmax     ,lsed      ,lsedtot   , &
-                 & r(facdss) ,r(dss)    ,i(kcs)    ,gdp       )
+                 & nmmax     ,lsed      ,lsedtot   ,i(kcs)    ,gdp       )
        if (error) goto 9999
     endif
     !
@@ -1004,7 +1003,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
               & r(hu)     ,r(hv)     ,r(dzs1)   ,r(dzu1)   ,r(dzv1)   , &
               & r(volum1) ,r(porosu) ,r(porosv) ,r(areau)  ,r(areav)  ,gdp       )
     call updmassbal(.true.   ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
-                  & r(volum1),r(sbuu)   ,r(sbvv)   ,r(ssuu)   ,r(ssvv)   , &
+                  & r(volum1),r(sbuu)   ,r(sbvv)   ,&
                   & r(gsqs)  ,r(guu)    ,r(gvv)    ,d(dps)    ,gdp       )
     !
     ! F0ISF1: copy old (1) in new arrays (0)
@@ -1066,12 +1065,12 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
        call trtrou(lundia    ,nmax      ,mmax      ,nmaxus    ,kmax      , &
                  & r(cfurou) ,rouflo    ,.true.    ,r(guu)    ,r(gvu)    , &
                  & r(hu)     ,i(kcu)    ,r(u1)     ,r(v1)     ,r(sig)    , &
-                 & r(z0urou) ,1         ,gdp       )
+                 & r(z0urou) ,r(deltau) ,1         ,gdp       )
        if (error) goto 9999
        call trtrou(lundia    ,nmax      ,mmax      ,nmaxus    ,kmax      , &
                  & r(cfvrou) ,rouflo    ,.true.    ,r(gvv)    ,r(guv)    , &
                  & r(hv)     ,i(kcv)    ,r(v1)     ,r(u1)     ,r(sig)    , &
-                 & r(z0vrou) ,2         ,gdp       )
+                 & r(z0vrou) ,r(deltav) ,2         ,gdp       )
        if (error) goto 9999
     endif
     !

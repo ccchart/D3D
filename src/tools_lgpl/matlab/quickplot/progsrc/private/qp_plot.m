@@ -3,7 +3,7 @@ function [hNewVec,Error,FileInfo,PlotState]=qp_plot(PlotState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -150,7 +150,7 @@ else
         [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'griddefdata',SubField{:},SubSelected{:});
     else
         switch Ops.presentationtype
-            case {'patches','patches with lines','patch centred vector','polygons'}
+            case {'patches','patches with lines','patch centred vector','polygons'}%,'edge'}
                 [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'gridcelldata',SubField{:},SubSelected{:});
                 DataInCell=1;
             otherwise
@@ -166,6 +166,17 @@ else
     end
 end
 
+if isfield(Ops,'axestimezone_shift') && ~isnan(Ops.axestimezone_shift)
+    [Chk,datatimezone_shift,datatimezone_str] = qp_getdata(FileInfo,Domain,Props,'timezone');
+    if isnan(datatimezone_shift)
+        error('Cannot convert unknown time zone to %s',Ops.axestimezone_str)
+    else
+        for i = length(data):-1:1
+            data(i).Time = data(i).Time + (Ops.axestimezone_shift-datatimezone_shift)/24;
+        end
+    end
+end
+
 Quant=Props.Name;
 Units='';
 if ~isempty(data)
@@ -175,6 +186,18 @@ end
 if isfield(Ops,'units')
     if isequal(Ops.units,'**Hide**')
         Units='';
+    elseif isfield(data,'XComp')
+        % data conversion of vector component will be done in computecomponent
+        if isempty(Ops.units) % default values
+            if (isfield(Ops,'vectorcomponent') && strcmp(Ops.vectorcomponent,'angle')) || ...
+                    (isfield(Ops,'vectorcolour') && strcmp(Ops.vectorcolour,'angle'))
+                Units='radians';
+            else
+                % data units used above should be correct
+            end
+        else
+            Units=Ops.units;
+        end            
     elseif ~isempty(Ops.units) && ~isempty(Units)
         dataX=qp_unitconversion(Units,Ops.units,data);
         if ~ischar(dataX)
@@ -195,173 +218,40 @@ elseif ~isempty(strfind(Ops.axestype,'Val'))
 end
 
 FirstFrame=isempty(hOldVec);
-s=[];
 
-if isfield(data,'TRI')
-    switch lower(Ops.thinningmode)
-        case 'none'
-            data.X=data.XYZ(:,:,:,1);
-            if size(data.XYZ,4)>1
-                data.Y=data.XYZ(:,:,:,2);
+if strcmp(Ops.presentationtype,'vector') || ...
+        strcmp(Ops.presentationtype,'markers') || ...
+        strcmp(Ops.presentationtype,'values')
+    % data = geom2pnt(data);
+    if isfield(data,'ValLocation')
+        if strcmp(data.ValLocation,'EDGE')
+            if isfield(data,'Geom') && strcmp(data.Geom,'sQUAD')
+                data.EdgeNodeConnect = [1:length(data.X)-1;2:length(data.X)]';
             end
-            if size(data.XYZ,4)>2
-                data.Z=data.XYZ(:,:,:,3);
+            data.X = mean(data.X(data.EdgeNodeConnect),2);
+            data.Y = mean(data.Y(data.EdgeNodeConnect),2);
+        elseif strcmp(data.ValLocation,'FACE')
+            missing = isnan(data.FaceNodeConnect);
+            nNodes = size(missing,2)-sum(missing,2);
+            data.FaceNodeConnect(missing) = 1;
+            data.X = data.X(data.FaceNodeConnect);
+            data.X(missing) = 0;
+            data.X = sum(data.X,2)./nNodes;
+            data.Y = data.Y(data.FaceNodeConnect);
+            data.Y(missing) = 0;
+            data.Y = sum(data.Y,2)./nNodes;
+        end
+        for c = {'FaceNodeConnection','EdgeNodeConnection','ValLocation'}
+            s = c{1};
+            if isfield(data,s)
+                data = rmfield(data,s);
             end
-        case 'uniform'
-            Fld=logical(zeros(1,size(data.XYZ,2)));
-            Fld(1:Ops.thinningfactors(1):end)=1;
-            data.X=data.XYZ(:,Fld,:,1);
-            data.Y=data.XYZ(:,Fld,:,2);
-            if size(data.XYZ,4)>2
-                data.Z=data.XYZ(:,Fld,:,3);
-            end
-            if isfield(data,'XComp')
-                data.XComp=data.XComp(:,Fld,:);
-            end
-            if isfield(data,'YComp')
-                data.YComp=data.YComp(:,Fld,:);
-            end
-            if isfield(data,'ZComp')
-                data.ZComp=data.ZComp(:,Fld,:);
-            end
-            if isfield(data,'Val')
-                data.Val  =data.Val(:,Fld,:);
-            end
-        case 'distance'
-            I=all(~isnan(data.XYZ(1,:,1,:)),4);
-            II=find(I);
-            Ind=reducepoints(Ops.thinningdistance,data.XYZ(1,I,1,1),data.XYZ(1,I,1,2));
-            I=logical(zeros(size(I))); I(II(Ind))=1;
-            data.X=data.XYZ(:,I,:,1);
-            data.Y=data.XYZ(:,I,:,2);
-            if size(data.XYZ,4)>2
-                data.Z=data.XYZ(:,I,:,3);
-            end
-            if isfield(data,'XComp')
-                data.XComp=data.XComp(I);
-            end
-            if isfield(data,'YComp')
-                data.YComp=data.YComp(I);
-            end
-            if isfield(data,'ZComp')
-                data.ZComp=data.ZComp(I);
-            end
-            if isfield(data,'Val')
-                data.Val  =data.Val(I);
-            end
-        case 'regrid'
-            rangemin = squeeze(min(data.XYZ,[],2));
-            rangemax = squeeze(max(data.XYZ,[],2));
-            drange = rangemax - rangemin;
-            x = (0:floor(drange(1)/Ops.thinningdistance))*Ops.thinningdistance;
-            x = x + (drange(1)-x(end))/2 + rangemin(1);
-            y = (0:floor(drange(2)/Ops.thinningdistance))*Ops.thinningdistance;
-            y = y + (drange(2)-y(end))/2 + rangemin(2);
-            [X,Y]=meshgrid(x,y);
-            if size(data.XYZ,4)>2
-                data.Z=griddata(data.XYZ(1,:,1,1),data.XYZ(1,:,1,2),data.XYZ(1,:,1,3),X,Y);
-            end
-            if isfield(data,'XComp')
-                data.XComp=griddata(data.XYZ(1,:,1,1),data.XYZ(1,:,1,2),data.XComp,X,Y);
-            end
-            if isfield(data,'YComp')
-                data.YComp=griddata(data.XYZ(1,:,1,1),data.XYZ(1,:,1,2),data.YComp,X,Y);
-            end
-            if isfield(data,'ZComp')
-                data.ZComp=griddata(data.XYZ(1,:,1,1),data.XYZ(1,:,1,2),data.ZComp,X,Y);
-            end
-            if isfield(data,'Val')
-                data.Val=griddataa(data.XYZ(1,:,1,1),data.XYZ(1,:,1,2),data.Val,X,Y);
-            end
-            data = rmfield(data,'XYZ');
-            data.X = X;
-            data.Y = Y;
-    end
-elseif isfield(Ops,'thinningmode')
-    switch lower(Ops.thinningmode)
-        case 'none'
-        case 'uniform'
-            if isfield(data,'Val')
-                Fld=logical(zeros(size(data.Val)));
-            else
-                Fld=logical(zeros(size(data.XComp)));
-            end
-            Fld(1:Ops.thinningfactors(1):end,1:Ops.thinningfactors(2):end,1:Ops.thinningfactors(3):end)=1;
-            sz(3)=sum(Fld(1,1,:));
-            sz(2)=sum(Fld(1,:,1));
-            sz(1)=sum(Fld(:,1,1));
-            if isfield(data,'X')
-                data.X=reshape(data.X(Fld),sz);
-            end
-            if isfield(data,'Y')
-                data.Y=reshape(data.Y(Fld),sz);
-            end
-            if isfield(data,'Z')
-                data.Z=reshape(data.Z(Fld),sz);
-            end
-            if isfield(data,'XComp')
-                data.XComp=reshape(data.XComp(Fld),sz);
-            end
-            if isfield(data,'YComp')
-                data.YComp=reshape(data.YComp(Fld),sz);
-            end
-            if isfield(data,'ZComp')
-                data.ZComp=reshape(data.ZComp(Fld),sz);
-            end
-            if isfield(data,'Val')
-                data.Val  =reshape(data.Val(Fld)  ,sz);
-            end
-        case 'distance'
-            if isfield(data,'Y') && isfield(data,'Z')
-                I=~isnan(data.X) & ~isnan(data.Y) & ~isnan(data.Z);
-                II=find(I);
-                Ind=reducepoints(Ops.thinningdistance,data.X(I),data.Y(I),data.Z(I));
-            elseif isfield(data,'Y')
-                I=~isnan(data.X) & ~isnan(data.Y);
-                II=find(I);
-                Ind=reducepoints(Ops.thinningdistance,data.X(I),data.Y(I));
-            elseif isfield(data,'Z')
-                I=~isnan(data.X) & ~isnan(data.Z);
-                II=find(I);
-                Ind=reducepoints(Ops.thinningdistance,data.X(I),data.Z(I));
-            else
-                I=~isnan(data.X);
-                II=find(I);
-                Ind=reducepoints(Ops.thinningdistance,data.X(I));
-            end
-            I=logical(zeros(size(I))); I(II(Ind))=1;
-            if (multiple(M_) || multiple(N_)) && multiple(K_) && isfield(data,'Y')
-                if isfield(data,'XUnits') && strcmp(data.XUnits,'deg')
-                    s=pathdistance(data.X(:,:,1),data.Y(:,:,1),'geographic');
-                else
-                    s=pathdistance(data.X(:,:,1),data.Y(:,:,1));
-                end
-                s=reshape(repmat(s,[1 1 size(data.X,3)]),size(data.X));
-                s=s(I);
-            end
-            if isfield(data,'X')
-                data.X=data.X(I);
-            end
-            if isfield(data,'Y')
-                data.Y=data.Y(I);
-            end
-            if isfield(data,'Z')
-                data.Z=data.Z(I);
-            end
-            if isfield(data,'XComp')
-                data.XComp=data.XComp(I);
-            end
-            if isfield(data,'YComp')
-                data.YComp=data.YComp(I);
-            end
-            if isfield(data,'ZComp')
-                data.ZComp=data.ZComp(I);
-            end
-            if isfield(data,'Val')
-                data.Val  =data.Val(I);
-            end
+        end
+        data.Geom = 'sSEG';
     end
 end
+
+[data,s] = qp_thinning(data,Ops);
 
 vpt='';
 [NVal,NValStr]=convertnval(Props.NVal);
@@ -384,8 +274,15 @@ elseif  NVal==1.9
 end
 
 VectorPlot=0;
-if isfield(data,'XComp')
+%if isfield(data,'XComp')
+if ~isempty(Ops.vectorcomponent)
     [data,scalar]=computecomponent(data,Ops);
+    % HACK: if it's the edge normal or tangential component, take the
+    % absolute value to avoid problems with direction
+    if strncmp(Ops.vectorcomponent,'edge ',5)
+        data.Val = abs(data.Val);
+    end
+    %
     if strcmp(Ops.vectorcomponent,'edge')
         if isempty(Ops.vectorcolour)
             Units='';
@@ -402,10 +299,25 @@ if isfield(data,'XComp')
         Quant=[Quant ', ' Ops.vectorcomponent];
         Units = data(1).Units;
     end
+    if strcmp(Ops.units,'**Hide**')
+        Units = '';
+    end
     if scalar
         NVal=1;
     else
         VectorPlot=1;
+    end
+end
+
+if isfield(Ops,'operator') && ~strcmp(Ops.operator,'none')
+    flds = {'Val','XDamVal','YDamVal'};
+    for i = 1:length(flds)
+        fldi = flds{i};
+        if isfield(data,fldi)
+            for d = 1:numel(data)
+                data(d).(fldi) = feval(Ops.operator,data(d).(fldi));
+            end
+        end
     end
 end
 
@@ -617,7 +529,9 @@ if isfield(Ops,'presentationtype') && strcmp(Ops.presentationtype,'coloured cont
     LocStartClass=1;
 end
 
-if isfield(Ops,'thresholds') && ~strcmp(Ops.thresholds,'none')
+if Props.NVal==6
+    Ops.Thresholds = 0.5:1:length(data(1).Classes);
+elseif isfield(Ops,'thresholds') && ~strcmp(Ops.thresholds,'none')
     miv = inf;
     mv  = -inf;
     for d = 1:length(data)
@@ -650,15 +564,13 @@ elseif DimFlag(ST_)
     else
         stn=stn(Selected{ST_},:);
     end
-elseif any(multiple([M_ N_ K_]))
-    stn='';
-elseif DimFlag(M_) && DimFlag(N_) && DimFlag(K_)
+elseif DimFlag(M_) && DimFlag(N_) && DimFlag(K_) && none(multiple([M_ N_ K_]))
     stn=sprintf('point (%i,%i,%i)',Selected{M_},Selected{N_},Selected{K_});
-elseif DimFlag(M_) && DimFlag(K_)
+elseif DimFlag(M_) && ~DimFlag(N_) && DimFlag(K_) && none(multiple([M_ K_]))
     stn=sprintf('point (%i,%i)',Selected{M_},Selected{K_});
-elseif DimFlag(M_) && DimFlag(N_)
+elseif DimFlag(M_) && DimFlag(N_) && none(multiple([M_ N_]))
     stn=sprintf('point (%i,%i)',Selected{M_},Selected{N_});
-elseif DimFlag(M_)
+elseif DimFlag(M_) && ~DimFlag(N_) && ~multiple(M_)
     stn=sprintf('point %i',Selected{M_});
 end
 stn=strrep(stn,'\','\\');
@@ -674,6 +586,9 @@ end
 TStr='';
 if isfield(data,'Time') && length(data(1).Time)==1
     TStr = qp_time2str(data(1).Time,DimFlag(T_));
+    if ~isnan(Ops.axestimezone_shift)
+        TStr = [TStr ' (' Ops.axestimezone_str ')'];
+    end
 end
 
 fld = 'XYZ';
@@ -787,16 +702,18 @@ if ~isempty(Parent) && all(ishandle(Parent)) && strcmp(get(Parent(1),'type'),'ax
     set(pfig,'currentaxes',Parent(1))
 end
 
-if isfield(Ops,'linestyle') && isfield(Ops,'marker')
+if isfield(Ops,'linestyle') && isfield(Ops,'marker') && ~strcmp(Ops.presentationtype,'markers')
     Ops.LineParams={'color',Ops.colour, ...
         'linewidth',Ops.linewidth, ...
         'linestyle',Ops.linestyle, ...
         'marker',Ops.marker, ...
+        'markersize',Ops.markersize, ...
         'markeredgecolor',Ops.markercolour, ...
         'markerfacecolor',Ops.markerfillcolour};
 elseif isfield(Ops,'marker')
     Ops.LineParams={'linestyle','none', ...
         'marker',Ops.marker, ...
+        'markersize',Ops.markersize, ...
         'markeredgecolor',Ops.markercolour, ...
         'markerfacecolor',Ops.markerfillcolour};
 end
@@ -873,18 +790,22 @@ if isfield(Ops,'plotcoordinate') && ~isempty(Ops.plotcoordinate)
                     name=sprintf('m=%i',Selected{M_});
                     diststr = sprintf('distance along cross-section %s',name);
                 end
+            else
+                diststr = 'distance along path';
             end
         case 'x coordinate'
-            diststr = 'x coordinate';
             if isfield(data,'XUnits') && isequal(data(1).XUnits,'deg')
                 diststr = 'longitude';
+            else
+                diststr = 'x coordinate';
             end
         case 'y coordinate'
-            diststr = 'y coordinate';
             if ~isfield(data,'Y')
                 error('No Y data to plot against.')
             elseif isfield(data,'XUnits') && isequal(data(1).XUnits,'deg')
                 diststr = 'latitude';
+            else
+                diststr = 'y coordinate';
             end
     end
 end
@@ -901,10 +822,10 @@ end
 %==========================================================================
 Quant = protectstring(Quant);
 if NVal==-2
-    [Chk,hNewVec,FileInfo]=qp_getdata(FileInfo,Domain,Props,'plot',Parent,Ops,SubField{:},SubSelected{:});
+    [Chk,hNewVec,FileInfo]=qp_getdata(FileInfo,Domain,Props,'plot',Parent,Ops,hOld,SubField{:},SubSelected{:});
     return
 elseif NVal==-1
-    [Chk,hNewVec,FileInfo]=qp_getdata(FileInfo,Domain,Props,'plot',Parent,Ops,SubField{:},SubSelected{:});
+    [Chk,hNewVec,FileInfo]=qp_getdata(FileInfo,Domain,Props,'plot',Parent,Ops,hOld,SubField{:},SubSelected{:});
     hNew{1}=hNewVec;
     hObsolete=setdiff(hOld{1},hNew{1});
     delete(hObsolete(ishandle(hObsolete)));
@@ -933,7 +854,7 @@ else
         Param.compat7={'v6'};
     end
 
-    for d=length(data):-1:1
+    for d = length(data):-1:1
         do=min(length(hOld),d);
         plotargs={hOld{do},Parent,Param,data(d),Ops,Props};
         geom='';
@@ -950,17 +871,23 @@ else
             end
         end
         switch geom
-            case 'SEG'
+            case {'SEG','SEG-NODE','SEG-EDGE'}
                 [hNew{d},Thresholds,Param]=qp_plot_seg(plotargs{:});
             case 'PNT'
-                [hNew{d},Thresholds,Param]=qp_plot_pnt(plotargs{:});
+                [hNew{d},Thresholds,Param,Parent]=qp_plot_pnt(plotargs{:});
             case {'POLYL','POLYG'}
                 [hNew{d},Thresholds,Param]=qp_plot_polyl(plotargs{:});
+            case {'UGRID-NODE','UGRID-FACE','UGRID-EDGE'}
+                [hNew{d},Thresholds,Param]=qp_plot_ugrid(plotargs{:});
             otherwise
                 [hNew{d},Thresholds,Param,Parent]=qp_plot_default(plotargs{:});
                 PlotState.Parent=Parent;
         end
     end
+    for d = length(data)+1:length(hNew)
+        delete(hNew{d});
+    end
+    hNew = hNew(1:length(data));
     
     ChangeCLim = strcmp(Thresholds,'none') || ~isempty(Ops.colourlimits);
 
@@ -978,7 +905,11 @@ if isfield(Ops,'basicaxestype') && ~isempty(Ops.basicaxestype) && length(Parent)
         switch axestype{d}
             case 'Time'
                 dimension{d} = 'time';
-                unit{d} = '';
+                if isnan(Ops.axestimezone_shift)
+                    unit{d} = '';
+                else
+                    unit{d} = Ops.axestimezone_str;
+                end
             case 'Distance'
                 dimension{d} = 'distance';
                 if isfield(data,'XUnits') && ~isempty(data(1).XUnits)
@@ -1103,7 +1034,9 @@ if isfield(Ops,'colourbar') && ~strcmp(Ops.colourbar,'none')
             end
         end
         if ~strcmp(Ops.Thresholds,'none')
-            if LocLabelClass
+            if Props.NVal==6
+                classbar(h,1:length(Thresholds),'labelcolor','label',Thresholds,data(1).Classes,'plotall','climmode','new')
+            elseif LocLabelClass
                 classbar(h,1:length(Thresholds),'labelcolor','label',Thresholds,'plotall','climmode','new')
             else
                 classbar(h,1:length(Thresholds),'label',Thresholds,'plotall','climmode','new')
@@ -1171,5 +1104,7 @@ for i=1:length(hNewVec)
             set(a,'cameraposition',cp)
         end
     end
+    %set(a,'zlim',limits(a,'zlim')+[-1 +1])
+    %set(a,'CameraViewAngle',get(a,'CameraViewAngle'))
 end
 setappdata(hNewVec(1),'Level',Level)

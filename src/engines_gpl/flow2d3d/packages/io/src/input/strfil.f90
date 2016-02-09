@@ -4,7 +4,7 @@ subroutine strfil(lundia    ,error     ,filstr    ,mmax      , &
                 & dphkrv    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,7 @@ subroutine strfil(lundia    ,error     ,filstr    ,mmax      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall
     use system_utils, only: exifil
     !
@@ -157,7 +158,7 @@ subroutine strfil(lundia    ,error     ,filstr    ,mmax      , &
     !
     ! test file existence, if so read
     !
-    call noextspaces(filstr    ,lfile     )
+    call remove_leading_spaces(filstr    ,lfile     )
     if (exifil(filstr, lundia)) then
        !
        ! file = exist

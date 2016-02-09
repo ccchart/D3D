@@ -8,7 +8,10 @@ function [Out1,Out2]=delwaq(cmd,varargin)
 %   specified time step (0 for all) from the Delwaq HIS or MAP file. The
 %   returned TIME is a MATLAB serial date if reference date and time step
 %   size information is available in the file; otherwise time index
-%   information is returned.
+%   information is returned. The returned array is of size NSUBS x NSEGM x
+%   NTIMES where NSUBS is the number of selected substances, NSEGM the
+%   number of selected segments, and NTIMES the number of selected time
+%   steps.
 %
 %   STRUCT = DELWAQ('write',FILENAME,HEADER,SUBSTANCENAMES,TIMEINFO,...
 %   TIME,DATA) writes the data to a Delwaq MAP file. Substance names should
@@ -62,7 +65,7 @@ function [Out1,Out2]=delwaq(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -421,10 +424,6 @@ if isequal(S.FileType,'DelwaqHIS')
         try
             hia = inifile('open',HIA);
             %
-            %for i=1:length(S.SubsName)
-            %    S.SubsName{i}=inifile('get',hia,'Long Parameters',num2str(i),S.SubsName{i});
-            %end
-            %
             par=ustrcmpi('Long Parameters',hia.Data(:,1));
             if par>0
                 PAR=hia.Data{par,2};
@@ -435,10 +434,16 @@ if isequal(S.FileType,'DelwaqHIS')
                     end
                 end
             end
-            %
-            %for i=1:length(S.SegmentName)
-            %    S.SegmentName{i}=inifile('get',hia,'Long Locations',num2str(i),S.SegmentName{i});
-            %end
+            par=ustrcmpi('Parameter Descriptions',hia.Data(:,1));
+            if par>0
+                PAR=hia.Data{par,2};
+                for i=1:size(PAR,1)
+                    j=str2double(PAR{i,1});
+                    if j==round(j)
+                        S.SubsName{j}=sprintf('%s (%s)',S.SubsName{j},PAR{i,2});
+                    end
+                end
+            end
             %
             loc=ustrcmpi('Long Locations',hia.Data(:,1));
             if loc>0
@@ -447,6 +452,16 @@ if isequal(S.FileType,'DelwaqHIS')
                     j=str2double(LOC{i,1});
                     if j==round(j)
                         S.SegmentName{j}=LOC{i,2};
+                    end
+                end
+            end
+            loc=ustrcmpi('Location Descriptions',hia.Data(:,1));
+            if loc>0
+                LOC=hia.Data{loc,2};
+                for i=1:size(LOC,1)
+                    j=str2double(LOC{i,1});
+                    if j==round(j)
+                        S.SegmentName{j}=sprintf('%s (%s)',S.SegmentName{j},LOC{i,2});
                     end
                 end
             end
@@ -866,6 +881,7 @@ if tim==0
     else
         fseek(fid,S.DataStart+FormRecSize+4+4*(seg-1)*NSubs+4*(subs-1),-1);
         Data=local_fread(fid,can_use_skip,[1 S.NTimes],'float32',4*NTot+2*FormRecSize)';
+        Data=reshape(Data,1,1,S.NTimes);
     end
 else
     %
@@ -1092,15 +1108,15 @@ if Initialise
     if ~isempty(RefTime)
         S.T0=RefTime(1);
         S.TStep=RefTime(2)/(24*3600);
-        ClockUnit='S';
+        ClockUnit='s';
         if (round(RefTime(2)/(24*3600))*24*3600==RefTime(2))
-            ClockUnit='D';
+            ClockUnit='d';
             RefTime(2)=RefTime(2)/(24*3600);
         elseif (round(RefTime(2)/3600)*3600==RefTime(2))
-            ClockUnit='U';
+            ClockUnit='u';
             RefTime(2)=RefTime(2)/3600;
         elseif (round(RefTime(2)/60)*60==RefTime(2))
-            ClockUnit='M';
+            ClockUnit='m';
             RefTime(2)=RefTime(2)/60;
         end;
         dTstr = sprintf('%8g',RefTime(2));
@@ -1112,7 +1128,9 @@ if Initialise
             S.TStep = RT;
             warning('Time scale rounded to %g seconds.',RT)
         end
-        Header(4,:)=sprintf('T0: %4i-%2.2i-%2.2i %2i:%2.2i:%2.2i  (scu=%s%c)',round(datevec(RefTime(1))),dTstr,ClockUnit);
+        Header(4,:)=sprintf('T0: %4i.%2.2i.%2.2i %2.2i:%2.2i:%2.2i  (scu=%s%c)',round(datevec(RefTime(1))),dTstr,ClockUnit);
+    else
+       [S.T0,S.TStep] = delwaqt0(Header(4,:));        
     end
     S.Header=Header;
     %

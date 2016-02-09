@@ -1,9 +1,9 @@
 subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
                   & mmax      ,nmax      ,nmaxus    ,nmmax     ,lsedtot   , &
-                  & gdp       )
+                  & kcs       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -86,6 +86,7 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
     real(fp)                         , pointer :: dt
     integer                          , pointer :: julday
     logical                          , pointer :: lfbedfrm
+    logical                          , pointer :: cmpupd
 !
 ! Global variables
 !
@@ -94,11 +95,12 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
     integer                                     , intent(in)  :: nmmax   !  Description and declaration in esm_alloc_int.f90
     integer                                     , intent(in)  :: mmax    !  Description and declaration in esm_alloc_int.f90
     integer                                     , intent(in)  :: lsedtot !  Description and declaration in esm_alloc_int.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: gsqs   !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: xcor   !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: ycor   !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: xz     !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: yz     !  Description and declaration in esm_alloc_real.f90
+    integer , dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: kcs     !  Description and declaration in esm_alloc_int.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: gsqs    !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: xcor    !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: ycor    !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: xz      !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: yz      !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
 !
@@ -205,6 +207,12 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
     dt                => gdp%gdexttim%dt
     julday            => gdp%gdinttim%julday
     lfbedfrm          => gdp%gdbedformpar%lfbedfrm
+    cmpupd            => gdp%gdmorpar%cmpupd
+    !
+    if (.not.cmpupd) then
+       call prterr(lundia, 'P004', 'Dredging and dumping not supported when bed composition updating is disabled')
+       call d3stop(1, gdp)
+    endif
     !
     rmissval       = -9.99E9_fp
     nmaxddb        = nmax + 2*gdp%d%ddbound
@@ -427,12 +435,10 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
           endif
        enddo
     endif
-    !
     if (.not. sfound) then
        !
-       ! First assume that 'RefPlane' contains a filename
-       ! If the file does not exist, assume that 'RefPlane' contains
-       ! a uniform value (real)
+       ! No domain specific RefPlane input found, try General block.
+       ! Check if 'RefPlane' contains a filename.
        !
        refplanefile = ''
        call prop_get_string(dad_ptr, 'General', 'RefPlane', refplanefile)
@@ -445,22 +451,27 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
     if (ex) then
        !
        ! Space varying data has been specified
-       ! Use routine that also read the depth file to read the data
+       !
+       write(lundia,'(2a)') '  Reference plane             : ', trim(refplanefile)
        !
        fmttmp = 'formatted'
        error  = .false.
        call depfil(lundia    ,error     ,refplanefile,fmttmp  , &
                  & refplane  ,1         ,1         ,gdp%griddim)
        if (error) call d3stop(1, gdp)
-       write(lundia,'(2a)') '  Reference plane             : ', trim(refplanefile)
     else
        if (.not. sfound) then
+          !
+          ! No domain specific RefPlane input found, and no filename in the General block.
+          ! Now consider the case that the General block contains a uniform value.
+          !
           refplanefile = ' '
           call prop_get(dad_ptr, 'General', 'RefPlane', refplane(1))
        endif
        if (comparereal(refplane(1),rmissval) == 0) then
           !
-          ! refplane keyword not found, assume refplane = 0
+          ! RefPlane keyword not found (neither in domain specific block, nor in General block)
+          ! Let's use a default RefPlane = 0
           !
           refplane(1) = 0.0_fp
        endif
@@ -551,11 +562,6 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
              !
           end select
        enddo
-    endif
-    !
-    if (comparereal(refplane(1),rmissval)==0) then
-       refplane(1) = 0.0_fp
-       write(lundia,'(a,es12.3e3)') '  Reference plane             : ', refplane(1)
     endif
     !
     ! Allocate arrays used during computation
@@ -1640,11 +1646,11 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
        if (dredge_prop(i)%itype == DREDGETYPE_NOURISHMENT) cycle
        cntdred        = dredge_prop(i)%idx_type
        !
-       imask(1:nmmax) = 0
+       imask(:)       = 0
        npnt           = 0
        ia             = ipdr(cntdred)
        do nm = 1, nmmax
-          if (gsqs(nm) > 0.0_fp) then
+          if (gsqs(nm) > 0.0_fp .and. kcs(nm)==1) then
              select case (dredge_prop(i)%ichkloc)
              case (CHKLOC_ALLCORNER)
                 nmcor = nm
@@ -1739,12 +1745,12 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
     enddo
     !
     do i = 1, nadump
-       imask(1:nmmax) = 0
+       imask(:)       = 0
        npnt           = 0
        if (npdu(i) /= 0) then
           ia = ipdu(i)
           do nm = 1, nmmax
-             if (gsqs(nm) > 0.0_fp) then
+             if (gsqs(nm) > 0.0_fp .and. kcs(nm)==1) then
                 select case (dump_prop(i)%ichkloc)
                 case (CHKLOC_ALLCORNER)
                    nmcor = nm

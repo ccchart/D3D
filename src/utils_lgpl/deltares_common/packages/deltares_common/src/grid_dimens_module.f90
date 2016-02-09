@@ -1,7 +1,7 @@
 module grid_dimens_module
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -32,6 +32,7 @@ module grid_dimens_module
 ! This module defines the data structure for grid dimensions.
 !
 !!--module declarations---------------------------------------------------------
+use precision
 private
 
 !
@@ -148,7 +149,12 @@ type griddimtype
     integer :: nlg    ! global n index corresponding to local n index nmaxus
     integer :: nmaxgl ! global maximum n index as known to user
     !
-    integer, dimension(:,:), pointer :: aggrtable => null()
+    integer, dimension(:,:), pointer :: aggrtable => null() ! aggrtable(i,j) = 0 no cell, nm = cell index (>0)
+    integer, dimension(:)  , pointer :: celltype => null()  ! 0 = inactive, 1 = active (internal), 2 = boundary, -1 = ghost
+    integer, dimension(:,:), pointer :: nmbnd => null()     ! (1,nb) = nm boundary, (2,nb) = nm internal
+    !
+    real(fp), dimension(:), pointer :: xz => null() ! X-coord. of the water elevation pnt.
+    real(fp), dimension(:), pointer :: yz => null() ! Y-coord. of the water elevation pnt.
 end type griddimtype
 
 contains
@@ -170,7 +176,7 @@ subroutine simplegrid_dimens(griddim,nmax,mmax,aggrtable)
 !
 ! Local variables
 !
-!   NONE
+    integer                   :: istat
 !
 !! executable statements -------------------------------------------------------
 !
@@ -199,6 +205,10 @@ subroutine simplegrid_dimens(griddim,nmax,mmax,aggrtable)
     else
        griddim%aggrtable => null()
     endif
+    !
+    allocate(griddim%celltype(griddim%nmmax), stat=istat)
+    if (istat==0) griddim%celltype = 1
+    griddim%nmbnd => null()
 end subroutine simplegrid_dimens
 
 end module grid_dimens_module

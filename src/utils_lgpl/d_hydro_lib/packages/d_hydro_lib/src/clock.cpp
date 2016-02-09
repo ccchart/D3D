@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -36,6 +36,7 @@
 
 
 #include "clock.h"
+#include <ctime>
 
 
 Clock::Clock (
@@ -59,8 +60,12 @@ Clock::Epoch (
     ) {
 
 #if defined (WIN32)
+    //Alternative implementation (is GetSystemTime thread safe?):
+	//std::time_t SysTime = std::time(nullptr);
+	//struct tm *OSTime;
+	//OSTime=localtime(&SysTime);
+	//return ((Timestamp) OSTime->tm_sec + OSTime->tm_min * 100 + OSTime->tm_hour * 10000 + OSTime->tm_yday * 1000000);
     SYSTEMTIME tv;
-
     GetSystemTime(&tv);     // ToDo: Check return code for errors
     return ((Timestamp) tv.wSecond * 1000000) + tv.wMilliseconds;
 

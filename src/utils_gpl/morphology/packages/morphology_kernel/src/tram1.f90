@@ -1,13 +1,16 @@
-subroutine tram1 (numrealpar,realpar   ,wave      ,par       ,kmax      , &
-                & bed       ,tauadd    ,taucr0    ,aks       ,eps       , &
-                & camax     ,frac      ,sig       ,thick     ,ws        , &
-                & dicww     ,ltur      ,kmaxsd    ,taurat    ,caks      , &
-                & seddif    ,sigmol    ,rsedeq    ,scour     ,sbcu      , &
-                & sbcv      ,sbwu      ,sbwv      ,sswu      ,sswv      , &
-                & conc2d    ,error     ,message   )
+subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
+                & kmax      ,bed       , &
+                & tauadd    ,taucr0    ,aks       ,eps       ,camax     , &
+                & frac      ,sig       ,thick     ,ws        , &
+                & dicww     ,ltur      , &
+                & kmaxsd    ,taurat    ,caks      , &
+                & seddif    ,sigmol    ,rsedeq    ,scour     ,bedw      , &
+                & susw      ,sbcu      ,sbcv      ,sbwu      ,sbwv      , &
+                & sswu      ,sswv                 ,conc2d    ,error     , &
+                & message   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -66,6 +69,8 @@ subroutine tram1 (numrealpar,realpar   ,wave      ,par       ,kmax      , &
     integer                         , intent(in)   :: ltur     !  Description and declaration in iidim.f90
     real(fp)                        , intent(in)   :: sigmol   !  Description and declaration in rjdim.f90
     logical                         , intent(in)   :: scour
+    real(fp)                        , intent(in)   :: bedw
+    real(fp)                        , intent(in)   :: susw
     real(fp), dimension(30)         , intent(in)   :: par
     !
     real(fp)                        , intent(out)  :: aks
@@ -328,7 +333,7 @@ subroutine tram1 (numrealpar,realpar   ,wave      ,par       ,kmax      , &
     u     = utot * uuu / (umod+eps)
     v     = utot * vvv / (umod+eps)
     !
-    if (bed > 0.0_fp) then
+    if (bed>0.0_fp .or. bedw>0.0_fp .or. susw>0.0_fp) then
        call bedtr1993(uuu       ,vvv       ,utot      ,di50      ,d90       , &
                     & h1        ,taurat    ,ustarc    ,muc       ,rhosol    , &
                     & dstar     ,ws(1)     ,hrms      ,tp        ,teta      , &

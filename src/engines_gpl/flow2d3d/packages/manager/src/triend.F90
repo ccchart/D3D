@@ -1,7 +1,7 @@
 subroutine triend(runid, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,6 +41,7 @@ subroutine triend(runid, gdp)
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall
     !
     implicit none
@@ -62,6 +63,7 @@ subroutine triend(runid, gdp)
 ! Local variables
 !
     integer        :: icount  ! help var.; counter 
+    integer        :: iocond  ! IO condition
     integer        :: itis
     integer        :: lkw     ! Length of char. str (usually the KEYWRD or RECNAM) 
     integer        :: lrid    ! Lenght of runid 
@@ -98,7 +100,7 @@ subroutine triend(runid, gdp)
     !
     ! define lenght of RUNID
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     !
     ! if NUERR = 1 then error occurred in TRIPOI part
     !
@@ -193,7 +195,7 @@ subroutine triend(runid, gdp)
        merr = merr + 1
        ntel = ntel + 1
        if (ntel<=10) then
-          call noextspaces(recdia    ,reclen    )
+          call remove_leading_spaces(recdia    ,reclen    )
           if (reclen<=79) then
              write (lunscr, '(a)') recdia(:reclen)
           else
@@ -233,7 +235,7 @@ subroutine triend(runid, gdp)
        mwarn = mwarn + 1
        ntel = ntel + 1
        if (ntel<=10) then
-          call noextspaces(recdia    ,reclen    )
+          call remove_leading_spaces(recdia    ,reclen    )
           if (reclen<=79) then
              write (lunscr, '(a)') recdia(:reclen)
           else
@@ -269,5 +271,14 @@ subroutine triend(runid, gdp)
        !
        call dfsendnb(itrig,1,dfint,inode+1,itag,gdp)
     endif
+    !
+    ! read until end of tri-diag file such that the final messages written to
+    ! that file (about deleting TMP files) are written at the end and do not
+    ! overwrite the file
+    !
+    iocond = 0
+    do while (iocond == 0)
+       read (lundia, '(a300)', iostat = iocond) recdia
+    enddo
  9999 continue
 end subroutine triend

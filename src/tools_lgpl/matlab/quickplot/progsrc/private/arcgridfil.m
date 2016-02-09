@@ -6,6 +6,7 @@ function varargout=arcgridfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=arcgridfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -50,7 +51,7 @@ function varargout=arcgridfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -83,6 +84,9 @@ switch cmd
         return;
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
+        return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
         return
     case 'stations'
         varargout={readsts(FI,Props,0)};
@@ -125,7 +129,7 @@ ind=cell(1,5);
 ind{2}=1;
 for i=[M_ N_ K_]
     if DimFlag(i)
-        if isequal(idx{i},0) | isequal(idx{i},1:sz(i))
+        if isequal(idx{i},0) || isequal(idx{i},1:sz(i))
             idx{i}=1:sz(i);
             allidx(i)=1;
         elseif ~isequal(idx{i},idx{i}(1):idx{i}(end))
@@ -134,7 +138,7 @@ for i=[M_ N_ K_]
     end
 end
 
-if max(idx{T_})>sz(T_) & ~(isequal(idx{T_},1) & sz(T_)==0)
+if ~isempty(idx{T_}) && max(idx{T_})>sz(T_) && ~(isequal(idx{T_},1) && sz(T_)==0)
     error('Selected timestep (%i) larger than number of timesteps (%i) in file.',max(idx{T_}),sz(T_))
 end
 
@@ -148,7 +152,7 @@ if XYRead
     if length(FI.CellSize)==1
         FI.CellSize = FI.CellSize([1 1]);
     end
-    if XYRead & (DataInCell | Props.NVal==0)
+    if XYRead && (DataInCell || Props.NVal==0)
         eidx=idx;
         eidx{M_}(end+1)=eidx{M_}(end)+1;
         eidx{N_}(end+1)=eidx{N_}(end)+1;
@@ -168,8 +172,12 @@ if XYRead
     %========================= GENERAL CODE =======================================
 end
 
-if DataRead & Props.NVal>0
-    if strcmp(lower(FI.Extension),'amuv')
+if DataRead && Props.NVal>0
+    if strcmp(FI.FileType,'SURFER')
+        val1=surfer('read',FI);
+        val1=val1(idx{[M_ N_]});
+        val2=[];
+    elseif strcmpi(FI.Extension,'amuv') || isfield(FI,'FileBaseExtension')
         nM = length(idx{M_});
         nN = length(idx{N_});
         val1 = zeros(length(idx{T_}),nM,nN);
@@ -251,6 +259,19 @@ DataProps={'grid'               ''        [0 0 1 1 0]  0         0         0
 %------------------------------------------------------------------------------
 Out=cell2struct(DataProps,PropNames,2);
 %------------------------------------------------------------------------------
+if strcmp(FI.FileType,'SURFER')
+    Out(3).DimFlag(1) = 0;
+    Out(4).DimFlag(1) = 0;
+    return
+end
+RefDate=qp_option(FI,'RefDate');
+if ~isempty(RefDate)
+    for i=1:length(Out)
+        if Out(i).DimFlag(1)
+            Out(i).DimFlag(1) = 1;
+        end
+    end
+end
 i2=length(Out);
 i1=i2-1;
 switch lower(FI.Extension)
@@ -307,7 +328,12 @@ switch lower(FI.Extension)
         Out(i2,:)=[];
     otherwise
         [p,f]=fileparts(FI.FileBase);
-        if length(f)>2 && isequal(f(1:2),'dm')
+        if isfield(FI,'FileBaseExtension')
+            Out(i1).Name='velocity';
+            Out(i1).Units='m/s';
+            Out(i1).NVal=2;
+            Out(i2,:)=[];
+        elseif length(f)>2 && isequal(f(1:2),'dm')
             subtype=char(sscanf(f,'dm%*d%s',1)');
             switch subtype
                 case 'c'
@@ -409,7 +435,11 @@ end
 % -----------------------------------------------------------------------------
 function subf=getsubfields(FI,Props,f)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
-if length(FI.Times)>1 & Props.DimFlag(T_)==0 & Props.NVal==1
+if strcmp(FI.FileType,'SURFER')
+    subf={};
+    return
+end
+if length(FI.Times)>1 && Props.DimFlag(T_)==0 && Props.NVal==1
     subf=cell(length(FI.Times),1);
     for i=1:length(FI.Times)
         subf{i}=sprintf('class %i',i);
@@ -417,7 +447,7 @@ if length(FI.Times)>1 & Props.DimFlag(T_)==0 & Props.NVal==1
 else
     subf={};
 end
-if nargin>2 & f~=0
+if nargin>2 && f~=0
     subf=subf(f);
 end
 % -----------------------------------------------------------------------------
@@ -429,7 +459,7 @@ T_=1; ST_=2; M_=3; N_=4; K_=5;
 sz=[0 0 0 0 0];
 
 %======================== SPECIFIC CODE =======================================
-if Props.DimFlag(M_) & Props.DimFlag(N_)
+if Props.DimFlag(M_) && Props.DimFlag(N_)
     sz([M_ N_])=[FI.NCols FI.NRows];
 end;
 if Props.DimFlag(K_)
@@ -452,9 +482,21 @@ end
 function T=readtim(FI,Props,t)
 %======================== SPECIFIC CODE =======================================
 if ~isempty(FI.Times)
-    T=FI.Times/24;
+    RefDate=qp_option(FI,'RefDate');
+    TimeStep=qp_option(FI,'TimeStep');
+    if isempty(TimeStep)
+        TimeStep=1/24;
+    else
+        TimeStep=TimeStep/86400;
+    end
+    %
+    T=FI.Times*TimeStep;
     if ~isequal(t,0)
         T=T(t);
+    end
+    %
+    if ~isempty(RefDate)
+        T = RefDate+T;
     end
 else
     T=0;
@@ -468,3 +510,123 @@ function S=readsts(FI,Props,t)
 %======================== SPECIFIC CODE =======================================
 S={};
 % -----------------------------------------------------------------------------
+
+% -----------------------------------------------------------------------------
+function [NewFI,cmdargs]=options(FI,mfig,cmd,varargin)
+Inactive=get(0,'defaultuicontrolbackground');
+Active=[1 1 1];
+NewFI=FI;
+FI=[];
+cmd=lower(cmd);
+cmdargs={};
+
+switch cmd
+    case 'initialize'
+        OK=optfig(mfig);
+        %
+        RefDate = qp_option(NewFI,'RefDate');
+        if ~isempty(RefDate)
+            RefDateStr = datestr(RefDate);
+        else
+            RefDateStr = '';
+        end
+        Handle_RefDateTxt=findobj(mfig,'tag','RefDateTxt');
+        set(Handle_RefDateTxt,'enable','on')
+        Handle_RefDate=findobj(mfig,'tag','RefDate');
+        set(Handle_RefDate,'enable','on','backgroundcolor',Active,'string',RefDateStr)
+        %
+        if isfield(NewFI,'TimeFormat') && NewFI.TimeFormat==0
+            TimeStep = qp_option(NewFI,'TimeStep');
+            if ~isempty(TimeStep)
+                TimeStepStr = sprintf('%g',TimeStep);
+            else
+                TimeStepStr = '3600';
+            end
+            Handle_TimeStepTxt=findobj(mfig,'tag','TimeStepTxt');
+            set(Handle_TimeStepTxt,'enable','on')
+            Handle_TimeStep=findobj(mfig,'tag','TimeStep');
+            set(Handle_TimeStep,'enable','on','backgroundcolor',Active,'string',TimeStepStr)
+        end
+
+    case 'refdate'
+        Handle_RefDate=findobj(mfig,'tag','RefDate');
+        RefDate = qp_option(NewFI,'RefDate');
+        RefDateStr = deblank(get(Handle_RefDate,'string'));
+        if isempty(RefDateStr)
+            RefDate = [];
+        else
+            try
+                RefDate = datenum(RefDateStr);
+            catch
+            end
+        end
+        if isempty(RefDate)
+            set(Handle_RefDate,'string','')
+        else
+            set(Handle_RefDate,'string',datestr(RefDate))
+        end
+        NewFI = qp_option(NewFI,'RefDate',RefDate);
+
+    case 'timestep'
+        Handle_TimeStep=findobj(mfig,'tag','TimeStep');
+        TimeStep = str2double(get(Handle_TimeStep,'string'));
+        if isnan(TimeStep)
+            TimeStep = 3600;
+        end
+        set(Handle_TimeStep,'string',sprintf('%g',TimeStep))
+        NewFI = qp_option(NewFI,'TimeStep',TimeStep);
+        
+    otherwise
+        error('Unknown option command: %s',cmd)
+end
+% -----------------------------------------------------------------------------
+
+
+% -----------------------------------------------------------------------------
+function OK=optfig(h0)
+Inactive=get(0,'defaultuicontrolbackground');
+FigPos=get(h0,'position');
+FigPos(3:4) = getappdata(h0,'DefaultFileOptionsSize');
+set(h0,'position',FigPos)
+
+voffset=FigPos(4)-30;
+%
+uicontrol('Parent',h0, ...
+    'BackgroundColor',Inactive, ...
+    'Enable','off', ...
+    'Position',[11 voffset 160 18], ...
+    'Style','text', ...
+    'horizontalalignment','left', ...
+    'String','Reference Time', ...
+    'Tag','RefDateTxt')
+uicontrol('Parent',h0, ...
+    'BackgroundColor',Inactive, ...
+    'Callback','d3d_qp fileoptions refdate', ...
+    'Enable','off', ...
+    'Position',[181 voffset 150 20], ...
+    'Style','edit', ...
+    'horizontalalignment','right', ...
+    'String','--', ...
+    'Tag','RefDate')
+%
+voffset=voffset-25;
+uicontrol('Parent',h0, ...
+    'BackgroundColor',Inactive, ...
+    'Enable','off', ...
+    'Position',[11 voffset 160 18], ...
+    'Style','text', ...
+    'horizontalalignment','left', ...
+    'String','Time Step [s]', ...
+    'Tag','TimeStepTxt')
+uicontrol('Parent',h0, ...
+    'BackgroundColor',Inactive, ...
+    'Callback','d3d_qp fileoptions timestep', ...
+    'Enable','off', ...
+    'Position',[181 voffset 150 20], ...
+    'Style','edit', ...
+    'horizontalalignment','right', ...
+    'String','--', ...
+    'Tag','TimeStep')
+%
+OK=1;
+% -----------------------------------------------------------------------------  

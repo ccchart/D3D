@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,11 +21,11 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C Subroutine INKEY to check keyboard input.
-C Calls assembler program CHKKEY.
-C To provide compatability with previous versions, the scan key info
-C is discarded!
-C
+! Subroutine INKEY to check keyboard input.
+! Calls assembler program CHKKEY.
+! To provide compatability with previous versions, the scan key info
+! is discarded!
+!
       SUBROUTINE INKEY (KEY)
       INTEGER KEY, KKEY
 10    KEY = 1

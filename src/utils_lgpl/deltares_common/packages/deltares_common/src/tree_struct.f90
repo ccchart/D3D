@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -52,6 +52,7 @@ module TREE_DATA_TYPES
       character(len=1), dimension(:), pointer         :: node_name
       character(len=1), dimension(:), pointer         :: node_data
       character(len=1), dimension(:), pointer         :: node_data_type
+      integer                                         :: node_visit     !< Zeroed upon construction, incremented upon node_data request (properties.f90: prop_get_string)
       type(TREE_DATA_PTR), dimension(:), pointer :: child_nodes
    end type
 
@@ -80,10 +81,10 @@ module TREE_STRUCTURES
    ! Public routines, types and parameters
    !
    public  :: TREE_DATA
-   public  :: tree_create, tree_create_node, tree_get_node_by_name, &
-              tree_get_data_ptr, tree_put_data, tree_get_name, &
-              tree_get_datatype, tree_get_data_string,         &
-              tree_traverse, tree_traverse_level, print_tree, &
+   public  :: tree_create, tree_create_node, tree_add_node, tree_get_node_by_name, tree_num_nodes, &
+              tree_get_data_ptr, tree_put_data, tree_get_name, tree_get_data,                      &
+              tree_get_datatype, tree_get_data_string,                                             &
+              tree_traverse, tree_traverse_level, print_tree,                                      &
               tree_fold, tree_destroy
    ! nested function has to be public for gfortran
    public ::  dealloc_tree_data
@@ -107,18 +108,26 @@ subroutine tree_create( name, tree )
    integer                         :: error
    integer                         :: newsize
 
+!   GD: memory leak here
+!   if(associated(tree)) then
+!     deallocate(tree)
+!   end if
+  
    allocate( tree, stat = error )
 
    if ( error .ne. 0 ) then
       nullify( tree )
    else
       newsize = size( transfer( name, node_value ) )
+      !GD: memory leak here
+      !if(associated(tree%node_name)) deallocate(tree%node_name)
       allocate( tree%node_name(1:newsize), stat = error )
       if ( error .ne. 0 ) then
          deallocate( tree )
          return
       else
          tree%node_name(1:newsize) = transfer( name, node_value )
+         tree%node_visit = 0
          nullify( tree%node_data )
          nullify( tree%node_data_type )
          nullify( tree%child_nodes )
@@ -142,10 +151,7 @@ subroutine tree_create_node( tree, name, node )
    type(TREE_DATA), pointer        :: tree
    type(TREE_DATA), pointer        :: node
 
-   type(TREE_DATA_PTR), dimension(:), pointer :: children
-
-   integer                         :: error
-   integer                         :: newsize
+   integer :: ierror
 
    !
    ! Check for uniqueness
@@ -162,14 +168,40 @@ subroutine tree_create_node( tree, name, node )
    call tree_create( name, node )
 
    if ( associated( node ) ) then
+      call tree_add_node(tree, node, ierror)
+      if (ierror /= 0) then
+         deallocate(node)
+      end if
+   endif
+end subroutine tree_create_node
+
+!> Adds an existing tree node to the children array of a tree.
+!! Both the tree and the new node are pointers, use this to efficiently
+!! create or extend a tree with already existing subtrees.
+subroutine tree_add_node(tree, node, ierror)
+   type(TREE_DATA), pointer        :: tree   !< Pointer to the root of an existing tree, to which the node should be added.
+   type(TREE_DATA), pointer        :: node   !< Pointer to an existing ('sub')tree, which will be added to the root tree.
+   integer,            intent(out) :: ierror !< Error status, 0 if succesful.
+
+   type(TREE_DATA_PTR), dimension(:), pointer :: children
+
+   integer                         :: newsize
+
+   ierror = 0
+
+   if (.not. associated(tree)) then
+      ierror = 1
+      return
+   end if
+
+   if ( associated( node ) ) then
       newsize = 1
       if ( associated( tree%child_nodes ) ) then
          newsize = 1 + size( tree%child_nodes )
       endif
 
-      allocate( children(1:newsize), stat = error )
-      if ( error .ne. 0 ) then
-         deallocate( node )
+      allocate( children(1:newsize), stat = ierror )
+      if ( ierror .ne. 0 ) then
          return
       else
          if ( newsize .gt. 1 ) then
@@ -180,8 +212,29 @@ subroutine tree_create_node( tree, name, node )
          tree%child_nodes => children
          tree%child_nodes(newsize)%node_ptr => node
       endif
+   else
+      ierror = 2
    endif
-end subroutine tree_create_node
+end subroutine tree_add_node
+
+
+!> Returns the number of nodes in a tree.
+!! This node count is NOT recursive: it represents the number of nodes directly under the root level.
+!! When the tree pointer itself is not associated, 0 is returned.
+function tree_num_nodes(tree) result(num_nodes)
+   type(TREE_DATA), pointer :: tree !< Tree pointer for which to determine the number of child nodes.
+
+   integer                  :: num_nodes !< Number of child nodes in the specified tree, or 0 if unassociated.
+
+   num_nodes = 0
+
+   if (associated(tree)) then
+      if (associated(tree%child_nodes)) then
+         num_nodes = size(tree%child_nodes)
+      end if
+   end if
+end function tree_num_nodes
+
 
 ! tree_get_name --
 !    Return the name of the tree or node
@@ -202,6 +255,26 @@ function tree_get_name( tree ) result( node_name )
       node_name(i:i) =  tree%node_name(i)
    end do
 end function tree_get_name
+
+! tree_get_data --
+!    Return the data of the tree or node
+!
+! Arguments:
+!    tree         The tree or node
+!
+function tree_get_data( tree ) result( node_data )
+   type(TREE_DATA), pointer :: tree
+   character(len=80)        :: node_data
+
+   integer                  :: length
+   integer                  :: i
+
+   length    = min(80, size( tree%node_data ))
+   node_data = ' '
+   do i=1,length
+      node_data(i:i) =  tree%node_data(i)
+   end do
+end function tree_get_data
 
 ! tree_get_datatype --
 !    Return the data type for the data stored in the tree or node
@@ -330,6 +403,8 @@ subroutine tree_put_data( tree, data, data_type, success )
        deallocate( tree%node_data_type )
     endif
 
+!    GD: memory leak
+!    if(associated(tree%node_data)) deallocate(tree%node_data)
     allocate( tree%node_data(1:size(data)), stat = error )
     if ( error .eq. 0 ) then
        tree%node_data = data

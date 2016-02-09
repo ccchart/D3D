@@ -1,7 +1,7 @@
 module meteo_data
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -55,11 +55,19 @@ module meteo_data
    integer, parameter :: numfiletypes                   =  5
    integer, parameter :: max_nummeteoitems              = 10
    integer, parameter, private :: max_num_meteopointers = 50
+   !
+   ! enumeration for optional flags
+   !
+   integer, parameter :: opt_not_defined      = 0
+   integer, parameter :: opt_value_specified  = 1
+   integer, parameter :: opt_use_from_kernel  = 2
 !
 ! type definitions
 !
    type tfield
       ! contains time and field information
+      logical                             :: all_nodata     ! Flag to indicate whether all data values are missing
+                                                            ! (Only for meteo_on_spiderweb_grid)
       real(hp)                            :: time
       real(hp)                            :: x_spw_eye      ! X-coordinate of cyclone eye (spiderweb centre) at specified TIME
       real(hp)                            :: y_spw_eye      ! Y-coordinate of cyclone eye (spiderweb centre) at specified TIME
@@ -102,10 +110,12 @@ module meteo_data
       integer                       :: numk
       integer                       :: numm             ! Size of meteo grid, related to tgrid%mmax
       integer                       :: numn             ! Size of meteo grid, related to tgrid%nmax
+      integer                       :: pref_option      ! Reference pressure options: 0: not defined, 1: value specified, 2: use from kernel
       real(hp)                      :: dx               ! x-gridsize
       real(hp)                      :: dy               ! y-gridsize
       real(fp)                      :: nodata_value     ! Value used for undefined or missing data
       real(hp)                      :: p_conv           ! Conversion factor for air_pressure (to Pa)
+      real(hp)                      :: pref             ! Reference value for air_pressure, optionally used by spiderweb: patm = pref - p_drop
       real(hp)                      :: spw_radius       ! Radius of spiderweb (in units specified in spw_rad_unit)
       real(hp)                      :: spw_merge_frac   ! Fraction of radius for merging spw data with background wind
       real(hp)                      :: x_llcorner       ! X-coordinate of lower left corner of lower left cell of grid (in units specified in grid_unit)
@@ -215,6 +225,7 @@ end subroutine init_meteo_data
 subroutine nullifyfield( field )
    implicit none
    type(tfield)     :: field
+   field%all_nodata     = .false.
    field%dx             = nodata_default
    field%dy             = nodata_default
    field%x_spw_eye      = nodata_default

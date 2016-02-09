@@ -4,7 +4,7 @@ subroutine soursin_3d(h1          ,thick0      ,thick1      ,sigsed      ,thicks
                     & sour_ex     ,sour_im     ,sink        )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine soursin_3d(h1          ,thick0      ,thick1      ,sigsed      ,thicks
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
+    implicit none
 !
 ! Global variables
 !
@@ -71,6 +72,7 @@ subroutine soursin_3d(h1          ,thick0      ,thick1      ,sigsed      ,thicks
     real(fp) :: diffus
     real(fp) :: dz
     real(fp) :: r00
+    real(fp) :: rouse
     real(fp) :: temp0
     real(fp) :: temp1
     real(fp) :: zkmx

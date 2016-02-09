@@ -3,7 +3,7 @@ function outdata = qp_plotmanager(cmd,UD,logfile,logtype,cmdargs)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2014 Stichting Deltares.
+%   Copyright (C) 2011-2016 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -31,9 +31,17 @@ function outdata = qp_plotmanager(cmd,UD,logfile,logtype,cmdargs)
 %   $HeadURL$
 %   $Id$
 
+mfig = findobj(allchild(0),'flat','tag','Delft3D-QUICKPLOT');
+UD=getappdata(mfig,'QPHandles');
 Inactive = UD.Inactive;
 Active = UD.Active;
-mfig = findobj(allchild(0),'flat','tag','Delft3D-QUICKPLOT');
+if nargin<3
+    logfile=0;
+    logtype=0;
+    cmdargs={};
+elseif nargin<5
+    cmdargs={};
+end
 
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 DimStr={'subfield ','timestep ','station ','M=','N=','K='};
@@ -61,12 +69,62 @@ switch cmd
             set(fig,'position',NewPos)
         end
         %
+        fgprop_shown = isappdata(fig,'FigPropsShown'); % figprop shown before redraw
+        axprop_shown = isappdata(fig,'AxPropsShown'); % axprop shown before redraw
+        fgprop_hght = getappdata(fig,'FigPropsHeight');
+        axprop_hght = getappdata(fig,'AxPropsHeight');
+        List  = get(PM.ShowList,'string');
+        iList = get(PM.ShowList,'value');
+        sList = List{iList};
+        List = {'Item(s)','Figure Properties','Axes Properties'};
+        %
+        fgprop_shw = [0 0 0 0];
+        if NewSize(2)>MinSize(2)+fgprop_hght+axprop_hght % show figprop after redraw
+            List(strcmp(List,'Figure Properties')) = [];
+            if fgprop_shown
+                fgprop_hght = 0;
+            else
+                setappdata(fig,'FigPropsShown',1);
+                fgprop_shw(2) = getappdata(fig,'FigPropsShift')+axprop_hght;
+            end
+        else % don't show figprop after redraw
+            if fgprop_shown
+                fgprop_hght = -fgprop_hght;
+                rmappdata(fig,'FigPropsShown');
+                fgprop_shw(2) = -getappdata(fig,'FigPropsShift')-axprop_hght;
+            else
+                fgprop_hght = 0;
+            end
+        end
+        %
+        axprop_shw = [0 0 0 0];
+        if NewSize(2)>MinSize(2)+axprop_hght % show axprop after redraw
+            List(strcmp(List,'Axes Properties')) = [];
+            if axprop_shown
+                axprop_hght = 0;
+            else
+                setappdata(fig,'AxPropsShown',1);
+                axprop_shw(2) = getappdata(fig,'AxPropsShift');
+            end
+        else % don't show axprop after redraw
+            if axprop_shown
+                axprop_hght = -axprop_hght;
+                rmappdata(fig,'AxPropsShown');
+                axprop_shw(2) = -getappdata(fig,'AxPropsShift');
+            else
+                axprop_hght = 0;
+            end
+        end
+        %
         % Define some shift operators
         %
         aligntop   = [0 NewSize(2)-PrevSize(2) 0 0];
         alignright = [NewSize(1)-PrevSize(1) 0 0 0];
         stretchhor = [0 0 NewSize(1)-PrevSize(1) 0];
+        fgprop_shf = [0 -fgprop_hght 0 0];
+        axprop_shf = [0 -axprop_hght 0 0];
         stretchver = [0 0 0 NewSize(2)-PrevSize(2)];
+        stretchitm = stretchver-[0 0 0 fgprop_hght+axprop_hght];
         stretch2   = stretchhor/2;
         shift2     = alignright/2;
         stretch5   = stretchhor/5;
@@ -77,90 +135,114 @@ switch cmd
         shiftcontrol(PM.FigTxt,aligntop)
         shiftcontrol(PM.FigList,aligntop+stretchhor)
         shiftcontrol(PM.FigAll,aligntop+alignright)
-        shiftcontrol(PM.AxTxt,aligntop)
-        shiftcontrol(PM.AxList,aligntop+stretchhor)
-        shiftcontrol(PM.AxAll,aligntop+alignright)
-        shiftcontrol(PM.Show,aligntop)
-        shiftcontrol(PM.ShowList,aligntop+stretchhor)
-        shiftcontrol(PM.ItTxt,aligntop)
-        shiftcontrol(PM.ItList,stretchhor+stretchver)
-        shiftcontrol(PM.ItUp,aligntop+alignright)
+        shiftcontrol(PM.AxTxt,aligntop+fgprop_shf)
+        shiftcontrol(PM.AxList,aligntop+stretchhor+fgprop_shf)
+        shiftcontrol(PM.AxAll,aligntop+alignright+fgprop_shf)
+        shiftcontrol(PM.Show,aligntop+fgprop_shf+axprop_shf)
+        shiftcontrol(PM.ShowList,aligntop+stretchhor+fgprop_shf+axprop_shf)
+        iList = find(strcmp(List,sList));
+        if isempty(iList)
+            iList = 1;
+        end
+        set(PM.ShowList,'string',List,'value',iList)
+        %
+        shiftcontrol(PM.ItTxt,aligntop+fgprop_shf+axprop_shf)
+        shiftcontrol(PM.ItList,stretchhor+stretchitm)
+        shiftcontrol(PM.ItUp,aligntop+alignright+fgprop_shf+axprop_shf)
         shiftcontrol(PM.ItDown,alignright)
         %
-        shiftcontrol(PM.FigNameTxt,aligntop)
-        shiftcontrol(PM.FigName,aligntop+stretchhor)
-        shiftcontrol(PM.FigColorTxt,aligntop+alignright)
-        shiftcontrol(PM.FigColor,aligntop+alignright)
-        shiftcontrol(PM.FigPaperTypeTxt,aligntop)
-        shiftcontrol(PM.FigPaperType,aligntop)
-        shiftcontrol(PM.FigPaperOrientation,aligntop)
-        shiftcontrol(PM.FigPaperWidth,aligntop+stretch2)
-        shiftcontrol(PM.FigPaperX,aligntop+shift2)
-        shiftcontrol(PM.FigPaperHeight,aligntop+shift2+stretch2)
-        shiftcontrol(PM.FigPaperUnit,aligntop+alignright)
-        shiftcontrol(PM.FigBorderStyleTxt,aligntop)
-        shiftcontrol(PM.FigBorderStyle,aligntop)
-        shiftcontrol(PM.FigBorder,aligntop)
+        if fgprop_shw(2)>0
+            set(PM.FigHandles,'visible','on')
+        elseif fgprop_shw(2)<0
+            set(PM.FigHandles,'visible','off')
+        end
+        shiftcontrol(PM.FigNameTxt,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigName,aligntop+stretchhor+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigColorTxt,aligntop+alignright+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigColor,aligntop+alignright+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperTypeTxt,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperType,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperOrientation,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperWidth,aligntop+stretch2+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperX,aligntop+shift2+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperHeight,aligntop+shift2+stretch2+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigPaperUnit,aligntop+alignright+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigBorderStyleTxt,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigBorderStyle,aligntop+axprop_shf+fgprop_shw)
+        shiftcontrol(PM.FigBorder,aligntop+axprop_shf+fgprop_shw)
         %
-        shiftcontrol(PM.AxNameTxt,aligntop)
-        shiftcontrol(PM.AxName,aligntop+3*stretch5)
-        shiftcontrol(PM.AxTypeTxt,aligntop+3*shift5)
-        shiftcontrol(PM.AxType,aligntop+3*shift5+2*stretch5)
-        shiftcontrol(PM.SecondY,aligntop+alignright)
+        if axprop_shw(2)>0
+            set(PM.AxHandles,'visible','on')
+        elseif axprop_shw(2)<0
+            set(PM.AxHandles,'visible','off')
+        end
+        shiftcontrol(PM.AxNameTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxName,aligntop+3*stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxTypeTxt,aligntop+3*shift5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxType,aligntop+3*shift5+2*stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.SecondY,aligntop+alignright+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.AxTitleTxt,aligntop)
-        shiftcontrol(PM.AxTitleAuto,aligntop)
-        shiftcontrol(PM.AxTitle,aligntop+5*stretch5)
+        shiftcontrol(PM.AxTitleTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxTitleAuto,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxTitle,aligntop+5*stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.AxColorTxt,aligntop)
-        shiftcontrol(PM.HasAxColor,aligntop)
-        shiftcontrol(PM.AxColor,aligntop+stretch5)
-        shiftcontrol(PM.AxLineWTxt,aligntop+shift5+stretch5)
-        shiftcontrol(PM.AxLineWidth,aligntop+2*shift5+stretch5)
-        shiftcontrol(PM.AxBox,aligntop+3*shift5+stretch5)
+        shiftcontrol(PM.AxColorTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.HasAxColor,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxColor,aligntop+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxLineWTxt,aligntop+shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxLineWidth,aligntop+2*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxBox,aligntop+3*shift5+stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.AxPosition,aligntop)
-        shiftcontrol(PM.AxXLowerLeft,aligntop+stretch5)
-        shiftcontrol(PM.AxYLowerLeft,aligntop+shift5+stretch5)
-        shiftcontrol(PM.AxWidth,aligntop+2*shift5+stretch5)
-        shiftcontrol(PM.AxHeight,aligntop+3*shift5+stretch5)
-        shiftcontrol(PM.AxPosUnit,aligntop+4*shift5+stretch5)
+        shiftcontrol(PM.AxPosition,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxXLowerLeft,aligntop+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxYLowerLeft,aligntop+shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxWidth,aligntop+2*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxHeight,aligntop+3*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.AxPosUnit,aligntop+4*shift5+stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.XLimitTxt,aligntop)
-        shiftcontrol(PM.XLimitMin,aligntop+stretch5)
-        shiftcontrol(PM.XLimitMax,aligntop+shift5+stretch5)
-        shiftcontrol(PM.XScale,aligntop+2*shift5+stretch5)
-        shiftcontrol(PM.XGrid,aligntop+3*shift5+stretch5)
-        shiftcontrol(PM.XLoc,aligntop+4*shift5+stretch5)
-        shiftcontrol(PM.XColor,aligntop+5*shift5)
-        shiftcontrol(PM.XLabelTxt,aligntop)
-        shiftcontrol(PM.XLabelAuto,aligntop)
-        shiftcontrol(PM.XLabel,aligntop+5*stretch5)
+        shiftcontrol(PM.XLimitTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLimitMin,aligntop+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLimitMax,aligntop+shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XScale,aligntop+2*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XGrid,aligntop+3*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLoc,aligntop+4*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XColor,aligntop+5*shift5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLabelTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLabelAuto,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.XLabel,aligntop+5*stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.YLimitTxt,aligntop)
-        shiftcontrol(PM.YLimitMin,aligntop+stretch5)
-        shiftcontrol(PM.YLimitMax,aligntop+shift5+stretch5)
-        shiftcontrol(PM.YScale,aligntop+2*shift5+stretch5)
-        shiftcontrol(PM.YGrid,aligntop+3*shift5+stretch5)
-        shiftcontrol(PM.YLoc,aligntop+4*shift5+stretch5)
-        shiftcontrol(PM.YColor,aligntop+5*shift5)
-        shiftcontrol(PM.YLabelTxt,aligntop)
-        shiftcontrol(PM.YLabelAuto,aligntop)
-        shiftcontrol(PM.YLabel,aligntop+5*stretch5)
+        shiftcontrol(PM.YLimitTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLimitMin,aligntop+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLimitMax,aligntop+shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YScale,aligntop+2*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YGrid,aligntop+3*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLoc,aligntop+4*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YColor,aligntop+5*shift5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLabelTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLabelAuto,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.YLabel,aligntop+5*stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.ZLimitTxt,aligntop)
-        shiftcontrol(PM.ZLimitMin,aligntop+stretch5)
-        shiftcontrol(PM.ZLimitMax,aligntop+shift5+stretch5)
-        shiftcontrol(PM.ZScale,aligntop+2*shift5+stretch5)
-        shiftcontrol(PM.ZGrid,aligntop+3*shift5+stretch5)
-        shiftcontrol(PM.ZLoc,aligntop+4*shift5+stretch5)
-        shiftcontrol(PM.ZColor,aligntop+5*shift5)
-        shiftcontrol(PM.ZLabelTxt,aligntop)
-        shiftcontrol(PM.ZLabelAuto,aligntop)
-        shiftcontrol(PM.ZLabel,aligntop+5*stretch5)
+        shiftcontrol(PM.ZLimitTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLimitMin,aligntop+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLimitMax,aligntop+shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZScale,aligntop+2*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZGrid,aligntop+3*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLoc,aligntop+4*shift5+stretch5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZColor,aligntop+5*shift5+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLabelTxt,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLabelAuto,aligntop+fgprop_shf+axprop_shw)
+        shiftcontrol(PM.ZLabel,aligntop+5*stretch5+fgprop_shf+axprop_shw)
         %
-        shiftcontrol(PM.ItTxt2,aligntop)
-        shiftcontrol(PM.ItList2,aligntop+stretchhor)
+        pos = get(PM.Separator,'position');
+        pos(1) = pos(1)+NewSize(1)-PrevSize(1);
+        pos(4) = NewSize(2);
+        set(PM.Separator,'position',pos)
+        %
+        shiftcontrol(PM.Options.Slider,alignright+stretchver)
+        for i = 1:length(PM.Options.Handles)
+            shiftcontrol(PM.Options.Handles(i),alignright)
+        end
+        update_option_positions(UD,'plmn',NewSize(2)-30+1)
         %
         % Store the new figure size for usage during next resize command
         %
@@ -174,7 +256,7 @@ switch cmd
             set(h,'userdata',UDplot);
             if ~isempty(h)
                 set(UD.PlotMngr.FigList,'value',1,'string',listnames(h,'showType','no','showHandle','no','showTag','no'),'userdata',h);
-                d3d_qp refreshfigs
+                qp_plotmanager refreshfigs
             end
             if logfile
                 writelog(logfile,logtype,cmd,createops{:});
@@ -196,19 +278,19 @@ switch cmd
             set(UD.PlotMngr.DelAx,'enable','off');
             UD.PlotMngr.CurrentAxes=[];
             setappdata(mfig,'QPHandles',UD)
-            d3d_qp refreshitems
-            d3d_qp refreshaxprop
+            qp_plotmanager refreshitems
+            qp_plotmanager refreshaxprop
         else 
             FigVal=get(UD.PlotMngr.FigList,'value');
             Fig=FigIDs(FigVal);
             if ~ishandle(Fig)
-                d3d_qp refreshfigs
+                qp_plotmanager refreshfigs
             else
                 [h,createops]=qp_createaxes(Fig,cmd(9:end),cmdargs{:});
                 if ~isempty(h)
                     set(UD.PlotMngr.AxList,'value',1,'string',listnames(h),'userdata',h);
-                    d3d_qp refreshaxes
-                    d3d_qp refreshfigprop
+                    qp_plotmanager refreshaxes
+                    qp_plotmanager refreshfigprop
                 end
             end
             if logfile && ~isempty(h)
@@ -256,7 +338,7 @@ switch cmd
                     %set(cbar,'deletefcn','qp_colorbar delete')
                     hName = listnames(h,'showtype','no','showhandle','no','showtag','no');
                     set(UD.PlotMngr.FigList,'value',1,'string',hName,'userdata',h);
-                    d3d_qp refreshfigs
+                    qp_plotmanager refreshfigs
                     if logfile
                         writelog(logfile,logtype,cmd,pf);
                     end
@@ -313,8 +395,8 @@ switch cmd
             set(UD.PlotMngr.ClsFig,'enable',enable);
             set(UD.PlotMngr.NewAx,'enable','on');
         end
-        d3d_qp refreshaxes
-        d3d_qp refreshfigprop
+        qp_plotmanager refreshaxes
+        qp_plotmanager refreshfigprop
         d3d_qp update_addtoplot
         
     case 'allfigures'
@@ -334,8 +416,8 @@ switch cmd
         set(UD.PlotMngr.FigList, ...
             'enable',figlistenable,'backgroundcolor',figlistcolour);
         set(UD.PlotMngr.ClsFig,'enable',figlistenable);
-        d3d_qp refreshaxes
-        d3d_qp refreshfigprop
+        qp_plotmanager refreshaxes
+        qp_plotmanager refreshfigprop
         
     case 'refreshaxes'
         FigIDs=get(UD.PlotMngr.FigList,'userdata');
@@ -355,7 +437,7 @@ switch cmd
                 Fig=FigIDs(FigVal);
             end
             if any(~ishandle(Fig))
-                d3d_qp refreshfigs
+                qp_plotmanager refreshfigs
             else
                 Axs=findall(Fig,'type','axes');
                 for i=length(Axs):-1:1
@@ -403,9 +485,9 @@ switch cmd
                 end
             end
         end
-        d3d_qp refreshitems
-        d3d_qp refreshaxprop
-        d3d_qp update_addtoplot
+        qp_plotmanager refreshitems
+        qp_plotmanager refreshaxprop
+        qp_plotmanager update_addtoplot
         
     case 'allaxes'
         if ~isempty(cmdargs)
@@ -424,16 +506,22 @@ switch cmd
         set(UD.PlotMngr.AxList, ...
             'enable',axlistenable,'backgroundcolor',axlistcolour);
         set(UD.PlotMngr.DelAx,'enable',axlistenable);
-        d3d_qp refreshitems
-        d3d_qp refreshaxprop
-        d3d_qp update_addtoplot
+        qp_plotmanager refreshitems
+        qp_plotmanager refreshaxprop
+        qp_plotmanager update_addtoplot
         
     case 'pmshowselect'
         ipane = get(UD.PlotMngr.ShowList,'value');
+        spane = get(UD.PlotMngr.ShowList,'string');
         h = UD.PlotMngr.Handles;
-        idx = UD.PlotMngr.Pane == ipane;
-        set(h(idx),'visible','on')
-        set(h(~idx),'visible','off')
+        for i = 1:length(spane)
+            idx = strcmp(UD.PlotMngr.Pane,spane{i});
+            if i==ipane
+                set(h(idx),'visible','on')
+            else
+                set(h(idx),'visible','off')
+            end
+        end
         
     case 'refreshitems'
         AxIDs=get(UD.PlotMngr.AxList,'userdata');
@@ -443,14 +531,11 @@ switch cmd
             set(UD.PlotMngr.DelIt,'enable','off');
             set(UD.PlotMngr.ItInfo,'enable','off');
             set(UD.PlotMngr.ItLink,'enable','off');
-            %
-            set(UD.PlotMngr.ItList2,'string',' ','value',1, ...
-                'enable','off','backgroundcolor',Inactive);
         else
             Ax = getAx(UD);
             if any(~ishandle(Ax))
-                d3d_qp refreshaxes
-                d3d_qp refreshfigprop
+                qp_plotmanager refreshaxes
+                qp_plotmanager refreshfigprop
             else
                 Items=allchild(Ax);
                 if iscell(Items)
@@ -504,9 +589,6 @@ switch cmd
                     set(UD.PlotMngr.DelIt,'enable','off');
                     set(UD.PlotMngr.ItInfo,'enable','off');
                     set(UD.PlotMngr.ItLink,'enable','off');
-                    %
-                    set(UD.PlotMngr.ItList2,'string',' ','value',1, ...
-                        'enable','off','backgroundcolor',Inactive);
                 else
                     prevseparator=0;
                     it=length(Items);
@@ -661,10 +743,6 @@ switch cmd
                         'userdata',{Tags Items},'value',val, ...
                         'enable','on','backgroundcolor',Active);
                     %
-                    set(UD.PlotMngr.ItList2,'string',Nms, ...
-                        'value',val(1), ...
-                        'enable','on','backgroundcolor',Active);
-                    %
                     % buttons should not be enabled if a separator is selected
                     %
                     enable='on';
@@ -677,7 +755,8 @@ switch cmd
                 end
             end
         end
-        qp_plotmanager('updatearrows',UD)
+        qp_plotmanager updatearrows
+        qp_plotmanager refreshitemprop
 
     case 'updatearrows'
         Ax = getAx(UD);
@@ -705,11 +784,11 @@ switch cmd
             end
         end
 
-    case {'moveitemup','moveitemdown'}
+    case {'moveitemup','moveitemdown','moveitemtoback'}
         Ax = getAx(UD);
         if any(~ishandle(Ax))
-            d3d_qp refreshaxes
-            d3d_qp refreshfigprop
+            qp_plotmanager refreshaxes
+            qp_plotmanager refreshfigprop
         else
             pfig = get(Ax,'parent');
             ItInfo = get(UD.PlotMngr.ItList,'userdata');
@@ -726,49 +805,62 @@ switch cmd
             end
             ZCurrent1 = getappdata(hItem1,'Level');
             %
-            switch cmd
-                case 'moveitemup'
-                    ItVal2 = ItVal-1;
-                case 'moveitemdown'
-                    ItVal2 = ItVal+1;
+            while 1
+                switch cmd
+                    case 'moveitemup'
+                        ItVal2 = ItVal-1;
+                    case {'moveitemdown','moveitemtoback'}
+                        ItVal2 = ItVal+1;
+                end
+                if ItVal2>length(ItTags)
+                    break
+                end
+                %
+                ItTag2 = ItTags{ItVal2};
+                hIt2 = findall(pfig,'tag',ItTag2); % the object itself
+                if length(hIt2)>1
+                    hItem2 = hIt2(~cellfun('isempty',get(hIt2,'userdata')));
+                else
+                    hItem2 = hIt2;
+                end
+                ZCurrent2 = getappdata(hItem2,'Level');
+                %
+                setzcoord(hIt1,ZCurrent2)
+                setappdata(hItem1,'Level',ZCurrent2)
+                setzcoord(hIt2,ZCurrent1)
+                setappdata(hItem2,'Level',ZCurrent1)
+                %
+                children = allchild(Ax);
+                child1 = find(ismember(children,hIt1));
+                child2 = find(ismember(children,hIt2));
+                BeforeBoth = children(1:min([min(child1) min(child2)])-1);
+                AfterBoth = children(max([max(child1) max(child2)])+1:end);
+                switch cmd
+                    case 'moveitemup'
+                        children = [BeforeBoth; children(child1); ...
+                            children(child2); AfterBoth];
+                    case {'moveitemdown','moveitemtoback'}
+                        children = [BeforeBoth; children(child2); ...
+                            children(child1); AfterBoth];
+                end
+                set(Ax,'children',children)
+                %
+                if ~strcmp(cmd,'moveitemtoback')
+                    break
+                end
+                %
+                ItTags([ItVal ItVal2]) = ItTags([ItVal2 ItVal]);
+                ItVal = ItVal2;
             end
-            ItTag2 = ItTags{ItVal2};
-            hIt2 = findall(pfig,'tag',ItTag2); % the object itself
-            if length(hIt2)>1
-                hItem2 = hIt2(~cellfun('isempty',get(hIt2,'userdata')));
-            else
-                hItem2 = hIt2;
-            end
-            ZCurrent2 = getappdata(hItem2,'Level');
             %
-            setzcoord(hIt1,ZCurrent2)
-            setappdata(hItem1,'Level',ZCurrent2)
-            setzcoord(hIt2,ZCurrent1)
-            setappdata(hItem2,'Level',ZCurrent1)
-            %
-            children = allchild(Ax);
-            child1 = find(ismember(children,hIt1));
-            child2 = find(ismember(children,hIt2));
-            BeforeBoth = children(1:min([min(child1) min(child2)])-1);
-            AfterBoth = children(max([max(child1) max(child2)])+1:end);
-            switch cmd
-                case 'moveitemup'
-                    children = [BeforeBoth; children(child1); ...
-                        children(child2); AfterBoth];
-                case 'moveitemdown'
-                    children = [BeforeBoth; children(child2); ...
-                        children(child1); AfterBoth];
-            end
-            set(Ax,'children',children)
-            %
-            d3d_qp refreshitems
+            qp_plotmanager refreshitems
         end
 
     case 'itemlist'
         Ax = getAx(UD);
         if any(~ishandle(Ax))
-            d3d_qp refreshaxes
-            d3d_qp refreshfigprop
+            qp_plotmanager refreshaxes
+            qp_plotmanager refreshfigprop
         else
             ItInfo=get(UD.PlotMngr.ItList,'userdata');
             ItVal=get(UD.PlotMngr.ItList,'value');
@@ -780,8 +872,8 @@ switch cmd
                 ItTag=ItTags{itVal};
                 hIt=findall(Ax,'tag',ItTag);
                 if isempty(hIt)
-                    d3d_qp refreshitems
-                    d3d_qp refreshaxprop
+                    qp_plotmanager refreshitems
+                    qp_plotmanager refreshaxprop
                     OK=0;
                     break
                 end
@@ -801,13 +893,14 @@ switch cmd
                 end
             end
         end
-        qp_plotmanager('updatearrows',UD)
+        qp_plotmanager updatearrows
+        qp_plotmanager refreshitemprop
         
     case 'iteminfo'
         Ax = getAx(UD);
         if any(~ishandle(Ax))
-            d3d_qp refreshaxes
-            d3d_qp refreshfigprop
+            qp_plotmanager refreshaxes
+            qp_plotmanager refreshfigprop
         else
             pfig=get(Ax,'parent');
             ItIDs=get(UD.PlotMngr.ItList,'userdata');
@@ -866,21 +959,22 @@ switch cmd
                 writelog(logfile,logtype,cmd);
             end
         end
-        d3d_qp refreshaxes
-        d3d_qp refreshfigprop
+        qp_plotmanager refreshaxes
+        qp_plotmanager refreshfigprop
         
     case 'deleteitems'
         Ax = getAx(UD);
+        hItList = UD.PlotMngr.ItList;
         if any(~ishandle(Ax))
-            d3d_qp refreshaxes
-            d3d_qp refreshfigprop
+            qp_plotmanager refreshaxes
+            qp_plotmanager refreshfigprop
         else
             pfig=get(Ax,'parent');
             if iscell(pfig)
                 pfig=unique(cat(1,pfig{:}));
             end
-            ItIDs=get(UD.PlotMngr.ItList,'userdata');
-            ItVal=get(UD.PlotMngr.ItList,'value');
+            ItIDs=get(hItList,'userdata');
+            ItVal=get(hItList,'value');
             ItTags=ItIDs{1};
             for itVal=ItVal
                 ItTag=ItTags{itVal};
@@ -896,30 +990,38 @@ switch cmd
                         animpush=findobj(ItFig,'tag','animpush');
                         set(animpush,'enable','off')
                     end
-                    UD=get(animsld,'userdata');
+                    SliderUD=get(animsld,'userdata');
                     iobj=1;
-                    while iobj<=length(UD)
-                        if strcmp(UD(iobj).Tag,ItTag)
-                            UD(iobj)=[];
+                    while iobj<=length(SliderUD)
+                        if strcmp(SliderUD(iobj).Tag,ItTag)
+                            SliderUD(iobj)=[];
                         end
                         iobj=iobj+1;
                     end
                     animsldEnab='on';
-                    if isempty(UD)
+                    if isempty(SliderUD)
                         animsldEnab='off';
                     end
-                    set(animsld,'enable',animsldEnab,'userdata',UD)
+                    set(animsld,'enable',animsldEnab,'userdata',SliderUD)
                 end
             end
-            d3d_qp refreshitems
-            d3d_qp refreshaxprop
+            if length(ItVal)==1
+                if ItVal<size(ItIDs{1},1)
+                    set(hItList,'value',ItVal+1)
+                elseif ItVal>1
+                    set(hItList,'value',ItVal-1)
+                end
+            end
+            setaxesprops(Ax)
+            qp_plotmanager refreshitems
+            qp_plotmanager refreshaxprop
         end
         
     case 'linkitems'
         Ax = getAx(UD);
         if any(~ishandle(Ax))
-            d3d_qp refreshaxes
-            d3d_qp refreshfigprop
+            qp_plotmanager refreshaxes
+            qp_plotmanager refreshfigprop
         else
             pfig=get(Ax,'parent');
             if iscell(pfig)
@@ -1065,7 +1167,7 @@ switch cmd
                     % If name not found in list of figures, try once
                     % refreshing the list of figures.
                     %
-                    d3d_qp refreshfigs
+                    qp_plotmanager refreshfigs
                     FigureHandles=get(UD.PlotMngr.FigList,'userdata');
                     Names = get(FigureHandles,'name');
                     [iFg,iAll] = ustrcmpi(h,Names);
@@ -1110,7 +1212,7 @@ switch cmd
                     % If a handle not found in list of figures, try
                     % once refreshing the list of figures.
                     %
-                    d3d_qp refreshfigs
+                    qp_plotmanager refreshfigs
                     FigureHandles=get(UD.PlotMngr.FigList,'userdata');
                     iFg=find(ismember(FigureHandles,h));
                 end
@@ -1129,9 +1231,9 @@ switch cmd
             FigureHandles = get(UD.PlotMngr.FigList,'userdata');
             iFg = get(UD.PlotMngr.FigList,'value');
         end
-        d3d_qp refreshaxes
-        d3d_qp update_addtoplot
-        d3d_qp refreshfigprop
+        qp_plotmanager refreshaxes
+        qp_plotmanager update_addtoplot
+        qp_plotmanager refreshfigprop
         if logfile && iFg>0
             names = get(FigureHandles,'name');
             nr   = {};
@@ -1174,8 +1276,8 @@ switch cmd
                     % If tag not found in list of axes, try once refreshing the
                     % list of axes.
                     %
-                    d3d_qp refreshaxes
-                    d3d_qp refreshfigprop
+                    qp_plotmanager refreshaxes
+                    qp_plotmanager refreshfigprop
                     AxesHandles=get(UD.PlotMngr.AxList,'userdata');
                     Tags = get(AxesHandles,'tag');
                     [iAx,iAll] = ustrcmpi(h,Tags);
@@ -1233,9 +1335,9 @@ switch cmd
             AxesHandles=get(UD.PlotMngr.AxList,'userdata');
             iAx = get(UD.PlotMngr.AxList,'value');
         end
-        d3d_qp refreshaxes
+        qp_plotmanager refreshaxes % this call triggers also refreshaxprop
         d3d_qp update_addtoplot
-        d3d_qp refreshaxprop
+        %qp_plotmanager refreshaxprop
         if logfile && iAx>0
             tags = get(AxesHandles,'tag');
             nr   = {};
@@ -1304,7 +1406,8 @@ switch cmd
         else
             get(gcbo,'tag')
         end
-        qp_plotmanager('updatearrows',UD)
+        qp_plotmanager updatearrows
+        qp_plotmanager refreshitemprop
         d3d_qp update_addtoplot
 
     case 'refreshfigprop'
@@ -1430,7 +1533,7 @@ switch cmd
             setappdata(na,'linkedaxestype','SecondY')
             setappdata(na,'linkedaxes',ax)
             setappdata(na,'NonDataObject',1)
-            d3d_qp refreshaxprop
+            qp_plotmanager refreshaxprop
         elseif strcmp(linkedax,'SecondY')
             switch cmd
                 case 'secondy'
@@ -1463,13 +1566,13 @@ switch cmd
                     rmappdata(ax,'linkedaxestype')
                     rmappdata(ax,'linkedaxes')
                     delete(na)
-                    d3d_qp refreshaxprop
+                    qp_plotmanager refreshaxprop
                 case 'secondy_right'
                     na = getappdata(ax,'linkedaxes');
                     rmappdata(ax,'linkedaxestype')
                     rmappdata(ax,'linkedaxes')
                     delete(na)
-                    d3d_qp refreshaxprop
+                    qp_plotmanager refreshaxprop
             end
         end
 
@@ -1478,6 +1581,7 @@ switch cmd
         PM = UD.PlotMngr;
         if length(ax)==1
             secondy = strcmp(getappdata(ax,'linkedaxestype'),'SecondY');
+            axes2d = isequal(getappdata(ax,'axes2D'),true);
             if strcmp(getappdata(ax,'BasicAxesType'),'Lon-Lat')
                 types = get(PM.GeoDataMenu,'children');
                 anyfound = 0;
@@ -1514,11 +1618,11 @@ switch cmd
             axt = getappdata(ax,'BasicAxesType');
             set(PM.AxTypeTxt,'enable','on')
             if isempty(axt) || strcmp(axt,'undefined')
-                axt = 'undefined';
+                axt = {'undefined','Time-Val','Time-Z','Time-X','X-Time','Distance-Val','X-Y','X-Y-Z','Lon-Lat','legend'};
                 set(PM.AxType, ...
                     'backgroundcolor',Active, ...
                     'value',1, ...
-                    'string',{axt,'legend'}, ...
+                    'string',axt, ...
                     'enable','on')
             else
                 set(PM.AxType, ...
@@ -1575,7 +1679,7 @@ switch cmd
                     if secondy
                         axq = getappdata(ax,'linkedaxes');
                         x = 'y';
-                    elseif vw(2)==90
+                    elseif axes2d || vw(2)==90
                         set([PM.ZLimitTxt PM.ZLabelTxt PM.ZGrid PM.ZLabelAuto], ...
                             'enable','off')
                         set(PM.ZLimitTxt,'string','Z Limit')
@@ -1716,8 +1820,7 @@ switch cmd
                 PM.XLimitTxt PM.XLabelTxt PM.XLabelAuto ...
                 PM.YLimitTxt PM.YLabelTxt PM.YLabelAuto ...
                 PM.ZLimitTxt PM.ZLabelTxt PM.ZLabelAuto],'enable','off')
-            set([PM.AxName PM.HasAxColor PM.AxColor ...
-                PM.AxPosUnit PM.XColor PM.YColor PM.ZColor], ...
+            set([PM.AxPosUnit PM.XColor PM.YColor PM.ZColor], ...
                 'backgroundcolor',Inactive, ...
                 'enable','off')
             set(PM.AxType, ...
@@ -1725,7 +1828,8 @@ switch cmd
                 'enable','off', ...
                 'value',1, ...
                 'string',{' '})
-            set([PM.AxXLowerLeft PM.AxYLowerLeft PM.AxWidth PM.AxHeight ...
+            set([PM.AxName PM.AxTitle PM.AxColor ...
+                PM.AxXLowerLeft PM.AxYLowerLeft PM.AxWidth PM.AxHeight ...
                 PM.AxLineWidth ...
                 PM.XLimitMin PM.XLimitMax PM.XLabel ...
                 PM.YLimitMin PM.YLimitMax PM.YLabel ...
@@ -1737,7 +1841,8 @@ switch cmd
                 'backgroundcolor',Inactive, ...
                 'value',0, ...
                 'enable','off')
-            set([PM.XLoc PM.XScale ...
+            set([PM.HasAxColor ...
+                PM.XLoc PM.XScale ...
                 PM.YLoc PM.YScale ...
                 PM.ZLoc PM.ZScale], ...
                 'backgroundcolor',Inactive, ...
@@ -1746,6 +1851,24 @@ switch cmd
             set(PM.GeoData,'enable','off')
         end
 
+    case 'refreshitemprop'
+        It = getItem(UD);
+        hOptions = UD.PlotMngr.Options.Handles;
+        if isempty(It) || length(It)>1
+            % no item or multiple items selected - for the time being can't
+            % visualize options. Call qp_update_options with empty Ops to
+            % hide them all.
+            Ops = [];
+        else
+            ItData = get(It,'UserData');
+            Ops =  ItData.PlotState.Ops;
+        end
+        try
+            qp_update_options(hOptions,UD,Ops)
+            update_option_positions(UD,'plmn')
+        catch Ex
+            qp_error(sprintf('Catch in qp_plotmanager\\%s:',cmd),Ex)
+        end
 end
 
 function Ax = getAx(UD)
@@ -1757,6 +1880,20 @@ if get(UD.PlotMngr.FigAll,'value') || ...
     Ax=AxIDs;
 else
     Ax=AxIDs(AxVal);
+end
+
+function It = getItem(UD)
+ItData=get(UD.PlotMngr.ItList,'userdata');
+if ~iscell(ItData)
+    It = [];
+else
+    ItIDs=ItData{2};
+    ItVal=get(UD.PlotMngr.ItList,'value');
+    if isempty(ItIDs)
+        It=[];
+    else
+        It=ItIDs(ItVal);
+    end
 end
 
 function v = cget(handle,prop)

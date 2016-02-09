@@ -20,7 +20,7 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
              & pship     ,tgfsep    ,dteu      ,ustokes   ,mom_output,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1285,7 +1285,7 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
        ! determine global maximum of 'itr' over all nodes
        ! Note: this enables to synchronize the iteration process
        !
-       call dfreduce( itr, 1, dfint, dfmax, gdp )
+       call dfreduce_gdp( itr, 1, dfint, dfmax, gdp )
     enddo loop_iteration
     !
     if (gdp%gdflwpar%flwoutput%iteroutputsteps >= gdp%gdinttim%ntstep) then

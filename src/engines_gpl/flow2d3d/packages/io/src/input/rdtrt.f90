@@ -2,7 +2,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
                & nmax      ,nmaxus    ,kmax      ,itimtt    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
     use precision
     use properties
     use globaldata
+    use string_module
     use dfparall
     use system_utils, only: exifil
     !
@@ -270,7 +271,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
     lfile = index(filtmp, ' ')
     if (lfile==0) lfile = 13
     lfile = lfile - 1
-    call noextspaces(filtmp    ,lfile     )
+    call remove_leading_spaces(filtmp    ,lfile     )
     if (.not.exifil(filtmp, lundia)) then
        !
        ! file does not exist !!
@@ -417,7 +418,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
        error  = .true.
        rec132 = ' '
        write (rec132, '(i12)') mcurec
-       call noextspaces(rec132    ,lcurec    )
+       call remove_leading_spaces(rec132    ,lcurec    )
        errmsg = filtmp(1:lfile) // ', Record: ' // rec132(1:lcurec)
        call prterr(lundia    ,'G007'    ,errmsg    )
        goto 199
@@ -444,7 +445,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
              error  = .true.
              rec132 = ' '
              write (rec132, '(i12)') mcurec
-             call noextspaces(rec132    ,lcurec    )
+             call remove_leading_spaces(rec132    ,lcurec    )
              errmsg = filtmp(1:lfile) // ', Record: ' // rec132(1:lcurec)
              call prterr(lundia    ,'J014'    ,errmsg    )
              goto 199
@@ -465,7 +466,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
              error  = .true.
              rec132 = ' '
              write (rec132, '(i12)') mcurec
-             call noextspaces(rec132    ,lcurec    )
+             call remove_leading_spaces(rec132    ,lcurec    )
              errmsg = filtmp(1:lfile) // ', Record: ' // rec132(1:lcurec)
              call prterr(lundia    ,'G007'    ,errmsg    )
              goto 199
@@ -503,7 +504,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
           error  = .true.
           rec132 = ' '
           write (rec132, '(i12)') mcurec
-          call noextspaces(rec132    ,lcurec    )
+          call remove_leading_spaces(rec132    ,lcurec    )
           errmsg = filtmp(1:lfile) // ', Record: ' // rec132(1:lcurec)
           call prterr(lundia    ,'J005'    ,errmsg    )
           goto 199
@@ -515,7 +516,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
        error  = .true.
        rec132 = ' '
        write (rec132, '(i12)') mcurec
-       call noextspaces(rec132    ,lcurec    )
+       call remove_leading_spaces(rec132    ,lcurec    )
        errmsg = filtmp(1:lfile) // ', Record: ' // rec132(1:lcurec)
        call prterr(lundia    ,'G007'    ,errmsg    )
        goto 199
@@ -554,8 +555,8 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
     !
     if (filtmp == ' ') then
        i = 0
-       do m = 1,gdp%d%mmax
-          do n = 1,gdp%d%nmax
+       do m = mfg,(mfg+gdp%d%mmax-1)
+          do n = nfg,(nfg+gdp%d%nmax-1)
              i = i+1
              ittaru(i,1) = n
              ittaru(i,2) = m
@@ -591,8 +592,8 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
     !
     if (filtmp == ' ') then
        i = 0
-       do m = 1,gdp%d%mmax
-          do n = 1,gdp%d%nmax
+       do m = mfg,(mfg+gdp%d%mmax-1)
+          do n = nfg,(nfg+gdp%d%nmax-1)
              i = i+1
              ittarv(i,1) = n
              ittarv(i,2) = m
@@ -625,7 +626,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
        lfile = index(filtmp, ' ')
        if (lfile==0) lfile = 13
        lfile = lfile - 1
-       call noextspaces(filtmp    ,lfile     )
+       call remove_leading_spaces(filtmp    ,lfile     )
        if (.not.exifil(filtmp, lundia)) then
           !
           ! file does not exist !!
@@ -672,7 +673,7 @@ subroutine rdtrt(lundia    ,error     ,lftrto    ,dt        ,mmax      , &
        lfile = index(filtmp, ' ')
        if (lfile==0) lfile = 13
        lfile = lfile - 1
-       call noextspaces(filtmp    ,lfile     )
+       call remove_leading_spaces(filtmp    ,lfile     )
        if (.not.exifil(filtmp, lundia)) then
           !
           ! file does not exist !!

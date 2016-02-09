@@ -3,7 +3,7 @@ function filename=qp_export(ExpType,filenm1,DataState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -91,7 +91,8 @@ switch expType
     case 'landboundary file'
         ext='ldb';
     case 'tecplot file'
-        ext='plt';
+        ext={'*.plt' 'Binary Tecplot File'
+            '*.dat' 'ASCII Tecplot File'};
     case 'arcview shape'
         % assumptions: 2D, one timestep
         ext='shp';
@@ -144,7 +145,11 @@ end
 if isempty(filename)
     BaseName = Props.Name;
     BaseName = str2file(BaseName);
-    [f,p] = uiputfile([savedir BaseName '.' ext], 'Save As');
+    if iscell(ext)
+        [f,p] = uiputfile(ext, 'Save As', [savedir BaseName]);
+    else
+        [f,p] = uiputfile([savedir BaseName '.' ext], 'Save As');
+    end
     if ~ischar(f)
         return
     end
@@ -194,33 +199,39 @@ for f=1:ntim
         filename='';
         return
     end
-    if isfield(data,'XYZ') && ~MATfile
-        data(1).X=data.XYZ(:,:,:,1);
-        data(1).Y=data.XYZ(:,:,:,2);
-        if size(data(1).XYZ,4)>2
-            data(1).Z=data.XYZ(:,:,:,3);
-        end
-    end
+    componentof='';
     if ~isempty(data)
-        Units=data(1).Units;
-        if isfield(Ops,'units') && ~isempty(Ops.units) && ~isempty(Units)
-            dataX=qp_unitconversion(Units,Ops.units,data);
+        if ~(isfield(data,'XYZ') && ~MATfile) || ~strcmp(Ops.thinningmode,'none')
+            data = qp_thinning(data,Ops);
+        end
+        %
+        VecUnits=data(1).Units;
+        if isfield(data,'XComp')
+            [data,scalar,component]=computecomponent(data,Ops);
+            componentof=[component ' of '];
+            if scalar
+                Props.NVal=1;
+            end
+        end
+        %
+        ValUnits=data(1).Units;
+        if isfield(Ops,'units') && strcmp(Ops.units,'**Hide**')
+            ValUnits='';
+            VecUnits='';
+        elseif isfield(data,'XComp')
+            % data conversion of vector component already done in computecomponent
+        elseif isfield(Ops,'units') && ~isempty(Ops.units) && ~isempty(ValUnits)
+            dataX=qp_unitconversion(ValUnits,Ops.units,data);
             if ~ischar(dataX)
                 data=dataX;
                 dataX=[];
-                Units=data(1).Units;
+                ValUnits=data(1).Units;
             end
         end
-        ValUnits=Units;
     end
-    component='';
-    if isfield(data,'XComp')
-        [data,scalar,component]=computecomponent(data,Ops);
-        component=[component ' of '];
-        ValUnits=data(1).Units;
-        if scalar
-            Props.NVal=1;
-        end
+    if isfield(Ops,'units') && strcmp(Ops.units,'**Hide**')
+        VecUnits = '';
+        ValUnits = '';
     end
 
     if f==1
@@ -243,27 +254,27 @@ for f=1:ntim
         if isfield(data,'XComp') && Props.NVal>1
             flds{1,end+1}='XComp';
             vars{1,end+1}=sprintf('%s component of %s',componentstrings{1},Props.Name);
-            if ~isempty(Units)
-                vars{1,end}=cat(2,vars{1,end},' (',Units,')');
+            if ~isempty(VecUnits)
+                vars{1,end}=cat(2,vars{1,end},' (',VecUnits,')');
             end
         end
         if isfield(data,'YComp') && Props.NVal>1
             flds{1,end+1}='YComp';
             vars{1,end+1}=sprintf('%s component of %s',componentstrings{2},Props.Name);
-            if ~isempty(Units)
-                vars{1,end}=cat(2,vars{1,end},' (',Units,')');
+            if ~isempty(VecUnits)
+                vars{1,end}=cat(2,vars{1,end},' (',VecUnits,')');
             end
         end
         if isfield(data,'ZComp') && Props.NVal>1
             flds{1,end+1}='ZComp';
             vars{1,end+1}=sprintf('%s component of %s',componentstrings{3},Props.Name);
-            if ~isempty(Units)
-                vars{1,end}=cat(2,vars{1,end},' (',Units,')');
+            if ~isempty(VecUnits)
+                vars{1,end}=cat(2,vars{1,end},' (',VecUnits,')');
             end
         end
         if isfield(data,'Val')
             flds{1,end+1}='Val';
-            vars{1,end+1}=[component Props.Name];
+            vars{1,end+1}=[componentof Props.Name];
             if ~isempty(ValUnits)
                 vars{1,end}=cat(2,vars{1,end},' (',ValUnits,')');
             end
@@ -344,10 +355,14 @@ for f=1:ntim
                         error(['Could not create or open: ',filename])
                     end
                     Format=cat(2,'%04d-%02d-%02d %02d:%02d:%02d',repmat(', %14.6g',1,size(expdata,1)-6),'\n');
+                    %Format=cat(2,'%6.1f',repmat(' %14.6g',1,size(expdata,1)-6),' 999.999\n');
                     if size(expdata,1)-5>256
                         ui_message('error','Number of columns exceeds 256. Too many data columns for Excel!')
                     end
                     fprintf(fid,cat(2,'date and time',repmat(',%s',1,nVar-nCrd),'\n'),vars{nCrd+1:nVar});
+                    %dt = datenum(expdata(1,:),expdata(2,:),expdata(3,:),expdata(4,:),expdata(5,:),expdata(6,:));
+                    %dt = (dt-datenum(2011,11,4,0,0,0))*24*60;
+                    %expdata = cat(1,dt,expdata(7:end,:));
                     Str=sprintf(Format,expdata);
                     Str=strrep(Str,'NaN','');
                     fprintf(fid,'%s',Str);
@@ -427,7 +442,7 @@ for f=1:ntim
                 otherwise
                     expdata(isnan(expdata))=-999;
             end
-            if ~isempty(data.Time) && ~isnan(data.Time)
+            if isfield(data,'Time') && ~isempty(data.Time) && ~isnan(data.Time)
                 cmnt={sprintf('time     = %s',datestr(data.Time,0)),cmnt{:}};
             end
             xx.Field(f).Comments=cmnt;
@@ -501,7 +516,17 @@ for f=1:ntim
                         shapewrite(filename,shp_type,xyc,vals{:})
                     else
                         d=1;
-                        if isfield(Props,'Tri') && Props.Tri
+                        if isfield(Props,'Geom') && strncmp(Props.Geom,'UGRID',5)
+                            switch Props.Geom(7:end)
+                                case 'NODE'
+                                    xy=[data(d).X data(d).Y];
+                                    rm=[];
+                                case 'FACE'
+                                    xv=[data(d).X data(d).Y];
+                                    fv=data(d).FaceNodeConnect;
+                                    rm=[];
+                            end
+                        elseif isfield(Props,'Tri') && Props.Tri
                             if strcmp(retrieve,'gridcelldata')
                                 xv=data(d).XYZ(1,:,1,1:2);
                                 xv=reshape(xv,[size(xv,2) 2]);
@@ -546,7 +571,7 @@ for f=1:ntim
                         end
                         if isfield(data,'Val')
                             cv=[cv data(d).Val(:)];
-                            cLabels{end+1}=component;
+                            cLabels{end+1}=componentof;
                         end
                         if isempty(cv)
                             %
@@ -570,7 +595,7 @@ for f=1:ntim
                             %
                             % make sure that polygons are stored clockwise ...
                             %
-                            if clockwise(data(d).X(fv(1,:)),data(d).Y(fv(1,:)))<0
+                            if ~any(isnan(fv(1,:))) && clockwise(data(d).X(fv(1,:)),data(d).Y(fv(1,:)))<0
                                 fv=fliplr(fv);
                             end
                             shapewrite(filename,xv,fv,cv{:})
@@ -578,7 +603,7 @@ for f=1:ntim
                             shapewrite(filename,'point',xy,cv{:})
                         end
                     end
-                case {'vector','contour lines','coloured contour lines','contour patches','contour patches with lines','thin dams'}
+                case {'vector','vector (split x,y)','vector (split m,n)','contour lines','coloured contour lines','contour patches','contour patches with lines','thin dams'}
                     TempFg=figure('visible','off');
                     TempAx=axes('parent',TempFg);
                     if isequal(Ops.presentationtype,'contour lines')
@@ -631,6 +656,7 @@ for f=1:ntim
                                     shapewrite(filename,'polyline',xy,{'Value'},cv)
                             end
                         case {'contour patches','contour patches with lines'}
+                            hNew = hNew(strcmp(get(hNew,'type'),'patch'));
                             xy=get(hNew,'vertices');
                             cv=get(hNew,'facevertexcdata');
                             UD=get(hNew0,'userdata');
@@ -657,6 +683,8 @@ for f=1:ntim
                                 if size(xy{i},1)==1
                                     xy(i) = [];
                                     cv(i,:) = [];
+                                else
+                                    xy{i} = xy{i}(:,1:2);
                                 end
                             end
                             inside = false(length(xy));
@@ -792,43 +820,76 @@ for f=1:ntim
                             end
                             %
                             shapewrite(filename,xy,cLabels,cv)
-                        case 'vector'
-                            x1=get(hNew(2),'xdata');
-                            y1=get(hNew(2),'ydata');
-                            x2=get(hNew(3),'xdata');
-                            y2=get(hNew(3),'ydata');
-                            switch get(hNew(2),'type')
-                               case 'line'
-                                  x1=x1';
-                                  x2=x2';
-                                  y1=y1';
-                                  y2=y2';
-                                  values={};
-                               case 'patch'
-                                  x1=x1(:,1);
-                                  x2=x2(:,1);
-                                  y1=y1(:,1);
-                                  y2=y2(:,1);
-                                  v1=get(hNew(2),'cdata');
-                                  v2=get(hNew(3),'cdata');
-                                  cv=[v1(1:4:end,1);v2(1:3:end,1)];
-                                  UD=get(hNew(3),'userdata');
-                                  values={{UD.PlotState.Ops.vectorcolour} cv};
+                        case {'vector','vector (split x,y)','vector (split m,n)'}
+                            hascolor = strcmp(get(hNew(end),'type'),'patch');
+                            if hascolor
+                                vIndex = find(strcmp('patch',get(hNew,'type')))';
+                            else
+                                vIndex = 1:length(hNew);
+                                vIndex(1:3:end) = [];
                             end
-                            xy=[x1 y1; x2 y2];
+                            %
+                            N1=0;
+                            for v = vIndex
+                                if hascolor
+                                    N1 = N1 + size(get(hNew(v),'xdata'),1);
+                                else
+                                    N1 = N1 + length(get(hNew(v),'xdata'));
+                                end
+                            end
+                            %
+                            xy=zeros(N1,2);
+                            if hascolor
+                                cv = zeros(N1,1);
+                            end
+                            N1=0;
+                            for v = vIndex
+                                x01 = get(hNew(v),'xdata');
+                                y01 = get(hNew(v),'ydata');
+                                if hascolor
+                                    n1 = size(x01,1);
+                                    xy(N1+(1:n1),1)=x01(:,1);
+                                    xy(N1+(1:n1),2)=y01(:,1);
+                                    %
+                                    v1=get(hNew(v),'cdata');
+                                    cv(N1+(1:n1),1)=v1(:,1);
+                                else
+                                    n1 = length(x01);
+                                    xy(N1+(1:n1),1)=x01;
+                                    xy(N1+(1:n1),2)=y01;
+                                end
+                                N1 = N1+n1;
+                            end
                             seps=[0;find(isnan(xy(:,1)))];
                             %
                             n = seps(2:end)-seps(1:end-1)-1;
                             xy_cell=cell(sum(n>1),1);
+                            if hascolor
+                                cvr=zeros(sum(n>1),1);
+                            end
                             for i=1:length(n)
                                 if n(i)>1
                                     xy_cell{i}=xy(seps(i)+(1:n(i)),:);
+                                    if hascolor
+                                        cvr(i)=cv(seps(i)+1);
+                                    end
                                 end
                             end
                             %
+                            iEmpty = cellfun('isempty',xy_cell);
+                            xy_cell(iEmpty)=[];
+                            cvr(iEmpty)=[];
+                            if hascolor
+                                UD=get(hNew(end),'userdata');
+                                values={{UD.PlotState.Ops.vectorcolour} cvr};
+                            else
+                                values={};
+                            end
                             shapewrite(filename,'polyline',xy_cell,values{:});
                     end
                     delete(TempFg);
+                otherwise
+                    error('Unknown presentationtype "%s" during export of ArcView Shape',Ops.presentationtype)
             end
         case 'sample file'
             x=0; y=0; z=0; sz=[];

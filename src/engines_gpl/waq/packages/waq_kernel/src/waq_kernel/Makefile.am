@@ -17,10 +17,10 @@ AM_FFLAGS += $(OPENMP_FFLAGS)
 
 FMODULES += \
         -I$(top_builddir)/engines_gpl/waq/include \
-        -I$(top_builddir)/engines/part/packages/data_f/src/ \
-        -I$(top_builddir)/engines/part/packages/utils_f/src/ \
-        -I$(top_builddir)/engines/part/packages/io_f/src/ \
-        -I$(top_builddir)/engines/part/packages/kernel_f/src/ \
+        -I$(top_builddir)/engines_gpl/part/packages/data_f/src/ \
+        -I$(top_builddir)/engines_gpl/part/packages/utils_f/src/ \
+        -I$(top_builddir)/engines_gpl/part/packages/io_f/src/ \
+        -I$(top_builddir)/engines_gpl/part/packages/kernel_f/src/ \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/waq_utils \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_timings \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_couplib \
@@ -42,6 +42,8 @@ libWaqKernel_la_SOURCES = \
        wqhbcom.f90 \
        actloc.f \
        baldmp.f \
+       dmpsurf.f \
+       segcol.f \
        chknmr.f \
        delmat.f \
        delpar00.F \
@@ -65,6 +67,7 @@ libWaqKernel_la_SOURCES = \
        dlwq13.f \
        dlwq14.f \
        dlwq15.f \
+       dlwq15a.f \
        dlwq16.f \
        dlwq17.f \
        dlwq18.f \
@@ -141,6 +144,7 @@ libWaqKernel_la_SOURCES = \
        dlwqm6.f \
        dlwqm7.f \
        dlwqm8.f \
+       dlwqn0.f \
        dlwqn1.f \
        dlwqn2.f \
        dlwqn3.f \
@@ -162,6 +166,7 @@ libWaqKernel_la_SOURCES = \
        dlwqnj.f \
        dlwqnm.f \
        dlwqno.f \
+       dlwqnp.f \
        dlwqo2.f \
        dlwqo0.f \
        dlwqpp.f \

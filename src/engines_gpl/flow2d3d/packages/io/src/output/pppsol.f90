@@ -4,7 +4,7 @@ subroutine pppsol(mmax      ,nmax      ,kmax      ,lstsci    ,ltur      , &
                 & r1        ,rtur1     ,dps       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,6 +41,7 @@ subroutine pppsol(mmax      ,nmax      ,kmax      ,lstsci    ,ltur      , &
     use precision
     !
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -88,7 +89,7 @@ subroutine pppsol(mmax      ,nmax      ,kmax      ,lstsci    ,ltur      , &
 !! executable statements -------------------------------------------------------
 !
     ddb = gdp%d%ddbound
-    call noextspaces(runid     ,lenid     )
+    call remove_leading_spaces(runid     ,lenid     )
     filnam = 'tstprt.' // runid(:lenid)
     lunsol = newlun(gdp)
     open (lunsol, file = filnam)

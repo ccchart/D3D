@@ -1,7 +1,7 @@
 module swan_input
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -3564,6 +3564,7 @@ subroutine read_swan_mdw(casl      ,wavedata  , &
        endif
     endif
 !---output to locations--------------------------------------------
+    npoints = 0
     rccnt = rccnt + skcomc(iuni)
     rccnt = rccnt + 1
     read (iuni, *, err = 1002, end = 1009) pnts
@@ -3651,13 +3652,13 @@ end subroutine read_swan_mdw
 !
 !
 !==============================================================================
-subroutine write_swan_input (sr, itide, outcnt, inest, wavedata)
+subroutine write_swan_input (sr, itide, calccount, inest, wavedata)
     !
     implicit none
     !
     integer                           :: itide
     integer                           :: inest
-    integer                           :: outcnt
+    integer                           :: calccount
     real                              :: wdir
     real                              :: wvel
     character(37)                     :: curlif
@@ -3668,7 +3669,7 @@ subroutine write_swan_input (sr, itide, outcnt, inest, wavedata)
     wvel   = sr%wvel(itide)
     wdir   = sr%wdir(itide)
     !
-    call write_swan_inp (wavedata, outcnt, &
+    call write_swan_inp (wavedata, calccount, &
                     & itide        ,sr%nttide ,inest      ,sr%nnest  ,sr%swuvt  , &
                     & sr%swuvi     ,sr%prname ,sr%prnumb  ,sr%title1 ,sr%title2 , &
                     & sr%title3    ,sr%itest  ,sr%itrace  , &
@@ -3685,7 +3686,7 @@ end subroutine write_swan_input
 !
 !
 !==============================================================================
-subroutine write_swan_inp (wavedata, outcnt, &
+subroutine write_swan_inp (wavedata, calccount, &
                 & itide     ,nttide    ,inest     ,nnest     ,swuvt     , &
                 & swuvi     ,prname    ,prnumb    ,title1    ,title2    , &
                 & title3    ,itest     ,itrace    , &
@@ -3706,6 +3707,7 @@ subroutine write_swan_inp (wavedata, outcnt, &
 !
 ! Global variables
 !
+    integer                        , intent(in)  :: calccount
     integer                        , intent(in)  :: inest
     integer                        , intent(in)  :: inrhog
     integer                        , intent(in)  :: itest
@@ -3719,7 +3721,6 @@ subroutine write_swan_inp (wavedata, outcnt, &
     integer                        , intent(in)  :: nobst
     integer                        , intent(in)  :: nscr
     integer                        , intent(in)  :: nttide
-    integer                        , intent(in)  :: outcnt
     integer      , dimension(ncrv) , intent(in)  :: nclin
     integer      , dimension(nobst), intent(in)  :: nlin
     logical                        , intent(in)  :: sferic
@@ -3776,6 +3777,7 @@ subroutine write_swan_inp (wavedata, outcnt, &
     integer                     :: lc
     integer                     :: lunhot
     integer                     :: luninp
+    integer                     :: m
     integer                     :: mdc1
     integer                     :: msc
     integer                     :: mxfr
@@ -3823,6 +3825,7 @@ subroutine write_swan_inp (wavedata, outcnt, &
     character(37)               :: mudfil
     character(37)               :: vegfil
     character(60)               :: lijn
+    character(60)               :: outfirst
     character(79)               :: line
     character(79)               :: pointname
     character(256)              :: fname
@@ -3840,6 +3843,11 @@ subroutine write_swan_inp (wavedata, outcnt, &
 !
 !! executable statements -------------------------------------------------------
 !
+    ! The following output string is optionally used on several locations
+    !
+    tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
+    write(outfirst,'(3a,f8.2,a)') "OUT ",tbegc, " ", sr%deltc, " MIN"
+
     dom => sr%dom(inest)
     !
     !     *** additional swan arrays ***
@@ -4775,7 +4783,20 @@ subroutine write_swan_inp (wavedata, outcnt, &
     line(38:79) = ' '
     write (luninp, '(1X,A)') line
     line(1:79)  = ' '
-    write (luninp, '(6(2X,A),''_'')') varnam1
+    if (calccount == 1 .and. sr%modsim == 3) then
+       ! The following do-loop is used to write an underscore (_) at the end of the last line with varnam elements
+       ! Is there a more easy way?
+       !
+       do j = 1, CEILING(real(size(varnam1))/6.0)
+          m = min(6, size(varnam1)-(j-1)*6)
+          lijn = ' '
+          write(lijn, '(A,I1.1,A)') "(", m, "(2X,A),'_')"
+          write (luninp, lijn) (varnam1(n),n=(j-1)*6+1,min(j*6,size(varnam1)))
+       enddo
+       write (luninp, '(2A)') "  ", trim(outfirst)
+    else
+       write (luninp, '(6(2X,A),''_'')') varnam1
+    endif
     line(1:79)  = ' '
     line(1:2)   = '$ '
     write (luninp, '(1X,A)') line
@@ -4796,7 +4817,20 @@ subroutine write_swan_inp (wavedata, outcnt, &
     line(38:79) = ' '
     write (luninp, '(1X,A)') line
     line(1:79)  = ' '
-    write (luninp, '(6(2X,A),''_'')') varnam2
+    if (calccount == 1 .and. sr%modsim == 3) then
+       ! The following do-loop is used to write an underscore (_) at the end of the last line with varnam elements
+       ! Is there a more easy way?
+       !
+       do j = 1, CEILING(real(size(varnam2))/6.0)
+          m = min(6, size(varnam2)-(j-1)*6)
+          lijn = ' '
+          write(lijn, '(A,I1.1,A)') "(", m, "(2X,A),'_')"
+          write (luninp, lijn) (varnam2(n),n=(j-1)*6+1,min(j*6,size(varnam2)))
+       enddo
+       write (luninp, '(2A)') "  ", trim(outfirst)
+    else
+       write (luninp, '(6(2X,A),''_'')') varnam2
+    endif
     line(1:79)  = ' '
     line(1:2)   = '$ '
     write (luninp, '(1X,A)') line
@@ -4965,7 +4999,7 @@ subroutine write_swan_inp (wavedata, outcnt, &
                 if (nttide > 1) then
                     write (line(i+1:), '(I6.6)') 100000*inest + itide
                 else  ! wavedata%mode /= stand_alone
-                   write (line(i+1:), '(I3.3)') outcnt
+                   write (line(i+1:), '(I3.3)') calccount
                 endif
                 i = i+7
              endif
@@ -5005,7 +5039,7 @@ subroutine write_swan_inp (wavedata, outcnt, &
                 if (nttide > 1) then
                    write (line(i+1:), '(I3.3)') itide
                 else  ! wavedata%mode /= stand_alone
-                   write (line(i+1:), '(I3.3)') outcnt
+                   write (line(i+1:), '(I3.3)') calccount
                 endif
                 i = i+4
              endif
@@ -5041,13 +5075,23 @@ subroutine write_swan_inp (wavedata, outcnt, &
                 if (nttide > 1) then
                    write (line(i+1:), '(I3.3)') itide
                 else  ! wavedata%mode /= stand_alone
-                   write (line(i+1:), '(I3.3)') outcnt
+                   write (line(i+1:), '(I3.3)') calccount
                 endif
                 i = i+4
              endif
              line(i:)  = '.sp2'
              i         = i+4
              line(i:i) = ''''''
+             !
+             ! When running in non-stationary mode
+             ! and when this is the first WAVE calculation of the simulation:
+             ! Also produce spectral output for the start time of the simulation
+             ! This may be needed by applications using this output as input and
+             ! needing to cover the full simulation period.
+             !
+             if (calccount == 1 .and. sr%modsim == 3) then  
+                line(i+2:)  = trim(outfirst)
+             endif
              write (luninp, '(1X,A)') line
              line(1:79) = ' '
           endif
@@ -5257,11 +5301,14 @@ subroutine adjustinput(sr)
     integer                     :: i
     integer                     :: in
     integer                     :: istat
+    logical                     :: exists
     type(tree_data)   , pointer :: domain_ptr
     type(tree_data)   , pointer :: input_tree
     type(swan_dom)    , pointer :: dom
     !
     filnam = TRIM(sr%filnam) // '.opt'
+    inquire (file = trim(filnam), exist = exists)
+    if (.not.exists) return
     !
     ! Create input tree
     !

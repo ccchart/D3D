@@ -4,7 +4,7 @@
 subroutine dfinitmpi
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2014.
+!  Copyright (C)  Stichting Deltares, 2011-2016.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -104,6 +104,13 @@ subroutine dfinitmpi
        call get_environment_variable('MPIRUN_RANK', rankstr, len)
        usempi = (len > 0)
     endif
+    !
+    ! if not, verify whether MVAPICH 1.9 environment is used
+    !
+    if (.not. usempi) then
+       call get_environment_variable('MV2_COMM_WORLD_RANK', rankstr, len)
+       usempi = (len > 0)
+    endif  
     !
     ! if not, verify whether POE (IBM) environment is used
     !

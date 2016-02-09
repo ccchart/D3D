@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -77,8 +77,15 @@
       allocate(grdwrk(maxwrk))
 
       ! read list processes not to be aggragated
-
-      nmnoag = 0
+      monoag(1) = 'TOTDEPTH'
+      monoag(2) = 'STADAY'
+      monoag(3) = 'STADPT'
+      monoag(4) = 'STADSC'
+      monoag(5) = 'STAGEO'
+      monoag(6) = 'STAPRC'
+      monoag(7) = 'STAQTL'
+      nmnoag = 7
+      
       inquire ( file='procnoag.dat' , exist = lexi )
       if ( lexi ) then
          open(67, file='procnoag.dat')
@@ -89,9 +96,6 @@
    10    continue
          nmnoag = nmnoag - 1
          close (67)
-      else
-         nmnoag = 1
-         monoag(1) = 'TOTDEPTH'
       endif
 
       ! first step, processes with fluxes set to the grid set for the

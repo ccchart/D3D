@@ -5,7 +5,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" OutputDirectory="..\..\lib\$(ConfigurationName)\static" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="include;lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static" WarnInterfaces="true" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OUTDIR)/" ObjectFile="$(INTDIR)/" Traceback="true" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" Interfaces="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="include;lib/$(ConfigurationName)/static;../../../../utils_lgpl/deltares_common/lib/$(ConfigurationName)/static" WarnInterfaces="true" LocalVariableStorage="localStorageAutomatic" ModulePath="$(OUTDIR)/" ObjectFile="$(INTDIR)/" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" Interfaces="true"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
@@ -56,12 +56,14 @@
 		<File RelativePath=".\src\compdiam.f90"/>
 		<File RelativePath=".\src\comphidexp.f90"/>
 		<File RelativePath=".\src\compsandfrac.f90"/>
+		<File RelativePath=".\src\eqsettle.f90"/>
 		<File RelativePath=".\src\eqtran.f90"/>
 		<File RelativePath=".\src\erosilt.f90"/>
 		<File RelativePath=".\src\factor3d2d.f90"/>
 		<File RelativePath=".\src\fgyint.f90"/>
 		<File RelativePath=".\src\fluff_burial.f90"/>
 		<File RelativePath=".\src\getfixfac.f90"/>
+		<File RelativePath=".\src\initsedtra.f90"/>
 		<File RelativePath=".\src\osmom.f90"/>
 		<File RelativePath=".\src\sand_mud.f90"/>
 		<File RelativePath=".\src\shld.f90"/>

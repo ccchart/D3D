@@ -2,7 +2,7 @@ subroutine restart_bdf_from_trim(lundia   ,nmaxus   ,mmax     ,bdfh     , &
                               &  bdfhread ,bdfl     ,bdflread ,gdp      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,6 +38,7 @@ subroutine restart_bdf_from_trim(lundia   ,nmaxus   ,mmax     ,bdfh     , &
     use properties
     !
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -78,7 +79,7 @@ subroutine restart_bdf_from_trim(lundia   ,nmaxus   ,mmax     ,bdfh     , &
     nullify(sbuff)
     bdfhread = .false.
     bdflread = .false.
-    call noextspaces(restid    ,lrid      )
+    call remove_leading_spaces(restid    ,lrid      )
     !
     ! open NEFIS trim-<restid> file
     !

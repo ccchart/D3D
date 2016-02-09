@@ -6,7 +6,7 @@ function [xo,yo]=int_lnln(x1,y1,x2,y2,path)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -47,6 +47,10 @@ if path==2
     y2=yo;
 end
 
+% enforce column vectors
+x2 = x2(:);
+y2 = y2(:);
+
 X2=x2(1:end-1);
 Y2=y2(1:end-1);
 dX2=diff(x2);
@@ -57,7 +61,6 @@ xo=cell(1,N);
 yo=xo;
 
 for i=1:N-1
-
    dx1=x1(i)-x1(i+1);
    dy1=y1(i)-y1(i+1);
 

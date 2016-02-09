@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -27,32 +27,6 @@
 !>\file
 !>       Horizontal stream velocity in a segment based on flows at interfaces
 
-!**********************************************************************
-!     +----------------------------------------+
-!     |    D E L F T   H Y D R A U L I C S     |
-!     |    WAter Resources and Environment     |
-!     +----------------------------------------+
-!
-!***********************************************************************
-!
-!     Project : T1519 Clyde river estuary
-!     Author  : M. Bokhorst
-!     Date    : 11-1-95            Version : 0.01
-!
-!     History :
-!
-!     Date     Author          Description
-!     -------  --------------  -----------------------------------
-!     25-10-07 L. Postma       Modernized and adapted for parallelisation
-!     18- 7-96 P. Boderie      Multiple options for velocitycalculation
-!     11- 5-95 M. Bokhorst     Create first version
-!
-!***********************************************************************
-!
-!     Description of the module :
-!
-!*******************************************************************************
-!
       IMPLICIT NONE
 !
 !     Type    Name         I/O Description

@@ -7,7 +7,7 @@
 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -99,7 +99,9 @@
       call failconst(increm(iMorFac+1),'Morphological factor')
       MorFac         = pmsa( ipoint(iMorFac     +  1) )
       allocate( dbodsd(numIS,noseg) )
+      dbodsd = 0.0_fp
       allocate( depchg(noseg) )
+      depchg = 0.0_fp
 !
 !     Initialise pointers
 !

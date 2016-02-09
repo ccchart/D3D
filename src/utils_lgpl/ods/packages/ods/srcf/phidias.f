@@ -1,3 +1,29 @@
+! ---- LGPL --------------------------------------------------------------------
+!
+! Copyright (C)  Stichting Deltares, 2011-2016.
+!
+! This library is free software; you can redistribute it and/or
+! modify it under the terms of the GNU Lesser General Public
+! License as published by the Free Software Foundation version 2.1.
+!
+! This library is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public
+! License along with this library; if not, see <http://www.gnu.org/licenses/>.
+!
+! contact: delft3d.support@deltares.nl
+! Stichting Deltares
+! P.O. Box 177
+! 2600 MH Delft, The Netherlands
+!
+! All indications and logos of, and references to, "Delft3D" and "Deltares"
+! are registered trademarks of Stichting Deltares, and remain the property of
+! Stichting Deltares. All rights reserved.
+!
+!------------------------------------------------------------------------------
 c        $Author: Markus $
 c        $Date: 1-04-03 10:52 $
 c        $Source: /u/cvsroot/gpp/libsrc/ods/phidias.f,v $
@@ -29,8 +55,6 @@ c#endif
      *                  (fname ,itype ,dimtyp, pardep, timdep, locdep,
      *                   ndim  ,ierror, option                       )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c         Function: dimension selection for maps
 c                   PHIDIAS-Spectral  NEFIS  files
 c
@@ -328,8 +352,6 @@ c#endif
      *                  maxlst, lang  , parlst, paruni, partyp, parcod,
      *                  nrlst , ierror, option                        )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c         Function: parameter name selection for maps
 c                   PHIDIAS  NEFIS  files
 c        Method used:
@@ -555,8 +577,6 @@ c#endif
      *                   loclst, loctyp, locnr , maxlst, nrlst , ierror,
      *                   option )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c         Function: location name selection for maps
 c                   PHIDIAS Spectral NEFIS  files
 c        Method used:
@@ -758,8 +778,6 @@ c#endif
      *                  maxlst ,        timlst,         timtyp ,
      *                  nrlst  ,ierror ,option                         )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: time selection for maps
 c                     PHIDIAS Spectral NEFIS  file
 c        Method used:
@@ -1047,8 +1065,6 @@ c#endif
      *                   i3gl  ,maxdim ,xdata , ierror, option,
      *                   ibuffs,rbuffs                               )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select map data out of PHIDIAS MAP NEFIS files
 c        Method used:
 c
@@ -1460,8 +1476,6 @@ c#endif
      *                  (fname ,itype ,dimtyp, pardep, timdep, locdep,
      *                   ndim  ,ierror, option                       )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c         Function: dimension selection for maps
 c                   PHIDIAS NEFIS  files
 c
@@ -1677,8 +1691,6 @@ c#endif
      *                  maxlst, lang  , parlst, paruni, partyp, parcod,
      *                  nrlst , ierror, option                        )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c         Function: parameter name selection for maps
 c                   PHIDIAS  NEFIS  files
 c        Method used:
@@ -1859,8 +1871,6 @@ c#endif
      *                  maxlst ,        loclst ,        loctyp ,nrlst  ,
      *                  locnr  ,ierror ,zbuffs ,option                 )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: parameter name selection for time histories
 c                     PHIDIAS NEFIS files
 c        Method used:
@@ -2062,8 +2072,6 @@ c#endif
      *                  maxlst ,        timlst,         timtyp ,
      *                  nrlst  ,ierror ,option                         )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: time selection for maps
 c                     PHIDIAS NEFIS  file
 c        Method used:
@@ -2307,8 +2315,6 @@ c#endif
      *                   i3gl  ,maxdim ,xdata , ierror, option,
      *                   ibuffs,rbuffs                               )
 c-----------------------------------------------------------------------
-c         D e l f t      H y d r a u l i c s   -   Section    C S O
-c
 c           Function: select map data out of PHIDIAS MAP NEFIS files
 c        Method used:
 c
@@ -3287,7 +3293,7 @@ cpvb  write(*,*)' call hisphi'
       endif
       if(error.ne.0)goto 9999
       grpdaf=grpdef(igrp)
-      grpdm=5 
+      grpdm=5
       ERROR=INQGRP(DEFFDS,grpdaf,celnam,GRPDM,
      *             GRPndm(1,IGRP),jOR)
       cel(igrp)=celnam
@@ -3360,7 +3366,7 @@ cpvb  write(*,*)' call mapadm'
       endif
       if(error.ne.0)goto 9999
       grpdaf=grpdef(igrp)
-      grpdm=5 
+      grpdm=5
       ERROR=INQGRP(DEFFDS,grpdaf,celnam,GRPDM,
      *             GRPndm(1,IGRP),jOR)
       cel(igrp)=celnam

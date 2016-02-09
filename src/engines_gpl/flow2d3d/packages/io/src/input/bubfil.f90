@@ -3,7 +3,7 @@ subroutine bubfil(lundia    ,filbub    ,error     ,mmax      ,nmax      , &
                 & mnksrc    ,namsrc    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,6 +40,7 @@ subroutine bubfil(lundia    ,filbub    ,error     ,mmax      ,nmax      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     use dfparall 
     use system_utils, only: exifil
     !
@@ -139,7 +140,7 @@ subroutine bubfil(lundia    ,filbub    ,error     ,mmax      ,nmax      , &
     !
     ! test file existence
     !
-    call noextspaces(filbub, lfile)
+    call remove_leading_spaces(filbub, lfile)
     error = .not.exifil(filbub, lundia)
     if (error) goto 9999
     !

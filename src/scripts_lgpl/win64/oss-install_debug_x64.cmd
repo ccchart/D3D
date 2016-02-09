@@ -33,6 +33,46 @@ goto end
 
 rem  Actual install "routines"
 
+rem ============================================================
+rem === if the command before a call to handle_error returns ===
+rem === an error, the script will return with an error       ===
+rem ============================================================
+:handle_error
+    if NOT %ErrorLevel% EQU 0 (
+        set globalErrorLevel=%ErrorLevel%
+    )
+    rem go back to call site
+goto :endproc
+
+rem =============================================================
+rem === copyFile takes two arguments: the name of the file to ===
+rem === copy to the destiny directory                         ===
+rem ===                                                       ===
+rem === NOTE: errors will be reported and the script will     ===
+rem === with an error code after executing the rest of its    ===
+rem === statements                                            ===
+rem =============================================================
+:copyFile
+    set fileName=%~1
+    set dest=%~2
+    rem
+    rem "echo f |" is (only) needed when dest does not exist
+    rem and does not harm in other cases
+    rem 
+    echo f | xcopy "%fileName%" %dest% /F /Y
+    if NOT !ErrorLevel! EQU 0 (
+        echo ERROR: while copying "!fileName!" to "!dest!"
+    )
+    call :handle_error
+goto :endproc
+
+rem =============================================================
+rem === copyNetcdf copy the appropriate netcdf.dll            ===
+rem =============================================================
+:copyNetcdf
+    call :copyFile "third_party_open\netcdf\src\win32\2005\libsrc\x64\Debug\netcdf.dll" !dest_bin!
+goto :endproc
+
 
 rem ===============
 rem === INSTALL_ALL
@@ -90,12 +130,13 @@ rem ====================
        rem One of these two dlls will not exist and cause an ErrorLevel=1. Reset it.
     set ErrorLevel=0
     copy third_party_open\DelftOnline\lib\x64\Debug\DelftOnline.dll                          !dest_bin!
-    copy third_party_open\pthreads\bin\x64\*.dll                                         !dest_bin!
+    copy third_party_open\pthreads\bin\x64\*.dll                                             !dest_bin!
 
     copy third_party_open\mpich2\x64\bin\*.exe                                               !dest_bin!
     copy third_party_open\mpich2\x64\lib\*.dll                                               !dest_bin!
-    copy third_party_open\expat\x64\x64\Debug\libexpat.dll                           !dest_bin!
+    copy third_party_open\expat\x64\x64\Debug\libexpat.dll                                   !dest_bin!
     copy utils_lgpl\delftonline\lib\x64\Debug\dynamic\delftonline.dll                        !dest_bin!
+    call :copyNetcdf
 goto :endproc
 
 
@@ -123,6 +164,7 @@ rem    copy third_party_open\expat\win32\bin\Release\libexpat.dll               
 rem    copy third_party_open\netcdf\lib\win32\release\netcdf.dll                            !dest_bin!
 rem    copy third_party_open\openda\core\native\lib\win32\*.dll                             !dest_bin!
 rem    copy utils_lgpl\delftonline\lib\Debug\dynamic\delftonline.dll                        !dest_bin!
+rem    call :copyNetcdf
 goto :endproc
 
 
@@ -200,7 +242,13 @@ rem === INSTALL_WAVE
 rem ================
 :wave
     echo "installing wave . . ."
-    echo "... nothing to be done"
+
+    set dest_bin="engines_gpl\wave\bin\x64\Debug"
+
+    if not exist !dest_bin!     mkdir !dest_bin!
+
+    copy third_party_open\pthreads\bin\win32\pthreadVCE2.dll                             !dest_bin!
+    copy third_party_open\pthreads\bin\win32\pthreadvce.dll                              !dest_bin!
 goto :endproc
 
 

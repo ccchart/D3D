@@ -29,7 +29,7 @@ function varargout = asciiwind(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -184,7 +184,7 @@ if nargin<2
     else
         error('No time selected')
     end
-elseif isequal(t,':')
+elseif isequal(t,':') && ischar(t)
     t = 1:length(Structure.Data);
 elseif isempty(t)
     t = 1;
@@ -238,7 +238,7 @@ for i = 1:length(t)
                     Header.n_cols,cols);
             else
                 r = repmat(Header.spw_radius*(rows-1)'/Header.n_rows,1,length(cols));
-                phi = repmat(2*pi*(cols-1)/Header.n_cols,length(rows),1);
+                phi = pi/2 - repmat(2*pi*(cols-1)/Header.n_cols,length(rows),1);
                 x = Structure.Data(t(i)).x_spw_eye + r.*cos(phi);
                 y = Structure.Data(t(i)).y_spw_eye + r.*sin(phi);
             end
@@ -301,6 +301,10 @@ z_grid_eye = x_grid_eq*sin(latrad)                                    +z_grid_eq
 
 lat = asin(z_grid_eye)*180/pi;
 lon = atan2(y_grid_eye,x_grid_eye)*180/pi;
+
+% move longitude back to value range specified in input file
+
+lon = lon - atan2(y_grid_eye(1),x_grid_eye(1))*180/pi + lon_spw_eye;
 
 
 function Structure=Local_open_file(filename,vector)
@@ -563,7 +567,7 @@ if isequal(S2.Check,'OK')
                 S2.Header.dx~=S.Header.dx || ...
                 S2.Header.dy~=S.Header.dy
             ui_message('','Grid locations in wind files for x and y don''t match.')
-        elseif  ~isequal(S2.Header.value_pos,S.Header.value_pos)
+        elseif (isfield(S2.Header,'value_pos') || isfield(S.Header,'value_pos')) && ~isequal(S2.Header.value_pos,S.Header.value_pos)
             ui_message('','Data locations in wind files for x and y don''t match.')
         elseif  ~isequal(S2.Data,S.Data)
             ui_message('','Times in wind files for x and y don''t match.')

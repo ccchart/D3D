@@ -10,7 +10,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                 & z0ucur    ,cvalu0    ,grmsur    ,grfacu    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -54,7 +54,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use mathconsts
+    use mathconsts, only: pi, ee, degrad
     !
     use globaldata
     !
@@ -68,8 +68,10 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)               , pointer :: fmud
     real(fp)               , pointer :: taubng
     real(fp)               , pointer :: fwfac
+    real(fp)               , pointer :: ftauw
     logical                , pointer :: cstbnd
     logical                , pointer :: chz_k2d
+    logical                , pointer :: v2dwbl
     real(fp)               , pointer :: rhow
     real(fp)               , pointer :: ag
     real(fp)               , pointer :: z0
@@ -79,6 +81,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     logical                , pointer :: mudlay
     logical                , pointer :: zmodel
     logical                , pointer :: roller
+    integer                , pointer :: rolcorr
     real(fp), dimension(:) , pointer :: rksr
     real(fp), dimension(:) , pointer :: rksmr
 !
@@ -140,93 +143,103 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
 !
 ! Local variables
 !
-    integer                            :: kmaxx
-    integer                            :: modind     ! Index of friction model (1=FR84, 2=MS90, 3=HT91, 4=GM79, 5=DS88, 6=BK67) 
-    integer                            :: ndm
-    integer                            :: ndmu
-    integer                            :: nm
-    integer                            :: nmu
-    integer                            :: svvv
-    logical                            :: actual_avg
-    logical                            :: kcscuttest
-    real(fp)                           :: a
-    real(fp)                           :: abscos
-    real(fp)                           :: alfaw
-    real(fp)                           :: astar      ! Coefficient in expression for wave friction factor 
-    real(fp)                           :: astarc     ! 30 pi (critical value for astar) 
-    real(fp)                           :: ca         ! Appararent Chezy value (Van Rijn, 2004) 
-    real(fp)                           :: cdrag      ! Drag coefficient 
-    real(fp)                           :: ci         ! Cos(phi)^I 
-    real(fp)                           :: cj         ! Cos(phi)^J 
-    real(fp)                           :: coeffa     ! Coefficient a in expression for parametrized models 
-    real(fp)                           :: coeffb     ! Coefficient b in expression for parametrized models 
-    real(fp)                           :: coeffm     ! Coefficient m in expression for parametrized models 
-    real(fp)                           :: coeffn     ! Coefficient n in expression for parametrized models 
-    real(fp)                           :: coeffp     ! Coefficient p in expression for parametrized models 
-    real(fp)                           :: coeffq     ! Coefficient q in expression for parametrized models 
-    real(fp)                           :: costu
-    real(fp)                           :: cu
-    real(fp)                           :: cvalue
-    real(fp)                           :: cwall
-    real(fp)                           :: dz         ! Distance of the bottom layer from the wall, used to calculate bottom stress vel. 
-    real(fp)                           :: ee
-    real(fp)                           :: fmrat
-    real(fp)                           :: fw         ! Wave friction factor 
-    real(fp)                           :: gamma
-    real(fp)                           :: hrmsu
-    real(fp)                           :: hurou
-    real(fp)                           :: ks
-    real(fp)                           :: ksc
-    real(fp)                           :: lfc        ! Log(fw/cd)
-    real(fp)                           :: omega
-    real(fp)                           :: phi        ! Angle between wave and current direction (Van Rijn, 2004)
-    real(fp)                           :: rksru
-    real(fp)                           :: rksmru
-    real(fp)                           :: rz
-    real(fp)                           :: sag
-    real(fp)                           :: sintu
-    real(fp)                           :: sixth
-    real(fp)                           :: su
-    real(fp)                           :: taucur     ! Bottom friction due to current alone 
-    real(fp)                           :: tauwav     ! Bottom friction due to waves alone 
-    real(fp)                           :: tauwci     ! Bottom friction for combined waves and current 
-    real(fp)                           :: tpu
-    real(fp)                           :: u2dh
-    real(fp)                           :: uratio    
-    real(fp)                           :: ubot
-    real(fp)                           :: uc
-    real(fp)                           :: umod
-    real(fp)                           :: umodsq     ! Magnitude of velocity squared 
-    real(fp)                           :: uorbhs
-    real(fp)                           :: uorbu
-    real(fp)                           :: ust
-    real(fp)                           :: rr
-    real(fp)                           :: umax
-    real(fp)                           :: t1
-    real(fp)                           :: rlabdau
-    real(fp)                           :: u11
-    real(fp)                           :: a11
-    real(fp)                           :: raih
-    real(fp)                           :: rmax
-    real(fp)                           :: uon
-    real(fp)                           :: uoff
-    real(fp)                           :: uwbih 
-    real(fp)                           :: ustokes
-    real(fp)                           :: uuu
-    real(fp)                           :: vvv
-    real(fp)                           :: waveps     ! Small positive number 
-    real(fp)                           :: xpar       ! Variable x in in expression for parametrized models 
-    real(fp)                           :: ymxpar     ! Variable Y(max) in in expression for parametrized models 
-    real(fp)                           :: ypar       ! Variable y in in expression for parametrized models 
-    real(fp), dimension(8)             :: coeffi     ! Coefficient i in expression for parametrized models 
-    real(fp), dimension(8)             :: coeffj     ! Coefficient j in expression for parametrized models 
-    real(fp), dimension(8, 4)          :: aa         ! Coefficient a(i) in expression for parameter a 
-    real(fp), dimension(8, 4)          :: bb         ! Coefficient b(i) in expression for parameter b 
-    real(fp), dimension(8, 4)          :: mm         ! Coefficient m(i) in expression for parameter n 
-    real(fp), dimension(8, 4)          :: nn         ! Coefficient n(i) in expression for parameter n 
-    real(fp), dimension(8, 4)          :: pp         ! Coefficient p(i) in expression for parameter p 
-    real(fp), dimension(8, 4)          :: qq         ! Coefficient q(i) in expression for parameter q 
-    real(fp), dimension(:),allocatable :: ka         ! Apparent bed roughness (Van Rijn, 2004)
+    integer                              :: ierror
+    integer                              :: k
+    integer                              :: kmaxx
+    integer  , dimension(:), allocatable :: kmaxxx
+    integer                              :: modind     ! Index of friction model (1=FR84, 2=MS90, 3=HT91, 4=GM79, 5=DS88, 6=BK67) 
+    integer                              :: ndm
+    integer                              :: ndmu
+    integer                              :: nm
+    integer                              :: nmu
+    integer                              :: svvv
+    logical                              :: actual_avg
+    logical                              :: kcscuttest
+    real(fp)                             :: a
+    real(fp)                             :: abscos
+    real(fp)                             :: alfaw
+    real(fp)                             :: astar      ! Coefficient in expression for wave friction factor 
+    real(fp)                             :: astarc     ! 30 pi (critical value for astar) 
+    real(fp)                             :: ca         ! Appararent Chezy value (Van Rijn, 2004) 
+    real(fp)                             :: cdrag      ! Drag coefficient 
+    real(fp)                             :: ci         ! Cos(phi)^I 
+    real(fp)                             :: cj         ! Cos(phi)^J 
+    real(fp)                             :: coeffa     ! Coefficient a in expression for parametrized models 
+    real(fp)                             :: coeffb     ! Coefficient b in expression for parametrized models 
+    real(fp)                             :: coeffm     ! Coefficient m in expression for parametrized models 
+    real(fp)                             :: coeffn     ! Coefficient n in expression for parametrized models 
+    real(fp)                             :: coeffp     ! Coefficient p in expression for parametrized models 
+    real(fp)                             :: coeffq     ! Coefficient q in expression for parametrized models 
+    real(fp)                             :: costu
+    real(fp)                             :: cu
+    real(fp)                             :: cvalue
+    real(fp)                             :: cwall
+    real(fp)                             :: dz         ! Distance of the bottom layer from the wall, used to calculate bottom stress vel. 
+    real(fp)                             :: fmrat
+    real(fp)                             :: fw         ! Wave friction factor 
+    real(fp)                             :: gamma
+    real(fp)                             :: hrmsu
+    real(fp)                             :: hurou
+    real(fp)                             :: ks
+    real(fp)                             :: ksc
+    real(fp)                             :: lfc        ! Log(fw/cd)
+    real(fp)                             :: omega
+    real(fp)                             :: phi        ! Angle between wave and current direction (Van Rijn, 2004)
+    real(fp)                             :: rksru
+    real(fp)                             :: rksmru
+    real(fp)                             :: rz
+    real(fp)                             :: sag
+    real(fp)                             :: sintu
+    real(fp)                             :: sixth
+    real(fp)                             :: su
+    real(fp)                             :: taucur     ! Bottom friction due to current alone 
+    real(fp)                             :: tauwav     ! Bottom friction due to waves alone 
+    real(fp)                             :: tauwci     ! Bottom friction for combined waves and current 
+    real(fp)                             :: tpu
+    real(fp)                             :: u2dh
+    real(fp)                             :: uratio    
+    real(fp)                             :: ubot
+    real(fp)                             :: uc
+    real(fp)                             :: umod
+    real(fp)                             :: umodsq     ! Magnitude of velocity squared 
+    real(fp)                             :: uorbhs
+    real(fp)                             :: uorbu
+    real(fp)                             :: ust
+    real(fp)                             :: rr
+    real(fp)                             :: umax
+    real(fp)                             :: t1
+    real(fp)                             :: rlabdau
+    real(fp)                             :: u11
+    real(fp)                             :: a11
+    real(fp)                             :: raih
+    real(fp)                             :: rmax
+    real(fp)                             :: uon
+    real(fp)                             :: uoff
+    real(fp)                             :: uwbih 
+    real(fp)                             :: ustokes
+    real(fp)                             :: uuu
+    real(fp)                             :: vvv
+    real(fp)                             :: waveps     ! Small positive number 
+    real(fp)                             :: xpar       ! Variable x in in expression for parametrized models 
+    real(fp)                             :: ymxpar     ! Variable Y(max) in in expression for parametrized models 
+    real(fp)                             :: ypar       ! Variable y in in expression for parametrized models 
+    real(fp), dimension(8)               :: coeffi     ! Coefficient i in expression for parametrized models 
+    real(fp), dimension(8)               :: coeffj     ! Coefficient j in expression for parametrized models 
+    real(fp), dimension(8, 4)            :: aa         ! Coefficient a(i) in expression for parameter a 
+    real(fp), dimension(8, 4)            :: bb         ! Coefficient b(i) in expression for parameter b 
+    real(fp), dimension(8, 4)            :: mm         ! Coefficient m(i) in expression for parameter n 
+    real(fp), dimension(8, 4)            :: nn         ! Coefficient n(i) in expression for parameter n 
+    real(fp), dimension(8, 4)            :: pp         ! Coefficient p(i) in expression for parameter p 
+    real(fp), dimension(8, 4)            :: qq         ! Coefficient q(i) in expression for parameter q 
+    real(fp), dimension(:),allocatable   :: ka         ! Apparent bed roughness (Van Rijn, 2004)
+    real(fp)                             :: arg
+    real(fp)                             :: hsu
+    real(fp)                             :: awb
+    real(fp)                             :: delw
+    real(fp)                             :: zcc
+    real(fp)                             :: uuu0
+    real(fp)                             :: vvv0
+    real(fp)                             :: umod0
 !
 ! Data statements
 !
@@ -271,7 +284,9 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     fmud       => gdp%gdmudcoe%fmud
     taubng     => gdp%gdmudcoe%taubng
     fwfac      => gdp%gdnumeco%fwfac
+    ftauw      => gdp%gdnumeco%ftauw
     cstbnd     => gdp%gdnumeco%cstbnd
+    v2dwbl     => gdp%gdnumeco%v2dwbl
     chz_k2d    => gdp%gdrivpro%chz_k2d
     rhow       => gdp%gdphysco%rhow
     ag         => gdp%gdphysco%ag
@@ -282,16 +297,18 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     mudlay     => gdp%gdprocs%mudlay
     zmodel     => gdp%gdprocs%zmodel
     roller     => gdp%gdprocs%roller
+    rolcorr    => gdp%gdbetaro%rolcorr
     rksr       => gdp%gdbedformpar%rksr
     rksmr      => gdp%gdbedformpar%rksmr
     !
     ! INITIALISATION
     !
-    allocate(ka(nmmax))
+    allocate(ka(nmmax), stat = ierror)
+    allocate(kmaxxx(gdp%d%nmlb:gdp%d%nmub), stat = ierror)
+    !
     alfaw  = 20.
     sixth  = 1./6.
     sag    = sqrt(ag)
-    ee     = exp(1.0)
     astarc = 30.*pi**2
     waveps = 1.E-4
     !
@@ -457,7 +474,29 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
        nmu        = nmu  + 1
        ndm        = ndm  + 1
        ndmu       = ndmu + 1
+       !
        kmaxx      = kmax
+       !       
+       if (v2dwbl .and. kmax>1 .and. .not.zmodel) then
+          !
+          ! Determine representative 2Dh velocity based on velocities in first layer above wave boundary layer 
+          ! kmaxx is the first layer with its centre above the wave boundary layer
+          ! Use deltau from previous time step !
+          ! Only implemented for sigma layers
+          !
+          if (tpu>1.0) then
+             do k = kmax, 1, -1
+                zcc = (1.0 + sig(k))*hu(nm)
+                if (zcc>deltau(nm) .or. zcc>0.5*hu(nm)) then
+                   kmaxx = k
+                   exit
+                endif
+             enddo
+          endif
+       endif
+       !
+       kmaxxx(nm) = kmaxx ! kmaxxx to be used in following loop where apparent roughness is determined
+       !
        kcscuttest = .false.
        if (zmodel) then
           kmaxx      = kfumin(nm)
@@ -477,6 +516,30 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
        endif
        umodsq     = uuu*uuu + vvv*vvv
        umod       = max(1.0e-4_fp , sqrt(umodsq))
+       !
+       if (kmaxx/=kmax .and. .not.zmodel) then
+          !
+          ! Also compute current magnitude (umod0) in bottom layer, because it's needed to
+          ! compute taubpu
+          !
+          uuu0       = u1(nm, kmax)
+          if (actual_avg) then
+             svvv = max(kfv(ndm) + kfv(ndmu) + kfv(nm) + kfv(nmu), 1)
+             vvv0 = (v1(ndm, kmax)*kfv(ndm) + v1(ndmu, kmax)*kfv(ndmu)            &
+                  & + v1(nm, kmax)*kfv(nm) + v1(nmu, kmax)*kfv(nmu))/svvv
+          else
+             vvv0 = 0.25*(v1(nm, kmax) + v1(ndm, kmax) + v1(ndmu, kmax)          &
+                 & + v1(nmu, kmax))
+          endif
+          umodsq     = uuu0*uuu0 + vvv0*vvv0
+          umod0      = max(1.0e-4_fp , sqrt(umodsq))
+       else
+          !
+          ! kmaxx equals kmax
+          !
+          umod0 = umod
+       endif
+       !       
        taubpu(nm) = 0.0
        if (kfu(nm)==1) then
           !
@@ -517,7 +580,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
           ! magnitude of bottom friction due to waves alone
           ! and due to current alone
           !
-          tauwav = 0.5*rhow*fw*uorbu**2
+          tauwav = 0.5*rhow*fw*ftauw*uorbu**2
           if (kmax>1) then
              !
              ! depth-averaged current for current and waves
@@ -529,7 +592,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              else
                 u2dh = (umod/hu(nm)                                             &
                      & *((hu(nm) + z0urou(nm))*log(1.0 + hu(nm)/z0urou(nm))     &
-                     & - hu(nm)))/log(1.0 + (1.0 + sig(kmax))*hu(nm)/z0urou(nm))
+                     & - hu(nm)))/log(1.0 + (1.0 + sig(kmaxx))*hu(nm)/z0urou(nm))
              endif
           else
              u2dh = umod
@@ -580,7 +643,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              !
              ! primary and secondary bottom friction terms
              !
-             taubpu(nm) = tauwci/(umod*rhow + waveps)
+             taubpu(nm) = tauwci/(umod0*rhow + waveps)
           else
              hrmsu    = 0.5_fp * (hrms  (nm) + hrms  (nmu))
              tpu      = 0.5_fp * (tp    (nm) + tp    (nmu))
@@ -609,7 +672,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              ka(nm)     = ksc * exp(gamma*uratio)
              ka(nm)     = min(ka(nm) , 10.0_fp*ksc , 0.2_fp*hu(nm))
              ca         = 18.0_fp * log10(12.0_fp*hu(nm)/ka(nm))
-             taubpu(nm) = ag * (u2dh * u2dh / umod) / ca**2
+             taubpu(nm) = ag * (u2dh * u2dh / umod0) / ca**2
           endif
           !
           ! Wave dissipation due to bottom friction
@@ -779,6 +842,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
           nmu  = nmu  + 1
           ndm  = ndm  + 1
           ndmu = ndmu + 1
+          kmaxx = kmaxxx(nm)
           if (kfu(nm) == 1) then
              !
              ! Z-model
@@ -793,7 +857,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                 endif
                 kcscuttest = kcscut(nm, kmaxx)==1
              else
-                kmaxx      = kmax
+                kmaxx = kmaxxx(nm)
                 kcscuttest = .false.
              endif
              uuu        = u1(nm, kmaxx)
@@ -819,7 +883,7 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                    if (zmodel) then
                       z0urou(nm) = dz/(exp(vonkar*cfurou(nm, 1)) - 1.0)
                    else
-                      z0urou(nm) = (1.0 + sig(kmax))*hu(nm)                     &
+                      z0urou(nm) = (1.0 + sig(kmaxx))*hu(nm)                     &
                                  & /(exp(vonkar*cfurou(nm, 1)) - 1.0)
                    endif
                 else
@@ -867,16 +931,21 @@ subroutine taubot(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              !
              ! Added breaker delay adjustment
              !
-             taubsu(nm) = taubpu(nm)*(costu*ustokes + grfacu(nm)/hu(nm)) 
+             if (rolcorr==1) then
+                taubsu(nm) = taubpu(nm)*(costu*ustokes + grfacu(nm) + grmsur(nm))/hu(nm)
+             else
+                taubsu(nm) = taubpu(nm)*(costu*ustokes + grfacu(nm))/hu(nm) 
+             endif
              !
           endif
        enddo
     else
        do nm = 1, nmmax
           if (kfu(nm) == 1) then
-             taubsu(nm) = taubpu(nm) * (grmasu(nm)+grfacu(nm)) / hu(nm)
+             taubsu(nm) = taubpu(nm) * (grmasu(nm) + grfacu(nm)) / hu(nm)
           endif
        enddo
     endif
-    deallocate(ka)
+    deallocate(ka, stat=ierror)
+    deallocate(kmaxxx, stat=ierror)
 end subroutine taubot

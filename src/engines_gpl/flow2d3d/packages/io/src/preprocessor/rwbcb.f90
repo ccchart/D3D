@@ -2,7 +2,7 @@ subroutine rwbcb(lundia    ,lunrd     ,filinp    ,error     ,itstrt    , &
                & itfinish  ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -38,6 +38,7 @@ subroutine rwbcb(lundia    ,lunrd     ,filinp    ,error     ,itstrt    , &
 !!--declarations----------------------------------------------------------------
     use precision
     use globaldata
+    use string_module
     !
     implicit none
     !
@@ -103,7 +104,7 @@ subroutine rwbcb(lundia    ,lunrd     ,filinp    ,error     ,itstrt    , &
     dt      => gdp%gdexttim%dt
     !
     icurec = 0
-    call noextspaces(filinp    ,lninp     )
+    call remove_leading_spaces(filinp    ,lninp     )
     timscl = 1.0
     !
     !-----Open output file
@@ -317,7 +318,7 @@ subroutine rwbcb(lundia    ,lunrd     ,filinp    ,error     ,itstrt    , &
           !---------Calculate Date and time for RTC
           !
           call juldat(timref    ,julday    )
-          call timdat(julday    ,timrd*60.0,iacdat    ,iactim    )
+          call timdat(julday    ,timrd*60.0_fp,iacdat    ,iactim    )
           !
           !---------Re-define ITOLD
           !
@@ -362,7 +363,7 @@ subroutine rwbcb(lundia    ,lunrd     ,filinp    ,error     ,itstrt    , &
     error = .true.
     errmsg = ' '
     write (crecrd, '(i12)') icurec
-    call noextspaces(crecrd    ,lcurec    )
+    call remove_leading_spaces(crecrd    ,lcurec    )
     errmsg = filinp(1:lninp) // ', Record: ' // crecrd(1:lcurec)
     call prterr(lundia    ,'G007'    ,errmsg    )
     !

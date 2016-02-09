@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -72,6 +72,7 @@
       use rd_token     !   for the reading of tokens
       use subs02
       use partmem      !   for PARTicle tracking
+      use filtyp_mod   !   for PARTicle tracking
       use fileinfo     !   a filename array in PART
       use alloc_mod
       use timers       !   performance timers
@@ -256,10 +257,10 @@
             lchar(45) = cdummy
             call rdfnam ( lunitp   , cdummy   , fnamep   , nfilesp  , 2       ,
      &                    1        , .false.  )
-            ftypep = 'binary'
+            call filtyp()
             call report_date_time  ( lunitp(2))
-            call rdlgri ( nfilesp  , lunitp   , fnamep   , ftypep   )
-            call rdccol ( nmaxp    , mmaxp    , lunitp(5), fnamep(5), ftypep  ,
+            call rdlgri ( nfilesp  , lunitp   , fnamep   , ftype    )
+            call rdccol ( nmaxp    , mmaxp    , lunitp(5), fnamep(5), ftype  ,
      &                    lgrid2   , xb       , yb       , lunitp(2))
             call part01 ( lgrid    , lgrid2   , xb       , yb       , dx      ,
      &                    dy       , area     , angle    , nmaxp    , mmaxp   )
@@ -588,7 +589,9 @@
  2120 format ( /' Integration option :               ',F5.2)
  2130 format ( /' ERROR No in-active substances allowed for',
      &          ' fast-solver steady state scheme')
- 2140 format ( /' ERROR: Absolute timer does not fit in timer format :',A)
+ 2140 format ( /' ERROR: Absolute timer does not fit in timer format :',A,/
+     &          ' Is your T0 setting in block #1 correct?'/,
+     &          ' Allowed difference with T0 is usually ca. 68 years.' )
  2150 format ( /' ERROR: String is not a valid absolute timer :',A)
  2160 format (  ' ERROR, Stop time (',I10,') smaller than start time(',
      &                                I10,').' )

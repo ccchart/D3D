@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -487,6 +487,7 @@ BInt4 RT_retrieve_var  ( BInt4    set           ,
     sprintf( error_text,
      "The variable MAX_VAR_GROUPS needs to be increased.\nContact Deltares\n");
     return nefis_errno;
+    //in crease max_var_groups with a factor 4 (=2x2)
   }
 
   if (gd == -1)
@@ -528,7 +529,7 @@ static BInt4 RT_update_var_array( BInt4    set         ,
         start_table = *grp_pointer+(BUInt8)SIZE_DAT_BUF-3*SIZE_BINT4+SIZE_BINT4;
     }
 
-    index_copy = malloc(sizeof(BInt4));
+    index_copy = (BInt4 *) malloc(sizeof(BInt4));
 
     error = RT_update_var_index_array( set  , gd   , start_table,
                                        level, index, &max_index  );
@@ -700,7 +701,7 @@ static BInt4 RT_retrieve_file (
   BUInt4  cel_num_dim   ;
   BChar   elm_desc    [ MAX_DESC+1 ];
   BChar   elm_name    [ MAX_NAME+1 ];
-  BChar   elm_names   [(MAX_NAME+1) * MAX_CEL_DIM];
+  BText   elm_names   ;
   BUInt8  elm_num_bytes;
   BChar   elm_quantity[ MAX_NAME+1 ];
   BChar   elm_unity   [ MAX_NAME+1 ];
@@ -712,10 +713,7 @@ static BInt4 RT_retrieve_file (
   cel_name    [MAX_NAME] = '\0';
   elm_desc    [MAX_DESC] = '\0';
   elm_name    [MAX_NAME] = '\0';
-  for ( i=0; i<MAX_CEL_DIM; i++ )
-  {
-    elm_names [i*(MAX_NAME+1)+MAX_NAME] = '\0';
-  }
+  elm_names              = NULL;
   elm_quantity[MAX_NAME] = '\0';
   elm_unity   [MAX_NAME] = '\0';
   grp_defined [MAX_NAME] = '\0';
@@ -744,9 +742,9 @@ static BInt4 RT_retrieve_file (
 /*
  * get info about cel on definition file
  */
-
+  elm_names = NULL;
   nefis_errno = GP_inquire_cel ( set      , cel_name   , &cel_num_dim,
-                                 elm_names,&numbytes);
+                                 &elm_names,&numbytes);
   *cel_num_bytes = numbytes;
   if ( nefis_errno != 0 )
   {

@@ -6,6 +6,7 @@ function varargout=geodatafil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=geodatafil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,15 +50,21 @@ function varargout=geodatafil(FI,domain,field,cmd,varargin)
 persistent root
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
+GSHHS_types = {'gshhs', 'border', 'river', 'shore lines', 'country and state borders', 'rivers'};
 if isequal(FI,'file_exists') % domain is proxy for type
-    type = gshhg('type','type',domain);
-    if ~isfield(root,type)
-        root.(type) = search_file(type);
+    switch domain
+        case GSHHS_types
+            type = gshhg('type','type',domain);
+            if ~isfield(root,type)
+                root.(type) = search_file(type);
+            end
+            varargout = {~isequal(root.(type),'')};
+        otherwise
+            varargout = {1};
     end
-    varargout = {~isequal(root.(type),'')};
     return
 elseif nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -91,6 +98,9 @@ switch cmd
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
         return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
+        return
     case 'stations'
         varargout={readsts(FI,Props,0)};
         return
@@ -100,16 +110,31 @@ switch cmd
     case 'plot'
         Parent = varargin{1};
         Ops = varargin{2};
-        type = gshhg('type','type',Props.Subtype);
+        % hOld=varargin{3};
         %
-        if ~isfield(root,type)
-            root.(type) = search_file(type);
+        switch Props.Name
+            case GSHHS_types
+                type = gshhg('type','type',Props.Name);
+                %
+                if ~isfield(root,type)
+                    root.(type) = search_file(type);
+                end
+                %
+                hNew = gshhg('plot','rootfolder',root.(type), ...
+                    'type',Props.Name, ...
+                    'parent',Parent, ...
+                    'color','k');
+            otherwise
+                if ~strncmpi(Props.Name,'wms/',4)
+                    error('Unknown geodata plot type: %s',Props.Name)
+                end
+                [IMG,lon,lat] = wms('image',wms('tms',Props.Name(5:end)),'',get(gca,'xlim'),get(gca,'ylim'));
+                hNew = surface(lon,lat,zeros(length(lat),length(lon)), ...
+                    'cdata',IMG, ...
+                    'facecolor','texturemap', ...
+                    'edgecolor','none', ...
+                    'cLimInclude','off');
         end
-        %
-        hNew = gshhg('plot','rootfolder',root.(type), ...
-            'type',Props.Subtype, ...
-            'parent',Parent, ...
-            'color','k');
         %
         varargout={hNew FI};
         return

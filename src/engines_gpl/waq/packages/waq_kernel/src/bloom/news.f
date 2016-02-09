@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,18 +21,18 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C  *********************************************************************
-C  *     SUBROUTINE TO PRINT LATEST NEWS ON PROGRAM                    *
-C  *********************************************************************
-C
+!
+!  *********************************************************************
+!  *     SUBROUTINE TO PRINT LATEST NEWS ON PROGRAM                    *
+!  *********************************************************************
+!
       SUBROUTINE NEWS
       CHARACTER*24 CMD
       INTEGER CMS
       INCLUDE 'ioblck.inc'
-C
-C Read and print the news file.
-C
+!
+! Read and print the news file.
+!
       CMD = 'BROWSE \BLOOM\BLMNEWS'
       IRC = CMS (CMD, 24)
       IF (IRC .NE. 0) THEN

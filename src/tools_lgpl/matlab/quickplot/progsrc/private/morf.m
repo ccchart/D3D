@@ -13,7 +13,7 @@ function Out=morf(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -339,11 +339,15 @@ if nargin==2
     set(ax,'xlim',[0 1], ...
         'ylim',[0 1], ...
         'box','on', ...
-        'drawmode','fast', ...
         'xticklabel','manual', ...
         'yticklabel','manual', ...
         'xticklabel',[], ...
         'yticklabel',[]);
+    if matlabversionnumber>=8.04;
+        set(ax,'sortMethod','childOrder');
+    else
+        set(ax,'drawmode','fast');
+    end
 else % ax specified
 end
 

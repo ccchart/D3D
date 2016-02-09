@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -58,7 +58,7 @@ type sv_restart
                                         !  1) SIGMA-MODEL     (restarting from a map-file with sigma-layering)
                                         !  2) Z-MODEL         (restarting from a map-file with Z-layering)
                                         !  3) Z-MODEL, ZTBML  (restarting from a map-file with Z-layering and modified near-bed layering: ZTBML=#Y#)
-										!  4) UNKNOWN         (restarting from a restart-file, where the layering information is not on the file)
+                                        !  4) UNKNOWN         (restarting from a restart-file, where the layering information is not on the file)
 end type sv_restart
 
 

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,19 +21,19 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
+!
 
-C  *********************************************************************
+!  *********************************************************************
 
-C  *     SUBROUTINE CLRLIN TO ERASE THE CONTENTS OF THE CURRENT LINE   *
+!  *     SUBROUTINE CLRLIN TO ERASE THE CONTENTS OF THE CURRENT LINE   *
 
-C  *********************************************************************
+!  *********************************************************************
 
-C
+!
 
       SUBROUTINE CLRLIN
 
-C
+!
 
       WRITE (*,10)
 

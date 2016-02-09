@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -190,7 +190,7 @@
                datasetname  = 'datawaq2flow'
 
                diooutstream = diocreatestreamsynched(dio_binary_stream, streamname, 'w')
-cjvb           diooutset    = diofpltdefine_11(datasetname, dio_plt_real, nrvar, parnam, noseg)
+!jvb           diooutset    = diofpltdefine_11(datasetname, dio_plt_real, nrvar, parnam, noseg)
                diooutset    = diodefinepltdataset(diooutstream,datasetname, dio_plt_real, nrvar, parnam, noseg, locs)
 			 write(*,*)  'success in waq2flow!'
             endif
@@ -215,7 +215,7 @@ cjvb           diooutset    = diofpltdefine_11(datasetname, dio_plt_real, nrvar,
          time(1) = itime*86400.d0
          tims(1) = ' '
          call dioputpltdatasetreals(diooutset, tims(1), nrvar, noseg, parval)
-c	   write(*,*)parval
+!	   write(*,*)parval
 
       endif
 

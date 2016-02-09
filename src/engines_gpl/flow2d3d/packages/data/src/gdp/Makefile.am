@@ -59,7 +59,6 @@ libDataGDP_la_SOURCES = \
          initfmtdis.f90 \
          initfourier.f90 \
          initheat.f90 \
-         inithwid.f90 \
          initincbc.f90 \
          initincbcc.f90 \
          initincwav.f90 \
@@ -71,6 +70,7 @@ libDataGDP_la_SOURCES = \
          initrtc.f90 \
          initsafe.f90 \
          initscour.f90 \
+         initsdu.f90 \
          initsnel.f90 \
          initsobek.f90 \
          initstations.f90 \
@@ -86,8 +86,8 @@ libDataGDP_la_SOURCES = \
          initwrline.f90 \
          initz_initcg.f90 \
          initzmodel.f90 \
-         nefisio_alloc.f90 \
-         nefisio_dealloc.f90
+         iofiles_alloc.f90 \
+         iofiles_dealloc.f90
 
 
 # flow2d3dinclude_HEADERS=*.mod

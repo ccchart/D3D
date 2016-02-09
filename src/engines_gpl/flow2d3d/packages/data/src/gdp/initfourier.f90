@@ -1,7 +1,7 @@
 subroutine initfourier(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -52,6 +52,7 @@ subroutine initfourier(gdp)
     !
     gdp%gdfourier%fouwrt   = -1
     gdp%gdfourier%iblwl    =  0
+    gdp%gdfourier%ibleh    =  0
     gdp%gdfourier%iblcn    =  0
     gdp%gdfourier%ibluv    =  0
     gdp%gdfourier%iblqf    =  0

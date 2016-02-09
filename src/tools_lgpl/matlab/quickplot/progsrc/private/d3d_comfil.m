@@ -6,6 +6,7 @@ function varargout=d3d_comfil(FI,domain,field,cmd,varargin)
 %   Times                   = XXXFIL(FI,Domain,DataFld,'times',T)
 %   StNames                 = XXXFIL(FI,Domain,DataFld,'stations')
 %   SubFields               = XXXFIL(FI,Domain,DataFld,'subfields')
+%   [TZshift   ,TZstr  ]    = XXXFIL(FI,Domain,DataFld,'timezone')
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'data',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'celldata',subf,t,station,m,n,k)
 %   [Data      ,NewFI]      = XXXFIL(FI,Domain,DataFld,'griddata',subf,t,station,m,n,k)
@@ -17,7 +18,7 @@ function varargout=d3d_comfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2014 Stichting Deltares.                                     
+%   Copyright (C) 2011-2016 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,7 +50,7 @@ function varargout=d3d_comfil(FI,domain,field,cmd,varargin)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 if nargin<2
-    error('Not enough input arguments');
+    error('Not enough input arguments')
 elseif nargin==2
     varargout={infile(FI,domain)};
     return
@@ -82,6 +83,9 @@ switch cmd
         return;
     case 'times'
         varargout={readtim(FI,Props,varargin{:})};
+        return
+    case 'timezone'
+        [varargout{1:2}]=gettimezone(FI,domain,Props);
         return
     case 'stations'
         varargout={{}};
@@ -313,6 +317,10 @@ if DataRead
     %================== NEFIS SPECIFIC CODE =======================================
     elidx=idx(2:end);
     ThinDam=0;
+    if Props.NVal==1.9
+        Props.NVal=2;
+        ThinDam=2;
+    end
     switch Props.Name
         case {'depth averaged velocity','depth averaged discharge','depth averaged unit discharge','discharge potential'}
             Info=vs_disp(FI,Props.Group,Props.Val1);
@@ -743,6 +751,11 @@ if XYRead
     end
 end
 if Props.NVal==0
+elseif ThinDam==2
+    Ans.XDam=~isnan(val1);
+    Ans.YDam=~isnan(val2);
+    Ans.XDamVal=val1;
+    Ans.YDamVal=val2;
 elseif ThinDam
     val1(isnan(val1))=1;
     val2(isnan(val2))=1;
@@ -799,6 +812,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0     '' 
     'depth averaged velocity'   'm/s'    [1 0 1 1 0]  1         2     'u'      'u'   'z'       ''      'CURTIM'         'U1'      'V1'     []       1
     'unit discharge (horizontal)'    'm^2/s'  [1 0 1 1 1]  1         2     'u'      'u'   'z'       'c'     'CURTIM'         'QU'      'QV'     []       1
     'depth averaged unit discharge'  'm^2/s'  [1 0 1 1 0]  1         2     'u'      'u'   'z'       ''      'CURTIM'         'QU'      'QV'     []       1
+    'depth averaged discharge'  'm^3/s'  [1 0 1 1 0]  1         1.9     ''       'd'   'd'       ''      'CURTIM'         'QU'      'QV'     []       1
     'discharge potential'       'm^3/s'  [1 0 1 1 0]  1         1     ''       'd'   'd'       ''      'CURTIM'         'QU'      'QV'     []       0
     'spiral flow intensity'     'm/s'    [1 0 1 1 0]  1         1     ''       'z'   'z'       ''      'CURTIM'         'RSP'     ''       []       0
     '-------'                   ''       [0 0 0 0 0]  0         0     ''       ''    ''        ''      ''               ''        ''       []       0
@@ -809,6 +823,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0     '' 
     'salinity'                  'ppt'    [1 0 1 1 1]  1         1     ''       'z'   'z'       'c'     'DWQTIM'         'RSAL'    ''       []       0
     'temperature'               '°C'     [1 0 1 1 1]  1         1     ''       'z'   'z'       'c'     'DWQTIM'         'RTEM'    ''       []       0
     'vertical eddy diffusivity' 'm^2/s'  [1 0 1 1 1]  1         1     ''       'z'   'z'       'c'     'DWQTIM'         'DICWW'   ''       []       0
+    'horizontal diffusivity'    'm^2/s'  [1 0 1 1 1]  1         1    ''        'z'   'z'       'c'     'DWQTIM'         'DICUV'   ''       []       0
     '-------'                   ''       [0 0 0 0 0]  0         0     ''       ''    ''        ''      ''               ''        ''       []       0
     'initial bedload transport' 'm^3/m'  [1 0 1 1 0]  1         2     'u'      'z'   'z'       ''      'TRANSTIM'       'TTXI'    'TTYI'   []       1
     'avg bedload transport'     'm^3/sm' [1 0 1 1 0]  1         2     'u'      'z'   'z'       ''      'TRANSTIM'       'TTXA'    'TTYA'   []       1

@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2013.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -36,6 +36,7 @@
        real(fp)     :: f_lam
        real(fp)     :: fwee
        integer      :: ndis
+       integer      :: rolcorr
        character(5) :: disform
        logical      :: wavfrc
 !

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -49,17 +49,17 @@
       ! common declarations
 
       include 'data.inc'
-c
-c     declaration of file identification group
-c
+!
+!     declaration of file identification group
+!
       real          vfform
       character*20  rundat
       character*40  fform      , conten      ,
      +              source
       character*40  remark(4)
-c
-c     local variables
-c
+!
+!     local variables
+!
       integer       iconf           , ilen            ,
      +              iend            , i               ,
      +              ierror
@@ -69,18 +69,18 @@ c
       character*256 fildef, fildat
       character*256 filext
       integer       extpos, extlen
-c
-c     external nefis functions
-c
+!
+!     external nefis functions
+!
       integer   clsnef
      +         ,crenef
       external  clsnef
      +         ,crenef
       integer(4)                :: ithndl = 0      ! handle for performance timer
       if (timon) call timstrt( "rd_tabs", ithndl )
-c
-c     initialize proces definition file
-c
+!
+!     initialize proces definition file
+!
       call dhfext (pdffil, filext, extpos, extlen)
       if ( filext .ne. ' ' ) then
 
@@ -94,22 +94,12 @@ c
          ! no extension assume nefis dat and def file, but check existence def file
 
          ilen = len(pdffil)
-         do i = ilen , 1 , -1
-            iend = i
-            if ( pdffil(i:i) .ne. ' ' ) goto 10
-         enddo
-         iend = 0
-   10    continue
+         iend = len_trim(pdffil)
          if ( iend .eq. ilen ) iend = max(0,ilen-4)
 
          pdffil(iend+1:) = '.dat'
          fildat = pdffil
-         pdffil(iend+1:) = '.def'
          fildef = pdffil
-         inquire ( file=fildef , exist = lexi )
-         if ( .not. lexi ) then
-            fildef = fildat
-         endif
 
       endif
 
@@ -121,21 +111,35 @@ c
          access = 'r'
          coding = 'n'
          ierror = crenef(deffds, fildat, fildef, coding, access)
+         if ( ierror .eq. 8023) then
+!           nefis error 8023 means it could not be read as a single file
+!           when the file ends in .dat, try if it works when we specify a def-file
+!           when the file ends in .def, try if it works when we specify a dat-file
+            iend = len_trim(fildef)
+            if ( fildef(iend-2:iend).eq.'dat') then
+               fildef(iend-2:iend)='def'
+               ierror = crenef(deffds, fildat, fildef, coding, access)
+            endif
+            if ( fildat(iend-2:iend).eq.'def') then
+               fildat(iend-2:iend)='dat'
+               ierror = crenef(deffds, fildat, fildef, coding, access)
+            endif
+         endif
          if ( ierror .ne. 0 ) then
             nerror = nerror + 1
-            call dhpfil(lunrep,' error opening nefis file(s):',pdffil(1:iend))
+            call dhpfil(lunrep,' error opening nefis file(s):',trim(pdffil))
             write(lunrep,*) 'error number:',ierror
             goto 900
          endif
       else
          nerror = nerror + 1
-         call dhpfil(lunrep,'error opening nefis file(s):',pdffil(1:iend))
+         call dhpfil(lunrep,'error opening nefis file(s):',trim(pdffil))
          write(lunrep,*) 'files do not exist'
          goto 900
       endif
-c
-c     last file identification group
-c
+!
+!     last file identification group
+!
       call rd_filid ( deffds,         fform , vfform, conten,
      +                versio, serial, rundat, source, remark,
      +                lunrep, ierror)
@@ -145,9 +149,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table p1 (substance groups)
-c
+!
+!     table p1 (substance groups)
+!
       call rd_tabp1 ( deffds      ,
      +                nsgrpm      , nsgrp       ,
      +                sgrpid      , sgrpnm      ,
@@ -158,9 +162,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table p2 (items)
-c
+!
+!     table p2 (items)
+!
       call rd_tabp2 ( deffds      ,
      +                nitemm      , nitem       ,
      +                itemid      , itemnm      ,
@@ -176,9 +180,9 @@ cjvb +                itemgr      , itemsx      ,
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table p3 (process modules)
-c
+!
+!     table p3 (process modules)
+!
       call rd_tabp3 ( deffds      ,
      +                nfortm      , nfort       ,
      +                fortid      , lunrep      ,
@@ -189,9 +193,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table p4 (processes)
-c
+!
+!     table p4 (processes)
+!
       call rd_tabp4 ( deffds      ,
      +                nprocm      , nproc       ,
      +                procid      , procnm      ,
@@ -203,9 +207,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table p5 (configurations)
-c
+!
+!     table p5 (configurations)
+!
       call rd_tabp5 ( deffds      ,
      +                nconfm      , nconf       ,
      +                confid      , confnm      ,
@@ -216,9 +220,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r1 (configurations-processes)
-c
+!
+!     table r1 (configurations-processes)
+!
       call rd_tabr1 ( deffds       ,
      +                nconfm*nprocm, nconf       ,
      +                nproc        , icnpro      ,
@@ -229,9 +233,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r2 (configurations-substances)
-c
+!
+!     table r2 (configurations-substances)
+!
       call rd_tabr2 ( deffds      ,
      +                ncnsbm      , ncnsb       ,
      +                r2_cid      , r2_sid      ,
@@ -242,9 +246,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r3 (input items)
-c
+!
+!     table r3 (input items)
+!
       call rd_tabr3 ( deffds      ,
      +                ninpum      , ninpu       ,
      +                inpupr      , inpuit      ,
@@ -257,9 +261,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r4 (output items)
-c
+!
+!     table r4 (output items)
+!
       call rd_tabr4 ( deffds      ,
      +                noutpm      , noutp       ,
      +                outppr      , outpit      ,
@@ -272,9 +276,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r5 (output fluxes)
-c
+!
+!     table r5 (output fluxes)
+!
       call rd_tabr5 ( deffds      ,
      +                noutfm      , noutf       ,
      +                outfpr      , outffl      ,
@@ -286,9 +290,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r6 (flux-substance)
-c
+!
+!     table r6 (flux-substance)
+!
       call rd_tabr6 ( deffds      ,
      +                nstocm      , nstoc       ,
      +                stocfl      , stocsu      ,
@@ -300,9 +304,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r7 (velocity-substance)
-c
+!
+!     table r7 (velocity-substance)
+!
       call rd_tabr7 ( deffds      ,
      +                nvelom      , nvelo       ,
      +                veloit      , velosu      ,
@@ -314,9 +318,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table r8 (dispersion-substance)
-c
+!
+!     table r8 (dispersion-substance)
+!
       call rd_tabr8 ( deffds      ,
      +                ndispm      , ndisp       ,
      +                dispit      , dispsu      ,
@@ -328,9 +332,9 @@ c
          write(lunrep,*) 'error number:',ierror
          goto 900
       endif
-c
-c     table m1 (old-items)
-c
+!
+!     table m1 (old-items)
+!
       if ( vfform .gt. 1.99 ) then
          call rd_tabm1 ( deffds      ,
      +                   n_old_items_max,
@@ -350,9 +354,9 @@ c
             goto 900
          endif
       endif
-c
-c     close files
-c
+!
+!     close files
+!
       ierror = clsnef(deffds)
       if ( ierror .ne. 0 ) then
          write(lunrep,*) 'error closing nefis process defintion file'

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -42,6 +42,7 @@
      *        Defcel,
      *        Defelm,
      *        Defgrp,
+     *        getnfv,
      *        Crenef,
      *        Putelt,
      *        Neferr
@@ -64,6 +65,12 @@
       integer      grpdms(5), grpord(5)
 
       CHARACTER*1024 errstr
+      CHARACTER*255  version
+
+      error = getnfv(version)
+      write(*,*)
+      write(*,*) trim(version(5:))
+      write(*,*)
 c
 c Test to check cells with different element types
 c (cell according dwqtim on comm. file)

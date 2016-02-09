@@ -1,7 +1,7 @@
 subroutine dimbub(error, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -30,8 +30,7 @@ subroutine dimbub(error, gdp)
 !!--description-----------------------------------------------------------------
 !
 !    Function: Reads the dimension for discharge definition,
-!              sources and sinks, from the MD-file or from the
-!              attribute file for NOUI
+!              sources and sinks, from the MD-file
 ! Method used:
 !
 !!--pseudo code and references--------------------------------------------------

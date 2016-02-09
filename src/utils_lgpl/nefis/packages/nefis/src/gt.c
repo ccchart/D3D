@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2014.
+// Copyright (C)  Stichting Deltares, 2011-2016.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -47,7 +47,6 @@
 
 #if defined(WIN32) || defined(WIN64) || defined(GNU_PC)
 #  include <io.h>
-#  include <wtypes.h>
 #elif defined(salford32)
 #  include <io.h>
 #  include <windows.h>
@@ -306,7 +305,7 @@ BInt4 Get_element ( BInt4   set          ,
     nefis_errcnt += 1   ;
     nefis_errno   = 3005;
     sprintf(error_text,
-       "Buffer length too small, should be %I64u instead of %ld\nGroup \"%s\", element \"%s\"\n",
+       "Buffer length too small, should be %llu instead of %ld\nGroup \"%s\", element \"%s\"\n",
        conv_bytes, buffer_length, grp_name, elm_name);
     return nefis_errno;
   }
@@ -320,12 +319,12 @@ BInt4 Get_element ( BInt4   set          ,
                                      v     , &var_file_offset);
       if ( nefis_errno != 0 )
       {
-		nefis_errcnt += 1   ;
-		nefis_errno   = 3006;
-		sprintf(error_text,
-		   "Variable dimension %ld not found for:\n group \"%s\", element \"%s\"\n",
-		   v+1, grp_name, elm_name);
-		return nefis_errno;
+        nefis_errcnt += 1   ;
+        nefis_errno   = 3006;
+        sprintf(error_text,
+           "Variable dimension %ld not found for:\n group \"%s\", element \"%s\"\n",
+           v+1, grp_name, elm_name);
+        return nefis_errno;
       }
     }
 

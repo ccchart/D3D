@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -105,6 +105,12 @@
       integer         ierr                              ! error indicator
       integer         jstart                            ! lower limit Flow arrays method 19 and 20
       integer         nmmaxj                            ! upper limit Flow arrays method 19 and 20
+      
+      logical            :: lfound                      ! argument was found
+      character(len=256) :: adummy                      ! dummy string
+      integer            :: nothreadsarg                ! optional number of threads from delwaq2 commandline arguments
+      real               :: rdummy                      ! dummy real
+      integer            :: ierr2                       ! error code
 
       integer   iivol  / 1/, iiarea / 2/, iiflow / 3/, iileng / 4/, iidisp / 5/,
      &          iiconc / 6/, iimass / 7/, iiderv / 8/, iiboun / 9/, iibset /10/,
@@ -125,6 +131,20 @@
 
 !     How many threads ?
 
+!     The '-threads [N]' argument for delwaq2 will turn on parallelism, and override
+!     any setting of the number of threads in the input file.
+!     No value or zero for [N] will use the maximum number of available threads
+      nothreadsarg = 0
+      call getcom ( '-threads', 1, lfound, nothreadsarg, rdummy, adummy, ierr2)
+      if (lfound) then
+         nothrd = nothreadsarg
+      else
+         call getcom ( '-nothreads', 1, lfound, nothreadsarg, rdummy, adummy, ierr2)
+         if (lfound) then
+            nothrd = nothreadsarg
+         end if
+      end if
+
       if ( nothrd .gt. 0 ) call OMP_SET_NUM_THREADS( nothrd )
       noth = OMP_GET_MAX_THREADS()
       write ( lunrep , 2020 ) noth
@@ -132,7 +152,8 @@
 
 !     Some logicals
 
-      fluxco = intsrt .eq.  5 .or. intsrt .eq. 12 .or. intsrt .eq. 14
+      fluxco = intsrt .eq.  5 .or. intsrt .eq. 12 .or. intsrt .eq. 14 .or.
+     &         intsrt .eq. 24
       steady = intsrt .eq.  6 .or. intsrt .eq.  7 .or. intsrt .eq.  8 .or.
      &         intsrt .eq.  9 .or. intsrt .eq. 17 .or. intsrt .eq. 18
       iterat = intsrt .eq.  8 .or. intsrt .eq.  9
@@ -649,6 +670,10 @@
          arrlen(i_rar) = arrdm1(i_rar)*arrdm2(i_rar)*arrdm3(i_rar)
          if ( .not. l_decl ) write ( 328, 2040 ) i_rar, arrnam(i_rar), arrlen(i_rar)
          itota = itota + arrlen(i_rar)
+         if ( itota .lt. 0 ) then
+            write(lunrep,2005)
+            call srstop(1)
+         endif
       enddo
 
 !     Declare memory
@@ -660,7 +685,7 @@
             namarr = arrnam(i_rar)
             if ( iarlen .gt. 0 ) then
                ip = makptr(part, namarr,iartyp ,iarlen)
-               if ( ip .eq. 0 ) then
+               if ( ip .le. 0 ) then
                   write(lunrep,2010) namarr
                   call srstop(1)
                endif
@@ -759,11 +784,17 @@
       endif
 
       ierr = 0
-      itota  = itota  +   noseg
+      itota  = itota  +   noseg+nseg2
       nr_rar = nr_rar + 1
       if ( l_decl ) allocate ( surface   ( noseg+nseg2 ), stat=ierr )
       if ( ierr .ne. 0 ) then ; write(lunrep,2010) "surface             " ; call srstop(1) ; endif
       if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "surface             ", noseg+nseg2
+
+      itota  = itota  +   noseg+nseg2
+      nr_rar = nr_rar + 1
+      if ( l_decl ) allocate ( wdrawal   ( noseg+nseg2 ), stat=ierr )
+      if ( ierr .ne. 0 ) then ; write(lunrep,2010) "wdrawal             " ; call srstop(1) ; endif
+      if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "wdrawal             ", noseg+nseg2
 
       if ( delmat ) then
          itota  = itota  +   nosys*noseg
@@ -774,30 +805,31 @@
       endif
 
       if ( intsrt .eq. 11 .or. intsrt .eq. 12 .or.
-     &     intsrt .eq. 13 .or. intsrt .eq. 14      ) then
+     &     intsrt .eq. 13 .or. intsrt .eq. 14 .or.
+     &     intsrt .eq. 24                          ) then
          itota  = itota  +  notot*(noseg+nseg2)*2                        ! arhs
          nr_rar = nr_rar + 1
          if ( l_decl ) allocate ( arhs    ( notot,noseg+nseg2), stat=ierr )
          if ( ierr .ne. 0 ) then ; write(lunrep,2010) "arhs                " ; call srstop(1) ; endif
-         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "arhs                ", notot*(noseg+nseg2)
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "arhs                ", notot*(noseg+nseg2)*2
 
          itota  = itota  +  notot*(noseg+nseg2)*2                        ! adiag
          nr_rar = nr_rar + 1
          if ( l_decl ) allocate ( adiag   ( notot,noseg+nseg2), stat=ierr )
          if ( ierr .ne. 0 ) then ; write(lunrep,2010) "adiag               " ; call srstop(1) ; endif
-         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "adiag               ", notot*(noseg+nseg2)
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "adiag               ", notot*(noseg+nseg2)*2
 
          itota  = itota  +  notot*max((noq3+noq4),1)*2           ! acodia
          nr_rar = nr_rar + 1
          if ( l_decl ) allocate ( acodia  ( notot,max(noq3+noq4,1)), stat=ierr )
          if ( ierr .ne. 0 ) then ; write(lunrep,2010) "acodia              " ; call srstop(1) ; endif
-         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "acodia              ", notot*max((noq3+noq4),1)
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "acodia              ", notot*max((noq3+noq4),1)*2
 
          itota  = itota  +  notot*max((noq3+noq4),1)*2           ! bcodia
          nr_rar = nr_rar + 1
          if ( l_decl ) allocate ( bcodia  ( notot,max(noq3+noq4,1)), stat=ierr )
          if ( ierr .ne. 0 ) then ; write(lunrep,2010) "bcodia              " ; call srstop(1) ; endif
-         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "bcodia              ", notot*max((noq3+noq4),1)
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "bcodia              ", notot*max((noq3+noq4),1)*2
       endif
 
       if ( triadi ) then
@@ -1105,11 +1137,30 @@
             if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "thetaseg            ", noseg*noth
          endif
       endif
+      if ( intsrt .eq. 24 ) then
+         itota  = itota  +  3*noseg*2                            ! dwork
+         nr_rar = nr_rar + 1
+         if ( l_decl ) allocate ( dwork   ( 3, noseg   ), stat=ierr )
+         if ( ierr .ne. 0 ) then ; write(lunrep,2010) "dwork               " ; call srstop(1) ; endif
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "dwork               ", 3*noseg*2
+
+         itota  = itota  +  noseg*2                              ! volint
+         nr_rar = nr_rar + 1
+         if ( l_decl ) allocate ( volint  ( noseg      ), stat=ierr )
+         if ( ierr .ne. 0 ) then ; write(lunrep,2010) "volint              " ; call srstop(1) ; endif
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "volint              ", noseg*2
+
+         itota  = itota  +  notot*(noseg+nseg2)*2                        ! dconc2
+         nr_rar = nr_rar + 1
+         if ( l_decl ) allocate ( dconc2  ( notot, noseg+nseg2 ), stat=ierr )
+         if ( ierr .ne. 0 ) then ; write(lunrep,2010) "dconc2              " ; call srstop(1) ; endif
+         if ( .not. l_decl ) write ( 328, 2040 ) nr_rar, "dconc2              ", notot*(noseg+nseg2)*2
+      endif
       if ( .not. l_decl ) write ( 328, '(/5x,a20,i12)' ) "Total (4 byte words)",itota
 
       return
 
- 2000 format ( ' total real    array space: ',I10)
+ 2005 format ( ' ERROR  : real array is too big. Unable to create pointer. ' )
  2010 format ( ' ERROR  : allocating real array. Name   : ',A )
  2020 format (/' Parallel processing with ',i3,' processor(s)'/)
  2030 format ('  Parallel processing with ',i3,' processor(s)')

@@ -119,6 +119,13 @@ rem =============================================================
     call :handle_error
 goto :endproc
 
+rem =============================================================
+rem === copyNetcdf copy the appropriate netcdf.dll            ===
+rem =============================================================
+:copyNetcdf
+    call :copyFile "third_party_open\netcdf\src\win32\2005\libsrc\x64\Release\netcdf.dll" !dest_bin!
+goto :endproc
+
 
 
 rem ===============
@@ -130,12 +137,13 @@ rem ===============
     call :d_hydro
     call :flow2d3d
     call :flow2d3d_openda
-	call :delwaq1
-	call :delwaq1_lib
-	call :delwaq2
-	call :delwaq2_lib
-	call :delwaq2_openda_lib
-	call :waq_plugin_wasteload
+    call :delwaq1
+    call :delwaq1_lib
+    call :delwaq2
+    call :delwaq2_lib
+    call :delwaq2_openda_lib
+    call :waq_plugin_wasteload
+    call :part
     call :wave
     call :plugin_culvert
     call :plugin_delftflow_traform
@@ -228,10 +236,10 @@ rem ====================
     call :copyFile "third_party_open\mpich2\x64\bin\*.exe"                          !dest_bin!
     call :copyFile "third_party_open\mpich2\x64\lib\*.dll"                          !dest_bin!
     call :copyFile "third_party_open\expat\x64\x64\Release\libexpat.dll"            !dest_bin!
-    rem call :copyFile "third_party_open\intel_fortran\lib\x64\*.dll"                   !dest_bin!
     call :copyFile "engines_gpl\flow2d3d\default\*"                                 !dest_default!
     call :copyFile "utils_lgpl\delftonline\lib\x64\Release\dynamic\delftonline.dll" !dest_bin!
     call :copyFile "utils_lgpl\delftonline\lib\x64\Release\dynamic\delftonline.dll" !dest_plugins!
+    call :copyNetcdf
     
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -268,6 +276,7 @@ rem    )
 rem    rem One of these two dlls will not exist and cause an ErrorLevel=1. Reset it.
 rem    set ErrorLevel=0
 rem    call :copyFile "third_party_open\openda\core\native\lib\win64\*.dll"      !dest_bin!
+rem    call :copyNetcdf
 goto :endproc
 
 
@@ -336,7 +345,6 @@ rem =======================
     
     call :copyFile engines_gpl\waq\bin\x64\Release\delwaq2_lib.dll           !dest_bin!
 	
-	
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
     rem Some (older) libraries will be overwritten.
@@ -373,9 +381,6 @@ rem    call :makeDir !dest_bin!
 rem    
 rem    call :copyFile engines_gpl\waq\bin\Release\delwaq2_openda_lib.dll          !dest_bin!
 rem	
-rem    call :copyFile third_party_open\openmp\lib\win64\libiomp5md.dll            !dest_bin!
-rem    call :copyFile third_party_open\intel_fortran\lib\win64\libifportmd.dll    !dest_bin!
-rem    call :copyFile third_party_open\intel_fortran\lib\win64\libmmd.dll         !dest_bin!
 
 rem    rem
 rem    rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -415,6 +420,35 @@ rem ================================
 goto :endproc
 
 
+
+
+
+rem ================
+rem === INSTALL PART
+rem ================
+:part
+    echo "installing part . . ."
+
+    set dest="!dest_main!\win64\part\bin"
+
+    call :makeDir !dest!
+
+    call :copyFile engines_gpl\part\bin\x64\release\delpar.exe !dest!
+
+    rem
+    rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
+    rem Some (older) libraries will be overwritten.
+    rem
+    if !compiler_dir!=="" (
+        rem Compiler_dir not set
+    ) else (
+        rem "Compiler_dir:!compiler_dir!"
+        rem Note the awkward usage of !-characters
+        set localstring="!compiler_dir!libiomp5md.dll"
+        call :copyFile !localstring! !dest!
+    )
+	
+goto :endproc
 rem ================
 rem === INSTALL_WAVE
 rem ================
@@ -434,9 +468,9 @@ rem ================
     call :makeDir !dest_swan_scripts!
 
     call :copyFile engines_gpl\wave\bin\x64\release\wave.exe            !dest_bin!
-    call :copyFile engines_gpl\flow2d3d\default\dioconfig.ini       !dest_default!
-    rem call :copyFile "third_party_open\intel_fortran\lib\x64\*.dll" !dest_bin!
-    call :copyFile "third_party_open\swan\bin\w64_i11\*.*"            !dest_swan_bin!
+    call :copyFile engines_gpl\flow2d3d\default\dioconfig.ini           !dest_default!
+    call :copyFile "third_party_open\pthreads\bin\x64\*.dll"            !dest_bin!
+    call :copyFile "third_party_open\swan\bin\w64_i11\*.*"              !dest_swan_bin!
     call :copyFile third_party_open\swan\scripts\swan_install_x64.bat " !dest_swan_scripts!\swan.bat"
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -600,11 +634,11 @@ rem ===================
 :nestwq1
     rem echo "installing nestwq1 . . ."
 
-    rem set dest_bin="!dest_main!\win64\flow2d3d\bin"
+    rem set dest_bin="!dest_main!\win64\waq\bin"
 
     rem call :makeDir !dest_bin!
 
-    rem call :copyFile tools\nestwq1\packages\nestwq1\Release\nestwq1.exe !dest_bin!
+    rem call :copyFile tools\nestwq1\packages\nestwq1\x64\Release\nestwq1.exe !dest_bin!
 goto :endproc
 
 
@@ -615,11 +649,11 @@ rem ===================
 :nestwq2
     rem echo "installing nestwq2 . . ."
 
-    rem set dest_bin="!dest_main!\win64\flow2d3d\bin"
+    rem set dest_bin="!dest_main!\win64\waq\bin"
 
     rem call :makeDir !dest_bin!
 
-    rem call :copyFile tools\nestwq2\packages\nestwq2\Release\nestwq2.exe !dest_bin!
+    rem call :copyFile tools\nestwq2\packages\nestwq2\x64\Release\nestwq2.exe !dest_bin!
 goto :endproc
 
 

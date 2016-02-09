@@ -2,7 +2,7 @@ subroutine rdencl( lunmd     ,lundia    ,error     , runid    , &
                 &  mmax      ,nmaxus    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -43,6 +43,7 @@ subroutine rdencl( lunmd     ,lundia    ,error     , runid    , &
 !
 !!--declarations----------------------------------------------------------------
     use globaldata
+    use string_module
     use properties
     !
     implicit none
@@ -114,7 +115,7 @@ subroutine rdencl( lunmd     ,lundia    ,error     , runid    , &
     ! define length of runid and put in fixed size array
     ! size is tested in iniid
     !
-    call noextspaces(runid     ,lrid      )
+    call remove_leading_spaces(runid     ,lrid      )
     fixid(1:lrid) = runid(1:lrid)
     !=======================================================================
     ! open semi-scratch file

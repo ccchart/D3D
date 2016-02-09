@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,36 +21,36 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-C
-C     Deltares     SECTOR WATERRESOURCES AND ENVIRONMENT
-C
-C     CREATED:            :
-C
-C     V0.01  040894  Jos van Gils  First version
-C
-C     MODULE              : CHPHAS
-C
-C     FUNCTION            : Find index of last water component
-C                           in Charon-arrays with dimension NAIJ
-C
-C     SUBROUTINES CALLED  :
-C
-C     FILES               : -
-C
-C     COMMON BLOCKS       : -
-C
-C     NAME    KIND     LENGTH     FUNCT.  DESCRIPTION
-C     ----    -----    ------     ------- -----------
-C
+!
+!     Deltares     SECTOR WATERRESOURCES AND ENVIRONMENT
+!
+!     CREATED:            :
+!
+!     V0.01  040894  Jos van Gils  First version
+!
+!     MODULE              : CHPHAS
+!
+!     FUNCTION            : Find index of last water component
+!                           in Charon-arrays with dimension NAIJ
+!
+!     SUBROUTINES CALLED  :
+!
+!     FILES               : -
+!
+!     COMMON BLOCKS       : -
+!
+!     NAME    KIND     LENGTH     FUNCT.  DESCRIPTION
+!     ----    -----    ------     ------- -----------
+!
       SUBROUTINE CHPHAS ( NAIJ2 )
-C
-C     Declarations
-C
+!
+!     Declarations
+!
       INTEGER         NAIJ2 , IFPS , J
 
       INCLUDE 'charon.inc'
 
-C     IFPS: number of first non water transportable phase
+!     IFPS: number of first non water transportable phase
 
       IFPS  = 2
       NAIJ2 = -1

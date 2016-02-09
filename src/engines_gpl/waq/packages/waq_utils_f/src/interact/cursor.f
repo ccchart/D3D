@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2014.
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -26,7 +26,7 @@
       CHARACTER*1 ESCAPE
       CHARACTER*2 HBSLSH
       DATA IESCAP /27/
-C
+!
       ESCAPE = CHAR (IESCAP)
       HBSLSH = 'H\\'
       IF (CURLIN .LT. 10) THEN

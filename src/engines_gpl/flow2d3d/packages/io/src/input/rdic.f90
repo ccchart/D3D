@@ -1,16 +1,15 @@
 subroutine rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
-              & noui      ,runid     ,restid    ,filic     ,fmtic     , &
-              & salin     ,temp      ,const     ,secflo    ,lturi     , &
-              & lsal      ,ltem      ,lstsc     ,zini      ,u0ini     , &
-              & v0ini     ,s0ini     ,t0ini     ,c0ini     ,i0ini     , &
-              & mmax      ,nmax      ,nmaxus    ,kmax      , &
-              & lstsci    ,ltur      ,namcon    ,s1        ,u1        , &
-              & v1        ,r1        ,rtur1     ,decay     ,umnldf    , &
-              & vmnldf    ,kfu       ,kfv       ,dp        ,lsed      , &
-              & gdp       )
+              & runid     ,restid    ,filic     ,fmtic     ,salin     , &
+              & temp      ,const     ,secflo    ,lturi     ,lsal      , &
+              & ltem      ,lstsc     ,zini      ,u0ini     ,v0ini     , &
+              & s0ini     ,t0ini     ,c0ini     ,i0ini     ,mmax      , &
+              & nmax      ,nmaxus    ,kmax      ,lstsci    ,ltur      , &
+              & namcon    ,s1        ,u1        ,v1        ,r1        , &
+              & rtur1     ,decay     ,umnldf    ,vmnldf    ,kfu       , &
+              & kfv       ,dp        ,lsed      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2014.                                
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -89,7 +88,6 @@ subroutine rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               :: kfv    !  Description and declaration in esm_alloc_int.f90
     logical                                                       , intent(in)  :: const  !  Description and declaration in procs.igs
     logical                                                                     :: error  !!  Flag=TRUE if an error is encountered
-    logical                                                       , intent(in)  :: noui   !!  Flag for reading from User Interface
     logical                                                       , intent(in)  :: salin  !  Description and declaration in procs.igs
     logical                                                       , intent(in)  :: secflo !  Description and declaration in procs.igs
     logical                                                       , intent(in)  :: temp   !  Description and declaration in procs.igs
