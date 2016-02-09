@@ -1005,7 +1005,10 @@ src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/near_field.f90 -tex
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/nf_2_flow.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/discharge_def.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/readXML_getdata.f90 -text
+src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/read_from_buffer.inc -text
+src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/read_xml_array.inc -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/read_xml_prims.f90 -text
+src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/read_xml_scalar.inc -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/tables.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/write_xml_prims.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/xmlparse.f90 -text
