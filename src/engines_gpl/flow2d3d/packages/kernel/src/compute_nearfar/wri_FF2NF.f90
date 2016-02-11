@@ -246,10 +246,11 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     luntmp = newlun(gdp)
     open (luntmp,file=trim(filename(1)),status='new')
 
-    call to_matlab( luntmp, "Basecase",     trim(filename(1))   )
+    call to_matlab( luntmp, "Filename",     trim(filename(1))   )
     call to_matlab( luntmp, "waitForFile",  trim(filename(2))   )
     call to_matlab( luntmp, "FFrundir",     trim(filename(3))   )
     call to_matlab( luntmp, "Node"    ,     trim(gdp%runid)     )
+    call to_matlab( luntmp, "SubgridModelNr",idis               )
   
     call to_matlab( luntmp, "TIME",     time/60.0_fp            )
     call to_matlab( luntmp, "HA",       ha                      )

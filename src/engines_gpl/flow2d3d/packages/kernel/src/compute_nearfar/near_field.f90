@@ -2,30 +2,30 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
                     & s0    ,lstsci  ,lsal   ,ltem  ,xz    ,yz    ,nmmax ,&
                     & kcs   ,kcs_nf  ,r0     ,time  ,saleqs,temeqs,gdp,s1    )
 !----- GPL ---------------------------------------------------------------------
-!                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
-!                                                                               
-!  This program is free software: you can redistribute it and/or modify         
-!  it under the terms of the GNU General Public License as published by         
-!  the Free Software Foundation version 3.                                      
-!                                                                               
-!  This program is distributed in the hope that it will be useful,              
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
-!  GNU General Public License for more details.                                 
-!                                                                               
-!  You should have received a copy of the GNU General Public License            
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
-!                                                                               
-!  contact: delft3d.support@deltares.nl                                         
-!  Stichting Deltares                                                           
-!  P.O. Box 177                                                                 
-!  2600 MH Delft, The Netherlands                                               
-!                                                                               
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
-!  are registered trademarks of Stichting Deltares, and remain the property of  
-!  Stichting Deltares. All rights reserved.                                     
-!                                                                               
+!
+!  Copyright (C)  Stichting Deltares, 2011-2012.
+!
+!  This program is free software: you can redistribute it and/or modify
+!  it under the terms of the GNU General Public License as published by
+!  the Free Software Foundation version 3.
+!
+!  This program is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!  GNU General Public License for more details.
+!
+!  You should have received a copy of the GNU General Public License
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+!
+!  contact: delft3d.support@deltares.nl
+!  Stichting Deltares
+!  P.O. Box 177
+!  2600 MH Delft, The Netherlands
+!
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"
+!  are registered trademarks of Stichting Deltares, and remain the property of
+!  Stichting Deltares. All rights reserved.
+!
 !-------------------------------------------------------------------------------
 !  $Id$
 !  $HeadURL$
@@ -113,6 +113,7 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
     logical                         :: first_time
     logical                         :: error_reading
     character*3                     :: c_inode
+    character*3                     :: c_idis
     character*256, dimension(3)     :: filename
     character*14                    :: cctime
     real(fp)                        :: xstart
@@ -248,8 +249,11 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
 	            write(cctime,'(f14.3)') time/60.0_fp
 	  
 	            do idis = 1, no_dis
-                    filename(1) =          trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.txt'
-                    filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.txt'
+                    
+                    write(c_idis,'(i3.3)') idis
+                    
+                    filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                    filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
                     filename(3) =trim(basecase(idis,1))
                     
                     ! You should get the filenames (the dirs) from the COSUMOsettings.xml
