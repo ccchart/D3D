@@ -1,5 +1,6 @@
-subroutine findnmk(xz     ,yz     ,dps    ,s1     ,kcs    ,nmmax  ,thick   , &
-                 & kmax   , x_jet ,y_jet  ,z_jet  ,nm_jet ,k_jet  ,gdp     )
+subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
+                 & thick  ,kmax   ,x_jet  ,y_jet ,z_jet  ,nm_jet , &
+                 & k_jet  ,kfsmn0 ,kfsmx0 ,dzs0  ,zmodel ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -47,19 +48,23 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1     ,kcs    ,nmmax  ,thick   , &
 !
 ! Global variables
 !
-    integer                                       , intent(in)  :: kmax   !  Description and declaration in tricom.igs
-    integer                                       , intent(in)  :: nmmax  !  Description and declaration in tricom.igs
-    integer                                       , intent(out) :: nm_jet
-    integer                                       , intent(out) :: k_jet
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in)  :: kcs    !  Description and declaration in
-    real(fp)                                      , intent(in)  :: x_jet
-    real(fp)                                      , intent(in)  :: y_jet
-    real(fp)                                      , intent(in)  :: z_jet
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in)  :: s1     !  Description and declaration in esm_alloc_real.f90 gs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in)  :: xz     !  Description and declaration in esm_alloc_real.f90 gs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in)  :: yz     !  Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(kmax)                  , intent(in)  :: thick  !  Description and declaration in esm_alloc_real.f90 gs
-    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
+    integer                                             , intent(in)  :: kmax   ! Description and declaration in tricom.igs
+    integer                                             , intent(in)  :: nmmax  ! Description and declaration in tricom.igs
+    integer                                             , intent(out) :: nm_jet
+    integer                                             , intent(out) :: k_jet
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kcs    ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfsmn0 ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfsmx0 ! Description and declaration in esm_alloc_int.f90
+    real(fp)                                            , intent(in)  :: x_jet
+    real(fp)                                            , intent(in)  :: y_jet
+    real(fp)                                            , intent(in)  :: z_jet
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: s1     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: xz     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: yz     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(kmax)                        , intent(in)  :: thick  ! Description and declaration in esm_alloc_real.f90
+    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: dps    ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax) , intent(in)  :: dzs0   ! Description and declaration in esm_alloc_real.f90
+    logical                                             , intent(in)  :: zmodel
 !
 ! Local variables
 !
@@ -90,17 +95,30 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1     ,kcs    ,nmmax  ,thick   , &
     ! Find the vertical position
     !
     k_jet   = 0
+    !
+    ! Is this correct?? Water level can be negative..
+    !
     r_boven = -1.0_fp * s1(nm_jet)
-    do k = 1, kmax - 1
-    
-       r_onder = r_boven + thick(k)*(real(dps(nm_jet),fp) + s1(nm_jet))
-       if (z_jet < r_onder) then
-          k_jet = k
-          exit
-       endif
-       r_boven = r_onder
-    enddo
-
-    if (k_jet == 0) k_jet = kmax
-
+    if (.not. zmodel) then
+       do k = 1, kmax - 1
+          r_onder = r_boven + thick(k)*(real(dps(nm_jet),fp) + s1(nm_jet))
+          if (z_jet < r_onder) then
+             k_jet = k
+             exit
+          endif
+          r_boven = r_onder
+       enddo
+       if (k_jet == 0) k_jet = kmax
+    else
+       do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1
+          r_onder = r_boven + dzs0(nm_jet,k)
+          if (z_jet < r_onder) then
+             k_jet = k
+             exit
+          endif
+          r_boven = r_onder
+       enddo
+       if (k_jet == 0) k_jet = kfsmn0(nm_jet)
+    endif
+    !
 end subroutine findnmk

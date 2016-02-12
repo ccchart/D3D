@@ -157,6 +157,8 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     integer                              , pointer :: lundia
     real(fp)                             , pointer :: timsec
     real(fp)                             , pointer :: timhr
+    integer                              , pointer :: itnflf
+    integer                              , pointer :: itnfli
     integer                              , pointer :: itiwei
     integer                              , pointer :: itdiag
     integer                              , pointer :: julday
@@ -186,6 +188,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     logical                              , pointer :: nonhyd
     logical                              , pointer :: roller
     logical                              , pointer :: sbkol
+    logical                              , pointer :: nfl
     logical                              , pointer :: bubble
     logical                              , pointer :: lfsdu
     integer(pntrsize)                    , pointer :: sbuu
@@ -424,6 +427,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     integer(pntrsize)                    , pointer :: kadu
     integer(pntrsize)                    , pointer :: kadv
     integer(pntrsize)                    , pointer :: kcs
+    integer(pntrsize)                    , pointer :: kcs_nf
     integer(pntrsize)                    , pointer :: kcu
     integer(pntrsize)                    , pointer :: kcv
     integer(pntrsize)                    , pointer :: kfs
@@ -625,6 +629,8 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     lundia              => gdp%gdinout%lundia
     timsec              => gdp%gdinttim%timsec
     timhr               => gdp%gdinttim%timhr
+    itnflf              => gdp%gdinttim%itnflf
+    itnfli              => gdp%gdinttim%itnfli
     itiwei              => gdp%gdinttim%itiwei
     itdiag              => gdp%gdinttim%itdiag
     julday              => gdp%gdinttim%julday
@@ -653,6 +659,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     nonhyd              => gdp%gdprocs%nonhyd
     roller              => gdp%gdprocs%roller
     sbkol               => gdp%gdprocs%sbkol
+    nfl                 => gdp%gdprocs%nfl
     bubble              => gdp%gdprocs%bubble
     lfsdu               => gdp%gdprocs%lfsdu
     alfas               => gdp%gdr_i_ch%alfas
@@ -879,6 +886,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     kadu                => gdp%gdr_i_ch%kadu
     kadv                => gdp%gdr_i_ch%kadv
     kcs                 => gdp%gdr_i_ch%kcs
+    kcs_nf              => gdp%gdr_i_ch%kcs_nf
     kcu                 => gdp%gdr_i_ch%kcu
     kcv                 => gdp%gdr_i_ch%kcv
     kfs                 => gdp%gdr_i_ch%kfs
@@ -1016,6 +1024,12 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
                          & r(r0)     ,r(disch)  ,r(rint)   ,r(sig)    , &
                          & r(s0)     ,d(dps)    ,ifirst    ,gdp       )
           endif
+       endif
+       !
+       ! Initialises arrays for nearfield/farfield coupling
+       !
+       if (nfl) then
+          call init_nfl(kmax,lstsci, gdp)
        endif
        !
        ifirst = 0
@@ -1208,6 +1222,20 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
                  & r(s0)     ,d(dps)    ,r(volum0) ,r(sour)   ,r(sink)   , &
                  & r(evap)   ,r(precip) ,r(decay)  ,i(kcs)    ,gdp       )
        call timer_stop(timer_sousin, gdp)
+       !
+       ! Run near field model and calculate source terms from
+       ! this near field computation
+       !
+       if (nfl .and. nst == itnflf) then
+          itnflf = itnflf + itnfli
+          call near_field(r (u0    )  , r (v0    ), r (rho   ), r (thick), &
+                        & kmax        , r (alfas ), d (dps   ), r (s0)   , &
+                        & lstsci      , lsal      , ltem      , r (xz    ), &
+                        & r (yz    )  , nmmax     , i (kcs)   , i (kcs_nf), &
+                        & r (r0    )  , 2*nst*hdt , saleqs    , temeqs    , &
+                        & r (s1)      , gdp       )
+       endif
+
        !
        if (bubble) then
           call timer_start(timer_trisol_rest, gdp)
@@ -1521,7 +1549,14 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
                       & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                       & i(kfs)    ,i(kcs)    ,i(kfsmn0) ,i(kfsmx0) ,r(sour)   , &
                       & r(sink)   ,d(dps)    ,r(s0)     ,r(dzs0)   ,r(r0)     , &
-                      & r(disch)  ,r(rint)   ,r(zwork)  ,r(zwork+kmax),bubble    ,gdp       )
+                      & r(disch)  ,r(rint)   ,r(zwork)  ,r(zwork+kmax),bubble ,gdp       )
+          !
+          ! Addition from nearfield-farfield model
+          !
+          if (nfl) then
+             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) , gdp )
+          endif
           call timer_stop(timer_discha, gdp)
        endif
        !
@@ -2307,7 +2342,14 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
                       & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                       & i(kfs)    ,i(kcs)    ,i(kfsmn0) ,i(kfsmx0) ,r(sour)   , &
                       & r(sink)   ,d(dps)    ,r(s0)     ,r(dzs0)   ,r(r0)     , &
-                      & r(disch)  ,r(rint)   ,r(zwork)  ,r(zwork+kmax),bubble    ,gdp       )
+                      & r(disch)  ,r(rint)   ,r(zwork)  ,r(zwork+kmax),bubble ,gdp       )
+          !
+          ! Addition from nearfield-farfield model
+          !
+          if (nfl) then
+             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) , gdp )
+          endif
           call timer_stop(timer_discha, gdp)
        endif
        !

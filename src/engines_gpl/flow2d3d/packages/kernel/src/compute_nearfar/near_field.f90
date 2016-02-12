@@ -1,31 +1,35 @@
-subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
-                    & s0    ,lstsci  ,lsal   ,ltem  ,xz    ,yz    ,nmmax ,&
-                    & kcs   ,kcs_nf  ,r0     ,time  ,saleqs,temeqs,gdp,s1    )
+subroutine near_field(u0     ,v0     ,rho    ,thick  , &
+                    & kmax   ,alfas  ,dps    ,s0     , &
+                    & lstsci ,lsal   ,ltem   ,xz     , &
+                    & yz     ,nmmax  ,kcs    ,kcs_nf , &
+                    & r0     ,time   ,saleqs ,temeqs , &
+                    & s1     ,kfsmn0 ,kfsmx0 ,dzs0   , &
+                    & gdp   )
 !----- GPL ---------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2011-2012.
-!
-!  This program is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation version 3.
-!
-!  This program is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"
-!  are registered trademarks of Stichting Deltares, and remain the property of
-!  Stichting Deltares. All rights reserved.
-!
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!                                                                               
+!  This program is free software: you can redistribute it and/or modify         
+!  it under the terms of the GNU General Public License as published by         
+!  the Free Software Foundation version 3.                                      
+!                                                                               
+!  This program is distributed in the hope that it will be useful,              
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU General Public License for more details.                                 
+!                                                                               
+!  You should have received a copy of the GNU General Public License            
+!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
+!  are registered trademarks of Stichting Deltares, and remain the property of  
+!  Stichting Deltares. All rights reserved.                                     
+!                                                                               
 !-------------------------------------------------------------------------------
 !  $Id$
 !  $HeadURL$
@@ -88,10 +92,13 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
     real(fp)                                                   , intent(in)  :: temeqs
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kcs      !
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                            :: kcs_nf   !
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmn0   !  Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0   !  Description and declaration in esm_alloc_int.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: alfas    !
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: s0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: xz       !  Description and declaration in
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: yz       !  Description and declaration in
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: dzs0     !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: rho      !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: u0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: v0       !  Description and declaration in esm_alloc_real.f90
@@ -139,11 +146,9 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
     idensform      => gdp%gdphysco%idensform
     nflmod         => gdp%gdnfl%nflmod
     no_dis         => gdp%gdnfl%no_dis
-
     !
     ! Update local pointers
     !
-
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
     m_amb          => gdp%gdnfl%m_amb
@@ -160,14 +165,12 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
     disnf          => gdp%gdnfl%disnf
     sournf         => gdp%gdnfl%sournf
     lundia         => gdp%gdinout%lundia
-
+    !    
     write(c_inode,'(i3.3)') inode
-
     !
     ! Convert flow results (velocities and densities) at (mdiff,ndiff) to nearfield input
     ! and write cormix/nrfield input file
     !
-
     select case (nflmod)
        case('corjet')
           !
@@ -186,7 +189,6 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
           !
           ! Finally convert cormix results to flow input
           !
-
           call corjet2flow(thick  ,kmax   ,dps   ,s0   ,disnf    ,sournf , &
                          & lstsci ,lsal   ,ltem  ,xz   ,yz       ,nmmax  , &
                          & kcs    ,time   ,gdp   )
@@ -195,20 +197,17 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
           ! Read the general information from the corinp.dat file every time a cortime simulation is requested.
           ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
           !
-
           call corinp_gen(idensform,gdp)
-
           !
           ! Convert flow results to input for cormix and write to input file
           !
-
           write(cctime,'(f14.3)') time/60.0_fp
-
+          !
           do idis = 1, no_dis
              filename(1) = trim(basecase(idis,1))//'.cmx'
              filename(2) = trim(basecase(idis,2))//'_time-step-'//trim(adjustl(cctime))//'.prd'
              filename(3) = trim(basecase(idis,2))//'_trajectory_time-step-'//trim(adjustl(cctime))//'_'//c_inode//'.tek'
-
+             !
              call wri_cortim(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
                            & s0    ,alfas ,time  ,taua         ,r0     , &
                            & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
@@ -217,7 +216,6 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
              !
              ! Wait for the Cortime simulation to end (use existance of output file as indicator)
              !
-
  !            corend   = .false.
  !            do while (.not. corend)
  !               inquire (file=filename(2),exist=corend)
@@ -226,67 +224,57 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
              ! Finally convert cortime results to flow input
              !
              call wait_until_finished(filename(2),gdp)
-
+             !
              call cortim2flow(thick  ,kmax   ,dps   ,s0   ,r0       ,         &
                             & lstsci ,lsal   ,ltem  ,xz   ,yz       ,nmmax  , &
                             & kcs    ,filename      ,taua           ,idis   , &
                             & linkinf,gdp           )
           enddo
-
+          !
        case('generic')
-
           !
           ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
           ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
-          !
-                     
+          !    
                 call corinp_gen2(idensform,gdp)
-	  
-	            !
-	            ! Convert flow results to input for cormix and write to input file
-	            !
-	  
-	            write(cctime,'(f14.3)') time/60.0_fp
-	  
-	            do idis = 1, no_dis
-                    
-                    !Add SubGRidModel number to filename to prevent overwriting
-                    write(c_idis,'(i3.3)') idis
-                    
-                    filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                    filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                    filename(3) =trim(basecase(idis,1))
-                    
-                    ! You should get the filenames (the dirs) from the COSUMOsettings.xml
-                 
-                 
-	               call wri_FF2NF(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
-	                             & s0    ,alfas ,time  ,taua         ,r0     , &
-	                             & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
-	                             & temeqs,idis  ,filename         ,linkinf, &
-	                             & gdp, s1 ,xz,yz )
-	  
-                     
-                   
+                !
+                ! Convert flow results to input for cormix and write to input file
+                !
+                write(cctime,'(f14.3)') time/60.0_fp
+                !
+                do idis = 1, no_dis
+                   !
+                   ! Add SubGridModel number to filename to prevent overwriting
+                   !
+                   write(c_idis,'(i3.3)') idis
+                   !
+                   filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(3) =trim(basecase(idis,1))
+                   !
+                   ! You should get the filenames (the dirs) from the COSUMOsettings.xml
+                   !
+                   call wri_FF2NF(u0       ,v0      ,rho       ,thick  ,kmax   ,dps    , &
+                                & s0       ,alfas   ,time      ,taua   ,r0     ,lstsci , &
+                                & lsal     ,ltem    ,idensform ,saleqs ,temeqs ,idis   , &
+                                & filename ,linkinf ,s1        ,xz     ,yz     , &
+                                & kfsmn0   ,kfsmx0  ,dzs0      ,gdp    )
+                   !
                    call wait_until_finished(filename(2),gdp)
-                   
+                   !
                    no_val=size(x_jet)
-                   call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)
-                                   
+                   call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
                    !
                    ! Fill sources and sinks following the Desa Method of Prof. Lee
                    !
-
-                   call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
-	                & kcs     ,xz       ,yz      ,dps     ,s0      , &
-	                & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-	                & ltem    ,h_jet  ,b_jet   ,idis    , &
-                    & xstart  ,xend    ,ystart   ,yend    ,r0      , &
-	                & linkinf ,gdp     )
-
+                   call desa(x_jet   ,y_jet   ,z_jet   ,s_jet   ,no_val  , &
+                           & kcs     ,xz      ,yz      ,dps     ,s0      , &
+                           & nmmax   ,thick   ,kmax    ,lstsci  ,lsal    , &
+                           & ltem    ,h_jet   ,b_jet   ,idis    , &
+                           & xstart  ,xend    ,ystart  ,yend    ,r0      , &
+                           & linkinf ,kfsmn0  ,kfsmx0  ,dzs0    ,gdp     )
                enddo
-
-                
+               !
 !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
 !          do idis = 1,size(discharges)
 !              write(*,*) discharges(idis)%name

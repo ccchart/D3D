@@ -1,9 +1,9 @@
 subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
               & kcs     ,xz       ,yz      ,dps     ,s0      , &
               & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-              & ltem    ,bv_jet   ,bh_jet   ,idis    , &
+              & ltem    ,bv_jet   ,bh_jet  ,idis    , &
               & xstart  ,xend     ,ystart  ,yend    ,r0      , &
-              & linkinf ,gdp      )
+              & linkinf ,kfsmn0   ,kfsmx0  ,dzs0    ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -63,6 +63,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     integer                        , pointer :: lunscr
     integer                        , pointer :: lundia
     logical , dimension(:)         , pointer :: flbcktemp
+    logical                        , pointer :: zmodel
 !
 ! Global variables
 !
@@ -73,7 +74,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     integer                                                    , intent(in)    :: ltem     !  Description and declaration in tricom.igs
     integer                                                    , intent(in)    :: nmmax    !  Description and declaration in tricom.igs
     integer                                                    , intent(in)    :: nrow     !  Description and declaration in
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: kcs      !  Description and declaration in esm_alloc_real.f90 gs
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: kcs      !  Description and declaration in esm_alloc_real.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: kfsmn0   !  Description and declaration in esm_alloc_real.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: kfsmx0   !  Description and declaration in esm_alloc_real.f90
     real(fp)                                                   , intent(out)   :: xstart
     real(fp)                                                   , intent(out)   :: xend
     real(fp)                                                   , intent(out)   :: ystart
@@ -85,11 +88,12 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     real(fp)   , dimension(nrow)                               , intent(in)    :: s_jet    !  Description and declaration in
     real(fp)   , dimension(nrow)                               , intent(in)    :: bv_jet   !  Description and declaration in
     real(fp)   , dimension(nrow)                               , intent(in)    :: bh_jet   !  Description and declaration in
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: s0       !  Description and declaration in esm_alloc_real.f90 gs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub,kmax,lstsci)  , intent(in)    :: r0       !  Description and declaration in esm_alloc_real.f90 gs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: xz       !  Description and declaration in esm_alloc_real.f90 gs
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: s0       !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub,kmax)         , intent(in)    :: dzs0     !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub,kmax,lstsci)  , intent(in)    :: r0       !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: xz       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: yz       !  Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(kmax)                               , intent(in)    :: thick    !  Description and declaration in esm_alloc_real.f90 gs
+    real(fp)   , dimension(kmax)                               , intent(in)    :: thick    !  Description and declaration in esm_alloc_real.f90
     real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)    :: dps      !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
@@ -143,52 +147,43 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     disnf          => gdp%gdnfl%disnf
     sournf         => gdp%gdnfl%sournf
     flbcktemp      => gdp%gdheat%flbcktemp
-
+    zmodel         => gdp%gdprocs%zmodel
+    !
     dis_dil   = 0.0_fp
     dis_tot   = 0.0_fp
     thick_tot = 0.0_fp
     pi        = acos(-1.0_fp)
-    
     eps_conc  = 1.0e-12_fp
-
     !
     ! Only if cormix simulation was succesfull
     !
     if (nrow > 0) then
-
-       disnf   (1:nmmax, 1:kmax,idis)           = 0.0_fp
+       !
+       disnf   (1:nmmax, 1:kmax, idis)          = 0.0_fp
        sournf  (1:nmmax, 1:kmax, 1:lstsci,idis) = 0.0_fp
-
        !
        ! Get characteristics starting point
        !
-
        call findnmk(xz      , yz      , dps     , s0       , kcs      ,nmmax   , &
                   & thick   , kmax    , x_jet(1), y_jet(1) , z_jet(1) ,nm_start, &
-                  & k_start , gdp    )
+                  & k_start , kfsmn0  , kfsmx0  , dzs0     , zmodel   ,gdp     )
 
        nm_last = nm_start
        k_last  = k_start
-
        !
        ! Get characteristics end      point
        !
-
        call findnmk(xz       , yz      , dps         , s0          , kcs         ,nmmax   , &
                     thick    , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) ,nm_end  , &
-                    k_end_top,gdp    )
-
+                    k_end_top, gdp    )
        !
        ! For postproc essing stor begin and end coordinates of the plume trajectory
        !
-
        linkinf(7) = nm_start
        linkinf(8) = nm_end
-
        !
        ! Cycle over points in Cormix output file
        !
-
        do irow = 2, nrow
           !
           ! Get position of point
@@ -196,14 +191,12 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           call findnmk (xz      , yz      , dps         , s0          , kcs         ,nmmax   , &
                         thick   , kmax    , x_jet(irow) , y_jet(irow) , z_jet(irow) ,nm_irow , &
                         k_irow  ,gdp    )
-
           if (nm_irow == 0 .or. k_irow == 0) then
              nm_irow = nm_last
              k_irow  = k_last
           endif
           nm_last  = nm_irow
           k_last   = k_irow
-
           !
           ! Fill disch_nf array: Desa Method, subtract the amount of water corresponding with the dilution
           !                      Keep track of total amounts of water, salt in order to discharge the correct
@@ -215,76 +208,64 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
              disnf   (nm_last,k_last,idis) = disnf   (nm_last,k_last,idis) - dis_dil
           endif
        enddo
-
        !
        ! Determine the relative thickness over which to distribute the diluted discharge
        !
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax   , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) - bv_jet(nrow), nm_end , &
                      k_end_top ,gdp    )
-
+       !
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) + bv_jet(nrow), nm_end , &
                      k_end_down,gdp    )
-     
-
        !
        ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
        !
-
        ang_end = atan2((y_jet(nrow) - y_jet(nrow - 1)),(x_jet(nrow) - x_jet(nrow - 1)))
        dx      = -1.0_fp*bh_jet(nrow)*cos(pi/2.0_fp - ang_end)
        dy      =  1.0_fp*bh_jet(nrow)*sin(pi/2.0_fp - ang_end)
-
+       !
 !      dx = 0.0_fp
 !      dy = 0.0_fp
-
+       !
        xstart   = x_jet(nrow) + dx
        ystart   = y_jet(nrow) + dy
        xend     = x_jet(nrow) - dx
        yend     = y_jet(nrow) - dy
-
        !
        ! Determine grid cell numbers over which to distribute the diluted discharge
        !
-
        allocate (nm_dis(1000))
        allocate (weight(1000))
-
        nm_dis   = 0
        weight   = 0.0_fp
-
        no_dis   = 1
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax         , &
                      thick     , kmax    , xstart      , ystart      , 0.0_fp      ,nm_tmp        , &
                      idum      , gdp    )
-
+       !
        nm_dis(1) = nm_tmp
        weight(1) = 0.001_fp
+       !
+       dx = (xend - xstart)/999.0_fp
+       dy = (yend - ystart)/999.0_fp
+       !
+       do iidis = 1, 999
+          call findnmk (xz        , yz      , dps              , s0               , kcs         ,nmmax         , &
+                        thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy, 0.0_fp      ,nm_tmp        , &
+                        idum      , gdp    )
 
-
-        dx = (xend - xstart)/999.0_fp
-        dy = (yend - ystart)/999.0_fp
-
-        do iidis = 1, 999
-           call findnmk (xz        , yz      , dps              , s0               , kcs         ,nmmax         , &
-                         thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy, 0.0_fp      ,nm_tmp        , &
-                         idum      , gdp    )
-
-            if (nm_tmp /= nm_dis(no_dis)) then
-               no_dis = no_dis + 1
-               nm_dis(no_dis) = nm_tmp
-            endif
-            weight(no_dis) = weight(no_dis) + 0.001_fp
-        enddo
-
+           if (nm_tmp /= nm_dis(no_dis)) then
+              no_dis = no_dis + 1
+              nm_dis(no_dis) = nm_tmp
+           endif
+           weight(no_dis) = weight(no_dis) + 0.001_fp
+       enddo
        !
        ! Distribute sources discharges horizontal and vertical
        !
-
        add = 0.0_fp
-
-
+       !
        do iidis = 1, no_dis
           do k = k_end_top, k_end_down
              if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
@@ -292,23 +273,27 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
              endif
           enddo
        enddo
-
+       !
        do iidis = 1, no_dis
           do k = k_end_top, k_end_down
              if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
                 disnf    (nm_dis(iidis),k,idis)         = disnf(nm_dis(iidis),k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*thick(k)))
-
+                !
                 if (lsal /= 0) then
                    call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
                    sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
+                !
                 if (ltem /= 0) then
                    call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
                    sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
+                !
                 do lcon = ltem + 1, lstsci
                    if ( flbcktemp(lcon) ) then
-                      ! Backgroundtemerature: discharge with the temeprature last time step in discharge point
+                      !
+                      ! Background temerature: discharge with the temeprature last time step in discharge point
+                      !
                       sournf (nm_dis(iidis), k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*thick(k)))
                    else
                       sournf (nm_dis(iidis), k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*thick(k)))
@@ -317,8 +302,8 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
              endif
           enddo
        enddo
-
+       !
        deallocate(nm_dis)
-
+       !
     endif
 end subroutine desa

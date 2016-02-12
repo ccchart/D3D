@@ -465,7 +465,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
        !
        ! Addition of the intake from the near field model
        !
-       ! (Op verzoek van Robin uitgezet, onttrekkingen dus via normaal (ontkoppeld) ndebietpunt
+       ! (Op verzoek van Robin uitgezet, onttrekkingen dus via normaal (ontkoppeld) debietpunt
        !
 !      do idis = 1, no_dis
 !         if (m_intake(idis) > 0) then

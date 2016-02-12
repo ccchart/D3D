@@ -1,7 +1,8 @@
-subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
-                    & s0    ,alfas ,time   ,taua   ,r0     ,lstsci ,&
-                    & lsal  ,ltem  ,idensform      ,saleqs ,temeqs ,&
-                    & idis  ,filename      ,linkinf,gdp ,s1,xz,yz  )
+subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
+                    & s0       ,alfas    ,time      ,taua   ,r0     ,lstsci , &
+                    & lsal     ,ltem     ,idensform ,saleqs ,temeqs ,idis   , &
+                    & filename ,linkinf  ,s1        ,xz     ,yz     , &
+                    & kfsmn0   ,kfsmx0   ,dzs0      ,gdp    )
 
 
 !!--declarations----------------------------------------------------------------
@@ -33,31 +34,35 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     real(fp),dimension(:)          , pointer :: h0
     real(fp),dimension(:)          , pointer :: sigma0
     integer                        , pointer :: lunsrc
+    logical                        , pointer :: zmodel
 !
 ! Global variables
 !
-    integer                                                     , intent(in) :: idis
-    integer                                                     , intent(in) :: kmax
-    integer                                                     , intent(in) :: lstsci
-    integer                                                     , intent(in) :: lsal
-    integer                                                     , intent(in) :: ltem
-    integer                                                     , intent(in) :: idensform
-    real(fp)                                                    , intent(out):: taua
-    real(fp)   , dimension(8)                                   , intent(out):: linkinf
-    real(fp)                                                    , intent(in) :: saleqs
-    real(fp)                                                    , intent(in) :: temeqs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: alfas
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: s0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in) :: rho
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in) :: u0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in) :: v0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci)  , intent(in) :: r0
-    real(fp)   , dimension(kmax)                                , intent(in) :: thick
-    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: dps
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: s1  
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: xz
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: yz
-    character*256, dimension(3)                                              :: filename
+    integer                                                     , intent(in)  :: idis
+    integer                                                     , intent(in)  :: kmax
+    integer                                                     , intent(in)  :: lstsci
+    integer                                                     , intent(in)  :: lsal
+    integer                                                     , intent(in)  :: ltem
+    integer                                                     , intent(in)  :: idensform
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
+    real(fp)                                                    , intent(out) :: taua
+    real(fp)   , dimension(8)                                   , intent(out) :: linkinf
+    real(fp)                                                    , intent(in)  :: saleqs
+    real(fp)                                                    , intent(in)  :: temeqs
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: alfas
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: s0
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: rho
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: u0
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: v0
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci)  , intent(in)  :: r0
+    real(fp)   , dimension(kmax)                                , intent(in)  :: thick
+    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: dps
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: s1  
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: xz
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: yz
+    character*256, dimension(3)                                               :: filename
 !
 ! Local variables
 !
@@ -120,6 +125,7 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
+    zmodel         => gdp%gdprocs%zmodel
     !
     write(c_inode(1:3),'(i3.3)') inode
     !
@@ -152,11 +158,26 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
 
     uuu = 0.0_fp  
     vvv = 0.0_fp
-
-    do k = 1, kmax
-       uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*thick(k)
-       vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*thick(k)
-    enddo
+    if (.not. zmodel) then
+       !
+       ! Sigma-model
+       !
+       do k = 1, kmax
+          uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*thick(k)
+          vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*thick(k)
+       enddo
+    else
+       !
+       ! Z-model
+       ! We now take the velocity at the k-level of the corresponding cell centre.
+       ! If we loop over the kfumn0 to kfumx0 of the velocity points (corresponding to nm_amb and nmd_amb),
+       ! and divide by dzu0/hu and dzv0/hv, would it then be more accurate?
+       !
+       do k = kfsmn0(nm_amb), kfsmx0(nm_amb)
+          uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*dzs0(nm_amb,k)/max(ha, 0.01_fp)
+          vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*dzs0(nm_amb,k)/max(ha, 0.01_fp)
+       enddo
+    endif
 
     umag = sqrt (uuu*uuu + vvv*vvv)
     taua = atan2(vvv,uuu)*rad2deg + alfas(nm_amb)
@@ -167,8 +188,10 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     ! Density profile classification (Cormixtype)
     !
 
-    call determine_densprof(kmax      ,thick     ,s0(nm_amb),real(dps(nm_amb),fp),rho(nm_amb,:),ha        ,hd        , &
-                           &stype1    ,stype2    ,rhoam     ,rhoas               ,rhoab        ,hint      ,drohj     )
+    call determine_densprof(kmax           ,thick          ,s0(nm_amb)     ,real(dps(nm_amb),fp) ,rho(nm_amb,:) , &
+                          & ha             ,hd             ,stype1         ,stype2               ,rhoam         , &
+                          & rhoas          ,rhoab          ,hint           ,drohj                , &
+                            kfsmn0(nm_amb) ,kfsmx0(nm_amb) ,dzs0(nm_amb,:) ,zmodel         )
 
     !
     ! Compute the density of the discharged water
@@ -177,14 +200,16 @@ subroutine wri_FF2NF(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     sal  = s0_diff(idis)
     temp = t0_diff(idis)
     if (lsal /= 0) then
-       call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
+       call coupled (add           , r0, kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), &
+                   & k_intake(idis), s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel        , gdp           )
        sal = sal + add
     else
        sal = saleqs
     endif
 
     if (ltem /= 0) then
-       call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
+       call coupled (add           , r0, kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), &
+                   & k_intake(idis), s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel        , gdp           )
        temp = temp + add
     else
        temp = temeqs

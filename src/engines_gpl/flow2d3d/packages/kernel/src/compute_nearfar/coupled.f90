@@ -1,4 +1,5 @@
-subroutine coupled (add,r0,kmax,lstsci,lcon,thick,m_intake,n_intake,k_intake,gdp)
+subroutine coupled (add     , r0, kmax, lstsci, lcon  , thick , m_intake, n_intake, &
+                  & k_intake, s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel  , gdp     )
 
 !!--copyright-------------------------------------------------------------------
 ! Copyright (c) 2009, WL | Delft Hydraulics. All rights reserved.
@@ -42,9 +43,15 @@ subroutine coupled (add,r0,kmax,lstsci,lcon,thick,m_intake,n_intake,k_intake,gdp
     integer                                                    , intent(in)  :: m_intake
     integer                                                    , intent(in)  :: n_intake
     integer                                                    , intent(in)  :: k_intake
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
     real(fp)                                                   , intent(out) :: add
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci) , intent(in)  :: r0       !  Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(kmax)                               , intent(in)  :: thick    !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: s0
+    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: dps
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci) , intent(in)  :: r0         ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(kmax)                               , intent(in)  :: thick      ! Description and declaration in esm_alloc_real.f90
+    logical                                                    , intent(in)  :: zmodel
 !
 ! Local variables
 !
@@ -58,9 +65,15 @@ subroutine coupled (add,r0,kmax,lstsci,lcon,thick,m_intake,n_intake,k_intake,gdp
     if (m_intake > 0) then
        call n_and_m_to_nm(n_intake, m_intake, nm_intake, gdp)
        if (k_intake == 0) then
-          do k = 1, kmax
-             add = add + thick(k)*r0(nm_intake,k,lcon)
-          enddo
+          if (.not. zmodel) then
+             do k = 1, kmax
+                add = add + thick(k)*r0(nm_intake,k,lcon)
+             enddo
+          else
+             do k = kfsmn0(nm_intake), kfsmx0(nm_intake)
+                add = add + dzs0(nm_intake,k)*r0(nm_intake,k,lcon)/(s0(nm_intake)+real(dps(nm_intake),fp))
+             enddo
+          endif
        else
           add = r0(nm_intake,k_intake,lcon)
        endif

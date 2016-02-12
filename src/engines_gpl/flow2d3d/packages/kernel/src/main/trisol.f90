@@ -1150,6 +1150,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        if (nfl) then
           call init_nfl(kmax,lstsci, gdp)
        endif
+       !
        ifirst = 0
     endif
     !
@@ -1409,12 +1410,13 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        !
        if (nfl .and. nst == itnflf) then
           itnflf = itnflf + itnfli
-          call near_field(r (u0    )  , r (v0    ), r (rho   ), r (thick), &
-                        & kmax        , r (alfas ), d (dps   ), r (s0)   , &
-                        & lstsci      , lsal      , ltem      , r (xz    ), &
-                        & r (yz    )  , nmmax     , i (kcs)   , i (kcs_nf), &
-                        & r (r0    )  , 2*nst*hdt , saleqs    , temeqs    , &
-                        & gdp, r (s1)      )
+          call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
+                        & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
+                        & lstsci , lsal      , ltem      , r(xz)     , &
+                        & r(yz)  , nmmax     , i(kcs)    , i(kcs_nf) , &
+                        & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
+                        & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &
+                        & gdp     )
        endif
        !
        ! Calculate source and sink terms for fluid mud layer
@@ -1829,11 +1831,13 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,jstart    , &
                     & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                     & i(kfs)    ,i(kcs)    ,r(sour)   ,r(sink)   ,r(volum1) ,r(volum0) , &
-                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    , &
-                    & gdp       )
+                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    ,gdp       )
+          !
+          ! Addition from nearfield-farfield model
+          !
           if (nfl) then
-             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)  ,r(sink)   , &
-                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,gdp                 )
+             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) ,gdp )
           endif
           call timer_stop(timer_discha, gdp)
        endif
@@ -2894,11 +2898,13 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,jstart    , &
                     & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                     & i(kfs)    ,i(kcs)    ,r(sour)   ,r(sink)   ,r(volum1) ,r(volum0) , &
-                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    , &
-                    & gdp       )
+                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    ,gdp       )
+          !
+          ! Addition from nearfield-farfield model
+          !
           if (nfl) then
-             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)  ,r(sink)   , &
-                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,gdp      )
+             call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) ,gdp )
           endif
           call timer_stop(timer_discha, gdp)
        endif

@@ -1,5 +1,5 @@
 subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink      , &
-                   & volum1    ,volum0    ,r0        ,thick     ,gdp                  )
+                   & volum1    ,volum0    ,r0        ,thick     , kfsmn0   , kfsmx0   , gdp   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -50,6 +50,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     real(fp), dimension(:)           ,pointer :: q_diff
     real(fp), dimension(:,:,:)       ,pointer :: disnf
     real(fp), dimension(:,:,:,:)     ,pointer :: sournf
+    logical                          ,pointer :: zmodel
 
 
 !
@@ -59,6 +60,8 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     integer,  dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfs    ! Description and declaration in esm_alloc_int.f90
     integer                                                 , intent(in)  :: lstsci ! Description and declaration in dimens.igs
     integer                                                               :: nmmax  ! Description and declaration in dimens.igs
+    integer , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0 ! Description and declaration in esm_alloc_int.f90
+    integer , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmn0 ! Description and declaration in esm_alloc_int.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci), intent(in)  :: r0     ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci)              :: sink   ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci)              :: sour   ! Description and declaration in esm_alloc_real.f90
@@ -85,77 +88,149 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     n_intake  => gdp%gdnfl%n_intake
     k_intake  => gdp%gdnfl%k_intake
     q_diff    => gdp%gdnfl%q_diff
-
-
+    zmodel    => gdp%gdprocs%zmodel
     !
     ! Fill sinks for difu
     ! Determine total subtracted mass for negative discharges
     !
-
-    do  idis = 1, no_dis
-       allocate (total_mass(lstsci))
+    if (.not. zmodel) then
        !
-       total_mass  = 0.0_fp
-       q_tot       = 0.0_fp
+       ! Sigma-model
        !
-       do k = 1, kmax
-          do nm = 1, nmmax
-             if (disnf(nm,k,idis) > 0.0_fp) then
-                q_tot = q_tot + disnf(nm,k,idis)
-             endif
-             if (disnf(nm,k,idis) < 0.0_fp) then
-                do lcon = 1,lstsci
-                   sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                     & disnf(nm,k,idis)/volum1(nm, k)
-                   total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
-                enddo
-             endif
-          enddo
-       enddo
-
-       !
-       ! Fill sinks for coupled intake
-       !
-       ! (Op verzoek van Robin uitgezet. Onttrekkening dus als normaal, ontkoppeld, onttrekkingspunt
-       !
-
-!      if (m_intake(idis) > 0) then
-!         call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
-!         do lcon = 1, lstsci
-!            if (k_intake(idis) /=0) then
-!               sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
-!                                                     & q_diff(idis)/volum1(nm_intake, k_intake(idis))
-!            else
-!               do k = 1, kmax
-!                  sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
-!                                           & thick(k)*q_diff(idis)/volum1(nm_intake, k)
-!               enddo
-!            endif
-!         enddo
-!      endif
-
-       !
-       ! Fill sour array for difu
-       ! Add total subtracted mass and initial discharge amount (sournf)
-       !
-       do lcon = 1,lstsci
+       do  idis = 1, no_dis
+          allocate (total_mass(lstsci))
+          !
+          total_mass  = 0.0_fp
+          q_tot       = 0.0_fp
+          !
           do k = 1, kmax
              do nm = 1, nmmax
-                if (sournf(nm,k,lcon,idis) > 0.0_fp) then
-!                  if (disnf(nm,k,idis) < 0.0_fp) then
-!                     sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
-!                  else
-                      sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
-                                     & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
-                                     & volum0(nm, k)
-!                  endif
+                if (disnf(nm,k,idis) > 0.0_fp) then
+                   q_tot = q_tot + disnf(nm,k,idis)
+                endif
+                if (disnf(nm,k,idis) < 0.0_fp) then
+                   do lcon = 1,lstsci
+                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
+                                        & disnf(nm,k,idis)/volum1(nm, k)
+                      total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                   enddo
                 endif
              enddo
           enddo
+       
+          !
+          ! Fill sinks for coupled intake
+          !
+          ! (Op verzoek van Robin uitgezet. Onttrekkening dus als normaal, ontkoppeld, onttrekkingspunt
+          !
+       
+!         if (m_intake(idis) > 0) then
+!            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
+!            do lcon = 1, lstsci
+!               if (k_intake(idis) /=0) then
+!                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
+!                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
+!               else
+!                  do k = 1, kmax
+!                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
+!                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
+!                  enddo
+!               endif
+!            enddo
+!         endif
+       
+          !
+          ! Fill sour array for difu
+          ! Add total subtracted mass and initial discharge amount (sournf)
+          !
+          do lcon = 1,lstsci
+             do k = 1, kmax
+                do nm = 1, nmmax
+                   if (sournf(nm,k,lcon,idis) > 0.0_fp) then
+!                     if (disnf(nm,k,idis) < 0.0_fp) then
+!                        sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
+!                     else
+                         sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
+                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
+                                        & volum0(nm, k)
+!                     endif
+                   endif
+                enddo
+             enddo
+          enddo
+          !
+          deallocate (total_mass)
+          !
        enddo
-       !
-       deallocate (total_mass)
-       !
-    enddo
 
+    else
+       !
+       ! Z-model
+       !
+       do  idis = 1, no_dis
+          allocate (total_mass(lstsci))
+          !
+          total_mass  = 0.0_fp
+          q_tot       = 0.0_fp
+          !
+          do nm = 1, nmmax
+             do k = kfsmn0(nm), kfsmx0(nm)
+                 if (disnf(nm,k,idis) > 0.0_fp) then
+                   q_tot = q_tot + disnf(nm,k,idis)
+                endif
+                if (disnf(nm,k,idis) < 0.0_fp) then
+                   do lcon = 1,lstsci
+                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
+                                        & disnf(nm,k,idis)/volum1(nm, k)
+                      total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                   enddo
+                endif
+             enddo
+          enddo
+       
+          !
+          ! Fill sinks for coupled intake
+          !
+          ! (Op verzoek van Robin uitgezet. Onttrekkening dus als normaal, ontkoppeld, onttrekkingspunt
+          !
+       
+!         if (m_intake(idis) > 0) then
+!            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
+!            do lcon = 1, lstsci
+!               if (k_intake(idis) /=0) then
+!                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
+!                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
+!               else
+!                  do k = 1, kmax
+!                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
+!                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
+!                  enddo
+!               endif
+!            enddo
+!         endif
+       
+          !
+          ! Fill sour array for difu
+          ! Add total subtracted mass and initial discharge amount (sournf)
+          !
+          do lcon = 1,lstsci
+             do nm = 1, nmmax
+                 do k = kfsmn0(nm), kfsmx0(nm)
+                   if (sournf(nm,k,lcon,idis) > 0.0_fp) then
+!                     if (disnf(nm,k,idis) < 0.0_fp) then
+!                        sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
+!                     else
+                         sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
+                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
+                                        & volum0(nm, k)
+!                     endif
+                   endif
+                enddo
+             enddo
+          enddo
+          !
+          deallocate (total_mass)
+          !
+       enddo
+    endif
 end subroutine discha_nf
