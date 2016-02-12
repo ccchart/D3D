@@ -250,6 +250,7 @@ subroutine near_field(u0    ,v0      ,rho    ,thick ,kmax  ,alfas ,dps   ,&
 	  
 	            do idis = 1, no_dis
                     
+                    !Add SubGRidModel number to filename to prevent overwriting
                     write(c_idis,'(i3.3)') idis
                     
                     filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
