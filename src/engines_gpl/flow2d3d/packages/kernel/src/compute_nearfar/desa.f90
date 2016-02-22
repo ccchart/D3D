@@ -164,18 +164,18 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        ! Get characteristics starting point
        !
-       call findnmk(xz      , yz      , dps     , s0       , kcs      ,nmmax   , &
-                  & thick   , kmax    , x_jet(1), y_jet(1) , z_jet(1) ,nm_start, &
-                  & k_start , kfsmn0  , kfsmx0  , dzs0     , zmodel   ,gdp     )
+       call findnmk(xz      , yz      , dps     , s0       , kcs      , nmmax   , &
+                  & thick   , kmax    , x_jet(1), y_jet(1) , z_jet(1) , nm_start, &
+                  & k_start , kfsmn0  , kfsmx0  , dzs0     , zmodel   , gdp     )
 
        nm_last = nm_start
        k_last  = k_start
        !
        ! Get characteristics end      point
        !
-       call findnmk(xz       , yz      , dps         , s0          , kcs         ,nmmax   , &
-                    thick    , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) ,nm_end  , &
-                    k_end_top, gdp    )
+       call findnmk(xz       , yz      , dps         , s0          , kcs         , nmmax   , &
+                    thick    , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) , nm_end  , &
+                    k_end_top, kfsmn0  , kfsmx0      , dzs0        , zmodel      , gdp    )
        !
        ! For postproc essing stor begin and end coordinates of the plume trajectory
        !
@@ -188,9 +188,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           !
           ! Get position of point
           !
-          call findnmk (xz      , yz      , dps         , s0          , kcs         ,nmmax   , &
-                        thick   , kmax    , x_jet(irow) , y_jet(irow) , z_jet(irow) ,nm_irow , &
-                        k_irow  ,gdp    )
+          call findnmk (xz      , yz      , dps         , s0          , kcs         , nmmax   , &
+                        thick   , kmax    , x_jet(irow) , y_jet(irow) , z_jet(irow) , nm_irow , &
+                        k_irow  , kfsmn0  , kfsmx0      , dzs0        , zmodel      , gdp    )
           if (nm_irow == 0 .or. k_irow == 0) then
              nm_irow = nm_last
              k_irow  = k_last
@@ -211,13 +211,13 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        ! Determine the relative thickness over which to distribute the diluted discharge
        !
-       call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax   , &
+       call findnmk (xz        , yz      , dps         , s0          , kcs                       , nmmax  , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) - bv_jet(nrow), nm_end , &
-                     k_end_top ,gdp    )
+                     k_end_top , kfsmn0  , kfsmx0      , dzs0        , zmodel                    , gdp    )
        !
-       call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
+       call findnmk (xz        , yz      , dps         , s0          , kcs                       , nmmax  , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) + bv_jet(nrow), nm_end , &
-                     k_end_down,gdp    )
+                     k_end_down, kfsmn0  , kfsmx0      , dzs0        , zmodel                    , gdp    )
        !
        ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
        !
@@ -240,9 +240,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        nm_dis   = 0
        weight   = 0.0_fp
        no_dis   = 1
-       call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax         , &
-                     thick     , kmax    , xstart      , ystart      , 0.0_fp      ,nm_tmp        , &
-                     idum      , gdp    )
+       call findnmk (xz        , yz      , dps     , s0       , kcs      , nmmax  , &
+                     thick     , kmax    , xstart  , ystart   , 0.0_fp   , nm_tmp , &
+                     idum      , kfsmn0  , kfsmx0  , dzs0     , zmodel   , gdp    )
        !
        nm_dis(1) = nm_tmp
        weight(1) = 0.001_fp
@@ -251,9 +251,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        dy = (yend - ystart)/999.0_fp
        !
        do iidis = 1, 999
-          call findnmk (xz        , yz      , dps              , s0               , kcs         ,nmmax         , &
-                        thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy, 0.0_fp      ,nm_tmp        , &
-                        idum      , gdp    )
+          call findnmk (xz        , yz      , dps              , s0                , kcs      , nmmax  , &
+                        thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy , 0.0_fp   , nm_tmp , &
+                        idum      , kfsmn0  , kfsmx0           , dzs0              , zmodel   , gdp    )
 
            if (nm_tmp /= nm_dis(no_dis)) then
               no_dis = no_dis + 1
@@ -280,12 +280,14 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
                 disnf    (nm_dis(iidis),k,idis)         = disnf(nm_dis(iidis),k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*thick(k)))
                 !
                 if (lsal /= 0) then
-                   call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
+                   call coupled (add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                               & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
                    sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 !
                 if (ltem /= 0) then
-                   call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
+                   call coupled (add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                               & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
                    sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 !

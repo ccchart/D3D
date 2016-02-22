@@ -155,10 +155,10 @@ BInt4 create_nefis_files ( BInt4 * fd_nefis   ,
   }
 
   /* Make sure we can read/write LONG_MAX bytes at once */
-  if (ULONG_MAX != (size_t)ULONG_MAX) {
-      fprintf(stderr, "Incompatible ULONG_MAX:\n\tSize : %d /= %d\n", sizeof(ULONG_MAX), sizeof((size_t)ULONG_MAX));
-      exit(1);
-  }
+/*  if (ULONG_MAX != (size_t)ULONG_MAX) {
+/*      fprintf(stderr, "Incompatible ULONG_MAX:\n\tSize : %d /= %d\n", sizeof(ULONG_MAX), sizeof((size_t)ULONG_MAX));
+/*      exit(1);
+/*  }
 
 #if !defined(WIN32)
     assert( sizeof( off_t ) >= sizeof( long ) );

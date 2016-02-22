@@ -1228,12 +1228,13 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
        !
        if (nfl .and. nst == itnflf) then
           itnflf = itnflf + itnfli
-          call near_field(r (u0    )  , r (v0    ), r (rho   ), r (thick), &
-                        & kmax        , r (alfas ), d (dps   ), r (s0)   , &
-                        & lstsci      , lsal      , ltem      , r (xz    ), &
-                        & r (yz    )  , nmmax     , i (kcs)   , i (kcs_nf), &
-                        & r (r0    )  , 2*nst*hdt , saleqs    , temeqs    , &
-                        & r (s1)      , gdp       )
+          call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
+                        & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
+                        & lstsci , lsal      , ltem      , r(xz)     , &
+                        & r(yz)  , nmmax     , i (kcs)   , i(kcs_nf) , &
+                        & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
+                        & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &
+                        & gdp       )
        endif
 
        !
