@@ -1,5 +1,5 @@
-subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink      , &
-                   & volum1    ,volum0    ,r0        ,thick     , kfsmn0   , kfsmx0   , gdp   )
+subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink    , &
+                   & volum1    ,volum0    ,r0        ,thick     ,kfsmn0   ,kfsmx0   , gdp   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -175,7 +175,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           do nm = 1, nmmax
              do k = kfsmn0(nm), kfsmx0(nm)
-                 if (disnf(nm,k,idis) > 0.0_fp) then
+                if (disnf(nm,k,idis) > 0.0_fp) then
                    q_tot = q_tot + disnf(nm,k,idis)
                 endif
                 if (disnf(nm,k,idis) < 0.0_fp) then

@@ -96,7 +96,8 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
     !
     k_jet   = 0
     !
-    ! Is this correct?? Water level can be negative..
+    ! Is this correct?? Water level can be negative or zero..
+    ! Should it not be the depth?
     !
     r_boven = -1.0_fp * s1(nm_jet)
     if (.not. zmodel) then
@@ -110,7 +111,7 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
        enddo
        if (k_jet == 0) k_jet = kmax
     else
-       do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1
+       do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1,-1
           r_onder = r_boven + dzs0(nm_jet,k)
           if (z_jet < r_onder) then
              k_jet = k

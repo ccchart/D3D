@@ -109,6 +109,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     integer                              :: k_start
     integer                              :: lcon
     integer                              :: nm
+    integer                              :: nmdis
     integer                              :: nm_end
     integer                              :: nm_irow
     integer                              :: nm_last
@@ -127,6 +128,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     real(fp)                             :: ang_end
     real(fp)                             :: dx
     real(fp)                             :: dy
+    real(fp)                             :: hhi
     real(fp),dimension(:), allocatable   :: weight
     integer, dimension(:), allocatable   :: nm_dis
     
@@ -266,44 +268,92 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        add = 0.0_fp
        !
-       do iidis = 1, no_dis
-          do k = k_end_top, k_end_down
-             if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
-                thick_tot = thick_tot + weight(iidis)*thick(k)
-             endif
+       if (.not. zmodel) then
+          do iidis = 1, no_dis
+             do k = k_end_top, k_end_down
+                if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
+                   thick_tot = thick_tot + weight(iidis)*thick(k)
+                endif
+             enddo
           enddo
-       enddo
-       !
-       do iidis = 1, no_dis
-          do k = k_end_top, k_end_down
-             if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
-                disnf    (nm_dis(iidis),k,idis)         = disnf(nm_dis(iidis),k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*thick(k)))
-                !
-                if (lsal /= 0) then
-                   call coupled (add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
-                               & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                   sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
-                endif
-                !
-                if (ltem /= 0) then
-                   call coupled (add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
-                               & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                   sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
-                endif
-                !
-                do lcon = ltem + 1, lstsci
-                   if ( flbcktemp(lcon) ) then
-                      !
-                      ! Background temerature: discharge with the temeprature last time step in discharge point
-                      !
-                      sournf (nm_dis(iidis), k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*thick(k)))
-                   else
-                      sournf (nm_dis(iidis), k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*thick(k)))
+          do iidis = 1, no_dis
+             do k = k_end_top, k_end_down
+                if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
+                   disnf    (nm_dis(iidis),k,idis)         = disnf(nm_dis(iidis),k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*thick(k)))
+                   !
+                   if (lsal /= 0) then
+                      call coupled (add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                                  & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
+                      sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                    endif
-                enddo
-             endif
+                   !
+                   if (ltem /= 0) then
+                      call coupled (add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                                  & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
+                      sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                   endif
+                   !
+                   do lcon = ltem + 1, lstsci
+                      if ( flbcktemp(lcon) ) then
+                         !
+                         ! Background temerature: discharge with the temeprature last time step in discharge point
+                         !
+                         sournf (nm_dis(iidis), k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*thick(k)))
+                      else
+                         sournf (nm_dis(iidis), k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*thick(k)))
+                      endif
+                   enddo
+                endif
+             enddo
           enddo
-       enddo
+       else
+          !
+          ! Z-model
+          !
+          do iidis = 1, no_dis
+             nmdis = nm_dis(iidis)
+             hhi = 1.0_fp / (s0(nmdis) + real(dps(nmdis),fp))
+             do k = k_end_top, k_end_down
+                if (disnf(nmdis,k,idis) == 0.0_fp) then
+                   thick_tot = thick_tot + weight(iidis)*dzs0(nmdis,k)*hhi
+                endif
+             enddo
+          enddo
+          do iidis = 1, no_dis
+             nmdis = nm_dis(iidis)
+             hhi = 1.0_fp / (s0(nmdis) + real(dps(nmdis),fp))
+             do k = k_end_top, k_end_down
+                if (disnf(nmdis,k,idis) == 0.0_fp) then
+                   disnf    (nm_dis(iidis),k,idis)         = disnf(nmdis,k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                   !
+                   if (lsal /= 0) then
+                      call coupled (add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                                  & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
+                      sournf (nmdis,k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                   endif
+                   !
+                   if (ltem /= 0) then
+                      call coupled (add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
+                                  & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
+                      sournf (nmdis,k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                   endif
+                   !
+                   do lcon = ltem + 1, lstsci
+                      if ( flbcktemp(lcon) ) then
+                         !
+                         ! Background temerature: discharge with the temeprature last time step in discharge point
+                         !
+                         sournf (nmdis, k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                      else
+                         sournf (nmdis, k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                      endif
+                   enddo
+                endif
+             enddo
+          enddo
+       endif
+       !
+
        !
        deallocate(nm_dis)
        !
