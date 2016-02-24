@@ -143,7 +143,7 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
     rhoas = 0.0_fp
     !
     do k = kgrad + 1, k1
-       rhoas = rhoas + rhoa(k)/(1 - kgrad)
+       rhoas = rhoas + rhoa(k)/(k1 - kgrad)
     enddo
     !
     hint  = 0.5_fp*(h1(kgrad + 1) + h1 (kgrad))

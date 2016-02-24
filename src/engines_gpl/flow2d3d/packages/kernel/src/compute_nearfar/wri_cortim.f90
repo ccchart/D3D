@@ -1,7 +1,8 @@
-subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
-                    & s0    ,alfas ,time   ,taua   ,r0     ,lstsci ,&
-                    & lsal  ,ltem  ,idensform      ,saleqs ,temeqs ,&
-                    & idis  ,filename      ,linkinf,gdp   )
+subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
+                    & s0     ,alfas    ,time      ,taua   ,r0     ,lstsci , &
+                    & lsal   ,ltem     ,idensform ,saleqs ,temeqs , &
+                    & idis   ,filename ,linkinf   , &
+                    & kfsmn0 ,kfsmx0   ,dzs0      , gdp   )
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -66,6 +67,7 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     real(fp),dimension(:)          , pointer :: h0
     real(fp),dimension(:)          , pointer :: sigma0
     integer                        , pointer :: lunsrc
+    logical                        , pointer :: zmodel
 !
 ! Global variables
 !
@@ -75,11 +77,14 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     integer                                                     , intent(in) :: lsal
     integer                                                     , intent(in) :: ltem
     integer                                                     , intent(in) :: idensform
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
     real(fp)                                                    , intent(out):: taua
     real(fp)   , dimension(8)                                   , intent(out):: linkinf
     real(fp)                                                    , intent(in) :: saleqs
     real(fp)                                                    , intent(in) :: temeqs
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: alfas
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in) :: s0
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in) :: rho
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in) :: u0
@@ -91,6 +96,7 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
 !
 ! Local variables
 !
+    integer                                :: ierror
     integer                                :: ilen
     integer                                :: k
     integer                                :: nm_diff
@@ -122,6 +128,7 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     real(fp)                               :: dummy
     real(fp)                               :: add
     real(fp)                               :: rho0
+    real(fp), dimension(:), allocatable    :: dzs0_nm_amb
     character*1                            :: tab
     character*1                            :: stype1
     character*1                            :: stype2
@@ -143,7 +150,6 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     character*12                           :: ctaua
     logical                                :: linkinp
 !
-!
 !! executable statements -------------------------------------------------------
 !
     m_diff         => gdp%gdnfl%m_diff
@@ -159,6 +165,7 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
+    zmodel         => gdp%gdprocs%zmodel
     !
     write(c_inode(1:3),'(i3.3)') inode
     !
@@ -166,53 +173,49 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     rad2deg = 180.0_fp / pi
     deg2rad = pi / 180.0_fp
     tab     = char(9)
-    
+    allocate(dzs0_nm_amb(kmax), stat=ierror)
+    if (zmodel) then
+       dzs0_nm_amb = dzs0(nm_amb,:)
+    else
+       dzs0_nm_amb = -999.0_fp
+    endif
     !
     ! Read the general diffusor characteritics from cormix input file
     !
-    
     call n_and_m_to_nm(n_diff(idis)    , m_diff(idis)     , nm_diff  , gdp)
     call n_and_m_to_nm(n_diff(idis) - 1, m_diff(idis)     , ndm_diff , gdp)
     call n_and_m_to_nm(n_diff(idis)    , m_diff(idis) - 1 , nmd_diff , gdp)
     call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)      , nm_amb   , gdp)
     call n_and_m_to_nm(n_amb(idis)  - 1, m_amb(idis)      , ndm_amb  , gdp)
     call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)  - 1 , nmd_amb  , gdp)
-
     !
     ! Compute the depths
     !
-
     ha = s0(nm_amb)+real(dps(nm_amb),fp)
     hd = s0(nm_diff)+real(dps(nm_diff),fp)
-
     !
     ! Compute depth averaged velocity magnitude and direction
     !
-
     uuu = 0.0_fp  
     vvv = 0.0_fp
-
     do k = 1, kmax
        uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*thick(k)
        vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*thick(k)
     enddo
-
     umag = sqrt (uuu*uuu + vvv*vvv)
     taua = atan2(vvv,uuu)*rad2deg + alfas(nm_amb)
     taua = mod(taua + 360.0_fp,360.0_fp)
     ua   = umag
-
     !
     ! Density profile classification (Cormixtype)
     !
-
-    call determine_densprof(kmax      ,thick     ,s0(nm_amb),real(dps(nm_amb),fp),rho(nm_amb,:),ha        ,hd        , &
-                           &stype1    ,stype2    ,rhoam     ,rhoas               ,rhoab        ,hint      ,drohj     )
-
+    call determine_densprof(kmax           ,thick          ,s0(nm_amb)     ,real(dps(nm_amb),fp) ,rho(nm_amb,:) , &
+                          & ha             ,hd             ,stype1         ,stype2               ,rhoam         , &
+                          & rhoas          ,rhoab          ,hint           ,drohj                , &
+                          & kfsmn0(nm_amb) ,kfsmx0(nm_amb) ,dzs0_nm_amb    ,zmodel         )
     !
     ! Compute the density of the discharged water
     !
-
     sal  = s0_diff(idis)
     temp = t0_diff(idis)
     if (lsal /= 0) then
@@ -221,14 +224,12 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     else
        sal = saleqs
     endif
-
     if (ltem /= 0) then
        call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
        temp = temp + add
     else
        temp = temeqs
     endif
-
     select case (idensform)
        case( dens_Eckart )
           call dens_eck    (temp, sal ,rho0, dummy, dummy)
@@ -237,18 +238,14 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
        case( dens_NaClSol)
           call dens_nacl   (temp, sal ,rho0, dummy, dummy)
     end select
-
     !
     ! Write Cortime input file
     !
-
     luntmp = newlun(gdp)
     linkinp   = .true.
-
     do while (linkinp)
        inquire (file=trim(gdp%gdnfl%base_path)//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',exist=linkinp)
     enddo
-
     open (luntmp,file=trim(gdp%gdnfl%base_path)//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',status='new')
     write (luntmp,'(''CorTime v7.0'')')
     write (luntmp,'()')
@@ -264,11 +261,9 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
    &                              'D0'   , tab, 'B0'   , tab, 'H0'   , tab, 'PollTyp', tab, &
    &                              'L1Sub', tab, 'L1Den', tab, 'L2Sub', tab, 'L2Den'  , tab, &
    &                              'L3Sub', tab, 'L3Den', tab, 'Distb', tab, 'PHI'
-
     !
     ! Make character strings from all requested input
     !
-
     write (ctime (1:12),'(f12.3)') time/60.0_fp
     write (cha   (1:12),'(f12.3)') ha
     write (chd   (1:12),'(f12.3)') hd
@@ -292,26 +287,20 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
           cdrohj = '-'
        endif
     endif
-
     write (cq0   (1:12),'(f12.8)') q_diff(idis)
     write (crho0 (1:12),'(f12.3)') rho0
     write (ch0   (1:12),'(f12.3)') h0(idis)
     write (cd0   (1:12),'(f12.3)') d0(idis)
-
     !
     ! sigma0 given as direction relative to north in stead of main flow direction; 0, pointing to east, 90 pointing to north etc.
     ! ctaua is port direction relative to main flow direction
     !
-
     taua = mod(taua,360.0_fp)
-
     taurel = mod(sigma0(idis) - taua + 360.0_fp,360.0_fp)
     if (taurel > 179.0_fp .and. taurel < 181.0_fp) then
        taurel = 179.0_fp
     endif
-
     write (ctaua (1:12),'(f12.3)') taurel
-
     ctime = adjustl(ctime )
     cha   = adjustl(cha   )
     chd   = adjustl(chd   )
@@ -326,7 +315,6 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     ch0   = adjustl(ch0   )
     cd0   = adjustl(cd0   )
     ctaua = adjustl(ctaua )
-
     write (luntmp,'(27(a,a1),a)') trim(ctime)  , tab, trim(cha)    , tab, trim(chd)    , tab, trim(cua)      , tab, &
    &                              trim(stype1) , tab, trim(crhoam) , tab, trim(stype2) , tab, trim(crhoas)   , tab, &
    &                              trim(crhoab) , tab, trim(chint)  , tab, trim(cdrohj) , tab, trim(cq0)      , tab, &
@@ -334,7 +322,6 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
    &                              trim(cd0)    , tab, '-'          , tab, '-'          , tab, '-'            , tab, &
    &                              '-'          , tab, '-'          , tab, '-'          , tab, '-'            , tab, &
    &                              '-'          , tab, '-'          , tab, '-'          , tab, trim(ctaua)
-
     close (luntmp)
     !
     ! Store some general information to write to the plume trajectory file
@@ -346,4 +333,5 @@ subroutine wri_cortim(u0    ,v0    ,rho    ,thick  ,kmax   ,dps    ,&
     linkinf(5) = taua
     linkinf(6) = taurel
     !
+    deallocate(dzs0_nm_amb, stat=ierror)         
 end subroutine wri_cortim

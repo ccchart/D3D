@@ -123,22 +123,20 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           ! (Op verzoek van Robin uitgezet. Onttrekkening dus als normaal, ontkoppeld, onttrekkingspunt
           !
-       
-!         if (m_intake(idis) > 0) then
-!            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
-!            do lcon = 1, lstsci
-!               if (k_intake(idis) /=0) then
-!                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
-!                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
-!               else
-!                  do k = 1, kmax
-!                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
-!                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
-!                  enddo
-!               endif
-!            enddo
-!         endif
-       
+          !         if (m_intake(idis) > 0) then
+          !            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
+          !            do lcon = 1, lstsci
+          !               if (k_intake(idis) /=0) then
+          !                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
+          !                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
+          !               else
+          !                  do k = 1, kmax
+          !                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
+          !                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
+          !                  enddo
+          !               endif
+          !            enddo
+          !         endif
           !
           ! Fill sour array for difu
           ! Add total subtracted mass and initial discharge amount (sournf)
@@ -147,13 +145,13 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
              do k = 1, kmax
                 do nm = 1, nmmax
                    if (sournf(nm,k,lcon,idis) > 0.0_fp) then
-!                     if (disnf(nm,k,idis) < 0.0_fp) then
-!                        sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
-!                     else
-                         sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
+                      ! if (disnf(nm,k,idis) < 0.0_fp) then
+                      !    sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
+                      ! else
+                      sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
                                         & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
                                         & volum0(nm, k)
-!                     endif
+                      ! endif
                    endif
                 enddo
              enddo
@@ -162,7 +160,6 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           deallocate (total_mass)
           !
        enddo
-
     else
        !
        ! Z-model
@@ -187,28 +184,25 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 endif
              enddo
           enddo
-       
           !
           ! Fill sinks for coupled intake
           !
           ! (Op verzoek van Robin uitgezet. Onttrekkening dus als normaal, ontkoppeld, onttrekkingspunt
           !
-       
-!         if (m_intake(idis) > 0) then
-!            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
-!            do lcon = 1, lstsci
-!               if (k_intake(idis) /=0) then
-!                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
-!                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
-!               else
-!                  do k = 1, kmax
-!                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
-!                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
-!                  enddo
-!               endif
-!            enddo
-!         endif
-       
+          !         if (m_intake(idis) > 0) then
+          !            call n_and_m_to_nm(n_intake(idis), m_intake(idis), nm_intake, gdp)
+          !            do lcon = 1, lstsci
+          !               if (k_intake(idis) /=0) then
+          !                  sink(nm_intake, k_intake(idis), lcon) = sink(nm_intake, k_intake(idis), lcon) +             &
+          !                                                        & q_diff(idis)/volum1(nm_intake, k_intake(idis))
+          !               else
+          !                  do k = 1, kmax
+          !                     sink(nm_intake, k, lcon) = sink(nm_intake, k, lcon) +             &
+          !                                              & thick(k)*q_diff(idis)/volum1(nm_intake, k)
+          !                  enddo
+          !               endif
+          !            enddo
+          !         endif
           !
           ! Fill sour array for difu
           ! Add total subtracted mass and initial discharge amount (sournf)
@@ -217,13 +211,13 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
              do nm = 1, nmmax
                  do k = kfsmn0(nm), kfsmx0(nm)
                    if (sournf(nm,k,lcon,idis) > 0.0_fp) then
-!                     if (disnf(nm,k,idis) < 0.0_fp) then
-!                        sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
-!                     else
-                         sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
+                      ! if (disnf(nm,k,idis) < 0.0_fp) then
+                      !    sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
+                      ! else
+                      sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
                                         & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
                                         & volum0(nm, k)
-!                     endif
+                      ! endif
                    endif
                 enddo
              enddo
