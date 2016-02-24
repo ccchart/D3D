@@ -80,7 +80,7 @@ subroutine coupled (add     , r0, kmax, lstsci, lcon  , thick , m_intake, n_inta
              enddo
           else
              do k = kfsmn0(nm_intake), kfsmx0(nm_intake)
-                add = add + dzs0(nm_intake,k)*r0(nm_intake,k,lcon)/(s0(nm_intake)+real(dps(nm_intake),fp))
+                add = add + dzs0(nm_intake,k)*r0(nm_intake,k,lcon)/max(s0(nm_intake)+real(dps(nm_intake),fp),0.01_fp)
              enddo
           endif
        else

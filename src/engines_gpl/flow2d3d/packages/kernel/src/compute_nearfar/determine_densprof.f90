@@ -108,12 +108,12 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
         k0 = kfsmin_amb
         k1 = kfsmax_amb
         !
-        h1(k0)   = 0.5_fp * dzs0_amb(k0)
-        rhoa(k0) = rho(k0)
+        h1(k1)   = 0.5_fp * dzs0_amb(k1)
+        rhoa(k1) = rho(k1)
         !
-        do k = k0+1, k1
-           thck     = 0.5_fp * (dzs0_amb(k) + dzs0_amb(k-1))
-           h1 (k)   = h1(k-1) + thck*(s0 + dps)
+        do k = k1-1, k0, -1
+           thck     = 0.5_fp * (dzs0_amb(k) + dzs0_amb(k+1))
+           h1 (k)   = h1(k+1) + thck*(s0 + dps)
            rhoa (k) = rho(k)
         enddo
     endif
@@ -122,32 +122,66 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
     ! determine maxmimum density gradient and its location, but first,
     ! ensure stable density profile
     !
-    do k = k0, k1 - 1
-       if (rhoa(k) < rhoa(k+1)) then
-          rhoa(k+1) = rhoa(k)
-        endif
-    enddo
-    !
-    maxgrad = -1.0e36_fp
-    do k = k0, k1 - 1
-       dengra = (rhoa(k) - rhoa(k+1))
-       if (dengra > maxgrad) then
-          maxgrad = dengra
-          kgrad   = k
-       endif
-    enddo
-    !
-    ! Determine Profile type C parameters
-    !
-    rhoab = rhoa(1)
-    rhoas = 0.0_fp
-    !
-    do k = kgrad + 1, k1
-       rhoas = rhoas + rhoa(k)/(k1 - kgrad)
-    enddo
-    !
-    hint  = 0.5_fp*(h1(kgrad + 1) + h1 (kgrad))
-    drohj = min(rhoa(kgrad) - rhoa(kgrad + 1), (rhoab - rhoas)-0.01_fp)
+    if (.not. zmodel) then
+       do k = k0, k1 - 1
+          if (rhoa(k) < rhoa(k+1)) then
+             rhoa(k+1) = rhoa(k)
+           endif
+       enddo
+       !
+       maxgrad = -1.0e36_fp
+       do k = k0, k1 - 1
+          dengra = (rhoa(k) - rhoa(k+1))
+          if (dengra > maxgrad) then
+             maxgrad = dengra
+             kgrad   = k
+          endif
+       enddo
+       !
+       ! Determine Profile type C parameters
+       !
+       rhoab = rhoa(k0)
+       rhoas = 0.0_fp
+       !
+       do k = kgrad + 1, k1
+          rhoas = rhoas + rhoa(k)/(k1 - kgrad)
+       enddo
+       !
+       hint  = 0.5_fp*(h1(kgrad + 1) + h1 (kgrad))
+       drohj = min(rhoa(kgrad) - rhoa(kgrad + 1), (rhoab - rhoas)-0.01_fp)
+       !
+    else
+       !
+       ! Z-model
+       !
+       do k = k1, k0 + 1,-1
+          if (rhoa(k) < rhoa(k-1)) then
+             rhoa(k-1) = rhoa(k)
+           endif
+       enddo        
+       !
+       maxgrad = -1.0e36_fp
+       do k = k1, k0 + 1, -1
+          dengra = (rhoa(k) - rhoa(k-1))
+          if (dengra > maxgrad) then
+             maxgrad = dengra
+             kgrad   = k
+          endif
+       enddo
+       !
+       ! Determine Profile type C parameters
+       !
+       rhoab = rhoa(k1)
+       rhoas = 0.0_fp
+       !
+       do k = kgrad - 1, k0, -1
+          rhoas = rhoas + rhoa(k)/(kgrad-k0)
+       enddo
+       !
+       hint  = 0.5_fp*(h1(kgrad - 1) + h1 (kgrad))
+       drohj = min(rhoa(kgrad) - rhoa(kgrad - 1), (rhoab - rhoas)-0.01_fp)
+       !
+    endif
     !
     ! Adjust hint such that it is accepted by cormix
     !
@@ -161,30 +195,59 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
     !
     ! Determine profile type
     !
-    d_diff = rhoa(1) - rhoa(kmax)
-    if (d_diff < 0.2_fp) then
-       stype1 = 'U'
-       rhoam = 0.0_fp
-       if (.not. zmodel) then
-          do k = k0, k1
-             rhoam = rhoam + rho(k)*thick(k)
-          enddo
+    if (.not. zmodel) then
+       d_diff = rhoa(1) - rhoa(kmax)
+       if (d_diff < 0.2_fp) then
+          stype1 = 'U'
+          rhoam = 0.0_fp
+          if (.not. zmodel) then
+             do k = k0, k1
+                rhoam = rhoam + rho(k)*thick(k)
+             enddo
+          else
+             do k = k0, k1
+                rhoam = rhoam + rho(k)*dzs0_amb(k)/max(s0 + dps,0.01_fp)
+             enddo
+          endif
        else
-          do k = k0, k1
-             rhoam = rhoam + rho(k)*dzs0_amb(k)/(s0 + dps)
-          enddo
+          stype1 = 'S'
+          if (maxgrad < 0.5_fp*d_diff) then
+             rhoas  = rho(k0)
+             rhoab  = rho(k1)
+             stype2 = 'A'
+          else
+             stype2 = 'C'
+          endif
        endif
     else
-       stype1 = 'S'
-       if (maxgrad < 0.5_fp*d_diff) then
-          rhoas  = rho(k0)
-          rhoab  = rho(k1)
-          stype2 = 'A'
+       !
+       ! Z-model
+       !
+       d_diff = rhoa(k1) - rhoa(k0)
+       if (d_diff < 0.2_fp) then
+          stype1 = 'U'
+          rhoam = 0.0_fp
+          if (.not. zmodel) then
+             do k = k0, k1
+                rhoam = rhoam + rho(k)*thick(k)
+             enddo
+          else
+             do k = k0, k1
+                rhoam = rhoam + rho(k)*dzs0_amb(k)/max(s0 + dps,0.01_fp)
+             enddo
+          endif
        else
-          stype2 = 'C'
+          stype1 = 'S'
+          if (maxgrad < 0.5_fp*d_diff) then
+             rhoas  = rho(k1)
+             rhoab  = rho(k0)
+             stype2 = 'A'
+          else
+             stype2 = 'C'
+          endif
        endif
     endif
-    
+    !
     deallocate (h1   )
     deallocate (rhoa )
 

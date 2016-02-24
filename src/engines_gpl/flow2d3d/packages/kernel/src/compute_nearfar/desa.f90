@@ -312,7 +312,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           !
           do iidis = 1, no_dis
              nmdis = nm_dis(iidis)
-             hhi = 1.0_fp / (s0(nmdis) + real(dps(nmdis),fp))
+             hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
              do k = k_end_top, k_end_down
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + weight(iidis)*dzs0(nmdis,k)*hhi
@@ -321,10 +321,10 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           enddo
           do iidis = 1, no_dis
              nmdis = nm_dis(iidis)
-             hhi = 1.0_fp / (s0(nmdis) + real(dps(nmdis),fp))
+             hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
              do k = k_end_top, k_end_down
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
-                   disnf    (nm_dis(iidis),k,idis)         = disnf(nmdis,k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                   disnf    (nmdis,k,idis)         = disnf(nmdis,k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
                    !
                    if (lsal /= 0) then
                       call coupled (add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
@@ -343,7 +343,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
                          !
                          ! Background temerature: discharge with the temeprature last time step in discharge point
                          !
-                         sournf (nmdis, k, lcon,idis) = q_diff(idis) * max(r0(nm_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
+                         sournf (nmdis, k, lcon,idis) = q_diff(idis) * max(r0(nmdis,k,lcon),eps_conc)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
                       else
                          sournf (nmdis, k, lcon,idis) = 1.0_fp*q_diff(idis)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
                       endif
@@ -352,8 +352,6 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
              enddo
           enddo
        endif
-       !
-
        !
        deallocate(nm_dis)
        !

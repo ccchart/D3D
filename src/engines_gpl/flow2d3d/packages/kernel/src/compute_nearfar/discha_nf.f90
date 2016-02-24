@@ -97,7 +97,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        !
        ! Sigma-model
        !
-       do  idis = 1, no_dis
+       do idis = 1, no_dis
           allocate (total_mass(lstsci))
           !
           total_mass  = 0.0_fp
@@ -164,7 +164,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        !
        ! Z-model
        !
-       do  idis = 1, no_dis
+       do idis = 1, no_dis
           allocate (total_mass(lstsci))
           !
           total_mass  = 0.0_fp
@@ -178,7 +178,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 if (disnf(nm,k,idis) < 0.0_fp) then
                    do lcon = 1,lstsci
                       sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                        & disnf(nm,k,idis)/volum1(nm, k)
+                                        & disnf(nm,k,idis)/volum0(nm, k)
                       total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
