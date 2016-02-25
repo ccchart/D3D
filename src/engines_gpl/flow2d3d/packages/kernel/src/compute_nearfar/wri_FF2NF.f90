@@ -161,12 +161,6 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     rad2deg = 180.0_fp / pi
     deg2rad = pi / 180.0_fp
     tab     = char(9)
-    allocate(dzs0_nm_amb(kmax), stat=ierror)
-    if (zmodel) then
-       dzs0_nm_amb = dzs0(nm_amb,:)
-    else
-       dzs0_nm_amb = -999.0_fp
-    endif
     !
     ! Read the general diffusor characteritics from cormix input file
     !
@@ -176,6 +170,13 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)      , nm_amb   , gdp)
     call n_and_m_to_nm(n_amb(idis)  - 1, m_amb(idis)      , ndm_amb  , gdp)
     call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)  - 1 , nmd_amb  , gdp)
+    !
+    allocate(dzs0_nm_amb(kmax), stat=ierror)
+    if (zmodel) then
+       dzs0_nm_amb = dzs0(nm_amb,:)
+    else
+       dzs0_nm_amb = -999.0_fp
+    endif
     !
     ! Compute the depths
     !

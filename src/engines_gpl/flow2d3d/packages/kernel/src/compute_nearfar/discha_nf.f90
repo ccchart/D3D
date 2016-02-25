@@ -178,7 +178,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 if (disnf(nm,k,idis) < 0.0_fp) then
                    do lcon = 1,lstsci
                       sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                        & disnf(nm,k,idis)/volum1(nm, k)
+                                        & disnf(nm,k,idis) !/volum1(nm, k)
                       total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
@@ -215,8 +215,8 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                       !    sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
                       ! else
                       sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
-                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
-                                        & volum0(nm, k)
+                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot) !/&
+                                        !& volum0(nm, k)
                       ! endif
                    endif
                 enddo

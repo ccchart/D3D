@@ -96,37 +96,30 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
     !
     k_jet   = 0
     !
-    ! Is this correct?? Seems as if z_jet is relative to the bed
+    ! Is this correct?? Water level can be negative or zero..
+    ! Should it not be the depth?
     !
-    r_boven = real(dps(nm_jet),fp) + s1(nm_jet)
+    r_boven = -1.0_fp * s1(nm_jet)
     if (.not. zmodel) then
-       if (z_jet >= r_boven) then
-          k_jet = 1
-       else
-          do k = 1, kmax - 1
-             r_onder = r_boven - thick(k)*(real(dps(nm_jet),fp) + s1(nm_jet))
-             if (z_jet <= r_boven .and. z_jet >= r_onder) then
-                k_jet = k
-                exit
-             endif
-             r_boven = r_onder
-          enddo
-          if (k_jet == 0) k_jet = kmax
-       endif
+       do k = 1, kmax - 1
+          r_onder = r_boven + thick(k)*(real(dps(nm_jet),fp) + s1(nm_jet))
+          if (z_jet < r_onder) then
+             k_jet = k
+             exit
+          endif
+          r_boven = r_onder
+       enddo
+       if (k_jet == 0) k_jet = kmax
     else
-       if (z_jet >= r_boven) then
-          k_jet = kfsmx0(nm_jet)
-       else
-          do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1,-1
-             r_onder = r_boven - dzs0(nm_jet,k)
-             if (z_jet < r_boven .and. z_jet >= r_onder) then
-                k_jet = k
-                exit
-             endif
-             r_boven = r_onder
-          enddo
-          if (k_jet == 0) k_jet = kfsmn0(nm_jet)
-       endif
+       do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1,-1
+          r_onder = r_boven + dzs0(nm_jet,k)
+          if (z_jet < r_onder) then
+             k_jet = k
+             exit
+          endif
+          r_boven = r_onder
+       enddo
+       if (k_jet == 0) k_jet = kfsmn0(nm_jet)
     endif
     !
 end subroutine findnmk

@@ -492,7 +492,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
        do nm = 1, nmmax
           do k = kfsmn0(nm), kfsmx0(nm)
              do idis = 1, no_dis
-                d0k(nm,k) = d0k(nm,k) + disnf(nm,k,idis)
+                d0k(nm,k) = d0k(nm,k) + disnf(nm,k,idis)/gsqs(nm)
              enddo
           enddo
        enddo
