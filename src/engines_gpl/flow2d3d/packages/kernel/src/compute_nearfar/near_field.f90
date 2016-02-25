@@ -96,6 +96,7 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0   !  Description and declaration in esm_alloc_int.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: alfas    !
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: s0       !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: s1       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: xz       !  Description and declaration in
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: yz       !  Description and declaration in
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: dzs0     !  Description and declaration in esm_alloc_real.f90
@@ -105,7 +106,6 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci) , intent(in)  :: r0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(kmax)                               , intent(in)  :: thick    !  Description and declaration in esm_alloc_real.f90
     real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: dps      !  Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: s1       !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
 !
@@ -216,10 +216,10 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
              !
              ! Wait for the Cortime simulation to end (use existance of output file as indicator)
              !
- !            corend   = .false.
- !            do while (.not. corend)
- !               inquire (file=filename(2),exist=corend)
- !            enddo
+             !            corend   = .false.
+             !            do while (.not. corend)
+             !               inquire (file=filename(2),exist=corend)
+             !            enddo
              !
              ! Finally convert cortime results to flow input
              !
@@ -275,44 +275,41 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
                            & linkinf ,kfsmn0  ,kfsmx0  ,dzs0    ,gdp     )
                enddo
                !
-!          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
-!          do idis = 1,size(discharges)
-!              write(*,*) discharges(idis)%name
-!          enddo 
-!          
-!          
-!          write(cctime,'(f14.3)') time/60.0_fp
-!          file_nf_inp = discharges(idis)%inputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledinp'
-!          file_nf_out = discharges(idis)%outputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledout'
-!
-!
-!
-!
-!          do idis = 1, no_dis
-!
-!             !
-!             ! Convert flow results to input for nearfield model andwait for near field simulation
-!             ! to be finished
-!             !
-!
-!             call wri_nf_inp(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
-!                           & s0    ,alfas ,time  ,taua         ,r0     , &
-!                           & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
-!                           & temeqs,idis  ,file_nf_inp         ,linkinf, &
-!                           & discharges, gdp   )
-!                           !(file_nf_inp, ?????????????)
-!                           
-!             call wait_until_finished(file_nf_out)
-!             call nf_2_flow          (file_nf_out,x_jet,y_jet,z_jet,s_jet,bh_jet,bv_jet)
-!
-!             call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
-!            &               kcs     ,xz       ,yz      ,dps     ,s0      , &
-!            &               nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-!            &               ltem    ,bv_jet  ,bh_jet   ,idis    ,r0      , &
-!            &               gdp     )
-
-
-   
+               !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
+               !          do idis = 1,size(discharges)
+               !              write(*,*) discharges(idis)%name
+               !          enddo 
+               !          
+               !          
+               !          write(cctime,'(f14.3)') time/60.0_fp
+               !          file_nf_inp = discharges(idis)%inputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledinp'
+               !          file_nf_out = discharges(idis)%outputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledout'
+               !
+               !
+               !
+               !
+               !          do idis = 1, no_dis
+               !
+               !             !
+               !             ! Convert flow results to input for nearfield model andwait for near field simulation
+               !             ! to be finished
+               !             !
+               !
+               !             call wri_nf_inp(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
+               !                           & s0    ,alfas ,time  ,taua         ,r0     , &
+               !                           & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
+               !                           & temeqs,idis  ,file_nf_inp         ,linkinf, &
+               !                           & discharges, gdp   )
+               !                           !(file_nf_inp, ?????????????)
+               !                           
+               !             call wait_until_finished(file_nf_out)
+               !             call nf_2_flow          (file_nf_out,x_jet,y_jet,z_jet,s_jet,bh_jet,bv_jet)
+               !
+               !             call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
+               !            &               kcs     ,xz       ,yz      ,dps     ,s0      , &
+               !            &               nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
+               !            &               ltem    ,bv_jet  ,bh_jet   ,idis    ,r0      , &
+               !            &               gdp     )
        case ('jet3d')
           !
           ! Convert flow results to input for jet3d and write to input file
