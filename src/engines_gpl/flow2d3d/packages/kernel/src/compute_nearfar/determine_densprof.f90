@@ -200,15 +200,9 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
        if (d_diff < 0.2_fp) then
           stype1 = 'U'
           rhoam = 0.0_fp
-          if (.not. zmodel) then
-             do k = k0, k1
-                rhoam = rhoam + rho(k)*thick(k)
-             enddo
-          else
-             do k = k0, k1
-                rhoam = rhoam + rho(k)*dzs0_amb(k)/max(s0 + dps,0.01_fp)
-             enddo
-          endif
+          do k = k0, k1
+             rhoam = rhoam + rho(k)*thick(k)
+          enddo
        else
           stype1 = 'S'
           if (maxgrad < 0.5_fp*d_diff) then
@@ -227,15 +221,9 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
        if (d_diff < 0.2_fp) then
           stype1 = 'U'
           rhoam = 0.0_fp
-          if (.not. zmodel) then
-             do k = k0, k1
-                rhoam = rhoam + rho(k)*thick(k)
-             enddo
-          else
-             do k = k0, k1
-                rhoam = rhoam + rho(k)*dzs0_amb(k)/max(s0 + dps,0.01_fp)
-             enddo
-          endif
+          do k = k0, k1
+             rhoam = rhoam + rho(k)*dzs0_amb(k)/max(s0 + dps,0.01_fp)
+          enddo
        else
           stype1 = 'S'
           if (maxgrad < 0.5_fp*d_diff) then
