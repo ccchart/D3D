@@ -313,7 +313,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           do iidis = 1, no_dis
              nmdis = nm_dis(iidis)
              hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
-             do k = k_end_top, k_end_down
+             do k = k_end_top, k_end_down, -1
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + weight(iidis)*dzs0(nmdis,k)*hhi
                 endif
@@ -322,7 +322,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           do iidis = 1, no_dis
              nmdis = nm_dis(iidis)
              hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
-             do k = k_end_top, k_end_down
+             do k = k_end_top, k_end_down, -1
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
                    disnf    (nmdis,k,idis)         = disnf(nmdis,k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
                    !
