@@ -98,6 +98,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
 !
 ! Local variables
 !
+    integer                              :: ierror
     integer                              :: irow
     integer                              :: idum
     integer                              :: iidis
@@ -237,8 +238,8 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        ! Determine grid cell numbers over which to distribute the diluted discharge
        !
-       allocate (nm_dis(1000))
-       allocate (weight(1000))
+       allocate (nm_dis(1000), stat=ierror)
+       allocate (weight(1000), stat=ierror)
        nm_dis   = 0
        weight   = 0.0_fp
        no_dis   = 1
@@ -353,7 +354,8 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           enddo
        endif
        !
-       deallocate(nm_dis)
+       deallocate(nm_dis, stat=ierror)
+       deallocate(weight, stat=ierror)
        !
     endif
 end subroutine desa

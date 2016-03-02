@@ -72,6 +72,7 @@ subroutine cormix2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
 !
 ! Local variables
 !
+    integer                                     :: ierror
     integer                                     :: nm_diff
     integer                      , external     :: newlun
     integer                                     :: luntmp
@@ -97,10 +98,10 @@ subroutine cormix2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
     t0_diff        => gdp%gdnfl%t0_diff
     s0_diff        => gdp%gdnfl%s0_diff
     !
-    allocate (x_jet(1000))
-    allocate (y_jet(1000))
-    allocate (z_jet(1000))
-    allocate (s_jet(1000))
+    allocate (x_jet(1000), stat=ierror)
+    allocate (y_jet(1000), stat=ierror)
+    allocate (z_jet(1000), stat=ierror)
+    allocate (s_jet(1000), stat=ierror)
     !
     call n_and_m_to_nm(n_diff(1), m_diff(1), nm_diff, gdp)
     !
@@ -149,10 +150,10 @@ subroutine cormix2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
     !
     ! Deallocate temporary arrays
     !
-    deallocate (x_jet)
-    deallocate (y_jet)
-    deallocate (z_jet)
-    deallocate (s_jet)
+    deallocate (x_jet, stat=ierror)
+    deallocate (y_jet, stat=ierror)
+    deallocate (z_jet, stat=ierror)
+    deallocate (s_jet, stat=ierror)
     !
     close(luntmp)
 end subroutine cormix2flow

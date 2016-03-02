@@ -67,6 +67,7 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
 !
 ! Local variables
 !
+    integer                                :: ierror
     integer                                :: k
     integer                                :: k0
     integer                                :: k1
@@ -78,12 +79,11 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
     real(fp) , dimension(:) , allocatable  :: h1
     real(fp) , dimension(:) , allocatable  :: rhoa
 !
-!
 !! executable statements -------------------------------------------------------
 !
     !
-    allocate (h1   (kmax) )
-    allocate (rhoa (kmax) )
+    allocate (h1   (kmax), stat=ierror)
+    allocate (rhoa (kmax), stat=ierror)
     h1   = 0.0_fp
     rhoa = 0.0_fp
     !
@@ -236,7 +236,7 @@ subroutine determine_densprof(kmax       ,thick      ,s0       ,dps    ,rho     
        endif
     endif
     !
-    deallocate (h1   )
-    deallocate (rhoa )
+    deallocate (h1  , stat=ierror)
+    deallocate (rhoa, stat=ierror)
 
 end subroutine determine_densprof

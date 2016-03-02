@@ -71,6 +71,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 !
 ! Local variables
 !
+    integer                               :: ierror
     integer                               :: idis
     integer                               :: nm
     integer                               :: lcon
@@ -98,7 +99,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        ! Sigma-model
        !
        do idis = 1, no_dis
-          allocate (total_mass(lstsci))
+          allocate (total_mass(lstsci), stat=ierror)
           !
           total_mass  = 0.0_fp
           q_tot       = 0.0_fp
@@ -157,7 +158,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
              enddo
           enddo
           !
-          deallocate (total_mass)
+          deallocate (total_mass, stat=ierror)
           !
        enddo
     else
@@ -165,7 +166,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        ! Z-model
        !
        do idis = 1, no_dis
-          allocate (total_mass(lstsci))
+          allocate (total_mass(lstsci), stat=ierror)
           !
           total_mass  = 0.0_fp
           q_tot       = 0.0_fp
@@ -223,7 +224,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
              enddo
           enddo
           !
-          deallocate (total_mass)
+          deallocate (total_mass, stat=ierror)
           !
        enddo
     endif

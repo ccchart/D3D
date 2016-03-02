@@ -74,6 +74,7 @@ subroutine jet3d2flow(thick  ,kmax   ,dps    ,s0     ,r0       ,          &
 !
 ! Local variables
 !
+    integer                                  :: ierror
     integer                                  :: irow
     integer                   , external     :: newlun
     integer                                  :: nm_diff
@@ -112,13 +113,13 @@ subroutine jet3d2flow(thick  ,kmax   ,dps    ,s0     ,r0       ,          &
     !
     read (luntmp,*) nrow
     !
-    allocate (x_jet(nrow))
-    allocate (y_jet(nrow))
-    allocate (z_jet(nrow))
-    allocate (b_jet(nrow))
-    allocate (h_jet(nrow))
-    allocate (s_jet(nrow))
-    allocate (v_jet(nrow))
+    allocate (x_jet(nrow), stat=ierror)
+    allocate (y_jet(nrow), stat=ierror)
+    allocate (z_jet(nrow), stat=ierror)
+    allocate (b_jet(nrow), stat=ierror)
+    allocate (h_jet(nrow), stat=ierror)
+    allocate (s_jet(nrow), stat=ierror)
+    allocate (v_jet(nrow), stat=ierror)
 
     x_jet = 0.0_fp
     y_jet = 0.0_fp
@@ -170,13 +171,13 @@ subroutine jet3d2flow(thick  ,kmax   ,dps    ,s0     ,r0       ,          &
     !
     ! Deallocate temporary arrays
     !
-    deallocate (x_jet)
-    deallocate (y_jet)
-    deallocate (z_jet)
-    deallocate (b_jet)
-    deallocate (h_jet)
-    deallocate (s_jet)
-    deallocate (v_jet)
+    deallocate (x_jet, stat=ierror)
+    deallocate (y_jet, stat=ierror)
+    deallocate (z_jet, stat=ierror)
+    deallocate (b_jet, stat=ierror)
+    deallocate (h_jet, stat=ierror)
+    deallocate (s_jet, stat=ierror)
+    deallocate (v_jet, stat=ierror)
     !
 999 continue
     !

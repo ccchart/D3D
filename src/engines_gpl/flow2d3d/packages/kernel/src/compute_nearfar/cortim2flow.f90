@@ -74,6 +74,7 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
 !
 ! Local variables
 !
+    integer                                     :: ierror
     integer                                     :: nm_diff
     integer                      , external     :: newlun
     integer                                     :: no_modules
@@ -130,21 +131,21 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
     call cortim_no_modules (luntmp,no_modules,nrow)
     rewind luntmp
 
-    allocate (x_cor   (nrow))
-    allocate (y_cor   (nrow))
-    allocate (z_cor   (nrow))
-    allocate (s_cor   (nrow))
-    allocate (bv_cor  (nrow))
-    allocate (bh_cor  (nrow))
-    allocate (v_cor   (nrow))
-    allocate (x_jet   (nrow))
-    allocate (y_jet   (nrow))
-    allocate (z_jet   (nrow))
-    allocate (s_jet   (nrow))
-    allocate (bv_jet  (nrow))
-    allocate (bh_jet  (nrow))
-    allocate (modules (no_modules))
-    allocate (modstart(no_modules))
+    allocate (x_cor   (nrow), stat=ierror)
+    allocate (y_cor   (nrow), stat=ierror)
+    allocate (z_cor   (nrow), stat=ierror)
+    allocate (s_cor   (nrow), stat=ierror)
+    allocate (bv_cor  (nrow), stat=ierror)
+    allocate (bh_cor  (nrow), stat=ierror)
+    allocate (v_cor   (nrow), stat=ierror)
+    allocate (x_jet   (nrow), stat=ierror)
+    allocate (y_jet   (nrow), stat=ierror)
+    allocate (z_jet   (nrow), stat=ierror)
+    allocate (s_jet   (nrow), stat=ierror)
+    allocate (bv_jet  (nrow), stat=ierror)
+    allocate (bh_jet  (nrow), stat=ierror)
+    allocate (modules (no_modules), stat=ierror)
+    allocate (modstart(no_modules), stat=ierror)
 
     !
     ! Read cormix jet/plume trajectory and belonging characteristics
@@ -201,20 +202,20 @@ subroutine cortim2flow(thick  ,kmax  ,dps   ,s0    ,r0       ,          &
     ! Deallocate temporary arrays
     !
 
-    deallocate (x_cor)
-    deallocate (y_cor)
-    deallocate (z_cor)
-    deallocate (s_cor)
-    deallocate (bv_cor)
-    deallocate (bh_cor)
-    deallocate (v_cor)
-    deallocate (x_jet)
-    deallocate (y_jet)
-    deallocate (z_jet)
-    deallocate (s_jet)
-    deallocate (bv_jet)
-    deallocate (bh_jet)
-    deallocate (modules)
-    deallocate (modstart)
+    deallocate (x_cor, stat=ierror)
+    deallocate (y_cor, stat=ierror)
+    deallocate (z_cor, stat=ierror)
+    deallocate (s_cor, stat=ierror)
+    deallocate (bv_cor, stat=ierror)
+    deallocate (bh_cor, stat=ierror)
+    deallocate (v_cor, stat=ierror)
+    deallocate (x_jet, stat=ierror)
+    deallocate (y_jet, stat=ierror)
+    deallocate (z_jet, stat=ierror)
+    deallocate (s_jet, stat=ierror)
+    deallocate (bv_jet, stat=ierror)
+    deallocate (bh_jet, stat=ierror)
+    deallocate (modules, stat=ierror)
+    deallocate (modstart, stat=ierror)
     !
 end subroutine cortim2flow
