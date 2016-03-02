@@ -1,7 +1,7 @@
 subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
                     & s0       ,alfas    ,time      ,taua   ,r0     ,lstsci , &
                     & lsal     ,ltem     ,idensform ,saleqs ,temeqs ,idis   , &
-                    & filename ,s1        ,xz     ,yz     , &
+                    & filename ,s1       ,xz        ,yz     , &
                     & kfsmn0   ,kfsmx0   ,dzs0      ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !

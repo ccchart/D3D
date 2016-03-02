@@ -164,6 +164,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     else
        !
        ! Z-model
+       ! Note that for the z-model, the sinks are not divided by the volume!
        !
        do idis = 1, no_dis
           allocate (total_mass(lstsci), stat=ierror)
@@ -207,6 +208,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           ! Fill sour array for difu
           ! Add total subtracted mass and initial discharge amount (sournf)
+          ! Note that for the z-model, the sources are not divided by the volume!
           !
           do lcon = 1,lstsci
              do nm = 1, nmmax

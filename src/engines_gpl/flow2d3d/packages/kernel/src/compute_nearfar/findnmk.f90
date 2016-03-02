@@ -96,8 +96,10 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
     !
     k_jet   = 0
     !
-    ! Is this correct?? Water level can be negative or zero..
-    ! Should it not be the depth?
+    ! Note that for sigma-models the layer k is from the top downwards,
+    ! whereas for z-models, it is from the bottom upwards
+    ! This results in reversed loops at the end of desa.f90
+    ! i.e stil from k_end_top to k_end_down, but with a -1 step size    
     !
     r_boven = -1.0_fp * s1(nm_jet)
     if (.not. zmodel) then
