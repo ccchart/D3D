@@ -100,10 +100,8 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        !
        do idis = 1, no_dis
           allocate (total_mass(lstsci), stat=ierror)
-          !
           total_mass  = 0.0_fp
           q_tot       = 0.0_fp
-          !
           do k = 1, kmax
              do nm = 1, nmmax
                 if (disnf(nm,k,idis) > 0.0_fp) then
@@ -118,7 +116,6 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 endif
              enddo
           enddo
-       
           !
           ! Fill sinks for coupled intake
           !
@@ -146,13 +143,9 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
              do k = 1, kmax
                 do nm = 1, nmmax
                    if (sournf(nm,k,lcon,idis) > 0.0_fp) then
-                      ! if (disnf(nm,k,idis) < 0.0_fp) then
-                      !    sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
-                      ! else
                       sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
                                         & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
                                         & volum0(nm, k)
-                      ! endif
                    endif
                 enddo
              enddo
@@ -164,7 +157,6 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     else
        !
        ! Z-model
-       ! Note that for the z-model, the sinks are not divided by the volume!
        !
        do idis = 1, no_dis
           allocate (total_mass(lstsci), stat=ierror)
@@ -179,8 +171,8 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 endif
                 if (disnf(nm,k,idis) < 0.0_fp) then
                    do lcon = 1,lstsci
-                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                        & disnf(nm,k,idis) !/volum1(nm, k)
+                      ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
+                      sink(nm, k, lcon) = sink(nm,k,lcon) - disnf(nm,k,idis)
                       total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
@@ -208,26 +200,18 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           ! Fill sour array for difu
           ! Add total subtracted mass and initial discharge amount (sournf)
-          ! Note that for the z-model, the sources are not divided by the volume!
           !
           do lcon = 1,lstsci
              do nm = 1, nmmax
                  do k = kfsmn0(nm), kfsmx0(nm)
-                   if (sournf(nm,k,lcon,idis) > 0.0_fp) then
-                      ! if (disnf(nm,k,idis) < 0.0_fp) then
-                      !    sour(nm,k,lcon) = sour(nm,k,lcon) + sournf(nm,k,lcon,idis)/volum0(nm,k)
-                      ! else
+                      ! Note that for the z-model, the sources are not divided by the volume!
                       sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
-                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot) !/&
-                                        !& volum0(nm, k)
-                      ! endif
+                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)
                    endif
                 enddo
              enddo
           enddo
-          !
           deallocate (total_mass, stat=ierror)
-          !
        enddo
     endif
 end subroutine discha_nf
