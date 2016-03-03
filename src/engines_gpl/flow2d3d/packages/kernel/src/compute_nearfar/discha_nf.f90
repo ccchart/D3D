@@ -204,6 +204,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           do lcon = 1,lstsci
              do nm = 1, nmmax
                  do k = kfsmn0(nm), kfsmx0(nm)
+                   if (sournf(nm,k,lcon,idis) > 0.0_fp) then
                       ! Note that for the z-model, the sources are not divided by the volume!
                       sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
                                         & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)
