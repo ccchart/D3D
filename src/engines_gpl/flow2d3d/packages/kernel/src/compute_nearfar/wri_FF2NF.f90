@@ -163,6 +163,9 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     tab     = char(9)
     !
     ! Read the general diffusor characteritics from cormix input file
+    ! Parallel: the nm_diff, etc. will be local values for this partition
+    ! or this should only be done by a the master process with the global cell indices
+    ! The nmd and ndm are only one cell away and should thus be available for each partition
     !
     call n_and_m_to_nm(n_diff(idis)    , m_diff(idis)     , nm_diff  , gdp)
     call n_and_m_to_nm(n_diff(idis) - 1, m_diff(idis)     , ndm_diff , gdp)
@@ -279,6 +282,8 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     write (ctaua (1:12),'(f12.3)') taurel
     !
     ! write data to matlab tab delimited
+    ! FOR PARALLEL RUNS: should the writing be done by one process only,
+    ! or can each partition write its own file with c_inode identifier?
     !
     luntmp = newlun(gdp)
     open (luntmp,file=trim(filename(1)),status='new')

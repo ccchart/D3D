@@ -93,6 +93,9 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     !
     ! Fill sinks for difu
     ! Determine total subtracted mass for negative discharges
+    ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
+    ! and of the total mass per constituent and per diffusor idis for all points.
+    ! This requires an allreduce for parallel runs or the summation must be done previously and stored
     !
     if (.not. zmodel) then
        !

@@ -236,80 +236,80 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
           ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
           ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
           !    
-                call corinp_gen2(idensform,gdp)
-                !
-                ! Convert flow results to input for cormix and write to input file
-                !
-                write(cctime,'(f14.3)') time/60.0_fp
-                !
-                do idis = 1, no_dis
-                   !
-                   ! Add SubGridModel number to filename to prevent overwriting
-                   !
-                   write(c_idis,'(i3.3)') idis
-                   !
-                   filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                   filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                   filename(3) =trim(basecase(idis,1))
-                   !
-                   ! You should get the filenames (the dirs) from the COSUMOsettings.xml
-                   !
-                   call wri_FF2NF(u0       ,v0      ,rho       ,thick  ,kmax   ,dps    , &
-                                & s0       ,alfas   ,time      ,taua   ,r0     ,lstsci , &
-                                & lsal     ,ltem    ,idensform ,saleqs ,temeqs ,idis   , &
-                                & filename ,s1        ,xz     ,yz     , &
-                                & kfsmn0   ,kfsmx0  ,dzs0      ,gdp    )
-                   !
-                   call wait_until_finished(filename(2),gdp)
-                   !
-                   no_val=size(x_jet)
-                   call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
-                   !
-                   ! Fill sources and sinks following the Desa Method of Prof. Lee
-                   !
-                   call desa(x_jet   ,y_jet   ,z_jet   ,s_jet   ,no_val  , &
-                           & kcs     ,xz      ,yz      ,dps     ,s0      , &
-                           & nmmax   ,thick   ,kmax    ,lstsci  ,lsal    , &
-                           & ltem    ,h_jet   ,b_jet   ,idis    , &
-                           & xstart  ,xend    ,ystart  ,yend    ,r0      , &
-                           & linkinf ,kfsmn0  ,kfsmx0  ,dzs0    ,gdp     )
-               enddo
-               !
-               !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
-               !          do idis = 1,size(discharges)
-               !              write(*,*) discharges(idis)%name
-               !          enddo 
-               !          
-               !          
-               !          write(cctime,'(f14.3)') time/60.0_fp
-               !          file_nf_inp = discharges(idis)%inputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledinp'
-               !          file_nf_out = discharges(idis)%outputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledout'
-               !
-               !
-               !
-               !
-               !          do idis = 1, no_dis
-               !
-               !             !
-               !             ! Convert flow results to input for nearfield model andwait for near field simulation
-               !             ! to be finished
-               !             !
-               !
-               !             call wri_nf_inp(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
-               !                           & s0    ,alfas ,time  ,taua         ,r0     , &
-               !                           & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
-               !                           & temeqs,idis  ,file_nf_inp         ,linkinf, &
-               !                           & discharges, gdp   )
-               !                           !(file_nf_inp, ?????????????)
-               !                           
-               !             call wait_until_finished(file_nf_out)
-               !             call nf_2_flow          (file_nf_out,x_jet,y_jet,z_jet,s_jet,bh_jet,bv_jet)
-               !
-               !             call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
-               !            &               kcs     ,xz       ,yz      ,dps     ,s0      , &
-               !            &               nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-               !            &               ltem    ,bv_jet  ,bh_jet   ,idis    ,r0      , &
-               !            &               gdp     )
+          call corinp_gen2(idensform,gdp)
+          !
+          ! Convert flow results to input for cormix and write to input file
+          !
+          write(cctime,'(f14.3)') time/60.0_fp
+          !
+          do idis = 1, no_dis
+             !
+             ! Add SubGridModel number to filename to prevent overwriting
+             !
+             write(c_idis,'(i3.3)') idis
+             !
+             filename(1) =trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+             filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+             filename(3) =trim(basecase(idis,1))
+             !
+             ! You should get the filenames (the dirs) from the COSUMOsettings.xml
+             !
+             call wri_FF2NF(u0       ,v0      ,rho       ,thick  ,kmax   ,dps    , &
+                          & s0       ,alfas   ,time      ,taua   ,r0     ,lstsci , &
+                          & lsal     ,ltem    ,idensform ,saleqs ,temeqs ,idis   , &
+                          & filename ,s1      ,xz        ,yz     , &
+                          & kfsmn0   ,kfsmx0  ,dzs0      ,gdp    )
+             !
+             call wait_until_finished(filename(2),gdp)
+             !
+             no_val=size(x_jet)
+             call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
+             !
+             ! Fill sources and sinks following the Desa Method of Prof. Lee
+             !
+             call desa(x_jet   ,y_jet   ,z_jet   ,s_jet   ,no_val  , &
+                     & kcs     ,xz      ,yz      ,dps     ,s0      , &
+                     & nmmax   ,thick   ,kmax    ,lstsci  ,lsal    , &
+                     & ltem    ,h_jet   ,b_jet   ,idis    , &
+                     & xstart  ,xend    ,ystart  ,yend    ,r0      , &
+                     & linkinf ,kfsmn0  ,kfsmx0  ,dzs0    ,gdp     )
+          enddo
+          !
+          !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
+          !          do idis = 1,size(discharges)
+          !              write(*,*) discharges(idis)%name
+          !          enddo 
+          !          
+          !          
+          !          write(cctime,'(f14.3)') time/60.0_fp
+          !          file_nf_inp = discharges(idis)%inputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledinp'
+          !          file_nf_out = discharges(idis)%outputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledout'
+          !
+          !
+          !
+          !
+          !          do idis = 1, no_dis
+          !
+          !             !
+          !             ! Convert flow results to input for nearfield model andwait for near field simulation
+          !             ! to be finished
+          !             !
+          !
+          !             call wri_nf_inp(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
+          !                           & s0    ,alfas ,time  ,taua         ,r0     , &
+          !                           & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
+          !                           & temeqs,idis  ,file_nf_inp         ,linkinf, &
+          !                           & discharges, gdp   )
+          !                           !(file_nf_inp, ?????????????)
+          !                           
+          !             call wait_until_finished(file_nf_out)
+          !             call nf_2_flow          (file_nf_out,x_jet,y_jet,z_jet,s_jet,bh_jet,bv_jet)
+          !
+          !             call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
+          !            &               kcs     ,xz       ,yz      ,dps     ,s0      , &
+          !            &               nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
+          !            &               ltem    ,bv_jet  ,bh_jet   ,idis    ,r0      , &
+          !            &               gdp     )
        case ('jet3d')
           !
           ! Convert flow results to input for jet3d and write to input file

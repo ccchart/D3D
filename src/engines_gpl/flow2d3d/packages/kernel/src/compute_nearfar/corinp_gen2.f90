@@ -97,18 +97,19 @@ subroutine corinp_gen2(idensform, gdp)
     theta0         => gdp%gdnfl%theta0
     basecase       => gdp%gdnfl%basecase
     !
+    ! Reading of the corinp.dat file by FLOW
+    ! Parallel: should this be done by all partitions or just by one?
+    ! Is concurrent file access possible?
+    !
     luntmp = newlun(gdp)
     open (luntmp,file='corinp.dat')
-
     !
     ! Read dummy line
     !
-
     call skipstarlines (luntmp)
     read (luntmp,*) cdummy
     call skipstarlines (luntmp)
     read (luntmp,*) dummy
-
     !
     ! For each diffuser
     !
@@ -158,9 +159,7 @@ subroutine corinp_gen2(idensform, gdp)
        read (luntmp,*) sigma0(idis)
        call skipstarlines (luntmp)
        read (luntmp,*) basecase(idis,1)
-       
     enddo
-
     !
     ! Close the general cormix input file
     !
