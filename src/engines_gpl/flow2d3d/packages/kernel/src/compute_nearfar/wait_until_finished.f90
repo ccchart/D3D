@@ -44,39 +44,45 @@ subroutine wait_until_finished (filename,gdp)
 !
 ! Global variables
 !
-    character*256                                                   , intent(in)    :: filename
+    character*256, intent(in)    :: filename
 !
 ! Local variables
 !
-    integer                                                         , external      :: newlun
-    integer                                                                         :: lun
-    integer                                                                         :: ios  
-
-    logical                                                                         :: ex_file
-
+    integer , external      :: newlun
+    integer                 :: lun
+    integer                 :: ios
+    integer                 :: numlines
+    logical                 :: ex_file
+    logical                 :: opend
 !
 !! executable statements -------------------------------------------------------
 !
-    lun     = newlun(gdp)
     ex_file = .false.
-
-!   examine if the file exists
-
+    !
+    ! Examine if the file exists
+    ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
+    !
+    write(*,'(3a)') "Waiting for file '", trim(filename), "' to appear ..."
     do while (.not. ex_file)
-        inquire (file=filename,exist = ex_file)
-    end do
-
-!   open file and read until you find eof
-
+        inquire (file=filename,exist=ex_file)
+    enddo
+    write(*,'(a)') "Scanning    file ..."
+    !
+    ! File found: open file and read until you find eof
+    !
+    lun = newlun(gdp)
+    inquire(lun, iostat=ios, opened=opend)
+ 10 if (ios==0 .and. opend) close(lun, iostat=ios)
     open (lun,file=filename)
-
- 10 rewind (lun)
-
-    ios = 0
+    rewind (lun)
+    ios      = 0
+    numlines = 0
     do while (ios == 0)
        read (lun,'(a1)',iostat=ios,err=10,end=20)
-    end do
+       numlines = numlines + 1
+    enddo
+    write(*,'(a)') "ERROR: This line should not be reached."
     goto 10
-
- 20 close(lun)
+20  close(lun)
+    write(*,'(a,i0)') "numlines: ", numlines
 end subroutine wait_until_finished

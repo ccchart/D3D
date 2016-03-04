@@ -252,6 +252,12 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
              filename(2) =trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
              filename(3) =trim(basecase(idis,1))
              !
+             ! parallel:
+             ! add filename(2) to local filelist
+             ! if (.not.master) then
+             !    sent(filelist)
+             ! 
+             !
              ! You should get the filenames (the dirs) from the COSUMOsettings.xml
              !
              call wri_FF2NF(u0       ,v0      ,rho       ,thick  ,kmax   ,dps    , &
@@ -260,6 +266,12 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
                           & filename ,s1      ,xz        ,yz     , &
                           & kfsmn0   ,kfsmx0  ,dzs0      ,gdp    )
              !
+             ! parallel:
+             ! enddo !no_dis
+             ! if (master)
+             !    receive all filelists, build globalfilelist
+             ! do until all files processed:
+             ! vervang waitn_until_finished door een loop over alle nog niet geprocessete files, doe desa zodra er een file is verschenen
              call wait_until_finished(filename(2),gdp)
              !
              no_val=size(x_jet)
@@ -274,6 +286,10 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
                      & xstart  ,xend    ,ystart  ,yend    ,r0      , &
                      & linkinf ,kfsmn0  ,kfsmx0  ,dzs0    ,gdp     )
           enddo
+          !
+          ! parallel:
+          ! if (master) then
+          !    communicate disnf and 
           !
           !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
           !          do idis = 1,size(discharges)
