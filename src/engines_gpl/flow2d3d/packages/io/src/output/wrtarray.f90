@@ -1806,6 +1806,116 @@ subroutine wrtarray_nmkl(fds, filename, filetype, grpnam, &
 end subroutine wrtarray_nmkl
 
 
+subroutine wrtarray_nmkli(fds, filename, filetype, grpnam, &
+                     & itime, nf, nl, mf, ml, iarrc, gdp, smlay, &
+                     & kmaxout, lk, uk, ul, ui, ierr, lundia, var, varnam, kfmin, kfmax)
+    use precision
+    use dfparall, only: inode, master, nproc, parll
+    use dffunctionals, only: glbarr5, dfgather, dfgather_seq
+    use netcdf, only: nf90_inq_varid, nf90_noerr, nf90_put_var
+    use globaldata
+    !
+    implicit none
+    !
+    type(globdat),target :: gdp
+    !
+    integer                                                                      , intent(in)  :: fds
+    integer                                                                      , intent(in)  :: filetype
+    integer                                                                      , intent(out) :: ierr
+    integer                                                                      , intent(in)  :: itime
+    integer                                                                      , intent(in)  :: lundia
+    integer                                                                      , intent(in)  :: lk            ! lowerbound dim3(0 or 1)
+    integer                                                                      , intent(in)  :: uk            ! upperbound dim3(kmax or kmax+1)
+    integer                                                                      , intent(in)  :: ul            ! upperbound dim4
+    integer                                                                      , intent(in)  :: ui            ! upperbound dim5
+    integer                                                                      , intent(in)  :: kmaxout       ! length of smlay
+    integer      , dimension(0:nproc-1)                                          , intent(in)  :: mf            ! first index w.r.t. global grid in x-direction
+    integer      , dimension(0:nproc-1)                                          , intent(in)  :: ml            ! last index w.r.t. global grid in x-direction
+    integer      , dimension(0:nproc-1)                                          , intent(in)  :: nf            ! first index w.r.t. global grid in y-direction
+    integer      , dimension(0:nproc-1)                                          , intent(in)  :: nl            ! last index w.r.t. global grid in y-direction
+    integer      , dimension(4,0:nproc-1)                                        , intent(in)  :: iarrc         ! array containing collected grid indices 
+    integer      , dimension(1:kmaxout)                                          , intent(in)  :: smlay
+    integer      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)           , intent(in)  :: kfmin
+    integer      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)           , intent(in)  :: kfmax
+    real(fp)     , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, lk:uk, ul, ui), intent(in)  :: var
+    character(*)                                                                 , intent(in)  :: varnam
+    character(*)                                                                 , intent(in)  :: grpnam
+    character(*)                                                                 , intent(in)  :: filename
+    !
+    ! local
+    integer                                       :: idvar
+    integer                                       :: istat
+    integer                                       :: i
+    integer                                       :: k
+    integer                                       :: l
+    integer                                       :: m
+    integer                                       :: n
+    integer                                       :: namlen
+    integer    , dimension(3,5)                   :: uindex
+    real(fp)   , dimension(:,:,:,:,:), allocatable  :: rbuff5
+    character(16)                                 :: varnam_nfs
+    character(16)                                 :: grpnam_nfs
+    character(256)                                :: errmsg        ! Character var. containing the error message to be written to file. The message depend on the error.
+    integer                        , external     :: neferr
+    integer                        , external     :: putelt
+    !
+    ! body
+    !
+    allocate( rbuff5(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 1:kmaxout, ul, ui ), stat = istat )
+    rbuff5(:,:,:,:,:) = -999.0_fp
+    do i = 1, ui
+       do l = 1, ul
+          do k = 1, kmaxout
+             do m = 1, gdp%d%mmax
+                do n = 1, gdp%d%nmaxus
+                   if (gdp%gdprocs%zmodel) then
+                      if (smlay(k)<(kfmin(n,m)-1+lk) .or. smlay(k)>kfmax(n, m)) then
+                         cycle
+                      endif
+                   endif
+                   rbuff5(n,m,k,l,i) = var(n,m,smlay(k),l,i)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    if (parll) then
+       call dfgather(rbuff5,nf,nl,mf,ml,iarrc,gdp)
+    else 
+       call dfgather_seq(rbuff5, 1-gdp%d%nlb, 1-gdp%d%mlb, gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl)
+    endif
+    deallocate(rbuff5)
+    if (inode == master) then
+       select case (filetype)
+          case (FTYPE_NEFIS)
+             uindex = 0
+             uindex(1,1) = itime
+             uindex(2,1) = itime
+             uindex(3,1) = 1
+             !
+             namlen = min (16,len(varnam))
+             varnam_nfs = varnam(1:namlen)
+             namlen = min (16,len(grpnam))
+             grpnam_nfs = grpnam(1:namlen)
+             !
+             ierr = putelt(fds, grpnam_nfs, varnam_nfs, uindex, 1, glbarr5)
+             if (ierr /= 0) then
+                ierr = neferr(0, errmsg)
+                call prterr(lundia, 'P004', errmsg)
+             endif
+          case (FTYPE_NETCDF)
+             ierr = nf90_inq_varid(fds, varnam, idvar)
+             if (ierr == nf90_noerr) then
+                 ierr = nf90_put_var  (fds, idvar, glbarr5, start=(/ 1, 1, 1, 1, 1, itime /), count = (/gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl, kmaxout, ul, ui, 1 /))
+             endif
+             call nc_check_err(lundia, ierr, 'writing '//varnam, filename)
+       endselect
+    else
+       ierr = 0
+    endif
+end subroutine wrtarray_nmkli
+
+
 subroutine wrtarray_nmll(fds, filename, filetype, grpnam, &
                     & itime, nf, nl, mf, ml, iarrc, gdp, &
                     & u3, u4, ierr, lundia, var, varnam)

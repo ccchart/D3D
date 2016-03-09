@@ -1145,12 +1145,6 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           endif
        endif
        !
-       ! Initialises arrays for nearfield/farfield coupling
-       !
-       if (nfl) then
-          call init_nfl(kmax,lstsci, gdp)
-       endif
-       !
        ifirst = 0
     endif
     !

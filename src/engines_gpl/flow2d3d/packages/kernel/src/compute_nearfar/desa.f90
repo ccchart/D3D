@@ -116,7 +116,7 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     integer                              :: nm_last
     integer                              :: nm_start
     integer                              :: nm_tmp
-    integer                              :: no_dis
+    integer                              :: ndis_track
     integer                              :: n_tmp
     integer                              :: m_tmp
     real(fp)                             :: add
@@ -240,9 +240,9 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        allocate (nm_dis(1000), stat=ierror)
        allocate (weight(1000), stat=ierror)
-       nm_dis   = 0
-       weight   = 0.0_fp
-       no_dis   = 1
+       nm_dis     = 0
+       weight     = 0.0_fp
+       ndis_track = 1
        call findnmk (xz        , yz      , dps     , s0       , kcs      , nmmax  , &
                      thick     , kmax    , xstart  , ystart   , 0.0_fp   , nm_tmp , &
                      idum      , kfsmn0  , kfsmx0  , dzs0     , zmodel   , gdp    )
@@ -258,11 +258,11 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
                         thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy , 0.0_fp   , nm_tmp , &
                         idum      , kfsmn0  , kfsmx0           , dzs0              , zmodel   , gdp    )
 
-           if (nm_tmp /= nm_dis(no_dis)) then
-              no_dis = no_dis + 1
-              nm_dis(no_dis) = nm_tmp
+           if (nm_tmp /= nm_dis(ndis_track)) then
+              ndis_track         = ndis_track + 1
+              nm_dis(ndis_track) = nm_tmp
            endif
-           weight(no_dis) = weight(no_dis) + 0.001_fp
+           weight(ndis_track) = weight(ndis_track) + 0.001_fp
        enddo
        !
        ! Distribute sources discharges horizontal and vertical
@@ -270,14 +270,14 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        add = 0.0_fp
        !
        if (.not. zmodel) then
-          do iidis = 1, no_dis
+          do iidis = 1, ndis_track
              do k = k_end_top, k_end_down
                 if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + weight(iidis)*thick(k)
                 endif
              enddo
           enddo
-          do iidis = 1, no_dis
+          do iidis = 1, ndis_track
              do k = k_end_top, k_end_down
                 if (disnf(nm_dis(iidis),k,idis) == 0.0_fp) then
                    disnf    (nm_dis(iidis),k,idis)         = disnf(nm_dis(iidis),k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*thick(k)))
@@ -311,19 +311,23 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           !
           ! Z-model
           !
-          do iidis = 1, no_dis
+          do iidis = 1, ndis_track
              nmdis = nm_dis(iidis)
              hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
              do k = k_end_top, k_end_down, -1
+                if (k < kfsmn0(nmdis)) cycle
+                if (k > kfsmx0(nmdis)) cycle
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + weight(iidis)*dzs0(nmdis,k)*hhi
                 endif
              enddo
           enddo
-          do iidis = 1, no_dis
+          do iidis = 1, ndis_track
              nmdis = nm_dis(iidis)
              hhi = 1.0_fp / max(s0(nmdis) + real(dps(nmdis),fp),0.01_fp)
              do k = k_end_top, k_end_down, -1
+                if (k < kfsmn0(nmdis)) cycle
+                if (k > kfsmx0(nmdis)) cycle
                 if (disnf(nmdis,k,idis) == 0.0_fp) then
                    disnf    (nmdis,k,idis)         = disnf(nmdis,k,idis) + (q_diff(idis) + dis_tot)/(thick_tot/(weight(iidis)*dzs0(nmdis,k)*hhi))
                    !

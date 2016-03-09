@@ -58,7 +58,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     use dfparall
     use datagroups
     use globaldata
-    use wrtarray, only: wrtarray_nm, wrtarray_nm_2d, wrtarray_nmk, wrtarray_nmkl, wrtarray_nmkl_ptr, wrtvar
+    use wrtarray, only: wrtarray_nm, wrtarray_nm_2d, wrtarray_nmk, wrtarray_nmkl, wrtarray_nmkli, wrtarray_nmkl_ptr, wrtvar
     use dffunctionals, only: dfcleanup_glbarrs
     use netcdf
     !
@@ -73,8 +73,10 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     integer                         , pointer :: nmaxgl
     integer                         , pointer :: mmaxgl
     integer                         , pointer :: nmmax
+    integer                         , pointer :: ltem
     integer                         , pointer :: celidt
     integer                         , pointer :: keva
+    integer                          ,pointer :: no_dis
     integer  , dimension(:)         , pointer :: smlay
     logical                         , pointer :: temp
     real(fp) , dimension(:,:,:)     , pointer :: fluxu
@@ -96,6 +98,9 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     real(fp) , dimension(:)         , pointer :: tairarr
     real(fp) , dimension(:)         , pointer :: clouarr
     real(fp) , dimension(:)         , pointer :: qmis_out
+    real(fp), dimension(:,:,:)      , pointer :: disnf
+    real(fp), dimension(:,:,:,:)    , pointer :: sournf
+    logical                         , pointer :: nfl
     logical                         , pointer :: rhum_file
     logical                         , pointer :: tair_file
     logical                         , pointer :: clou_file
@@ -189,9 +194,11 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     integer                                       :: i             ! Help var.
     integer                                       :: ierror        ! Local error flag
     integer                                       :: istat
+    integer                                       :: k
     integer                                       :: km
     integer                                       :: kmaxout       ! number of layers to be written to the (history) output files, 0 (possibly) included
     integer                                       :: kmaxout_restr ! number of layers to be written to the (history) output files, 0 excluded
+    integer                                       :: l
     integer                                       :: m             ! Help var.
     integer                                       :: n             ! Help var.
     integer                                       :: nm
@@ -218,11 +225,15 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     integer                                       :: iddim_lstsci
     integer                                       :: iddim_ltur
     integer                                       :: iddim_nsrc
+    integer                                       :: iddim_nfdis
     integer                                       :: iddim_7
     !
     integer                                       :: idatt_cal
     !
     real(fp)   , dimension(:,:)    , allocatable  :: rbuff2
+    real(fp)   , dimension(:,:,:)  , allocatable  :: rbuff3
+    real(fp)   , dimension(:,:,:,:), allocatable  :: rbuff4
+    real(fp)   , dimension(:,:,:,:,:), allocatable  :: rbuff5
     real(fp)   , dimension(:,:,:)  , allocatable  :: zkt           ! Vertical coordinates of layering interfaces
     character(10)                                 :: runit
     character(16)                                 :: grnam1        ! Data-group name defined for the NEFIS-files group 1
@@ -246,7 +257,9 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
     nmmax          => gdp%d%nmmax
+    ltem           => gdp%d%ltem
     keva           => gdp%gdtricom%keva
+    no_dis         => gdp%gdnfl%no_dis
     smlay          => gdp%gdpostpr%smlay
     temp           => gdp%gdprocs%temp
     fluxu          => gdp%gdflwpar%fluxu
@@ -265,6 +278,9 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     hfree_out      => gdp%gdheat%hfree_out
     efree_out      => gdp%gdheat%efree_out
     qmis_out       => gdp%gdheat%qmis_out
+    disnf          => gdp%gdnfl%disnf
+    sournf         => gdp%gdnfl%sournf
+    nfl            => gdp%gdprocs%nfl
     rhumarr        => gdp%gdheat%rhumarr
     tairarr        => gdp%gdheat%tairarr
     clouarr        => gdp%gdheat%clouarr
@@ -312,6 +328,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
        if (lstsci  >0) iddim_lstsci = adddim(gdp, lundia, FILOUT_MAP, 'LSTSCI'            , lstsci  ) !'Number of constituents             '
        if (ltur    >0) iddim_ltur   = adddim(gdp, lundia, FILOUT_MAP, 'LTUR'              , ltur    ) !'Number of turbulence quantities    '
        if (nsrc    >0) iddim_nsrc   = adddim(gdp, lundia, FILOUT_MAP, 'NSRC'              , nsrc    ) !'Number of discharge                '
+       if (no_dis  >0) iddim_nfdis  = adddim(gdp, lundia, FILOUT_MAP, 'NFDIS'             , no_dis  ) !'Number of nearfield discharge      '
                        iddim_7      = adddim(gdp, lundia, FILOUT_MAP, 'length_7'          , 7       )
        !
        idatt_cal = addatt(gdp, lundia, FILOUT_MAP, 'calendar','proleptic_gregorian')
@@ -504,6 +521,11 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
        endif
        if (flwoutput%layering) then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'LAYER_INTERFACE', ' ', IO_REAL4 , 3, dimids=(/iddim_n, iddim_m, iddim_kmax1/), longname='Vertical coordinate of layer interface', unit='m', acl='z')
+       endif
+       !
+       if (nfl) then
+          call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'DISNF' , ' ', IO_REAL4           , 4, dimids=(/iddim_n, iddim_m, iddim_kmaxout_restr, iddim_nfdis/), longname='Near field discharge', unit='m3/s', acl='z')
+          call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'SOURNF', ' ', IO_REAL4           , 5, dimids=(/iddim_n, iddim_m, iddim_kmaxout_restr, iddim_lstsci, iddim_nfdis/), longname='Near field sources', acl='z')
        endif
        !
        group1%grp_dim = iddim_time
@@ -1492,7 +1514,78 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
              !
           endif
        endif
-       !
+       if (nfl) then
+          !
+          ! element 'DISNF'
+          !
+          allocate( rbuff4(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax, no_dis), stat=ierror )
+          rbuff4(:, :, :, :) = -9999.0_fp
+          if (zmodel) then
+             do n = 1, nmaxus
+                do m = 1, mmax
+                   call n_and_m_to_nm(n, m, nm, gdp)
+                   do k = kfsmin(n,m), kfsmax(n,m)
+                      do i = 1, no_dis
+                         rbuff4(n,m,k,i) = disnf(nm, k, i)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          else
+             do n = 1, nmaxus
+                do m = 1, mmax
+                   call n_and_m_to_nm(n, m, nm, gdp)
+                   do k = 1, kmax
+                      do i = 1, no_dis
+                         rbuff4(n,m,k,i) = disnf(nm,k,i)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          endif
+          call wrtarray_nmkl(fds, filename, filetype, grnam3, celidt, &
+                        & nf, nl, mf, ml, iarrc, gdp, smlay_restr, &
+                        & kmaxout_restr, 1, kmax, no_dis, ierror, lundia, rbuff4, 'DISNF', kfsmin, kfsmax)
+          deallocate(rbuff4, stat=ierror)
+          if (ierror /= 0) goto 9999
+          !
+          ! element 'SOURNF'
+          !
+          allocate( rbuff5(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax, lstsci, no_dis), stat=ierror )
+          rbuff5(:, :, :, :, :) = -9999.0_fp
+          if (zmodel) then
+             do n = 1, nmaxus
+                do m = 1, mmax
+                   call n_and_m_to_nm(n, m, nm, gdp)
+                   do k = kfsmin(n,m), kfsmax(n,m)
+                      do l = 1, lstsci
+                         do i = 1, no_dis
+                            rbuff5(n,m,k,l,i) = sournf(nm,k,l,i)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+             enddo
+          else
+             do n = 1, nmaxus
+                do m = 1, mmax
+                   call n_and_m_to_nm(n, m, nm, gdp)
+                   do k = 1, kmax
+                      do l = 1, lstsci
+                         do i = 1, no_dis
+                            rbuff5(n,m,k,l,i) = sournf(nm,k,l,i)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+             enddo
+          endif
+          call wrtarray_nmkli(fds, filename, filetype, grnam3, celidt, &
+                        & nf, nl, mf, ml, iarrc, gdp, smlay_restr, &
+                        & kmaxout_restr, 1, kmax, lstsci, no_dis, ierror, lundia, rbuff5, 'SOURNF', kfsmin, kfsmax)
+          deallocate(rbuff5, stat=ierror)
+          if (ierror /= 0) goto 9999
+       endif
     end select
     deallocate(smlay_restr)
     !
