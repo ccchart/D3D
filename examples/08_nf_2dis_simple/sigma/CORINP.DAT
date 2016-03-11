@@ -1,7 +1,7 @@
 *
 *     Base path to plase cortime.linkinp file
 *
-d:\models_flow_wave\cormix\2dis_simple\sigma\COSUMO\FF2NF\
+c:\code\branches\nearfield\examples\08_nf_2dis_simple\sigma\COSUMO\FF2NF\
 *
 *     Number of coupled discharges
 *
@@ -41,7 +41,7 @@ d:\models_flow_wave\cormix\2dis_simple\sigma\COSUMO\FF2NF\
 *
 * rundir 
 *
-d:\models_flow_wave\cormix\2dis_simple\sigma\
+c:\code\branches\nearfield\examples\08_nf_2dis_simple\sigma\
 *
 *     Position diffusor in flow computation
 *
@@ -77,5 +77,5 @@ d:\models_flow_wave\cormix\2dis_simple\sigma\
 *
 * rundir 
 *
-d:\models_flow_wave\cormix\2dis_simple\sigma\
+c:\code\branches\nearfield\examples\08_nf_2dis_simple\sigma\
 dummy

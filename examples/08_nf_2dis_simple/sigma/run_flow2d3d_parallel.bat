@@ -34,14 +34,26 @@ echo   Check "ARCH" in the run-script:
 echo     Version 6.01.17.5275 and older: default ARCH=win32
 echo     Version 6.01.18.5368 and newer: default ARCH=win64
 set ARCH=win64
-  rem set D3D_HOME=p:\h6\opt\delft3d\Delft3D-FLOW_WAVE\%flowversionnr%
+set D3D_HOME=c:\code\branches\nearfield\bin
   rem set exedir=%D3D_HOME%\%ARCH%\flow2d3d\bin
-set D3D_HOME=c:\code\branches\nearfield\src\engines_gpl\d_hydro\bin\x64\Debug
-set exedir=%D3D_HOME%
+set exedir=c:\code\branches\nearfield\src\engines_gpl\d_hydro\bin\x64\Debug
 
     rem
     rem No adaptions needed below
     rem
+
+
+
+
+del /f trim*.* >del.log 2>&1
+del /f trih*.* >del.log 2>&1
+del /f tri-diag.* >del.log 2>&1
+del /f TMP_*.* >del.log 2>&1
+del /f COSUMO\FF2NF\FF2NF*.txt >del.log 2>&1
+del /f debug.txt >del.log 2>&1
+del /f *.ddb >del.log 2>&1
+del /f del.log
+
 
     rem Set some (environment) parameters
 set PATH=%exedir%;%PATH%
