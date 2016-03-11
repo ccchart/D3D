@@ -1,6 +1,8 @@
-subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
-                 & thick  ,kmax   ,x_jet  ,y_jet ,z_jet  ,nm_jet , &
-                 & k_jet  ,kfsmn0 ,kfsmx0 ,dzs0  ,zmodel ,gdp    )
+subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
+                 & yz     ,dps    ,s1     ,kcs    ,thick  , &
+                 & kmax   ,x_jet  ,y_jet  ,z_jet  ,n_jet  , &
+                 &  m_jet ,k_jet  ,kfsmn0 ,kfsmx0 ,dzs0   , &
+                 & zmodel ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -48,48 +50,57 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
 !
 ! Global variables
 !
+    integer                                             , intent(in)  :: nlb
+    integer                                             , intent(in)  :: nub
+    integer                                             , intent(in)  :: mlb
+    integer                                             , intent(in)  :: mub
     integer                                             , intent(in)  :: kmax   ! Description and declaration in tricom.igs
-    integer                                             , intent(in)  :: nmmax  ! Description and declaration in tricom.igs
-    integer                                             , intent(out) :: nm_jet
+    integer                                             , intent(out) :: n_jet
+    integer                                             , intent(out) :: m_jet
     integer                                             , intent(out) :: k_jet
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kcs    ! Description and declaration in esm_alloc_int.f90
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfsmn0 ! Description and declaration in esm_alloc_int.f90
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfsmx0 ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)             , intent(in)  :: kcs    ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)             , intent(in)  :: kfsmn0 ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)             , intent(in)  :: kfsmx0 ! Description and declaration in esm_alloc_int.f90
     real(fp)                                            , intent(in)  :: x_jet
     real(fp)                                            , intent(in)  :: y_jet
     real(fp)                                            , intent(in)  :: z_jet
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: s1     ! Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: xz     ! Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: yz     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)             , intent(in)  :: s1     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)             , intent(in)  :: xz     ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)             , intent(in)  :: yz     ! Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(kmax)                        , intent(in)  :: thick  ! Description and declaration in esm_alloc_real.f90
-    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: dps    ! Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax) , intent(in)  :: dzs0   ! Description and declaration in esm_alloc_real.f90
+    real(prec) , dimension(nlb:nub,mlb:mub)             , intent(in)  :: dps    ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)       , intent(in)  :: dzs0   ! Description and declaration in esm_alloc_real.f90
     logical                                             , intent(in)  :: zmodel
 !
 ! Local variables
 !
     integer       :: k
-    integer       :: nm
+    integer       :: n
+    integer       :: m
     real(fp)      :: dist
     real(fp)      :: distmin
-    real(fp)      :: r_onder
-    real(fp)      :: r_boven
+    real(fp)      :: r_below
+    real(fp)      :: r_above
 !
 !! executable statements -------------------------------------------------------
 !
     !
     ! Find the horizontal nm coordinate of the "Jet" trajectory point
     !
-    nm_jet  = 0
+    n_jet   = 0
+    m_jet   = 0
     distmin = 1.0e+30_fp
-    do nm = 1, nmmax
-       if (kcs(nm) == 1) then
-          dist = sqrt((xz(nm) - x_jet)**2 + (yz(nm) - y_jet)**2)
-          if (dist < distmin) then
-             nm_jet  = nm
-             distmin = dist
+    do m = mlb, mub
+       do n = nlb, nub
+          if (kcs(n,m) == 1) then
+             dist = sqrt((xz(n,m) - x_jet)**2 + (yz(n,m) - y_jet)**2)
+             if (dist < distmin) then
+                n_jet   = n
+                m_jet   = m
+                distmin = dist
+             endif
           endif
-       endif
+       enddo
     enddo
     !
     ! Find the vertical position
@@ -101,27 +112,26 @@ subroutine findnmk(xz     ,yz     ,dps    ,s1    ,kcs    ,nmmax  , &
     ! This results in reversed loops at the end of desa.f90
     ! i.e stil from k_end_top to k_end_down, but with a -1 step size    
     !
-    r_boven = -1.0_fp * s1(nm_jet)
+    r_above = -1.0_fp * s1(n_jet,m_jet)
     if (.not. zmodel) then
        do k = 1, kmax - 1
-          r_onder = r_boven + thick(k)*(real(dps(nm_jet),fp) + s1(nm_jet))
-          if (z_jet < r_onder) then
+          r_below = r_above + thick(k)*(real(dps(n_jet,m_jet),fp) + s1(n_jet,m_jet))
+          if (z_jet < r_below) then
              k_jet = k
              exit
           endif
-          r_boven = r_onder
+          r_above = r_below
        enddo
        if (k_jet == 0) k_jet = kmax
     else
-       do k = kfsmx0(nm_jet), kfsmn0(nm_jet) + 1,-1
-          r_onder = r_boven + dzs0(nm_jet,k)
-          if (z_jet < r_onder) then
+       do k = kfsmx0(n_jet,m_jet), kfsmn0(n_jet,m_jet) + 1,-1
+          r_below = r_above + dzs0(n_jet,m_jet,k)
+          if (z_jet < r_below) then
              k_jet = k
              exit
           endif
-          r_boven = r_onder
+          r_above = r_below
        enddo
-       if (k_jet == 0) k_jet = kfsmn0(nm_jet)
+       if (k_jet == 0) k_jet = kfsmn0(n_jet,m_jet)
     endif
-    !
 end subroutine findnmk

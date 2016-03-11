@@ -1,5 +1,7 @@
-subroutine coupled (add     , r0, kmax, lstsci, lcon  , thick , m_intake, n_intake, &
-                  & k_intake, s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel  , gdp     )
+subroutine coupled(nlb     ,nub     ,mlb     ,mub   ,add   , &
+                 & r0      ,kmax    ,lstsci  ,lcon  ,thick , &
+                 & m_intake,n_intake,k_intake,s0    ,dps   , &
+                 & dzs0    ,kfsmn0  ,kfsmx0  ,zmodel,gdp   )
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -46,45 +48,46 @@ subroutine coupled (add     , r0, kmax, lstsci, lcon  , thick , m_intake, n_inta
 !
 ! Global variables
 !
+    integer                                                    , intent(in)  :: nlb
+    integer                                                    , intent(in)  :: nub
+    integer                                                    , intent(in)  :: mlb
+    integer                                                    , intent(in)  :: mub
     integer                                                    , intent(in)  :: kmax
     integer                                                    , intent(in)  :: lstsci
     integer                                                    , intent(in)  :: lcon
     integer                                                    , intent(in)  :: m_intake
     integer                                                    , intent(in)  :: n_intake
     integer                                                    , intent(in)  :: k_intake
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)                    , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)                    , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
     real(fp)                                                   , intent(out) :: add
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: s0
-    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: dps
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)        , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci) , intent(in)  :: r0         ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)                    , intent(in)  :: s0
+    real(prec) , dimension(nlb:nub,mlb:mub)                    , intent(in)  :: dps
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)              , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax,lstsci)       , intent(in)  :: r0         ! Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(kmax)                               , intent(in)  :: thick      ! Description and declaration in esm_alloc_real.f90
     logical                                                    , intent(in)  :: zmodel
 !
 ! Local variables
 !
-    integer                                                                  :: nm_intake
-    integer                                                                  :: k
+    integer :: k
 !
 !! executable statements -------------------------------------------------------
 !
     add = 0.0_fp
-
     if (m_intake > 0) then
-       call n_and_m_to_nm(n_intake, m_intake, nm_intake, gdp)
        if (k_intake == 0) then
           if (.not. zmodel) then
              do k = 1, kmax
-                add = add + thick(k)*r0(nm_intake,k,lcon)
+                add = add + thick(k)*r0(n_intake, m_intake,k,lcon)
              enddo
           else
-             do k = kfsmn0(nm_intake), kfsmx0(nm_intake)
-                add = add + dzs0(nm_intake,k)*r0(nm_intake,k,lcon)/max(s0(nm_intake)+real(dps(nm_intake),fp),0.01_fp)
+             do k = kfsmn0(n_intake, m_intake), kfsmx0(n_intake, m_intake)
+                add = add + dzs0(n_intake, m_intake,k)*r0(n_intake, m_intake,k,lcon)/max(s0(n_intake, m_intake)+real(dps(n_intake, m_intake),fp),0.01_fp)
              enddo
           endif
        else
-          add = r0(nm_intake,k_intake,lcon)
+          add = r0(n_intake, m_intake,k_intake,lcon)
        endif
     endif
 end subroutine coupled

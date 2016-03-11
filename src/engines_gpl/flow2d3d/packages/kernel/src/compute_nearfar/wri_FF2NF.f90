@@ -1,8 +1,9 @@
-subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
-                    & s0       ,alfas    ,time      ,taua   ,r0     ,lstsci , &
-                    & lsal     ,ltem     ,idensform ,saleqs ,temeqs ,idis   , &
-                    & filename ,s1       ,xz        ,yz     , &
-                    & kfsmn0   ,kfsmx0   ,dzs0      ,gdp    )
+subroutine wri_FF2NF(nlb      ,nub      ,mlb       ,mub    ,u0     , &
+                   & v0       ,rho      ,thick     ,kmax   ,dps    , &
+                   & s0       ,alfas    ,time      ,taua   ,r0     ,lstsci , &
+                   & lsal     ,ltem     ,idensform ,saleqs ,temeqs ,idis   , &
+                   & filename ,s1       ,xz        ,yz     , &
+                   & kfsmn0   ,kfsmx0   ,dzs0      ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -67,42 +68,40 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
 !
 ! Global variables
 !
-    integer                                                     , intent(in)  :: idis
-    integer                                                     , intent(in)  :: kmax
-    integer                                                     , intent(in)  :: lstsci
-    integer                                                     , intent(in)  :: lsal
-    integer                                                     , intent(in)  :: ltem
-    integer                                                     , intent(in)  :: idensform
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
-    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
-    real(fp)                                                    , intent(out) :: taua
-    real(fp)                                                    , intent(in)  :: saleqs
-    real(fp)                                                    , intent(in)  :: temeqs
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: alfas
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: s0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: rho
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: u0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)         , intent(in)  :: v0
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub, kmax,lstsci)  , intent(in)  :: r0
-    real(fp)   , dimension(kmax)                                , intent(in)  :: thick
-    real(prec) , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: dps
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: s1  
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: xz
-    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: yz
-    character*256, dimension(3)                                               :: filename
+    integer                                               , intent(in)  :: nlb
+    integer                                               , intent(in)  :: nub
+    integer                                               , intent(in)  :: mlb
+    integer                                               , intent(in)  :: mub
+    integer                                               , intent(in)  :: idis
+    integer                                               , intent(in)  :: kmax
+    integer                                               , intent(in)  :: lstsci
+    integer                                               , intent(in)  :: lsal
+    integer                                               , intent(in)  :: ltem
+    integer                                               , intent(in)  :: idensform
+    integer    , dimension(nlb:nub,mlb:mub)               , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
+    integer    , dimension(nlb:nub,mlb:mub)               , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
+    real(fp)                                              , intent(out) :: taua
+    real(fp)                                              , intent(in)  :: saleqs
+    real(fp)                                              , intent(in)  :: temeqs
+    real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: alfas
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)         , intent(in)  :: dzs0       ! Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: s0
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)         , intent(in)  :: rho
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)         , intent(in)  :: u0
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax)         , intent(in)  :: v0
+    real(fp)   , dimension(nlb:nub,mlb:mub, kmax,lstsci)  , intent(in)  :: r0
+    real(fp)   , dimension(kmax)                          , intent(in)  :: thick
+    real(prec) , dimension(nlb:nub,mlb:mub)               , intent(in)  :: dps
+    real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: s1  
+    real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: xz
+    real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: yz
+    character(*), dimension(3)                                          :: filename
 !
 ! Local variables
 !
     integer                                :: ierror
     integer                                :: ilen
     integer                                :: k
-    integer                                :: nm_diff
-    integer                                :: nmd_diff
-    integer                                :: ndm_diff
-    integer                                :: nm_amb
-    integer                                :: nmd_amb
-    integer                                :: ndm_amb
     integer                 , external     :: newlun
     integer                                :: luntmp
     real(fp)                               :: deg2rad
@@ -126,7 +125,7 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     real(fp)                               :: dummy
     real(fp)                               :: add
     real(fp)                               :: rho0
-    real(fp), dimension(:), allocatable    :: dzs0_nm_amb
+    real(fp), dimension(:), allocatable    :: dzs0_amb
     character*1                            :: tab
     character*1                            :: stype1
     character*1                            :: stype2
@@ -163,28 +162,22 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     tab     = char(9)
     !
     ! Read the general diffusor characteritics from cormix input file
-    ! Parallel: the nm_diff, etc. will be local values for this partition
+    ! Parallel: the n_diff(idis), m_diff(idis), etc. will be local values for this partition
     ! or this should only be done by a the master process with the global cell indices
     ! The nmd and ndm are only one cell away and should thus be available for each partition
     !
-    call n_and_m_to_nm(n_diff(idis)    , m_diff(idis)     , nm_diff  , gdp)
-    call n_and_m_to_nm(n_diff(idis) - 1, m_diff(idis)     , ndm_diff , gdp)
-    call n_and_m_to_nm(n_diff(idis)    , m_diff(idis) - 1 , nmd_diff , gdp)
-    call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)      , nm_amb   , gdp)
-    call n_and_m_to_nm(n_amb(idis)  - 1, m_amb(idis)      , ndm_amb  , gdp)
-    call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)  - 1 , nmd_amb  , gdp)
     !
-    allocate(dzs0_nm_amb(kmax), stat=ierror)
+    allocate(dzs0_amb(kmax), stat=ierror)
     if (zmodel) then
-       dzs0_nm_amb = dzs0(nm_amb,:)
+       dzs0_amb = dzs0(n_amb(idis), m_amb(idis),:)
     else
-       dzs0_nm_amb = -999.0_fp
+       dzs0_amb = -999.0_fp
     endif
     !
     ! Compute the depths
     !
-    ha = s0(nm_amb)+real(dps(nm_amb),fp)
-    hd = s0(nm_diff)+real(dps(nm_diff),fp)
+    ha = s0(n_amb(idis), m_amb(idis))+real(dps(n_amb(idis), m_amb(idis)),fp)
+    hd = s0(n_diff(idis), m_diff(idis))+real(dps(n_diff(idis), m_diff(idis)),fp)
     !
     ! Compute depth averaged velocity magnitude and direction
     !
@@ -195,47 +188,52 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
        ! Sigma-model
        !
        do k = 1, kmax
-          uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*thick(k)
-          vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*thick(k)
+          uuu      = uuu + 0.5_fp * (u0(n_amb(idis), m_amb(idis) ,k) + u0(n_amb(idis), m_amb(idis)-1 ,k))*thick(k)
+          vvv      = vvv + 0.5_fp * (v0(n_amb(idis), m_amb(idis) ,k) + v0(n_amb(idis)-1, m_amb(idis) ,k))*thick(k)
        enddo
     else
        !
        ! Z-model
        ! We now take the velocity at the k-level of the corresponding cell centre.
-       ! If we loop over the kfumn0 to kfumx0 of the velocity points (corresponding to nm_amb and nmd_amb),
+       ! If we loop over the kfumn0 to kfumx0 of the velocity points (corresponding to n_amb(idis), m_amb(idis) and n_amb(idis), m_amb(idis)-1),
        ! and divide by dzu0/hu and dzv0/hv, would it then be more accurate?
        !
-       do k = kfsmn0(nm_amb), kfsmx0(nm_amb)
-          uuu      = uuu + 0.5_fp * (u0(nm_amb ,k) + u0(nmd_amb ,k))*dzs0(nm_amb,k)/max(ha, 0.01_fp)
-          vvv      = vvv + 0.5_fp * (v0(nm_amb ,k) + v0(ndm_amb ,k))*dzs0(nm_amb,k)/max(ha, 0.01_fp)
+       do k = kfsmn0(n_amb(idis), m_amb(idis)), kfsmx0(n_amb(idis), m_amb(idis))
+          uuu      = uuu + 0.5_fp * (u0(n_amb(idis), m_amb(idis) ,k) + u0(n_amb(idis), m_amb(idis)-1 ,k))*dzs0(n_amb(idis), m_amb(idis),k)/max(ha, 0.01_fp)
+          vvv      = vvv + 0.5_fp * (v0(n_amb(idis), m_amb(idis) ,k) + v0(n_amb(idis)-1, m_amb(idis) ,k))*dzs0(n_amb(idis), m_amb(idis),k)/max(ha, 0.01_fp)
        enddo
     endif
     umag = sqrt (uuu*uuu + vvv*vvv)
-    taua = atan2(vvv,uuu)*rad2deg + alfas(nm_amb)
+    taua = atan2(vvv,uuu)*rad2deg + alfas(n_amb(idis), m_amb(idis))
     taua = mod(taua + 360.0_fp,360.0_fp)
     ua   = umag
     !
     ! Density profile classification (Cormixtype)
     !
-    call determine_densprof(kmax           ,thick          ,s0(nm_amb)     ,real(dps(nm_amb),fp) ,rho(nm_amb,:) , &
+    call determine_densprof(kmax           ,thick          ,s0(n_amb(idis),m_amb(idis)), &
+                          & real(dps(n_amb(idis),m_amb(idis)),fp),  rho(n_amb(idis),m_amb(idis),:) , &
                           & ha             ,hd             ,stype1         ,stype2               ,rhoam         , &
                           & rhoas          ,rhoab          ,hint           ,drohj                , &
-                          & kfsmn0(nm_amb) ,kfsmx0(nm_amb) ,dzs0_nm_amb    ,zmodel         )
+                          & kfsmn0(n_amb(idis), m_amb(idis)),  kfsmx0(n_amb(idis),m_amb(idis)) ,dzs0_amb    ,zmodel         )
     !
     ! Compute the density of the discharged water
     !
     sal  = s0_diff(idis)
     temp = t0_diff(idis)
     if (lsal /= 0) then
-       call coupled (add           , r0, kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), &
-                   & k_intake(idis), s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel        , gdp           )
+       call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
+                  & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
+                  & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
+                  & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
        sal = sal + add
     else
        sal = saleqs
     endif
     if (ltem /= 0) then
-       call coupled (add           , r0, kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), &
-                   & k_intake(idis), s0, dps , dzs0  , kfsmn0, kfsmx0, zmodel        , gdp           )
+       call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
+                  & r0            ,kmax          ,lstsci        ,ltem  ,thick , &
+                  & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
+                  & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
        temp = temp + add
     else
        temp = temeqs
@@ -307,12 +305,12 @@ subroutine wri_FF2NF(u0        ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     call to_matlab( luntmp, "RHO0",     rho0                    )
     call to_matlab( luntmp, "D0",       d0(idis)                ) 
     call to_matlab( luntmp, "PHI",      trim(ctaua)             )  
-    call to_matlab( luntmp, "S1",       s1(nm_diff)             ) 
-    call to_matlab( luntmp, "h_dps",    dps(nm_diff)            ) 
-    call to_matlab( luntmp, "x_diff",   xz(nm_diff)             ) 
-    call to_matlab( luntmp, "y_diff",   yz(nm_diff)             )
+    call to_matlab( luntmp, "S1",       s1(n_diff(idis), m_diff(idis))             ) 
+    call to_matlab( luntmp, "h_dps",    dps(n_diff(idis), m_diff(idis))            ) 
+    call to_matlab( luntmp, "x_diff",   xz(n_diff(idis), m_diff(idis))             ) 
+    call to_matlab( luntmp, "y_diff",   yz(n_diff(idis), m_diff(idis))             )
     call to_matlab( luntmp, "taua",     taua                    )
     close (luntmp)
     !
-    deallocate(dzs0_nm_amb, stat=ierror)         
+    deallocate(dzs0_amb, stat=ierror)         
 end subroutine wri_FF2NF

@@ -1896,7 +1896,7 @@ subroutine wrtarray_nmkli(fds, filename, filetype, grpnam, &
                      & kmaxout, lk, uk, ul, ui, ierr, lundia, var, varnam, kfmin, kfmax)
     use precision
     use dfparall, only: inode, master, nproc, parll
-    use dffunctionals, only: glbarr5, dfgather, dfgather_seq
+    use dffunctionals, only: glbarr5_sp, dfgather, dfgather_seq
     use netcdf, only: nf90_inq_varid, nf90_noerr, nf90_put_var
     use globaldata
     !
@@ -1983,7 +1983,7 @@ subroutine wrtarray_nmkli(fds, filename, filetype, grpnam, &
              namlen = min (16,len(grpnam))
              grpnam_nfs = grpnam(1:namlen)
              !
-             ierr = putelt(fds, grpnam_nfs, varnam_nfs, uindex, 1, glbarr5)
+             ierr = putelt(fds, grpnam_nfs, varnam_nfs, uindex, 1, glbarr5_sp)
              if (ierr /= 0) then
                 ierr = neferr(0, errmsg)
                 call prterr(lundia, 'P004', errmsg)
@@ -1991,7 +1991,7 @@ subroutine wrtarray_nmkli(fds, filename, filetype, grpnam, &
           case (FTYPE_NETCDF)
              ierr = nf90_inq_varid(fds, varnam, idvar)
              if (ierr == nf90_noerr) then
-                 ierr = nf90_put_var  (fds, idvar, glbarr5, start=(/ 1, 1, 1, 1, 1, itime /), count = (/gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl, kmaxout, ul, ui, 1 /))
+                 ierr = nf90_put_var  (fds, idvar, glbarr5_sp, start=(/ 1, 1, 1, 1, 1, itime /), count = (/gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl, kmaxout, ul, ui, 1 /))
              endif
              call nc_check_err(lundia, ierr, 'writing '//varnam, filename)
        endselect

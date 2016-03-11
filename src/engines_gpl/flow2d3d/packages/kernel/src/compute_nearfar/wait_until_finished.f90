@@ -1,4 +1,4 @@
-subroutine wait_until_finished (filename,gdp)
+subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -44,29 +44,56 @@ subroutine wait_until_finished (filename,gdp)
 !
 ! Global variables
 !
-    character*256, intent(in)    :: filename
+    integer                        , intent(in)  :: no_dis
+    character(*), dimension(no_dis)              :: waitfiles
+    integer                        , intent(out) :: idis
+    character(*)                   , intent(out) :: filename
 !
 ! Local variables
 !
     integer , external      :: newlun
     integer                 :: lun
     integer                 :: ios
+    integer                 :: i
     integer                 :: numlines
     logical                 :: ex_file
     logical                 :: opend
 !
 !! executable statements -------------------------------------------------------
 !
+    ! Check for how many files we are waiting to appear
+    idis = 0
+    do i=1, no_dis
+       if (waitfiles(i) /= ' ') then
+          idis = i
+          write(*,'(3a)') "Waiting for file '", trim(waitfiles(i)), "' to appear ..."
+       endif
+    enddo
+    !
+    ! Return when all files did appear (and waitfiles is empty). idis must be 0.
+    if (idis == 0) return
+    !
     ex_file = .false.
     !
-    ! Examine if the file exists
+    ! Examine if one of the files exists
     ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
     !
-    write(*,'(3a)') "Waiting for file '", trim(filename), "' to appear ..."
+    idis     = 0
+    filename = ' '
     do while (.not. ex_file)
-        inquire (file=filename,exist=ex_file)
+       do i=1, no_dis
+          if (waitfiles(i) /= ' ') then
+             inquire (file=waitfiles(i), exist=ex_file)
+             if (ex_file) then
+                filename     = waitfiles(i)
+                idis         = i
+                waitfiles(i) =  ' '
+                exit
+             endif
+          endif
+       enddo
     enddo
-    write(*,'(a)') "Scanning    file ..."
+    write(*,'(3a)') "Scanning    file '", trim(filename), "' ..."
     !
     ! File found: open file and read until you find eof
     !
