@@ -55,10 +55,13 @@ module dffunctionals
    real(hp), parameter :: MIN_REAL_KIND_8 = -1.7976e+308_hp
    real(hp), parameter :: MAX_REAL_KIND_8 =  1.7976e+308_hp
    !
-   real(sp), dimension(:,:),     allocatable, save :: glbarr2
-   real(sp), dimension(:,:,:),   allocatable, save :: glbarr3
-   real(sp), dimension(:,:,:,:), allocatable, save :: glbarr4
-   real(sp), dimension(:,:,:,:,:), allocatable, save :: glbarr5
+   real(sp), dimension(:,:),     allocatable, save :: glbarr2_sp
+   real(sp), dimension(:,:,:),   allocatable, save :: glbarr3_sp
+   real(sp), dimension(:,:,:,:), allocatable, save :: glbarr4_sp
+   real(sp), dimension(:,:,:,:,:), allocatable, save :: glbarr5_sp
+   real(hp), dimension(:,:),     allocatable, save :: glbarr2_hp
+   real(hp), dimension(:,:,:),   allocatable, save :: glbarr3_hp
+   real(hp), dimension(:,:,:,:), allocatable, save :: glbarr4_hp
    integer,  dimension(:,:),     allocatable, save :: glbari2
    !
    interface dfgather_filter
@@ -78,26 +81,32 @@ module dffunctionals
    !
    interface dfgather
       module procedure dfgather_I2e
-      module procedure dfgather_R2e_sp
-      module procedure dfgather_R2e_hp
-      module procedure dfgather_R3e_sp
-      module procedure dfgather_R3e_hp
-      module procedure dfgather_R4e_sp
-      module procedure dfgather_R4e_hp
-      module procedure dfgather_R5e_sp
-      module procedure dfgather_R5e_hp
+      module procedure dfgather_R2e_sp2sp
+      module procedure dfgather_R2e_hp2sp
+      module procedure dfgather_R2e_hp2hp
+      module procedure dfgather_R3e_sp2sp
+      module procedure dfgather_R3e_hp2sp
+      module procedure dfgather_R3e_hp2hp
+      module procedure dfgather_R4e_sp2sp
+      module procedure dfgather_R4e_hp2sp
+      module procedure dfgather_R4e_hp2hp
+      module procedure dfgather_R5e_sp2sp
+      module procedure dfgather_R5e_hp2sp
    end interface dfgather
    !
    interface dfgather_seq
-      module procedure dfgather_R2e_seq_sp
-      module procedure dfgather_R2e_seq_hp
-      module procedure dfgather_R3e_seq_sp
-      module procedure dfgather_R3e_seq_hp
-      module procedure dfgather_R4e_seq_sp
-      module procedure dfgather_R4e_seq_hp
-      module procedure dfgather_R5e_seq_sp
-      module procedure dfgather_R5e_seq_hp
       module procedure dfgather_I2_seq
+      module procedure dfgather_R2e_seq_sp2sp
+      module procedure dfgather_R2e_seq_hp2sp
+      module procedure dfgather_R2e_seq_hp2hp
+      module procedure dfgather_R3e_seq_sp2sp
+      module procedure dfgather_R3e_seq_hp2sp
+      module procedure dfgather_R3e_seq_hp2hp
+      module procedure dfgather_R4e_seq_sp2sp
+      module procedure dfgather_R4e_seq_hp2sp
+      module procedure dfgather_R4e_seq_hp2hp
+      module procedure dfgather_R5e_seq_sp2sp
+      module procedure dfgather_R5e_seq_hp2sp
    end interface dfgather_seq
 
    interface dffind_duplicate
@@ -1521,11 +1530,10 @@ end subroutine dfgather_filter_R3D_hp2hp
 !
 !
 !===============================================================================
-subroutine dfgather_I2e(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_I2e(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -1541,13 +1549,14 @@ subroutine dfgather_I2e(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                        :: gdp
-integer, dimension(:,:)        , intent(in)  :: inparr
-integer, dimension(4,0:nproc-1), intent(in)  :: iarrc
-integer, dimension(0:nproc-1)  , intent(in)  :: nf
-integer, dimension(0:nproc-1)  , intent(in)  :: nl
-integer, dimension(0:nproc-1)  , intent(in)  :: mf
-integer, dimension(0:nproc-1)  , intent(in)  :: ml
+type(globdat), target                                        :: gdp
+integer, dimension(:,:)                      , intent(in)    :: inparr
+integer, dimension(:,:)         , allocatable, intent(inout) :: ouparr
+integer, dimension(4,0:nproc-1)              , intent(in)    :: iarrc
+integer, dimension(0:nproc-1)                , intent(in)    :: nf
+integer, dimension(0:nproc-1)                , intent(in)    :: nl
+integer, dimension(0:nproc-1)                , intent(in)    :: mf
+integer, dimension(0:nproc-1)                , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -1620,8 +1629,8 @@ integer, dimension(:,:), allocatable      :: inparr_slice
     if (inode == master) then
        nmaxgl => gdp%gdparall%nmaxgl
        mmaxgl => gdp%gdparall%mmaxgl
-       if (allocated(glbari2)) deallocate(glbari2)
-       allocate( glbari2(nmaxgl, mmaxgl) )
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl) )
        is = 0
        do ip = 0, nproc-1
           msiz = iarrc(2,ip)-iarrc(1,ip)+1
@@ -1630,7 +1639,7 @@ integer, dimension(:,:), allocatable      :: inparr_slice
           do n = nf(ip), nl(ip)
              do m = mf(ip), ml(ip)
                 nm = is + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
-                glbari2(n, m) = tmp(nm)
+                ouparr(n, m) = tmp(nm)
              enddo
           enddo
           is = is + msiz*nsiz
@@ -1644,11 +1653,10 @@ end subroutine dfgather_I2e
 !
 !
 !===============================================================================
-subroutine dfgather_R2e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R2e_sp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -1664,13 +1672,14 @@ subroutine dfgather_R2e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                        :: gdp
-real(sp), dimension(:,:)        , intent(in) :: inparr
-integer , dimension(4,0:nproc-1), intent(in) :: iarrc
-integer , dimension(0:nproc-1)  , intent(in) :: nf
-integer , dimension(0:nproc-1)  , intent(in) :: nl
-integer , dimension(0:nproc-1)  , intent(in) :: mf
-integer , dimension(0:nproc-1)  , intent(in) :: ml
+type(globdat), target                                        :: gdp
+real(sp), dimension(:,:)                     , intent(in)    :: inparr
+real(sp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -1743,8 +1752,8 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
     if (inode == master) then
        nmaxgl => gdp%gdparall%nmaxgl
        mmaxgl => gdp%gdparall%mmaxgl
-       if (allocated(glbarr2)) deallocate(glbarr2)
-       allocate( glbarr2(nmaxgl, mmaxgl) )
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl) )
        is = 0
        do ip = 0, nproc-1
           !
@@ -1755,7 +1764,7 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
           do n = nf(ip), nl(ip)
              do m = mf(ip), ml(ip)
                 nm = is + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
-                glbarr2(n, m) = tmp(nm)
+                ouparr(n, m) = tmp(nm)
              enddo
           enddo
           !
@@ -1767,16 +1776,15 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
-end subroutine dfgather_R2e_sp
+end subroutine dfgather_R2e_sp2sp
 !
 !
 !
 !===============================================================================
-subroutine dfgather_R2e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R2e_hp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -1789,13 +1797,14 @@ subroutine dfgather_R2e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                        :: gdp
-real(hp), dimension(:,:)        , intent(in) :: inparr
-integer , dimension(4,0:nproc-1), intent(in) :: iarrc
-integer , dimension(0:nproc-1)  , intent(in) :: nf
-integer , dimension(0:nproc-1)  , intent(in) :: nl
-integer , dimension(0:nproc-1)  , intent(in) :: mf
-integer , dimension(0:nproc-1)  , intent(in) :: ml
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:)                     , intent(in)    :: inparr
+real(sp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -1805,17 +1814,16 @@ real(sp), dimension(:,:), allocatable    :: tmp
 !
 allocate(tmp(size(inparr,1),size(inparr,2)))
 tmp = real(inparr,sp)
-call dfgather_R2e_sp(tmp,nf,nl,mf,ml,iarrc,gdp)
+call dfgather_R2e_sp2sp(tmp,ouparr,nf,nl,mf,ml,iarrc,gdp)
 deallocate(tmp)
-end subroutine dfgather_R2e_hp
+end subroutine dfgather_R2e_hp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R3e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R2e_hp2hp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -1831,13 +1839,141 @@ subroutine dfgather_R3e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                         :: gdp
-real(sp), dimension(:,:,:)      , intent(in)  :: inparr
-integer , dimension(4,0:nproc-1), intent(in)  :: iarrc
-integer , dimension(0:nproc-1)  , intent(in)  :: nf
-integer , dimension(0:nproc-1)  , intent(in)  :: nl
-integer , dimension(0:nproc-1)  , intent(in)  :: mf
-integer , dimension(0:nproc-1)  , intent(in)  :: ml
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:)                     , intent(in)    :: inparr
+real(hp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
+!
+! Local variables
+!
+integer                      , pointer :: nmaxgl
+integer                      , pointer :: mmaxgl
+integer                      , pointer :: nfg
+integer                      , pointer :: nlg
+integer                      , pointer :: mfg
+integer                      , pointer :: mlg
+integer                                :: iif
+integer                                :: iil
+integer                                :: jjf
+integer                                :: jjl
+integer                                :: ip
+integer                                :: ierr
+integer                                :: nfi
+integer                                :: nla
+integer                                :: mfi
+integer                                :: mla
+integer                                :: nmdim
+integer                                :: n
+integer                                :: m
+integer                                :: nm
+integer                                :: msiz
+integer                                :: nsiz
+integer                                :: lenlo
+integer                                :: lengl
+integer                                :: is
+real(hp), dimension(:), allocatable    :: tmp
+real(hp), dimension(:,:), allocatable  :: inparr_slice
+!
+!! executable statements -------------------------------------------------------
+!
+    if (inode == master) then
+       !
+       ! determine total length for collecting data of all nodes and allocate arrays
+       !
+       lengl = 0
+       do ip = 0, nproc-1
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          lengl = lengl + msiz*nsiz
+       enddo
+       allocate(tmp(lengl))
+    else
+       allocate(tmp(1))
+    endif
+    nfg => gdp%gdparall%nfg
+    nlg => gdp%gdparall%nlg
+    mfg => gdp%gdparall%mfg
+    mlg => gdp%gdparall%mlg
+    msiz = (mlg + 2) - (mfg - 2) + 1
+    nsiz = nlg - nfg +1
+    if (mod(nsiz,2)==0) nsiz = nsiz + 1
+    lenlo = msiz*nsiz
+    iif   = 1-gdp%d%nlb+1
+    iil   = gdp%d%nmax-gdp%d%nlb+1
+    jjf   = -1-gdp%d%mlb+1
+    jjl   = gdp%d%mmax+2-gdp%d%mlb+1
+    !
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! this (possibly big) array is placed on the stack
+    ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
+    !
+    allocate(inparr_slice(iif:iil,jjf:jjl))
+    inparr_slice(iif:iil,jjf:jjl) = inparr(iif:iil,jjf:jjl)
+    call dfgather_lowlevel ( tmp, lengl, inparr_slice, lenlo, dfreal, gdp )
+    deallocate(inparr_slice)
+    if (inode == master) then
+       nmaxgl => gdp%gdparall%nmaxgl
+       mmaxgl => gdp%gdparall%mmaxgl
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl) )
+       is = 0
+       do ip = 0, nproc-1
+          !
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          !
+          do n = nf(ip), nl(ip)
+             do m = mf(ip), ml(ip)
+                nm = is + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
+                ouparr(n, m) = tmp(nm)
+             enddo
+          enddo
+          !
+          is = is + msiz*nsiz
+          !
+       enddo
+    endif
+    deallocate(tmp)
+#ifdef HAVE_MPI
+call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+end subroutine dfgather_R2e_hp2hp
+!
+!
+!===============================================================================
+subroutine dfgather_R3e_sp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather distributed arrays to ouparr (on master)
+!    Method used: dfgather + shift indices of input array (otherwise assumed
+!                 array bounds from 1 to ...
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+#ifdef HAVE_MPI
+    use mpi
+#endif
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                        :: gdp
+real(sp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(sp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -1916,8 +2052,8 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
     if (inode == master) then
        nmaxgl => gdp%gdparall%nmaxgl
        mmaxgl => gdp%gdparall%mmaxgl
-       if (allocated(glbarr3)) deallocate(glbarr3)
-       allocate( glbarr3(nmaxgl, mmaxgl, kf:kl) )
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl, kf:kl) )
        is = 0
        do ip = 0, nproc-1
           !
@@ -1929,7 +2065,7 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
              do n = nf(ip), nl(ip)
                 do m = mf(ip), ml(ip)
                    nm = is + (k - kf)*nsiz*msiz + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
-                   glbarr3(n, m, k) = tmp(nm)
+                   ouparr(n, m, k) = tmp(nm)
                 enddo
              enddo
           enddo
@@ -1940,16 +2076,14 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
-end subroutine dfgather_R3e_sp
-!
+end subroutine dfgather_R3e_sp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R3e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R3e_hp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -1962,13 +2096,14 @@ subroutine dfgather_R3e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                         :: gdp
-real(hp), dimension(:,:,:)      , intent(in)  :: inparr
-integer , dimension(4,0:nproc-1), intent(in)  :: iarrc
-integer , dimension(0:nproc-1)  , intent(in)  :: nf
-integer , dimension(0:nproc-1)  , intent(in)  :: nl
-integer , dimension(0:nproc-1)  , intent(in)  :: mf
-integer , dimension(0:nproc-1)  , intent(in)  :: ml
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(sp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -1978,17 +2113,16 @@ real(sp), dimension(:,:,:), allocatable    :: tmp
 !
 allocate(tmp(size(inparr,1),size(inparr,2),size(inparr,3)))
 tmp = real(inparr,sp)
-call dfgather_R3e_sp(tmp,nf,nl,mf,ml,iarrc,gdp)
+call dfgather_R3e_sp2sp(tmp,ouparr,nf,nl,mf,ml,iarrc,gdp)
 deallocate(tmp)
-end subroutine dfgather_R3e_hp
+end subroutine dfgather_R3e_hp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R4e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R3e_hp2hp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -2004,13 +2138,147 @@ subroutine dfgather_R4e_sp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                         :: gdp
-real(sp), dimension(:,:,:,:)    , intent(in)  :: inparr
-integer , dimension(4,0:nproc-1), intent(in)  :: iarrc
-integer , dimension(0:nproc-1)  , intent(in)  :: nf
-integer , dimension(0:nproc-1)  , intent(in)  :: nl
-integer , dimension(0:nproc-1)  , intent(in)  :: mf
-integer , dimension(0:nproc-1)  , intent(in)  :: ml
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(hp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
+!
+! Local variables
+!
+integer                       , pointer :: nmaxgl
+integer                       , pointer :: mmaxgl
+integer                       , pointer :: nfg
+integer                       , pointer :: nlg
+integer                       , pointer :: mfg
+integer                       , pointer :: mlg
+integer                                 :: iif
+integer                                 :: iil
+integer                                 :: jjf
+integer                                 :: jjl
+integer                                 :: kf
+integer                                 :: kl
+integer                                 :: ip
+integer                                 :: ierr
+integer                                 :: nfi
+integer                                 :: nla
+integer                                 :: mfi
+integer                                 :: mla
+integer                                 :: nmdim
+integer                                 :: k
+integer                                 :: n
+integer                                 :: m
+integer                                 :: nm
+integer                                 :: msiz
+integer                                 :: nsiz
+integer                                 :: lenlo
+integer                                 :: lengl
+integer                                 :: is
+real(hp), dimension(:)    , allocatable :: tmp
+real(hp), dimension(:,:,:), allocatable :: inparr_slice
+!
+!! executable statements -------------------------------------------------------
+!
+    kf = lbound(inparr,3)
+    kl = ubound(inparr,3)
+    if (inode == master) then
+       !
+       ! determine total length for collecting data of all nodes and allocate arrays
+       !
+       lengl = 0
+       do ip = 0, nproc-1
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          lengl = lengl + msiz*nsiz
+       enddo
+       lengl = lengl*(kl-kf+1)
+       allocate(tmp(lengl))
+    else
+       allocate(tmp(1))
+    endif
+    nfg => gdp%gdparall%nfg
+    nlg => gdp%gdparall%nlg
+    mfg => gdp%gdparall%mfg
+    mlg => gdp%gdparall%mlg
+    msiz = (mlg + 2) - (mfg - 2) + 1
+    nsiz = nlg - nfg +1
+    if (mod(nsiz,2)==0) nsiz = nsiz + 1
+    lenlo = msiz*nsiz*(kl-kf+1)
+    iif   = 1-gdp%d%nlb+1
+    iil   = gdp%d%nmax-gdp%d%nlb+1
+    jjf   = -1-gdp%d%mlb+1
+    jjl   = gdp%d%mmax+2-gdp%d%mlb+1
+    !
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! this (possibly big) array is placed on the stack
+    ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
+    !
+    allocate(inparr_slice(iif:iil,jjf:jjl,kf:kl))
+    inparr_slice(iif:iil,jjf:jjl,kf:kl) = inparr(iif:iil,jjf:jjl,kf:kl)
+    call dfgather_lowlevel ( tmp, lengl, inparr_slice, lenlo, dfreal, gdp )
+    deallocate(inparr_slice)
+    if (inode == master) then
+       nmaxgl => gdp%gdparall%nmaxgl
+       mmaxgl => gdp%gdparall%mmaxgl
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl, kf:kl) )
+       is = 0
+       do ip = 0, nproc-1
+          !
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          !
+          do k = kf, kl
+             do n = nf(ip), nl(ip)
+                do m = mf(ip), ml(ip)
+                   nm = is + (k - kf)*nsiz*msiz + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
+                   ouparr(n, m, k) = tmp(nm)
+                enddo
+             enddo
+          enddo
+          is = is + msiz*nsiz*(kl-kf+1)
+       enddo
+    endif
+    deallocate(tmp)
+#ifdef HAVE_MPI
+call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+end subroutine dfgather_R3e_hp2hp
+!
+!
+!===============================================================================
+subroutine dfgather_R4e_sp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather distributed arrays to ouparr (on master)
+!    Method used: dfgather + shift indices of input array (otherwise assumed
+!                 array bounds from 1 to ...
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+#ifdef HAVE_MPI
+    use mpi
+#endif
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                        :: gdp
+real(sp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(sp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -2096,9 +2364,9 @@ real(sp), dimension(:,:,:,:), allocatable  :: inparr_slice
     if (inode == master) then
        nmaxgl => gdp%gdparall%nmaxgl
        mmaxgl => gdp%gdparall%mmaxgl
-       if (allocated(glbarr4)) deallocate(glbarr4)
-       allocate( glbarr4(nmaxgl, mmaxgl, kf:kl, lf:ll) , stat=istat)
-       if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for glbarr4 array'
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl, kf:kl, lf:ll) , stat=istat)
+       if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for glbarr4_sp array'
        is = 0
        do ip = 0, nproc-1
           msiz = iarrc(2,ip)-iarrc(1,ip)+1
@@ -2109,7 +2377,7 @@ real(sp), dimension(:,:,:,:), allocatable  :: inparr_slice
              do n = nf(ip), nl(ip)
                 do m = mf(ip), ml(ip)
                    nm = is + (l - lf)*msiz*nsiz*(kl-kf+1) + (k - kf)*msiz*nsiz + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
-                   glbarr4(n, m, k, l) = tmp(nm)
+                   ouparr(n, m, k, l) = tmp(nm)
                 enddo
              enddo
           enddo
@@ -2121,16 +2389,15 @@ real(sp), dimension(:,:,:,:), allocatable  :: inparr_slice
 #ifdef HAVE_MPI
 call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
-end subroutine dfgather_R4e_sp
+end subroutine dfgather_R4e_sp2sp
 !
 !
 !
 !===============================================================================
-subroutine dfgather_R4e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
+subroutine dfgather_R4e_hp2sp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather distributed arrays in global array globar (owned by
-!                 master) for writing to Map files
+!    Function:    Gather distributed arrays to ouparr (on master)
 !    Method used: dfgather + shift indices of input array (otherwise assumed
 !                 array bounds from 1 to ...
 !
@@ -2143,13 +2410,14 @@ subroutine dfgather_R4e_hp(inparr,nf,nl,mf,ml,iarrc,gdp)
 !
 ! Global variables
 !
-type(globdat), target                         :: gdp
-real(hp), dimension(:,:,:,:)    , intent(in)  :: inparr
-integer , dimension(4,0:nproc-1), intent(in)  :: iarrc
-integer , dimension(0:nproc-1)  , intent(in)  :: nf
-integer , dimension(0:nproc-1)  , intent(in)  :: nl
-integer , dimension(0:nproc-1)  , intent(in)  :: mf
-integer , dimension(0:nproc-1)  , intent(in)  :: ml
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(sp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
 !
 ! Local variables
 !
@@ -2159,9 +2427,151 @@ real(sp), dimension(:,:,:,:), allocatable    :: tmp
 !
 allocate(tmp(size(inparr,1),size(inparr,2),size(inparr,3),size(inparr,4)))
 tmp = real(inparr,sp)
-call dfgather_R4e_sp(tmp,nf,nl,mf,ml,iarrc,gdp)
+call dfgather_R4e_sp2sp(tmp,ouparr,nf,nl,mf,ml,iarrc,gdp)
 deallocate(tmp)
-end subroutine dfgather_R4e_hp
+end subroutine dfgather_R4e_hp2sp
+!
+!
+!===============================================================================
+subroutine dfgather_R4e_hp2hp(inparr, ouparr, nf, nl, mf, ml, iarrc, gdp)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather distributed arrays to ouparr (on master)
+!    Method used: dfgather + shift indices of input array (otherwise assumed
+!                 array bounds from 1 to ...
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+#ifdef HAVE_MPI
+    use mpi
+#endif
+    use precision
+    use dfparall
+    use globaldata
+!
+! Global variables
+!
+type(globdat), target                                        :: gdp
+real(hp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(hp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer , dimension(4,0:nproc-1)             , intent(in)    :: iarrc
+integer , dimension(0:nproc-1)               , intent(in)    :: nf
+integer , dimension(0:nproc-1)               , intent(in)    :: nl
+integer , dimension(0:nproc-1)               , intent(in)    :: mf
+integer , dimension(0:nproc-1)               , intent(in)    :: ml
+!
+! Local variables
+!
+integer                          , pointer :: nmaxgl
+integer                          , pointer :: mmaxgl
+integer                          , pointer :: nfg
+integer                          , pointer :: nlg
+integer                          , pointer :: mfg
+integer                          , pointer :: mlg
+integer                                    :: iif
+integer                                    :: iil
+integer                                    :: jjf
+integer                                    :: jjl
+integer                                    :: kf
+integer                                    :: kl
+integer                                    :: lf
+integer                                    :: ll
+integer                                    :: ip
+integer                                    :: istat
+integer                                    :: ierr
+integer                                    :: nfi
+integer                                    :: nla
+integer                                    :: mfi
+integer                                    :: mla
+integer                                    :: nmdim
+integer                                    :: k
+integer                                    :: l
+integer                                    :: n
+integer                                    :: m
+integer                                    :: nm
+integer                                    :: msiz
+integer                                    :: nsiz
+integer                                    :: lenlo
+integer                                    :: lengl
+integer                                    :: is
+real(hp), dimension(:)      , allocatable  :: tmp
+real(hp), dimension(:,:,:,:), allocatable  :: inparr_slice
+!
+!! executable statements -------------------------------------------------------
+!
+    kf = lbound(inparr,3)
+    kl = ubound(inparr,3)
+    lf = lbound(inparr,4)
+    ll = ubound(inparr,4)
+    if (inode == master) then
+       !
+       ! determine total length for collecting data of all nodes and allocate arrays
+       !
+       lengl = 0
+       do ip = 0, nproc-1
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          lengl = lengl + msiz*nsiz
+       enddo
+       lengl = lengl*(kl-kf+1)*(ll-lf+1)
+       allocate(tmp(lengl), stat=istat)
+    else
+       allocate(tmp(1), stat=istat)
+    endif
+    if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for tmp array'
+    nfg => gdp%gdparall%nfg
+    nlg => gdp%gdparall%nlg
+    mfg => gdp%gdparall%mfg
+    mlg => gdp%gdparall%mlg
+    msiz = (mlg + 2) - (mfg - 2) + 1
+    nsiz = nlg - nfg +1
+    if (mod(nsiz,2)==0) nsiz = nsiz + 1
+    lenlo = msiz*nsiz*(kl-kf+1)*(ll-lf+1)
+    iif = 1-gdp%d%nlb+1
+    iil = gdp%d%nmax-gdp%d%nlb+1
+    jjf = -1-gdp%d%mlb+1
+    jjl = gdp%d%mmax+2-gdp%d%mlb+1
+    !
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! this (possibly big) array is placed on the stack
+    ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
+    !
+    allocate(inparr_slice(iif:iil,jjf:jjl,kf:kl,lf:ll))
+    inparr_slice(iif:iil,jjf:jjl,kf:kl,lf:ll) = inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    call dfgather_lowlevel ( tmp, lengl, inparr_slice, lenlo, dfreal, gdp )
+    deallocate(inparr_slice)
+    if (inode == master) then
+       nmaxgl => gdp%gdparall%nmaxgl
+       mmaxgl => gdp%gdparall%mmaxgl
+       if (allocated(ouparr)) deallocate(ouparr)
+       allocate( ouparr(nmaxgl, mmaxgl, kf:kl, lf:ll) , stat=istat)
+       if (istat /= 0) write(gdp%gdinout%lundia,*)'dffunctionals.f90-gather_R4e allocation problem for glbarr4_sp array'
+       is = 0
+       do ip = 0, nproc-1
+          msiz = iarrc(2,ip)-iarrc(1,ip)+1
+          nsiz = iarrc(4,ip)-iarrc(3,ip)+1
+          if (mod(nsiz,2)==0) nsiz = nsiz + 1
+          do l = lf, ll
+          do k = kf, kl
+             do n = nf(ip), nl(ip)
+                do m = mf(ip), ml(ip)
+                   nm = is + (l - lf)*msiz*nsiz*(kl-kf+1) + (k - kf)*msiz*nsiz + (m - iarrc(1,ip))*nsiz + (n - iarrc(3,ip)) + 1
+                   ouparr(n, m, k, l) = tmp(nm)
+                enddo
+             enddo
+          enddo
+          enddo
+          is = is + msiz*nsiz*(kl-kf+1)*(ll-lf+1)
+       enddo
+    endif
+    deallocate(tmp)
+#ifdef HAVE_MPI
+call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+end subroutine dfgather_R4e_hp2hp
+!
 !
 !
 !===============================================================================
@@ -2497,26 +2907,26 @@ end subroutine dffind_duplicate_I
 !
 !
 !===============================================================================
-subroutine dfgather_I2_seq(inparr,noff,moff,nmaxgl,mmaxgl)
+subroutine dfgather_I2_seq(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-    use precision
-    use globaldata
+!    use precision
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff       ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff       ! desired offset w.r.t. globarr
-integer, dimension(:,:)         , intent(in) :: inparr
+integer, dimension(:,:)                      , intent(in)    :: inparr
+integer, dimension(:,:)         , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
@@ -2525,37 +2935,36 @@ integer                                      :: n
 !
 !! executable statements -------------------------------------------------------
 !
-if (allocated(glbari2)) deallocate(glbari2)
-allocate(glbari2(1:nmaxgl,1:mmaxgl))
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl))
 do n = 1, nmaxgl
    do m = 1, mmaxgl
-      glbari2(n,m) = inparr(n+noff,m+moff)
+      ouparr(n,m) = inparr(n+noff,m+moff)
    enddo
 enddo
-!
 end subroutine dfgather_I2_seq
 !
 !===============================================================================
-subroutine dfgather_R2e_seq_sp(inparr,noff, moff, nmaxgl,mmaxgl)
+subroutine dfgather_R2e_seq_sp2sp(inparr, ouparr, noff, moff, nmaxgl,mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff     ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff     ! desired offset w.r.t. globarr
-real(sp), dimension(:,:)        , intent(in) :: inparr
+real(sp), dimension(:,:)                     , intent(in)    :: inparr
+real(sp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
@@ -2564,73 +2973,115 @@ integer                                      :: n
 !
 !! executable statements -------------------------------------------------------
 !
-if (allocated(glbarr2)) deallocate(glbarr2)
-allocate(glbarr2(1:nmaxgl,1:mmaxgl))
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl))
 do n = 1, nmaxgl
    do m = 1, mmaxgl
-      glbarr2(n,m) = inparr(n+noff,m+moff)
+      ouparr(n,m) = inparr(n+noff,m+moff)
    enddo
 enddo
-
-end subroutine dfgather_R2e_seq_sp
+end subroutine dfgather_R2e_seq_sp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R2e_seq_hp(inparr,noff, moff, nmaxgl, mmaxgl)
+subroutine dfgather_R2e_seq_hp2sp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-real(hp), dimension(:,:)        , intent(in) :: inparr
-integer                         , intent(in) :: moff     ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff     ! desired offset w.r.t. globarr
+real(hp), dimension(:,:)                     , intent(in)    :: inparr
+real(sp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
-real(sp), dimension(:,:), allocatable    :: tmp
+integer                                      :: m
+integer                                      :: n
 !
 !! executable statements -------------------------------------------------------
 !
-allocate(tmp(size(inparr,1),size(inparr,2)))
-tmp = real(inparr,sp)
-call dfgather_R2e_seq_sp(tmp,noff,moff,nmaxgl,mmaxgl)
-deallocate(tmp)
-end subroutine dfgather_R2e_seq_hp
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl))
+do n = 1, nmaxgl
+   do m = 1, mmaxgl
+      ouparr(n,m) = real(inparr(n+noff,m+moff),sp)
+   enddo
+enddo
+end subroutine dfgather_R2e_seq_hp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R3e_seq_sp(inparr,noff,moff,nmaxgl,mmaxgl)
+subroutine dfgather_R2e_seq_hp2hp(inparr, ouparr, noff, moff, nmaxgl,mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
-
+!
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff     ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff     ! desired offset w.r.t. globarr
-real(sp), dimension(:,:,:)      , intent(in) :: inparr
+real(hp), dimension(:,:)                     , intent(in)    :: inparr
+real(hp), dimension(:,:)        , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
+!
+! Local variables
+!
+integer                                      :: m
+integer                                      :: n
+!
+!! executable statements -------------------------------------------------------
+!
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl))
+do n = 1, nmaxgl
+   do m = 1, mmaxgl
+      ouparr(n,m) = inparr(n+noff,m+moff)
+   enddo
+enddo
+end subroutine dfgather_R2e_seq_hp2hp
+!
+!
+!===============================================================================
+subroutine dfgather_R3e_seq_sp2sp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather array to master (sequential mode)
+!    Method used: shift indices of input array
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+!    use globaldata
+!
+! Global variables
+!
+real(sp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(sp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
@@ -2644,79 +3095,131 @@ integer                                      :: kl
 !
 kf = lbound(inparr,3)
 kl = ubound(inparr,3)
-if (allocated(glbarr3)) deallocate(glbarr3)
-allocate(glbarr3(1:nmaxgl,1:mmaxgl,kf:kl))
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl))
 do k = kf, kl
    do n = 1, nmaxgl
       do m = 1, mmaxgl
-         glbarr3(n,m,k) = inparr(n+noff,m+moff,k)
+         ouparr(n,m,k) = inparr(n+noff,m+moff,k)
       enddo
    enddo
 enddo
-!
-end subroutine dfgather_R3e_seq_sp
+end subroutine dfgather_R3e_seq_sp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R3e_seq_hp(inparr,noff,moff,nmaxgl, mmaxgl)
+subroutine dfgather_R3e_seq_hp2sp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff         ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff         ! desired offset w.r.t. globarr
-real(hp), dimension(:,:,:)      , intent(in) :: inparr
+real(hp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(sp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
-real(sp), dimension(:,:,:), allocatable    :: tmp
+integer                                      :: m
+integer                                      :: n
+integer                                      :: k
+integer                                      :: kf
+integer                                      :: kl
 !
 !! executable statements -------------------------------------------------------
 !
-
-allocate(tmp(size(inparr,1),size(inparr,2),size(inparr,3)))
-
-
-tmp = real(inparr,sp)
-call dfgather_R3e_seq_sp(tmp,noff,moff,nmaxgl,mmaxgl)
-
-deallocate(tmp)
-end subroutine dfgather_R3e_seq_hp
+kf = lbound(inparr,3)
+kl = ubound(inparr,3)
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl))
+do k = kf, kl
+   do n = 1, nmaxgl
+      do m = 1, mmaxgl
+         ouparr(n,m,k) = real(inparr(n+noff,m+moff,k),sp)
+      enddo
+   enddo
+enddo
+end subroutine dfgather_R3e_seq_hp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R4e_seq_sp(inparr,noff,moff,nmaxgl,mmaxgl)
+subroutine dfgather_R3e_seq_hp2hp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff         ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff         ! desired offset w.r.t. globarr
-real(sp), dimension(:,:,:,:)    , intent(in) :: inparr
+real(hp), dimension(:,:,:)                   , intent(in)    :: inparr
+real(hp), dimension(:,:,:)      , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
+!
+! Local variables
+!
+integer                                      :: m
+integer                                      :: n
+integer                                      :: k
+integer                                      :: kf
+integer                                      :: kl
+!
+!! executable statements -------------------------------------------------------
+!
+kf = lbound(inparr,3)
+kl = ubound(inparr,3)
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl))
+do k = kf, kl
+   do n = 1, nmaxgl
+      do m = 1, mmaxgl
+         ouparr(n,m,k) = inparr(n+noff,m+moff,k)
+      enddo
+   enddo
+enddo
+end subroutine dfgather_R3e_seq_hp2hp
+!
+!
+!===============================================================================
+subroutine dfgather_R4e_seq_sp2sp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather array to master (sequential mode)
+!    Method used: shift indices of input array
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+!    use globaldata
+!
+! Global variables
+!
+real(sp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(sp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
@@ -2736,54 +3239,126 @@ kl = ubound(inparr,3)
 lf = lbound(inparr,4)
 ll = ubound(inparr,4)
 
-if (allocated(glbarr4)) deallocate(glbarr4)
-allocate(glbarr4(1:nmaxgl,1:mmaxgl,kf:kl,lf:ll))
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl,lf:ll))
 do l = lf, ll
    do k = kf, kl
       do n = 1, nmaxgl
          do m = 1, mmaxgl
-            glbarr4(n,m,k,l) = inparr(n+noff,m+moff,k,l)
+            ouparr(n,m,k,l) = inparr(n+noff,m+moff,k,l)
          enddo
       enddo
    enddo
 enddo
-
-end subroutine dfgather_R4e_seq_sp
+end subroutine dfgather_R4e_seq_sp2sp
 !
 !
 !===============================================================================
-subroutine dfgather_R4e_seq_hp(inparr,noff,moff,nmaxgl, mmaxgl)
+subroutine dfgather_R4e_seq_hp2sp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
 !!--description-----------------------------------------------------------------
 !
-!    Function:    Gather array in global array globar
-!                  for writing to Map files (sequential mode)
+!    Function:    Gather array to master (sequential mode)
 !    Method used: shift indices of input array
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use globaldata
+!    use globaldata
 !
 ! Global variables
 !
-integer                         , intent(in) :: nmaxgl
-integer                         , intent(in) :: mmaxgl
-integer                         , intent(in) :: moff       ! desired offset w.r.t. globarr
-integer                         , intent(in) :: noff       ! desired offset w.r.t. globarr
-real(hp), dimension(:,:,:,:)    , intent(in) :: inparr
+real(hp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(sp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
 !
 ! Local variables
 !
-real(sp), dimension(:,:,:,:), allocatable    :: tmp
+integer                                      :: m
+integer                                      :: n
+integer                                      :: k
+integer                                      :: kf
+integer                                      :: kl
+integer                                      :: l
+integer                                      :: lf
+integer                                      :: ll
 !
 !! executable statements -------------------------------------------------------
 !
-allocate(tmp(size(inparr,1),size(inparr,2),size(inparr,3),size(inparr,4)))
-tmp = real(inparr,sp)
-call dfgather_R4e_seq_sp(tmp,noff,moff,nmaxgl,mmaxgl)
-deallocate(tmp)
-end subroutine dfgather_R4e_seq_hp
+kf = lbound(inparr,3)
+kl = ubound(inparr,3)
+lf = lbound(inparr,4)
+ll = ubound(inparr,4)
+
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl,lf:ll))
+do l = lf, ll
+   do k = kf, kl
+      do n = 1, nmaxgl
+         do m = 1, mmaxgl
+            ouparr(n,m,k,l) = real(inparr(n+noff,m+moff,k,l),sp)
+         enddo
+      enddo
+   enddo
+enddo
+end subroutine dfgather_R4e_seq_hp2sp
+!
+!
+!===============================================================================
+subroutine dfgather_R4e_seq_hp2hp(inparr, ouparr, noff, moff, nmaxgl, mmaxgl)
+!!--description-----------------------------------------------------------------
+!
+!    Function:    Gather array to master (sequential mode)
+!    Method used: shift indices of input array
+!
+!!--pseudo code and references--------------------------------------------------
+! NONE
+!!--declarations----------------------------------------------------------------
+    use precision
+!    use globaldata
+!
+! Global variables
+!
+real(hp), dimension(:,:,:,:)                 , intent(in)    :: inparr
+real(hp), dimension(:,:,:,:)    , allocatable, intent(inout) :: ouparr
+integer                                      , intent(in)    :: noff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: moff       ! desired offset w.r.t. ouparr
+integer                                      , intent(in)    :: nmaxgl
+integer                                      , intent(in)    :: mmaxgl
+!
+! Local variables
+!
+integer                                      :: m
+integer                                      :: n
+integer                                      :: k
+integer                                      :: kf
+integer                                      :: kl
+integer                                      :: l
+integer                                      :: lf
+integer                                      :: ll
+!
+!! executable statements -------------------------------------------------------
+!
+kf = lbound(inparr,3)
+kl = ubound(inparr,3)
+lf = lbound(inparr,4)
+ll = ubound(inparr,4)
+
+if (allocated(ouparr)) deallocate(ouparr)
+allocate(ouparr(1:nmaxgl,1:mmaxgl,kf:kl,lf:ll))
+do l = lf, ll
+   do k = kf, kl
+      do n = 1, nmaxgl
+         do m = 1, mmaxgl
+            ouparr(n,m,k,l) = inparr(n+noff,m+moff,k,l)
+         enddo
+      enddo
+   enddo
+enddo
+end subroutine dfgather_R4e_seq_hp2hp
 !
 !
 !===============================================================================
@@ -2885,9 +3460,12 @@ end subroutine dfgather_R5e_seq_hp
 !
 !===============================================================================
 subroutine dfcleanup_glbarrs
-   if (allocated(glbarr2)) deallocate(glbarr2)
-   if (allocated(glbarr3)) deallocate(glbarr3)
-   if (allocated(glbarr4)) deallocate(glbarr4)
+   if (allocated(glbarr2_sp)) deallocate(glbarr2_sp)
+   if (allocated(glbarr3_sp)) deallocate(glbarr3_sp)
+   if (allocated(glbarr4_sp)) deallocate(glbarr4_sp)
+   if (allocated(glbarr2_hp)) deallocate(glbarr2_hp)
+   if (allocated(glbarr3_hp)) deallocate(glbarr3_hp)
+   if (allocated(glbarr4_hp)) deallocate(glbarr4_hp)
    if (allocated(glbari2)) deallocate(glbari2)
 end subroutine dfcleanup_glbarrs
 

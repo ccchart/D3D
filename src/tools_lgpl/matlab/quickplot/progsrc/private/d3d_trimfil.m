@@ -102,6 +102,8 @@ end
 
 if DataInCell==0.5 && strcmp(Props.ReqLoc,'z')
     DataInCell = 1;
+elseif strcmp(Props.Name,'grid')
+    DataInCell = 1;
 end
 
 DimFlag=Props.DimFlag;
@@ -296,9 +298,15 @@ if XYRead || compute_unitvalue || computeDZ
         if ~DataInCell && length(idx{K_})>1
             error('Plot type not yet supported for underlayers')
         end
-        dz=vs_let(FI,'map-sed-series',idx(T_),'THLYR',[idx([M_ N_]) {0}],'quiet!');
-        dz=cumsum(dz,4);
-        idxK_=[idx{K_} idx{K_}(end)+1]-1;
+        I=vs_disp(FI,'map-sed-series','DP_BEDLYR');
+        idxK_=[idx{K_} idx{K_}(end)+1];
+        if isstruct(I)
+            dz=vs_let(FI,'map-sed-series',idx(T_),'DP_BEDLYR',[idx([M_ N_]) {0}],'quiet!');
+        else
+            dz=vs_let(FI,'map-sed-series',idx(T_),'THLYR',[idx([M_ N_]) {0}],'quiet!');
+            dz=cumsum(dz,4);
+            idxK_ = idxK_-1;
+        end
         szdp=size(dp);
         if length(szdp)<3
             szh(3)=1;
@@ -422,8 +430,12 @@ if DataRead
             Props.NVal=2;
             ThinDam=1;
         case 'base level of sediment layer'
-            if strcmp(Props.Val1,'THLYR')
-                elidx{end+1}=0;
+            switch Props.Val1
+                case 'THLYR'
+                    elidx{end+1}=0;
+                case 'DP_BEDLYR'
+                    I=vs_disp(FI,Props.Group,Props.Val1);
+                    elidx{end+1}=I.SizeDim(3);
             end
         case {'cum. erosion/sedimentation','initial bed level','bed level in water level points','cumulative mass error'}
             DepthInZeta=DataInCell | strcmp(Props.ReqLoc,'z');
@@ -582,7 +594,9 @@ if DataRead
                 Props.NVal=2;
             end
         case 'base level of sediment layer'
-            val1=sum(val1,4);
+            if size(val1,4)>1
+                val1=sum(val1,4);
+            end
             val1=-val1+readdps(FI,idx,0);
         case {'initial bed level','bed level in water level points'}
             if DepthInZeta %strcmp(Props.Val1,'DPSED') || DataInCell
@@ -1006,6 +1020,7 @@ FI = guarantee_options(FI);
 PropNames={'Name'                   'Units'   'DimFlag' 'DataInCell' 'NVal' 'VecType' 'Loc' 'ReqLoc'  'Loc3D' 'Group'          'Val1'    'Val2'  'SubFld' 'MNK' };
 DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'XCOR'    ''       []       0
     'hydrodynamic grid'                ''       [1 0 1 1 1]  0         0    ''        'z'   'z'       'i'     'map-series'     'S1'      ''       []       0
+    'grid'                             ''       [1 0 1 1 1]  0         0    ''        'z'   'z'       ''      'map-series'     'S1'      ''       []       0
     'domain decomposition boundaries'  ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
     'open boundaries'                  ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
     'closed boundaries'                ''       [0 0 1 1 0]  0         0    ''        'd'   'd'       ''      'map-const'      'KCS'     ''       []       0
@@ -1166,6 +1181,7 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'reduction factor due to limited sediment thickness' ...
     '-'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'FIXFAC'  ''       'sb1'    0
     'sediment thickness'               'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DPSED'   ''       []       0
+    'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DP_BEDLYR' ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'THLYR'   ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DPSED'   ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
@@ -1178,7 +1194,7 @@ nm=Info.SizeDim([1 2]);
 Info=vs_disp(FI,'map-const','THICK');
 k=Info.SizeDim(1);
 SkipGroup={'map-const'};
-SkipElem={'THLYR'};
+SkipElem={'THLYR','DP_BEDLYR'};
 DataProps=auto_map_detect(FI,DataProps,nm,k,SkipGroup,SkipElem);
 
 % Check whether the number of layers on the output file has been reduced
@@ -1260,7 +1276,12 @@ for i=size(Out,1):-1:1
     if ~isempty(strmatch('---',Out(i).Name))
     elseif ~isstruct(Info) || any(Info.SizeDim==0)
         % remove references to non-stored data fields
-        Out(i)=[];
+        if strcmp(Out(i).Name,'grid') % S1 not available on file, so convert grid to 2D time-independent quantity.
+            Out(i).DimFlag(1) = 0;
+            Out(i).DimFlag(5) = 0;
+        else
+            Out(i)=[];
+        end
     elseif Out(i).NVal>1 && Out(i).NVal<4 && ~isstruct(Info2)
         % remove references to non-stored data fields
         Out(i)=[];
@@ -1437,30 +1458,35 @@ if Props.DimFlag(M_) && Props.DimFlag(N_)
     Info=vs_disp(FI,'map-const','XCOR');
     sz([N_ M_])=Info.SizeDim;
 end
-if Props.NVal==0
-    Info=vs_disp(FI,'map-const','THICK');
-    sz(K_)=Info.SizeDim(1)+1;
-elseif Props.DimFlag(K_)
-    switch Props.Loc3D
-        case 'c'
-            if 0 % dummyMissingLayers
-                Info=vs_disp(FI,'map-const','THICK');
-                sz(K_)=Info.SizeDim;
-            else
+if Props.DimFlag(K_)
+    if Props.NVal==0
+        Info=vs_disp(FI,'map-const','THICK');
+        sz(K_)=Info.SizeDim(1);
+        if strcmp(Props.Loc3D,'i')
+            sz(K_)=sz(K_)+1;
+        end
+    else
+        switch Props.Loc3D
+            case 'c'
+                if 0 % dummyMissingLayers
+                    Info=vs_disp(FI,'map-const','THICK');
+                    sz(K_)=Info.SizeDim;
+                else
+                    Info=vs_disp(FI,Props.Group,Props.Val1);
+                    sz(K_)=Info.SizeDim(3);
+                end
+            case 'i'
+                if 0 % dummyMissingLayers
+                    Info=vs_disp(FI,'map-const','THICK');
+                    sz(K_)=Info.SizeDim+1;
+                else
+                    Info=vs_disp(FI,Props.Group,Props.Val1);
+                    sz(K_)=Info.SizeDim(3);
+                end
+            otherwise
                 Info=vs_disp(FI,Props.Group,Props.Val1);
                 sz(K_)=Info.SizeDim(3);
-            end
-        case 'i'
-            if 0 % dummyMissingLayers
-                Info=vs_disp(FI,'map-const','THICK');
-                sz(K_)=Info.SizeDim+1;
-            else
-                Info=vs_disp(FI,Props.Group,Props.Val1);
-                sz(K_)=Info.SizeDim(3);
-            end
-        otherwise
-            Info=vs_disp(FI,Props.Group,Props.Val1);
-            sz(K_)=Info.SizeDim(3);
+        end
     end
 end
 if Props.DimFlag(T_)
@@ -1597,7 +1623,7 @@ nm=Info.SizeDim([1 2]);
 Info = vs_disp(FI,'map-const','THICK');
 k = Info.SizeDim(1);
 SkipGroup={'map-const'};
-SkipElem={'THLYR'};
+SkipElem={'THLYR','DP_BEDLYR'};
 DataProps=auto_map_detect(FI,DataProps,nm,k,SkipGroup,SkipElem);
 
 %======================== SPECIFIC CODE DIMENSIONS ========================
@@ -2537,12 +2563,18 @@ if strcmp(Name,'cumulative mass error')
     %
     % This part of the code needs DP0 to be equal to dps(1) !!
     %
-    [dz,Success]=vs_let(FI,'map-sed-series',idx(T_),'THLYR',[idx([M_ N_]) {0}],'quiet');
-    if ~Success, error(dz), end
-    ddzt=sum(dz,4);
-    [dz,Success]=vs_let(FI,'map-sed-series',{1},'THLYR',[idx([M_ N_]) {0}],'quiet');
-    if ~Success, error(dz), end
-    ddz1=sum(dz,4);
+    I = vs_disp(FI,'map-sed-series','DP_BEDLYR');
+    if isstruct(I)
+        [ddzt,Success]=vs_let(FI,'map-sed-series',idx(T_),'DP_BEDLYR',[idx([M_ N_]) {I.SizeDim(3)}],'quiet');
+        [ddz1,Success]=vs_let(FI,'map-sed-series',{1},'DP_BEDLYR',[idx([M_ N_]) {I.SizeDim(3)}],'quiet');
+    else
+        [dz,Success]=vs_let(FI,'map-sed-series',idx(T_),'THLYR',[idx([M_ N_]) {0}],'quiet');
+        if ~Success, error(dz), end
+        ddzt=sum(dz,4);
+        [dz,Success]=vs_let(FI,'map-sed-series',{1},'THLYR',[idx([M_ N_]) {0}],'quiet');
+        if ~Success, error(dz), end
+        ddz1=sum(dz,4);
+    end
     for i=1:size(val1,1)
         val1(i,:)=val1(i,:)+ddz1(1,:)-ddzt(i,:);
     end

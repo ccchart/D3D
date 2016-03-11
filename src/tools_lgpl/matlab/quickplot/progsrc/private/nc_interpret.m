@@ -1,4 +1,4 @@
-function nc = nc_interpret(nc,NumDomains,DomainOffset)
+function nc = nc_interpret(nc,NumDomains,DomainOffset,nDigits)
 %NC_INTERPRET  Interpret the netCDF data based on conventions.
 %    NC_OUT = NC_INTERPRET(NC_IN)
 %
@@ -44,11 +44,12 @@ if nargin>1
     nc1.Dimension = rmfield(nc1.Dimension,'Length');
     nc1.Dataset   = rmfield(nc1.Dataset,'Size');
     nc1 = rmfield(nc1,'Attribute');
+    domainFormat = ['%' num2str(nDigits) '.' num2str(nDigits) 'd'];
     %
     FileName2  = nc.Filename;
     Partitions = cell(1,NumDomains);
     for i = 1:NumDomains
-        FileName2(DomainOffset+(1:4)) = sprintf('%4.4d',i-1);
+        FileName2(DomainOffset+(1:nDigits)) = sprintf(domainFormat,i-1);
         nc2 = nc_info(FileName2);
         Partitions{i} = nc_interpret(nc2);
         nc2 = rmfield(nc2,'Filename');
@@ -66,7 +67,7 @@ if nargin>1
     if NumDomains>1
         nc.Partitions = Partitions;
         nc.DomainOffset = DomainOffset;
-        nc.Filename(DomainOffset+(1:4)) = '0000';
+        nc.Filename(DomainOffset+(1:nDigits)) = repmat('0',1,nDigits);
     end
 else
     nc.NumDomains = 1;
@@ -153,6 +154,10 @@ for ivar = 1:nvars
         j = strmatch('cf_type',Attribs,'exact');
     end
     if ~isempty(j) && strcmp(Info.Attribute(j).Value,'mesh_topology')
+        if isempty(strmatch('cf_role',Attribs,'exact'))
+           % if we didn't come here via the cf_role attribute ...
+           ui_message('error','This file uses incorrect attribute "cf_type" for specifying the mesh_topology role. Please update your data file.')
+        end
         % ugrid mesh
         Info.Type = 'ugrid_mesh';
         cn = strmatch('node_coordinates',Attribs,'exact');
@@ -215,16 +220,28 @@ for ivar = 1:nvars
         Info.Mesh = {'ugrid' ivar -1 node_dim edge_dim face_dim}; % vol_dim
         %
         id = strmatch(node_dim,DimensionNames,'exact');
-        nc.Dimension(id).Type = 'ugrid_node';
+        if isempty(id)
+            ui_message('error','The node dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+        else
+            nc.Dimension(id).Type = 'ugrid_node';
+        end
         %
         if ~isempty(edge_dim)
             id = strmatch(edge_dim,DimensionNames,'exact');
-            nc.Dimension(id).Type = 'ugrid_edge';
+            if isempty(id)
+                ui_message('error','The edge dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+            else
+                nc.Dimension(id).Type = 'ugrid_edge';
+            end
         end
         %
         if ~isempty(face_dim)
             id = strmatch(face_dim,DimensionNames,'exact');
-            nc.Dimension(id).Type = 'ugrid_face';
+            if isempty(id)
+                ui_message('error','The face dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+            else
+                nc.Dimension(id).Type = 'ugrid_face';
+            end
         end
         %
     end
@@ -431,7 +448,11 @@ for ivar = 1:nvars
             case {'Gregorian_year','Gregorian_years'}
                 dt = 365.2425     *24*3600;
             otherwise
-                f = qp_unitconversion(unit1,'Pa');
+                try
+                    f = qp_unitconversion(unit1,'Pa');
+                catch
+                    f = 'fail';
+                end
                 if ~ischar(f)
                     %
                     % dimension unit is compatible with pressure (Pa)
@@ -475,7 +496,7 @@ for ivar = 1:nvars
                 TZshift = NaN;
             end
             nc.Dataset(ivar).Info.DT      = dt/86400;
-            if ~isempty(unit2) & isempty(refdate)
+            if ~isempty(unit2) && isempty(refdate)
                 nc.Dataset(ivar).Info.RefDate = unit;
             else
                 nc.Dataset(ivar).Info.RefDate = refdate;
@@ -564,7 +585,15 @@ for ivar = 1:nvars
             elseif isempty(j4)
                 ui_message('error','Invalid location type "%s"; ignoring mesh/location attributes on "%s".',Info.Attribute(j2).Value,Info.Name)
             else
-                Info.Mesh = {'ugrid' iUGrid(j3) j4};
+                topoDim   = nc.Dataset(iUGrid(j3)).Mesh{j4+4};
+                if isempty(strmatch(topoDim,Info.Dimension,'exact'))
+                    dims = sprintf('%s, ',Info.Dimension{:});
+                    ui_message('error','Variable "%s" points to UGRID mesh "%s" location "%s"\nbut the variable''s dimensions {%s}\ndon''t include the %s dimension "%s".\nIgnoring the mesh/location attributes.',...
+                        Info.Name, Info.Attribute(j1).Value, Info.Attribute(j2).Value, dims(1:end-2), Info.Attribute(j2).Value, topoDim)
+                else
+                    Info.Mesh = {'ugrid' iUGrid(j3) j4};
+                    Info.TSMNK(3) = strmatch(topoDim,DimensionNames,'exact')-1;
+                end
             end
         end
     end
@@ -671,8 +700,9 @@ for ivar = 1:nvars
         end
         Info.TSMNK(2) = statdim;
     end
+    %
     xName = '';
-    if ~isempty(Info.X)
+    if isnan(Info.TSMNK(3)) && ~isempty(Info.X)
         iDim = {nc.Dataset(Info.X).Dimid};
         iDim = unique(cat(2,iDim{cellfun('length',iDim)==1}));
         if length(Info.X)>1
@@ -750,7 +780,7 @@ for ivar = 1:nvars
             end
         end
     end
-    if ~isempty(Info.Y)
+    if ~isempty(Info.Y) % && ... ?
         iDim = {nc.Dataset(Info.Y).Dimid};
         iDim = unique(cat(2,iDim{cellfun('length',iDim)==1}));
         if length(Info.Y)>1

@@ -34,6 +34,7 @@ FMODULES += \
 #-------------------------------------------------------------------------------
 #Sources
 libIOInput_la_SOURCES = \
+         restart_lyrs.f90 \
          barfil.f90 \
          bndfil.f90 \
          bubfil.f90 \
@@ -67,6 +68,7 @@ libIOInput_la_SOURCES = \
          icfil.f90 \
          inicut.f90 \
          inimet.f90 \
+         inimorlyr.f90 \
          morbndfill.f90 \
          numcmp.f90 \
          rdbedformpar.f90 \
@@ -117,7 +119,6 @@ libIOInput_la_SOURCES = \
          reafou.f90 \
          restart_bdf_from_trim.f90 \
          restart_bodsed.f90 \
-         restart_lyrs.f90 \
          rstfil.f90 \
          srcfil.f90 \
          stafil.f90 \

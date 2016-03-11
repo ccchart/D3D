@@ -374,6 +374,8 @@ switch geometry
                 elseif multiple(M_) || multiple(N_) || vslice
                     if multiple(T_)
                         axestype={'X-Val','X-Y','X-Time','Time-X'};
+                    elseif DimFlag(K_)
+                        axestype={'X-Val','X-Y','X-Z'};
                     else
                         axestype={'X-Val','X-Y'};
                     end
@@ -479,7 +481,7 @@ end
 axestype=axestype{i};
 %
 if (multiple(M_) && ~multiple(N_) && DimFlag(N_)) || (~multiple(M_) && DimFlag(M_) && multiple(N_)) || vslice
-    if isempty(strfind(axestype,'Time')) && ~multiple(K_)
+    if isempty(strfind(axestype,'Time')) && ~multiple(K_) && isempty(strfind(axestype,'Z'))
         if Props.DataInCell || ~isempty(strfind(geometry,'FACE'))
             geometry = 'SEG-EDGE';
             lineproperties = 1;
@@ -1029,7 +1031,11 @@ if ~isempty(Units)
         dunit=findobj(OH,'tag','dataunits=!');
         set(dunit,'enable','inactive', ...
             'backgroundcolor',Inactive)
-        [conversion,SIunit]=qp_unitconversion(Units,user_units);
+        try
+            [conversion,SIunit]=qp_unitconversion(Units,user_units);
+        catch
+            SIunit = '';
+        end
         set(dunit,'string',SIunit)
         Ops.units=SIunit;
     end

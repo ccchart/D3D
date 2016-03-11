@@ -110,11 +110,10 @@ module m_ec_provider
              
          if (index(trim(fileName)//'|','.bc')>0) then                               ! ASCII: bc-format  : detection is extension-based
             bcBlockPtr%ftype=BC_FTYPE_ASCII
-         endif
-         if (index(trim(fileName)//'|','.nc')>0) then                               ! NETCDF: nc-format 
+         else if (index(trim(fileName)//'|','.nc')>0) then                               ! NETCDF: nc-format 
             !if (index(plilabel,'_')<=0) then 
-            !   return                                                               ! If this was not pli-label  bla_0001 then its is a qhbnd
-            !endif                                                                   ! not supported in combination with netcdf-files 
+            !   return                                                              ! If this was not pli-label  bla_0001 then its is a qhbnd
+            !endif                                                                  ! not supported in combination with netcdf-files 
                                                                                     ! This is something dirty, which deserves refactoring
                                                                                     ! but no alternative for it as we speak 
             bcBlockPtr%ncptr => ecSupportFindNetCDFByFilename(instancePtr, fileName)! is there a netCDF instance with this file ?
@@ -126,7 +125,11 @@ module m_ec_provider
                 endif 
             endif
             bcBlockPtr%ftype=BC_FTYPE_NETCDF
+         else
+           call setECMessage("Forcing file ("//trim(fileName)//") should either have extension .nc (netcdf timeseries file) or .bc (ascii BC-file).")
+           return
          endif 
+         
          if (.not.ecBCInit (instancePtr, filename, quantityName, plilabel, bcBlockPtr, iostat)) return
 
          ! Every BC block (instance) needs an associated filereader referring to it  
@@ -157,7 +160,7 @@ module m_ec_provider
             case (BC_FUNC_TIM3D)
                success = ecProviderCreatet3DItems(instancePtr, fileReaderPtr)
             case default
-               call setECMessage("ERROR: unknown function type.")
+               call setECMessage("ERROR: unknown function type.")             ! RL666 Todo: expand info on which file this is ...
          end select
          if (.not.success) then
             return
@@ -1490,14 +1493,14 @@ module m_ec_provider
          if (.not. ecItemSetTargetField(instancePtr, itemId, fieldId)) return
 
          itemPT => ecSupportFindItem(instancePtr, itemId)
-         call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400000.5_hp), k_yyyymmdd)
+!        call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400001.0_hp), k_yyyymmdd)     ! From Modified Jul day
+         call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400000.5_hp), k_yyyymmdd)     ! From Reduced Jul day
 
          ! Init BCBlock for (global) qh-bound 
          is_qh = .false. 
          ! Determine the end of the base of the fileName.
          L = index(fileReaderPtr%fileName, '.', back = .true.) - 1
          ! Create providers at each support point, depending on the availability of specific files.
-         call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400000.5_hp), k_yyyymmdd)
          ! Exceptional case: A single qh-table supplies all support points of the pli-file.
          filename = fileReaderPtr%fileName(1:L)//'.qh'
          inquire (file = trim(filename), exist = exists)
@@ -1742,7 +1745,8 @@ module m_ec_provider
                read(rec(lblstart+6:len_trim(rec)),*,iostat=istat)  plipointlbls(i)
             endif
          enddo
-         call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400000.5_hp), k_yyyymmdd)
+!        call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400001.0_hp), k_yyyymmdd)  ! Conversion from MJD
+         call jul2ymd(int(fileReaderPtr%tframe%k_refdate + 2400000.5_hp), k_yyyymmdd)  ! Conversion from RJD
 
          ! Construct the poly_tim Item
          quantityId = ecInstanceCreateQuantity(instancePtr)
@@ -2739,25 +2743,6 @@ module m_ec_provider
             ! no variables in the file or netcdf inquiry error .... handle exception 
             return
          endif 
-         
-
-         ! Make a list of standard names of variables available in the netcdf file 
-         nvar = 0 
-         ierror = nf90_inquire(fileReaderPtr%fileHandle, nvariables = nvar)
-         if (nvar>0) then 
-            allocate(fileReaderPtr%standard_names(nvar))          ! Note: one of these may be obsolete (if we only check standard names)
-            allocate(fileReaderPtr%variable_names(nvar))
-            fileReaderPtr%standard_names = ''
-            fileReaderPtr%variable_names = ''
-            do ivar = 1,nvar 
-               ierror = nf90_get_att(fileReaderPtr%fileHandle, ivar, 'standard_name', fileReaderPtr%standard_names(ivar))
-               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, ivar, name=fileReaderPtr%variable_names(ivar))
-            enddo 
-         else 
-            ! no variables in the file or netcdf inquiry error .... handle exception 
-            return
-         endif 
-         
          !
          ! Cartesian or spheric
          ! WARNING: elementSetType must be set before elementSetNumberOfCoordinates (why???)
@@ -2847,7 +2832,8 @@ module m_ec_provider
          !
          if (k_refdate > -1) then
 
-            fileReaderPtr%tframe%k_refdate = dble(ymd2jul(k_refdate) - 2400000.5_hp)
+!           fileReaderPtr%tframe%k_refdate = dble(ymd2jul(k_refdate) - 2400001.0_hp)         ! This EXACTLY yields MJD (epoch = 1858-11-17, 0 hours)
+            fileReaderPtr%tframe%k_refdate = dble(ymd2jul(k_refdate) - 2400000.5_hp)         ! This EXACTLY yields RJD (epoch = 1858-11-17, 12 hours)
             fileReaderPtr%tframe%k_timezone = k_timezone
             fileReaderPtr%tframe%k_timestep_unit = k_timestep_unit
 
@@ -2915,12 +2901,6 @@ module m_ec_provider
                if (fileReaderPtr%bc%func == BC_FUNC_TSERIES .or. fileReaderPtr%bc%func == BC_FUNC_TIM3D) then 
                   success = ecSupportTimestringToUnitAndRefdate(fileReaderPtr%bc%timeunit, &
                                                                 fileReaderPtr%tframe%ec_timestep_unit, fileReaderPtr%tframe%ec_refdate)
-                  if (success) then
-                     ! TODO: handle MJD in a proper way. For now, abstract the .5 day that originated
-                     !       from the fact that in ecSupportTimestringToUnitAndRefdate the
-                     !       call to ymd2jul in leads to a rounded off integer value.
-                     !fileReaderPtr%tframe%ec_refdate = fileReaderPtr%tframe%ec_refdate - 0.5d+0        !!!! DISCUSS THIS LINE !!!
-                  endif
                else 
                   success = .true.
                endif 

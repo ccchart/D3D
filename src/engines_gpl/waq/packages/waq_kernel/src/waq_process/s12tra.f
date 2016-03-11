@@ -1,89 +1,95 @@
+!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!
+!!  This program is free software: you can redistribute it and/or modify
+!!  it under the terms of the GNU General Public License version 3,
+!!  as published by the Free Software Foundation.
+!!
+!!  This program is distributed in the hope that it will be useful,
+!!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!!  GNU General Public License for more details.
+!!
+!!  You should have received a copy of the GNU General Public License
+!!  along with this program. If not, see <http://www.gnu.org/licenses/>.
+!!
+!!  contact: delft3d.support@deltares.nl
+!!  Stichting Deltares
+!!  P.O. Box 177
+!!  2600 MH Delft, The Netherlands
+!!
+!!  All indications and logos of, and references to registered trademarks
+!!  of Stichting Deltares remain the property of Stichting Deltares. All
+!!  rights reserved.
+
       subroutine s12tra ( pmsa   , fl     , ipoint , increm , noseg  ,
      &                    noflux , iexpnt , iknmrk , noq1   , noq2   ,
      &                    noq3   , noq4   )
+
 !>\file
 !>       Generic module to process resuspension, burial, digging S1 & S2
 
-!----- GPL ---------------------------------------------------------------------
-!                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
-!                                                                               
-!  This program is free software: you can redistribute it and/or modify         
-!  it under the terms of the GNU General Public License as published by         
-!  the Free Software Foundation version 3.                                      
-!                                                                               
-!  This program is distributed in the hope that it will be useful,              
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
-!  GNU General Public License for more details.                                 
-!                                                                               
-!  You should have received a copy of the GNU General Public License            
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
-!                                                                               
-!  contact: delft3d.support@deltares.nl                                         
-!  Stichting Deltares                                                           
-!  P.O. Box 177                                                                 
-!  2600 MH Delft, The Netherlands                                               
-!                                                                               
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
-!  are registered trademarks of Stichting Deltares, and remain the property of  
-!  Stichting Deltares. All rights reserved.                                     
-!                                                                               
-!-------------------------------------------------------------------------------
-!  $Id$
-!  $HeadURL$
-!-------------------------------------------------------------------------------
-!
-!     Description of the module :
-!
-!     Logical Units : -
+      implicit none
 
-!     Modules called : -
-
-!     Name     Type   Library
-!     ------   -----  ------------
-
-      IMPLICIT NONE
-
-      REAL     PMSA  ( * ) , FL    (*)
-      INTEGER  IPOINT(23) , INCREM(23) , NOSEG , NOFLUX,
-     +         IEXPNT(4,*) , IKNMRK(*) , NOQ1, NOQ2, NOQ3, NOQ4
+      real     pmsa  ( * ) , fl    (*)
+      integer  ipoint(23) , increm(23) , noseg , noflux,
+     +         iexpnt(4,*) , iknmrk(*) , noq1, noq2, noq3, noq4
      
      
-      INTEGER  IP(23), IFLUX, ISEG, IKMRK2
-      REAL     FRACS1, SCALS1, FRACS2, SCALS2, FRESS1, FRESS2,
-     J         FBURS1, FBURS2, FDIGS1, FDIGS2, SWDS1 , SWDS2 , 
-     J         DEPTH , SWITCH, FRACS3, SCALS3, B1, B2, D1, D2, R1, R2
+      integer  ip(23), iflux, iseg, ikmrk2
+      real     fracs1, scals1, fracs2, scals2, fress1, fress2,
+     j         fburs1, fburs2, fdigs1, fdigs2, swds1 , swds2 , 
+     j         depth , switch, fracs3, scals3, b1, b2, d1, d2, r1, r2
+      integer :: iswres
+      integer :: isw_zf
+      real    :: dms1
+      real    :: dms2
+      real    :: zres
+      real    :: vres
+      real    :: tau
+      real    :: tcrrs1
+      real    :: tcrrs2
+      real    :: delt
+      real    :: mindep
+      real    :: press1
+      real    :: press2
+      real    :: flres1
+      real    :: flres2
+      real    :: rfdms1
+      real    :: mrdms1
+      real    :: delts2
+      real    :: rfdms2
+      real    :: mrdms2
+      real    :: fracs1_res
+      real    :: scals1_res
+      real    :: fracs2_res
+      real    :: scals2_res
 
-      IP  = IPOINT
+      ip  = ipoint
 !
-      IFLUX = 0
-      DO 9000 ISEG = 1 , NOSEG
-!!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!!    IF (IKMRK1.EQ.1) THEN
-      IF (BTEST(IKNMRK(ISEG),0)) THEN
-      CALL DHKMRK(2,IKNMRK(ISEG),IKMRK2)
-      IF ((IKMRK2.EQ.0).OR.(IKMRK2.EQ.3)) THEN
+      iflux = 0
+      do 9000 iseg = 1 , noseg
+      if (btest(iknmrk(iseg),0)) then
+      call dhkmrk(2,iknmrk(iseg),ikmrk2)
+      if ((ikmrk2.eq.0).or.(ikmrk2.eq.3)) then
 !
+      fracs1 = pmsa(ip( 1))
+      scals1 = pmsa(ip( 2))
+      fracs2 = pmsa(ip( 3))
+      scals2 = pmsa(ip( 4))
+      fracs3 = pmsa(ip( 5))
+      scals3 = pmsa(ip( 6))
+      fress1 = pmsa(ip( 7))
+      fress2 = pmsa(ip( 8))
+      fburs1 = pmsa(ip( 9))
+      fburs2 = pmsa(ip(10))
+      fdigs1 = pmsa(ip(11))
+      fdigs2 = pmsa(ip(12))
+      swds1  = pmsa(ip(13))
+      swds2  = pmsa(ip(14))
+      depth  = pmsa(ip(15))
+      switch = pmsa(ip(16))
 
-      FRACS1 = PMSA(IP( 1))
-      SCALS1 = PMSA(IP( 2))
-      FRACS2 = PMSA(IP( 3))
-      SCALS2 = PMSA(IP( 4))
-      FRACS3 = PMSA(IP( 5))
-      SCALS3 = PMSA(IP( 6))
-      FRESS1 = PMSA(IP( 7))
-      FRESS2 = PMSA(IP( 8))
-      FBURS1 = PMSA(IP( 9))
-      FBURS2 = PMSA(IP(10))
-      FDIGS1 = PMSA(IP(11))
-      FDIGS2 = PMSA(IP(12))
-      SWDS1  = PMSA(IP(13))
-      SWDS2  = PMSA(IP(14))
-      DEPTH  = PMSA(IP(15))
-      SWITCH = PMSA(IP(16))
-
-!*******************************************************************************
+!***********************************************************************
 !**** Processes connected to the BURIAL and DIGGING
 !***********************************************************************
 

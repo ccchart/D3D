@@ -25,14 +25,14 @@
      &                    noflux , iexpnt , iknmrk , noq1   , noq2   ,
      &                    noq3   , noq4   )
 !>\file
-!>       Sedimentation routine used for IMx, OOC, algae, BOD pools, bacteria etc.
+!>       Sedimentation routine used for OOC, algae, BOD pools, bacteria etc.
 
 !
 !     Description of the module :
 !
 !        General water quality module for DELWAQ:
 !        SEDIMENTATION FORMULATIONS
-!        MODULE VALID FOR IM, IM2, IM3, DETC, OOC, DIAT, AAP
+!        MODULE VALID FOR DETC, OOC, DIAT, AAP, BLOOM ALGAE
 !
 ! Name    T   L I/O   Description                                    Units
 ! ----    --- -  -    -------------------                            -----
@@ -139,7 +139,7 @@
       DELT    = PMSA(IP7 )
       MINDEP  = PMSA(IP8 )
 
-!*******************************************************************************
+!***********************************************************************
 !**** Processes connected to the SEDIMENTATION
 !***********************************************************************
 
@@ -153,11 +153,10 @@
 !         vergelijking met critische schuifspanning
           PSED = MAX ( 0.0, (1.0 - TAU/TCRSED) )
       ENDIF
-
       PSED = MAX( PSEDMIN, PSED )
 
-!     Bereken de potentiele sedimentatie fluxen
-!     Geen sedimentatie onder een minimale diepte
+!     Calculate potential sedimentation fluxes
+!     No sedimentation when depth below min depth
 
       IF ( DEPTH .LT. MINDEP) THEN
          MAXSED       = 0.0
@@ -165,10 +164,10 @@
       ELSE
          POTSED = ZERSED + ( VSED * CONC ) * PSED
 
-!        sedimenteer maximaal de aanwezige hoeveelheid (M/L2/DAY)
+!        limit sedimentation to available mass (M/L2/DAY)
          MAXSED = MIN (POTSED, CONC / DELT * DEPTH)
 
-!        omrekening van sedimentatie flux in M/L3/DAY
+!        convert sedimentation to flux in M/L3/DAY
          FL( 1+IFLUX) =  MAXSED / DEPTH
       ENDIF
 

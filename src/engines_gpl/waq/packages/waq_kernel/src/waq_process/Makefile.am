@@ -11,11 +11,11 @@ noinst_LTLIBRARIES = libwaq_process.la
 #-------------------------------------------------------------------------------
 #Includes
 FMODULES += \
-	 -I$(top_builddir)/engines_gpl/waq/include \
-	 -I$(top_builddir)/engines_gpl/waq/packages/waq_data/src/proc_data \
-	 -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_timings \
-	 -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/waq_utils \
-         -I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src
+     -I$(top_builddir)/engines_gpl/waq/include \
+     -I$(top_builddir)/engines_gpl/waq/packages/waq_data/src/proc_data \
+     -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_timings \
+     -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/waq_utils \
+     -I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src
 
 #-------------------------------------------------------------------------------
 #Sources
@@ -40,6 +40,7 @@ libwaq_process_la_SOURCES = \
        dayl.f \
        dayrad.f \
        ddepth.f \
+       debgrz.f \
        decbod.f \
        decdet.f \
        decpc5.f \
@@ -91,6 +92,7 @@ libwaq_process_la_SOURCES = \
        restim.f \
        rfpart.f \
        s12tra.f \
+       s12tim.f \
        salchl.f \
        satch4.f \
        satco2.f \
@@ -101,6 +103,7 @@ libwaq_process_la_SOURCES = \
        sedcar.f \
        sedcom.f \
        sedhm.f \
+       sedim.f \
        sednut.f \
        sedomv.f \
        sedox.f \
@@ -156,7 +159,7 @@ libwaq_process_la_SOURCES = \
        vbstat.f90 \
        vbupt.f90 \
        veloc.f90 \
-	   macdis.f \
+       macdis.f \
        npps12.f90 \
        mac3du.f90 \
        maxmac.f \
@@ -164,7 +167,10 @@ libwaq_process_la_SOURCES = \
        radmac.f \
        grzmac.f \
        macnut.f90 \
-       covmac.f
-	   
+       covmac.f \
+       respup.f \
+       dredge.f \
+       floceq.f90
+
 #-------------------------------------------------------------------------------
 # Libraries
