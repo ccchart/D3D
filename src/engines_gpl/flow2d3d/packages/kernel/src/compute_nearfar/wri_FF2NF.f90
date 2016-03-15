@@ -1,9 +1,9 @@
-subroutine wri_FF2NF(nlb      ,nub      ,mlb       ,mub    ,u0     , &
-                   & v0       ,rho      ,thick     ,kmax   ,dps    , &
-                   & s0       ,alfas    ,time      ,taua   ,r0     ,lstsci , &
-                   & lsal     ,ltem     ,idensform ,saleqs ,temeqs ,idis   , &
-                   & filename ,s1       ,xz        ,yz     , &
-                   & kfsmn0   ,kfsmx0   ,dzs0      ,gdp    )
+subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
+                   & lstsci ,lsal     ,ltem     ,idensform ,idis   , &
+                   & time   ,taua     ,saleqs   ,temeqs    ,thick  , &
+                   & alfas  ,s0       ,s1       ,u0        ,v0     , &
+                   & r0     ,rho      ,dps      ,xz        ,yz     , &
+                   & kfsmn0 ,kfsmx0   ,dzs0     ,filename  ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.

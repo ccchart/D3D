@@ -1,11 +1,10 @@
-subroutine desa(nlb     ,nub      ,mlb     ,mub     ,no_dis  , &
-              & x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
-              & kcs     ,xz       ,yz      ,dps     ,s0      , &
-              & thick   ,kmax     ,lstsci  ,lsal    , &
-              & ltem    ,bv_jet   ,bh_jet  ,idis    , &
-              & xstart  ,xend     ,ystart  ,yend    ,r0      , &
-              & linkinf ,kfsmn0   ,kfsmx0  ,dzs0    ,disnf   , &
-              & sournf  ,gdp      )
+subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
+              & lstsci  ,no_dis  ,nrow    ,lsal    ,ltem    , &
+              & idis    ,thick   ,xstart  ,xend    ,ystart  , &
+              & yend    ,x_jet   ,y_jet   ,z_jet   ,s_jet   , &
+              & bv_jet  ,bh_jet  ,kcs     ,xz      ,yz      , &
+              & dps     ,s0      ,r0      ,kfsmn0  ,kfsmx0  , &
+              & dzs0    ,disnf   ,sournf  ,linkinf ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                

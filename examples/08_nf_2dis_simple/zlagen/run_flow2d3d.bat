@@ -35,9 +35,11 @@ set exedir=c:\code\branches\nearfield\src\engines_gpl\d_hydro\bin\x64\Debug
 
 
 
+
 del /f trim*.* >del.log 2>&1
 del /f tri-diag.* >del.log 2>&1
 del /f TMP_*.* >del.log 2>&1
+del /f tstprt.* >del.log 2>&1
 del /f COSUMO\FF2NF\FF2NF*.txt >del.log 2>&1
 del /f del.log
 

@@ -263,6 +263,7 @@ examples/08_nf_2dis_simple/zlagen/COSUMO/tmp/FF2NF_2dis_001_SubMod002_5.000.txt 
 examples/08_nf_2dis_simple/zlagen/config_d_hydro.xml -text
 examples/08_nf_2dis_simple/zlagen/pictures.qplog -text
 examples/08_nf_2dis_simple/zlagen/run_flow2d3d.bat -text
+examples/08_nf_2dis_simple/zlagen/run_flow2d3d_parallel.bat -text
 examples/run_all_examples.bat -text
 examples/run_all_examples.sh -text
 examples/run_all_examples_sp.bat -text

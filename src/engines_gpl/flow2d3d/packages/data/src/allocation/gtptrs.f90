@@ -413,7 +413,6 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: kadu
     integer(pntrsize), pointer :: kadv
     integer(pntrsize), pointer :: kcs
-    integer(pntrsize), pointer :: kcs_nf
     integer(pntrsize), pointer :: kcu
     integer(pntrsize), pointer :: kcv
     integer(pntrsize), pointer :: kfs
@@ -886,7 +885,6 @@ subroutine gtptrs(gdp)
     kadu       => gdp%gdr_i_ch%kadu
     kadv       => gdp%gdr_i_ch%kadv
     kcs        => gdp%gdr_i_ch%kcs
-    kcs_nf     => gdp%gdr_i_ch%kcs_nf
     kcu        => gdp%gdr_i_ch%kcu
     kcv        => gdp%gdr_i_ch%kcv
     kfs        => gdp%gdr_i_ch%kfs
@@ -1010,7 +1008,6 @@ subroutine gtptrs(gdp)
     kadu       = gtipnt('kadu'  , gdp)
     kadv       = gtipnt('kadv'  , gdp)
     kcs        = gtipnt('kcs'   , gdp)
-    kcs_nf     = gtipnt('kcs_nf', gdp)
     kcscut     = gtipnt('kcscut', gdp)
     kcshyd     = gtipnt('kcshyd', gdp)
     kcu        = gtipnt('kcu'   , gdp)

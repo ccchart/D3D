@@ -486,7 +486,6 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer(pntrsize)                    , pointer :: kadu
     integer(pntrsize)                    , pointer :: kadv
     integer(pntrsize)                    , pointer :: kcs
-    integer(pntrsize)                    , pointer :: kcs_nf
     integer(pntrsize)                    , pointer :: kcu
     integer(pntrsize)                    , pointer :: kcv
     integer(pntrsize)                    , pointer :: kfs
@@ -1025,7 +1024,6 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     kadu                => gdp%gdr_i_ch%kadu
     kadv                => gdp%gdr_i_ch%kadv
     kcs                 => gdp%gdr_i_ch%kcs
-    kcs_nf              => gdp%gdr_i_ch%kcs_nf
     kcu                 => gdp%gdr_i_ch%kcu
     kcv                 => gdp%gdr_i_ch%kcv
     kfs                 => gdp%gdr_i_ch%kfs
@@ -1407,7 +1405,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
                         & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
                         & lstsci , lsal      , ltem      , r(xz)     , &
-                        & r(yz)  , nmmax     , i(kcs)    , i(kcs_nf) , &
+                        & r(yz)  , nmmax     , i(kcs)    , &
                         & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
                         & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &
                         & gdp     )
