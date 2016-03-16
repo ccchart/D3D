@@ -141,6 +141,7 @@ Commnt =
 Online = #N#
 Flnfl  = 5.0     5.000    14400.0
 Nflmod = #generic#
+Nflwdr = 0.0
 Commnt =                  
 Zmodel = #Y#
 Zbot   = -10.01

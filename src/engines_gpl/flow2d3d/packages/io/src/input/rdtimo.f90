@@ -3,7 +3,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                 & nprttm    ,itfinish  ,iphisf    ,iphisi    ,iphisl    , &
                 & itmapf    ,itmapi    ,itmapl    ,ithisf    ,ithisi    , &
                 & ithisl    ,itcomf    ,itcomi    ,itcoml    ,itrsti    , &
-                & itnflf    ,itnfli    ,itnfll    ,gdp       )
+                & itnflf    ,itnfli    ,itnfll    ,itnflrf   ,itnflri   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -78,6 +78,8 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                                          :: itnflf   !  Description and declaration in inttim.igs
     integer                                          :: itnfli   !  Description and declaration in inttim.igs
     integer                                          :: itnfll   !  Description and declaration in inttim.igs
+    integer                                          :: itnflrf  !  Description and declaration in inttim.igs
+    integer                                          :: itnflri  !  Description and declaration in inttim.igs
     integer                                          :: itrsti   !  Description and declaration in inttim.igs
     integer                          , intent(in)    :: itfinish !  Description and declaration in inttim.igs
     integer                                          :: lundia   !  Description and declaration in inout.igs
@@ -110,9 +112,10 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     real(fp)                          :: rdef        ! Help var. containing default va- lue(s) for real variable 
     real(fp)      , dimension(3)      :: rval        ! Help array (real) where the data, recently read from the MD-file, are stored temporarily 
     real(sp)                          :: sval
-    real(fp)                          :: tfnflf      ! First time to do near field computations
-    real(fp)                          :: tfnfli      ! Time interval to do near field computations
-    real(fp)                          :: tfnfll      ! Last time to do near field computations
+    real(fp)                          :: tfnflf      ! First time to write near field files
+    real(fp)                          :: tfnfli      ! Time interval to write near field files
+    real(fp)                          :: tfnfll      ! Last time to write near field files
+    real(fp)                          :: tfnflri     ! Time interval between writing near field files and reading them (and do near field computations)
     real(fp)                          :: tfcomf      ! First time    to write the DELWAQ / communication file
     real(fp)                          :: tfcomi      ! Time interval to write the DELWAQ / communication file
     real(fp)                          :: tfcoml      ! Last time     to write the DELWAQ / communication file
@@ -363,7 +366,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     tfnfli = rval(2)
     tfnfll = rval(3)
     !
-    ! caluculate integer multiples of DT and test calculated values
+    ! calculate integer multiples of DT and test calculated values
     !
     itnflf = nint(tfnflf/dt)
     itnfli = nint(tfnfli/dt)
@@ -380,6 +383,27 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        error = .true.
        call prterr(lundia    ,'U044'    ,'Near field comp. stop time'    )
     endif
+    !
+    ! locate 'Nflwdr' record for near field computations
+    !
+    rval = 0.0_fp
+    call prop_get(gdp%mdfile_ptr,'*','Nflwdr',rval,1)
+    tfnflri = rval(1)
+    !
+    ! calculate integer multiples of DT and test calculated values
+    !
+    itnflri = nint(tfnflri/dt)
+    if (dtn(itnflri, tfnflri, dt)) then
+       error = .true.
+       call prterr(lundia    ,'U044'    ,'Near field comp. delayed read'   )
+    endif
+    if (itnflri > itnfli) then
+       error = .true.
+       write (message,'(a,e12.2,a,e12.2,a)') 'Near field comp.: delay in read (', tfnflri, &
+                                 & ') is bigger than the write interval (', tfnfli, ').'
+       call prterr(lundia, 'P004', trim(message))
+    endif
+    itnflrf = itnflf + itnflri
     !
     ! locate 'Flrst' record for print field values
     !

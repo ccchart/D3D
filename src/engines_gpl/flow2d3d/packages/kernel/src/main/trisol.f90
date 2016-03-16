@@ -152,6 +152,9 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer                              , pointer :: itimtt
     integer                              , pointer :: itnflf
     integer                              , pointer :: itnfli
+    integer                              , pointer :: itnfll
+    integer                              , pointer :: itnflrf
+    integer                              , pointer :: itnflri
     integer                              , pointer :: ittrtu
     integer                              , pointer :: itiwei
     integer                              , pointer :: itdiag
@@ -584,6 +587,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer                 :: icy
     integer                 :: itype
     integer                 :: n
+    integer                 :: nflrwmode
     integer                 :: nhystp
     integer                 :: nmaxddb
     integer                 :: nreal       ! Pointer to real array RCOUSR for UDF particle wind factor parameters
@@ -690,6 +694,9 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     itimtt              => gdp%gdinttim%itimtt
     itnflf              => gdp%gdinttim%itnflf
     itnfli              => gdp%gdinttim%itnfli
+    itnfll              => gdp%gdinttim%itnfll
+    itnflrf             => gdp%gdinttim%itnflrf
+    itnflri             => gdp%gdinttim%itnflri
     ittrtu              => gdp%gdinttim%ittrtu
     itiwei              => gdp%gdinttim%itiwei
     itdiag              => gdp%gdinttim%itdiag
@@ -1400,15 +1407,43 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        ! Run near field model and calculate source terms from
        ! this near field computation
        !
-       if (nfl .and. nst == itnflf) then
-          itnflf = itnflf + itnfli
+       if (nfl .and. (nst==itnflf .or. nst==itnflrf)) then
+          if (nst == itnflf) then
+             ! Write near field files
+             if (nst == itnflrf) then
+                ! Also read near field files
+                if (itnflri > 0) then
+                   ! Read old files
+                   nflrwmode = NFLWRITEREADOLD
+                else
+                   ! Write files, wait until they appear and read them
+                   ! This is the default
+                   nflrwmode = NFLWRITEREADNEW
+                endif
+             else
+                ! Only write, do not read
+                nflrwmode = NFLWRITE
+             endif
+          else
+             ! Only read, do not write
+             nflrwmode = NFLREADOLD
+          endif
           call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
                         & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
                         & lstsci , lsal      , ltem      , r(xz)     , &
-                        & r(yz)  , nmmax     , i(kcs)    , &
+                        & r(yz)  , nmmax     , nflrwmode , i(kcs)    , &
                         & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
                         & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &
                         & gdp     )
+          if (nflrwmode==NFLWRITE .or. nflrwmode == NFLWRITEREADOLD) then
+             itnflrf = itnflf + itnflri
+          endif
+          if (nst==itnflf .and. (itnflf+itnfli<=itnfll)) then
+             itnflf  = itnflf + itnfli
+          endif
+          if (nflrwmode==NFLWRITEREADNEW) then
+             itnflrf = itnflf
+          endif
        endif
        !
        ! Calculate source and sink terms for fluid mud layer

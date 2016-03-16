@@ -283,6 +283,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     ! FOR PARALLEL RUNS: should the writing be done by one process only,
     ! or can each partition write its own file with c_inode identifier?
     !
+    write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
     luntmp = newlun(gdp)
     open (luntmp,file=trim(filename(1)),status='new')
     call to_matlab( luntmp, "Filename",     trim(filename(1))   )

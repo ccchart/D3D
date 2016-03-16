@@ -1,4 +1,4 @@
-subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
+subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -37,6 +37,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
 ! NONE
 !!--declarations----------------------------------------------------------------
     use globaldata
+    use flow2d3d_timers
     !
     implicit none
     !
@@ -48,6 +49,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
     character(*), dimension(no_dis)              :: waitfiles
     integer                        , intent(out) :: idis
     character(*)                   , intent(out) :: filename
+    logical                        , intent(in)  :: waitlog
 !
 ! Local variables
 !
@@ -66,7 +68,9 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
     do i=1, no_dis
        if (waitfiles(i) /= ' ') then
           idis = i
-          write(*,'(3a)') "Waiting for file '", trim(waitfiles(i)), "' to appear ..."
+          if (waitlog) then
+             write(*,'(3a)') "Waiting for file '", trim(waitfiles(i)), "' to appear ..."
+          endif
        endif
     enddo
     !
@@ -78,6 +82,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
     ! Examine if one of the files exists
     ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
     !
+    call timer_start(timer_wait, gdp)
     idis     = 0
     filename = ' '
     do while (.not. ex_file)
@@ -93,6 +98,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
           endif
        enddo
     enddo
+    call timer_stop(timer_wait, gdp)
     write(*,'(3a)') "Scanning    file '", trim(filename), "' ..."
     !
     ! File found: open file and read until you find eof
@@ -100,7 +106,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
     lun = newlun(gdp)
     inquire(lun, iostat=ios, opened=opend)
  10 if (ios==0 .and. opend) close(lun, iostat=ios)
-    open (lun,file=filename)
+    open (lun,file=filename,err=10)
     rewind (lun)
     ios      = 0
     numlines = 0
@@ -111,5 +117,4 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, gdp)
     write(*,'(a)') "ERROR: This line should not be reached."
     goto 10
 20  close(lun)
-    write(*,'(a,i0)') "numlines: ", numlines
 end subroutine wait_until_finished

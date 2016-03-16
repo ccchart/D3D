@@ -27,11 +27,17 @@
 !  $Id$
 !  $HeadURL$
 !-------------------------------------------------------------------------------
+integer, parameter :: NFLWRITE        = 1
+integer, parameter :: NFLREADOLD      = 2
+integer, parameter :: NFLWRITEREADOLD = 3
+integer, parameter :: NFLWRITEREADNEW = 4
+!
 type gd_nfl
     !
     ! integers
     !
-    integer                                :: no_dis  ! number of diffusers/discharges
+    integer                                :: no_dis    ! number of diffusers/discharges
+	integer                                :: nflwrmode ! NFL Write/Read mode: default: NFLWRITEREADNEW
     !
     ! integer arrays
     !
@@ -63,7 +69,8 @@ type gd_nfl
     !
     ! character array
     !
-    character(256),dimension(:,:), pointer :: basecase ! name of near field model to apply
+    character(256),dimension(:,:), pointer :: basecase     ! name of near field model to apply
+    character(256),dimension(:)  , pointer :: waitfilesold ! names of near field files to appear, created at an older timestep (itnflri > 0)
 end type gd_nfl
 
 

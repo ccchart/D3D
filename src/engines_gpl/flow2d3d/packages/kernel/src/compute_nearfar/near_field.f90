@@ -1,9 +1,9 @@
-subroutine near_field(u0     ,v0     ,rho    ,thick  , &
-                    & kmax   ,alfas  ,dps    ,s0     , &
-                    & lstsci ,lsal   ,ltem   ,xz     , &
-                    & yz     ,nmmax  ,kcs    , &
-                    & r0     ,time   ,saleqs ,temeqs , &
-                    & s1     ,kfsmn0 ,kfsmx0 ,dzs0   , &
+subroutine near_field(u0     ,v0     ,rho      ,thick  , &
+                    & kmax   ,alfas  ,dps      ,s0     , &
+                    & lstsci ,lsal   ,ltem     ,xz     , &
+                    & yz     ,nmmax  ,nflrwmode,kcs    , &
+                    & r0     ,time   ,saleqs   ,temeqs , &
+                    & s1     ,kfsmn0 ,kfsmx0   ,dzs0   , &
                     & gdp   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
@@ -89,6 +89,7 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     real(fp)      , dimension(:)       , pointer :: theta0
     real(fp)      , dimension(:,:,:)   , pointer :: disnf
     real(fp)      , dimension(:,:,:,:) , pointer :: sournf
+    character(256), dimension(:)       , pointer :: waitfilesold
     character(256), dimension(:,:)     , pointer :: basecase
     character(256)                     , pointer :: nflmod
     integer                            , pointer :: lundia
@@ -115,6 +116,7 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     integer                                                                       , intent(in)         :: lsal
     integer                                                                       , intent(in)         :: ltem
     integer                                                                       , intent(in)         :: nmmax
+    integer                                                                       , intent(in)         :: nflrwmode
     real(fp)                                                                      , intent(in)         :: time
     real(fp)                                                                      , intent(in)         :: saleqs
     real(fp)                                                                      , intent(in)         :: temeqs
@@ -198,6 +200,7 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     logical                                             :: first_time
     logical                                             :: error
     logical                                             :: error_reading
+    logical                                             :: waitlog
     character(3)                                        :: c_inode
     character(3)                                        :: c_idis
     character(14)                                       :: cctime
@@ -222,6 +225,7 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
     theta0         => gdp%gdnfl%theta0
+    waitfilesold   => gdp%gdnfl%waitfilesold
     basecase       => gdp%gdnfl%basecase
     disnf          => gdp%gdnfl%disnf
     sournf         => gdp%gdnfl%sournf
@@ -304,15 +308,20 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
        xz_ptr     => xz
     endif
     !
-    ! glb_disnf and glb_sournf must be allocated by all partitions:
-    ! After the master partition has calculated them, they will be
-    ! copied to all partitions
-    !
-    allocate(glb_disnf(nlb:nub,mlb:mub,1:kmax,1:no_dis), stat=ierror)
-    allocate(glb_sournf(nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
-    if (ierror /= 0) then
-       call prterr(lundia, 'U021', 'near_field: memory allocation error')
-       call d3stop(1, gdp)
+    if (nflrwmode /= NFLWRITE) then
+       ! Only allocate glb_disnf/glb_sournf when reading near field files and performing
+       ! the related computations
+       !
+       ! glb_disnf and glb_sournf must be allocated by all partitions:
+       ! After the master partition has calculated them, they will be
+       ! copied to all partitions
+       !
+       allocate(glb_disnf(nlb:nub,mlb:mub,1:kmax,1:no_dis), stat=ierror)
+       allocate(glb_sournf(nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
+       if (ierror /= 0) then
+          call prterr(lundia, 'U021', 'near_field: memory allocation error')
+          call d3stop(1, gdp)
+       endif
     endif
     !
     ! Both for parallel and sequential:
@@ -384,72 +393,89 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
              !enddo
              !!
           case('generic')
-             allocate(waitfiles(no_dis), stat=ierror)
-             waitfiles = ' '
-             write(cctime,'(f14.3)') time/60.0_fp
              !
-             ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
-             ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
-             !    
-             call corinp_gen2(idensform,gdp)
+             ! Write near field input files
              !
-             ! Convert flow results to input for cormix and write to input file
-             ! Write all input files (one for each discharge) in the following do loop
+             if (nflrwmode /= NFLREADOLD) then
+                allocate(waitfiles(no_dis), stat=ierror)
+                waitfiles = ' '
+                write(cctime,'(f14.3)') time/60.0_fp
+                !
+                ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
+                ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
+                !    
+                call corinp_gen2(idensform,gdp)
+                !
+                ! Convert flow results to input for cormix and write to input file
+                ! Write all input files (one for each discharge) in the following do loop
+                !
+                do idis = 1, no_dis
+                   !
+                   ! Add SubGridModel number to filename to prevent overwriting
+                   !
+                   write(c_idis,'(i3.3)') idis
+                   !
+                   filename(1) = trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(2) = trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(3) = trim(basecase(idis,1))
+                   waitfiles(idis) = filename(2)
+                   !
+                   ! You should get the filenames (the dirs) from the COSUMOsettings.xml
+                   !
+                   call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
+                                & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
+                                & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
+                                & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
+                                & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
+                                & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,gdp    )
+                enddo
+             endif
              !
-             do idis = 1, no_dis
+             ! Read near field input files and process them
+             !
+             if (nflrwmode /= NFLWRITE) then
+                waitlog = .true.
+                do
+                   if (nflrwmode == NFLWRITEREADNEW) then
+                      !
+                      ! Wait until the new near field files are written
+                      ! This is the default case
+                      !
+                      call wait_until_finished(no_dis, waitfiles, idis, filename(2), waitlog, gdp)
+                   else
+                      !
+                      ! Use the old near field files, written some time ago
+                      !
+                      call wait_until_finished(no_dis, waitfilesold, idis, filename(2), waitlog, gdp)
+                   endif
+                   waitlog = .false.
+                   !
+                   ! idis=0 when all files are processed
+                   !
+                   if (idis == 0) exit
+                   !
+                   no_val=size(x_jet)
+                   call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
+                   !
+                   ! Fill sources and sinks following the Desa Method of Prof. Lee
+                   !
+                   call desa(nlb     ,nub      ,mlb       ,mub       ,kmax      , &
+                           & lstsci  ,no_dis   ,no_val    ,lsal      ,ltem      , &
+                           & idis    ,thick    ,xstart    ,xend      ,ystart    , &
+                           & yend    ,x_jet    ,y_jet     ,z_jet     ,s_jet     , &
+                           & h_jet   ,b_jet    ,kcs_ptr   ,xz_ptr    ,yz_ptr    , &
+                           & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr,kfsmx0_ptr, &
+                           & dzs0_ptr,glb_disnf,glb_sournf,linkinf   , gdp      )
+                enddo
+             endif
+             if (nflrwmode==NFLWRITE .or. nflrwmode==NFLWRITEREADOLD) then
                 !
-                ! Add SubGridModel number to filename to prevent overwriting
-                !
-                write(c_idis,'(i3.3)') idis
-                !
-                filename(1) = trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                filename(2) = trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                filename(3) = trim(basecase(idis,1))
-                waitfiles(idis) = filename(2)
-                !
-                ! parallel:
-                ! add filename(2) to local filelist
-                ! if (.not.master) then
-                !    sent(filelist)
-                ! 
-                !
-                ! You should get the filenames (the dirs) from the COSUMOsettings.xml
-                !
-                call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
-                             & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
-                             & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
-                             & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
-                             & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
-                             & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,gdp    )
-             enddo
-             do
-                !
-                ! parallel:
-                ! enddo !no_dis
-                ! if (master)
-                !    receive all filelists, build globalfilelist
-                ! do until all files processed:
-                ! vervang waitn_until_finished door een loop over alle nog niet geprocessete files, doe desa zodra er een file is verschenen
-                call wait_until_finished(no_dis, waitfiles, idis, filename(2), gdp)
-                !
-                ! idis=0 when all files are processed
-                !
-                if (idis == 0) exit
-                !
-                no_val=size(x_jet)
-                call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
-                !
-                ! Fill sources and sinks following the Desa Method of Prof. Lee
-                !
-                call desa(nlb     ,nub      ,mlb       ,mub       ,kmax      , &
-                        & lstsci  ,no_dis   ,no_val    ,lsal      ,ltem      , &
-                        & idis    ,thick    ,xstart    ,xend      ,ystart    , &
-                        & yend    ,x_jet    ,y_jet     ,z_jet     ,s_jet     , &
-                        & h_jet   ,b_jet    ,kcs_ptr   ,xz_ptr    ,yz_ptr    , &
-                        & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr,kfsmx0_ptr, &
-                        & dzs0_ptr,glb_disnf,glb_sournf,linkinf   , gdp      )
-             enddo
-             deallocate(waitfiles, stat=ierror)
+                ! Store the new waitfiles, to be used later on
+                waitfilesold(:) = waitfiles(:)
+             endif
+             if (nflrwmode /= NFLREADOLD) then
+                deallocate(waitfiles, stat=ierror)
+             endif
           case ('jet3d')
              !!
              !! Convert flow results to input for jet3d and write to input file
@@ -483,33 +509,36 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
        end select
     endif
     !
-    ! Copy the global disnf/sournf to the local ones, even if not parallel
+    ! Copy the global disnf/sournf to the local ones, even if not parallel,
+    ! only when having processed the near field data
     !
-    if (parll) then
-       ! 
-       ! First scatter glb_disnf/glb_sournf to all nodes 
-       ! 
-                       call dfbroadc(glb_disnf , nmaxgl*mmaxgl*kmax*no_dis       , dfdble, error, errmsg)
-       if (.not.error) call dfbroadc(glb_sournf, nmaxgl*mmaxgl*kmax*lstsci*no_dis, dfdble, error, errmsg)
-       if (error) then
-          call write_error(errmsg, unit=lundia)
-       else
-          do m = mfg, mlg 
-             do n = nfg, nlg 
-                call n_and_m_to_nm(n-nfg+1, m-mfg+1, nm, gdp)
-                disnf (nm,:,:)   = glb_disnf (n,m,:,:) 
-                sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+    if (nflrwmode /= NFLWRITE) then
+       if (parll) then
+          ! 
+          ! First scatter glb_disnf/glb_sournf to all nodes 
+          ! 
+                          call dfbroadc(glb_disnf , nmaxgl*mmaxgl*kmax*no_dis       , dfdble, error, errmsg)
+          if (.not.error) call dfbroadc(glb_sournf, nmaxgl*mmaxgl*kmax*lstsci*no_dis, dfdble, error, errmsg)
+          if (error) then
+             call write_error(errmsg, unit=lundia)
+          else
+             do m = mfg, mlg 
+                do n = nfg, nlg 
+                   call n_and_m_to_nm(n-nfg+1, m-mfg+1, nm, gdp)
+                   disnf (nm,:,:)   = glb_disnf (n,m,:,:) 
+                   sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+                enddo 
              enddo 
-          enddo 
-       endif
-    else
-       do m = mlb, mub
-          do n = nlb, nub
-             call n_and_m_to_nm(n, m, nm, gdp)
-             disnf (nm,:,:)   = glb_disnf(n,m,:,:)
-             sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+          endif
+       else
+          do m = mlb, mub
+             do n = nlb, nub
+                call n_and_m_to_nm(n, m, nm, gdp)
+                disnf (nm,:,:)   = glb_disnf(n,m,:,:)
+                sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+             enddo
           enddo
-       enddo
+       endif
     endif
     !
     if (parll .and. inode==master) then
@@ -528,6 +557,8 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
        deallocate(glb_xz    , stat=ierror)
        deallocate(glb_yz    , stat=ierror)
     endif
-    deallocate(glb_disnf , stat=ierror)
-    deallocate(glb_sournf, stat=ierror)
+    if (nflrwmode /= NFLWRITE) then
+       deallocate(glb_disnf , stat=ierror)
+       deallocate(glb_sournf, stat=ierror)
+    endif
 end subroutine near_field
