@@ -13,7 +13,6 @@
     <flow2D3D name="myNameFlow">
         <library>flow2d3d</library>
         <mdfFile>2dis.mdf</mdfFile>
-        <waitFile>debug.txt</waitFile>
         <!--
             Note: exactly one mdfFile (single domain) or ddbFile (domain decomposition)
             element must be present.

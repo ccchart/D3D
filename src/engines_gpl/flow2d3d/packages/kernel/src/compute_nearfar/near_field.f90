@@ -36,9 +36,22 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
 !!--description-----------------------------------------------------------------
 !
 !    Function: Converts flow results to cormix input
-!              nog wel doen:
-!              1) interpoleren naar equidistante laagverdeling jet3d
-! Method used:
+!              To do:
+!              1) interpolete to equidistant layer distribution jet3d
+! Parallel:
+!    All parameters are in n,m instead of nm, because:
+!    - dfgather produces n,m arrays
+!    - conversion subroutines n,m <=> nm do not work on global arrays
+!    - subroutines can be called with specified dimensions, such that all parallel
+!      stuff is concentrated in this near_field subroutine
+!
+!    The master partition gathers all input arrays on the full global domain,
+!    handles the communication with Cosumo/Cormix,
+!    and calculates the arrays glb_disnf and glb_sournf (both on the full global
+!    domain in n,m).
+!    glb_disnf and glb_sournf are distributed to all partitions (call dfbroadc).
+!    Each partition copies his part of these arrays to the local disnf/sournf in
+!    nm.
 !
 !!--pseudo code and references--------------------------------------------------
 ! NONE
@@ -227,11 +240,18 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
     !    
     write(c_inode,'(i3.3)') inode
     !
+    ! By defining the dimensions nlb, nub, mlb, mub and using the _ptr variants,
+    ! the calls to wri_FF2NF and desa are the same for both parallel and sequential
+    !
     if (parll) then
        nlb = 1
        nub = nmaxgl
        mlb = 1
        mub = mmaxgl
+       !
+       ! A call to dfgather will cause that the second parameter (e.g. glb_kcs) will be (re-)allocated for the master partition only
+       ! The parameter is undefined for the other partitions
+       !
        call dfgather(kcs   , glb_kcs   , nf, nl, mf, ml, iarrc, gdp)
        call dfgather(kfsmx0, glb_kfsmx0, nf, nl, mf, ml, iarrc, gdp)
        call dfgather(kfsmn0, glb_kfsmn0, nf, nl, mf, ml, iarrc, gdp)
@@ -283,12 +303,20 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
        yz_ptr     => yz
        xz_ptr     => xz
     endif
+    !
+    ! glb_disnf and glb_sournf must be allocated by all partitions:
+    ! After the master partition has calculated them, they will be
+    ! copied to all partitions
+    !
     allocate(glb_disnf(nlb:nub,mlb:mub,1:kmax,1:no_dis), stat=ierror)
     allocate(glb_sournf(nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
     if (ierror /= 0) then
        call prterr(lundia, 'U021', 'near_field: memory allocation error')
        call d3stop(1, gdp)
     endif
+    !
+    ! Both for parallel and sequential:
+    ! Only the master partition communicates with Cosumo/Cormix and calculates glb_disnf and glb_sournf
     !
     if (inode == master) then
        !
@@ -506,13 +534,10 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
        if (error) then
           call write_error(errmsg, unit=lundia)
        else
-          ! 
-          ! put copies of parts of dtmp for each subdomain 
-          ! 
           do m = mfg, mlg 
              do n = nfg, nlg 
                 call n_and_m_to_nm(n-nfg+1, m-mfg+1, nm, gdp)
-                disnf(nm,:,:) = glb_disnf(n,m,:,:) 
+                disnf (nm,:,:)   = glb_disnf (n,m,:,:) 
                 sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
              enddo 
           enddo 
