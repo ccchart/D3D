@@ -450,46 +450,6 @@ subroutine near_field(u0     ,v0     ,rho    ,thick  , &
                         & dzs0_ptr,glb_disnf,glb_sournf,linkinf   , gdp      )
              enddo
              deallocate(waitfiles, stat=ierror)
-             !
-             ! parallel:
-             ! if (master) then
-             !    communicate disnf and 
-             !
-             !          call read_xml_file_discharge_def( "nf2ff.xml", lurep = lundia, errout = error_reading )
-             !          do idis = 1,size(discharges)
-             !              write(*,*) discharges(idis)%name
-             !          enddo 
-             !          
-             !          
-             !          write(cctime,'(f14.3)') time/60.0_fp
-             !          file_nf_inp = discharges(idis)%inputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledinp'
-             !          file_nf_out = discharges(idis)%outputdir//discharges(idis)%name//trim(gdp%runid)//'_'//c_inode//'_'//trim(adjustl(cctime))//'.coupledout'
-             !
-             !
-             !
-             !
-             !          do idis = 1, no_dis
-             !
-             !             !
-             !             ! Convert flow results to input for nearfield model andwait for near field simulation
-             !             ! to be finished
-             !             !
-             !
-             !             call wri_nf_inp(u0    ,v0    ,rho   ,thick ,kmax  ,dps    , &
-             !                           & s0    ,alfas ,time  ,taua         ,r0     , &
-             !                           & lstsci,lsal  ,ltem  ,idensform    ,saleqs , &
-             !                           & temeqs,idis  ,file_nf_inp         ,linkinf, &
-             !                           & discharges, gdp   )
-             !                           !(file_nf_inp, ?????????????)
-             !                           
-             !             call wait_until_finished(file_nf_out)
-             !             call nf_2_flow          (file_nf_out,x_jet,y_jet,z_jet,s_jet,bh_jet,bv_jet)
-             !
-             !             call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,no_val  , &
-             !            &               kcs     ,xz       ,yz      ,dps     ,s0      , &
-             !            &               nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-             !            &               ltem    ,bv_jet  ,bh_jet   ,idis    ,r0      , &
-             !            &               gdp     )
           case ('jet3d')
              !!
              !! Convert flow results to input for jet3d and write to input file
