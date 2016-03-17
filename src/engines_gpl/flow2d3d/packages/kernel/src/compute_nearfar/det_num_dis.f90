@@ -66,7 +66,7 @@ subroutine det_num_dis(no_dis, gdp)
     !
 
     call skipstarlines (luntmp)
-    read (luntmp,*) gdp%gdnfl%base_path
+    read (luntmp,'(a)') gdp%gdnfl%base_path
 
     !
     ! Read number of discharges

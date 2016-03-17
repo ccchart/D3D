@@ -372,6 +372,7 @@ engines_gpl/flow2d3d/packages/kernel_dd_f/src/Makefile
 engines_gpl/flow2d3d/packages/kernel/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/Makefile
+engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/read_xml_discharges/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute_roller/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/Makefile
 engines_gpl/flow2d3d/packages/kernel/src/dd/Makefile

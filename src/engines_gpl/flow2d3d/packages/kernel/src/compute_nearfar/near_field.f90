@@ -201,6 +201,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     logical                                             :: error
     logical                                             :: error_reading
     logical                                             :: waitlog
+    character(1)                                        :: slash
     character(3)                                        :: c_inode
     character(3)                                        :: c_idis
     character(14)                                       :: cctime
@@ -241,6 +242,12 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     iarrc          => gdp%gdparall%iarrc
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
+    if (gdp%arch=='win32' .or. gdp%arch=='win64') then
+       slash = '\'
+    else
+       slash = '/'
+    endif
+    filename = ' '
     !    
     write(c_inode,'(i3.3)') inode
     !
@@ -416,7 +423,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    write(c_idis,'(i3.3)') idis
                    !
                    filename(1) = trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
-                   filename(2) = trim(basecase(idis,1))//'COSUMO\NF2FF\NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
                    filename(3) = trim(basecase(idis,1))
                    waitfiles(idis) = filename(2)
                    !

@@ -95,7 +95,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: s1  
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: xz
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: yz
-    character(*), dimension(3)                                          :: filename
+    character(256), dimension(3)                          , intent(in)  :: filename
 !
 ! Local variables
 !

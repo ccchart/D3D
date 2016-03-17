@@ -76,7 +76,7 @@ subroutine corinp_gen2(idensform, gdp)
     integer, external      :: newlun
     integer                :: idis
     real(fp)               :: dummy
-    character              :: cdummy
+    character(300)         :: cdummy
 !
 !! executable statements -------------------------------------------------------
 !
@@ -107,7 +107,7 @@ subroutine corinp_gen2(idensform, gdp)
     ! Read dummy line
     !
     call skipstarlines (luntmp)
-    read (luntmp,*) cdummy
+    read (luntmp,'(a)') cdummy
     call skipstarlines (luntmp)
     read (luntmp,*) dummy
     !
@@ -158,7 +158,7 @@ subroutine corinp_gen2(idensform, gdp)
        call skipstarlines (luntmp)
        read (luntmp,*) sigma0(idis)
        call skipstarlines (luntmp)
-       read (luntmp,*) basecase(idis,1)
+       read (luntmp,'(a)') basecase(idis,1)
     enddo
     !
     ! Close the general cormix input file

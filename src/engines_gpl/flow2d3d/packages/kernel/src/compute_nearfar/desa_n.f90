@@ -1,4 +1,4 @@
-subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
+subroutine desa_n(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
               & kcs     ,xz       ,yz      ,dps     ,s0      , &
               & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
               & ltem    ,bv_jet   ,bh_jet  ,v_jet   ,idis    , &
@@ -332,4 +332,4 @@ subroutine desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        deallocate(weight, stat=ierror)
 
     endif
-end subroutine desa
+end subroutine desa_n
