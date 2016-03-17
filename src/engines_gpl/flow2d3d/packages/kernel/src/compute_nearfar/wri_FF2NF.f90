@@ -136,6 +136,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     character*12                           :: chint
     character*12                           :: cdrohj
     character*12                           :: ctaua
+    character(256), external               :: windows_path
 !
 !! executable statements -------------------------------------------------------
 !
@@ -286,9 +287,13 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
     luntmp = newlun(gdp)
     open (luntmp,file=trim(filename(1)),status='new')
-    call to_matlab( luntmp, "Filename",     trim(filename(1))   )
-    call to_matlab( luntmp, "waitForFile",  trim(filename(2))   )
-    call to_matlab( luntmp, "FFrundir",     trim(filename(3))   )
+    !
+    ! Filenames should always be written in Windows style, even on Linux,
+    ! Because Cosumo is reading/using it and runs on Windows
+    !
+    call to_matlab( luntmp, "Filename",     trim(windows_path(filename(1)))   )
+    call to_matlab( luntmp, "waitForFile",  trim(windows_path(filename(2)))   )
+    call to_matlab( luntmp, "FFrundir",     trim(windows_path(filename(3)))   )
     call to_matlab( luntmp, "Node"    ,     trim(gdp%runid)     )
     call to_matlab( luntmp, "SubgridModelNr",idis               )
     call to_matlab( luntmp, "TIME",     time/60.0_fp            )
@@ -315,3 +320,37 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     !
     deallocate(dzs0_amb, stat=ierror)         
 end subroutine wri_FF2NF
+
+function windows_path(inpath) result(outpath)
+!
+! return value
+!
+character(256) :: outpath
+!
+! arguments
+!
+character(256), intent(in)  :: inpath
+!
+! locals
+!
+integer      :: i
+character(1) :: bslash = '\'
+character(1) :: fslash = '/'
+!
+! body
+!
+outpath = inpath
+!
+! Replace /p by p:
+if (outpath(1:1)==fslash .and. outpath(3:3)== fslash) then
+   outpath(1:1) = outpath(2:2)
+   outpath(2:2) = ':'
+endif
+!
+! Replace / by \
+do i=1,len_trim(outpath)
+   if (outpath(i:i) == fslash) then
+      outpath(i:i) = bslash
+   endif
+enddo
+end function windows_path

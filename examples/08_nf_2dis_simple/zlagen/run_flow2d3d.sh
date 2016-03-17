@@ -28,7 +28,7 @@ export D3D_HOME=../../../bin
 exedir=$D3D_HOME/$ARCH/flow2d3d/bin
  
 
-cp corinp_lnx.dat corinp.dat
+
 rm -f trim*.*
 rm -f tri-diag.*
 rm -f TMP_*.*

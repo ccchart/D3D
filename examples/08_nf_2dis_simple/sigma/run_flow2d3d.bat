@@ -35,7 +35,7 @@ set exedir=c:\code\branches\nearfield\src\engines_gpl\d_hydro\bin\x64\Debug
 
 
 
-
+copy corinp_win.dat corinp.dat
 del /f trim*.* >del.log 2>&1
 del /f tri-diag.* >del.log 2>&1
 del /f TMP_*.* >del.log 2>&1
