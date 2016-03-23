@@ -211,7 +211,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
           !                      Keep track of total amounts of water, salt in order to discharge the correct
           !                      amounts at the end of the near field
           !
-          if ((n_last/=n_end .and. m_last /= m_end) .or. k_last /= k_end_top) then
+          if (n_last/=n_end .or. m_last /= m_end .or. k_last /= k_end_top) then
              dis_dil                  = 1.0_fp*(s_jet(irow) - s_jet(irow-1))*q_diff(idis)
              dis_tot                  = dis_tot + dis_dil
              disnf   (n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
@@ -266,7 +266,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                         thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy , 0.0_fp   , n_tmp, m_tmp , &
                         idum      , kfsmn0  , kfsmx0           , dzs0              , zmodel   , gdp    )
 
-           if (n_tmp/=n_dis(ndis_track) .and. m_tmp/=m_dis(ndis_track)) then
+           if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track)) then
               ndis_track         = ndis_track + 1
               n_dis(ndis_track)  = n_tmp
               m_dis(ndis_track)  = m_tmp
