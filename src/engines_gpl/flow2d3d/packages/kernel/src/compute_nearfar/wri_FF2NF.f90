@@ -338,13 +338,15 @@ character(1) :: bslash = '\'
 character(1) :: fslash = '/'
 !
 ! body
-!
-outpath = inpath
-!
-! Replace /p by p:
-if (outpath(1:1)==fslash .and. outpath(3:3)== fslash) then
+if (inpath(1:1)==fslash .and. inpath(3:3)== fslash) then
+   ! Replace /p by p:
+   outpath = inpath
    outpath(1:1) = outpath(2:2)
    outpath(2:2) = ':'
+else if (inpath(1:4)=='/opt') then
+   ! Replace /opt by p:\h6\opt
+   outpath = "p:\h6\opt"
+   outpath(10:) = inpath(5:)
 endif
 !
 ! Replace / by \
