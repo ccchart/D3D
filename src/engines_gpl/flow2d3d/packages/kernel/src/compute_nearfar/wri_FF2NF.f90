@@ -347,6 +347,10 @@ else if (inpath(1:4)=='/opt') then
    ! Replace /opt by p:\h6\opt
    outpath = "p:\h6\opt"
    outpath(10:) = inpath(5:)
+else if (inpath(1:4)=='/mnt') then
+   ! Replace /mnt by d:
+   outpath = "d:"
+   outpath(3:) = inpath(5:)
 endif
 !
 ! Replace / by \
