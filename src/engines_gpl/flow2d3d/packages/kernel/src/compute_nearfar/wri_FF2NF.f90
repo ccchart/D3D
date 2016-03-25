@@ -329,7 +329,7 @@ character(256) :: outpath
 !
 ! arguments
 !
-character(256), intent(in)  :: inpath
+character(*), intent(in)  :: inpath
 !
 ! locals
 !
@@ -351,6 +351,8 @@ else if (inpath(1:4)=='/mnt') then
    ! Replace /mnt by d:
    outpath = "d:"
    outpath(3:) = inpath(5:)
+else
+   outpath = inpath
 endif
 !
 ! Replace / by \
