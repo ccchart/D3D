@@ -76,6 +76,7 @@ subroutine corinp_gen2(idensform, gdp)
     integer, external      :: newlun
     integer                :: idis
     real(fp)               :: dummy
+    character(1)           :: slash
     character(300)         :: cdummy
 !
 !! executable statements -------------------------------------------------------
@@ -96,6 +97,11 @@ subroutine corinp_gen2(idensform, gdp)
     sigma0         => gdp%gdnfl%sigma0
     theta0         => gdp%gdnfl%theta0
     basecase       => gdp%gdnfl%basecase
+    if (gdp%arch=='win32' .or. gdp%arch=='win64') then
+       slash = '\'
+    else
+       slash = '/'
+    endif
     !
     ! Reading of the corinp.dat file by FLOW
     ! Parallel: should this be done by all partitions or just by one?
@@ -159,6 +165,11 @@ subroutine corinp_gen2(idensform, gdp)
        read (luntmp,*) sigma0(idis)
        call skipstarlines (luntmp)
        read (luntmp,'(a)') basecase(idis,1)
+       if (trim(basecase(idis,1)) == "rundir") then
+          call getcwd(cdummy)
+          basecase(idis,1) = trim(cdummy)//slash
+          write(*,'(3a)') "corinp_gen2: 'rundir' substituted by '", trim(basecase(idis,1)), "'"
+       endif
     enddo
     !
     ! Close the general cormix input file
