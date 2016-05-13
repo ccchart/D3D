@@ -61,9 +61,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     use globaldata
     use dfparall
     use dffunctionals, only: dfgather
-    use xml_data_discharge_def
-    use xmlparse
-    use getdata
     !
     implicit none
     !
@@ -411,7 +408,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                 ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
                 ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
                 !    
-                call corinp_gen2(idensform,gdp)
+                call corinp_gen2(error,gdp)
                 !
                 ! Convert flow results to input for cormix and write to input file
                 ! Write all input files (one for each discharge) in the following do loop

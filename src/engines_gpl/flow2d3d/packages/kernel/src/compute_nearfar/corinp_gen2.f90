@@ -1,4 +1,4 @@
-subroutine corinp_gen2(idensform, gdp)
+subroutine corinp_gen2(error, gdp)
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -39,6 +39,7 @@ subroutine corinp_gen2(idensform, gdp)
 !!--declarations----------------------------------------------------------------
 !
     use precision
+    use properties
     !
     use globaldata
     !
@@ -49,6 +50,7 @@ subroutine corinp_gen2(idensform, gdp)
     ! The following list of pointer parameters is used to point inside the gdp structure
     ! They replace the  include igd / include igp lines
     !
+    integer                      , pointer :: lundia
     integer                      , pointer :: no_dis
     integer       ,dimension(:)  , pointer :: m_diff
     integer       ,dimension(:)  , pointer :: n_diff
@@ -68,19 +70,24 @@ subroutine corinp_gen2(idensform, gdp)
 !
 ! Global variables
 !
-    integer                :: idensform
+    logical, intent(out)   :: error
 !
 ! Local variables
 !
     integer                :: luntmp
     integer, external      :: newlun
     integer                :: idis
+    integer                :: istat
     real(fp)               :: dummy
     character(1)           :: slash
+    character(256)         :: filename
     character(300)         :: cdummy
+    character(300)         :: errmsg
+    type(tree_data), pointer :: cosumo_ptr
 !
 !! executable statements -------------------------------------------------------
 !
+    lundia         => gdp%gdinout%lundia
     no_dis         => gdp%gdnfl%no_dis
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
@@ -103,10 +110,36 @@ subroutine corinp_gen2(idensform, gdp)
        slash = '/'
     endif
     !
+    ! Create Cosumo input tree
+    !
+    filename = "COSUMOsettings.xml"
+    call tree_create( 'TransportFormula Input', cosumo_ptr )
+    call tree_put_data( cosumo_ptr, transfer(trim(filename),node_value), 'STRING' )
+    !
+    ! Put file in input tree
+    !
+    call prop_file('xml',trim(filename),cosumo_ptr,istat)
+    if (istat /= 0) then
+       select case (istat)
+       case(1)
+          errmsg = FILE_NOT_FOUND // trim(filename)
+          call write_error(errmsg, unit=lundia)
+       case(3)
+          errmsg = PREMATURE_EOF // trim(filename)
+          call write_error(errmsg, unit=lundia)
+       case default
+          errmsg = FILE_READ_ERROR // trim(filename)
+          call write_error(errmsg, unit=lundia)
+       endselect
+       error = .true.
+       return
+    endif
+    !
     ! Reading of the corinp.dat file by FLOW
     ! Parallel: should this be done by all partitions or just by one?
     ! Is concurrent file access possible?
     !
+    return
     luntmp = newlun(gdp)
     open (luntmp,file='corinp.dat')
     !

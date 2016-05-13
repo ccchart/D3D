@@ -36,8 +36,31 @@ module properties
     !
     implicit none
     !
-    integer, private, parameter                   :: max_length = 256
-    integer, private, parameter                   :: dp = kind(1.0d00)
+    integer                          , private, parameter :: max_length = 256
+    integer                          , private, parameter :: xml_buffer_length = 1000
+    integer                          , private, parameter :: dp = kind(1.0d00)
+    character(len=1)                 , private, parameter :: space  = ' '
+    character(len=1)                 , private, parameter :: tab = achar(9)
+    character(len=1)                 , private, parameter :: indent = tab
+    character(len=10), dimension(2,3), private, parameter :: entities = &
+       reshape( (/ '&    ', '&amp;', &
+                  '>    ', '&gt; ',  &
+                  '<    ', '&lt; ' /), (/2,3/) )
+    !
+    ! Define the XML data type that holds the parser information
+    !
+    type :: xml_parse
+       integer          :: lun                ! LU-number of the XML-file
+       integer          :: level              ! Indentation level (output)
+       integer          :: lineno             ! Line in file
+       logical          :: ignore_whitespace  ! Ignore leading blanks etc.
+       logical          :: no_data_truncation ! Do not allow data truncation
+       logical          :: too_many_attribs   ! More attributes than could be stored?
+       logical          :: too_many_data      ! More lines of data than could be stored?
+       logical          :: eof                ! End of file?
+       logical          :: error              ! Invalid XML file or other error?
+       character(len=xml_buffer_length) :: line  ! buffer
+    end type xml_parse
     !
     interface max_keylength
        module procedure max_keylength
@@ -71,7 +94,9 @@ module properties
     end interface
 
 contains
-
+!
+!
+! ====================================================================
 subroutine prop_file(filetype, filename , tree, error)
     use tree_structures
     !
@@ -96,6 +121,8 @@ subroutine prop_file(filetype, filename , tree, error)
        call prop_inifile(filename, tree, error)
     case ('tekal')
        call prop_tekalfile(filename, tree, error)
+    case ('xml')
+       call prop_xmlfile(filename, tree, error)
     case default
        write(*,*)'file type ',filetype,' not supported'
        error = 5
@@ -103,6 +130,7 @@ subroutine prop_file(filetype, filename , tree, error)
 end subroutine prop_file
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_file
 !   Author:     Arjen Markus
@@ -180,7 +208,9 @@ subroutine prop_inifile(filename , tree, error, japreproc)
     close (lu)
     return
 end subroutine prop_inifile
-
+!
+!
+! ====================================================================
 subroutine prop_inifile_pointer(lu, tree)
     use tree_structures
     !
@@ -355,6 +385,7 @@ subroutine prop_inifile_pointer(lu, tree)
 end subroutine prop_inifile_pointer
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_tekal_file
 !   Author:     Adri Mourits
@@ -419,7 +450,9 @@ subroutine prop_tekalfile(filename , tree, error)
     close (lu)
     return
 end subroutine prop_tekalfile
-
+!
+!
+! ====================================================================
 subroutine prop_tekalfile_pointer(lu, tree)
     use tree_structures
     !
@@ -493,8 +526,436 @@ subroutine prop_tekalfile_pointer(lu, tree)
     ! End of file or procedure
     !
 end subroutine prop_tekalfile_pointer
+!
+!
+! ====================================================================
+subroutine prop_xmlfile(filename , tree, error)
+    use tree_structures
+    !
+    implicit none
+    !
+    ! Parameters
+    !
+    character(*),               intent(in)                    :: filename     !< File name 
+    type(tree_data),    pointer,intent(inout)                 :: tree         !< Tree object generated 
+    integer,                    intent(out)                   :: error        !< Placeholder for file errors 
+    !
+    ! Local variables
+    !
+    integer               :: lu, iostat
+    logical               :: opened
+    integer               :: maxunit = 500 
 
+    lu = -1 
+    if (lu<0) then                          ! if lu has not been assigned a valid unit number 
+       do lu=10,maxunit
+          inquire(lu, opened=opened)
+          if (.not.opened) then 
+             exit
+          endif 
+       enddo 
+       if (lu>maxunit) then 
+          lu = -1
+          error = -35                                !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
+          return
+       endif 
+       
+       !      open existing file only       
+       open(lu,file=filename,iostat=error,status='old')
+       if (error/=0) then
+          return
+       endif
+    endif 
 
+    call prop_xmlfile_pointer(lu, tree, error)
+    close (lu)
+    return
+end subroutine prop_xmlfile
+!
+!
+! ====================================================================
+subroutine prop_xmlfile_pointer(lu, tree, error)
+    use tree_structures
+    use TREE_DATA_TYPES
+    !
+    implicit none
+    !
+    ! Parameters
+    !
+    integer,                    intent(in)      :: lu           !< File unit 
+    type(tree_data),    pointer,intent(inout)   :: tree         !< Tree object generated 
+    integer,                    intent(out)     :: error        !< Placeholder for file errors 
+    !
+    ! Local variables
+    !
+    integer                                                   :: k
+    integer                                                   :: kend
+    integer                                                   :: ierr
+    integer                                                   :: noattribs
+    integer                                                   :: nodata
+    logical                                                   :: filestatus
+    logical                                                   :: xmlendtag
+    character(max_length)                                     :: line
+    character(80)                                             :: xmltag
+    character(80)               , dimension(:,:), allocatable :: xmlattribs
+    character(xml_buffer_length), dimension(:)  , allocatable :: xmldata
+    type(xml_parse)                                           :: xmlinfo
+    type(tree_data_ptr)         , dimension(:)  , allocatable :: xmllevel
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    ! 100 xml levels must be enough
+    !
+    allocate(xmlattribs(2,10), stat=ierr)
+    allocate(xmldata(10)     , stat=ierr)
+    allocate(xmllevel(0:100) , stat=ierr)
+    xmllevel(0)%node_ptr       => tree
+    xmlinfo%lun                = lu
+    xmlinfo%level              = 1
+    xmlinfo%lineno             = 0
+    xmlinfo%ignore_whitespace  = .true.
+    xmlinfo%no_data_truncation = .true.
+    xmlinfo%too_many_attribs   = .false.
+    xmlinfo%too_many_data      = .false.
+    xmlinfo%eof                = .false.
+    xmlinfo%error              = .false.
+    xmlinfo%line               = ' '
+    !
+    ! Read first line separately
+    !
+    k = 1
+    do while ( k >= 1 )
+       read( xmlinfo%lun, '(a)', iostat = ierr ) xmlinfo%line
+       xmlinfo%lineno = xmlinfo%lineno + 1
+       if ( ierr == 0 ) then
+          xmlinfo%line = adjustl(  xmlinfo%line )
+          k            = index( xmlinfo%line, '<?' )
+          !
+          ! Assume (for now at least) that <?xml ... ?> appears on a single line!
+          !
+          if ( k >= 1 ) then
+             kend = index( xmlinfo%line, '?>' )
+             if ( kend <= 0 ) then
+                write(*,'(a,i0)') 'ERROR: XML_OPEN: error reading file with LU-number: ', xmlinfo%lun
+                write(*,'(a)')    'ERROR: Line starting with "<?xml" should end with "?>"'
+                xmlinfo%error = .true.
+                exit
+             endif
+          endif
+       else
+          write(*,'(a,i0)') 'ERROR: XML_OPEN: error reading file with LU-number: ', xmlinfo%lun
+          write(*,'(a)')    'ERROR: Possibly no line starting with "<?xml"'
+          xmlinfo%error = .true.
+          exit
+       endif
+    enddo
+    if ( .not. xmlinfo%error ) then
+       write( xmlinfo%lun, '(a)' ) '<?xml version="1.0"?>'
+    else
+       return
+    endif
+
+    do
+       call xml_get(xmlinfo, xmltag, xmlendtag, xmlattribs, noattribs, xmldata, nodata )
+       if ( .not. xml_ok(xmlinfo) ) then
+          exit
+       endif
+       if ( xml_error(xmlinfo) ) then
+          error = .true.
+          exit
+       endif
+       if (xmlinfo%level > 99) then
+          error = .true.
+          exit
+       endif
+       !
+       call tree_create_node(xmllevel(xmlinfo%level-1)%node_ptr, trim(xmltag), xmllevel(xmlinfo%level)%node_ptr)
+       do k=1,noattribs
+          call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(xmlattribs(1,k)), xmllevel(xmlinfo%level+1)%node_ptr)
+          call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "XMLATTRIBUTE")
+       enddo
+       call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(xmldata(:nodata),node_value), "XMLDATA")
+    enddo
+    !
+    ! End of file or procedure
+    !
+    deallocate(xmlattribs, stat=ierr)
+    deallocate(xmldata   , stat=ierr)
+    deallocate(xmllevel  , stat=ierr)
+end subroutine prop_xmlfile_pointer
+!
+!
+! ====================================================================
+! xml_get --
+!    Routine to get the next bit of information from an XML file
+! Arguments:
+!    info        Structure holding information on the XML-file
+!    tag         Tag that was encountered
+!    endtag      Whether the end of the element was encountered
+!    attribs     List of attribute-value pairs
+!    no_attribs  Number of pairs in the list
+!    data        Lines of character data found
+!    no_data     Number of lines of character data
+!
+subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
+   type(xml_parse),  intent(inout)               :: info
+   character(len=*), intent(out)                 :: tag
+   logical,          intent(out)                 :: endtag
+   character(len=*), intent(out), dimension(:,:) :: attribs
+   integer,          intent(out)                 :: no_attribs
+   character(len=*), intent(out), dimension(:)   :: data
+   integer,          intent(out)                 :: no_data
+   !
+   integer         :: kspace
+   integer         :: kend
+   integer         :: keq
+   integer         :: kfirst, kfirst1, kfirst2
+   integer         :: ksecond
+   integer         :: idxat
+   integer         :: idxdat
+   integer         :: ierr
+   logical         :: close_bracket
+   logical         :: comment_tag
+   logical         :: endtag_nodata
+   character(len=xml_buffer_length) :: nextline
+   character(len=1):: closing_char
+   !
+   ! Initialise the output
+   !
+   endtag        = .false.
+   endtag_nodata = .false.
+   no_attribs    = 0
+   no_data       = 0
+   info%too_many_attribs = .false.
+   info%too_many_data    = .false.
+   !
+   ! From the previous call or the call to xmlopen we have
+   ! the line that we need to parse already in memory:
+   ! <tag attrib1="..." attrib2="..." />
+   !
+   comment_tag   = .false.
+   close_bracket = .false.
+   kspace        = index( info%line, ' ' )
+   kend          = index( info%line, '>' )
+   do while ( kend <= 0 )
+      read( info%lun, '(a)', iostat = ierr ) nextline
+      info%lineno = info%lineno + 1
+      if ( ierr == 0 ) then
+         info%line = trim(info%line) // ' ' // adjustl(nextline)
+      else
+         info%error = .true.
+         write(*,'(a,i0)') 'ERROR: XML_GET - end of tag not found (buffer too small?). Line: ', info%lineno
+         return
+      endif
+      kend = index( info%line, '>' )
+   enddo
+   if ( kend > kspace ) then
+      kend = kspace
+   else
+      close_bracket = .true.
+   endif
+   !
+   ! Check for the end of an ordinary tag and of
+   ! a comment tag
+   !
+   if ( info%line(1:3) == '-->' ) then
+      endtag     = .true.
+      tag        = '<!--'
+      info%level = info%level - 1
+   else if ( info%line(1:2) == '</' ) then
+      endtag     = .true.
+      tag        = info%line(3:kend-1)
+      info%level = info%level - 1
+   else if (info%line(1:4) == '<!--') then
+      kend        = 4
+      tag         = info%line(2:4)
+      info%level  = info%level + 1
+      comment_tag = .true.
+   else if ( info%line(1:1) == '<' ) then
+      ! tag found
+      tag    = info%line(2:kend-1)
+   else
+      kend   = 0 ! Beginning of data!
+   endif
+   if ( info%level < 0 ) then
+      write(*,'(a,i0,a)') 'ERROR: xml_get - level dropped below zero: ', info%lineno, trim(info%line)
+   endif
+   info%line = adjustl( info%line(kend+1:) )
+   idxat     = 0
+   idxdat    = 0
+   do while ( info%line /= ' ' .and. .not. close_bracket .and. .not. comment_tag )
+      keq  = index( info%line, '=' )
+      kend = index( info%line, '>' )
+      if ( keq > kend ) keq = 0    ! Guard against multiple tags with attributes on one line
+      !
+      ! No attributes any more?
+      !
+      if ( keq < 1 ) then
+         kend = index( info%line, '/>' )
+         if ( kend >= 1 ) then
+            kend          = kend + 1 ! To go beyond the ">" character
+            endtag        = .true.
+            endtag_nodata = .true.
+         else
+            kend = index( info%line, '>' )
+            if ( kend < 1 ) then
+               write(*,'(a,i0,a)') 'ERROR: XML_GET - wrong ending of tag ', info%lineno, trim(info%line)
+               info%error = .true. ! Wrong ending of line!
+               return
+            else
+               close_bracket = .true.
+            endif
+         endif
+         if ( kend >= 1 ) then
+            info%line = adjustl( info%line(kend+1:) )
+         endif
+         exit
+      endif
+      idxat = idxat + 1
+      if ( idxat <= size(attribs,2) ) then
+         no_attribs = idxat
+         attribs(1,idxat) = adjustl(info%line(1:keq-1)) ! Use adjustl() to avoid multiple spaces, etc
+         info%line = adjustl( info%line(keq+1:) )
+         !
+         ! We have almost found the start of the attribute's value
+         !
+         kfirst1 = index( info%line, '''' )
+         kfirst2 = index( info%line, '"' )
+         kfirst = 0
+         if ( kfirst1 > 0 .and. (kfirst2 <= 0 .or. kfirst1 < kfirst2) ) then
+             closing_char = ''''
+             kfirst       = kfirst1
+         endif
+         if ( kfirst2 > 0 .and. (kfirst1 <= 0 .or. kfirst2 < kfirst1) ) then
+             closing_char = '"'
+             kfirst       = kfirst2
+         endif
+         if ( kfirst < 1 ) then
+            write(*,'(a,i0,a)') 'ERROR: XML_GET - malformed attribute-value pair: ', info%lineno, trim(info%line)
+            info%error = .true. ! Wrong form of attribute-value pair
+            return
+         endif
+         ksecond = index( info%line(kfirst+1:), closing_char ) + kfirst
+         if ( ksecond < 1 ) then
+            write(*,'(a,i0,a)') 'ERROR: XML_GET - malformed attribute-value pair: ', info%lineno, trim(info%line)
+            info%error = .true. ! Wrong form of attribute-value pair
+            return
+         endif
+         attribs(2,idxat) = info%line(kfirst+1:ksecond-1)
+         info%line = adjustl( info%line(ksecond+1:) )
+      endif
+      if ( idxat > size(attribs,2) ) then
+         write(*,'(a,i0,a)') 'ERROR: XML_GET - more attributes than could be stored: ', info%lineno, trim(info%line)
+         info%too_many_attribs = .true.
+         info%line             = ' '
+         exit
+      endif
+   enddo
+   !
+   ! Now read the data associated with the current tag
+   ! - all the way to the next "<" character
+   !
+   do
+      if ( comment_tag ) then
+         kend   = index( info%line, '-->' )
+      else
+         kend   = index( info%line, '<' )
+      endif
+      idxdat = idxdat + 1
+      if ( idxdat <= size(data) ) then
+         if ( .not. endtag ) no_data = idxdat    ! The endtag was set because of "/>"?
+         if ( kend >= 1 ) then
+            data(idxdat) = info%line(1:kend-1)
+            info%line    = info%line(kend:)
+         else
+            data(idxdat) = info%line
+         endif
+         no_data = idxdat
+      else
+         write(*,'(a,i0,a)') 'ERROR:XML_GET - more data lines than could be stored: ', info%lineno, trim(info%line)
+         info%too_many_data = .true.
+         exit
+      endif
+      !
+      ! No more data? Otherwise, read on
+      !
+      if ( kend >= 1 ) then
+         exit
+      else
+         read( info%lun, '(a)', iostat = ierr ) info%line
+         info%lineno = info%lineno + 1
+         if ( ierr < 0 ) then
+            write(*,'(a,i0)') 'ERROR:XML_GET - end of file found - LU-number: ', info%lun
+            info%eof = .true.
+         elseif ( ierr > 0 ) then
+            write(*,'(a,2i0)') 'ERROR:XML_GET - error reading file with LU-number ', info%lun, info%lineno
+            info%error = .true.
+         endif
+         if ( ierr /= 0 ) then
+            exit
+         endif
+      endif
+   enddo
+   !
+   ! If we encountered the "/>" pattern, we still need to read the next line
+   ! from the file, but there is no actual data ...
+   !
+   if ( endtag_nodata ) then
+      no_data = 0
+   endif
+   !
+   ! Compress the data?
+   !
+   if ( info%ignore_whitespace ) then
+      call xml_compress_( data, no_data )
+   endif
+   !
+   ! Replace the entities, if any
+   !
+   call xml_replace_entities_( data, no_data )
+
+   write(*,'(a,i0)') 'XML_GET - number of attributes: ', no_attribs
+   write(*,'(a,i0)') 'XML_GET - number of data lines: ', no_data
+
+end subroutine xml_get
+!
+!
+! ====================================================================
+! xml_ok --
+!    Function that returns whether all was okay or not
+! Arguments:
+!    info                Structure holding information on the XML-file
+! Returns:
+!    .true. if there was no error, .false. otherwise
+!
+logical function xml_ok( info )
+   type(xml_parse),  intent(in)               :: info
+
+   xml_ok = info%eof .or. info%error .or. &
+            ( info%no_data_truncation .and.    &
+                 ( info%too_many_attribs .or. info%too_many_data ) )
+   xml_ok = .not. xml_ok
+end function xml_ok
+!
+!
+! ====================================================================
+! xml_error --
+!    Function that returns whether there was an error
+! Arguments:
+!    info                Structure holding information on the XML-file
+! Returns:
+!    .true. if there was an error, .false. if there was none
+!
+logical function xml_error( info )
+   type(xml_parse),  intent(in)               :: info
+
+   xml_error = info%error .or. &
+            ( info%no_data_truncation .and.    &
+                 ( info%too_many_attribs .or. info%too_many_data ) )
+end function xml_error
+!
+!
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: expand
 !   Purpose:    Expand keys ${key} in subject, given a set of key-value pairs 
@@ -516,6 +977,79 @@ end subroutine prop_tekalfile_pointer
 !               - keys and replacement strings can at max hold 50 characters 
 ! --------------------------------------------------------------------
 !
+! xml_compress_ --
+!    Routine to remove empty lines from the character data and left-align
+!    all others. Left-align in this case, also includes removing tabs!
+! Arguments:
+!    data        Lines of character data found
+!    no_data     (Nett) number of lines of character data
+!
+subroutine xml_compress_( data, no_data )
+   character(len=*), intent(inout), dimension(:)    :: data
+   integer,          intent(inout)                  :: no_data
+
+   integer :: i
+   integer :: j
+   integer :: k
+   logical :: empty
+
+   j = 0
+   do i = 1,no_data
+      do k = 1,len(data(i))
+         if (data(i)(k:k) /= space .and. data(i)(k:k) /= tab) then
+            j = j + 1
+            data(j) = data(i)(k:)
+            exit
+         endif
+      enddo
+   enddo
+
+   no_data = j ! Make sure the empty lines do not count anymore
+
+end subroutine xml_compress_
+!
+!
+! ====================================================================
+! xml_replace_entities_ --
+!    Routine to replace entities such as &gt; by their
+!    proper character representation
+! Arguments:
+!    data        Lines of character data found
+!    no_data     (Nett) number of lines of character data
+!
+subroutine xml_replace_entities_( data, no_data )
+   character(len=*), intent(inout), dimension(:)    :: data
+   integer,          intent(inout)                  :: no_data
+
+   integer :: i
+   integer :: j
+   integer :: j2
+   integer :: k
+   integer :: pos
+   logical :: found
+
+   do i = 1,no_data
+      j = 1
+      do
+         do k = 1,size(entities,2)
+            found = .false.
+            pos   = index( data(i)(j:), trim(entities(2,k)) )
+            if ( pos > 0 ) then
+               found = .true.
+               j     = j + pos - 1
+               j2    = j + len_trim(entities(2,k))
+               data(i)(j:) = trim(entities(1,k)) // data(i)(j2:)
+               j     = j2
+            endif
+         enddo
+         if ( .not. found ) exit
+      enddo
+   enddo
+
+end subroutine xml_replace_entities_
+!
+!
+! ====================================================================
 subroutine expand(subject,defnames,defstrings,ndef)
     !
     implicit none
@@ -575,8 +1109,9 @@ subroutine expand(subject,defnames,defstrings,ndef)
     enddo
     subject=trim(outstring)
 end subroutine expand
-
-
+!
+!
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: preprocINI
 !   Purpose:    INI-file preprocessor, cpp-style 
@@ -681,7 +1216,9 @@ integer function preprocINI(infilename, error, outfilename) result (outfilenumbe
        rewind(outfilenumber)          ! rewind the file just written and return the number to caller 
     endif 
 end function preprocINI 
-
+!
+!
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: parse_directives 
 !   Purpose:    part of the INI-file preprocessor, handles preprocessor directives 
@@ -817,8 +1354,9 @@ recursive integer function parse_directives (infilename, outfilenumber, defnames
  666  continue
     close(infilenumber)
 end function parse_directives
-
-
+!
+!
+! ====================================================================
 !> Writes a property tree to file in ini format.
 subroutine prop_write_inifile(mout, tree, error)
     integer,                  intent(in)  :: mout  !< File pointer where to write to.
@@ -839,7 +1377,9 @@ subroutine prop_write_inifile(mout, tree, error)
     call tree_traverse(tree, print_initree, transfer((/ mout, transfer(lenmaxdata, 123) /), node_value), dummylog)
 
 end subroutine prop_write_inifile
-
+!
+!
+! ====================================================================
 !> Selects the maximum keylength from childdata.
 !! to be used in call to tree_fold.
 subroutine max_keylength( tree, childdata, data, stop)
@@ -858,7 +1398,9 @@ subroutine max_keylength( tree, childdata, data, stop)
 
     data = transfer(lenmax, data)
 end subroutine max_keylength
-
+!
+!
+! ====================================================================
 !> Selects the keylength from a tree leave.
 !! to be used in call to tree_fold.
 subroutine leaf_keylength( tree, data, stop)
@@ -881,8 +1423,9 @@ subroutine leaf_keylength( tree, data, stop)
 
     data = transfer(keylen, data)
 end subroutine leaf_keylength
-
-
+!
+!
+! ====================================================================
 !> Prints the root of a tree (either as chapter or as key-value pair)
 !! to be used in call to tree_traverse
 subroutine print_initree( tree, data, stop )
@@ -932,9 +1475,9 @@ subroutine print_initree( tree, data, stop )
       write(mout,'(a,a,a,a)') '# ', trim(string), ' -- ', trim(type_string)
    end select
 end subroutine print_initree
-
-
-
+!
+!
+! ====================================================================
 ! subroutine prop_get_keyvalue(tree, chapterin ,keyin     ,value, success)
 !     implicit none 
 !     interface 
@@ -947,9 +1490,9 @@ end subroutine print_initree
 !     end interface 
 !        call tree_all_children( tree, keys, values, numkeys )
 ! end subroutine 
-
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_string
 !   Author:     Arjen Markus
@@ -1102,7 +1645,9 @@ subroutine prop_get_string(tree, chapterin ,keyin     ,value, success)
         success = success_
     end if
 end subroutine prop_get_string
-
+!
+!
+! ====================================================================
 subroutine visit_tree(tree,direction)
    implicit none
    type(TREE_DATA), pointer                    :: tree
@@ -1115,7 +1660,9 @@ subroutine visit_tree(tree,direction)
       call tree_traverse( tree, node_unvisit, data, stop )
    endif 
 end subroutine visit_tree
-
+!
+!
+! ====================================================================
 subroutine node_visit( node, data, stop )
    use TREE_DATA_TYPES
    type(TREE_DATA), pointer                    :: node
@@ -1125,7 +1672,9 @@ subroutine node_visit( node, data, stop )
       node%node_visit = node%node_visit + 1  ! Update visit count 
    endif 
 end subroutine node_visit
-
+!
+!
+! ====================================================================
 subroutine node_unvisit( node, data, stop )
    use TREE_DATA_TYPES
    type(TREE_DATA), pointer                    :: node
@@ -1137,6 +1686,7 @@ subroutine node_unvisit( node, data, stop )
 end subroutine node_unvisit
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_integer
 !   Author:     Arjen Markus
@@ -1180,6 +1730,7 @@ subroutine prop_get_integer(tree  ,chapter   ,key       ,value     ,success)
 end subroutine prop_get_integer
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_integers
 !   Author:     Adri Mourits
@@ -1275,6 +1826,7 @@ subroutine prop_get_integers(tree   ,chapter   ,key       ,value     ,valuelengt
 end subroutine prop_get_integers
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_real
 !   Author:     Arjen Markus
@@ -1318,6 +1870,7 @@ subroutine prop_get_real(tree  ,chapter   ,key       ,value     ,success)
 end subroutine prop_get_real
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_reals
 !   Author:     Adri Mourits
@@ -1425,6 +1978,7 @@ subroutine prop_get_reals(tree  ,chapter ,key ,value ,valuelength, success)
 end subroutine prop_get_reals
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_double
 !   Author:     Arjen Markus
@@ -1468,6 +2022,7 @@ subroutine prop_get_double(tree  ,chapter   ,key       ,value     ,success)
 end subroutine prop_get_double
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_doubles
 !   Author:     Adri Mourits
@@ -1576,6 +2131,7 @@ subroutine prop_get_doubles(tree  ,chapter ,key ,value ,valuelength,success)
 end subroutine prop_get_doubles
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_logical
 !   Author:     Arjen Markus
@@ -1659,8 +2215,9 @@ subroutine prop_get_logical(tree  ,chapter   ,key       ,value     ,success)
        endif
     endif
 end subroutine prop_get_logical
-
-
+!
+!
+! ====================================================================
 !> The generic routine for setting key-value data in the tree.
 !! The value (of any type) should be transferred into the type of node_value.
 subroutine prop_set_data(tree, chapter, key, value, type_string, anno, success)
@@ -1734,8 +2291,9 @@ subroutine prop_set_data(tree, chapter, key, value, type_string, anno, success)
         success = success_
     end if
 end subroutine prop_set_data
-
-
+!
+!
+! ====================================================================
 !> Sets a string property in the tree.
 !! Take care of proper quoting (e.g., by "" or ##) at the call site.
 subroutine prop_set_string(tree, chapter, key, value, anno, success)
@@ -1757,8 +2315,9 @@ subroutine prop_set_string(tree, chapter, key, value, anno, success)
         success = success_
     end if
 end subroutine prop_set_string
-
-
+!
+!
+! ====================================================================
 !> Sets a double precision array property in the tree.
 !! The property value is stored as a string representation.
 subroutine prop_set_doubles(tree, chapter, key, value, anno, success)
@@ -1801,8 +2360,9 @@ subroutine prop_set_doubles(tree, chapter, key, value, anno, success)
     end if
  
 end subroutine prop_set_doubles
-
-
+!
+!
+! ====================================================================
 !> Sets a double precision property in the tree.
 !! The property value is stored as a string representation.
 subroutine prop_set_double(tree, chapter, key, value, anno, success)
@@ -1829,8 +2389,9 @@ subroutine prop_set_double(tree, chapter, key, value, anno, success)
     end if
 
 end subroutine prop_set_double
-
-
+!
+!
+! ====================================================================
 !> Sets an integer array property in the tree.
 !! The property value is stored as a string representation.
 subroutine prop_set_integers(tree, chapter, key, value, anno, success)
@@ -1874,8 +2435,9 @@ subroutine prop_set_integers(tree, chapter, key, value, anno, success)
     end if
  
 end subroutine prop_set_integers
-
-
+!
+!
+! ====================================================================
 !> Sets an integer property in the tree.
 !! The property value is stored as a string representation.
 subroutine prop_set_integer(tree, chapter, key, value, anno, success)
@@ -1902,8 +2464,9 @@ subroutine prop_set_integer(tree, chapter, key, value, anno, success)
     end if
 
 end subroutine prop_set_integer
-
-
+!
+!
+! ====================================================================
 !> Prettyprints a double precision real to a character string
 !! Trailing zeros and leading blanks are removed.
 subroutine pp_double(value, strvalue)
@@ -1967,6 +2530,7 @@ subroutine pp_double(value, strvalue)
 end subroutine pp_double
 !
 !
+! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: lowercase
 !   Author:     Cor van der Schelde
@@ -2006,7 +2570,9 @@ subroutine lowercase(string    ,lenstr    )
        endif
     enddo
 end subroutine lowercase
-
+!
+!
+! ====================================================================
 subroutine count_occurrences(input_ptr, group, keyword, npars)
     implicit none
     !
