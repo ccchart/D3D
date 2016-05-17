@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COSUMO>
+  <settings>
+    <general>
+      <subGridModel>cormix</subGridModel>
+      <ID>Diffusor_1</ID>
+      <farFieldModel>Delft3D</farFieldModel>
+      <preProcessFcn></preProcessFcn>
+      <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
+    </general>
+    <comm>
+      <FF2NFdir>p:\1202339-rndcoastalhd\COSUMO\coupledInputFiles\</FF2NFdir>
+      <!-- d3d needs this info-->
+      <FFrundir>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\</FFrundir>
+    </comm>
+    <data>
+      <!-- Position diffusor in flow computation -->
+      <Mdiff>78</Mdiff>
+      <Ndiff>34</Ndiff>
+      <!-- Position where to get ambient conditions -->
+      <Mambient>112</Mambient>
+      <Nambient>41</Nambient>
+      <!-- Position of the intake -->
+      <Mintake>111</Mintake>
+      <Nintake>58</Nintake>
+      <Kintake>0</Kintake>
+      <!-- Discharge -->
+      <M3s>43.168</M3s>
+      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
+      <T0>11.6</T0>
+      <S0>0.0</S0>
+      <!-- Compute Rho0 from temp and salinity -->
+      <!-- General cormix parameters -->
+      <D0>0.0508</D0>
+      <!-- Diameter -->
+      <H0>0.0</H0>
+      <!-- Height above the bed for Corjet; not used in Cortime input -->
+      <Theta0>0.0</Theta0>
+      <!-- Corjet, not used for cortim -->
+      <Sigma0>140.0</Sigma0>
+      <!-- horizontal; 0 pointing to east, 90 pointing to north -->
+      <!-- Cormix linkinp dir (path of where cormix listens for linkinp files) -->
+      <linkinpDir>p:\1202339-rndcoastalhd\COSUMO\linkinpFiles\</linkinpDir>
+      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
+      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
+    </data>
+  </settings>
+  <settings>
+    <general>
+      <subGridModel>cormix</subGridModel>
+      <ID>Diffusor_3</ID>
+      <farFieldModel>Delft3D</farFieldModel>
+      <preProcessFcn></preProcessFcn>
+      <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
+    </general>
+    <comm>
+      <FF2NFdir>p:\1202339-rndcoastalhd\COSUMO\coupledInputFiles\</FF2NFdir>
+      <!-- d3d needs this info-->
+      <FFrundir>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\</FFrundir>
+    </comm>
+    <data>
+      <!-- Position diffusor in flow computation -->
+      <Mdiff>78</Mdiff>
+      <Ndiff>45</Ndiff>
+      <!-- Position where to get ambient conditions -->
+      <Mambient>112</Mambient>
+      <Nambient>41</Nambient>
+      <!-- Position of the intake -->
+      <Mintake>111</Mintake>
+      <Nintake>58</Nintake>
+      <Kintake>0</Kintake>
+      <!-- Discharge -->
+      <M3s>43.168</M3s>
+      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
+      <T0>11.6</T0>
+      <S0>0.0</S0>
+      <!-- Compute Rho0 from temp and salinity -->
+      <!-- General cormix parameters -->
+      <D0>0.0508</D0>
+      <!-- Diameter -->
+      <H0>0.0</H0>
+      <!-- Height above the bed for Corjet; not used in Cortime input -->
+      <Theta0>0.0</Theta0>
+      <!-- Corjet, not used for cortim -->
+      <Sigma0>140.0</Sigma0>
+      <!-- horizontal; 0 pointing to east, 90 pointing to north -->
+      <!-- Cormix linkinp dir (path of where cormix listens for linkinp files) -->
+      <linkinpDir>p:\1202339-rndcoastalhd\COSUMO\linkinpFiles\</linkinpDir>
+      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
+      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
+    </data>
+  </settings>
+</COSUMO>
