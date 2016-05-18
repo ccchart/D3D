@@ -61,11 +61,13 @@ program corinp_gen2
 ! Global variables
 !
     logical   :: error
+    logical   :: exist
 !
 ! Local variables
 !
     integer                :: luntmp
     integer, external      :: newlun
+    integer                :: i
     integer                :: idis
     integer                :: istat
     real(fp)               :: dummy
@@ -73,7 +75,9 @@ program corinp_gen2
     character(256)         :: filename
     character(300)         :: cdummy
     character(300)         :: errmsg
-    type(tree_data), pointer :: cosumo_ptr
+    type(tree_data), pointer :: cosumofile_ptr
+    type(tree_data), pointer :: cosumoblock_ptr
+    type(tree_data), pointer :: node_ptr
 !
 !! executable statements -------------------------------------------------------
 !
@@ -82,12 +86,12 @@ program corinp_gen2
     ! Create Cosumo input tree
     !
     filename = "COSUMOsettings.xml"
-    call tree_create( 'TransportFormula Input', cosumo_ptr )
-    call tree_put_data( cosumo_ptr, transfer(trim(filename),node_value), 'STRING' )
+    call tree_create( 'COSUMO Input', cosumofile_ptr )
+    call tree_put_data( cosumofile_ptr, transfer(trim(filename),node_value), 'STRING:XML' )
     !
     ! Put file in input tree
     !
-    call prop_file('xml',trim(filename),cosumo_ptr,istat)
+    call prop_file('xml',trim(filename),cosumofile_ptr,istat)
     if (istat /= 0) then
        select case (istat)
        case(1)
@@ -103,7 +107,14 @@ program corinp_gen2
        error = .true.
        stop
     endif
-    !no_dis         => gdp%gdnfl%no_dis
+    call tree_get_node_by_name( cosumofile_ptr, 'COSUMO', cosumoblock_ptr )
+    if (.not.associated(cosumoblock_ptr)) then
+       error = .true.
+       stop
+    endif
+    no_dis = size(cosumoblock_ptr%child_nodes)
+    allocate(m_diff(no_dis), stat=istat); m_diff = -999
+    allocate(n_diff(no_dis), stat=istat); n_diff = -999
     !m_diff         => gdp%gdnfl%m_diff
     !n_diff         => gdp%gdnfl%n_diff
     !m_amb          => gdp%gdnfl%m_amb
@@ -119,10 +130,27 @@ program corinp_gen2
     !sigma0         => gdp%gdnfl%sigma0
     !theta0         => gdp%gdnfl%theta0
     !basecase       => gdp%gdnfl%basecase
+    do i=1, no_dis
+       node_ptr => cosumoblock_ptr%child_nodes(i)%node_ptr
+       call prop_get(node_ptr, 'data/Mdiff', m_diff(i))
+       call prop_get(node_ptr, 'data/Ndiff', n_diff(i))
+    enddo
 
+    do i=1, no_dis
+       write(*,'(a,i0)') "Diffusor: ", i
+       write(*,'(a,i0,a,i0,a)') "(Mdiff,Ndiff): (", m_diff(i), ",", n_diff(i), ")"
+    enddo
 
-
-
+    luntmp = newunit()
+    filename = "COSUMOsettings_output.xml"
+    inquire(file=trim(filename),exist=exist)
+    if (exist) then
+       open (luntmp, file=trim(filename), iostat=istat, status='old')
+       close (luntmp, status='delete')
+    endif
+    open (luntmp,file="COSUMOsettings_output.xml",iostat=istat,status='new')
+    call prop_write_xmlfile(luntmp, cosumofile_ptr, 0, istat)
+    close (luntmp)
 
     !
     ! Reading of the corinp.dat file by FLOW

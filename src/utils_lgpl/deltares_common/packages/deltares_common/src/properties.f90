@@ -82,6 +82,7 @@ module properties
        module procedure prop_get_logical
        module procedure prop_get_double
        module procedure prop_get_doubles
+       module procedure prop_get_subtree_integer
     end interface
 
     interface prop_set
@@ -611,7 +612,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     allocate(xmllevel(0:100) , stat=ierr)
     xmllevel(0)%node_ptr       => tree
     xmlinfo%lun                = lu
-    xmlinfo%level              = 1
+    xmlinfo%level              = 0
     xmlinfo%lineno             = 0
     xmlinfo%ignore_whitespace  = .true.
     xmlinfo%no_data_truncation = .true.
@@ -635,6 +636,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           !
           if ( k >= 1 ) then
              kend = index( xmlinfo%line, '?>' )
+             call tree_create_node(xmllevel(0)%node_ptr, trim(xmlinfo%line(2:kend)), xmllevel(1)%node_ptr)
              if ( kend <= 0 ) then
                 write(*,'(a,i0)') 'ERROR: XML_OPEN: error reading file with LU-number: ', xmlinfo%lun
                 write(*,'(a)')    'ERROR: Line starting with "<?xml" should end with "?>"'
@@ -649,11 +651,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           exit
        endif
     enddo
-    if ( .not. xmlinfo%error ) then
-       write( xmlinfo%lun, '(a)' ) '<?xml version="1.0"?>'
-    else
-       return
-    endif
+    if ( xmlinfo%error ) return
 
     do
        call xml_get(xmlinfo, xmltag, xmlendtag, xmlattribs, noattribs, xmldata, nodata )
@@ -669,12 +667,24 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           exit
        endif
        !
+       ! End tag: nothing to add to tree
+       !
+       if (xmlendtag) cycle
+       !
+       ! Skip comments
+       !
+       if (xmltag(1:3) == '!--') cycle
+       !
        call tree_create_node(xmllevel(xmlinfo%level-1)%node_ptr, trim(xmltag), xmllevel(xmlinfo%level)%node_ptr)
        do k=1,noattribs
           call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(xmlattribs(1,k)), xmllevel(xmlinfo%level+1)%node_ptr)
-          call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "XMLATTRIBUTE")
+          call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "STRING:XMLATTRIBUTE")
        enddo
-       call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(xmldata(:nodata),node_value), "XMLDATA")
+       if (nodata > 0) then
+          call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(xmldata(:nodata),node_value), "STRING:XMLDATA")
+       else
+          nullify(xmllevel(xmlinfo%level)%node_ptr%node_data)
+       endif
     enddo
     !
     ! End of file or procedure
@@ -774,6 +784,7 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
    else if ( info%line(1:1) == '<' ) then
       ! tag found
       tag    = info%line(2:kend-1)
+      info%level = info%level + 1
    else
       kend   = 0 ! Beginning of data!
    endif
@@ -1377,6 +1388,61 @@ subroutine prop_write_inifile(mout, tree, error)
     call tree_traverse(tree, print_initree, transfer((/ mout, transfer(lenmaxdata, 123) /), node_value), dummylog)
 
 end subroutine prop_write_inifile
+!
+!
+! ====================================================================
+!> Writes a property tree to file in xml format.
+recursive subroutine prop_write_xmlfile(mout, tree, level, error)
+    integer,                  intent(in)  :: mout  !< File pointer where to write to.
+    type(TREE_DATA), pointer              :: tree  !< Tree to be written.
+    integer,                  intent(in)  :: level !< Indentation level.
+    integer,                  intent(out) :: error !< Return status.
+    !
+    ! local
+    integer                                :: i
+    character(len=1), dimension(:),pointer :: data_ptr
+    character(40)                          :: type_string
+    character(80)                          :: tag
+    character(max_length)                  :: string
+    character(xml_buffer_length)           :: buffer
+    logical                                :: success
+    !
+    ! body
+    tag = tree_get_name(tree)
+    call tree_get_data_ptr( tree, data_ptr, type_string )
+    if (.not.associated(tree%child_nodes) .or. size(tree%child_nodes) == 0) then
+       buffer = ' '
+       string = ' '
+       if (associated(data_ptr)) then
+          call tree_get_data_string( tree, string, success )
+       endif
+       if (level > 0) then
+          if (tag(1:1) == '?') then
+             write(buffer((level-1)*4+1:),'(3a)') "<", trim(tag), ">"
+          else
+             write(buffer((level-1)*4+1:),'(7a)') "<", trim(tag), ">", trim(string), "</", trim(tag), ">"
+          endif
+          i = len_trim(buffer) + (level-1)*4
+          write(mout, '(a)') buffer(:i)
+       endif
+    else
+       buffer = ' '
+       if (level > 0) then
+          write(buffer((level-1)*4+1:),'(3a)') "<", trim(tag), ">"
+          i = len_trim(buffer) + (level-1)*4
+          write(mout, '(a)') buffer(:i)
+       endif
+       do i = 1, size(tree%child_nodes)
+          call prop_write_xmlfile(mout, tree%child_nodes(i)%node_ptr, level+1, error)
+       enddo
+       buffer = ' '
+       if (level > 0) then
+          write(buffer((level-1)*4+1:),'(3a)') "</", trim(tag), ">"
+          i = len_trim(buffer) + (level-1)*4
+          write(mout, '(a)') buffer(:i)
+       endif
+    endif
+end subroutine prop_write_xmlfile
 !
 !
 ! ====================================================================
@@ -2215,6 +2281,43 @@ subroutine prop_get_logical(tree  ,chapter   ,key       ,value     ,success)
        endif
     endif
 end subroutine prop_get_logical
+!
+!
+! ====================================================================
+recursive subroutine prop_get_subtree_integer(tree, subtree, value, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    integer     ,intent (inout) :: value
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_integer(tree, "*", subtree, value, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_integer(node_ptr, subtree(separator+1:), value, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_integer
 !
 !
 ! ====================================================================
