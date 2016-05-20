@@ -51,16 +51,16 @@ module properties
     ! Define the XML data type that holds the parser information
     !
     type :: xml_parse
-       integer          :: lun                ! LU-number of the XML-file
-       integer          :: level              ! Indentation level (output)
-       integer          :: lineno             ! Line in file
-       logical          :: ignore_whitespace  ! Ignore leading blanks etc.
-       logical          :: no_data_truncation ! Do not allow data truncation
-       logical          :: too_many_attribs   ! More attributes than could be stored?
-       logical          :: too_many_data      ! More lines of data than could be stored?
-       logical          :: eof                ! End of file?
-       logical          :: error              ! Invalid XML file or other error?
-       character(len=xml_buffer_length) :: line  ! buffer
+       integer                          :: lun                ! LU-number of the XML-file
+       integer                          :: level              ! Indentation level (output)
+       integer                          :: lineno             ! Line in file
+       logical                          :: ignore_whitespace  ! Ignore leading blanks etc.
+       logical                          :: no_data_truncation ! Do not allow data truncation
+       logical                          :: too_many_attribs   ! More attributes than could be stored?
+       logical                          :: too_many_data      ! More lines of data than could be stored?
+       logical                          :: eof                ! End of file?
+       logical                          :: error              ! Invalid XML file or other error?
+       character(len=xml_buffer_length) :: line               ! buffer
     end type xml_parse
     !
     interface max_keylength
@@ -545,18 +545,22 @@ subroutine prop_xmlfile(filename , tree, error)
     !
     ! Parameters
     !
-    character(*),               intent(in)                    :: filename     !< File name 
-    type(tree_data),    pointer,intent(inout)                 :: tree         !< Tree object generated 
-    integer,                    intent(out)                   :: error        !< Placeholder for file errors 
+    character(*)            , intent(in)    :: filename  !< File name 
+    type(tree_data), pointer, intent(inout) :: tree      !< Tree object generated 
+    integer                 , intent(out)   :: error     !< Placeholder for file errors 
     !
     ! Local variables
     !
-    integer               :: lu, iostat
+    integer               :: lu
+    integer               :: iostat
     logical               :: opened
     integer               :: maxunit = 500 
-
-    lu = -1 
-    if (lu<0) then                          ! if lu has not been assigned a valid unit number 
+    !
+    lu = -1
+    !
+    ! if lu has not been assigned a valid unit number 
+    !
+    if (lu < 0) then
        do lu=10,maxunit
           inquire(lu, opened=opened)
           if (.not.opened) then 
@@ -565,20 +569,23 @@ subroutine prop_xmlfile(filename , tree, error)
        enddo 
        if (lu>maxunit) then 
           lu = -1
-          error = -35                                !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
+          !
+          !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
+          !
+          error = -35
           return
        endif 
-       
-       !      open existing file only       
+       !
+       !      open existing file only
+       !
        open(lu,file=filename,iostat=error,status='old')
        if (error/=0) then
           return
        endif
     endif 
-
+    !
     call prop_xmlfile_pointer(lu, tree, error)
     close (lu)
-    return
 end subroutine prop_xmlfile
 !
 !
@@ -591,9 +598,9 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     !
     ! Parameters
     !
-    integer,                    intent(in)      :: lu           !< File unit 
-    type(tree_data),    pointer,intent(inout)   :: tree         !< Tree object generated 
-    integer,                    intent(out)     :: error        !< Placeholder for file errors 
+    integer                 , intent(in)    :: lu    !< File unit 
+    type(tree_data), pointer, intent(inout) :: tree  !< Tree object generated 
+    integer                 , intent(out)   :: error !< Placeholder for file errors 
     !
     ! Local variables
     !
@@ -609,7 +616,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     character(80)               , dimension(:,:), allocatable :: xmlattribs
     character(xml_buffer_length), dimension(:)  , allocatable :: xmldata
     type(xml_parse)                                           :: xmlinfo
-    type(tree_data_ptr)         , dimension(:)  , allocatable :: xmllevel
+    type(tree_data_ptr)         , dimension(:)  , allocatable :: xmllevel    ! Store a pointer to each xml element in the "path"
     !
     !! executable statements -------------------------------------------------------
     !
@@ -660,7 +667,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
        endif
     enddo
     if ( xmlinfo%error ) return
-
+    !
     do
        call xml_get(xmlinfo, xmltag, xmlendtag, xmlattribs, noattribs, xmldata, nodata )
        if ( .not. xml_ok(xmlinfo) ) then
@@ -683,8 +690,15 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
        !
        if (xmltag(1:3) == '!--') cycle
        !
+       ! Create a node for the tag itself
+       !
        call tree_create_node(xmllevel(xmlinfo%level-1)%node_ptr, trim(xmltag), xmllevel(xmlinfo%level)%node_ptr)
        do k=1,noattribs
+          !
+          ! Create a subnode for each attribute
+          ! The only difference between an attribute and a child tag is the type specification: "STRING:XMLATTRIBUTE" vs "STRING:XMLDATA"
+          ! The type specification must start with STRING (needed in tree_struct)
+          !
           call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(xmlattribs(1,k)), xmllevel(xmlinfo%level+1)%node_ptr)
           call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "STRING:XMLATTRIBUTE")
        enddo
@@ -716,34 +730,34 @@ end subroutine prop_xmlfile_pointer
 !    no_data     Number of lines of character data
 !
 subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
-   type(xml_parse),  intent(inout)               :: info
+   type(xml_parse) , intent(inout)               :: info
    character(len=*), intent(out)                 :: tag
-   logical,          intent(out)                 :: endtag
+   logical         , intent(out)                 :: endtag
    character(len=*), intent(out), dimension(:,:) :: attribs
-   integer,          intent(out)                 :: no_attribs
+   integer         , intent(out)                 :: no_attribs
    character(len=*), intent(out), dimension(:)   :: data
-   integer,          intent(out)                 :: no_data
+   integer         , intent(out)                 :: no_data
    !
-   integer         :: kspace
-   integer         :: kend
-   integer         :: keq
-   integer         :: kfirst, kfirst1, kfirst2
-   integer         :: ksecond
-   integer         :: idxat
-   integer         :: idxdat
-   integer         :: ierr
-   logical         :: close_bracket
-   logical         :: comment_tag
-   logical         :: endtag_nodata
+   integer                          :: kspace
+   integer                          :: kend
+   integer                          :: keq
+   integer                          :: kfirst, kfirst1, kfirst2
+   integer                          :: ksecond
+   integer                          :: idxat
+   integer                          :: idxdat
+   integer                          :: ierr
+   logical                          :: close_bracket
+   logical                          :: comment_tag
+   logical                          :: endtag_nodata
    character(len=xml_buffer_length) :: nextline
-   character(len=1):: closing_char
+   character(len=1)                 :: closing_char
    !
    ! Initialise the output
    !
-   endtag        = .false.
-   endtag_nodata = .false.
-   no_attribs    = 0
-   no_data       = 0
+   endtag                = .false.
+   endtag_nodata         = .false.
+   no_attribs            = 0
+   no_data               = 0
    info%too_many_attribs = .false.
    info%too_many_data    = .false.
    !
@@ -932,10 +946,10 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
    ! Replace the entities, if any
    !
    call xml_replace_entities_( data, no_data )
-
+   !
    !write(*,'(a,i0)') 'XML_GET - number of attributes: ', no_attribs
    !write(*,'(a,i0)') 'XML_GET - number of data lines: ', no_data
-
+   !
 end subroutine xml_get
 !
 !
@@ -948,7 +962,7 @@ end subroutine xml_get
 !    .true. if there was no error, .false. otherwise
 !
 logical function xml_ok( info )
-   type(xml_parse),  intent(in)               :: info
+   type(xml_parse),  intent(in) :: info
 
    xml_ok = info%eof .or. info%error .or. &
             ( info%no_data_truncation .and.    &
@@ -966,7 +980,7 @@ end function xml_ok
 !    .true. if there was an error, .false. if there was none
 !
 logical function xml_error( info )
-   type(xml_parse),  intent(in)               :: info
+   type(xml_parse),  intent(in) :: info
 
    xml_error = info%error .or. &
             ( info%no_data_truncation .and.    &
@@ -2385,10 +2399,10 @@ recursive subroutine prop_get_subtree_string(tree, subtree, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    character(*),intent (inout) :: value
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    character(*)             , intent (inout) :: value
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2427,10 +2441,10 @@ recursive subroutine prop_get_subtree_integer(tree, subtree, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    integer     ,intent (inout) :: value
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    integer                  , intent (inout) :: value
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2469,11 +2483,11 @@ recursive subroutine prop_get_subtree_integers(tree, subtree, value, valuelength
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    integer, dimension(*)     ,intent (inout) :: value
-    integer              ,intent (in)  :: valuelength
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    integer, dimension(*)    , intent (inout) :: value
+    integer                  , intent (in)    :: valuelength
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2512,10 +2526,10 @@ recursive subroutine prop_get_subtree_real(tree, subtree, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    real(sp)     ,intent (inout) :: value
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    real(sp)                 , intent (inout) :: value
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2554,11 +2568,11 @@ recursive subroutine prop_get_subtree_reals(tree, subtree, value, valuelength, s
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    real(sp), dimension(*)     ,intent (inout) :: value
-    integer              ,intent (in)  :: valuelength
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    real(sp), dimension(*)   , intent (inout) :: value
+    integer                  , intent (in)    :: valuelength
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2597,10 +2611,10 @@ recursive subroutine prop_get_subtree_double(tree, subtree, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    real(hp)     ,intent (inout) :: value
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    real(hp)                 , intent (inout) :: value
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2639,11 +2653,11 @@ recursive subroutine prop_get_subtree_doubles(tree, subtree, value, valuelength,
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    real(hp), dimension(*)     ,intent (inout) :: value
-    integer              ,intent (in)  :: valuelength
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    real(hp), dimension(*)   , intent (inout) :: value
+    integer                  , intent (in)    :: valuelength
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2682,10 +2696,10 @@ recursive subroutine prop_get_subtree_logical(tree, subtree, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer    :: tree
-    logical     ,intent (inout) :: value
-    character(*),intent (in)    :: subtree
-    logical, optional, intent (out) :: success
+    type(tree_data), pointer                  :: tree
+    logical                  , intent (inout) :: value
+    character(*)             , intent (in)    :: subtree
+    logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
