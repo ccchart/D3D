@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<COSUMO>
+<COSUMO test="true" version="0.3">
   <settings>
     <general>
       <subGridModel>cormix</subGridModel>
-      <ID>Diffusor_1</ID>
+      <ID name="Diffusor_1">bla1</ID>
       <farFieldModel>Delft3D</farFieldModel>
       <preProcessFcn></preProcessFcn>
       <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
@@ -18,17 +18,12 @@
       <Mdiff>78</Mdiff>
       <Ndiff>34</Ndiff>
       <!-- Position where to get ambient conditions -->
-      <Mambient>112</Mambient>
-      <Nambient>41</Nambient>
-      <!-- Position of the intake -->
-      <Mintake>111</Mintake>
-      <Nintake>58</Nintake>
-      <Kintake>0</Kintake>
+      <MNambient>112 41</MNambient>
       <!-- Discharge -->
       <M3s>43.168</M3s>
       <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
       <T0>11.6</T0>
-      <S0>0.0</S0>
+      <S0>0.0 5.0 30.0</S0>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
       <D0>0.0508</D0>
@@ -48,7 +43,7 @@
   <settings>
     <general>
       <subGridModel>cormix</subGridModel>
-      <ID>Diffusor_3</ID>
+      <ID name="Diffusor_3">bla3</ID>
       <farFieldModel>Delft3D</farFieldModel>
       <preProcessFcn></preProcessFcn>
       <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
@@ -60,20 +55,15 @@
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Mdiff>78</Mdiff>
+      <Mdiff>12</Mdiff>
       <Ndiff>45</Ndiff>
       <!-- Position where to get ambient conditions -->
-      <Mambient>112</Mambient>
-      <Nambient>41</Nambient>
-      <!-- Position of the intake -->
-      <Mintake>111</Mintake>
-      <Nintake>58</Nintake>
-      <Kintake>0</Kintake>
+      <MNambient>34 789</MNambient>
       <!-- Discharge -->
-      <M3s>43.168</M3s>
+      <M3s>69.999</M3s>
       <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
-      <T0>11.6</T0>
-      <S0>0.0</S0>
+      <T0>12.8</T0>
+      <S0>0.5 5.5 30.5</S0>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
       <D0>0.0508</D0>
@@ -85,9 +75,9 @@
       <Sigma0>140.0</Sigma0>
       <!-- horizontal; 0 pointing to east, 90 pointing to north -->
       <!-- Cormix linkinp dir (path of where cormix listens for linkinp files) -->
-      <linkinpDir>p:\1202339-rndcoastalhd\COSUMO\linkinpFiles\</linkinpDir>
+      <linkinpDir>.</linkinpDir>
       <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
-      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
+      <cmxFile>.</cmxFile>
     </data>
   </settings>
 </COSUMO>

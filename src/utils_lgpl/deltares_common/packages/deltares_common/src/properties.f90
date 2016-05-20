@@ -32,6 +32,7 @@ module properties
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
+    use precision
     use tree_structures
     !
     implicit none
@@ -82,7 +83,14 @@ module properties
        module procedure prop_get_logical
        module procedure prop_get_double
        module procedure prop_get_doubles
+       module procedure prop_get_subtree_string
        module procedure prop_get_subtree_integer
+       module procedure prop_get_subtree_integers
+       module procedure prop_get_subtree_real
+       module procedure prop_get_subtree_reals
+       module procedure prop_get_subtree_logical
+       module procedure prop_get_subtree_double
+       module procedure prop_get_subtree_doubles
     end interface
 
     interface prop_set
@@ -896,7 +904,7 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
          read( info%lun, '(a)', iostat = ierr ) info%line
          info%lineno = info%lineno + 1
          if ( ierr < 0 ) then
-            write(*,'(a,i0)') 'ERROR:XML_GET - end of file found - LU-number: ', info%lun
+            ! write(*,'(a,i0)') 'ERROR:XML_GET - end of file found - LU-number: ', info%lun
             info%eof = .true.
          elseif ( ierr > 0 ) then
             write(*,'(a,2i0)') 'ERROR:XML_GET - error reading file with LU-number ', info%lun, info%lineno
@@ -925,8 +933,8 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
    !
    call xml_replace_entities_( data, no_data )
 
-   write(*,'(a,i0)') 'XML_GET - number of attributes: ', no_attribs
-   write(*,'(a,i0)') 'XML_GET - number of data lines: ', no_data
+   !write(*,'(a,i0)') 'XML_GET - number of attributes: ', no_attribs
+   !write(*,'(a,i0)') 'XML_GET - number of data lines: ', no_data
 
 end subroutine xml_get
 !
@@ -1400,8 +1408,10 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
     !
     ! local
     integer                                :: i
+    integer                                :: numatt
     character(len=1), dimension(:),pointer :: data_ptr
     character(40)                          :: type_string
+    character(40)                          :: formatstring
     character(80)                          :: tag
     character(max_length)                  :: string
     character(xml_buffer_length)           :: buffer
@@ -1409,37 +1419,118 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
     !
     ! body
     tag = tree_get_name(tree)
-    call tree_get_data_ptr( tree, data_ptr, type_string )
-    if (.not.associated(tree%child_nodes) .or. size(tree%child_nodes) == 0) then
-       buffer = ' '
-       string = ' '
-       if (associated(data_ptr)) then
-          call tree_get_data_string( tree, string, success )
+    !
+    ! Count the number of children with type = attribure
+    !
+    numatt = 0
+    do i=1, size(tree%child_nodes)
+       call tree_get_data_ptr( tree%child_nodes(i)%node_ptr, data_ptr, type_string )
+       if (type_string == "STRING:XMLATTRIBUTE") then
+          numatt = numatt + 1
        endif
+    enddo
+    call tree_get_data_ptr( tree, data_ptr, type_string )
+    if (.not.associated(tree%child_nodes) .or. size(tree%child_nodes) <= numatt) then
+       !
+       ! Everything related to this tag fits on one line 
+       !
+       buffer = ' '
        if (level > 0) then
           if (tag(1:1) == '?') then
-             write(buffer((level-1)*4+1:),'(3a)') "<", trim(tag), ">"
+             !
+             ! Special treatment for first line: <?xml version="1.0"?>
+             !
+             write(buffer,'(3a)') "<", trim(tag), ">"
           else
-             write(buffer((level-1)*4+1:),'(7a)') "<", trim(tag), ">", trim(string), "</", trim(tag), ">"
+             !
+             ! <tagname att1="val1" att2="val2">data</tagname>
+             !
+             write(buffer,'(2a)') "<", trim(tag)
+             do i=1, size(tree%child_nodes)
+                call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
+                if (type_string == "STRING:XMLATTRIBUTE") then
+                   string = ' '
+                   if (associated(data_ptr)) then
+                      call tree_get_data_string( tree%child_nodes(i)%node_ptr, string, success )
+                   endif
+                   write(buffer,'(6a)') trim(buffer), " ", trim(tree_get_name(tree%child_nodes(i)%node_ptr)), "=""", trim(string), """"
+                endif
+             enddo
+             string = ' '
+             call tree_get_data_ptr(tree, data_ptr, type_string )
+             if (associated(data_ptr)) then
+                call tree_get_data_string( tree, string, success )
+             endif
+             write(buffer,'(6a)') trim(buffer), ">", trim(string), "</", trim(tag), ">"
           endif
-          i = len_trim(buffer) + (level-1)*4
-          write(mout, '(a)') buffer(:i)
+          !
+          ! Indentation
+          !
+          i = (level-1)*4
+          if (i == 0) then
+             write(formatstring,'(a)') '(a)'
+          else
+             write(formatstring,'(a,i0,a)') '(',i,'x,a)'
+          endif
+          write(mout, trim(formatstring)) trim(buffer)
        endif
     else
+       !
+       ! - Write start tag                  <tagname att1="val1" att2="val2">
+       ! - process child_nodes recursively     <children>
+       ! - Write end tag                    </tagname>
+       !
        buffer = ' '
        if (level > 0) then
-          write(buffer((level-1)*4+1:),'(3a)') "<", trim(tag), ">"
-          i = len_trim(buffer) + (level-1)*4
-          write(mout, '(a)') buffer(:i)
+          write(buffer,'(2a)') "<", trim(tag)
+          do i=1, size(tree%child_nodes)
+             call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
+             if (type_string == "STRING:XMLATTRIBUTE") then
+                string = ' '
+                if (associated(data_ptr)) then
+                   call tree_get_data_string( tree%child_nodes(i)%node_ptr, string, success )
+                endif
+                write(buffer,'(6a)') trim(buffer), " ", trim(tree_get_name(tree%child_nodes(i)%node_ptr)), "=""", trim(string), """"
+             endif
+          enddo
+          write(buffer,'(6a)') trim(buffer), ">"
+          !
+          ! Indentation
+          !
+          i = (level-1)*4
+          if (i == 0) then
+             write(formatstring,'(a)') '(a)'
+          else
+             write(formatstring,'(a,i0,a)') '(',i,'x,a)'
+          endif
+          write(mout, trim(formatstring)) trim(buffer)
        endif
+       !
+       ! process child_nodes recursively
+       ! skip children with type=attribute
+       !
        do i = 1, size(tree%child_nodes)
-          call prop_write_xmlfile(mout, tree%child_nodes(i)%node_ptr, level+1, error)
+          call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
+          if (type_string /= "STRING:XMLATTRIBUTE") then
+             call prop_write_xmlfile(mout, tree%child_nodes(i)%node_ptr, level+1, error)
+          endif
        enddo
+       !
+       ! Write end tag
+       !
        buffer = ' '
        if (level > 0) then
-          write(buffer((level-1)*4+1:),'(3a)') "</", trim(tag), ">"
-          i = len_trim(buffer) + (level-1)*4
-          write(mout, '(a)') buffer(:i)
+          write(buffer,'(3a)') "</", trim(tag), ">"
+          !
+          ! Indentation
+          !
+          i = (level-1)*4
+          if (i == 0) then
+             write(formatstring,'(a)') '(a)'
+          else
+             write(formatstring,'(a,i0,a)') '(',i,'x,a)'
+          endif
+          write(mout, trim(formatstring)) trim(buffer)
        endif
     endif
 end subroutine prop_write_xmlfile
@@ -2284,6 +2375,53 @@ end subroutine prop_get_logical
 !
 !
 ! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_string(tree, subtree, value, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    character(*),intent (inout) :: value
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_string(tree, "*", subtree, value, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_string(node_ptr, subtree(separator+1:), value, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_string
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_integer(tree, subtree, value, success)
     implicit none
     !
@@ -2318,6 +2456,261 @@ recursive subroutine prop_get_subtree_integer(tree, subtree, value, success)
     endif
     if (present(success)) success = success_
 end subroutine prop_get_subtree_integer
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_integers(tree, subtree, value, valuelength, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    integer, dimension(*)     ,intent (inout) :: value
+    integer              ,intent (in)  :: valuelength
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_integers(tree, "*", subtree, value, valuelength, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_integers(node_ptr, subtree(separator+1:), value, valuelength, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_integers
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_real(tree, subtree, value, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    real(sp)     ,intent (inout) :: value
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_real(tree, "*", subtree, value, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_real(node_ptr, subtree(separator+1:), value, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_real
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_reals(tree, subtree, value, valuelength, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    real(sp), dimension(*)     ,intent (inout) :: value
+    integer              ,intent (in)  :: valuelength
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_reals(tree, "*", subtree, value, valuelength, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_reals(node_ptr, subtree(separator+1:), value, valuelength, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_reals
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_double(tree, subtree, value, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    real(hp)     ,intent (inout) :: value
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_double(tree, "*", subtree, value, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_double(node_ptr, subtree(separator+1:), value, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_double
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_doubles(tree, subtree, value, valuelength, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    real(hp), dimension(*)     ,intent (inout) :: value
+    integer              ,intent (in)  :: valuelength
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_doubles(tree, "*", subtree, value, valuelength, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_doubles(node_ptr, subtree(separator+1:), value, valuelength, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_doubles
+!
+!
+! ====================================================================
+! subtree: String containing multiple tree nodes, correctly ordered,
+!          separated by a forward slash (/)
+! method: Recursively call this subroutine for each level in subtree,
+!         until there is only one level left. Then call the corresponding
+!         subroutine without parameter subtree, with chapter="*" and key=subtree
+recursive subroutine prop_get_subtree_logical(tree, subtree, value, success)
+    implicit none
+    !
+    ! Parameters
+    !
+    type(tree_data), pointer    :: tree
+    logical     ,intent (inout) :: value
+    character(*),intent (in)    :: subtree
+    logical, optional, intent (out) :: success
+    !
+    ! Local variables
+    !
+    integer                  :: separator
+    type(tree_data), pointer :: node_ptr
+    logical                  :: success_
+    !
+    !! executable statements -------------------------------------------------------
+    !
+    success_ = .false.
+    separator = index(subtree, '/')
+    if (separator == 0) then
+       !
+       ! No multiple level key (anymore)
+       ! Handle it normally
+       !
+       call prop_get_logical(tree, "*", subtree, value, success_)
+    else
+       call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
+       if (associated(node_ptr)) then
+          call prop_get_subtree_logical(node_ptr, subtree(separator+1:), value, success_)
+       endif
+    endif
+    if (present(success)) success = success_
+end subroutine prop_get_subtree_logical
 !
 !
 ! ====================================================================
