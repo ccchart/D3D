@@ -1275,12 +1275,12 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     !
     ! Flag to activate XBeach wave driver
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'XBeach', xbeach)
+    call prop_get(gdp%mdfile_ptr, '*', 'XBeach', value=xbeach)
     !
     ! Flag to switch on modification of near-bed layering for smoother bottom shear stress representation
     ! (used in Z-model only)
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'Ztbml', ztbml)
+    call prop_get(gdp%mdfile_ptr, '*', 'Ztbml', value=ztbml)
     if (ztbml) then
        write (message,'(a)') 'Found Keyword Ztbml = #Y#: modifying near-bed layering to obtain '
        call prterr(lundia, 'G051', trim(message))

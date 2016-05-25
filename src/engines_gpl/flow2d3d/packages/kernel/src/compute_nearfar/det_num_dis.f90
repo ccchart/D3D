@@ -39,12 +39,20 @@ subroutine det_num_dis(no_dis, gdp)
 !!--declarations----------------------------------------------------------------
 !
     use precision
+    use properties
     !
     use globaldata
     !
     implicit none
     !
     type(globdat),target :: gdp
+    !
+    ! The following list of pointer parameters is used to point inside the gdp structure
+    ! They replace the  include igd / include igp lines
+    !
+    integer                      , pointer :: lundia
+    character(256)               , pointer :: filename
+    type(tree_data)              , pointer :: cosumofile_ptr
 !
 ! Global variables
 !
@@ -52,32 +60,57 @@ subroutine det_num_dis(no_dis, gdp)
 !
 ! Local variables
 !
-    integer                :: luntmp
-    integer, external      :: newlun
+    integer                  :: i
+    integer                  :: istat
+    integer                  :: luntmp
+    integer, external        :: newlun
+    type(tree_data), pointer :: cosumoblock_ptr
+    character(300)           :: errmsg
 !
 !! executable statements -------------------------------------------------------
 !
+    lundia         => gdp%gdinout%lundia
+    filename       => gdp%gdnfl%infile
     !
-    luntmp = newlun(gdp)
-    open (luntmp,file='corinp.dat')
-
+    ! Initialize
     !
-    ! Read base_path were to put the cortiem_linkinp file
+    no_dis = 0
     !
-
-    call skipstarlines (luntmp)
-    read (luntmp,'(a)') gdp%gdnfl%base_path
-
+    ! Create Cosumo input tree
     !
-    ! Read number of discharges
+    write(lundia,'(3a)') "Reading file '", trim(filename), "' ..."
+    call tree_create( 'TransportFormula Input', cosumofile_ptr )
+    call tree_put_data( cosumofile_ptr, transfer(trim(filename),node_value), 'STRING' )
     !
-
-    call skipstarlines (luntmp)
-    read (luntmp,*) no_dis
-
+    ! Put file in input tree
     !
-    ! Close the general cormix input file
+    call prop_file('xml',trim(filename),cosumofile_ptr,istat)
+    if (istat /= 0) then
+       select case (istat)
+       case(1)
+          call prterr(lundia, 'G004', filename)
+       case(3)
+          call prterr(lundia, 'G006', filename)
+       case default
+          call prterr(lundia, 'G007', filename)
+       endselect
+       call d3stop(1, gdp)
+    endif
     !
-    close (luntmp)
+    call tree_get_node_by_name( cosumofile_ptr, 'COSUMO', cosumoblock_ptr )
+    if (.not.associated(cosumoblock_ptr)) then
+       nullify(gdp%gdnfl%cosumofile_ptr)
+       return
+    endif
+    do i=1, size(cosumoblock_ptr%child_nodes)
+       if (tree_get_name(cosumoblock_ptr%child_nodes(i)%node_ptr) == "settings") then
+          no_dis = no_dis + 1
+       endif
+    enddo
     !
+    ! Do not store the file data(-pointer) in GDP
+    ! This will force rereading the Cosumo file at the next Cosumo calculation
+    ! 
+    !
+    nullify(gdp%gdnfl%cosumofile_ptr)
 end subroutine det_num_dis

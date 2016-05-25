@@ -154,4 +154,6 @@ program corinp_gen2
     open (luntmp,file="COSUMOsettings_output.xml",iostat=istat,status='new')
     call prop_write_xmlfile(luntmp, cosumofile_ptr, 0, istat)
     close (luntmp)
+    !
+    call tree_destroy(cosumofile_ptr)
 end program corinp_gen2

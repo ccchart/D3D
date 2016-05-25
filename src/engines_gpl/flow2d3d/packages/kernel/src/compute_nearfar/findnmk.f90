@@ -105,7 +105,13 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
     !
     ! Find the vertical position
     !
-    k_jet   = 0
+    k_jet = 0
+    !
+    ! k_ket=0 has a special meaning (full vertical).
+    ! Unfortunately, z_jet=0.0 is a valid value.
+    ! Use z_jet=999 or -999 to indicate k_jet=0
+    !
+    if (abs(z_jet)>998.999_fp .and. abs(z_jet)<999.999_fp) return
     !
     ! Note that for sigma-models the layer k is from the top downwards,
     ! whereas for z-models, it is from the bottom upwards

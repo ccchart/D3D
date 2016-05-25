@@ -244,9 +244,9 @@ subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     luntmp = newlun(gdp)
     linkinp   = .true.
     do while (linkinp)
-       inquire (file=trim(gdp%gdnfl%base_path)//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',exist=linkinp)
+       inquire (file=trim(gdp%gdnfl%base_path(idis))//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',exist=linkinp)
     enddo
-    open (luntmp,file=trim(gdp%gdnfl%base_path)//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',status='new')
+    open (luntmp,file=trim(gdp%gdnfl%base_path(idis))//'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp',status='new')
     write (luntmp,'(''CorTime v7.0'')')
     write (luntmp,'()')
     write (luntmp,'(''File name='',a1,a )') tab,'cortime_'//trim(gdp%runid)//'_'//c_inode//'.linkinp'

@@ -76,6 +76,16 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: n_diff
     integer       , dimension(:)       , pointer :: m_amb
     integer       , dimension(:)       , pointer :: n_amb
+    integer       , dimension(:)       , pointer :: m_intake
+    integer       , dimension(:)       , pointer :: n_intake
+    integer       , dimension(:)       , pointer :: k_intake
+    real(fp)      , dimension(:)       , pointer :: x_diff
+    real(fp)      , dimension(:)       , pointer :: y_diff
+    real(fp)      , dimension(:)       , pointer :: x_amb
+    real(fp)      , dimension(:)       , pointer :: y_amb
+    real(fp)      , dimension(:)       , pointer :: x_intake
+    real(fp)      , dimension(:)       , pointer :: y_intake
+    real(fp)      , dimension(:)       , pointer :: z_intake
     real(fp)      , dimension(:)       , pointer :: q_diff
     real(fp)      , dimension(:)       , pointer :: t0_diff
     real(fp)      , dimension(:)       , pointer :: s0_diff
@@ -101,7 +111,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: ml
     integer       , dimension(:)       , pointer :: nf
     integer       , dimension(:)       , pointer :: nl
-!
+    logical                            , pointer :: zmodel
+
 ! Parameters
 !
     integer, parameter :: no_jet_max = 10000
@@ -149,6 +160,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nub
     integer                                             :: nm
     integer                                             :: no_val
+    integer                                             :: k_dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
     real(fp)                                            :: taua
@@ -208,6 +220,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
 !
 !! executable statements -------------------------------------------------------
 !
+    zmodel         => gdp%gdprocs%zmodel
     idensform      => gdp%gdphysco%idensform
     nflmod         => gdp%gdnfl%nflmod
     no_dis         => gdp%gdnfl%no_dis
@@ -215,6 +228,16 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     n_diff         => gdp%gdnfl%n_diff
     m_amb          => gdp%gdnfl%m_amb
     n_amb          => gdp%gdnfl%n_amb
+    m_intake       => gdp%gdnfl%m_intake
+    n_intake       => gdp%gdnfl%n_intake
+    k_intake       => gdp%gdnfl%k_intake
+    x_diff         => gdp%gdnfl%x_diff
+    y_diff         => gdp%gdnfl%y_diff
+    x_amb          => gdp%gdnfl%x_amb
+    y_amb          => gdp%gdnfl%y_amb
+    x_intake       => gdp%gdnfl%x_intake
+    y_intake       => gdp%gdnfl%y_intake
+    z_intake       => gdp%gdnfl%z_intake
     q_diff         => gdp%gdnfl%q_diff
     t0_diff        => gdp%gdnfl%t0_diff
     s0_diff        => gdp%gdnfl%s0_diff
@@ -410,6 +433,23 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                 !    
                 call corinp_gen2(error,gdp)
                 !
+                ! Convert x,y,z coordinates to n,m,k
+                !
+                do idis = 1, no_dis
+                   call findnmk(nlb    ,nub       ,mlb         ,mub         , &
+                              & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
+                              & thick  ,kmax      ,x_diff(idis),y_diff(idis),0.0_fp ,n_diff(idis), m_diff(idis), &
+                              & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                   call findnmk(nlb    ,nub       ,mlb         ,mub         , &
+                              & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
+                              & thick  ,kmax      ,x_amb(idis) ,y_amb(idis) ,0.0_fp ,n_amb(idis), m_amb(idis), &
+                              & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                   call findnmk(nlb           ,nub       ,mlb           ,mub           , &
+                              & xz_ptr        ,yz_ptr    ,dps_ptr       ,s0_ptr        ,kcs_ptr, &
+                              & thick         ,kmax      ,x_intake(idis),y_intake(idis),z_intake(idis),n_intake(idis), m_intake(idis), &
+                              & k_intake(idis),kfsmn0_ptr,kfsmx0_ptr    ,dzs0_ptr      ,zmodel        ,gdp           )
+                enddo
+                !
                 ! Convert flow results to input for cormix and write to input file
                 ! Write all input files (one for each discharge) in the following do loop
                 !
@@ -419,7 +459,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    write(c_idis,'(i3.3)') idis
                    !
-                   filename(1) = trim(gdp%gdnfl%base_path)//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
                    filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
                    filename(3) = trim(basecase(idis,1))
                    waitfiles(idis) = filename(2)

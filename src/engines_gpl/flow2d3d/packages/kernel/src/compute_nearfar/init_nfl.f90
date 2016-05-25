@@ -84,6 +84,13 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     if(istat==0)  allocate (gdp%gdnfl%m_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%n_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%k_intake  (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%x_diff    (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%y_diff    (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%x_amb     (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%y_amb     (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%x_intake  (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%y_intake  (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%z_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%q_diff    (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%t0_diff   (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%s0_diff   (no_dis)                                    , stat = istat)
@@ -93,6 +100,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     if(istat==0)  allocate (gdp%gdnfl%sigma0    (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%theta0    (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%basecase  (no_dis,2)                                  , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%base_path (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%disnf     (gdp%d%nmlb:gdp%d%nmub, kmax,no_dis)        , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%sournf    (gdp%d%nmlb:gdp%d%nmub, kmax,lstsci,no_dis) , stat = istat)
     !
@@ -103,13 +111,20 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     !         call corinp_gen(idensform,gdp)
     !   end select
     !
-    gdp%gdnfl%m_diff   = 0.0_fp
-    gdp%gdnfl%n_diff   = 0.0_fp
-    gdp%gdnfl%m_amb    = 0.0_fp
-    gdp%gdnfl%n_amb    = 0.0_fp
-    gdp%gdnfl%m_intake = 0.0_fp
-    gdp%gdnfl%n_intake = 0.0_fp
-    gdp%gdnfl%k_intake = 0.0_fp
+    gdp%gdnfl%m_diff   = 0
+    gdp%gdnfl%n_diff   = 0
+    gdp%gdnfl%m_amb    = 0
+    gdp%gdnfl%n_amb    = 0
+    gdp%gdnfl%m_intake = 0
+    gdp%gdnfl%n_intake = 0
+    gdp%gdnfl%k_intake = 0
+    gdp%gdnfl%x_diff   = 0.0_fp
+    gdp%gdnfl%y_diff   = 0.0_fp
+    gdp%gdnfl%x_amb    = 0.0_fp
+    gdp%gdnfl%y_amb    = 0.0_fp
+    gdp%gdnfl%x_intake = 0.0_fp
+    gdp%gdnfl%y_intake = 0.0_fp
+    gdp%gdnfl%z_intake = 0.0_fp
     gdp%gdnfl%q_diff   = 0.0_fp
     gdp%gdnfl%t0_diff  = 0.0_fp
     gdp%gdnfl%s0_diff  = 0.0_fp

@@ -18,15 +18,15 @@
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Mdiff>7</Mdiff>
-      <Ndiff>4</Ndiff>
+      <Xdiff>550.0</Xdiff>
+      <Ydiff>350.0</Ydiff>
       <!-- Position where to get ambient conditions -->
-      <Mambient>10</Mambient>
-      <Nambient>4</Nambient>
+      <Xambient>823.0</Xambient>
+      <Yambient>344.8</Yambient>
       <!-- Position of the intake -->
-      <Mintake>7</Mintake>
-      <Nintake>9</Nintake>
-      <Kintake>0</Kintake>
+      <Xintake>567.0</Xintake>
+      <Yintake>821.3453</Yintake>
+      <Zintake>-999.0</Zintake>
       <!-- Discharge -->
       <M3s>10.0</M3s>
       <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
@@ -61,15 +61,15 @@
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Mdiff>15</Mdiff>
-      <Ndiff>9</Ndiff>
+      <Xdiff>1350.0</Xdiff>
+      <Ydiff>850.0</Ydiff>
       <!-- Position where to get ambient conditions -->
-      <Mambient>18</Mambient>
-      <Nambient>9</Nambient>
+      <Xambient>1689.34</Xambient>
+      <Yambient>832.789</Yambient>
       <!-- Position of the intake -->
-      <Mintake>15</Mintake>
-      <Nintake>4</Nintake>
-      <Kintake>0</Kintake>
+      <Xintake>1365.65</Xintake>
+      <Yintake>349.8342</Yintake>
+      <Zintake>-999.0</Zintake>
       <!-- Discharge -->
       <M3s>10.0</M3s>
       <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->

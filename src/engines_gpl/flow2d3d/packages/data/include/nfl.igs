@@ -37,7 +37,7 @@ type gd_nfl
     ! integers
     !
     integer                                :: no_dis    ! number of diffusers/discharges
-	integer                                :: nflwrmode ! NFL Write/Read mode: default: NFLWRITEREADNEW
+    integer                                :: nflwrmode ! NFL Write/Read mode: default: NFLWRITEREADNEW
     !
     ! integer arrays
     !
@@ -51,6 +51,13 @@ type gd_nfl
     !
     ! Real arrays
     !
+    real(fp), dimension(:)      , pointer        :: x_diff
+    real(fp), dimension(:)      , pointer        :: y_diff
+    real(fp), dimension(:)      , pointer        :: x_amb
+    real(fp), dimension(:)      , pointer        :: y_amb
+    real(fp), dimension(:)      , pointer        :: x_intake
+    real(fp), dimension(:)      , pointer        :: y_intake
+    real(fp), dimension(:)      , pointer        :: z_intake
     real(fp), dimension(:)      , pointer        :: q_diff
     real(fp), dimension(:)      , pointer        :: t0_diff
     real(fp), dimension(:)      , pointer        :: s0_diff
@@ -62,15 +69,23 @@ type gd_nfl
     real(fp), dimension(:,:,:)  , pointer        :: disnf
     real(fp), dimension(:,:,:,:), pointer        :: sournf
     !
-    ! characters
-    !
-    character(256)                         :: nflmod    ! name of near field model to apply
-    character(256)                         :: base_path ! path were to put the cortime.linkinp file
-    !
-    ! character array
+    ! character arrays
     !
     character(256),dimension(:,:), pointer :: basecase     ! name of near field model to apply
+    character(256),dimension(:)  , pointer :: base_path    ! path were to put the cortime.linkinp file
     character(256),dimension(:)  , pointer :: waitfilesold ! names of near field files to appear, created at an older timestep (itnflri > 0)
+    !
+    ! logicals
+    !
+    !
+    ! characters
+    !
+    character(256)                         :: infile    ! name of (XML) input/config file
+    character(256)                         :: nflmod    ! name of near field model to apply
+    !
+    ! other
+    !
+    type(tree_data), pointer :: cosumofile_ptr
 end type gd_nfl
 
 

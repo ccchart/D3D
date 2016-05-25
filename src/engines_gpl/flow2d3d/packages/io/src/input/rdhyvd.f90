@@ -208,7 +208,7 @@ subroutine rdhyvd(error     ,nrrec     ,mdfrec    ,filedy    ,fmtedy    , &
        !
        ! Read HLES elder flag
        !
-       call prop_get(gdp%mdfile_ptr, '*', 'Hturel', elder)
+       call prop_get(gdp%mdfile_ptr, '*', 'Hturel', value=elder)
        !
        ! Derived parameters
        !

@@ -52,13 +52,13 @@ subroutine corinp_gen2(error, gdp)
     !
     integer                      , pointer :: lundia
     integer                      , pointer :: no_dis
-    integer       ,dimension(:)  , pointer :: m_diff
-    integer       ,dimension(:)  , pointer :: n_diff
-    integer       ,dimension(:)  , pointer :: m_amb
-    integer       ,dimension(:)  , pointer :: n_amb
-    integer       ,dimension(:)  , pointer :: m_intake
-    integer       ,dimension(:)  , pointer :: n_intake
-    integer       ,dimension(:)  , pointer :: k_intake
+    real(fp)      ,dimension(:)  , pointer :: x_diff
+    real(fp)      ,dimension(:)  , pointer :: y_diff
+    real(fp)      ,dimension(:)  , pointer :: x_amb
+    real(fp)      ,dimension(:)  , pointer :: y_amb
+    real(fp)      ,dimension(:)  , pointer :: x_intake
+    real(fp)      ,dimension(:)  , pointer :: y_intake
+    real(fp)      ,dimension(:)  , pointer :: z_intake
     real(fp)      ,dimension(:)  , pointer :: q_diff
     real(fp)      ,dimension(:)  , pointer :: t0_diff
     real(fp)      ,dimension(:)  , pointer :: s0_diff
@@ -66,7 +66,10 @@ subroutine corinp_gen2(error, gdp)
     real(fp)      ,dimension(:)  , pointer :: h0
     real(fp)      ,dimension(:)  , pointer :: sigma0
     real(fp)      ,dimension(:)  , pointer :: theta0
+    character(256),dimension(:)  , pointer :: base_path
     character(256),dimension(:,:), pointer :: basecase
+    character(256)               , pointer :: filename
+    type(tree_data)              , pointer :: cosumofile_ptr
 !
 ! Global variables
 !
@@ -76,26 +79,28 @@ subroutine corinp_gen2(error, gdp)
 !
     integer                :: luntmp
     integer, external      :: newlun
+    integer                :: i
     integer                :: idis
     integer                :: istat
-    real(fp)               :: dummy
+    integer                :: no_dis_read
+    real(sp)               :: version
     character(1)           :: slash
-    character(256)         :: filename
     character(300)         :: cdummy
     character(300)         :: errmsg
-    type(tree_data), pointer :: cosumo_ptr
+    type(tree_data), pointer :: cosumoblock_ptr
+    type(tree_data), pointer :: node_ptr
 !
 !! executable statements -------------------------------------------------------
 !
     lundia         => gdp%gdinout%lundia
     no_dis         => gdp%gdnfl%no_dis
-    m_diff         => gdp%gdnfl%m_diff
-    n_diff         => gdp%gdnfl%n_diff
-    m_amb          => gdp%gdnfl%m_amb
-    n_amb          => gdp%gdnfl%n_amb
-    m_intake       => gdp%gdnfl%m_intake
-    n_intake       => gdp%gdnfl%n_intake
-    k_intake       => gdp%gdnfl%k_intake
+    x_diff         => gdp%gdnfl%x_diff
+    y_diff         => gdp%gdnfl%y_diff
+    x_amb          => gdp%gdnfl%x_amb
+    y_amb          => gdp%gdnfl%y_amb
+    x_intake       => gdp%gdnfl%x_intake
+    y_intake       => gdp%gdnfl%y_intake
+    z_intake       => gdp%gdnfl%z_intake
     q_diff         => gdp%gdnfl%q_diff
     t0_diff        => gdp%gdnfl%t0_diff
     s0_diff        => gdp%gdnfl%s0_diff
@@ -103,101 +108,111 @@ subroutine corinp_gen2(error, gdp)
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
     theta0         => gdp%gdnfl%theta0
+    base_path      => gdp%gdnfl%base_path
     basecase       => gdp%gdnfl%basecase
+    filename       => gdp%gdnfl%infile
+    !
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
     else
        slash = '/'
     endif
     !
-    ! Create Cosumo input tree
+    if (.not.associated(gdp%gdnfl%cosumofile_ptr)) then
+       !
+       ! Create Cosumo input tree
+       !
+       write(lundia,'(3a)') "Reading file '", trim(filename), "' ..."
+       call tree_create( 'TransportFormula Input', cosumofile_ptr )
+       call tree_put_data( cosumofile_ptr, transfer(trim(filename),node_value), 'STRING' )
+       !
+       ! Put file in input tree
+       !
+       call prop_file('xml',trim(filename),cosumofile_ptr,istat)
+       if (istat /= 0) then
+          select case (istat)
+          case(1)
+             errmsg = FILE_NOT_FOUND // trim(filename)
+             call write_error(errmsg, unit=lundia)
+          case(3)
+             errmsg = PREMATURE_EOF // trim(filename)
+             call write_error(errmsg, unit=lundia)
+          case default
+             errmsg = FILE_READ_ERROR // trim(filename)
+             call write_error(errmsg, unit=lundia)
+          endselect
+          nullify(gdp%gdnfl%cosumofile_ptr)
+          error = .true.
+          return
+       endif
+       !
+       ! Store the file data(-pointer) in GDP
+       !
+       gdp%gdnfl%cosumofile_ptr => cosumofile_ptr
+    else
+       !
+       ! File already read: reuse stored pointer
+       !
+       cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
+    endif
     !
-    filename = "COSUMOsettings.xml"
-    call tree_create( 'TransportFormula Input', cosumo_ptr )
-    call tree_put_data( cosumo_ptr, transfer(trim(filename),node_value), 'STRING' )
-    !
-    ! Put file in input tree
-    !
-    call prop_file('xml',trim(filename),cosumo_ptr,istat)
-    if (istat /= 0) then
-       select case (istat)
-       case(1)
-          errmsg = FILE_NOT_FOUND // trim(filename)
-          call write_error(errmsg, unit=lundia)
-       case(3)
-          errmsg = PREMATURE_EOF // trim(filename)
-          call write_error(errmsg, unit=lundia)
-       case default
-          errmsg = FILE_READ_ERROR // trim(filename)
-          call write_error(errmsg, unit=lundia)
-       endselect
+    call tree_get_node_by_name( cosumofile_ptr, 'COSUMO', cosumoblock_ptr )
+    if (.not.associated(cosumoblock_ptr)) then
+       write(lundia, '(a)') "ERROR: Tag '<COSUMO>' not found"
        error = .true.
        return
     endif
+    version     = -999.9
+    no_dis_read = 0
+    do i=1, size(cosumoblock_ptr%child_nodes)
+       if (tree_get_name(cosumoblock_ptr%child_nodes(i)%node_ptr) == "settings") then
+          no_dis_read = no_dis_read + 1
+       endif
+    enddo
+    if (no_dis_read /= no_dis) then
+       write(lundia,'(a,i0)') "ERROR: Unexpected number of discharges read: ", no_dis_read
+    endif
+    call prop_get(cosumofile_ptr, 'COSUMO/Fileversion', version)
+    if (comparereal(version, 0.3_sp)) then
+       write(lundia,'(a,f5.2)') "ERROR: Unexpected FileVersion number read: ", version
+    endif
     !
-    ! Reading of the corinp.dat file by FLOW
-    ! Parallel: should this be done by all partitions or just by one?
-    ! Is concurrent file access possible?
-    !
-    return
-    luntmp = newlun(gdp)
-    open (luntmp,file='corinp.dat')
-    !
-    ! Read dummy line
-    !
-    call skipstarlines (luntmp)
-    read (luntmp,'(a)') cdummy
-    call skipstarlines (luntmp)
-    read (luntmp,*) dummy
-    !
-    ! For each diffuser
-    !
-    do idis = 1, no_dis
+    idis = 0
+    do i=1, size(cosumoblock_ptr%child_nodes)
+       node_ptr => cosumoblock_ptr%child_nodes(i)%node_ptr
+       if (tree_get_name(node_ptr) /= "settings") cycle
+       idis = idis + 1
        !
        ! Read position diffusor
        !
-       call skipstarlines (luntmp)
-       read (luntmp,*) m_diff(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) n_diff(idis)
+       call prop_get(node_ptr, 'data/Xdiff', x_diff(idis))
+       call prop_get(node_ptr, 'data/Ydiff', y_diff(idis))
        !
        ! Read position ambient conditions
        !
-       call skipstarlines (luntmp)
-       read (luntmp,*) m_amb(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) n_amb(idis)
+       call prop_get(node_ptr, 'data/Xambient', x_amb(idis))
+       call prop_get(node_ptr, 'data/Yambient', y_amb(idis))
        !
        ! Read intake location
        !
-       call skipstarlines (luntmp)
-       read (luntmp,*) m_intake(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) n_intake(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) k_intake(idis)
+       call prop_get(node_ptr, 'data/Xintake', x_intake(idis))
+       call prop_get(node_ptr, 'data/Yintake', y_intake(idis))
+       call prop_get(node_ptr, 'data/Zintake', z_intake(idis))
        !
        ! Read discharge characteristics
        !
-       call skipstarlines (luntmp)
-       read (luntmp,*) q_diff(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) t0_diff(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) s0_diff(idis)
+       call prop_get(node_ptr, 'data/M3s', q_diff(idis))
+       call prop_get(node_ptr, 'data/T0', t0_diff(idis))
+       call prop_get(node_ptr, 'data/S0', s0_diff(idis))
        !
        ! Read remainder of cormix general input
        !
-       call skipstarlines (luntmp)
-       read (luntmp,*) d0(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) h0(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) theta0(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,*) sigma0(idis)
-       call skipstarlines (luntmp)
-       read (luntmp,'(a)') basecase(idis,1)
+       call prop_get(node_ptr, 'data/D0', d0(idis))
+       call prop_get(node_ptr, 'data/H0', h0(idis))
+       call prop_get(node_ptr, 'data/Theta0', theta0(idis))
+       call prop_get(node_ptr, 'data/Sigma0', sigma0(idis))
+       call prop_get(node_ptr, 'comm/FF2NFdir', base_path(idis))
+       call prop_get(node_ptr, 'comm/FFrundir', basecase(idis,1))
        if (trim(basecase(idis,1)) == "rundir") then
           call getcwd(cdummy)
           basecase(idis,1) = trim(cdummy)//slash
@@ -205,8 +220,8 @@ subroutine corinp_gen2(error, gdp)
        endif
     enddo
     !
-    ! Close the general cormix input file
+    ! Delete file info
+    ! This will force rereading the Cosumo file at the next Cosumo calculation
     !
-    close (luntmp)
-    !
+    call tree_destroy(gdp%gdnfl%cosumofile_ptr)
 end subroutine corinp_gen2
