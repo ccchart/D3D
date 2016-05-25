@@ -38,6 +38,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
+    use properties
     use dfparall
     !
     use globaldata
@@ -101,6 +102,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
 !
     integer                                :: ierror
     integer                                :: ilen
+    integer                                :: istat
     integer                                :: k
     integer                 , external     :: newlun
     integer                                :: luntmp
@@ -126,17 +128,22 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp)                               :: add
     real(fp)                               :: rho0
     real(fp), dimension(:), allocatable    :: dzs0_amb
-    character*1                            :: tab
-    character*1                            :: stype1
-    character*1                            :: stype2
-    character*3                            :: c_inode
-    character*12                           :: crhoam
-    character*12                           :: crhoas
-    character*12                           :: crhoab
-    character*12                           :: chint
-    character*12                           :: cdrohj
-    character*12                           :: ctaua
+    character(1)                           :: tab
+    character(1)                           :: stype1
+    character(1)                           :: stype2
+    character(3)                           :: c_inode
+    character(12)                          :: crhoam
+    character(12)                          :: crhoas
+    character(12)                          :: crhoab
+    character(12)                          :: chint
+    character(12)                          :: cdrohj
+    character(12)                          :: ctaua
+    character(80)                          :: string
     character(256), external               :: windows_path
+    type(tree_data)              , pointer :: outfile_ptr
+    type(tree_data)              , pointer :: cosumo_ptr
+    type(tree_data)              , pointer :: node_ptr
+    type(tree_data)              , pointer :: subnode_ptr
 !
 !! executable statements -------------------------------------------------------
 !
@@ -280,45 +287,100 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     endif
     write (ctaua (1:12),'(f12.3)') taurel
     !
-    ! write data to matlab tab delimited
-    ! FOR PARALLEL RUNS: should the writing be done by one process only,
-    ! or can each partition write its own file with c_inode identifier?
+    ! Fill new tree with data to be written
     !
-    write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
-    luntmp = newlun(gdp)
-    open (luntmp,file=trim(filename(1)),status='new')
+    call tree_create('COSUMO Input, created by Delft3D-FLOW', outfile_ptr)
+    call tree_put_data(outfile_ptr, transfer(trim(adjustl(filename(1))),node_value), 'STRING:XML')
+    call tree_create_node(outfile_ptr, '?xml version="1.0" encoding="utf-8"?', node_ptr)
+    call tree_create_node(outfile_ptr, 'COSUMO', cosumo_ptr)
+    call tree_create_node(cosumo_ptr, 'fileVersion', node_ptr)
+    call tree_put_data(node_ptr, transfer("0.3",node_value), 'STRING:XMLDATA')
+    call tree_create_node(cosumo_ptr, 'comm', node_ptr)
     !
     ! Filenames should always be written in Windows style, even on Linux,
     ! Because Cosumo is reading/using it and runs on Windows
     !
-    call to_matlab( luntmp, "Filename",     trim(windows_path(filename(1)))   )
-    call to_matlab( luntmp, "waitForFile",  trim(windows_path(filename(2)))   )
-    call to_matlab( luntmp, "FFrundir",     trim(windows_path(filename(3)))   )
-    call to_matlab( luntmp, "Node"    ,     trim(gdp%runid)     )
-    call to_matlab( luntmp, "SubgridModelNr",idis               )
-    call to_matlab( luntmp, "TIME",     time/60.0_fp            )
-    call to_matlab( luntmp, "HA",       ha                      )
-    call to_matlab( luntmp, "HD",       hd                      )
-    call to_matlab( luntmp, "UA",       max(ua,0.001_fp)        )
-    call to_matlab( luntmp, "UorS",     trim(stype1)            )
-    call to_matlab( luntmp, "RHOAM",    trim(crhoam)            )
-    call to_matlab( luntmp, "STYPE",    trim(stype2)            )
-    call to_matlab( luntmp, "RHOAS",    trim(crhoas)            )
-    call to_matlab( luntmp, "RHOAB",    trim(crhoab)            )
-    call to_matlab( luntmp, "HINT",     trim(chint)             )
-    call to_matlab( luntmp, "DROHJ",    trim(cdrohj)            )
-    call to_matlab( luntmp, "Q0",       q_diff(idis)            )
-    call to_matlab( luntmp, "RHO0",     rho0                    )
-    call to_matlab( luntmp, "D0",       d0(idis)                ) 
-    call to_matlab( luntmp, "PHI",      trim(ctaua)             )  
-    call to_matlab( luntmp, "S1",       s1(n_diff(idis), m_diff(idis))             ) 
-    call to_matlab( luntmp, "h_dps",    dps(n_diff(idis), m_diff(idis))            ) 
-    call to_matlab( luntmp, "x_diff",   xz(n_diff(idis), m_diff(idis))             ) 
-    call to_matlab( luntmp, "y_diff",   yz(n_diff(idis), m_diff(idis))             )
-    call to_matlab( luntmp, "taua",     taua                    )
+    call tree_create_node(node_ptr, 'Filename', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(1)))),node_value), 'STRING:XMLDATA')
+    call tree_create_node(node_ptr, 'waitForFile', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(2)))),node_value), 'STRING:XMLDATA')
+    call tree_create_node(node_ptr, 'FFrundir', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(3)))),node_value), 'STRING:XMLDATA')
+    call tree_create_node(cosumo_ptr, 'Node', node_ptr)
+    call tree_put_data(node_ptr, transfer(trim(adjustl(gdp%runid)),node_value), 'STRING:XMLDATA')
+    call tree_create_node(cosumo_ptr, 'SubgridModel', node_ptr)
+    write(string,'(i0)') idis
+    call tree_create_node(node_ptr, 'SubgridModelNr', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') time/60.0_fp
+    call tree_create_node(node_ptr, 'TIME', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') ha
+    call tree_create_node(node_ptr, 'HA', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') hd
+    call tree_create_node(node_ptr, 'HD', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') max(ua,0.001_fp)
+    call tree_create_node(node_ptr, 'UA', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(i0)') idis
+    call tree_create_node(node_ptr, 'UorS', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype1)),node_value), 'STRING:XMLDATA')
+    write(string,'(i0)') idis
+    call tree_create_node(node_ptr, 'RHOAM', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoam)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'STYPE', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype2)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'RHOAS', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoas)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'RHOAB', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoab)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'HINT', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(chint)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'DROHJ', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(cdrohj)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') q_diff(idis)
+    call tree_create_node(node_ptr, 'Q0', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') rho0
+    call tree_create_node(node_ptr, 'RHO0', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') d0(idis)
+    call tree_create_node(node_ptr, 'D0', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    call tree_create_node(node_ptr, 'PHI', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(ctaua)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') s1(n_diff(idis), m_diff(idis))
+    call tree_create_node(node_ptr, 'S1', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') dps(n_diff(idis), m_diff(idis))
+    call tree_create_node(node_ptr, 'h_dps', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') xz(n_diff(idis), m_diff(idis))
+    call tree_create_node(node_ptr, 'x_diff', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') yz(n_diff(idis), m_diff(idis))
+    call tree_create_node(node_ptr, 'y_diff', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    write(string,'(e24.17)') taua
+    call tree_create_node(node_ptr, 'taua', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
+    luntmp = newlun(gdp)
+    open (luntmp,file=trim(filename(1)),status='new')
+    call prop_write_xmlfile(luntmp, outfile_ptr, 0, istat)
     close (luntmp)
     !
     deallocate(dzs0_amb, stat=ierror)         
+    call tree_destroy(outfile_ptr)
 end subroutine wri_FF2NF
 
 function windows_path(inpath) result(outpath)
