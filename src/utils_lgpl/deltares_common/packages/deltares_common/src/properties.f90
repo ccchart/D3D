@@ -39,7 +39,6 @@ module properties
     !
     integer                          , private, parameter :: max_length = 256
     integer                          , private, parameter :: xml_buffer_length = 1000
-    integer                          , private, parameter :: dp = kind(1.0d00)
     character(len=1)                 , private, parameter :: space  = ' '
     character(len=1)                 , private, parameter :: tab = achar(9)
     character(len=1)                 , private, parameter :: indent = tab
@@ -109,8 +108,6 @@ contains
 subroutine prop_file(filetype, filename , tree, error)
     use tree_structures
     !
-    implicit none
-    !
     ! Parameters
     !
     character(*), intent(in)  :: filetype
@@ -172,8 +169,6 @@ end subroutine prop_file
 subroutine prop_inifile(filename , tree, error, japreproc)
     use tree_structures
     !
-    implicit none
-    !
     ! Parameters
     !
     character(*),               intent(in)                    :: filename     !< File name 
@@ -185,7 +180,6 @@ subroutine prop_inifile(filename , tree, error, japreproc)
     !
     integer               :: lu, iostat
     logical               :: opened
-    integer               :: maxunit = 500 
 
     lu = -1 
     if (present(japreproc)) then            ! If preprocessor was requested
@@ -194,20 +188,8 @@ subroutine prop_inifile(filename , tree, error, japreproc)
        endif 
     endif 
     if (lu<0) then                          ! if lu has not been assigned a valid unit number 
-       do lu=10,maxunit
-          inquire(lu, opened=opened)
-          if (.not.opened) then 
-             exit
-          endif 
-       enddo 
-       if (lu>maxunit) then 
-          lu = -1
-          error = -35                                !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
-          return
-       endif 
-       
-!      open existing file only       
-       open(lu,file=filename,iostat=error,status='old')
+       !      open existing file only       
+       open(newunit=lu,file=filename,iostat=error,status='old')
        if (error/=0) then
           return
        endif
@@ -222,8 +204,6 @@ end subroutine prop_inifile
 ! ====================================================================
 subroutine prop_inifile_pointer(lu, tree)
     use tree_structures
-    !
-    implicit none
     !
     ! Parameters
     !
@@ -423,8 +403,6 @@ end subroutine prop_inifile_pointer
 subroutine prop_tekalfile(filename , tree, error)
     use tree_structures
     !
-    implicit none
-    !
     ! Parameters
     !
     character(*),               intent(in)      :: filename     !< File name 
@@ -435,22 +413,8 @@ subroutine prop_tekalfile(filename , tree, error)
     !
     integer               :: lu, iostat
     logical               :: opened 
-    integer               :: maxunit = 500
 
-    do lu=10,maxunit
-       inquire(lu, opened=opened)
-       if (.not.opened) then 
-          exit
-       endif 
-    enddo 
-    if (lu>maxunit) then 
-       lu = -1
-       error = -35                                !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
-       return
-    endif 
-
-
-    open(lu,file=filename,iostat=error)
+    open(newunit=lu,file=filename,iostat=error)
     if (error/=0) then
        return
     endif
@@ -464,8 +428,6 @@ end subroutine prop_tekalfile
 ! ====================================================================
 subroutine prop_tekalfile_pointer(lu, tree)
     use tree_structures
-    !
-    implicit none
     !
     ! Parameters
     !
@@ -541,8 +503,6 @@ end subroutine prop_tekalfile_pointer
 subroutine prop_xmlfile(filename , tree, error)
     use tree_structures
     !
-    implicit none
-    !
     ! Parameters
     !
     character(*)            , intent(in)    :: filename  !< File name 
@@ -554,31 +514,16 @@ subroutine prop_xmlfile(filename , tree, error)
     integer               :: lu
     integer               :: iostat
     logical               :: opened
-    integer               :: maxunit = 500 
     !
     lu = -1
     !
     ! if lu has not been assigned a valid unit number 
     !
     if (lu < 0) then
-       do lu=10,maxunit
-          inquire(lu, opened=opened)
-          if (.not.opened) then 
-             exit
-          endif 
-       enddo 
-       if (lu>maxunit) then 
-          lu = -1
-          !
-          !        ERROR CODE -35 : Running out of free filenumbers (1-99) for ini-file to be opened 
-          !
-          error = -35
-          return
-       endif 
        !
        !      open existing file only
        !
-       open(lu,file=filename,iostat=error,status='old')
+       open(newunit=lu,file=filename,iostat=error,status='old')
        if (error/=0) then
           return
        endif
@@ -593,8 +538,6 @@ end subroutine prop_xmlfile
 subroutine prop_xmlfile_pointer(lu, tree, error)
     use tree_structures
     use TREE_DATA_TYPES
-    !
-    implicit none
     !
     ! Parameters
     !
@@ -677,7 +620,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           error = .true.
           exit
        endif
-       if (xmlinfo%level > 99) then
+       if (xmlinfo%level >= ubound(xmllevel, DIM=1)) then
           error = .true.
           exit
        endif
@@ -990,25 +933,6 @@ end function xml_error
 !
 ! ====================================================================
 ! --------------------------------------------------------------------
-!   Subroutine: expand
-!   Purpose:    Expand keys ${key} in subject, given a set of key-value pairs 
-!   Context:    Called by parse_directives
-!   Summary:
-!               Non-recursive (first level) expansion
-!               Defnames and defstrings form a list of ndef (key,value)-pairs
-!               used in the substitution upon encountering $key or ${key} in the string
-!               keys starting with an underscore refer to environment variables 
-!               e.g. ${_PATH} or $_PATH refers to the path variable 
-!   Arguments:
-!   subject     Character string subjected to replacements 
-!   defnames    keys 
-!   defstrings  replacement strings 
-!   ndef        number of keys = number of replacement strings 
-!
-!   Restrictions:
-!               - Single pass, replacement strings are not subject to expansion themselves (i.e. no recursion)
-!               - keys and replacement strings can at max hold 50 characters 
-! --------------------------------------------------------------------
 !
 ! xml_compress_ --
 !    Routine to remove empty lines from the character data and left-align
@@ -1083,9 +1007,26 @@ end subroutine xml_replace_entities_
 !
 !
 ! ====================================================================
+! --------------------------------------------------------------------
+!   Subroutine: expand
+!   Purpose:    Expand keys ${key} in subject, given a set of key-value pairs 
+!   Context:    Called by parse_directives
+!   Summary:
+!               Non-recursive (first level) expansion
+!               Defnames and defstrings form a list of ndef (key,value)-pairs
+!               used in the substitution upon encountering $key or ${key} in the string
+!               keys starting with an underscore refer to environment variables 
+!               e.g. ${_PATH} or $_PATH refers to the path variable 
+!   Arguments:
+!   subject     Character string subjected to replacements 
+!   defnames    keys 
+!   defstrings  replacement strings 
+!   ndef        number of keys = number of replacement strings 
+!
+!   Restrictions:
+!               - Single pass, replacement strings are not subject to expansion themselves (i.e. no recursion)
+!               - keys and replacement strings can at max hold 50 characters 
 subroutine expand(subject,defnames,defstrings,ndef)
-    !
-    implicit none
     !
     ! Parameters
     !
@@ -1191,8 +1132,6 @@ end subroutine expand
 integer function preprocINI(infilename, error, outfilename) result (outfilenumber)
     use MessageHandling
     !
-    implicit none
-    !
     ! Parameters
     !
     character(*),     intent(in)                :: infilename           !< basic config file 
@@ -1206,34 +1145,21 @@ integer function preprocINI(infilename, error, outfilename) result (outfilenumbe
     integer           :: ndef
     integer           :: iostat
     logical           :: opened
-    integer           :: maxunit = 500 
-
     !
     !! executable statements -------------------------------------------------------
     !
     error = 0
     ndef = 0
-    do outfilenumber=10,maxunit
-       inquire(outfilenumber, opened=opened)
-       if (.not.opened) then 
-          exit
-       endif 
-    enddo 
-    if (outfilenumber>maxunit) then 
-       outfilenumber = -1
-       error = -33                                !        ERROR CODE -33 : Running out of free filenumbers (1-99) for ini-file to be opened 
-       return
-    endif 
 
     if (present(outfilename)) then 
-       open(outfilenumber,file=trim(outfilename),iostat=iostat)
+       open(newunit=outfilenumber,file=trim(outfilename),iostat=iostat)
        if (iostat/=0) then
           outfilenumber = -1
           error = iostat                          !       ERROR : Intermediate ini-file could not be written.
           return
        endif
     else 
-       open (outfilenumber, status='SCRATCH', IOSTAT=iostat)
+       open (newunit=outfilenumber, status='SCRATCH', IOSTAT=iostat)
        if (iostat/=0) then 
           outfilenumber = -1
           error = iostat
@@ -1280,8 +1206,6 @@ end function preprocINI
 recursive integer function parse_directives (infilename, outfilenumber, defnames, defstrings, ndef, level) result (error)
     use MessageHandling
     !
-    implicit none
-    !
     ! Parameters
     !
     character(len=*),     intent(in)    :: infilename      !< subject file parsed
@@ -1305,7 +1229,6 @@ recursive integer function parse_directives (infilename, outfilenumber, defnames
     integer            :: iostat
     logical            :: opened 
     logical            :: exist
-    integer            :: maxunit = 500
     character(len=100) :: infostr 
 
     !
@@ -1322,19 +1245,7 @@ recursive integer function parse_directives (infilename, outfilenumber, defnames
        return
     endif  
 
-    do infilenumber=10,maxunit
-       inquire(infilenumber, opened=opened)
-       if (.not.opened) then 
-          exit
-       endif 
-    enddo 
-    if (infilenumber>maxunit) then 
-       infilenumber = -1
-       error = -33                 ! ERROR CODE -33 : Running out of free filenumbers (1-99) for ini-file to be opened 
-       return
-    endif 
-
-    open(infilenumber,file=trim(infilename),iostat=iostat)
+    open(newunit=infilenumber,file=trim(infilename),iostat=iostat)
     if (iostat/=0) then
        error = iostat              ! ERROR : file was encountered, but for some reason cannot be opened .... 
        return
@@ -1423,6 +1334,7 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
     ! local
     integer                                :: i
     integer                                :: numatt
+    integer                                :: numchild
     character(len=1), dimension(:),pointer :: data_ptr
     character(40)                          :: type_string
     character(40)                          :: formatstring
@@ -1434,17 +1346,25 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
     ! body
     tag = tree_get_name(tree)
     !
+    ! Number of children:
+    !
+    if (.not.associated(tree%child_nodes)) then
+       numchild = 0
+    else
+       numchild = size(tree%child_nodes)
+    endif
+    !
     ! Count the number of children with type = attribure
     !
     numatt = 0
-    do i=1, size(tree%child_nodes)
+    do i=1, numchild
        call tree_get_data_ptr( tree%child_nodes(i)%node_ptr, data_ptr, type_string )
        if (type_string == "STRING:XMLATTRIBUTE") then
           numatt = numatt + 1
        endif
     enddo
     call tree_get_data_ptr( tree, data_ptr, type_string )
-    if (.not.associated(tree%child_nodes) .or. size(tree%child_nodes) <= numatt) then
+    if (numchild == numatt) then
        !
        ! Everything related to this tag fits on one line 
        !
@@ -1460,7 +1380,7 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
              ! <tagname att1="val1" att2="val2">data</tagname>
              !
              write(buffer,'(2a)') "<", trim(tag)
-             do i=1, size(tree%child_nodes)
+             do i=1, numchild
                 call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
                 if (type_string == "STRING:XMLATTRIBUTE") then
                    string = ' '
@@ -1497,7 +1417,7 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
        buffer = ' '
        if (level > 0) then
           write(buffer,'(2a)') "<", trim(tag)
-          do i=1, size(tree%child_nodes)
+          do i=1, numchild
              call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
              if (type_string == "STRING:XMLATTRIBUTE") then
                 string = ' '
@@ -1523,7 +1443,7 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
        ! process child_nodes recursively
        ! skip children with type=attribute
        !
-       do i = 1, size(tree%child_nodes)
+       do i = 1, numchild
           call tree_get_data_ptr(tree%child_nodes(i)%node_ptr, data_ptr, type_string )
           if (type_string /= "STRING:XMLATTRIBUTE") then
              call prop_write_xmlfile(mout, tree%child_nodes(i)%node_ptr, level+1, error)
@@ -1649,21 +1569,6 @@ end subroutine print_initree
 !
 !
 ! ====================================================================
-! subroutine prop_get_keyvalue(tree, chapterin ,keyin     ,value, success)
-!     implicit none 
-!     interface 
-!        subroutine tree_all_children( tree, keys, values, numkeys )
-!           type(TREE_DATA), pointer, intent(in) :: tree
-!           character(len=*), intent(out)        :: keys(:)
-!           character(len=*), intent(out)        :: values(:)
-!           integer, intent(out)                 :: numkeys
-!        end subroutine tree_all_children
-!     end interface 
-!        call tree_all_children( tree, keys, values, numkeys )
-! end subroutine 
-!
-!
-! ====================================================================
 ! --------------------------------------------------------------------
 !   Subroutine: prop_get_string
 !   Author:     Arjen Markus
@@ -1690,7 +1595,6 @@ end subroutine print_initree
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_string(tree, chapterin ,keyin     ,value, success)
-    implicit none
     !
     ! Parameters
     !
@@ -1739,11 +1643,6 @@ subroutine prop_get_string(tree, chapterin ,keyin     ,value, success)
     endif
     !
     ! Find the key
-    ! To do:
-    !    Remove leading blanks
-    ! Note:
-    !    Work around an apparent problem with the SUN Fortran 90
-    !    compiler
     !
     call tree_get_node_by_name( thechapter, trim(key), anode, i)
     if ( associated(anode) ) then
@@ -1820,7 +1719,6 @@ end subroutine prop_get_string
 !
 ! ====================================================================
 subroutine visit_tree(tree,direction)
-   implicit none
    type(TREE_DATA), pointer                    :: tree
    character(len=1), dimension(0)              :: data
    logical                                     :: stop 
@@ -1879,7 +1777,6 @@ end subroutine node_unvisit
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_integer(tree  ,chapter   ,key       ,value     ,success)
-    implicit none
     !
     ! Parameters
     !
@@ -1927,7 +1824,6 @@ end subroutine prop_get_integer
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_integers(tree   ,chapter   ,key       ,value     ,valuelength, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2019,7 +1915,6 @@ end subroutine prop_get_integers
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_real(tree  ,chapter   ,key       ,value     ,success)
-    implicit none
     !
     ! Parameters
     !
@@ -2067,7 +1962,6 @@ end subroutine prop_get_real
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_reals(tree  ,chapter ,key ,value ,valuelength, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2171,19 +2065,18 @@ end subroutine prop_get_reals
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_double(tree  ,chapter   ,key       ,value     ,success)
-    implicit none
     !
     ! Parameters
     !
     type(tree_data), pointer      :: tree
-    real(kind=dp) ,intent (inout) :: value
+    real(kind=hp) ,intent (inout) :: value
     character(*)  ,intent (in)    :: chapter
     character(*)  ,intent (in)    :: key
     logical, optional, intent(out) :: success
     !
     ! Local variables
     !
-    real(kind=dp), dimension(1) :: valuearray
+    real(kind=hp), dimension(1) :: valuearray
     !
     !! executable statements -------------------------------------------------------
     !
@@ -2220,13 +2113,12 @@ end subroutine prop_get_double
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_doubles(tree  ,chapter ,key ,value ,valuelength,success)
-    implicit none
     !
     ! Parameters
     !
     type(tree_data), pointer  :: tree
     integer                    , intent (in)  :: valuelength
-    real(kind=dp), dimension(*), intent (out) :: value
+    real(kind=hp), dimension(*), intent (out) :: value
     character(*)               , intent (in)  :: chapter
     character(*)               , intent (in)  :: key
     logical, optional          , intent (out) :: success
@@ -2326,7 +2218,6 @@ end subroutine prop_get_doubles
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_logical(tree  ,chapter   ,key       ,value     ,success)
-    implicit none
     !
     ! Parameters
     !
@@ -2394,15 +2285,18 @@ end subroutine prop_get_logical
 ! method: Recursively call this subroutine for each level in subtree,
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
-recursive subroutine prop_get_subtree_string(tree, subtree, value, success)
-    implicit none
+recursive subroutine prop_get_subtree_string(tree, subtree, value)
     !
     ! Parameters
     !
     type(tree_data), pointer                  :: tree
     character(*)             , intent (inout) :: value
     character(*)             , intent (in)    :: subtree
-    logical        , optional, intent (out)   :: success
+    !
+    ! With the optional parameter success, prop_get_subtree_string, can not be distinguished from
+    ! prop_get_logical anymore.
+    ! Clean solution: make parameter success not optional in all prop_get subroutines
+    !logical        , optional, intent (out)   :: success
     !
     ! Local variables
     !
@@ -2423,10 +2317,10 @@ recursive subroutine prop_get_subtree_string(tree, subtree, value, success)
     else
        call tree_get_node_by_name(tree, subtree(:separator-1), node_ptr)
        if (associated(node_ptr)) then
-          call prop_get_subtree_string(node_ptr, subtree(separator+1:), value, success_)
+          call prop_get_subtree_string(node_ptr, subtree(separator+1:), value)
        endif
     endif
-    if (present(success)) success = success_
+    ! if (present(success)) success = success_
 end subroutine prop_get_subtree_string
 !
 !
@@ -2437,7 +2331,6 @@ end subroutine prop_get_subtree_string
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_integer(tree, subtree, value, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2479,7 +2372,6 @@ end subroutine prop_get_subtree_integer
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_integers(tree, subtree, value, valuelength, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2522,7 +2414,6 @@ end subroutine prop_get_subtree_integers
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_real(tree, subtree, value, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2564,7 +2455,6 @@ end subroutine prop_get_subtree_real
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_reals(tree, subtree, value, valuelength, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2607,7 +2497,6 @@ end subroutine prop_get_subtree_reals
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_double(tree, subtree, value, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2649,7 +2538,6 @@ end subroutine prop_get_subtree_double
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_doubles(tree, subtree, value, valuelength, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2692,7 +2580,6 @@ end subroutine prop_get_subtree_doubles
 !         until there is only one level left. Then call the corresponding
 !         subroutine without parameter subtree, with chapter="*" and key=subtree
 recursive subroutine prop_get_subtree_logical(tree, subtree, value, success)
-    implicit none
     !
     ! Parameters
     !
@@ -2834,7 +2721,7 @@ subroutine prop_set_doubles(tree, chapter, key, value, anno, success)
     type(tree_data),   pointer      :: tree      !< The property tree
     character(*),      intent (in)  :: chapter   !< Name of the chapter under which to store the property ('' or '*' for global)
     character(*),      intent (in)  :: key       !< Name of the property
-    real(kind=dp),     intent (in)  :: value(:)  !< Value of the property
+    real(kind=hp),     intent (in)  :: value(:)  !< Value of the property
     character(len=*), optional, intent (in) :: anno       !< Optional annotation/comment
     logical, optional, intent (out) :: success   !< Returns whether the operation was successful
                                                   
@@ -2884,7 +2771,7 @@ subroutine prop_set_double(tree, chapter, key, value, anno, success)
     logical, optional, intent (out) :: success  !< Returns whether the operation was successful
  
     logical :: success_
-    real(kind=dp) :: valuearray(1)
+    real(kind=hp) :: valuearray(1)
 
     valuearray(1) = value
 
@@ -2981,7 +2868,7 @@ end subroutine prop_set_integer
 !! Trailing zeros and leading blanks are removed.
 subroutine pp_double(value, strvalue)
 ! A bit ad-hoc prettyprinting, intended for easy readable output in settings files.
-    real(kind=dp),    intent(in)  :: value
+    real(kind=hp),    intent(in)  :: value
     character(len=*), intent(out) :: strvalue
 
     ! adjustl not working in gfortran, so writing to a temp array
@@ -3056,7 +2943,6 @@ end subroutine pp_double
 ! --------------------------------------------------------------------
 !
 subroutine lowercase(string    ,lenstr    )
-    implicit none
     !
     ! Global variables
     !
@@ -3084,7 +2970,6 @@ end subroutine lowercase
 !
 ! ====================================================================
 subroutine count_occurrences(input_ptr, group, keyword, npars)
-    implicit none
     !
     ! Global variables
     !

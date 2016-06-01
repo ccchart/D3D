@@ -882,19 +882,19 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
                 write(lundia,'(a,i0,a)')     '  Depth definition            : ',pdredge%depthdef,' (relative to '//trim(stringval)//')'
                 !
                 call prop_get(link_ptr, '*', 'Clearance'    , pdredge%clearance)
-                call prop_get(link_ptr, '*', 'DredgeWhenDry', value=pdredge%dredgewhendry)
-                call prop_get(link_ptr, '*', 'DumpLimited'  , value=pdredge%dumplimited)
+                call prop_get(link_ptr, '*', 'DredgeWhenDry', pdredge%dredgewhendry)
+                call prop_get(link_ptr, '*', 'DumpLimited'  , pdredge%dumplimited)
                 if (pdredge%maxvolrate < 0.0_fp) then
                    !
                    ! DredgeWhileMorfac0 can only be .true. if dredging is instantaneous.
                    !
-                   call prop_get(link_ptr, '*', 'DredgeWhileMorfac0', value=pdredge%if_morfac_0)
+                   call prop_get(link_ptr, '*', 'DredgeWhileMorfac0', pdredge%if_morfac_0)
                 else
                    pdredge%if_morfac_0 = .false.
                 endif
-                call prop_get(link_ptr, '*', 'ObeyCmp'    , value=pdredge%obey_cmp)
+                call prop_get(link_ptr, '*', 'ObeyCmp'    , pdredge%obey_cmp)
                 triggerall = .false.
-                call prop_get(link_ptr, '*', 'TriggerAll' , value=triggerall)
+                call prop_get(link_ptr, '*', 'TriggerAll' , triggerall)
                 if (triggerall) then
                    ! TriggerAll = #YES# was explicitly specified
                    pdredge%triggertype = DREDGETRIG_ALLBYONE
@@ -902,14 +902,14 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
                    ! triggerall may be false because it was specified or just because we set the default to false.
                    ! we need to distinguish, so let's change the default setting
                    triggerall = .true.
-                   call prop_get(link_ptr, '*', 'TriggerAll' , value=triggerall)
+                   call prop_get(link_ptr, '*', 'TriggerAll' , triggerall)
                    if (.not.triggerall) then
                       ! now we know that TriggerAll = #NO# was explicitly specified
                       pdredge%triggertype = DREDGETRIG_POINTBYPOINT
                    endif
                 endif
                 call prop_get(link_ptr, '*', 'DredgeTrigger', pdredge%triggertype)
-                call prop_get(link_ptr, '*', 'UseDunes'     , value=pdredge%use_dunes)
+                call prop_get(link_ptr, '*', 'UseDunes'     , pdredge%use_dunes)
                 if (pdredge%use_dunes .and. .not. lfbedfrm) then
                    call prterr(lundia, 'U021', 'UseDunes: Dunes can only be used when modelled.')
                    call d3stop(1, gdp)
@@ -1382,7 +1382,7 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
              call prop_get(link_ptr, '*', 'MinimumDumpDepth', pdump%mindumpdepth)
              pdump%dumpcapaflag = comparereal(pdump%mindumpdepth,-999.0_fp) /= 0
              !
-             call prop_get(link_ptr, '*', 'UseDunes'     , value=pdump%use_dunes)
+             call prop_get(link_ptr, '*', 'UseDunes'     , pdump%use_dunes)
              if (pdump%use_dunes .and. .not. lfbedfrm) then
                 call prterr(lundia, 'U021', 'UseDunes: Dunes can only be used when modelled.')
                 call d3stop(1, gdp)

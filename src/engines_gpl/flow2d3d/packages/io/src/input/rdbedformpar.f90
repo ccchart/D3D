@@ -250,9 +250,9 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
        endif
     endif
     !
-    call prop_get(gdp%mdfile_ptr,'*','Bdf',value=lfbedfrm)
+    call prop_get(gdp%mdfile_ptr,'*','Bdf',lfbedfrm)
     !
-    call prop_get(gdp%mdfile_ptr,'*','BdfOut',value=lfbedfrmout)
+    call prop_get(gdp%mdfile_ptr,'*','BdfOut',lfbedfrmout)
     !
     !-----------------------------------------------------
     ! Allocation of memory for bedform roughness arrays
@@ -331,7 +331,7 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
     ! By default the hydrodynamic time scale is used for bedform adaptation.
     !
     if (sedim) then
-       call prop_get(gdp%mdfile_ptr,'*','BdfMor',value=lfbdfmor)
+       call prop_get(gdp%mdfile_ptr,'*','BdfMor',lfbdfmor)
        !
        txtput1 = 'Bedform adaptation based on'
        if (lfbdfmor) then
@@ -478,7 +478,7 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
     ! Reading choice for Bedform advection
     !
     if (bdfRlxtype > 0) then
-       call prop_get(gdp%mdfile_ptr,'*','BdfADV',value=lfbedfrmADV)
+       call prop_get(gdp%mdfile_ptr,'*','BdfADV',lfbedfrmADV)
        !
        txtput1 = 'Dune height advection'
        txtput2 = '                  NO'
@@ -486,7 +486,7 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
        write(lundia,'(a,a,a)') txtput1, ': ', txtput2
        !
        if (lfbedfrmADV) then
-          call prop_get(gdp%mdfile_ptr,'*','BdfCFL',value=lfbedfrmCFL)
+          call prop_get(gdp%mdfile_ptr,'*','BdfCFL',lfbedfrmCFL)
           !
           txtput1 = 'CFL check'
           txtput2 = '                  NO'

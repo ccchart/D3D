@@ -499,11 +499,11 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        !
        ! === flag for using eulerian vel iso glm velocities for susp transports
        !
-       call prop_get(mor_ptr, 'Morphology', 'EulerisoGLM', value=eulerisoglm)
+       call prop_get(mor_ptr, 'Morphology', 'EulerisoGLM', eulerisoglm)
        !
        ! === flag for using glm vel iso eulerian velocities for bed load transports and ref concentration
        !
-       call prop_get(mor_ptr, 'Morphology', 'GLMisoEuler', value=glmisoeuler)
+       call prop_get(mor_ptr, 'Morphology', 'GLMisoEuler', glmisoeuler)
        !
        ! === phase lead for bed shear stress of Nielsen (1992) in TR2004
        !

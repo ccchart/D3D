@@ -266,7 +266,7 @@ subroutine rdbcg(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! Flag for discharge distribution at Qtot boundaries; by default now based on average waterlevel
     !
     use_zavg_for_qtot = .true.
-    call prop_get(gdp%mdfile_ptr, '*', 'ZAvgQT', value=use_zavg_for_qtot)
+    call prop_get(gdp%mdfile_ptr, '*', 'ZAvgQT', use_zavg_for_qtot)
     !
     ! read flag for CoaST BouNDary
     !

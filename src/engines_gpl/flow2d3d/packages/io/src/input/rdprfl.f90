@@ -159,7 +159,7 @@ subroutine rdprfl(lunmd     ,lundia    ,nrrec     ,mdfrec    ,tstprt    , &
     ! mergemap should be true for serial simulations
     !
     mergemap = .true.
-    call prop_get(gdp%mdfile_ptr, '*', 'MergeMap', value=mergemap)
+    call prop_get(gdp%mdfile_ptr, '*', 'MergeMap', mergemap)
     if (.not.parll) mergemap = .true.
     !
     ! locate 'PHhydr' record for print flag History hydrodynamic
@@ -454,6 +454,6 @@ subroutine rdprfl(lunmd     ,lundia    ,nrrec     ,mdfrec    ,tstprt    , &
     !
     ! Read flag for test results in zsol file
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'Tstprt', value=tstprt)
+    call prop_get(gdp%mdfile_ptr, '*', 'Tstprt', tstprt)
     deallocate(ival, stat=istat)
 end subroutine rdprfl

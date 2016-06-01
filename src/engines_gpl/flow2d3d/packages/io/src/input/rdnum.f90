@@ -523,7 +523,7 @@ subroutine rdnum(lunmd     ,lundia    ,nrrec     ,mdfrec    , &
     !                 points (N=0, Y=1)
     !
     lvalue = .false.
-    call prop_get(gdp%mdfile_ptr,'*','Nudge',value=lvalue)
+    call prop_get(gdp%mdfile_ptr,'*','Nudge',lvalue)
     if (lvalue) then
        nudge = 1
        msg = 'Nudging of constituents applied at open boundaries'
@@ -749,7 +749,7 @@ subroutine rdnum(lunmd     ,lundia    ,nrrec     ,mdfrec    , &
     ! Flag to switch on slope limiter to avoid high velocities along steep slopes
     ! (used in cucnp/z_cucnp and uzd/z_uzd)
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'SlpLim', value=slplim)
+    call prop_get(gdp%mdfile_ptr, '*', 'SlpLim', slplim)
     if (slplim) then
        write (msg,'(a)') 'Found Keyword SlpLim = #Y#: switching on slope limiter to avoid high velocities along steep slopes'
        call prterr(lundia, 'G051', trim(msg))
@@ -758,14 +758,14 @@ subroutine rdnum(lunmd     ,lundia    ,nrrec     ,mdfrec    , &
     ! Ocorio (Old_Corio)
     ! Keyword to switch back to old computation of the tangential velocities used in the coriolis term
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'OCorio' , value=old_corio)
+    call prop_get(gdp%mdfile_ptr, '*', 'OCorio' , old_corio)
     if (.not.old_corio) then
        write (lundia,'(a)') '*** MESSAGE Using Coriolis formulation of Kleptsova-Stelling-Pietrzak.'
     endif
     !
     ! Flag to switch on using velocities above wave boundary layer to determine representative 2d velocity
     !
-    call prop_get(gdp%mdfile_ptr, '*', 'V2DWBL', value=v2dwbl)
+    call prop_get(gdp%mdfile_ptr, '*', 'V2DWBL', v2dwbl)
     if (v2dwbl) then
        write (msg,'(a)') 'Found Keyword V2DWBL = #Y#: using velocities above wave boundary layer to determine representative 2d velocity'
        call prterr(lundia, 'G051', trim(msg))
