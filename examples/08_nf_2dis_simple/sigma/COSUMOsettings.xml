@@ -18,20 +18,20 @@
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Xdiff>550.0</Xdiff>
-      <Ydiff>350.0</Ydiff>
+      <XYdiff>550.0 350.0</XYdiff>
       <!-- Position where to get ambient conditions -->
-      <Xambient>823.0</Xambient>
-      <Yambient>344.8</Yambient>
+      <XYambient>823.0 344.8</XYambient>
+      <XYambient>465.8 793.2</XYambient>
+      <XYambient>587.4 509.2</XYambient>
       <!-- Position of the intake -->
-      <Xintake>567.0</Xintake>
-      <Yintake>821.3453</Yintake>
-      <Zintake>-999.0</Zintake>
-      <!-- Discharge -->
-      <M3s>10.0</M3s>
-      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
-      <T0>10.0</T0>
-      <S0>34.0</S0>
+      <XYintake>567.0 821.3453</XYintake>
+      <discharge>
+        <M3s>10.0</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "additional" (dT,dS,d..) -->
+        <constituentsOperator>additional</constituentsOperator>
+        <constituents>10.0 0.0 0.0</constituents>
+      </discharge>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
       <!-- Diameter -->
@@ -61,20 +61,19 @@
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Xdiff>1350.0</Xdiff>
-      <Ydiff>850.0</Ydiff>
+      <XYdiff>1350.0 850.0</XYdiff>
       <!-- Position where to get ambient conditions -->
-      <Xambient>1689.34</Xambient>
-      <Yambient>832.789</Yambient>
+      <XYambient>1689.34 832.789</XYambient>
+      <XYambient>1308.27 712.603</XYambient>
       <!-- Position of the intake -->
-      <Xintake>1365.65</Xintake>
-      <Yintake>349.8342</Yintake>
-      <Zintake>-999.0</Zintake>
-      <!-- Discharge -->
-      <M3s>10.0</M3s>
-      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
-      <T0>10.0</T0>
-      <S0>34.0</S0>
+      <XYintake>1365.65 349.8342</XYintake>
+      <discharge>
+        <M3s>10.0</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "additional" (dT,dS,d..) -->
+        <constituentsOperator>additional</constituentsOperator>
+        <constituents>10.0 0.0 0.0</constituents>
+      </discharge>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
       <!-- Diameter -->

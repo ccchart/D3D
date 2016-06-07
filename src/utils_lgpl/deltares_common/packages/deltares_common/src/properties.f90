@@ -547,6 +547,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     !
     ! Local variables
     !
+    integer                                                   :: i
     integer                                                   :: k
     integer                                                   :: kend
     integer                                                   :: ierr
@@ -554,7 +555,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     integer                                                   :: nodata
     logical                                                   :: filestatus
     logical                                                   :: xmlendtag
-    character(max_length)                                     :: line
+    character(10)                                             :: inttostring
     character(80)                                             :: xmltag
     character(80)               , dimension(:,:), allocatable :: xmlattribs
     character(xml_buffer_length), dimension(:)  , allocatable :: xmldata
@@ -566,7 +567,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     ! 100 xml levels must be enough
     !
     allocate(xmlattribs(2,10), stat=ierr)
-    allocate(xmldata(10)     , stat=ierr)
+    allocate(xmldata(500)    , stat=ierr)
     allocate(xmllevel(0:100) , stat=ierr)
     xmllevel(0)%node_ptr       => tree
     xmlinfo%lun                = lu
@@ -645,8 +646,16 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(xmlattribs(1,k)), xmllevel(xmlinfo%level+1)%node_ptr)
           call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "STRING:XMLATTRIBUTE")
        enddo
-       if (nodata > 0) then
-          call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(xmldata(:nodata),node_value), "STRING:XMLDATA")
+       if (nodata == 1) then
+          call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(xmldata(1),node_value), "STRING:XMLDATA")
+       elseif (nodata > 1) then
+          write(inttostring,'(i0)') nodata
+          call tree_put_data(xmllevel(xmlinfo%level)%node_ptr, transfer(trim(inttostring),node_value), "STRING:XMLNUMDATALINES")
+          do i=1,nodata
+             write(inttostring,'(i0)') i
+             call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(inttostring), xmllevel(xmlinfo%level+1)%node_ptr)
+             call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmldata(i)),node_value), "STRING:XMLDATALINE")
+          enddo
        else
           nullify(xmllevel(xmlinfo%level)%node_ptr%node_data)
        endif
@@ -1395,7 +1404,11 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
              if (associated(data_ptr)) then
                 call tree_get_data_string( tree, string, success )
              endif
-             write(buffer,'(6a)') trim(buffer), ">", trim(string), "</", trim(tag), ">"
+             if (type_string == "STRING:XMLDATALINE") then
+                write(buffer,'(a)') trim(string)
+             else
+                write(buffer,'(6a)') trim(buffer), ">", trim(string), "</", trim(tag), ">"
+             endif
           endif
           !
           ! Indentation

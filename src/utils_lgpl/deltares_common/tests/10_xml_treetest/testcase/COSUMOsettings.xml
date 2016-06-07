@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<COSUMO test="true" version="0.3">
+<COSUMO test="true" version="0.33">
+  <fileVersion>0.3</fileVersion>
   <settings>
     <general>
       <subGridModel>cormix</subGridModel>
@@ -7,37 +8,40 @@
       <farFieldModel>Delft3D</farFieldModel>
       <preProcessFcn></preProcessFcn>
       <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
+      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
+      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
     </general>
     <comm>
-      <FF2NFdir>p:\1202339-rndcoastalhd\COSUMO\coupledInputFiles\</FF2NFdir>
-      <!-- d3d needs this info-->
-      <FFrundir>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\</FFrundir>
+      <FF2NFdir>c:\code\branches\nearfield\examples\08_nf_2dis_simple\sigma\COSUMO\FF2NF\</FF2NFdir>
+      <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
+      <FFrundir>rundir</FFrundir>
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Mdiff>78</Mdiff>
-      <Ndiff>34</Ndiff>
+      <XYdiff>550.0 350.0</XYdiff>
       <!-- Position where to get ambient conditions -->
-      <MNambient>112 41</MNambient>
-      <!-- Discharge -->
-      <M3s>43.168</M3s>
-      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
-      <T0>11.6</T0>
-      <S0>0.0 5.0 30.0</S0>
+      <XYambient>823.0 344.8</XYambient>
+      <XYambient>465.8 793.2</XYambient>
+      <XYambient>587.4 509.2</XYambient>
+      <!-- Position of the intake -->
+      <XYintake>567.0 821.3453</XYintake>
+      <discharge>
+        <M3s>10.0</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
+        <constituents>10.0 0.0 0.0</constituents>
+      </discharge>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
-      <D0>0.0508</D0>
       <!-- Diameter -->
-      <H0>0.0</H0>
+      <D0>2.5</D0>
       <!-- Height above the bed for Corjet; not used in Cortime input -->
-      <Theta0>0.0</Theta0>
+      <H0>3.2</H0>
       <!-- Corjet, not used for cortim -->
-      <Sigma0>140.0</Sigma0>
+      <Theta0>15.0</Theta0>
       <!-- horizontal; 0 pointing to east, 90 pointing to north -->
-      <!-- Cormix linkinp dir (path of where cormix listens for linkinp files) -->
-      <linkinpDir>p:\1202339-rndcoastalhd\COSUMO\linkinpFiles\</linkinpDir>
-      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
-      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
+      <Sigma0>0.0</Sigma0>
     </data>
   </settings>
   <settings>
@@ -47,37 +51,39 @@
       <farFieldModel>Delft3D</farFieldModel>
       <preProcessFcn></preProcessFcn>
       <postProcessFcn>postProcessFcn_coupleAtVerticalMixingSpreadSinks_TVA_25mhalfS</postProcessFcn>
+      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
+      <cmxFile>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\TVA-BrownsFerry-SI-Units-1Diffuser-theta35H0172.cmx</cmxFile>
     </general>
     <comm>
-      <FF2NFdir>p:\1202339-rndcoastalhd\COSUMO\coupledInputFiles\</FF2NFdir>
-      <!-- d3d needs this info-->
-      <FFrundir>p:\1207473-tva\models\local\d3d-local-003-intake_a3m\</FFrundir>
+      <FF2NFdir>c:\code\branches\nearfield\examples\08_nf_2dis_simple\sigma\COSUMO\FF2NF\</FF2NFdir>
+      <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
+      <FFrundir>rundir</FFrundir>
     </comm>
     <data>
       <!-- Position diffusor in flow computation -->
-      <Mdiff>12</Mdiff>
-      <Ndiff>45</Ndiff>
+      <XYdiff>1350.0 850.0</XYdiff>
       <!-- Position where to get ambient conditions -->
-      <MNambient>34 789</MNambient>
-      <!-- Discharge -->
-      <M3s>69.999</M3s>
-      <!-- Temp en salinity (absolute values if Mintake = 0, otherwise dT,dS) -->
-      <T0>12.8</T0>
-      <S0>0.5 5.5 30.5</S0>
+      <XYambient>1689.34 832.789</XYambient>
+      <XYambient>1308.27 712.603</XYambient>
+      <!-- Position of the intake -->
+      <XYintake>1365.65 349.8342</XYintake>
+      <discharge>
+        <M3s>10.0</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
+        <constituents>10.0 0.0 0.0</constituents>
+      </discharge>
       <!-- Compute Rho0 from temp and salinity -->
       <!-- General cormix parameters -->
-      <D0>0.0508</D0>
       <!-- Diameter -->
-      <H0>0.0</H0>
+      <D0>2.5</D0>
       <!-- Height above the bed for Corjet; not used in Cortime input -->
-      <Theta0>0.0</Theta0>
+      <H0>3.2</H0>
       <!-- Corjet, not used for cortim -->
-      <Sigma0>140.0</Sigma0>
+      <Theta0>15.0</Theta0>
       <!-- horizontal; 0 pointing to east, 90 pointing to north -->
-      <!-- Cormix linkinp dir (path of where cormix listens for linkinp files) -->
-      <linkinpDir>.</linkinpDir>
-      <!-- Cormix Base case (path of the cmx file without the extension cmx) -->
-      <cmxFile>.</cmxFile>
+      <Sigma0>0.0</Sigma0>
     </data>
   </settings>
 </COSUMO>
