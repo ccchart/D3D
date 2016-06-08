@@ -50,11 +50,10 @@ subroutine wri_cormix(u0    ,v0    ,rho    ,thick ,kmax  ,dps   ,&
     !
     integer ,dimension(:)          , pointer :: m_diff
     integer ,dimension(:)          , pointer :: n_diff
-    integer ,dimension(:)          , pointer :: m_amb
-    integer ,dimension(:)          , pointer :: n_amb
+    integer ,dimension(:,:)        , pointer :: m_amb
+    integer ,dimension(:,:)        , pointer :: n_amb
     real(fp),dimension(:)          , pointer :: q_diff
-    real(fp),dimension(:)          , pointer :: t0_diff
-    real(fp),dimension(:)          , pointer :: s0_diff
+    real(fp),dimension(:,:)        , pointer :: const_diff
     real(fp),dimension(:)          , pointer :: rho0_diff
     real(fp),dimension(:)          , pointer :: d0
     real(fp),dimension(:)          , pointer :: h0
@@ -101,8 +100,7 @@ subroutine wri_cormix(u0    ,v0    ,rho    ,thick ,kmax  ,dps   ,&
     m_amb          => gdp%gdnfl%m_amb
     n_amb          => gdp%gdnfl%n_amb
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     rho0_diff      => gdp%gdnfl%rho0_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
@@ -120,9 +118,9 @@ subroutine wri_cormix(u0    ,v0    ,rho    ,thick ,kmax  ,dps   ,&
     call n_and_m_to_nm(n_diff(1)    , m_diff(1)     , nm_diff  , gdp)
     call n_and_m_to_nm(n_diff(1) - 1, m_diff(1)     , ndm_diff , gdp)
     call n_and_m_to_nm(n_diff(1)    , m_diff(1) - 1 , nmd_diff , gdp)
-    call n_and_m_to_nm(n_amb(1)     , m_amb(1)      , nm_amb   , gdp)
-    call n_and_m_to_nm(n_amb(1)  - 1, m_amb(1)      , ndm_amb  , gdp)
-    call n_and_m_to_nm(n_amb(1)     , m_amb(1)  - 1 , nmd_amb  , gdp)
+    call n_and_m_to_nm(n_amb(1,1)   , m_amb(1,1)    , nm_amb   , gdp)
+    call n_and_m_to_nm(n_amb(1,1)- 1, m_amb(1,1)    , ndm_amb  , gdp)
+    call n_and_m_to_nm(n_amb(1,1)   , m_amb(1,1)- 1 , nmd_amb  , gdp)
     !
     ! Compute heights above bed
     !

@@ -57,8 +57,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     integer ,dimension(:)          , pointer :: n_intake
     integer ,dimension(:)          , pointer :: k_intake
     real(fp),dimension(:)          , pointer :: q_diff
-    real(fp),dimension(:)          , pointer :: t0_diff
-    real(fp),dimension(:)          , pointer :: s0_diff
+    real(fp),dimension(:,:)        , pointer :: const_diff
     integer                        , pointer :: lunscr
     integer                        , pointer :: lundia
     logical , dimension(:)         , pointer :: flbcktemp
@@ -149,8 +148,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     n_intake       => gdp%gdnfl%n_intake
     k_intake       => gdp%gdnfl%k_intake
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     flbcktemp      => gdp%gdheat%flbcktemp
     zmodel         => gdp%gdprocs%zmodel
     !
@@ -294,13 +292,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                    if (lsal /= 0) then
                       call coupled (nlb,nub,mlb,mub   ,add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
                                   & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                      sournf (n_dis(iidis),m_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                      sournf (n_dis(iidis),m_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(const_diff(idis,2),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                    endif
                    !
                    if (ltem /= 0) then
                       call coupled (nlb,nub,mlb,mub   ,add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
                                   & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                      sournf (n_dis(iidis),m_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                      sournf (n_dis(iidis),m_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(const_diff(idis,1),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                    endif
                    !
                    do lcon = ltem + 1, lstsci
@@ -341,19 +339,19 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                    if (lsal /= 0) then
                       call coupled (nlb,nub,mlb,mub   ,add, r0 , kmax, lstsci, lsal  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
                                   & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                      sournf (n_dis(iidis),m_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(n_dis(iidis),m_dis(iidis),k)*hhi))
+                      sournf (n_dis(iidis),m_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(const_diff(idis,2),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(n_dis(iidis),m_dis(iidis),k)*hhi))
                    endif
                    !
                    if (ltem /= 0) then
                       call coupled (nlb,nub,mlb,mub   ,add, r0 , kmax, lstsci, ltem  , thick , m_intake(idis), n_intake(idis), k_intake(idis), &
                                   & s0 , dps, dzs0, kfsmn0, kfsmx0, zmodel, gdp)
-                      sournf (n_dis(iidis),m_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(n_dis(iidis),m_dis(iidis),k)*hhi))
+                      sournf (n_dis(iidis),m_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(const_diff(idis,1),eps_conc) + add)/(thick_tot/(weight(iidis)*dzs0(n_dis(iidis),m_dis(iidis),k)*hhi))
                    endif
                    !
                    do lcon = ltem + 1, lstsci
                       if ( flbcktemp(lcon) ) then
                          !
-                         ! Background temerature: discharge with the temeprature last time step in discharge point
+                         ! Background temperature: discharge with the temeprature last time step in discharge point
                          !
                          sournf (n_dis(iidis),m_dis(iidis), k, lcon,idis) = q_diff(idis) * max(r0(n_dis(iidis),m_dis(iidis),k,lcon),eps_conc)/(thick_tot/(weight(iidis)*dzs0(n_dis(iidis),m_dis(iidis),k)*hhi))
                       else

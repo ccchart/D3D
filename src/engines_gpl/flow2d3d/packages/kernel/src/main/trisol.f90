@@ -1431,10 +1431,11 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
                         & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
                         & lstsci , lsal      , ltem      , r(xz)     , &
-                        & r(yz)  , nmmax     , nflrwmode , i(kcs)    , &
+                        & r(yz)  , nmmax     , nflrwmode , &
+                        & i(kcs) , i(kfu)    , i(kfv)    , &
                         & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
                         & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &
-                        & gdp     )
+                        & r(sig) , r(sig)    , gdp       )
           if (nflrwmode==NFLWRITE .or. nflrwmode == NFLWRITEREADOLD) then
              itnflrf = itnflf + itnflri
           endif

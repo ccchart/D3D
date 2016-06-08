@@ -1,4 +1,4 @@
-subroutine det_num_dis(no_dis, gdp)
+subroutine det_num_dis(no_dis, no_amb_max, gdp)
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -57,14 +57,18 @@ subroutine det_num_dis(no_dis, gdp)
 ! Global variables
 !
     integer                :: no_dis
+    integer                :: no_amb_max
 !
 ! Local variables
 !
     integer                  :: i
+    integer                  :: j
     integer                  :: istat
     integer                  :: luntmp
+    integer                  :: no_amb
     integer, external        :: newlun
     type(tree_data), pointer :: cosumoblock_ptr
+    type(tree_data), pointer :: data_ptr
     character(300)           :: errmsg
 !
 !! executable statements -------------------------------------------------------
@@ -75,6 +79,7 @@ subroutine det_num_dis(no_dis, gdp)
     ! Initialize
     !
     no_dis = 0
+    no_amb_max = 0
     !
     ! Create Cosumo input tree
     !
@@ -97,7 +102,7 @@ subroutine det_num_dis(no_dis, gdp)
        call d3stop(1, gdp)
     endif
     !
-    call tree_get_node_by_name( cosumofile_ptr, 'COSUMO', cosumoblock_ptr )
+    call tree_get_node_by_name( cosumofile_ptr, 'cosumo', cosumoblock_ptr )
     if (.not.associated(cosumoblock_ptr)) then
        nullify(gdp%gdnfl%cosumofile_ptr)
        return
@@ -105,6 +110,16 @@ subroutine det_num_dis(no_dis, gdp)
     do i=1, size(cosumoblock_ptr%child_nodes)
        if (tree_get_name(cosumoblock_ptr%child_nodes(i)%node_ptr) == "settings") then
           no_dis = no_dis + 1
+          no_amb = 0
+          nullify(data_ptr)
+          call tree_get_node_by_name(cosumoblock_ptr%child_nodes(i)%node_ptr, 'data', data_ptr )
+          if (.not. associated(data_ptr)) cycle
+          do j=1, size(data_ptr%child_nodes)
+             if (tree_get_name(data_ptr%child_nodes(j)%node_ptr) == "xyambient") then
+                no_amb = no_amb + 1
+             endif
+          enddo
+          no_amb_max = max(no_amb_max, no_amb)
        endif
     enddo
     !

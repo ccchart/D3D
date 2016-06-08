@@ -52,8 +52,7 @@ subroutine corjet2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
     integer ,dimension(:)           , pointer :: m_diff
     integer ,dimension(:)           , pointer :: n_diff
     real(fp),dimension(:)           , pointer :: q_diff
-    real(fp),dimension(:)           , pointer :: t0_diff
-    real(fp),dimension(:)           , pointer :: s0_diff
+    real(fp),dimension(:,:)         , pointer :: const_diff
 !
 ! Global variables
 !
@@ -100,8 +99,7 @@ subroutine corjet2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     !
     allocate (x_jet(1000), stat=ierror)
     allocate (y_jet(1000), stat=ierror)

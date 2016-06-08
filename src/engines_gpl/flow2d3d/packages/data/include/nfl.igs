@@ -32,35 +32,40 @@ integer, parameter :: NFLREADOLD      = 2
 integer, parameter :: NFLWRITEREADOLD = 3
 integer, parameter :: NFLWRITEREADNEW = 4
 !
+integer, parameter :: NFLCONSTOPERATOR_ABS = 1
+integer, parameter :: NFLCONSTOPERATOR_EXC = 2
+!
 type gd_nfl
     !
     ! integers
     !
-    integer                                :: no_dis    ! number of diffusers/discharges
-    integer                                :: nflwrmode ! NFL Write/Read mode: default: NFLWRITEREADNEW
+    integer                                :: no_dis     ! number of diffusers/discharges
+    integer                                :: no_amb_max ! number of diffusers/discharges
+    integer                                :: nflwrmode  ! NFL Write/Read mode: default: NFLWRITEREADNEW
     !
     ! integer arrays
     !
-    integer , dimension(:), pointer        :: m_diff
-    integer , dimension(:), pointer        :: n_diff
-    integer , dimension(:), pointer        :: m_amb
-    integer , dimension(:), pointer        :: n_amb
-    integer , dimension(:), pointer        :: m_intake
-    integer , dimension(:), pointer        :: n_intake
-    integer , dimension(:), pointer        :: k_intake
+    integer , dimension(:)  , pointer        :: m_diff
+    integer , dimension(:)  , pointer        :: n_diff
+    integer , dimension(:)  , pointer        :: no_amb
+    integer , dimension(:,:), pointer        :: m_amb
+    integer , dimension(:,:), pointer        :: n_amb
+    integer , dimension(:)  , pointer        :: m_intake
+    integer , dimension(:)  , pointer        :: n_intake
+    integer , dimension(:)  , pointer        :: k_intake
+    integer , dimension(:)  , pointer        :: const_operator
     !
     ! Real arrays
     !
     real(fp), dimension(:)      , pointer        :: x_diff
     real(fp), dimension(:)      , pointer        :: y_diff
-    real(fp), dimension(:)      , pointer        :: x_amb
-    real(fp), dimension(:)      , pointer        :: y_amb
+    real(fp), dimension(:,:)    , pointer        :: x_amb
+    real(fp), dimension(:,:)    , pointer        :: y_amb
     real(fp), dimension(:)      , pointer        :: x_intake
     real(fp), dimension(:)      , pointer        :: y_intake
     real(fp), dimension(:)      , pointer        :: z_intake
     real(fp), dimension(:)      , pointer        :: q_diff
-    real(fp), dimension(:)      , pointer        :: t0_diff
-    real(fp), dimension(:)      , pointer        :: s0_diff
+    real(fp), dimension(:,:)    , pointer        :: const_diff
     real(fp), dimension(:)      , pointer        :: rho0_diff
     real(fp), dimension(:)      , pointer        :: d0
     real(fp), dimension(:)      , pointer        :: h0

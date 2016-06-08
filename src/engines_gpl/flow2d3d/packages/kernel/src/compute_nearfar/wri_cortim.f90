@@ -54,15 +54,14 @@ subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     !
     integer ,dimension(:)          , pointer :: m_diff
     integer ,dimension(:)          , pointer :: n_diff
-    integer ,dimension(:)          , pointer :: m_amb
-    integer ,dimension(:)          , pointer :: n_amb
+    integer ,dimension(:,:)        , pointer :: m_amb
+    integer ,dimension(:,:)        , pointer :: n_amb
     integer ,dimension(:)          , pointer :: m_intake
     integer ,dimension(:)          , pointer :: n_intake
     integer ,dimension(:)          , pointer :: k_intake
 
     real(fp),dimension(:)          , pointer :: q_diff
-    real(fp),dimension(:)          , pointer :: t0_diff
-    real(fp),dimension(:)          , pointer :: s0_diff
+    real(fp),dimension(:,:)        , pointer :: const_diff
     real(fp),dimension(:)          , pointer :: d0
     real(fp),dimension(:)          , pointer :: h0
     real(fp),dimension(:)          , pointer :: sigma0
@@ -160,8 +159,7 @@ subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     n_intake       => gdp%gdnfl%n_intake
     k_intake       => gdp%gdnfl%k_intake
     q_diff         => gdp%gdnfl%q_diff
-    s0_diff        => gdp%gdnfl%s0_diff
-    t0_diff        => gdp%gdnfl%t0_diff
+    const_diff     => gdp%gdnfl%const_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
@@ -185,9 +183,9 @@ subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     call n_and_m_to_nm(n_diff(idis)    , m_diff(idis)     , nm_diff  , gdp)
     call n_and_m_to_nm(n_diff(idis) - 1, m_diff(idis)     , ndm_diff , gdp)
     call n_and_m_to_nm(n_diff(idis)    , m_diff(idis) - 1 , nmd_diff , gdp)
-    call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)      , nm_amb   , gdp)
-    call n_and_m_to_nm(n_amb(idis)  - 1, m_amb(idis)      , ndm_amb  , gdp)
-    call n_and_m_to_nm(n_amb(idis)     , m_amb(idis)  - 1 , nmd_amb  , gdp)
+    call n_and_m_to_nm(n_amb(idis,1)   , m_amb(idis,1)    , nm_amb   , gdp)
+    call n_and_m_to_nm(n_amb(idis,1)- 1, m_amb(idis,1)    , ndm_amb  , gdp)
+    call n_and_m_to_nm(n_amb(idis,1)   , m_amb(idis,1)- 1 , nmd_amb  , gdp)
     !
     ! Compute the depths
     !
@@ -216,8 +214,8 @@ subroutine wri_cortim(u0     ,v0       ,rho       ,thick  ,kmax   ,dps    , &
     !
     ! Compute the density of the discharged water
     !
-    sal  = s0_diff(idis)
-    temp = t0_diff(idis)
+    sal  = const_diff(idis,1)
+    temp = const_diff(idis,1)
     if (lsal /= 0) then
        call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
        sal = sal + add

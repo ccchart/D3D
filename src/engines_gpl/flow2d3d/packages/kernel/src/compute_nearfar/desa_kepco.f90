@@ -56,8 +56,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     integer ,dimension(:)          , pointer :: n_intake
     integer ,dimension(:)          , pointer :: k_intake
     real(fp),dimension(:)          , pointer :: q_diff
-    real(fp),dimension(:)          , pointer :: t0_diff
-    real(fp),dimension(:)          , pointer :: s0_diff
+    real(fp),dimension(:,:)        , pointer :: const_diff
     real(fp),dimension(:,:,:)      , pointer :: disnf
     real(fp),dimension(:,:,:,:)    , pointer :: sournf
     integer                        , pointer :: lunscr
@@ -139,8 +138,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     n_intake       => gdp%gdnfl%n_intake
     k_intake       => gdp%gdnfl%k_intake
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     disnf          => gdp%gdnfl%disnf
     sournf         => gdp%gdnfl%sournf
     flbcktemp      => gdp%gdheat%flbcktemp
@@ -310,11 +308,11 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
 
                 if (lsal /= 0) then
                    call coupled (add,r0,kmax,lstsci,lsal,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
-                   sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(s0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                   sournf (nm_dis(iidis),k,lsal,idis)   = q_diff(idis) * (max(const_diff(idis,2),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 if (ltem /= 0) then
                    call coupled (add,r0,kmax,lstsci,ltem,thick,m_intake(idis),n_intake(idis),k_intake(idis),gdp)
-                   sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(t0_diff(idis),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
+                   sournf (nm_dis(iidis),k,ltem,idis)   = q_diff(idis) * (max(const_diff(idis,1),eps_conc) + add)/(thick_tot/(weight(iidis)*thick(k)))
                 endif
                 do lcon = ltem + 1, lstsci
                    if ( flbcktemp(lcon) ) then

@@ -51,6 +51,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     integer                         , pointer :: idensform
     character(256)                  , pointer :: nflmod
     integer                         , pointer :: no_dis
+    integer                         , pointer :: no_amb_max
     integer                         , pointer :: itnflri
 !
 ! Global variables
@@ -67,33 +68,35 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     idensform      => gdp%gdphysco%idensform
     nflmod         => gdp%gdnfl%nflmod
     no_dis         => gdp%gdnfl%no_dis
+    no_amb_max     => gdp%gdnfl%no_amb_max
     itnflri        => gdp%gdinttim%itnflri
     !
     ! Initialisation
     !
     select case (nflmod)
        case ('corjet','cortime','generic')
-          call det_num_dis(no_dis, gdp) !FIXME if generic actually is using xml input
+          call det_num_dis(no_dis, no_amb_max, gdp) !FIXME if generic actually is using xml input
        case ('jet3d')
           no_dis = 1
     end select
                   allocate (gdp%gdnfl%m_diff    (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%n_diff    (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%m_amb     (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%n_amb     (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%no_amb    (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%m_amb     (no_dis,no_amb_max)                         , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%n_amb     (no_dis,no_amb_max)                         , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%m_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%n_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%k_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%x_diff    (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%y_diff    (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%x_amb     (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%y_amb     (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%x_amb     (no_dis,no_amb_max)                         , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%y_amb     (no_dis,no_amb_max)                         , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%x_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%y_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%z_intake  (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%q_diff    (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%t0_diff   (no_dis)                                    , stat = istat)
-    if(istat==0)  allocate (gdp%gdnfl%s0_diff   (no_dis)                                    , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%const_operator(no_dis)                                , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%const_diff(no_dis,lstsci)                             , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%rho0_diff (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%d0        (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%h0        (no_dis)                                    , stat = istat)
@@ -111,31 +114,30 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     !         call corinp_gen(idensform,gdp)
     !   end select
     !
-    gdp%gdnfl%m_diff   = 0
-    gdp%gdnfl%n_diff   = 0
-    gdp%gdnfl%m_amb    = 0
-    gdp%gdnfl%n_amb    = 0
-    gdp%gdnfl%m_intake = 0
-    gdp%gdnfl%n_intake = 0
-    gdp%gdnfl%k_intake = 0
-    gdp%gdnfl%x_diff   = 0.0_fp
-    gdp%gdnfl%y_diff   = 0.0_fp
-    gdp%gdnfl%x_amb    = 0.0_fp
-    gdp%gdnfl%y_amb    = 0.0_fp
-    gdp%gdnfl%x_intake = 0.0_fp
-    gdp%gdnfl%y_intake = 0.0_fp
-    gdp%gdnfl%z_intake = 0.0_fp
-    gdp%gdnfl%q_diff   = 0.0_fp
-    gdp%gdnfl%t0_diff  = 0.0_fp
-    gdp%gdnfl%s0_diff  = 0.0_fp
-    gdp%gdnfl%rho0_diff= 0.0_fp
-    gdp%gdnfl%d0       = 0.0_fp
-    gdp%gdnfl%h0       = 0.0_fp
-    gdp%gdnfl%sigma0   = 0.0_fp
-    gdp%gdnfl%theta0   = 0.0_fp
-    gdp%gdnfl%basecase = ' '
-    gdp%gdnfl%disnf    = 0.0_fp
-    gdp%gdnfl%sournf   = 0.0_fp
+    gdp%gdnfl%m_diff     = 0
+    gdp%gdnfl%n_diff     = 0
+    gdp%gdnfl%m_amb      = 0
+    gdp%gdnfl%n_amb      = 0
+    gdp%gdnfl%m_intake   = 0
+    gdp%gdnfl%n_intake   = 0
+    gdp%gdnfl%k_intake   = 0
+    gdp%gdnfl%x_diff     = 0.0_fp
+    gdp%gdnfl%y_diff     = 0.0_fp
+    gdp%gdnfl%x_amb      = 0.0_fp
+    gdp%gdnfl%y_amb      = 0.0_fp
+    gdp%gdnfl%x_intake   = 0.0_fp
+    gdp%gdnfl%y_intake   = 0.0_fp
+    gdp%gdnfl%z_intake   = 0.0_fp
+    gdp%gdnfl%q_diff     = 0.0_fp
+    gdp%gdnfl%const_diff = 0.0_fp
+    gdp%gdnfl%rho0_diff  = 0.0_fp
+    gdp%gdnfl%d0         = 0.0_fp
+    gdp%gdnfl%h0         = 0.0_fp
+    gdp%gdnfl%sigma0     = 0.0_fp
+    gdp%gdnfl%theta0     = 0.0_fp
+    gdp%gdnfl%basecase   = ' '
+    gdp%gdnfl%disnf      = 0.0_fp
+    gdp%gdnfl%sournf     = 0.0_fp
     if (itnflri > 0) then
        allocate (gdp%gdnfl%waitfilesold(no_dis), stat = istat)
        gdp%gdnfl%waitfilesold = ' '

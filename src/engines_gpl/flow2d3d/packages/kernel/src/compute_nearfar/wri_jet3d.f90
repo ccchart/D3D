@@ -50,11 +50,10 @@ subroutine wri_jet3d(u0    ,v0    ,rho    ,thick ,kmax      ,dps   ,&
     !
     integer ,dimension(:)          , pointer :: m_diff
     integer ,dimension(:)          , pointer :: n_diff
-    integer ,dimension(:)          , pointer :: m_amb
-    integer ,dimension(:)          , pointer :: n_amb
+    integer ,dimension(:,:)        , pointer :: m_amb
+    integer ,dimension(:,:)        , pointer :: n_amb
     real(fp),dimension(:)          , pointer :: q_diff
-    real(fp),dimension(:)          , pointer :: t0_diff
-    real(fp),dimension(:)          , pointer :: s0_diff
+    real(fp),dimension(:,:)        , pointer :: const_diff
     real(fp),dimension(:)          , pointer :: rho0_diff
     real(fp),dimension(:)          , pointer :: d0
     real(fp),dimension(:)          , pointer :: h0
@@ -113,8 +112,7 @@ subroutine wri_jet3d(u0    ,v0    ,rho    ,thick ,kmax      ,dps   ,&
     m_amb          => gdp%gdnfl%m_amb
     n_amb          => gdp%gdnfl%n_amb
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     rho0_diff      => gdp%gdnfl%rho0_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
@@ -157,29 +155,29 @@ subroutine wri_jet3d(u0    ,v0    ,rho    ,thick ,kmax      ,dps   ,&
     ! Position where to get ambient conditions
     !
     call skipstarlines (luntmp1)
-    read (luntmp1,*) m_amb(1)
+    read (luntmp1,*) m_amb(1,1)
     call skipstarlines (luntmp1)
-    read (luntmp1,*) n_amb(1)
+    read (luntmp1,*) n_amb(1,1)
     !
-    call n_and_m_to_nm (n_amb(1)     , m_amb(1)     , nm_amb , gdp)
-    call n_and_m_to_nm (n_amb(1)  - 1, m_amb(1)     , ndm_amb, gdp)
-    call n_and_m_to_nm (n_amb(1)     , m_amb(1)  - 1, nmd_amb, gdp)
+    call n_and_m_to_nm (n_amb(1,1)     , m_amb(1,1)     , nm_amb , gdp)
+    call n_and_m_to_nm (n_amb(1,1)  - 1, m_amb(1,1)     , ndm_amb, gdp)
+    call n_and_m_to_nm (n_amb(1,1)     , m_amb(1,1)  - 1, nmd_amb, gdp)
     !
     ! Read discharge characteristics
     !
     call skipstarlines (luntmp1)
     read (luntmp1,*) q_diff(1)
     call skipstarlines (luntmp1)
-    read (luntmp1,*) t0_diff(1)
+    read (luntmp1,*) const_diff(1,1)
     call skipstarlines (luntmp1)
-    read (luntmp1,*) s0_diff(1)
+    read (luntmp1,*) const_diff(1,2)
     select case (idensform)
        case( dens_Eckart )
-          call dens_eck    (t0_diff(1), s0_diff(1),rho0_diff, dummy, dummy)
+          call dens_eck    (const_diff(1,1), const_diff(1,1),rho0_diff, dummy, dummy)
        case( dens_Unesco )
-          call dens_unes   (t0_diff(1), s0_diff(1),rho0_diff, dummy, dummy)
+          call dens_unes   (const_diff(1,1), const_diff(1,1),rho0_diff, dummy, dummy)
        case( dens_NaClSol)
-          call dens_nacl   (t0_diff(1), s0_diff(1),rho0_diff, dummy, dummy)
+          call dens_nacl   (const_diff(1,1), const_diff(1,1),rho0_diff, dummy, dummy)
     end select
     call skipstarlines (luntmp1)
     !
@@ -248,7 +246,7 @@ subroutine wri_jet3d(u0    ,v0    ,rho    ,thick ,kmax      ,dps   ,&
     enddo
     !
     read  (luntmp1,'(a256)') record
-    write (record(1:10) ,'(f10.3)') t0_diff(1)
+    write (record(1:10) ,'(f10.3)') const_diff(1,1)
     read  (record(11:20),'(f10.0)') theta
     theta = theta - flwang
     !

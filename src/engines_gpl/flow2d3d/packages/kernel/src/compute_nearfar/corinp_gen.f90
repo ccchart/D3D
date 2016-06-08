@@ -52,14 +52,14 @@ subroutine corinp_gen(idensform, gdp)
     integer                      , pointer :: no_dis
     integer       ,dimension(:)  , pointer :: m_diff
     integer       ,dimension(:)  , pointer :: n_diff
-    integer       ,dimension(:)  , pointer :: m_amb
-    integer       ,dimension(:)  , pointer :: n_amb
+    integer       ,dimension(:)  , pointer :: no_amb
+    integer       ,dimension(:,:), pointer :: m_amb
+    integer       ,dimension(:,:), pointer :: n_amb
     integer       ,dimension(:)  , pointer :: m_intake
     integer       ,dimension(:)  , pointer :: n_intake
     integer       ,dimension(:)  , pointer :: k_intake
     real(fp)      ,dimension(:)  , pointer :: q_diff
-    real(fp)      ,dimension(:)  , pointer :: t0_diff
-    real(fp)      ,dimension(:)  , pointer :: s0_diff
+    real(fp)      ,dimension(:,:), pointer :: const_diff
     real(fp)      ,dimension(:)  , pointer :: d0
     real(fp)      ,dimension(:)  , pointer :: h0
     real(fp)      ,dimension(:)  , pointer :: sigma0
@@ -83,14 +83,14 @@ subroutine corinp_gen(idensform, gdp)
     no_dis         => gdp%gdnfl%no_dis
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
+    no_amb         => gdp%gdnfl%no_amb
     m_amb          => gdp%gdnfl%m_amb
     n_amb          => gdp%gdnfl%n_amb
     m_intake       => gdp%gdnfl%m_intake
     n_intake       => gdp%gdnfl%n_intake
     k_intake       => gdp%gdnfl%k_intake
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
@@ -124,9 +124,9 @@ subroutine corinp_gen(idensform, gdp)
        ! Read position ambient conditions
        !
        call skipstarlines (luntmp)
-       read (luntmp,*) m_amb(idis)
+       read (luntmp,*) m_amb(idis,1)
        call skipstarlines (luntmp)
-       read (luntmp,*) n_amb(idis)
+       read (luntmp,*) n_amb(idis,1)
        !
        ! Read intake location
        !
@@ -142,9 +142,9 @@ subroutine corinp_gen(idensform, gdp)
        call skipstarlines (luntmp)
        read (luntmp,*) q_diff(idis)
        call skipstarlines (luntmp)
-       read (luntmp,*) t0_diff(idis)
+       read (luntmp,*) const_diff(idis,1)
        call skipstarlines (luntmp)
-       read (luntmp,*) s0_diff(idis)
+       read (luntmp,*) const_diff(idis,2)
        !
        ! Read remainder of cormix general input
        !

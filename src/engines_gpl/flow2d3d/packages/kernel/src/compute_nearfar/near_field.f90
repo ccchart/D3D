@@ -1,10 +1,11 @@
 subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                     & kmax   ,alfas  ,dps      ,s0     , &
                     & lstsci ,lsal   ,ltem     ,xz     , &
-                    & yz     ,nmmax  ,nflrwmode,kcs    , &
+                    & yz     ,nmmax  ,nflrwmode, &
+                    & kcs    ,kfu    ,kfv      , &
                     & r0     ,time   ,saleqs   ,temeqs , &
                     & s1     ,kfsmn0 ,kfsmx0   ,dzs0   , &
-                    & gdp   )
+                    & sig    ,zk     ,gdp   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -74,21 +75,21 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                            , pointer :: no_dis
     integer       , dimension(:)       , pointer :: m_diff
     integer       , dimension(:)       , pointer :: n_diff
-    integer       , dimension(:)       , pointer :: m_amb
-    integer       , dimension(:)       , pointer :: n_amb
+    integer       , dimension(:)       , pointer :: no_amb
+    integer       , dimension(:,:)     , pointer :: m_amb
+    integer       , dimension(:,:)     , pointer :: n_amb
     integer       , dimension(:)       , pointer :: m_intake
     integer       , dimension(:)       , pointer :: n_intake
     integer       , dimension(:)       , pointer :: k_intake
     real(fp)      , dimension(:)       , pointer :: x_diff
     real(fp)      , dimension(:)       , pointer :: y_diff
-    real(fp)      , dimension(:)       , pointer :: x_amb
-    real(fp)      , dimension(:)       , pointer :: y_amb
+    real(fp)      , dimension(:,:)     , pointer :: x_amb
+    real(fp)      , dimension(:,:)     , pointer :: y_amb
     real(fp)      , dimension(:)       , pointer :: x_intake
     real(fp)      , dimension(:)       , pointer :: y_intake
     real(fp)      , dimension(:)       , pointer :: z_intake
     real(fp)      , dimension(:)       , pointer :: q_diff
-    real(fp)      , dimension(:)       , pointer :: t0_diff
-    real(fp)      , dimension(:)       , pointer :: s0_diff
+    real(fp)      , dimension(:,:)     , pointer :: const_diff
     real(fp)      , dimension(:)       , pointer :: rho0_diff
     real(fp)      , dimension(:)       , pointer :: d0
     real(fp)      , dimension(:)       , pointer :: h0
@@ -128,7 +129,9 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)                                                                      , intent(in)         :: time
     real(fp)                                                                      , intent(in)         :: saleqs
     real(fp)                                                                      , intent(in)         :: temeqs
-    integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kcs      !
+    integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kcs
+    integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfu
+    integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfv
     integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfsmn0   !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfsmx0   !  Description and declaration in esm_alloc_int.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: alfas    !
@@ -142,11 +145,14 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(in), target :: v0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax,lstsci) , intent(in), target :: r0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(kmax)                                                  , intent(in)         :: thick    !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(kmax)                                                  , intent(in)         :: sig      !  Vertical coordinates of cell interfaces (SIGMA-MODEL)
+    real(fp)   , dimension(0:kmax)                                                , intent(in)         :: zk       !  Vertical coordinates of cell interfaces (Z-MODEL)
     real(prec) , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: dps      !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
 !
     integer                                             :: i
+    integer                                             :: iamb
     integer                                             :: idis
     integer                                             :: ierror
     integer                                             :: ii
@@ -176,6 +182,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp), dimension(no_jet_max)                     :: h_jet
     real(fp), dimension(no_jet_max)                     :: b_jet
     integer , dimension(:,:)      , allocatable, target :: glb_kcs
+    integer , dimension(:,:)      , allocatable, target :: glb_kfu
+    integer , dimension(:,:)      , allocatable, target :: glb_kfv
     integer , dimension(:,:)      , allocatable, target :: glb_kfsmx0
     integer , dimension(:,:)      , allocatable, target :: glb_kfsmn0
     real(fp), dimension(:,:)      , allocatable, target :: glb_alfas
@@ -192,6 +200,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_disnf
     real(fp), dimension(:,:,:,:,:), allocatable, target :: glb_sournf
     integer , dimension(:,:)      , pointer             :: kcs_ptr
+    integer , dimension(:,:)      , pointer             :: kfu_ptr
+    integer , dimension(:,:)      , pointer             :: kfv_ptr
     integer , dimension(:,:)      , pointer             :: kfsmx0_ptr
     integer , dimension(:,:)      , pointer             :: kfsmn0_ptr
     real(fp), dimension(:,:)      , pointer             :: alfas_ptr
@@ -226,6 +236,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     no_dis         => gdp%gdnfl%no_dis
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
+    no_amb         => gdp%gdnfl%no_amb
     m_amb          => gdp%gdnfl%m_amb
     n_amb          => gdp%gdnfl%n_amb
     m_intake       => gdp%gdnfl%m_intake
@@ -239,8 +250,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     y_intake       => gdp%gdnfl%y_intake
     z_intake       => gdp%gdnfl%z_intake
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     rho0_diff      => gdp%gdnfl%rho0_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
@@ -284,6 +294,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        ! The parameter is undefined for the other partitions
        !
        call dfgather(kcs   , glb_kcs   , nf, nl, mf, ml, iarrc, gdp)
+       call dfgather(kfu   , glb_kfu   , nf, nl, mf, ml, iarrc, gdp)
+       call dfgather(kfv   , glb_kfv   , nf, nl, mf, ml, iarrc, gdp)
        call dfgather(kfsmx0, glb_kfsmx0, nf, nl, mf, ml, iarrc, gdp)
        call dfgather(kfsmn0, glb_kfsmn0, nf, nl, mf, ml, iarrc, gdp)
        call dfgather(alfas , glb_alfas , nf, nl, mf, ml, iarrc, gdp)
@@ -319,6 +331,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        mlb = gdp%d%mlb
        mub = gdp%d%mub
        kcs_ptr    => kcs
+       kfu_ptr    => kfu
+       kfv_ptr    => kfv
        kfsmx0_ptr => kfsmx0
        kfsmn0_ptr => kfsmn0
        alfas_ptr  => alfas
@@ -428,7 +442,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                 waitfiles = ' '
                 write(cctime,'(f14.3)') time/60.0_fp
                 !
-                ! Read the general information from the nff2ff.xml file every time a cortime simulation is requested.
+                ! Read the general information from the settings.xml file every time a cortime simulation is requested.
                 ! This allows for restarting of cormix on a different pc (request Robin Morelissen)
                 !    
                 call corinp_gen2(error,gdp)
@@ -440,10 +454,12 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                               & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
                               & thick  ,kmax      ,x_diff(idis),y_diff(idis),0.0_fp ,n_diff(idis), m_diff(idis), &
                               & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
-                   call findnmk(nlb    ,nub       ,mlb         ,mub         , &
-                              & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
-                              & thick  ,kmax      ,x_amb(idis) ,y_amb(idis) ,0.0_fp ,n_amb(idis), m_amb(idis), &
-                              & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                   do iamb = 1, no_amb(idis)
+                      call findnmk(nlb    ,nub       ,mlb         ,mub         , &
+                                 & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
+                                 & thick  ,kmax      ,x_amb(idis,iamb) ,y_amb(idis,iamb) ,0.0_fp ,n_amb(idis,iamb), m_amb(idis,iamb), &
+                                 & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                   enddo
                    call findnmk(nlb           ,nub       ,mlb           ,mub           , &
                               & xz_ptr        ,yz_ptr    ,dps_ptr       ,s0_ptr        ,kcs_ptr, &
                               & thick         ,kmax      ,x_intake(idis),y_intake(idis),z_intake(idis),n_intake(idis), m_intake(idis), &
@@ -469,6 +485,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
                                 & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
                                 & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
+                                & sig       ,zk        ,kfu_ptr  ,kfv_ptr  , &
                                 & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
                                 & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
                                 & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,gdp    )

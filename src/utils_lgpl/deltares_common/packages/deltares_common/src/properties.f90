@@ -636,6 +636,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
        !
        ! Create a node for the tag itself
        !
+       call lowercase(xmltag,999)
        call tree_create_node(xmllevel(xmlinfo%level-1)%node_ptr, trim(xmltag), xmllevel(xmlinfo%level)%node_ptr)
        do k=1,noattribs
           !
@@ -643,6 +644,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
           ! The only difference between an attribute and a child tag is the type specification: "STRING:XMLATTRIBUTE" vs "STRING:XMLDATA"
           ! The type specification must start with STRING (needed in tree_struct)
           !
+          call lowercase(xmlattribs(1,k),999)
           call tree_create_node(xmllevel(xmlinfo%level)%node_ptr, trim(xmlattribs(1,k)), xmllevel(xmlinfo%level+1)%node_ptr)
           call tree_put_data(xmllevel(xmlinfo%level+1)%node_ptr, transfer(trim(xmlattribs(2,k)),node_value), "STRING:XMLATTRIBUTE")
        enddo

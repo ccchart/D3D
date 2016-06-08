@@ -170,6 +170,7 @@ examples/08_nf_2dis_simple/sigma/2dis.enc -text
 examples/08_nf_2dis_simple/sigma/2dis.grd -text
 examples/08_nf_2dis_simple/sigma/2dis.mdf -text
 examples/08_nf_2dis_simple/sigma/2dis.obs -text
+examples/08_nf_2dis_simple/sigma/COSUMO/FF2NF/FF2NF_2dis_001_SubMod001_5.000_example.xml -text
 examples/08_nf_2dis_simple/sigma/COSUMO/NF2FF/NF2FF_2dis_001_SubMod001_0.000.txt -text
 examples/08_nf_2dis_simple/sigma/COSUMO/NF2FF/NF2FF_2dis_001_SubMod001_10.000.txt -text
 examples/08_nf_2dis_simple/sigma/COSUMO/NF2FF/NF2FF_2dis_001_SubMod001_14.000.txt -text

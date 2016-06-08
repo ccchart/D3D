@@ -40,6 +40,7 @@ subroutine corinp_gen2(error, gdp)
 !
     use precision
     use properties
+    use string_module
     !
     use globaldata
     !
@@ -51,17 +52,20 @@ subroutine corinp_gen2(error, gdp)
     ! They replace the  include igd / include igp lines
     !
     integer                      , pointer :: lundia
+    integer                      , pointer :: lstsc
     integer                      , pointer :: no_dis
+    integer                      , pointer :: no_amb_max
+    integer       ,dimension(:)  , pointer :: no_amb
+    integer       ,dimension(:)  , pointer :: const_operator
     real(fp)      ,dimension(:)  , pointer :: x_diff
     real(fp)      ,dimension(:)  , pointer :: y_diff
-    real(fp)      ,dimension(:)  , pointer :: x_amb
-    real(fp)      ,dimension(:)  , pointer :: y_amb
+    real(fp)      ,dimension(:,:), pointer :: x_amb
+    real(fp)      ,dimension(:,:), pointer :: y_amb
     real(fp)      ,dimension(:)  , pointer :: x_intake
     real(fp)      ,dimension(:)  , pointer :: y_intake
     real(fp)      ,dimension(:)  , pointer :: z_intake
     real(fp)      ,dimension(:)  , pointer :: q_diff
-    real(fp)      ,dimension(:)  , pointer :: t0_diff
-    real(fp)      ,dimension(:)  , pointer :: s0_diff
+    real(fp)      ,dimension(:,:), pointer :: const_diff
     real(fp)      ,dimension(:)  , pointer :: d0
     real(fp)      ,dimension(:)  , pointer :: h0
     real(fp)      ,dimension(:)  , pointer :: sigma0
@@ -77,23 +81,30 @@ subroutine corinp_gen2(error, gdp)
 !
 ! Local variables
 !
-    integer                :: luntmp
-    integer, external      :: newlun
-    integer                :: i
-    integer                :: idis
-    integer                :: istat
-    integer                :: no_dis_read
-    real(sp)               :: version
-    character(1)           :: slash
-    character(300)         :: cdummy
-    character(300)         :: errmsg
-    type(tree_data), pointer :: cosumoblock_ptr
-    type(tree_data), pointer :: node_ptr
+    integer                             :: luntmp
+    integer, external                   :: newlun
+    integer                             :: i
+    integer                             :: j
+    integer                             :: idis
+    integer                             :: istat
+    integer                             :: no_dis_read
+    real(sp)                            :: version
+    real(hp), dimension(:), allocatable :: r_input
+    character(1)                        :: slash
+    character(300)                      :: cdummy
+    character(300)                      :: errmsg
+    type(tree_data), pointer            :: cosumoblock_ptr
+    type(tree_data), pointer            :: data_ptr
+    type(tree_data), pointer            :: node_ptr
 !
 !! executable statements -------------------------------------------------------
 !
     lundia         => gdp%gdinout%lundia
+    lstsc          => gdp%d%lstsc
     no_dis         => gdp%gdnfl%no_dis
+    no_amb_max     => gdp%gdnfl%no_amb_max
+    no_amb         => gdp%gdnfl%no_amb
+    const_operator => gdp%gdnfl%const_operator
     x_diff         => gdp%gdnfl%x_diff
     y_diff         => gdp%gdnfl%y_diff
     x_amb          => gdp%gdnfl%x_amb
@@ -102,8 +113,7 @@ subroutine corinp_gen2(error, gdp)
     y_intake       => gdp%gdnfl%y_intake
     z_intake       => gdp%gdnfl%z_intake
     q_diff         => gdp%gdnfl%q_diff
-    t0_diff        => gdp%gdnfl%t0_diff
-    s0_diff        => gdp%gdnfl%s0_diff
+    const_diff     => gdp%gdnfl%const_diff
     d0             => gdp%gdnfl%d0
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
@@ -112,6 +122,7 @@ subroutine corinp_gen2(error, gdp)
     basecase       => gdp%gdnfl%basecase
     filename       => gdp%gdnfl%infile
     !
+    allocate(r_input(max(2,gdp%d%lstsc)), stat=istat)
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
     else
@@ -156,7 +167,7 @@ subroutine corinp_gen2(error, gdp)
        cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
     endif
     !
-    call tree_get_node_by_name( cosumofile_ptr, 'COSUMO', cosumoblock_ptr )
+    call tree_get_node_by_name( cosumofile_ptr, 'cosumo', cosumoblock_ptr )
     if (.not.associated(cosumoblock_ptr)) then
        write(lundia, '(a)') "ERROR: Tag '<COSUMO>' not found"
        error = .true.
@@ -171,10 +182,12 @@ subroutine corinp_gen2(error, gdp)
     enddo
     if (no_dis_read /= no_dis) then
        write(lundia,'(a,i0)') "ERROR: Unexpected number of discharges read: ", no_dis_read
+       error = .true.
     endif
-    call prop_get(cosumofile_ptr, 'COSUMO/Fileversion', version)
+    call prop_get(cosumofile_ptr, 'COSUMO/fileVersion', version)
     if (comparereal(version, 0.3_sp)) then
        write(lundia,'(a,f5.2)') "ERROR: Unexpected FileVersion number read: ", version
+       error = .true.
     endif
     !
     idis = 0
@@ -185,34 +198,66 @@ subroutine corinp_gen2(error, gdp)
        !
        ! Read position diffusor
        !
-       call prop_get(node_ptr, 'data/Xdiff', x_diff(idis))
-       call prop_get(node_ptr, 'data/Ydiff', y_diff(idis))
+       r_input = -999.0_fp
+       call prop_get(node_ptr, 'data/xydiff', r_input, 2)
+       x_diff(idis) = r_input(1)
+       y_diff(idis) = r_input(2)
        !
-       ! Read position ambient conditions
+       ! Read positions ambient conditions
        !
-       call prop_get(node_ptr, 'data/Xambient', x_amb(idis))
-       call prop_get(node_ptr, 'data/Yambient', y_amb(idis))
+       no_amb(idis) = 0
+       nullify(data_ptr)
+       call tree_get_node_by_name(cosumoblock_ptr%child_nodes(i)%node_ptr, 'data', data_ptr )
+       if (.not. associated(data_ptr)) then
+          write(lundia,'(a)') "ERROR: <settings> block does not contain a <data> block."
+          error = .true.
+          cycle
+       endif
+       do j=1, size(data_ptr%child_nodes)
+          if (tree_get_name(data_ptr%child_nodes(j)%node_ptr) == "xyambient") then
+             no_amb(idis) = no_amb(idis) + 1
+             r_input = -999.0_fp
+             call prop_get(data_ptr%child_nodes(j)%node_ptr, 'xyambient', r_input, 2)
+             x_amb(idis,no_amb(idis)) = r_input(1)
+             y_amb(idis,no_amb(idis)) = r_input(2)
+          endif
+       enddo
        !
        ! Read intake location
        !
-       call prop_get(node_ptr, 'data/Xintake', x_intake(idis))
-       call prop_get(node_ptr, 'data/Yintake', y_intake(idis))
-       call prop_get(node_ptr, 'data/Zintake', z_intake(idis))
+       r_input = -999.0_fp
+       call prop_get(node_ptr, 'data/xyintake', r_input, 2)
+       x_intake(idis) = r_input(1)
+       y_intake(idis) = r_input(2)
        !
        ! Read discharge characteristics
        !
-       call prop_get(node_ptr, 'data/M3s', q_diff(idis))
-       call prop_get(node_ptr, 'data/T0', t0_diff(idis))
-       call prop_get(node_ptr, 'data/S0', s0_diff(idis))
+       call prop_get(node_ptr, 'data/discharge/m3s', q_diff(idis))
+       cdummy = ' '
+       call prop_get(node_ptr, 'data/discharge/constituentsoperator', cdummy)
+       call str_lower(cdummy)
+       if (cdummy == "absolute") then
+          const_operator(idis) = NFLCONSTOPERATOR_ABS
+       elseif (cdummy == "excess") then
+          const_operator(idis) = NFLCONSTOPERATOR_EXC
+       else
+          write(lundia,'(a)') "ERROR: '<settings> / <data> / <discharge> / <constituentsOperator>' expected with value 'excess' or 'absolute'"
+          error = .true.
+       endif
+       r_input = -999.0_fp
+       call prop_get(node_ptr, 'data/discharge/constituents', r_input, lstsc)
+       do j=1,lstsc
+          const_diff(idis,j) = r_input(j)
+       enddo
        !
        ! Read remainder of cormix general input
        !
-       call prop_get(node_ptr, 'data/D0', d0(idis))
-       call prop_get(node_ptr, 'data/H0', h0(idis))
-       call prop_get(node_ptr, 'data/Theta0', theta0(idis))
-       call prop_get(node_ptr, 'data/Sigma0', sigma0(idis))
-       call prop_get(node_ptr, 'comm/FF2NFdir', base_path(idis))
-       call prop_get(node_ptr, 'comm/FFrundir', basecase(idis,1))
+       call prop_get(node_ptr, 'data/d0', d0(idis))
+       call prop_get(node_ptr, 'data/h0', h0(idis))
+       call prop_get(node_ptr, 'data/theta0', theta0(idis))
+       call prop_get(node_ptr, 'data/sigma0', sigma0(idis))
+       call prop_get(node_ptr, 'comm/ff2nfdir', base_path(idis))
+       call prop_get(node_ptr, 'comm/ffrundir', basecase(idis,1))
        if (trim(basecase(idis,1)) == "rundir") then
           call getcwd(cdummy)
           basecase(idis,1) = trim(cdummy)//slash
@@ -224,4 +269,5 @@ subroutine corinp_gen2(error, gdp)
     ! This will force rereading the Cosumo file at the next Cosumo calculation
     !
     call tree_destroy(gdp%gdnfl%cosumofile_ptr)
+    deallocate(r_input, stat=istat)
 end subroutine corinp_gen2

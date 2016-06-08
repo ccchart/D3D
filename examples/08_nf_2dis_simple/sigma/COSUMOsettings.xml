@@ -28,8 +28,8 @@
       <discharge>
         <M3s>10.0</M3s>
         <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
-             Operator: "absolute" values or "additional" (dT,dS,d..) -->
-        <constituentsOperator>additional</constituentsOperator>
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
         <constituents>10.0 0.0 0.0</constituents>
       </discharge>
       <!-- Compute Rho0 from temp and salinity -->
@@ -70,8 +70,8 @@
       <discharge>
         <M3s>10.0</M3s>
         <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
-             Operator: "absolute" values or "additional" (dT,dS,d..) -->
-        <constituentsOperator>additional</constituentsOperator>
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
         <constituents>10.0 0.0 0.0</constituents>
       </discharge>
       <!-- Compute Rho0 from temp and salinity -->
