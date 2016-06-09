@@ -1,19 +1,19 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <NF2FF>
+  <fileVersion>0.3</fileVersion>
   <!--'discharge' or 'velocity'-->
-  <Parameter>
-    discharge
-    </Parameter>
-  <!--Initial value of discharge/velocity-->
-  <QU0>
-    40
-    </QU0>
-  <!--Initial 'concentrations' of the constituents (order: temperature, salinity, tracers/sediments)-->
-  <CONSTIT0>
-    8.2 0 1.0
-   </CONSTIT0>
-  <!--Type of discharge; 'normal' (i.e. absolute T or S) or 'io' for coupled intake-outfall (i.e. dT, dS). In case of 'normal', the intakes will still extract water.-->
-  <Type>io</Type>
+  <discharge>
+    <M3s>40.0</M3s>
+    <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+         Operator: "absolute" values or "excess" (dT,dS,d..) -->
+    <constituentsOperator>excess</constituentsOperator>
+    <constituents>8.2 0.0 1.0</constituents>
+  </discharge>
+  <velocity>
+    <!-- Not implemented yet -->
+    <!-- This velocity block is added here as an example
+         COSUMO should produce a file that ONLY contains a discharge block OR a velocity block -->
+  </velocity>
   <NFResult>
     <!--Intake(s) - total Q0(/U0?) will be taken from these locations and distributed over the number of rows of intakes. This water will be directly distributed over the sources (complimented with the entrained water from the sinks, if any).-->
     <intakes>488662.865	3839942.388	     7.240

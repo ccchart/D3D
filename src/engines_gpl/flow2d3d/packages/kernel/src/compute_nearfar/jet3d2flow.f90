@@ -162,12 +162,12 @@ subroutine jet3d2flow(thick  ,kmax   ,dps    ,s0     ,r0       ,          &
     !
     ! Fill sources and sinks following the Desa Method of Prof. Lee
     !
-    call desa(x_jet      ,y_jet       ,z_jet     ,s_jet      ,nrow    , &
-            & kcs        ,xz          ,yz        ,dps        ,s0      , &
-            & nmmax      ,thick       ,kmax      ,lstsci     ,lsal    , &
-            & ltem       ,h_jet       ,b_jet     ,v_jet      ,1       , &
-            & rdum(1)    ,rdum(2)     ,rdum(3)   ,rdum(4)    ,r0      , &
-            & linkinf ,gdp     )
+    !call desa(x_jet      ,y_jet       ,z_jet     ,s_jet      ,nrow    , &
+    !        & kcs        ,xz          ,yz        ,dps        ,s0      , &
+    !        & nmmax      ,thick       ,kmax      ,lstsci     ,lsal    , &
+    !        & ltem       ,h_jet       ,b_jet     ,v_jet      ,1       , &
+    !        & rdum(1)    ,rdum(2)     ,rdum(3)   ,rdum(4)    ,r0      , &
+    !        & linkinf ,gdp     )
     !
     ! Deallocate temporary arrays
     !

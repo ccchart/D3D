@@ -144,4 +144,11 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     else
        nullify(gdp%gdnfl%waitfilesold)
     endif
+    gdp%gdnfl%nf_discharge = -999.0_fp
+    gdp%gdnfl%nf_const_operator = -999
+    gdp%gdnfl%nf_const          = -999.0_fp
+    gdp%gdnfl%nf_sour_impulse   = .false.
+    nullify(gdp%gdnfl%nf_intake)
+    nullify(gdp%gdnfl%nf_sink)
+    nullify(gdp%gdnfl%nf_sour)
 end subroutine init_nfl

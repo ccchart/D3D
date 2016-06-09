@@ -113,10 +113,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: nf
     integer       , dimension(:)       , pointer :: nl
     logical                            , pointer :: zmodel
-
-! Parameters
-!
-    integer, parameter :: no_jet_max = 10000
 !
 ! Global variables
 !
@@ -165,7 +161,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nlb
     integer                                             :: nub
     integer                                             :: nm
-    integer                                             :: no_val
     integer                                             :: k_dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
@@ -175,12 +170,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)                                            :: xend
     real(fp)                                            :: ystart
     real(fp)                                            :: yend
-    real(fp), dimension(no_jet_max)                     :: x_jet
-    real(fp), dimension(no_jet_max)                     :: y_jet
-    real(fp), dimension(no_jet_max)                     :: z_jet
-    real(fp), dimension(no_jet_max)                     :: s_jet
-    real(fp), dimension(no_jet_max)                     :: h_jet
-    real(fp), dimension(no_jet_max)                     :: b_jet
     integer , dimension(:,:)      , allocatable, target :: glb_kcs
     integer , dimension(:,:)      , allocatable, target :: glb_kfu
     integer , dimension(:,:)      , allocatable, target :: glb_kfv
@@ -476,7 +465,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    write(c_idis,'(i3.3)') idis
                    !
                    filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
-                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.txt'
+                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
                    filename(3) = trim(basecase(idis,1))
                    waitfiles(idis) = filename(2)
                    !
@@ -515,18 +504,24 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    if (idis == 0) exit
                    !
-                   no_val=size(x_jet)
-                   call nf_2_flow(filename(2),x_jet,y_jet,z_jet,s_jet,h_jet,b_jet, no_val)               
+                   call nf_2_flow(filename(2), error, gdp)
                    !
                    ! Fill sources and sinks following the Desa Method of Prof. Lee
                    !
                    call desa(nlb     ,nub      ,mlb       ,mub       ,kmax      , &
-                           & lstsci  ,no_dis   ,no_val    ,lsal      ,ltem      , &
-                           & idis    ,thick    ,xstart    ,xend      ,ystart    , &
-                           & yend    ,x_jet    ,y_jet     ,z_jet     ,s_jet     , &
-                           & h_jet   ,b_jet    ,kcs_ptr   ,xz_ptr    ,yz_ptr    , &
+                           & lstsci  ,no_dis   ,lsal      ,ltem      , &
+                           & idis    ,thick    , &
+                           & kcs_ptr   ,xz_ptr    ,yz_ptr    , &
                            & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr,kfsmx0_ptr, &
                            & dzs0_ptr,glb_disnf,glb_sournf,linkinf   , gdp      )
+                   deallocate(gdp%gdnfl%nf_const , stat=ierror)
+                   deallocate(gdp%gdnfl%nf_intake, stat=ierror)
+                   deallocate(gdp%gdnfl%nf_sink  , stat=ierror)
+                   deallocate(gdp%gdnfl%nf_sour  , stat=ierror)
+                   nullify(gdp%gdnfl%nf_const)
+                   nullify(gdp%gdnfl%nf_intake)
+                   nullify(gdp%gdnfl%nf_sink)
+                   nullify(gdp%gdnfl%nf_sour)
                 enddo
              endif
              if (nflrwmode==NFLWRITE .or. nflrwmode==NFLWRITEREADOLD) then

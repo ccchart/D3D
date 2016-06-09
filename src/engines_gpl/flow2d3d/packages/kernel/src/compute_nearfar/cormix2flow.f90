@@ -141,10 +141,10 @@ subroutine cormix2flow(thick  ,kmax  ,dps   ,s0    ,disch_nf ,sour_nf , &
     !
     ! Fill sources and sinks following the Desa Method of Prof. Lee
     !
-    call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
-            & kcs     ,xz       ,yz      ,dps     ,s0      , &
-            & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
-            & ltem    ,disch_nf ,sour_nf ,1       ,gdp     )
+    !call desa(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
+    !        & kcs     ,xz       ,yz      ,dps     ,s0      , &
+    !        & nmmax   ,thick    ,kmax    ,lstsci  ,lsal    , &
+    !        & ltem    ,disch_nf ,sour_nf ,1       ,gdp     )
     !
     ! Deallocate temporary arrays
     !
