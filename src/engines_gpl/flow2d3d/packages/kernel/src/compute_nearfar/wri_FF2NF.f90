@@ -52,6 +52,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     ! The following list of pointer parameters is used to point inside the gdp structure
     ! They replace the  include igd / include igp lines
     !
+    integer                        , pointer :: lundia
     integer                        , pointer :: lstsc
     integer ,dimension(:)          , pointer :: m_diff
     integer ,dimension(:)          , pointer :: n_diff
@@ -162,6 +163,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     character(12)                          :: cdrohj
     character(12)                          :: ctaua
     character(12)                          :: inttostring
+    character(20)                          :: rundat       ! Current date and time containing a combination of DATE and TIME
     character(1000)                        :: string
     character(256), external               :: windows_path
     type(tree_data)              , pointer :: outfile_ptr
@@ -173,6 +175,7 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
 !
 !! executable statements -------------------------------------------------------
 !
+    lundia         => gdp%gdinout%lundia
     lstsc          => gdp%d%lstsc
     m_diff         => gdp%gdnfl%m_diff
     n_diff         => gdp%gdnfl%n_diff
@@ -343,6 +346,13 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     string = trim(gdp%runid) // '.mdf'
     call tree_create_node(node_ptr, 'FFinputFile', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    call getfullversionstring_flow2d3d(string)
+    call dattim(rundat)
+    call random_seed()
+    call random_number(dummy)
+    write(string,'(3a,f25.22)') trim(string), '::', trim(rundat), dummy
+    call tree_create_node(node_ptr, 'FFuniqueID', subnode_ptr)
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     !
     call tree_create_node(cosumo_ptr, 'SubgridModel', subgrid_ptr)
     write(string,'(i0)') idis
@@ -445,7 +455,11 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     !
     write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
     luntmp = newlun(gdp)
-    open (luntmp,file=trim(filename(1)),status='new')
+    open (luntmp, file=trim(filename(1)), status='new', iostat=istat)
+    if (istat /= 0) then
+       write(lundia,'(3a)') "ERRROR: file '", trim(filename(1)), "' already exists."
+       call d3stop(1,gdp)
+    endif
     call prop_write_xmlfile(luntmp, outfile_ptr, 0, istat)
     close (luntmp)
     !

@@ -62,21 +62,23 @@ subroutine nf_2_flow(filename, error, gdp)
 !
 ! Local variables
 !
-    integer                             :: i
-    integer                             :: idim
-    integer                             :: ierror
-    integer                             :: istat
-    integer                             :: numrealonline
-    real(sp)                            :: version
-    real(hp), dimension(:), allocatable :: r_input
-    character(50)                       :: key
-    character(300)                      :: cdummy
-    character(300)                      :: errmsg
-    character(1000)                     :: line
-    type(tree_data), pointer            :: file_ptr
-    type(tree_data), pointer            :: nf2ff_ptr
-    type(tree_data), pointer            :: data_ptr
-    type(tree_data), pointer            :: node_ptr
+    integer                                :: i
+    integer                                :: idim
+    integer                                :: ierror
+    integer                                :: istat
+    integer                                :: numrealonline
+    real(sp)                               :: version
+    real(hp), dimension(:), allocatable    :: r_input
+    character(40)                          :: type_string
+    character(50)                          :: key
+    character(300)                         :: cdummy
+    character(300)                         :: errmsg
+    character(1000)                        :: line
+    character(len=1), dimension(:),pointer :: data_ptr
+    type(tree_data), pointer               :: file_ptr
+    type(tree_data), pointer               :: nf2ff_ptr
+    type(tree_data), pointer               :: nfresult_ptr
+    type(tree_data), pointer               :: node_ptr
 !
 !! executable statements -------------------------------------------------------
 !
@@ -150,55 +152,96 @@ subroutine nf_2_flow(filename, error, gdp)
        nf_const(i) = r_input(i)
     enddo
     !
+    call tree_get_node_by_name(nf2ff_ptr, 'nfresult', nfresult_ptr)
+    !
     ! Intakes
     ! dim2=3: X,Y,Z
     ! The number of lines is stored as the data in intakes itself
     ! The data is stored in childnodes with name 1, 2, 3, ...
     !
-    call prop_get(file_ptr, 'NF2FF/NFResult/intakes', idim)
+    idim = 0
+    call tree_get_node_by_name(nfresult_ptr, 'intakes', node_ptr)
+    if (associated(node_ptr)) then
+       call tree_get_data_ptr(node_ptr, data_ptr, type_string)
+       if (type_string == "STRING:XMLNUMDATALINES") then
+          call prop_get(file_ptr, 'NF2FF/NFResult/intakes', idim)
+       else
+          idim = 1
+       endif
+    endif
     allocate (gdp%gdnfl%nf_intake(idim,3), stat = istat)
     nf_intake => gdp%gdnfl%nf_intake
-    do i=1,idim
-       write(key,'(a,i0)') 'NF2FF/NFResult/intakes/', i
-       call prop_get(file_ptr, trim(key), nf_intake(i,:), 3)
-    enddo
+    if (idim == 1) then
+       call prop_get(file_ptr, 'NF2FF/NFResult/intakes', nf_intake(idim,:), 3)
+    else
+       do i=1,idim
+          write(key,'(a,i0)') 'NF2FF/NFResult/intakes/', i
+          call prop_get(file_ptr, trim(key), nf_intake(i,:), 3)
+       enddo
+    endif
     !
     ! Sinks
     ! dim2=6: X,Y,Z,S,H,B
     ! The number of lines is stored as the data in intakes itself
     ! The data is stored in childnodes with name 1, 2, 3, ...
     !
-    call prop_get(file_ptr, 'NF2FF/NFResult/sinks', idim)
+    idim = 0
+    call tree_get_node_by_name(nfresult_ptr, 'sinks', node_ptr)
+    if (associated(node_ptr)) then
+       call tree_get_data_ptr(node_ptr, data_ptr, type_string)
+       if (type_string == "STRING:XMLNUMDATALINES") then
+          call prop_get(file_ptr, 'NF2FF/NFResult/sinks', idim)
+       else
+          idim = 1
+       endif
+    endif
     allocate (gdp%gdnfl%nf_sink(idim,6), stat = istat)
     nf_sink => gdp%gdnfl%nf_sink
-    do i=1,idim
-       write(key,'(a,i0)') 'NF2FF/NFResult/sinks/', i
-       call prop_get(file_ptr, trim(key), nf_sink(i,:), 6)
-    enddo
+    if (idim == 1) then
+       call prop_get(file_ptr, 'NF2FF/NFResult/sinks', nf_sink(idim,:), 6)
+    else
+       do i=1,idim
+          write(key,'(a,i0)') 'NF2FF/NFResult/sinks/', i
+          call prop_get(file_ptr, trim(key), nf_sink(i,:), 6)
+       enddo
+    endif
     !
     ! Sources
-    ! dim2=8: X,Y,Z,S,H,B,Umag (optionally), Udir (optionally)
+    ! dim2=6 or 8: X,Y,Z,S,H,B,Umag (optionally), Udir (optionally)
     ! The number of lines is stored as the data in intakes itself
     ! The data is stored in childnodes with name 1, 2, 3, ...
     !
-    call prop_get(file_ptr, 'NF2FF/NFResult/sources', idim)
-    call prop_get(file_ptr, 'NF2FF/NFResult/sources/1', line)
+    idim = 0
+    call tree_get_node_by_name(nfresult_ptr, 'sources', node_ptr)
+    if (associated(node_ptr)) then
+       call tree_get_data_ptr(node_ptr, data_ptr, type_string)
+       if (type_string == "STRING:XMLNUMDATALINES") then
+          call prop_get(file_ptr, 'NF2FF/NFResult/sources', idim)
+          call prop_get(file_ptr, 'NF2FF/NFResult/sources/1', line)
+       else
+          idim = 1
+          call prop_get(file_ptr, 'NF2FF/NFResult/sources', line)
+       endif
+    endif
     numrealonline = count_words(trim(line))
     if (numrealonline == 6) then
        nf_sour_impulse = .false.
-       allocate (gdp%gdnfl%nf_sour(idim,6), stat = istat)
     elseif (numrealonline == 8) then
        nf_sour_impulse = .true.
-       allocate (gdp%gdnfl%nf_sour(idim,8), stat = istat)
     else
        write(lundia, '(a,i0,a)') "ERROR: <NF2FF> / <NFResult> / <sources> has ", numrealonline, " columns; expecting 6 (X,Y,Z,S,H,B) or 8 (+Umag, Udir)."
        error = .true.
     endif
+    allocate (gdp%gdnfl%nf_sour(idim,numrealonline), stat = istat)
     nf_sour => gdp%gdnfl%nf_sour
-    do i=1,idim
-       write(key,'(a,i0)') 'NF2FF/NFResult/sources/', i
-       call prop_get(file_ptr, trim(key), nf_sour(i,:), 8)
-    enddo
+    if (idim == 1) then
+       call prop_get(file_ptr, 'NF2FF/NFResult/sources', nf_sour(idim,:), numrealonline)
+    else
+       do i=1,idim
+          write(key,'(a,i0)') 'NF2FF/NFResult/sources/', i
+          call prop_get(file_ptr, trim(key), nf_sour(i,:), numrealonline)
+       enddo
+    endif
     !
     call tree_destroy(file_ptr)
     deallocate(r_input, stat=istat)
