@@ -136,6 +136,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     real(fp)                             :: add
     real(fp)                             :: dis_dil
     real(fp)                             :: dis_tot
+    real(fp)                             :: dis_per_intake
     real(fp)                             :: q1
     real(fp)                             :: q2
     real(fp)                             :: pi
@@ -165,6 +166,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     const_diff        => gdp%gdnfl%const_diff
     flbcktemp         => gdp%gdheat%flbcktemp
     zmodel            => gdp%gdprocs%zmodel
+    nf_intake         => gdp%gdnfl%nf_intake
     nf_discharge      => gdp%gdnfl%nf_discharge
     nf_const_operator => gdp%gdnfl%nf_const_operator
     nf_const          => gdp%gdnfl%nf_const 
@@ -177,247 +179,265 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     pi        = acos(-1.0_fp)
     eps_conc  = 1.0e-12_fp
     !
-    ! Only if cormix simulation was succesfull
-    !
-    nrow = size(nf_sink,1)
-    if (nrow == 0) return
-    !
     disnf   (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
     sournf  (nlb:nub,mlb:mub, 1:kmax, 1:lstsci,idis) = 0.0_fp
     !
-    ! Get characteristics starting point
+    ! Handle sinks and sources
     !
-    call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     ,yz     , &
-               & dps          ,s0           ,kcs          ,thick  ,kmax   , &
-               & nf_sink(1,IX),nf_sink(1,IY),nf_sink(1,IZ),n_start,m_start,k_start, &
-               & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel ,gdp    )
-    n_last = n_start
-    m_last = m_start
-    k_last  = k_start
-    !
-    ! Get characteristics end      point
-    !
-    call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     , yz      , &
-               & dps          ,s0           ,kcs          ,thick  ,kmax   , &
-               & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ),n_end  ,m_end  ,k_end_top, &
-               & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel ,gdp    )
-    !
-    ! For postprocessing store begin and end coordinates of the plume trajectory
-    !
-    linkinf( 7) = n_start
-    linkinf( 8) = m_start
-    linkinf( 9) = n_end
-    linkinf(10) = m_end
-    !
-    ! Cycle over points in Cormix output file
-    !
-    do irow = 2, nrow
+    nrow = size(nf_sink,1)
+    if (nrow > 0) then
        !
-       ! Get position of point
+       ! Get characteristics starting point
        !
-       call findnmk(nlb             ,nub             ,mlb             ,mub   ,xz    ,yz    , &
-                  & dps             ,s0              ,kcs             ,thick ,kmax  ,  &
-                  & nf_sink(irow,IX),nf_sink(irow,IY),nf_sink(irow,IZ),n_irow,m_irow,k_irow, &
-                  & kfsmn0          ,kfsmx0          ,dzs0            ,zmodel,gdp   )
-       if (n_irow==0 .or. m_irow==0 .or. k_irow==0) then
-          n_irow  = n_last
-          m_irow  = m_last
-          k_irow  = k_last
-       endif
-       n_last   = n_irow
-       m_last   = m_irow
-       k_last   = k_irow
+       call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     ,yz     , &
+                  & dps          ,s0           ,kcs          ,thick  ,kmax   , &
+                  & nf_sink(1,IX),nf_sink(1,IY),nf_sink(1,IZ),n_start,m_start,k_start, &
+                  & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel ,gdp    )
+       n_last = n_start
+       m_last = m_start
+       k_last  = k_start
        !
-       ! Fill dis_nf array, Desa Method:
-       ! For all non-end-points:
-       ! Substract the amount of water corresponding with the dilution
-       ! Keep track of total amounts of water, salt in order to discharge the correct
-       ! amounts at the end of the near field
+       ! Get characteristics end      point
        !
-       if (n_last/=n_end .or. m_last/=m_end .or. k_last/=k_end_top) then
-          dis_dil = 1.0_fp * (nf_sink(irow,IS)-nf_sink(irow-1,IS)) * q_diff(idis)
-          dis_tot = dis_tot + dis_dil
-          disnf(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
-       endif
-    enddo
-    !
-    ! (Single) source point:
-    ! Determine the relative thickness over which to distribute the diluted discharge
-    !
-    call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   , yz      , &
-               & dps          ,s0           ,kcs                        ,thick ,kmax , &
-               & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_end ,m_end,k_end_top, &
-               & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
-    call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   ,yz        , &
-               & dps          ,s0           ,kcs                        ,thick ,kmax , &
-               & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)+nf_sour(1,IH),n_end ,m_end,k_end_down, &
-               & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
-    !
-    ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
-    !
-    ang_end = atan2( (nf_sour(1,IY)-nf_sink(nrow,IY)) , (nf_sour(1,IX)-nf_sink(nrow,IX)) )
-    dx      = -1.0_fp*nf_sour(1,IW)*cos(pi/2.0_fp - ang_end)
-    dy      =  1.0_fp*nf_sour(1,IW)*sin(pi/2.0_fp - ang_end)
-    !
-    !      dx = 0.0_fp
-    !      dy = 0.0_fp
-    !
-    xstart   = nf_sour(1,IX) + dx
-    ystart   = nf_sour(1,IY) + dy
-    xend     = nf_sour(1,IX) - dx
-    yend     = nf_sour(1,IY) - dy
-    !
-    ! Determine grid cell numbers over which to distribute the diluted discharge
-    !
-    allocate (n_dis(1000), stat=ierror)
-    allocate (m_dis(1000), stat=ierror)
-    allocate (weight(1000), stat=ierror)
-    n_dis      = 0
-    m_dis      = 0
-    weight     = 0.0_fp
-    ndis_track = 1
-    call findnmk(nlb   ,nub   ,mlb   ,mub   ,xz   ,yz  , &
-               & dps   ,s0    ,kcs   ,thick ,kmax , &
-               & xstart,ystart,0.0_fp,n_tmp ,m_tmp,idum, &
-               & kfsmn0,kfsmx0,dzs0  ,zmodel,gdp  )
-    n_dis (1) = n_tmp
-    m_dis (1) = m_tmp
-    weight(1) = 0.001_fp
-    !
-    dx = (xend - xstart)/999.0_fp
-    dy = (yend - ystart)/999.0_fp
-    !
-    do iidis = 1, 999
-       call findnmk(nlb              ,nub              ,mlb   ,mub   ,xz   ,yz  , &
-                  & dps              ,s0               ,kcs   ,thick ,kmax , &
-                  & xstart + iidis*dx,ystart + iidis*dy,0.0_fp,n_tmp ,m_tmp,idum, &
-                  & kfsmn0           ,kfsmx0           ,dzs0  ,zmodel,gdp  )
-       if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track)) then
-          ndis_track         = ndis_track + 1
-          n_dis(ndis_track)  = n_tmp
-          m_dis(ndis_track)  = m_tmp
-       endif
-       weight(ndis_track) = weight(ndis_track) + 0.001_fp
-    enddo
-    !
-    ! Distribute sources discharges horizontal and vertical
-    !
-    add       = 0.0_fp
-    thick_tot = 0.0_fp
-    !
-    if (.not. zmodel) then
-       do iidis = 1, ndis_track
-          n    = n_dis(iidis)
-          m    = m_dis(iidis)
-          wght = weight(iidis)
-          do k = k_end_top, k_end_down
-             if (disnf(n,m,k,idis) == 0.0_fp) then
-                thick_tot = thick_tot + wght*thick(k)
-             endif
-          enddo
+       call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     , yz      , &
+                  & dps          ,s0           ,kcs          ,thick  ,kmax   , &
+                  & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ),n_end  ,m_end  ,k_end_top, &
+                  & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel ,gdp    )
+       !
+       ! For postprocessing store begin and end coordinates of the plume trajectory
+       !
+       linkinf( 7) = n_start
+       linkinf( 8) = m_start
+       linkinf( 9) = n_end
+       linkinf(10) = m_end
+       !
+       ! Cycle over points in Cormix output file
+       !
+       do irow = 2, nrow
+          !
+          ! Get position of point
+          !
+          call findnmk(nlb             ,nub             ,mlb             ,mub   ,xz    ,yz    , &
+                     & dps             ,s0              ,kcs             ,thick ,kmax  ,  &
+                     & nf_sink(irow,IX),nf_sink(irow,IY),nf_sink(irow,IZ),n_irow,m_irow,k_irow, &
+                     & kfsmn0          ,kfsmx0          ,dzs0            ,zmodel,gdp   )
+          if (n_irow==0 .or. m_irow==0 .or. k_irow==0) then
+             n_irow  = n_last
+             m_irow  = m_last
+             k_irow  = k_last
+          endif
+          n_last   = n_irow
+          m_last   = m_irow
+          k_last   = k_irow
+          !
+          ! Fill dis_nf array, Desa Method:
+          ! For all non-end-points:
+          ! Substract the amount of water corresponding with the dilution
+          ! Keep track of total amounts of water, salt in order to discharge the correct
+          ! amounts at the end of the near field
+          !
+          if (n_last/=n_end .or. m_last/=m_end .or. k_last/=k_end_top) then
+             dis_dil = 1.0_fp * (nf_sink(irow,IS)-nf_sink(irow-1,IS)) * nf_discharge
+             dis_tot = dis_tot + dis_dil
+             disnf(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
+          endif
        enddo
-       do iidis = 1, ndis_track
-          n    = n_dis(iidis)
-          m    = m_dis(iidis)
-          wght = weight(iidis)
-          do k = k_end_top, k_end_down
-             if (disnf(n,m,k,idis) == 0.0_fp) then
-                disnf(n,m,k,idis) = disnf(n,m,k,idis) + (q_diff(idis)+dis_tot)/(thick_tot/(wght*thick(k)))
-                if (lsal /= 0) then
-                   call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
-                              & r0            ,kmax          ,lstsci        ,lsal  ,thick, &
-                              & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
-                              & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
-                   sournf(n,m,k,lsal,idis) = q_diff(idis) * (max(const_diff(idis,2),eps_conc) + add) &
-                                           & / (thick_tot/(wght*thick(k)))
+       !
+       ! (Single) source point:
+       ! Determine the relative thickness over which to distribute the diluted discharge
+       !
+       call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   , yz      , &
+                  & dps          ,s0           ,kcs                        ,thick ,kmax , &
+                  & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_end ,m_end,k_end_top, &
+                  & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
+       call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   ,yz        , &
+                  & dps          ,s0           ,kcs                        ,thick ,kmax , &
+                  & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)+nf_sour(1,IH),n_end ,m_end,k_end_down, &
+                  & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
+       !
+       ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
+       !
+       ang_end = atan2( (nf_sour(1,IY)-nf_sink(nrow,IY)) , (nf_sour(1,IX)-nf_sink(nrow,IX)) )
+       dx      = -1.0_fp*nf_sour(1,IW)*cos(pi/2.0_fp - ang_end)
+       dy      =  1.0_fp*nf_sour(1,IW)*sin(pi/2.0_fp - ang_end)
+       !
+       !      dx = 0.0_fp
+       !      dy = 0.0_fp
+       !
+       xstart   = nf_sour(1,IX) + dx
+       ystart   = nf_sour(1,IY) + dy
+       xend     = nf_sour(1,IX) - dx
+       yend     = nf_sour(1,IY) - dy
+       !
+       ! Determine grid cell numbers over which to distribute the diluted discharge
+       !
+       allocate (n_dis(1000), stat=ierror)
+       allocate (m_dis(1000), stat=ierror)
+       allocate (weight(1000), stat=ierror)
+       n_dis      = 0
+       m_dis      = 0
+       weight     = 0.0_fp
+       ndis_track = 1
+       call findnmk(nlb   ,nub   ,mlb   ,mub   ,xz   ,yz  , &
+                  & dps   ,s0    ,kcs   ,thick ,kmax , &
+                  & xstart,ystart,0.0_fp,n_tmp ,m_tmp,idum, &
+                  & kfsmn0,kfsmx0,dzs0  ,zmodel,gdp  )
+       n_dis (1) = n_tmp
+       m_dis (1) = m_tmp
+       weight(1) = 0.001_fp
+       !
+       dx = (xend - xstart)/999.0_fp
+       dy = (yend - ystart)/999.0_fp
+       !
+       do iidis = 1, 999
+          call findnmk(nlb              ,nub              ,mlb   ,mub   ,xz   ,yz  , &
+                     & dps              ,s0               ,kcs   ,thick ,kmax , &
+                     & xstart + iidis*dx,ystart + iidis*dy,0.0_fp,n_tmp ,m_tmp,idum, &
+                     & kfsmn0           ,kfsmx0           ,dzs0  ,zmodel,gdp  )
+          if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track)) then
+             ndis_track         = ndis_track + 1
+             n_dis(ndis_track)  = n_tmp
+             m_dis(ndis_track)  = m_tmp
+          endif
+          weight(ndis_track) = weight(ndis_track) + 0.001_fp
+       enddo
+       !
+       ! Distribute sources discharges horizontal and vertical
+       !
+       add       = 0.0_fp
+       thick_tot = 0.0_fp
+       !
+       if (.not. zmodel) then
+          do iidis = 1, ndis_track
+             n    = n_dis(iidis)
+             m    = m_dis(iidis)
+             wght = weight(iidis)
+             do k = k_end_top, k_end_down
+                if (disnf(n,m,k,idis) == 0.0_fp) then
+                   thick_tot = thick_tot + wght*thick(k)
                 endif
-                !
-                if (ltem /= 0) then
-                   call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
-                              & r0            ,kmax          ,lstsci        ,ltem  ,thick, &
-                              & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
-                              & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
-                   sournf(n,m,k,ltem,idis) = q_diff(idis) * (max(const_diff(idis,1),eps_conc) + add) &
-                                           & / (thick_tot/(wght*thick(k)))
-                endif
-                !
-                do lcon = ltem + 1, lstsci
-                   if ( flbcktemp(lcon) ) then
-                      !
-                      ! Background temerature: discharge with the temeprature last time step in discharge point
-                      !
-                      sournf(n,m,k,lcon,idis) = q_diff(idis) * max(r0(n,m,k,lcon),eps_conc) &
-                                              & / (thick_tot/(wght*thick(k)))
-                   else
-                      sournf(n,m,k,lcon,idis) = 1.0_fp * q_diff(idis) &
+             enddo
+          enddo
+          do iidis = 1, ndis_track
+             n    = n_dis(iidis)
+             m    = m_dis(iidis)
+             wght = weight(iidis)
+             do k = k_end_top, k_end_down
+                if (disnf(n,m,k,idis) == 0.0_fp) then
+                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_discharge+dis_tot)/(thick_tot/(wght*thick(k)))
+                   if (lsal /= 0) then
+                      call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
+                                 & r0            ,kmax          ,lstsci        ,lsal  ,thick, &
+                                 & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
+                                 & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
+                      sournf(n,m,k,lsal,idis) = nf_discharge * (max(const_diff(idis,2),eps_conc) + add) &
                                               & / (thick_tot/(wght*thick(k)))
                    endif
-                enddo
-             endif
-          enddo
-       enddo
-    else
-       !
-       ! Z-model
-       !
-       do iidis = 1, ndis_track
-          n    = n_dis(iidis)
-          m    = m_dis(iidis)
-          wght = weight(iidis)
-          hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-          do k = k_end_top, k_end_down, -1
-             if (k < kfsmn0(n,m)) cycle
-             if (k > kfsmx0(n,m)) cycle
-             if (disnf(n,m,k,idis) == 0.0_fp) then
-                thick_tot = thick_tot + wght*dzs0(n,m,k)*hhi
-             endif
-          enddo
-       enddo
-       do iidis = 1, ndis_track
-          n    = n_dis(iidis)
-          m    = m_dis(iidis)
-          wght = weight(iidis)
-          hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-          do k = k_end_top, k_end_down, -1
-             if (k < kfsmn0(n,m)) cycle
-             if (k > kfsmx0(n,m)) cycle
-             if (disnf(n,m,k,idis) == 0.0_fp) then
-                disnf(n,m,k,idis) = disnf(n,m,k,idis) + (q_diff(idis)+dis_tot)/(thick_tot/(wght*dzs0(n,m,k)*hhi))
-                if (lsal /= 0) then
-                   call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
-                              & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
-                              & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
-                              & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
-                   sournf(n,m,k,lsal,idis) = q_diff(idis) * (max(const_diff(idis,2),eps_conc)+add) &
-                                           & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   !
+                   if (ltem /= 0) then
+                      call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
+                                 & r0            ,kmax          ,lstsci        ,ltem  ,thick, &
+                                 & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
+                                 & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
+                      sournf(n,m,k,ltem,idis) = nf_discharge * (max(const_diff(idis,1),eps_conc) + add) &
+                                              & / (thick_tot/(wght*thick(k)))
+                   endif
+                   !
+                   do lcon = ltem + 1, lstsci
+                      if ( flbcktemp(lcon) ) then
+                         !
+                         ! Background temerature: discharge with the temeprature last time step in discharge point
+                         !
+                         sournf(n,m,k,lcon,idis) = nf_discharge * max(r0(n,m,k,lcon),eps_conc) &
+                                                 & / (thick_tot/(wght*thick(k)))
+                      else
+                         sournf(n,m,k,lcon,idis) = 1.0_fp * nf_discharge &
+                                                 & / (thick_tot/(wght*thick(k)))
+                      endif
+                   enddo
                 endif
-                if (ltem /= 0) then
-                   call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
-                              & r0            ,kmax          ,lstsci        ,ltem  ,thick, &
-                              & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
-                              & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
-                   sournf(n,m,k,ltem,idis) = q_diff(idis) * (max(const_diff(idis,1),eps_conc)+add) &
-                                           & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+             enddo
+          enddo
+       else
+          !
+          ! Z-model
+          !
+          do iidis = 1, ndis_track
+             n    = n_dis(iidis)
+             m    = m_dis(iidis)
+             wght = weight(iidis)
+             hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
+             do k = k_end_top, k_end_down, -1
+                if (k < kfsmn0(n,m)) cycle
+                if (k > kfsmx0(n,m)) cycle
+                if (disnf(n,m,k,idis) == 0.0_fp) then
+                   thick_tot = thick_tot + wght*dzs0(n,m,k)*hhi
                 endif
-                !
-                do lcon = ltem + 1, lstsci
-                   if ( flbcktemp(lcon) ) then
-                      !
-                      ! Background temperature: discharge with the temeprature last time step in discharge point
-                      !
-                      sournf(n,m,k,lcon,idis) = q_diff(idis) * max(r0(n,m,k,lcon),eps_conc) &
-                                              & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
-                   else
-                      sournf(n,m,k,lcon,idis) = 1.0_fp * q_diff(idis) &
+             enddo
+          enddo
+          do iidis = 1, ndis_track
+             n    = n_dis(iidis)
+             m    = m_dis(iidis)
+             wght = weight(iidis)
+             hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
+             do k = k_end_top, k_end_down, -1
+                if (k < kfsmn0(n,m)) cycle
+                if (k > kfsmx0(n,m)) cycle
+                if (disnf(n,m,k,idis) == 0.0_fp) then
+                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_discharge+dis_tot)/(thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   if (lsal /= 0) then
+                      call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
+                                 & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
+                                 & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
+                                 & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
+                      sournf(n,m,k,lsal,idis) = nf_discharge * (max(const_diff(idis,2),eps_conc)+add) &
                                               & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
                    endif
-                enddo
-             endif
+                   if (ltem /= 0) then
+                      call coupled(nlb           ,nub           ,mlb           ,mub   ,add  , &
+                                 & r0            ,kmax          ,lstsci        ,ltem  ,thick, &
+                                 & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps  , &
+                                 & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp  )
+                      sournf(n,m,k,ltem,idis) = nf_discharge * (max(const_diff(idis,1),eps_conc)+add) &
+                                              & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   endif
+                   !
+                   do lcon = ltem + 1, lstsci
+                      if ( flbcktemp(lcon) ) then
+                         !
+                         ! Background temperature: discharge with the temeprature last time step in discharge point
+                         !
+                         sournf(n,m,k,lcon,idis) = nf_discharge * max(r0(n,m,k,lcon),eps_conc) &
+                                                 & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      else
+                         sournf(n,m,k,lcon,idis) = 1.0_fp * nf_discharge &
+                                                 & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      endif
+                   enddo
+                endif
+             enddo
+          enddo
+       endif
+       !
+       deallocate(n_dis , stat=ierror)
+       deallocate(m_dis , stat=ierror)
+       deallocate(weight, stat=ierror)
+    endif
+    !
+    ! Handle intakes
+    !
+    nrow = size(nf_intake,1)
+    if (nrow > 0) then
+       dis_per_intake = nf_discharge / real(nrow,fp)
+       do irow = 1, nrow
+          call findnmk(nlb               ,nub               ,mlb               ,mub   ,xz    ,yz    , &
+                     & dps               ,s0                ,kcs               ,thick ,kmax  ,  &
+                     & nf_intake(irow,IX),nf_intake(irow,IY),nf_intake(irow,IZ),n_irow,m_irow,k_irow, &
+                     & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,gdp   )
+          disnf(n_irow,m_irow,k_irow,idis) = disnf(n_irow,m_irow,k_irow,idis) + dis_per_intake
+          do lcon = 1, lstsci
+             sournf(n_irow,m_irow,k_irow,lcon,idis) = sournf(n_irow,m_irow,k_irow,lcon,idis) + dis_per_intake * r0(n_irow,m_irow,k_irow,lcon)
           enddo
        enddo
     endif
-    !
-    deallocate(n_dis , stat=ierror)
-    deallocate(m_dis , stat=ierror)
-    deallocate(weight, stat=ierror)
 end subroutine desa

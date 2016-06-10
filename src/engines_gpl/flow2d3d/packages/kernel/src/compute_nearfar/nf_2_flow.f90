@@ -194,16 +194,16 @@ subroutine nf_2_flow(filename, error, gdp)
        else
           idim = 1
        endif
-    endif
-    allocate (gdp%gdnfl%nf_sink(idim,6), stat = istat)
-    nf_sink => gdp%gdnfl%nf_sink
-    if (idim == 1) then
-       call prop_get(file_ptr, 'NF2FF/NFResult/sinks', nf_sink(idim,:), 6)
-    else
-       do i=1,idim
-          write(key,'(a,i0)') 'NF2FF/NFResult/sinks/', i
-          call prop_get(file_ptr, trim(key), nf_sink(i,:), 6)
-       enddo
+       allocate (gdp%gdnfl%nf_sink(idim,6), stat = istat)
+       nf_sink => gdp%gdnfl%nf_sink
+       if (idim == 1) then
+          call prop_get(file_ptr, 'NF2FF/NFResult/sinks', nf_sink(idim,:), 6)
+       else
+          do i=1,idim
+             write(key,'(a,i0)') 'NF2FF/NFResult/sinks/', i
+             call prop_get(file_ptr, trim(key), nf_sink(i,:), 6)
+          enddo
+       endif
     endif
     !
     ! Sources
@@ -222,25 +222,25 @@ subroutine nf_2_flow(filename, error, gdp)
           idim = 1
           call prop_get(file_ptr, 'NF2FF/NFResult/sources', line)
        endif
-    endif
-    numrealonline = count_words(trim(line))
-    if (numrealonline == 6) then
-       nf_sour_impulse = .false.
-    elseif (numrealonline == 8) then
-       nf_sour_impulse = .true.
-    else
-       write(lundia, '(a,i0,a)') "ERROR: <NF2FF> / <NFResult> / <sources> has ", numrealonline, " columns; expecting 6 (X,Y,Z,S,H,B) or 8 (+Umag, Udir)."
-       error = .true.
-    endif
-    allocate (gdp%gdnfl%nf_sour(idim,numrealonline), stat = istat)
-    nf_sour => gdp%gdnfl%nf_sour
-    if (idim == 1) then
-       call prop_get(file_ptr, 'NF2FF/NFResult/sources', nf_sour(idim,:), numrealonline)
-    else
-       do i=1,idim
-          write(key,'(a,i0)') 'NF2FF/NFResult/sources/', i
-          call prop_get(file_ptr, trim(key), nf_sour(i,:), numrealonline)
-       enddo
+       numrealonline = count_words(trim(line))
+       if (numrealonline == 6) then
+          nf_sour_impulse = .false.
+       elseif (numrealonline == 8) then
+          nf_sour_impulse = .true.
+       else
+          write(lundia, '(a,i0,a)') "ERROR: <NF2FF> / <NFResult> / <sources> has ", numrealonline, " columns; expecting 6 (X,Y,Z,S,H,B) or 8 (+Umag, Udir)."
+          error = .true.
+       endif
+       allocate (gdp%gdnfl%nf_sour(idim,numrealonline), stat = istat)
+       nf_sour => gdp%gdnfl%nf_sour
+       if (idim == 1) then
+          call prop_get(file_ptr, 'NF2FF/NFResult/sources', nf_sour(idim,:), numrealonline)
+       else
+          do i=1,idim
+             write(key,'(a,i0)') 'NF2FF/NFResult/sources/', i
+             call prop_get(file_ptr, trim(key), nf_sour(i,:), numrealonline)
+          enddo
+       endif
     endif
     !
     call tree_destroy(file_ptr)
