@@ -53,6 +53,7 @@ libKernelGeneral_la_SOURCES = \
          iniid.f90 \
          ipon.f90 \
          keyinp.f90 \
+         magdir_to_uv.f90 \
          modlen.f90 \
          n_and_m_to_nm.f90 \
          newlun.f90 \

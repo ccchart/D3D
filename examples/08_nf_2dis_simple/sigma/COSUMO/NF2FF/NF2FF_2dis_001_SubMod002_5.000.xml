@@ -3,7 +3,7 @@
   <fileVersion>0.3</fileVersion>
   <!--'discharge' or 'velocity'-->
   <discharge>
-    <M3s>10.0</M3s>
+    <Qsource>10.0</Qsource>
     <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
          Operator: "absolute" values or "excess" (dT,dS,d..) -->
     <constituentsOperator>excess</constituentsOperator>

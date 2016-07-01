@@ -63,7 +63,7 @@ subroutine magdir_to_uv(alfa, grdang, &
        ! velocity adjusted to grdang
        !   gamma = 270-uvdir+grdang
        !
-       angle =  (270.0_fp - dir + grdang)*degrad
+       angle =  (90.0_fp - dir + grdang)*degrad
        workx =  mag * cos(angle)
        worky =  mag * sin(angle)
        u     =  workx*cos(alfa*degrad) + worky*sin(alfa*degrad)

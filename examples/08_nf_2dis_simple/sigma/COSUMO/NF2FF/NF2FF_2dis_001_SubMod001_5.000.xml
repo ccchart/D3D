@@ -3,7 +3,7 @@
   <fileVersion>0.3</fileVersion>
   <!--'discharge' or 'velocity'-->
   <discharge>
-    <M3s>10.0</M3s>
+    <Qsource>10.0</Qsource>
     <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
          Operator: "absolute" values or "excess" (dT,dS,d..) -->
     <constituentsOperator>excess</constituentsOperator>
@@ -15,6 +15,7 @@
          COSUMO should produce a file that ONLY contains a discharge block OR a velocity block -->
   </velocity>
   <NFResult>
+    <!--Intake(s) - total Q0(/U0?) will be taken from these locations and distributed over the number of rows of intakes. This water will be directly distributed over the sources (complimented with the entrained water from the sinks, if any).-->
     <!--Sinks will use dS/dTr(ajectory) to determine entrainment sinks. If dS/dTr=0 no (additional) entrainment will take place.-->
     <sinks>
    550.000	   350.087	     9.700	     1.000	     0.000	     0.000
