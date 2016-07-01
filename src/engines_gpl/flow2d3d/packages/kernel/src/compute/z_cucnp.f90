@@ -84,23 +84,28 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
-    real(fp)               , pointer :: drycrt
-    real(fp)               , pointer :: dryflc
-    real(fp)               , pointer :: gammax
-    character(8)           , pointer :: dpsopt
-    character(6)           , pointer :: momsol
-    logical                , pointer :: old_corio
-    logical                , pointer :: slplim
-    real(fp)               , pointer :: hdt
-    real(fp)               , pointer :: rhow
-    real(fp)               , pointer :: ag
-    real(fp)               , pointer :: vicmol
-    integer                , pointer :: iro
-    integer                , pointer :: irov
-    logical                , pointer :: wave
-    logical                , pointer :: roller
-    logical                , pointer :: xbeach
-    real(fp)               , pointer :: dzmin
+    real(fp)                     , pointer :: drycrt
+    real(fp)                     , pointer :: dryflc
+    real(fp)                     , pointer :: gammax
+    character(8)                 , pointer :: dpsopt
+    character(6)                 , pointer :: momsol
+    logical                      , pointer :: old_corio
+    logical                      , pointer :: slplim
+    real(fp)                     , pointer :: hdt
+    real(fp)                     , pointer :: rhow
+    real(fp)                     , pointer :: ag
+    real(fp)                     , pointer :: vicmol
+    integer                      , pointer :: iro
+    integer                      , pointer :: irov
+    logical                      , pointer :: wave
+    logical                      , pointer :: roller
+    logical                      , pointer :: xbeach
+    real(fp)                     , pointer :: dzmin
+    integer                      , pointer :: no_dis
+	logical                      , pointer :: nf_src_mom
+    real(fp), dimension(:,:,:)   , pointer :: disnf
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
 !
 ! Global variables
 !
@@ -209,6 +214,7 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     integer            :: idifc
     integer            :: idifd
     integer            :: idifu
+    integer            :: idis
     integer            :: isrc
     integer            :: k
     integer            :: kdo
@@ -292,23 +298,28 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
 !
 !! executable statements -------------------------------------------------------
 !
-    drycrt    => gdp%gdnumeco%drycrt
-    dryflc    => gdp%gdnumeco%dryflc
-    dpsopt    => gdp%gdnumeco%dpsopt
-    momsol    => gdp%gdnumeco%momsol
-    old_corio => gdp%gdnumeco%old_corio
-    slplim    => gdp%gdnumeco%slplim
-    gammax    => gdp%gdnumeco%gammax
-    rhow      => gdp%gdphysco%rhow
-    ag        => gdp%gdphysco%ag
-    vicmol    => gdp%gdphysco%vicmol
-    iro       => gdp%gdphysco%iro
-    irov      => gdp%gdphysco%irov
-    wave      => gdp%gdprocs%wave
-    roller    => gdp%gdprocs%roller
-    xbeach    => gdp%gdprocs%xbeach
-    hdt       => gdp%gdnumeco%hdt
-    dzmin     => gdp%gdzmodel%dzmin
+    drycrt         => gdp%gdnumeco%drycrt
+    dryflc         => gdp%gdnumeco%dryflc
+    dpsopt         => gdp%gdnumeco%dpsopt
+    momsol         => gdp%gdnumeco%momsol
+    old_corio      => gdp%gdnumeco%old_corio
+    slplim         => gdp%gdnumeco%slplim
+    gammax         => gdp%gdnumeco%gammax
+    rhow           => gdp%gdphysco%rhow
+    ag             => gdp%gdphysco%ag
+    vicmol         => gdp%gdphysco%vicmol
+    iro            => gdp%gdphysco%iro
+    irov           => gdp%gdphysco%irov
+    wave           => gdp%gdprocs%wave
+    roller         => gdp%gdprocs%roller
+    xbeach         => gdp%gdprocs%xbeach
+    hdt            => gdp%gdnumeco%hdt
+    dzmin          => gdp%gdzmodel%dzmin
+    no_dis         => gdp%gdnfl%no_dis
+    nf_src_mom     => gdp%gdnfl%nf_src_mom
+    disnf          => gdp%gdnfl%disnf
+    nf_src_momu    => gdp%gdnfl%nf_src_momu
+    nf_src_momv    => gdp%gdnfl%nf_src_momv
     !
     call timer_start(timer_cucnp_ini, gdp)
     !
@@ -611,6 +622,28 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
           endif
        endif
     enddo
+    if (nf_src_mom) then
+       !
+       ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
+       !
+       do nm = 1, nmmax
+          if (kfu(nm) == 1) then
+             do k = 1, kmax
+                do idis = 1, no_dis
+                   if (icx == 1) then
+                      bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                      ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*disnf(nm,k,idis)       &
+                                            & /(dzu0(nm,k)*gsqs(nm))
+                   else
+                      bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                      ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*disnf(nm,k,idis)       &
+                                            & /(dzu0(nm,k)*gsqs(nm))
+                   endif
+                enddo
+             enddo
+          endif
+       enddo
+    endif
     call timer_stop(timer_cucnp_dismmt, gdp)
     !
     ! VERTICAL ADVECTION AND VISCOSITY

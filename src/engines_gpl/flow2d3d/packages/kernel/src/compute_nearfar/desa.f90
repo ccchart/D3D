@@ -1,9 +1,10 @@
-subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
-              & lstsci  ,no_dis  ,lsal    ,ltem    , &
+subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
+              & lstsci  ,no_dis  ,lsal    ,ltem       , &
               & idis    ,thick   , &
-              & kcs     ,xz      ,yz      , &
-              & dps     ,s0      ,r0      ,kfsmn0  ,kfsmx0  , &
-              & dzs0    ,disnf   ,sournf  ,linkinf ,gdp     )
+              & kcs     ,xz      ,yz      ,alfas      , &
+              & dps     ,s0      ,r0      ,kfsmn0     ,kfsmx0     , &
+              & dzs0    ,disnf   ,sournf  ,nf_src_momu,nf_src_momv, &
+              & linkinf ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -59,6 +60,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     integer                        , pointer :: lunscr
     integer                        , pointer :: lundia
 	integer                        , pointer :: nf_const_operator
+    real(fp)                       , pointer :: grdang
     real(fp)                       , pointer :: nf_q_source
     real(fp)                       , pointer :: nf_q_intake
     real(fp), dimension(:)         , pointer :: nf_const 
@@ -67,7 +69,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     real(fp), dimension(:,:)       , pointer :: nf_sour  
     real(fp),dimension(:)          , pointer :: q_diff
     real(fp),dimension(:,:)        , pointer :: const_diff
-	logical                        , pointer :: nf_sour_impulse
+	logical                        , pointer :: nf_src_mom
     logical , dimension(:)         , pointer :: flbcktemp
     logical                        , pointer :: zmodel
 !
@@ -103,9 +105,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,lstsci)        , intent(in)    :: r0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(nlb:nub,mlb:mub)                    , intent(in)    :: xz       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(nlb:nub,mlb:mub)                    , intent(in)    :: yz       !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(nlb:nub,mlb:mub)                    , intent(in)    :: alfas    !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(kmax)                               , intent(in)    :: thick    !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: disnf
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,lstsci,no_dis)                 :: sournf
+    real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momu
+    real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momv
     real(prec) , dimension(nlb:nub,mlb:mub)                    , intent(in)    :: dps      !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
@@ -120,6 +125,8 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     integer                              :: k_start
     integer                              :: k_top_tmp
     integer                              :: k_down_tmp
+    integer                              :: k_end_top
+    integer                              :: k_end_down
     integer                              :: lcon
     integer                              :: n
     integer                              :: m
@@ -137,6 +144,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     integer                              :: m_last
     integer                              :: n_tmp
     integer                              :: m_tmp
+    integer                              :: k_tmp
     real(fp)                             :: conc
     real(fp)                             :: conc_intake
     real(fp)                             :: dis_dil
@@ -155,11 +163,14 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     real(fp)                             :: xend
     real(fp)                             :: ystart
     real(fp)                             :: yend
+    real(fp)                             :: momu_tmp
+    real(fp)                             :: momv_tmp
+    real(fp),dimension(:), allocatable   :: momu
+    real(fp),dimension(:), allocatable   :: momv
     real(fp),dimension(:), allocatable   :: weight
     integer, dimension(:), allocatable   :: n_dis
     integer, dimension(:), allocatable   :: m_dis
-    integer, dimension(:), allocatable   :: k_end_top
-    integer, dimension(:), allocatable   :: k_end_down
+    integer, dimension(:), allocatable   :: k_dis
 !
 !! executable statements -------------------------------------------------------
 !
@@ -169,6 +180,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     m_intake          => gdp%gdnfl%m_intake
     n_intake          => gdp%gdnfl%n_intake
     k_intake          => gdp%gdnfl%k_intake
+    grdang            => gdp%gdtricom%grdang
     q_diff            => gdp%gdnfl%q_diff
     const_diff        => gdp%gdnfl%const_diff
     flbcktemp         => gdp%gdheat%flbcktemp
@@ -180,28 +192,21 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
     nf_const          => gdp%gdnfl%nf_const 
     nf_sink           => gdp%gdnfl%nf_sink  
     nf_sour           => gdp%gdnfl%nf_sour  
-    nf_sour_impulse   => gdp%gdnfl%nf_sour_impulse
+    nf_src_mom        => gdp%gdnfl%nf_src_mom
     !
     dis_dil   = 0.0_fp
     dis_tot   = 0.0_fp
     pi        = acos(-1.0_fp)
     !
-    disnf   (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
-    sournf  (nlb:nub,mlb:mub, 1:kmax, 1:lstsci,idis) = 0.0_fp
+    disnf      (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    sournf     (nlb:nub,mlb:mub, 1:kmax, 1:lstsci,idis) = 0.0_fp
+    nf_src_momu(nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    nf_src_momv(nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
     !
     ! Handle sinks and sources
     !
     sink_cnt = size(nf_sink,1)
     sour_cnt = size(nf_sour,1)
-    if (sour_cnt == 1) then
-       allocate (k_end_top(1000), stat=ierror)
-       allocate (k_end_down(1000), stat=ierror)
-    else
-       allocate (k_end_top(sour_cnt), stat=ierror)
-       allocate (k_end_down(sour_cnt), stat=ierror)
-    endif
-    k_end_top  = 0
-    k_end_down = 0
     !
     if (sink_cnt > 0) then
        !
@@ -217,9 +222,9 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
        !
        ! Get characteristics end      point
        !
-       call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     , yz         , &
+       call findnmk(nlb          ,nub          ,mlb          ,mub    ,xz     , yz      , &
                   & dps          ,s0           ,kcs          ,thick  ,kmax   , &
-                  & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ),n_end  ,m_end  ,k_end_top(1), &
+                  & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ),n_end  ,m_end  ,k_end_top, &
                   & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel ,gdp    )
        !
        ! For postprocessing store begin and end coordinates of the plume trajectory
@@ -254,7 +259,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
           ! Keep track of total amounts of water, salt in order to discharge the correct
           ! amounts at the end of the near field
           !
-          if (n_last/=n_end .or. m_last/=m_end .or. k_last/=k_end_top(1)) then
+          if (n_last/=n_end .or. m_last/=m_end .or. k_last/=k_end_top) then
              dis_dil = 1.0_fp * (nf_sink(irow,IS)-nf_sink(irow-1,IS)) * nf_q_source
              dis_tot = dis_tot + dis_dil
              disnf(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
@@ -270,13 +275,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
           ! nm cell you are. With this information, you can define the nm-points to distribute the
           ! sources over and their relative weights.
           !
-          call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   , yz         , &
+          call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   , yz      , &
                      & dps          ,s0           ,kcs                        ,thick ,kmax , &
-                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_end ,m_end,k_end_top(1), &
+                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_end ,m_end,k_end_top, &
                      & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
           call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   ,yz        , &
                      & dps          ,s0           ,kcs                        ,thick ,kmax , &
-                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)+nf_sour(1,IH),n_end ,m_end,k_end_down(1), &
+                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)+nf_sour(1,IH),n_end ,m_end,k_end_down, &
                      & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
           !
           ! Determine grid cells over which to distribute the diluted discharge, begin and and of horizontal distribution area
@@ -295,9 +300,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
           !
           ! Determine grid cell numbers over which to distribute the diluted discharge
           !
-          allocate (n_dis(1000), stat=ierror)
-          allocate (m_dis(1000), stat=ierror)
+          allocate (n_dis (1000), stat=ierror)
+          allocate (m_dis (1000), stat=ierror)
+          if (allocated(k_dis)) deallocate(k_dis, stat=ierror)
           allocate (weight(1000), stat=ierror)
+          allocate (momu  (1000), stat=ierror)
+          allocate (momv  (1000), stat=ierror)
           n_dis      = 0
           m_dis      = 0
           weight     = 0.0_fp
@@ -309,6 +317,15 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
           n_dis (1) = n_tmp
           m_dis (1) = m_tmp
           weight(1) = 0.001_fp
+          !
+          ! Momentum
+          !
+          if (nf_src_mom) then
+             call magdir_to_uv(alfas(n_dis(1),m_dis(1)), grdang          , &
+                             & nf_sour(1,IUMAG)        , nf_sour(1,IUDIR), momu_tmp, momv_tmp)
+             momu(1) = momu_tmp * 0.001_fp
+             momv(1) = momv_tmp * 0.001_fp
+          endif
           !
           dx = (xend - xstart)/999.0_fp
           dy = (yend - ystart)/999.0_fp
@@ -322,50 +339,74 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                 ndis_track             = ndis_track + 1
                 n_dis(ndis_track)      = n_tmp
                 m_dis(ndis_track)      = m_tmp
-                k_end_top(ndis_track)  = k_end_top(1)
-                k_end_down(ndis_track) = k_end_down(1)
              endif
              weight(ndis_track) = weight(ndis_track) + 0.001_fp
+             !
+             ! Momentum
+             !
+             if (nf_src_mom) then
+                call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang          , &
+                                & nf_sour(1,IUMAG)                          , nf_sour(1,IUDIR), momu_tmp, momv_tmp)
+                momu(ndis_track) = momu(ndis_track) + momu_tmp * 0.001_fp
+                momv(ndis_track) = momv(ndis_track) + momv_tmp * 0.001_fp
+             endif
           enddo
        else
           ! Multiple source points defined
           !
           wght = 1.0_fp / real(sour_cnt,fp)
-          allocate (n_dis(sour_cnt), stat=ierror)
-          allocate (m_dis(sour_cnt), stat=ierror)
+          allocate (n_dis (sour_cnt), stat=ierror)
+          allocate (m_dis (sour_cnt), stat=ierror)
+          allocate (k_dis (sour_cnt), stat=ierror)
           allocate (weight(sour_cnt), stat=ierror)
+          allocate (momu  (sour_cnt), stat=ierror)
+          allocate (momv  (sour_cnt), stat=ierror)
           n_dis      = 0
           m_dis      = 0
           weight     = 0.0_fp
           ndis_track = 1
-          call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   ,yz          , &
-                     & dps          ,s0           ,kcs                        ,thick ,kmax , &
-                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_tmp ,m_tmp,k_end_top(1), &
-                     & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
-          call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz   ,yz           , &
-                     & dps          ,s0           ,kcs                        ,thick ,kmax , &
-                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)+nf_sour(1,IH),n_tmp ,m_tmp,k_end_down(1), &
-                     & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,gdp  )
+          call findnmk(nlb          ,nub          ,mlb          ,mub   ,xz   ,yz   , &
+                     & dps          ,s0           ,kcs          ,thick ,kmax , &
+                     & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ),n_tmp ,m_tmp,k_tmp, &
+                     & kfsmn0       ,kfsmx0       ,dzs0         ,zmodel,gdp  )
           n_dis (1) = n_tmp
           m_dis (1) = m_tmp
+          k_dis (1) = k_tmp
           weight(1) = wght
+          !
+          ! Momentum
+          !
+          if (nf_src_mom) then
+             !
+             ! Watch out: the discharge volume is distributed (multiplied with wght) over all source points
+             ! The momentum is NOT distributed (multiplied with wght), but specified for each individual source point
+             !
+             call magdir_to_uv(alfas(n_dis(1),m_dis(1)), grdang          , &
+                             & nf_sour(1,IUMAG)        , nf_sour(1,IUDIR), momu_tmp, momv_tmp)
+             momu(1) = momu_tmp
+             momv(1) = momv_tmp
+          endif
           do iidis = 2, sour_cnt
-             call findnmk(nlb              ,nub              ,mlb                                ,mub   ,xz   ,yz       , &
-                        & dps              ,s0               ,kcs                                ,thick ,kmax , &
-                        & nf_sour(iidis,IX),nf_sour(iidis,IY),nf_sour(iidis,IZ)-nf_sour(iidis,IH),n_tmp ,m_tmp,k_top_tmp, &
-                        & kfsmn0           ,kfsmx0           ,dzs0                               ,zmodel,gdp  )
-             call findnmk(nlb              ,nub              ,mlb                                ,mub   ,xz   ,yz        , &
-                        & dps              ,s0               ,kcs                                ,thick ,kmax , &
-                        & nf_sour(iidis,IX),nf_sour(iidis,IY),nf_sour(iidis,IZ)+nf_sour(iidis,IH),n_tmp ,m_tmp,k_down_tmp, &
-                        & kfsmn0           ,kfsmx0           ,dzs0                               ,zmodel,gdp  )
+             call findnmk(nlb              ,nub              ,mlb              ,mub   ,xz   ,yz   , &
+                        & dps              ,s0               ,kcs              ,thick ,kmax , &
+                        & nf_sour(iidis,IX),nf_sour(iidis,IY),nf_sour(iidis,IZ),n_tmp ,m_tmp,k_tmp, &
+                        & kfsmn0           ,kfsmx0           ,dzs0             ,zmodel,gdp  )
              if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track)) then
                 ndis_track             = ndis_track + 1
                 n_dis(ndis_track)      = n_tmp
                 m_dis(ndis_track)      = m_tmp
-                k_end_top(ndis_track)  = k_top_tmp
-                k_end_down(ndis_track) = k_down_tmp
+                k_dis(ndis_track)      = k_tmp
              endif
              weight(ndis_track) = weight(ndis_track) + wght
+             !
+             ! Momentum
+             !
+             if (nf_src_mom) then
+                call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang              , &
+                                & nf_sour(iidis,IUMAG)                      , nf_sour(iidis,IUDIR), momu_tmp, momv_tmp)
+                momu(ndis_track) = momu(ndis_track) + momu_tmp
+                momv(ndis_track) = momv(ndis_track) + momv_tmp
+             endif
           enddo
        endif
        !
@@ -378,7 +419,11 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
              n    = n_dis(iidis)
              m    = m_dis(iidis)
              wght = weight(iidis)
-             do k = k_end_top(iidis), k_end_down(iidis)
+             if (allocated(k_dis)) then
+                k_end_top  = k_dis(iidis)
+                k_end_down = k_dis(iidis)
+             endif
+             do k = k_end_top, k_end_down
                 if (disnf(n,m,k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + wght*thick(k)
                 endif
@@ -388,13 +433,17 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
              n    = n_dis(iidis)
              m    = m_dis(iidis)
              wght = weight(iidis)
-             do k = k_end_top(iidis), k_end_down(iidis)
+             if (allocated(k_dis)) then
+                k_end_top  = k_dis(iidis)
+                k_end_down = k_dis(iidis)
+             endif
+             do k = k_end_top, k_end_down
                 if (disnf(n,m,k,idis) == 0.0_fp) then
                    disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/(thick_tot/(wght*thick(k)))
                    do lcon = 1, lstsc
                       if ( flbcktemp(lcon) ) then
                          !
-                         ! Background temerature: discharge with the temeprature last time step in discharge point
+                         ! Background temperature: discharge with the temeprature last time step in discharge point
                          !
                          sournf(n,m,k,lcon,idis) = nf_q_source * r0(n,m,k,lcon) &
                                                  & / (thick_tot/(wght*thick(k)))
@@ -416,6 +465,10 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                                                  & / (thick_tot/(wght*thick(k)))
                       endif
                    enddo
+                   if (nf_src_mom) then
+                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu(iidis)
+                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv(iidis)
+                   endif
                 endif
              enddo
           enddo
@@ -427,8 +480,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
              n    = n_dis(iidis)
              m    = m_dis(iidis)
              wght = weight(iidis)
+             if (allocated(k_dis)) then
+                k_end_top  = k_dis(iidis)
+                k_end_down = k_dis(iidis)
+             endif
              hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-             do k = k_end_top(iidis), k_end_down(iidis), -1
+             do k = k_end_top, k_end_down, -1
                 if (k < kfsmn0(n,m)) cycle
                 if (k > kfsmx0(n,m)) cycle
                 if (disnf(n,m,k,idis) == 0.0_fp) then
@@ -440,8 +497,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
              n    = n_dis(iidis)
              m    = m_dis(iidis)
              wght = weight(iidis)
+             if (allocated(k_dis)) then
+                k_end_top  = k_dis(iidis)
+                k_end_down = k_dis(iidis)
+             endif
              hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-             do k = k_end_top(iidis), k_end_down(iidis), -1
+             do k = k_end_top, k_end_down, -1
                 if (k < kfsmn0(n,m)) cycle
                 if (k > kfsmx0(n,m)) cycle
                 if (disnf(n,m,k,idis) == 0.0_fp) then
@@ -471,6 +532,10 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
                                                  & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
                       endif
                    enddo
+                   if (nf_src_mom) then
+                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu(iidis)
+                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv(iidis)
+                   endif
                 endif
              enddo
           enddo
@@ -478,10 +543,11 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub     ,kmax    , &
        !
        deallocate(n_dis , stat=ierror)
        deallocate(m_dis , stat=ierror)
+       if (allocated(k_dis)) deallocate(k_dis, stat=ierror)
        deallocate(weight, stat=ierror)
+       deallocate(momu  , stat=ierror)
+       deallocate(momv  , stat=ierror)
     endif
-    deallocate (k_end_top, stat=ierror)
-    deallocate (k_end_down, stat=ierror)
     !
     ! Handle intakes
     !

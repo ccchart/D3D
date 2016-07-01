@@ -106,6 +106,9 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     if(istat==0)  allocate (gdp%gdnfl%base_path (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%disnf     (gdp%d%nmlb:gdp%d%nmub, kmax,no_dis)        , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%sournf    (gdp%d%nmlb:gdp%d%nmub, kmax,lstsci,no_dis) , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%nf_src_momu(gdp%d%nmlb:gdp%d%nmub,kmax,no_dis)        , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%nf_src_momv(gdp%d%nmlb:gdp%d%nmub,kmax,no_dis)        , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%nf_const  (lstsci)                                    , stat = istat)
     !
     ! Read corjet/cortime input data from file corinp.dat
     !
@@ -114,30 +117,32 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     !         call corinp_gen(idensform,gdp)
     !   end select
     !
-    gdp%gdnfl%m_diff     = 0
-    gdp%gdnfl%n_diff     = 0
-    gdp%gdnfl%m_amb      = 0
-    gdp%gdnfl%n_amb      = 0
-    gdp%gdnfl%m_intake   = 0
-    gdp%gdnfl%n_intake   = 0
-    gdp%gdnfl%k_intake   = 0
-    gdp%gdnfl%x_diff     = 0.0_fp
-    gdp%gdnfl%y_diff     = 0.0_fp
-    gdp%gdnfl%x_amb      = 0.0_fp
-    gdp%gdnfl%y_amb      = 0.0_fp
-    gdp%gdnfl%x_intake   = 0.0_fp
-    gdp%gdnfl%y_intake   = 0.0_fp
-    gdp%gdnfl%z_intake   = 0.0_fp
-    gdp%gdnfl%q_diff     = 0.0_fp
-    gdp%gdnfl%const_diff = 0.0_fp
-    gdp%gdnfl%rho0_diff  = 0.0_fp
-    gdp%gdnfl%d0         = 0.0_fp
-    gdp%gdnfl%h0         = 0.0_fp
-    gdp%gdnfl%sigma0     = 0.0_fp
-    gdp%gdnfl%theta0     = 0.0_fp
-    gdp%gdnfl%basecase   = ' '
-    gdp%gdnfl%disnf      = 0.0_fp
-    gdp%gdnfl%sournf     = 0.0_fp
+    gdp%gdnfl%m_diff      = 0
+    gdp%gdnfl%n_diff      = 0
+    gdp%gdnfl%m_amb       = 0
+    gdp%gdnfl%n_amb       = 0
+    gdp%gdnfl%m_intake    = 0
+    gdp%gdnfl%n_intake    = 0
+    gdp%gdnfl%k_intake    = 0
+    gdp%gdnfl%x_diff      = 0.0_fp
+    gdp%gdnfl%y_diff      = 0.0_fp
+    gdp%gdnfl%x_amb       = 0.0_fp
+    gdp%gdnfl%y_amb       = 0.0_fp
+    gdp%gdnfl%x_intake    = 0.0_fp
+    gdp%gdnfl%y_intake    = 0.0_fp
+    gdp%gdnfl%z_intake    = 0.0_fp
+    gdp%gdnfl%q_diff      = 0.0_fp
+    gdp%gdnfl%const_diff  = 0.0_fp
+    gdp%gdnfl%rho0_diff   = 0.0_fp
+    gdp%gdnfl%d0          = 0.0_fp
+    gdp%gdnfl%h0          = 0.0_fp
+    gdp%gdnfl%sigma0      = 0.0_fp
+    gdp%gdnfl%theta0      = 0.0_fp
+    gdp%gdnfl%basecase    = ' '
+    gdp%gdnfl%disnf       = 0.0_fp
+    gdp%gdnfl%sournf      = 0.0_fp
+    gdp%gdnfl%nf_src_momu = 0.0_fp
+    gdp%gdnfl%nf_src_momv = 0.0_fp
     if (itnflri > 0) then
        allocate (gdp%gdnfl%waitfilesold(no_dis), stat = istat)
        gdp%gdnfl%waitfilesold = ' '
@@ -148,7 +153,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     gdp%gdnfl%nf_q_intake       = -999.0_fp
     gdp%gdnfl%nf_const_operator = -999
     gdp%gdnfl%nf_const          = -999.0_fp
-    gdp%gdnfl%nf_sour_impulse   = .false.
+    gdp%gdnfl%nf_src_mom        = .false.
     nullify(gdp%gdnfl%nf_intake)
     nullify(gdp%gdnfl%nf_sink)
     nullify(gdp%gdnfl%nf_sour)

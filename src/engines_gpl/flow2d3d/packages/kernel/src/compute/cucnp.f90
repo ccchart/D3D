@@ -89,36 +89,41 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
-    real(fp)                , pointer :: gammax
-    real(fp)                , pointer :: hdt
-    real(fp)                , pointer :: dryflc
-    integer                 , pointer :: ibaroc
-    logical                 , pointer :: cstbnd
-    logical                 , pointer :: old_corio
-    character(8)            , pointer :: dpsopt
-    character(6)            , pointer :: momsol
-    logical                 , pointer :: slplim
-    real(fp)                , pointer :: rhow
-    real(fp)                , pointer :: rhofrac
-    real(fp)                , pointer :: ag
-    real(fp)                , pointer :: vicmol
-    integer                 , pointer :: iro
-    integer                 , pointer :: irov
-    logical                 , pointer :: wind
-    logical                 , pointer :: wave
-    logical                 , pointer :: roller
-    logical                 , pointer :: xbeach
-    logical                 , pointer :: veg3d
-    real(fp), dimension(:,:)          , pointer :: mom_m_velchange     ! momentum du/dt term
-    real(fp), dimension(:,:)          , pointer :: mom_m_densforce     ! density force term in u dir
-    real(fp), dimension(:,:)          , pointer :: mom_m_flowresist    ! vegetation and porous plates in u dir
-    real(fp), dimension(:,:)          , pointer :: mom_m_corioforce    ! coriolis term in u dir
-    real(fp), dimension(:,:)          , pointer :: mom_m_visco         ! viscosity term in u dir
-    real(fp), dimension(:)            , pointer :: mom_m_pressure      ! pressure term in u dir
-    real(fp), dimension(:)            , pointer :: mom_m_tidegforce    ! tide generating forces in u dir
-    real(fp), dimension(:)            , pointer :: mom_m_windforce     ! wind shear in u dir
-    real(fp), dimension(:)            , pointer :: mom_m_bedforce      ! bed shear in u dir
-    real(fp), dimension(:,:)          , pointer :: mom_m_waveforce     ! wave forces in u dir
+    real(fp)                     , pointer :: gammax
+    real(fp)                     , pointer :: hdt
+    real(fp)                     , pointer :: dryflc
+    integer                      , pointer :: ibaroc
+    logical                      , pointer :: cstbnd
+    logical                      , pointer :: old_corio
+    character(8)                 , pointer :: dpsopt
+    character(6)                 , pointer :: momsol
+    logical                      , pointer :: slplim
+    real(fp)                     , pointer :: rhow
+    real(fp)                     , pointer :: rhofrac
+    real(fp)                     , pointer :: ag
+    real(fp)                     , pointer :: vicmol
+    integer                      , pointer :: iro
+    integer                      , pointer :: irov
+    logical                      , pointer :: wind
+    logical                      , pointer :: wave
+    logical                      , pointer :: roller
+    logical                      , pointer :: xbeach
+    logical                      , pointer :: veg3d
+    real(fp), dimension(:,:)     , pointer :: mom_m_velchange     ! momentum du/dt term
+    real(fp), dimension(:,:)     , pointer :: mom_m_densforce     ! density force term in u dir
+    real(fp), dimension(:,:)     , pointer :: mom_m_flowresist    ! vegetation and porous plates in u dir
+    real(fp), dimension(:,:)     , pointer :: mom_m_corioforce    ! coriolis term in u dir
+    real(fp), dimension(:,:)     , pointer :: mom_m_visco         ! viscosity term in u dir
+    real(fp), dimension(:)       , pointer :: mom_m_pressure      ! pressure term in u dir
+    real(fp), dimension(:)       , pointer :: mom_m_tidegforce    ! tide generating forces in u dir
+    real(fp), dimension(:)       , pointer :: mom_m_windforce     ! wind shear in u dir
+    real(fp), dimension(:)       , pointer :: mom_m_bedforce      ! bed shear in u dir
+    real(fp), dimension(:,:)     , pointer :: mom_m_waveforce     ! wave forces in u dir
+    integer                      , pointer :: no_dis
+	logical                      , pointer :: nf_src_mom
+    real(fp), dimension(:,:,:)   , pointer :: disnf
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
 !
 ! Global variables
 !
@@ -225,6 +230,7 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     integer                    :: iadc
     integer                    :: icxy    ! MAX value of ICX and ICY
     integer                    :: isrc
+    integer                    :: idis
     integer                    :: k
     integer                    :: kdo
     integer                    :: kfw
@@ -296,26 +302,31 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
 !
 !! executable statements -------------------------------------------------------
 !
-    gammax     => gdp%gdnumeco%gammax
-    hdt        => gdp%gdnumeco%hdt
-    dryflc     => gdp%gdnumeco%dryflc
-    ibaroc     => gdp%gdnumeco%ibaroc
-    cstbnd     => gdp%gdnumeco%cstbnd
-    old_corio  => gdp%gdnumeco%old_corio
-    dpsopt     => gdp%gdnumeco%dpsopt
-    momsol     => gdp%gdnumeco%momsol
-    slplim     => gdp%gdnumeco%slplim
-    rhow       => gdp%gdphysco%rhow
-    rhofrac    => gdp%gdphysco%rhofrac
-    ag         => gdp%gdphysco%ag
-    vicmol     => gdp%gdphysco%vicmol
-    iro        => gdp%gdphysco%iro
-    irov       => gdp%gdphysco%irov
-    wind       => gdp%gdprocs%wind
-    wave       => gdp%gdprocs%wave
-    roller     => gdp%gdprocs%roller
-    xbeach     => gdp%gdprocs%xbeach
-    veg3d      => gdp%gdprocs%veg3d
+    gammax         => gdp%gdnumeco%gammax
+    hdt            => gdp%gdnumeco%hdt
+    dryflc         => gdp%gdnumeco%dryflc
+    ibaroc         => gdp%gdnumeco%ibaroc
+    cstbnd         => gdp%gdnumeco%cstbnd
+    old_corio      => gdp%gdnumeco%old_corio
+    dpsopt         => gdp%gdnumeco%dpsopt
+    momsol         => gdp%gdnumeco%momsol
+    slplim         => gdp%gdnumeco%slplim
+    rhow           => gdp%gdphysco%rhow
+    rhofrac        => gdp%gdphysco%rhofrac
+    ag             => gdp%gdphysco%ag
+    vicmol         => gdp%gdphysco%vicmol
+    iro            => gdp%gdphysco%iro
+    irov           => gdp%gdphysco%irov
+    wind           => gdp%gdprocs%wind
+    wave           => gdp%gdprocs%wave
+    roller         => gdp%gdprocs%roller
+    xbeach         => gdp%gdprocs%xbeach
+    veg3d          => gdp%gdprocs%veg3d
+    no_dis         => gdp%gdnfl%no_dis
+    nf_src_mom     => gdp%gdnfl%nf_src_mom
+    disnf          => gdp%gdnfl%disnf
+    nf_src_momu    => gdp%gdnfl%nf_src_momu
+    nf_src_momv    => gdp%gdnfl%nf_src_momv
     !
     ! INITIALISATION
     !
@@ -679,6 +690,29 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
           endif
        endif
     enddo
+    if (nf_src_mom) then
+       !
+       ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
+       !
+       do nm = 1, nmmax
+          hugsqs = hu(nm)*gsqs(nm)
+          if (kfu(nm) == 1) then
+             do k = 1, kmax
+                do idis = 1, no_dis
+                   if (icx == 1) then
+                      bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(thick(k)*hugsqs)
+                      ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*disnf(nm,k,idis)       &
+                                            & /(thick(k)*hugsqs)
+                   else
+                      bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(thick(k)*hugsqs)
+                      ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*disnf(nm,k,idis)       &
+                                            & /(thick(k)*hugsqs)
+                   endif
+                enddo
+             enddo
+          endif
+       enddo
+    endif
     call timer_stop(timer_cucnp_dismmt, gdp)
     !
     ! VERTICAL ADVECTION AND VISCOSITY, IMPLICIT

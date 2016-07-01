@@ -96,6 +96,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)      , dimension(:)       , pointer :: sigma0
     real(fp)      , dimension(:)       , pointer :: theta0
     real(fp)      , dimension(:,:,:)   , pointer :: disnf
+    real(fp)      , dimension(:,:,:)   , pointer :: nf_src_momu
+    real(fp)      , dimension(:,:,:)   , pointer :: nf_src_momv
     real(fp)      , dimension(:,:,:,:) , pointer :: sournf
     character(256), dimension(:)       , pointer :: waitfilesold
     character(256), dimension(:,:)     , pointer :: basecase
@@ -130,11 +132,11 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfv
     integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfsmn0   !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: kfsmx0   !  Description and declaration in esm_alloc_int.f90
-    real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: alfas    !
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: s0       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: s1       !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: xz       !  Description and declaration in
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: yz       !  Description and declaration in
+    real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: alfas    !  Description and declaration in
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(in), target :: dzs0     !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(in), target :: rho      !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(in), target :: u0       !  Description and declaration in esm_alloc_real.f90
@@ -190,6 +192,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp), dimension(:,:)      , allocatable, target :: glb_yz
     real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_disnf
     real(fp), dimension(:,:,:,:,:), allocatable, target :: glb_sournf
+    real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_nf_src_momu
+    real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_nf_src_momv
     integer , dimension(:,:)      , pointer             :: kcs_ptr
     integer , dimension(:,:)      , pointer             :: kfu_ptr
     integer , dimension(:,:)      , pointer             :: kfv_ptr
@@ -252,6 +256,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     basecase       => gdp%gdnfl%basecase
     disnf          => gdp%gdnfl%disnf
     sournf         => gdp%gdnfl%sournf
+    nf_src_momu    => gdp%gdnfl%nf_src_momu
+    nf_src_momv    => gdp%gdnfl%nf_src_momv
     lundia         => gdp%gdinout%lundia
     mfg            => gdp%gdparall%mfg
     mlg            => gdp%gdparall%mlg
@@ -349,8 +355,10 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        ! After the master partition has calculated them, they will be
        ! copied to all partitions
        !
-       allocate(glb_disnf(nlb:nub,mlb:mub,1:kmax,1:no_dis), stat=ierror)
-       allocate(glb_sournf(nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
+       allocate(glb_disnf      (nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
+       allocate(glb_sournf     (nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
+       allocate(glb_nf_src_momu(nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
+       allocate(glb_nf_src_momv(nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
        if (ierror /= 0) then
           call prterr(lundia, 'U021', 'near_field: memory allocation error')
           call d3stop(1, gdp)
@@ -520,17 +528,16 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    ! Fill sources and sinks following the Desa Method of Prof. Lee
                    !
-                   call desa(nlb     ,nub      ,mlb       ,mub       ,kmax      , &
-                           & lstsci  ,no_dis   ,lsal      ,ltem      , &
+                   call desa(nlb     ,nub      ,mlb       ,mub            ,kmax           , &
+                           & lstsci  ,no_dis   ,lsal      ,ltem           , &
                            & idis    ,thick    , &
-                           & kcs_ptr   ,xz_ptr    ,yz_ptr    , &
-                           & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr,kfsmx0_ptr, &
-                           & dzs0_ptr,glb_disnf,glb_sournf,linkinf   , gdp      )
-                   deallocate(gdp%gdnfl%nf_const , stat=ierror)
+                           & kcs_ptr ,xz_ptr   ,yz_ptr    ,alfas_ptr      , &
+                           & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr     ,kfsmx0_ptr     , &
+                           & dzs0_ptr,glb_disnf,glb_sournf,glb_nf_src_momu,glb_nf_src_momv, &
+                           & linkinf ,gdp      )
                    deallocate(gdp%gdnfl%nf_intake, stat=ierror)
                    deallocate(gdp%gdnfl%nf_sink  , stat=ierror)
                    deallocate(gdp%gdnfl%nf_sour  , stat=ierror)
-                   nullify(gdp%gdnfl%nf_const)
                    nullify(gdp%gdnfl%nf_intake)
                    nullify(gdp%gdnfl%nf_sink)
                    nullify(gdp%gdnfl%nf_sour)
@@ -577,24 +584,28 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        end select
     endif
     !
-    ! Copy the global disnf/sournf to the local ones, even if not parallel,
+    ! Copy the global disnf/sournf/nf_src_momu/nf_src_momv to the local ones, even if not parallel,
     ! only when having processed the near field data
     !
     if (nflrwmode /= NFLWRITE) then
        if (parll) then
           ! 
-          ! First scatter glb_disnf/glb_sournf to all nodes 
+          ! First scatter glb_disnf/glb_sournf/glb_nf_src_momu/glb_nf_src_momv to all nodes 
           ! 
-                          call dfbroadc(glb_disnf , nmaxgl*mmaxgl*kmax*no_dis       , dfdble, error, errmsg)
-          if (.not.error) call dfbroadc(glb_sournf, nmaxgl*mmaxgl*kmax*lstsci*no_dis, dfdble, error, errmsg)
+                          call dfbroadc(glb_disnf      ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
+          if (.not.error) call dfbroadc(glb_sournf     ,nmaxgl*mmaxgl*kmax*lstsci*no_dis,dfdble,error,errmsg)
+          if (.not.error) call dfbroadc(glb_nf_src_momu,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
+          if (.not.error) call dfbroadc(glb_nf_src_momv,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
           if (error) then
              call write_error(errmsg, unit=lundia)
           else
              do m = mfg, mlg 
                 do n = nfg, nlg 
                    call n_and_m_to_nm(n-nfg+1, m-mfg+1, nm, gdp)
-                   disnf (nm,:,:)   = glb_disnf (n,m,:,:) 
-                   sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+                   disnf      (nm,:,:)   = glb_disnf      (n,m,:,:) 
+                   sournf     (nm,:,:,:) = glb_sournf     (n,m,:,:,:)
+                   nf_src_momu(nm,:,:)   = glb_nf_src_momu(n,m,:,:) 
+                   nf_src_momv(nm,:,:)   = glb_nf_src_momv(n,m,:,:) 
                 enddo 
              enddo 
           endif
@@ -602,8 +613,10 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
           do m = mlb, mub
              do n = nlb, nub
                 call n_and_m_to_nm(n, m, nm, gdp)
-                disnf (nm,:,:)   = glb_disnf(n,m,:,:)
-                sournf(nm,:,:,:) = glb_sournf(n,m,:,:,:)
+                disnf      (nm,:,:)   = glb_disnf      (n,m,:,:)
+                sournf     (nm,:,:,:) = glb_sournf     (n,m,:,:,:)
+                nf_src_momu(nm,:,:)   = glb_nf_src_momu(n,m,:,:)
+                nf_src_momv(nm,:,:)   = glb_nf_src_momv(n,m,:,:)
              enddo
           enddo
        endif
@@ -626,7 +639,9 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        deallocate(glb_yz    , stat=ierror)
     endif
     if (nflrwmode /= NFLWRITE) then
-       deallocate(glb_disnf , stat=ierror)
-       deallocate(glb_sournf, stat=ierror)
+       deallocate(glb_disnf      , stat=ierror)
+       deallocate(glb_sournf     , stat=ierror)
+       deallocate(glb_nf_src_momu, stat=ierror)
+       deallocate(glb_nf_src_momv, stat=ierror)
     endif
 end subroutine near_field

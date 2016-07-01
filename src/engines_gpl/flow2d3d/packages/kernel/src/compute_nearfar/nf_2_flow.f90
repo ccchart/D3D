@@ -54,7 +54,7 @@ subroutine nf_2_flow(filename, error, gdp)
     real(fp), dimension(:,:) , pointer :: nf_intake
     real(fp), dimension(:,:) , pointer :: nf_sink  
     real(fp), dimension(:,:) , pointer :: nf_sour  
-	logical                  , pointer :: nf_sour_impulse
+	logical                  , pointer :: nf_src_mom
 !
 ! Global variables
 !
@@ -91,7 +91,7 @@ subroutine nf_2_flow(filename, error, gdp)
     nf_const          => gdp%gdnfl%nf_const 
     nf_sink           => gdp%gdnfl%nf_sink  
     nf_sour           => gdp%gdnfl%nf_sour  
-    nf_sour_impulse   => gdp%gdnfl%nf_sour_impulse
+    nf_src_mom        => gdp%gdnfl%nf_src_mom
     !
     error = .false.
     allocate(r_input(max(2,lstsc)), stat=istat)
@@ -147,8 +147,6 @@ subroutine nf_2_flow(filename, error, gdp)
        error = .true.
     endif
     !
-    allocate (gdp%gdnfl%nf_const(lstsc), stat = istat)
-    nf_const => gdp%gdnfl%nf_const
     r_input = -999.0_fp
     call prop_get(file_ptr, 'NF2FF/discharge/constituents', r_input, lstsc)
     do i=1,lstsc
@@ -171,6 +169,9 @@ subroutine nf_2_flow(filename, error, gdp)
        else
           idim = 1
        endif
+    endif
+    if (associated(gdp%gdnfl%nf_intake)) then
+       deallocate (gdp%gdnfl%nf_intake, stat = istat)
     endif
     allocate (gdp%gdnfl%nf_intake(idim,3), stat = istat)
     nf_intake => gdp%gdnfl%nf_intake
@@ -196,6 +197,9 @@ subroutine nf_2_flow(filename, error, gdp)
           call prop_get(file_ptr, 'NF2FF/NFResult/sinks', idim)
        else
           idim = 1
+       endif
+       if (associated(gdp%gdnfl%nf_sink)) then
+          deallocate (gdp%gdnfl%nf_sink, stat = istat)
        endif
        allocate (gdp%gdnfl%nf_sink(idim,6), stat = istat)
        nf_sink => gdp%gdnfl%nf_sink
@@ -227,12 +231,15 @@ subroutine nf_2_flow(filename, error, gdp)
        endif
        numrealonline = count_words(trim(line))
        if (numrealonline == 6) then
-          nf_sour_impulse = .false.
+          nf_src_mom = .false.
        elseif (numrealonline == 8) then
-          nf_sour_impulse = .true.
+          nf_src_mom = .true.
        else
           write(lundia, '(a,i0,a)') "ERROR: <NF2FF> / <NFResult> / <sources> has ", numrealonline, " columns; expecting 6 (X,Y,Z,S,H,B) or 8 (+Umag, Udir)."
           error = .true.
+       endif
+       if (associated(gdp%gdnfl%nf_sour)) then
+          deallocate (gdp%gdnfl%nf_sour, stat = istat)
        endif
        allocate (gdp%gdnfl%nf_sour(idim,numrealonline), stat = istat)
        nf_sour => gdp%gdnfl%nf_sour

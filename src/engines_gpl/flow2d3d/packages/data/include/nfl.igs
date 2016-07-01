@@ -72,12 +72,14 @@ type gd_nfl
     real(fp), dimension(:)              , pointer  :: h0
     real(fp), dimension(:)              , pointer  :: sigma0
     real(fp), dimension(:)              , pointer  :: theta0
-    real(fp), dimension(:)              , pointer  :: nf_const  ! Constituent values as read from NF2FF file
-    real(fp), dimension(:,:)            , pointer  :: nf_intake ! Intake distribution points X,Y,Z as read from NF2FF file
-    real(fp), dimension(:,:)            , pointer  :: nf_sink   ! Sinks X,Y,Z,S,H,B as read from NF2FF file
-    real(fp), dimension(:,:)            , pointer  :: nf_sour   ! Sources X,Y,Z,S,H,B,Umag,Udir as read from NF2FF file
-    real(fp), dimension(:,:,:)          , pointer  :: disnf
-    real(fp), dimension(:,:,:,:)        , pointer  :: sournf
+    real(fp), dimension(:)              , pointer  :: nf_const    ! Constituent values as read from NF2FF file
+    real(fp), dimension(:,:)            , pointer  :: nf_intake   ! Intake distribution points X,Y,Z as read from NF2FF file
+    real(fp), dimension(:,:)            , pointer  :: nf_sink     ! Sinks X,Y,Z,S,H,B as read from NF2FF file
+    real(fp), dimension(:,:)            , pointer  :: nf_sour     ! Sources X,Y,Z,S,H,B,Umag,Udir as read from NF2FF file
+    real(fp), dimension(:,:,:)          , pointer  :: disnf       ! Discharge volume (nm, k, idis)
+    real(fp), dimension(:,:,:)          , pointer  :: nf_src_momu ! Discharge momentum in u direction (nm, k, idis)
+    real(fp), dimension(:,:,:)          , pointer  :: nf_src_momv ! Discharge momentum in v direction (nm, k, idis)
+    real(fp), dimension(:,:,:,:)        , pointer  :: sournf      ! Discharge constituents (nm, k, l, idis)
     !
     ! character arrays
     !
@@ -92,7 +94,7 @@ type gd_nfl
     !
     ! logicals
     !
-	logical                        :: nf_sour_impulse ! true: Umag and Udir in nf_sour are filled, as read from NF2FF file
+	logical                        :: nf_src_mom   ! true: Umag and Udir in nf_sour are filled, as read from NF2FF file
     !
     ! characters
     !

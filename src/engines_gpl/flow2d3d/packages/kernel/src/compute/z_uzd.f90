@@ -92,33 +92,38 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     !
     include 'flow_steps_f.inc'
     !    
-    real(fp)                , pointer :: hdt
-    real(fp)                , pointer :: ag
-    integer                 , pointer :: iro
-    integer                 , pointer :: irov
-    real(fp)                , pointer :: rhow
-    real(fp)                , pointer :: vicmol
-    character(8)            , pointer :: dpsopt
-    real(fp)                , pointer :: eps
-    integer                 , pointer :: lundia
-    real(fp)                , pointer :: drycrt
-    real(fp)                , pointer :: dryflc
-    real(fp)                , pointer :: gammax
-    integer                 , pointer :: ibaroc
-    logical                 , pointer :: cstbnd
-    logical                 , pointer :: old_corio
-    character(6)            , pointer :: momsol
-    logical                 , pointer :: slplim
-    real(fp)                , pointer :: rhofrac
-    logical                 , pointer :: wind
-    logical                 , pointer :: wave
-    logical                 , pointer :: roller
-    logical                 , pointer :: xbeach
-    integer                 , pointer :: nh_level
-    logical                 , pointer :: nonhyd
-    real(fp)                , pointer :: dzmin
-    integer                 , pointer :: mfg
-    integer                 , pointer :: nfg
+    real(fp)                     , pointer :: hdt
+    real(fp)                     , pointer :: ag
+    integer                      , pointer :: iro
+    integer                      , pointer :: irov
+    real(fp)                     , pointer :: rhow
+    real(fp)                     , pointer :: vicmol
+    character(8)                 , pointer :: dpsopt
+    real(fp)                     , pointer :: eps
+    integer                      , pointer :: lundia
+    real(fp)                     , pointer :: drycrt
+    real(fp)                     , pointer :: dryflc
+    real(fp)                     , pointer :: gammax
+    integer                      , pointer :: ibaroc
+    logical                      , pointer :: cstbnd
+    logical                      , pointer :: old_corio
+    character(6)                 , pointer :: momsol
+    logical                      , pointer :: slplim
+    real(fp)                     , pointer :: rhofrac
+    logical                      , pointer :: wind
+    logical                      , pointer :: wave
+    logical                      , pointer :: roller
+    logical                      , pointer :: xbeach
+    integer                      , pointer :: nh_level
+    logical                      , pointer :: nonhyd
+    real(fp)                     , pointer :: dzmin
+    integer                      , pointer :: mfg
+    integer                      , pointer :: nfg
+    integer                      , pointer :: no_dis
+	logical                      , pointer :: nf_src_mom
+    real(fp), dimension(:,:,:)   , pointer :: disnf
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
+    real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
 !
 ! Global variables
 !
@@ -249,6 +254,7 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     integer            :: idifc
     integer            :: idifd
     integer            :: idifu
+    integer            :: idis
     integer            :: isrc
     integer            :: iter
     integer            :: itr
@@ -347,33 +353,38 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
 !! executable statements -------------------------------------------------------
 !
     !
-    eps        => gdp%gdconst%eps
-    lundia     => gdp%gdinout%lundia
-    drycrt     => gdp%gdnumeco%drycrt
-    dryflc     => gdp%gdnumeco%dryflc
-    gammax     => gdp%gdnumeco%gammax
-    hdt        => gdp%gdnumeco%hdt
-    ibaroc     => gdp%gdnumeco%ibaroc
-    cstbnd     => gdp%gdnumeco%cstbnd
-    old_corio  => gdp%gdnumeco%old_corio
-    momsol     => gdp%gdnumeco%momsol
-    slplim     => gdp%gdnumeco%slplim
-    ag         => gdp%gdphysco%ag
-    iro        => gdp%gdphysco%iro
-    irov       => gdp%gdphysco%irov
-    rhofrac    => gdp%gdphysco%rhofrac
-    rhow       => gdp%gdphysco%rhow
-    vicmol     => gdp%gdphysco%vicmol
-    wind       => gdp%gdprocs%wind
-    wave       => gdp%gdprocs%wave
-    roller     => gdp%gdprocs%roller
-    xbeach     => gdp%gdprocs%xbeach
-    dpsopt     => gdp%gdnumeco%dpsopt
-    nh_level   => gdp%gdnonhyd%nh_level
-    nonhyd     => gdp%gdprocs%nonhyd
-    dzmin      => gdp%gdzmodel%dzmin
-    mfg        => gdp%gdparall%mfg
-    nfg        => gdp%gdparall%nfg
+    eps            => gdp%gdconst%eps
+    lundia         => gdp%gdinout%lundia
+    drycrt         => gdp%gdnumeco%drycrt
+    dryflc         => gdp%gdnumeco%dryflc
+    gammax         => gdp%gdnumeco%gammax
+    hdt            => gdp%gdnumeco%hdt
+    ibaroc         => gdp%gdnumeco%ibaroc
+    cstbnd         => gdp%gdnumeco%cstbnd
+    old_corio      => gdp%gdnumeco%old_corio
+    momsol         => gdp%gdnumeco%momsol
+    slplim         => gdp%gdnumeco%slplim
+    ag             => gdp%gdphysco%ag
+    iro            => gdp%gdphysco%iro
+    irov           => gdp%gdphysco%irov
+    rhofrac        => gdp%gdphysco%rhofrac
+    rhow           => gdp%gdphysco%rhow
+    vicmol         => gdp%gdphysco%vicmol
+    wind           => gdp%gdprocs%wind
+    wave           => gdp%gdprocs%wave
+    roller         => gdp%gdprocs%roller
+    xbeach         => gdp%gdprocs%xbeach
+    dpsopt         => gdp%gdnumeco%dpsopt
+    nh_level       => gdp%gdnonhyd%nh_level
+    nonhyd         => gdp%gdprocs%nonhyd
+    dzmin          => gdp%gdzmodel%dzmin
+    mfg            => gdp%gdparall%mfg
+    nfg            => gdp%gdparall%nfg
+    no_dis         => gdp%gdnfl%no_dis
+    nf_src_mom     => gdp%gdnfl%nf_src_mom
+    disnf          => gdp%gdnfl%disnf
+    nf_src_momu    => gdp%gdnfl%nf_src_momu
+    nf_src_momv    => gdp%gdnfl%nf_src_momv
     !
     drytrsh      = drycrt
     drythreshold = 0.1_fp * dryflc
@@ -726,6 +737,28 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              endif
           endif
        enddo
+       if (nf_src_mom) then
+          !
+          ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
+          !
+          do nm = 1, nmmax
+             if (kfu(nm) == 1) then
+                do k = 1, kmax
+                   do idis = 1, no_dis
+                      if (icx == 1) then
+                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*disnf(nm,k,idis)       &
+                                               & /(dzu0(nm,k)*gsqs(nm))
+                      else
+                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*disnf(nm,k,idis)       &
+                                               & /(dzu0(nm,k)*gsqs(nm))
+                      endif
+                   enddo
+                enddo
+             endif
+          enddo
+       endif
        call timer_stop(timer_uzd_dismmt, gdp)
        !
        ! VERTICAL ADVECTION AND VISCOSITY, IMPLICIT
