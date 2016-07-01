@@ -1,10 +1,10 @@
-subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
-                   & lstsci ,lsal     ,ltem     ,idensform ,idis   , &
-                   & time   ,taua     ,saleqs   ,temeqs    ,thick  , &
-                   & sig    ,zk       ,kfu      ,kfv       , &
-                   & alfas  ,s0       ,s1       ,u0        ,v0     , &
-                   & r0     ,rho      ,dps      ,xz        ,yz     , &
-                   & kfsmn0 ,kfsmx0   ,dzs0     ,filename  ,gdp    )
+subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
+                   & lstsci  ,lsal     ,ltem     ,idensform ,idis   , &
+                   & time    ,taua     ,saleqs   ,temeqs    ,thick  , &
+                   & uniqueId,sig      ,zk       ,kfu       ,kfv    , &
+                   & alfas   ,s0       ,s1       ,u0        ,v0     , &
+                   & r0      ,rho      ,dps      ,xz        ,yz     , &
+                   & kfsmn0  ,kfsmx0   ,dzs0     ,filename  ,namcon , gdp    )
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -107,7 +107,9 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: s1  
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: xz
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: yz
+    character(6)                                          , intent(in)  :: uniqueId
     character(256), dimension(3)                          , intent(in)  :: filename
+    character(20), dimension(lstsci)                      , intent(in)  :: namcon   !  Description and declaration in esm_alloc_char.f90
 !
 ! Local variables
 !
@@ -346,13 +348,8 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     string = trim(gdp%runid) // '.mdf'
     call tree_create_node(node_ptr, 'FFinputFile', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
-    call getfullversionstring_flow2d3d(string)
-    call dattim(rundat)
-    call random_seed()
-    call random_number(dummy)
-    write(string,'(3a,f25.22)') trim(string), '::', trim(rundat), dummy
     call tree_create_node(node_ptr, 'FFuniqueID', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(uniqueId)),node_value), 'STRING:XMLDATA')
     !
     call tree_create_node(cosumo_ptr, 'SubgridModel', subgrid_ptr)
     write(string,'(i0)') idis
@@ -361,6 +358,14 @@ subroutine wri_FF2NF(nlb    ,nub      ,mlb      ,mub       ,kmax   , &
     write(string,'(e24.17)') time/60.0_fp
     call tree_create_node(subgrid_ptr, 'TIME', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    call tree_create_node(subgrid_ptr, 'constituentsNames', subnode_ptr)
+    write(string,'(i0)') lstsc
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLNUMDATALINES')
+    do i=1,lstsc
+       write(inttostring,'(i0)') i
+       call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
+       call tree_put_data(data_ptr, transfer(trim(namcon(i)),node_value), "STRING:XMLDATALINE")
+    enddo
     !
     call tree_create_node(subgrid_ptr, 'cormix', node_ptr)
     write(string,'(e24.17)') ha(1)

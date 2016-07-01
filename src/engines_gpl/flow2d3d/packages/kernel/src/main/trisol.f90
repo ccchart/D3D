@@ -527,6 +527,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer(pntrsize)                    , pointer :: namsrc
     integer(pntrsize)                    , pointer :: tprofc
     integer(pntrsize)                    , pointer :: tprofu
+    integer(pntrsize)                    , pointer :: namcon
     integer(pntrsize)                    , pointer :: ubnd
     integer(pntrsize), dimension(:, :)   , pointer :: nprptr
     integer                              , pointer :: nrcmp
@@ -1069,6 +1070,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     namsrc              => gdp%gdr_i_ch%namsrc
     tprofc              => gdp%gdr_i_ch%tprofc
     tprofu              => gdp%gdr_i_ch%tprofu
+    namcon              => gdp%gdr_i_ch%namcon
     ifirst              => gdp%gdtrisol%ifirst
     nubnd               => gdp%gdtrisol%nubnd
     ubnd                => gdp%gdtrisol%ubnd
@@ -1431,7 +1433,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call near_field(r(u0)  , r(v0)     , r(rho)    , r(thick)  , &
                         & kmax   , r(alfas)  , d(dps)    , r(s0)     , &
                         & lstsci , lsal      , ltem      , r(xz)     , &
-                        & r(yz)  , nmmax     , nflrwmode , &
+                        & r(yz)  , nmmax     , nflrwmode , ch(namcon), &
                         & i(kcs) , i(kfu)    , i(kfv)    , &
                         & r(r0)  , 2*nst*hdt , saleqs    , temeqs    , &
                         & r(s1)  , i(kfsmn0) , i(kfsmx0) , r(dzs0)   , &

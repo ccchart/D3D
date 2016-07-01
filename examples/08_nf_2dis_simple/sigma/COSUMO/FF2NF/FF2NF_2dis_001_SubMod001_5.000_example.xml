@@ -10,6 +10,12 @@
     <SubgridModel>
         <SubgridModelNr>1</SubgridModelNr>
         <TIME>0.50000000000000000E+01</TIME>
+        <constituentsNames>
+           salinity
+           temperature
+           tracer1
+           sediment sand1
+        </constituentsNames>
         <cormix>
             <HA>0.10159614755097280E+02</HA>
             <HD>0.10209745263299377E+02</HD>

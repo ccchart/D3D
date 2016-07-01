@@ -1,7 +1,7 @@
 subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                     & kmax   ,alfas  ,dps      ,s0     , &
                     & lstsci ,lsal   ,ltem     ,xz     , &
-                    & yz     ,nmmax  ,nflrwmode, &
+                    & yz     ,nmmax  ,nflrwmode,namcon , &
                     & kcs    ,kfu    ,kfv      , &
                     & r0     ,time   ,saleqs   ,temeqs , &
                     & s1     ,kfsmn0 ,kfsmx0   ,dzs0   , &
@@ -144,6 +144,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)   , dimension(kmax)                                                  , intent(in)         :: sig      !  Vertical coordinates of cell interfaces (SIGMA-MODEL)
     real(fp)   , dimension(0:kmax)                                                , intent(in)         :: zk       !  Vertical coordinates of cell interfaces (Z-MODEL)
     real(prec) , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              , intent(in), target :: dps      !  Description and declaration in esm_alloc_real.f90
+    character(20), dimension(lstsci)                                              , intent(in)         :: namcon   !  Description and declaration in esm_alloc_char.f90
 !
 ! Local variables
 !
@@ -162,6 +163,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nub
     integer                                             :: nm
     integer                                             :: k_dummy
+    real(fp)                                            :: dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
     real(fp)                                            :: taua
@@ -212,6 +214,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     character(1)                                        :: slash
     character(3)                                        :: c_inode
     character(3)                                        :: c_idis
+    character(6)                                        :: uniqueId
     character(14)                                       :: cctime
     character(256), dimension(3)                        :: filename
     character(256), dimension(:), allocatable           :: waitfiles
@@ -460,12 +463,21 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                 !
                 do idis = 1, no_dis
                    !
-                   ! Add SubGridModel number to filename to prevent overwriting
+                   ! Add SubGridModel number and uniqueId to filename to prevent overwriting
                    !
                    write(c_idis,'(i3.3)') idis
                    !
-                   filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
-                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
+                   ! Unique ID: 6 kapital letters
+                   !
+                   uniqueId = ' '
+                   call random_seed()
+                   do i=1,6
+                      call random_number(dummy)
+                      uniqueId(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
+                   enddo
+                   !
+                   filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//uniqueId//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
+                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//uniqueId//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
                    filename(3) = trim(basecase(idis,1))
                    waitfiles(idis) = filename(2)
                    !
@@ -474,10 +486,10 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
                                 & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
                                 & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
-                                & sig       ,zk        ,kfu_ptr  ,kfv_ptr  , &
+                                & uniqueId  ,sig       ,zk       ,kfu_ptr  ,kfv_ptr, &
                                 & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
                                 & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
-                                & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,gdp    )
+                                & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,namcon , gdp    )
                 enddo
              endif
              !

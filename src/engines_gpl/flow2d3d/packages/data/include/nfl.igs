@@ -87,7 +87,8 @@ type gd_nfl
 	!
 	! reals
 	!
-	real(fp)                        :: nf_discharge ! Discharge as read from NF2FF file
+	real(fp)                        :: nf_q_source ! Qsource as read from NF2FF file
+	real(fp)                        :: nf_q_intake ! Qintake as read from NF2FF file
     !
     ! logicals
     !

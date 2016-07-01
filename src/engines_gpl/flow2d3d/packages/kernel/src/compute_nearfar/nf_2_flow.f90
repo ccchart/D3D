@@ -47,7 +47,8 @@ subroutine nf_2_flow(filename, error, gdp)
     !
     integer                  , pointer :: lundia
     integer                  , pointer :: lstsc
-    real(fp)                 , pointer :: nf_discharge
+    real(fp)                 , pointer :: nf_q_source
+    real(fp)                 , pointer :: nf_q_intake
 	integer                  , pointer :: nf_const_operator
     real(fp), dimension(:)   , pointer :: nf_const 
     real(fp), dimension(:,:) , pointer :: nf_intake
@@ -84,7 +85,8 @@ subroutine nf_2_flow(filename, error, gdp)
 !
     lundia            => gdp%gdinout%lundia
     lstsc             => gdp%d%lstsc
-    nf_discharge      => gdp%gdnfl%nf_discharge
+    nf_q_source       => gdp%gdnfl%nf_q_source
+    nf_q_intake       => gdp%gdnfl%nf_q_intake
     nf_const_operator => gdp%gdnfl%nf_const_operator
     nf_const          => gdp%gdnfl%nf_const 
     nf_sink           => gdp%gdnfl%nf_sink  
@@ -132,7 +134,8 @@ subroutine nf_2_flow(filename, error, gdp)
        error = .true.
     endif
     !
-    call prop_get(file_ptr, 'NF2FF/discharge/M3s', nf_discharge)
+    call prop_get(file_ptr, 'NF2FF/discharge/Qsource', nf_q_source)
+    call prop_get(file_ptr, 'NF2FF/discharge/Qintake', nf_q_intake)
     call prop_get(file_ptr, 'NF2FF/discharge/constituentsoperator', cdummy)
     call str_lower(cdummy)
     if (cdummy == "absolute") then
