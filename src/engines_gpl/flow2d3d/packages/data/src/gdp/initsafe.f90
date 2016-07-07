@@ -46,7 +46,9 @@ subroutine initsafe(gdp)
     !
     type(globdat),target :: gdp
     !
-    integer :: istat
+    integer  :: i
+    integer  :: istat
+    real(fp) :: dummy
 !
 !! executable statements -------------------------------------------------------
 !
@@ -106,8 +108,14 @@ subroutine initsafe(gdp)
     !
     call sbuff_init
     !
-    call initdfparall  (gdp%gdparall) 
-    call initdfparall  (gdp%iopartit) 
+    call initdfparall  (gdp%gdparall)
+    call initdfparall  (gdp%iopartit)
+    !
+    call random_seed()
+    do i=1,6
+       call random_number(dummy)
+       gdp%uniqueid(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
+    enddo
     ! 
     ! Since GDP allocation has not yet succeeded, I can't call prterr(...,gdp) and d3stop(...)
     !

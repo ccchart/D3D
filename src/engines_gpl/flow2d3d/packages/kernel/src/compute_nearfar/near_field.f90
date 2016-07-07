@@ -165,7 +165,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nub
     integer                                             :: nm
     integer                                             :: k_dummy
-    real(fp)                                            :: dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
     real(fp)                                            :: taua
@@ -218,7 +217,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     character(1)                                        :: slash
     character(3)                                        :: c_inode
     character(3)                                        :: c_idis
-    character(6)                                        :: uniqueId
     character(14)                                       :: cctime
     character(256), dimension(3)                        :: filename
     character(256), dimension(:), allocatable           :: waitfiles
@@ -475,17 +473,8 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    write(c_idis,'(i3.3)') idis
                    !
-                   ! Unique ID: 6 kapital letters
-                   !
-                   uniqueId = ' '
-                   call random_seed()
-                   do i=1,6
-                      call random_number(dummy)
-                      uniqueId(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
-                   enddo
-                   !
-                   filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//uniqueId//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
-                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//uniqueId//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
+                   filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//trim(gdp%uniqueid)//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
+                   filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%uniqueid)//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
                    filename(3) = trim(basecase(idis,1))
                    waitfiles(idis) = filename(2)
                    !
@@ -494,7 +483,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
                                 & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
                                 & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
-                                & uniqueId  ,sig       ,zk       ,kfu_ptr  ,kfv_ptr, &
+                                & sig       ,zk        ,kfu_ptr  ,kfv_ptr  , &
                                 & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
                                 & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
                                 & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,namcon , gdp    )

@@ -265,8 +265,10 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
              disnf(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
           endif
        enddo
-       !
-       if (sour_cnt == 1) then
+    endif
+    !
+    if (sour_cnt > 0) then
+       if (sour_cnt==1 .and. sink_cnt>0) then
           ! (Single) source point:
           ! Determine the relative thickness over which to distribute the diluted discharge:
           ! Define the line through the source point, perpendicular to the line connecting the
@@ -352,7 +354,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
              endif
           enddo
        else
-          ! Multiple source points defined
+          ! Multiple source points defined or no sink points defined
           !
           wght = 1.0_fp / real(sour_cnt,fp)
           allocate (n_dis (sour_cnt), stat=ierror)

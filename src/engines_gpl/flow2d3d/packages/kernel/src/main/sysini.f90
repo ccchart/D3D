@@ -211,6 +211,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,prgnm     , &
     write (lundia, '(2a)')  '***           built from : ', trim(txthlp)
     write (lundia, '(a)')   '***'
     write (lundia, '(2a)')  '***           runid      : ', trim(runid)
+    write (lundia, '(2a)')  '***           uniqueid   : ', trim(gdp%uniqueid)
     write (lundia, '(4a)')  '***           date,time  : ', date, ',', rundat(11:19)
     write (lundia, '(a)')   '***'
     write (lundia, '(a)')   '***           Version 1.0 for the Shin Hanul project'

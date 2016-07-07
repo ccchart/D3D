@@ -856,6 +856,8 @@ subroutine tricom_init(olv_handle, gdp)
        !
        if (nfl) then
           call init_nfl(kmax,lstsci, gdp)
+       else
+          gdp%gdnfl%nf_src_mom = .false.
        endif
        !
        ! Define time differences for writing output files

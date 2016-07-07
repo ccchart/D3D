@@ -1,7 +1,7 @@
 subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
                    & lstsci  ,lsal     ,ltem     ,idensform ,idis   , &
                    & time    ,taua     ,saleqs   ,temeqs    ,thick  , &
-                   & uniqueId,sig      ,zk       ,kfu       ,kfv    , &
+                   & sig     ,zk       ,kfu      ,kfv       , &
                    & alfas   ,s0       ,s1       ,u0        ,v0     , &
                    & r0      ,rho      ,dps      ,xz        ,yz     , &
                    & kfsmn0  ,kfsmx0   ,dzs0     ,filename  ,namcon , gdp    )
@@ -107,7 +107,6 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: s1  
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: xz
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: yz
-    character(6)                                          , intent(in)  :: uniqueId
     character(256), dimension(3)                          , intent(in)  :: filename
     character(20), dimension(lstsci)                      , intent(in)  :: namcon   !  Description and declaration in esm_alloc_char.f90
 !
@@ -349,7 +348,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     call tree_create_node(node_ptr, 'FFinputFile', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     call tree_create_node(node_ptr, 'FFuniqueID', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(uniqueId)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(gdp%uniqueid)),node_value), 'STRING:XMLDATA')
     !
     call tree_create_node(cosumo_ptr, 'SubgridModel', subgrid_ptr)
     write(string,'(i0)') idis

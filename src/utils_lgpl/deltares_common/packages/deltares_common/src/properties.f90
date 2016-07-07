@@ -567,7 +567,7 @@ subroutine prop_xmlfile_pointer(lu, tree, error)
     ! 100 xml levels must be enough
     !
     allocate(xmlattribs(2,10), stat=ierr)
-    allocate(xmldata(500)    , stat=ierr)
+    if (allocated(xmldata)) deallocate(xmldata, stat=ierr)
     allocate(xmllevel(0:100) , stat=ierr)
     xmllevel(0)%node_ptr       => tree
     xmlinfo%lun                = lu
@@ -684,12 +684,14 @@ end subroutine prop_xmlfile_pointer
 !    no_data     Number of lines of character data
 !
 subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
+   use m_alloc
+   !
    type(xml_parse) , intent(inout)               :: info
    character(len=*), intent(out)                 :: tag
    logical         , intent(out)                 :: endtag
    character(len=*), intent(out), dimension(:,:) :: attribs
    integer         , intent(out)                 :: no_attribs
-   character(len=*), intent(out), dimension(:)   :: data
+   character(xml_buffer_length), intent(inout), dimension(:), allocatable   :: data
    integer         , intent(out)                 :: no_data
    !
    integer                          :: kspace
@@ -770,6 +772,10 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
    info%line = adjustl( info%line(kend+1:) )
    idxat     = 0
    idxdat    = 0
+   if (.not.allocated(data)) then
+      allocate(data(100), stat=ierr)
+   endif
+   data = ' '
    do while ( info%line /= ' ' .and. .not. close_bracket .and. .not. comment_tag )
       keq  = index( info%line, '=' )
       kend = index( info%line, '>' )
@@ -849,20 +855,17 @@ subroutine xml_get( info, tag, endtag, attribs, no_attribs, data, no_data )
          kend   = index( info%line, '<' )
       endif
       idxdat = idxdat + 1
-      if ( idxdat <= size(data) ) then
-         if ( .not. endtag ) no_data = idxdat    ! The endtag was set because of "/>"?
-         if ( kend >= 1 ) then
-            data(idxdat) = info%line(1:kend-1)
-            info%line    = info%line(kend:)
-         else
-            data(idxdat) = info%line
-         endif
-         no_data = idxdat
-      else
-         write(*,'(a,i0,a)') 'ERROR:XML_GET - more data lines than could be stored: ', info%lineno, trim(info%line)
-         info%too_many_data = .true.
-         exit
+      if ( idxdat > size(data) ) then
+         call realloc(data,size(data)+100, lindex=1, stat=ierr, fill=' ', keepExisting=.true.)
       endif
+      if ( .not. endtag ) no_data = idxdat    ! The endtag was set because of "/>"?
+      if ( kend >= 1 ) then
+         data(idxdat) = info%line(1:kend-1)
+         info%line    = info%line(kend:)
+      else
+         data(idxdat) = info%line
+      endif
+      no_data = idxdat
       !
       ! No more data? Otherwise, read on
       !
