@@ -83,7 +83,6 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
     !
     real(fp), dimension(:,:,:) , pointer :: rttfu
     real(fp), dimension(:,:,:) , pointer :: rttfv
-    real(fp), dimension(:,:,:) , pointer :: disnf
     real(fp), dimension(:,:)   , pointer :: ustokes
     real(fp), dimension(:,:)   , pointer :: vstokes
     include 'flow_steps_f.inc'
@@ -270,7 +269,6 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
 !
     rttfu         => gdp%gdtrachy%rttfu
     rttfv         => gdp%gdtrachy%rttfv
-    disnf         => gdp%gdnfl%disnf
     ustokes       => gdp%gdtrisol%ustokes
     vstokes       => gdp%gdtrisol%vstokes
     !

@@ -105,6 +105,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     if(istat==0)  allocate (gdp%gdnfl%basecase  (no_dis,2)                                  , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%base_path (no_dis)                                    , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%disnf     (gdp%d%nmlb:gdp%d%nmub, kmax,no_dis)        , stat = istat)
+    if(istat==0)  allocate (gdp%gdnfl%disnf_intake     (gdp%d%nmlb:gdp%d%nmub, kmax,no_dis)        , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%sournf    (gdp%d%nmlb:gdp%d%nmub, kmax,lstsci,no_dis) , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%nf_src_momu(gdp%d%nmlb:gdp%d%nmub,kmax,no_dis)        , stat = istat)
     if(istat==0)  allocate (gdp%gdnfl%nf_src_momv(gdp%d%nmlb:gdp%d%nmub,kmax,no_dis)        , stat = istat)
@@ -140,6 +141,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     gdp%gdnfl%theta0      = 0.0_fp
     gdp%gdnfl%basecase    = ' '
     gdp%gdnfl%disnf       = 0.0_fp
+    gdp%gdnfl%disnf_intake = 0.0_fp
     gdp%gdnfl%sournf      = 0.0_fp
     gdp%gdnfl%nf_src_momu = 0.0_fp
     gdp%gdnfl%nf_src_momv = 0.0_fp
@@ -157,4 +159,7 @@ subroutine init_nfl  (kmax, lstsci, gdp   )
     nullify(gdp%gdnfl%nf_intake)
     nullify(gdp%gdnfl%nf_sink)
     nullify(gdp%gdnfl%nf_sour)
+    !
+    ! TO DO: deallocate all these arrays somewhere
+    !
 end subroutine init_nfl

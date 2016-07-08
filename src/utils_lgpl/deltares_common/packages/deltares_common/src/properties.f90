@@ -1389,6 +1389,10 @@ recursive subroutine prop_write_xmlfile(mout, tree, level, error)
              ! Special treatment for first line: <?xml version="1.0"?>
              !
              write(buffer,'(3a)') "<", trim(tag), ">"
+          elseif(tag(1:4) == '<!--') then
+             !
+             ! Comment line; write it as is
+             write(buffer,'(a)') trim(tag)
           else
              !
              ! <tagname att1="val1" att2="val2">data</tagname>

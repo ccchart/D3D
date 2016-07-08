@@ -2,7 +2,7 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
                  & yz     ,dps    ,s1     ,kcs    ,thick  , &
                  & kmax   ,x_jet  ,y_jet  ,z_jet  ,n_jet  , &
                  &  m_jet ,k_jet  ,kfsmn0 ,kfsmx0 ,dzs0   , &
-                 & zmodel ,gdp    )
+                 & zmodel ,in_col ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -71,6 +71,7 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
     real(prec) , dimension(nlb:nub,mlb:mub)             , intent(in)  :: dps    ! Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(nlb:nub,mlb:mub, kmax)       , intent(in)  :: dzs0   ! Description and declaration in esm_alloc_real.f90
     logical                                             , intent(in)  :: zmodel
+    logical                                             , intent(out) :: in_col ! false: above or under water column
 !
 ! Local variables
 !
@@ -105,7 +106,8 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
     !
     ! Find the vertical position
     !
-    k_jet = 0
+    k_jet  = 0
+    in_col = .true.
     !
     ! k_ket=0 has a special meaning (full vertical).
     ! Unfortunately, z_jet=0.0 is a valid value.
@@ -119,6 +121,9 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
     ! i.e stil from k_end_top to k_end_down, but with a -1 step size    
     !
     r_above = -1.0_fp * s1(n_jet,m_jet)
+    if (z_jet < r_above) then
+       in_col = .false.
+    endif
     if (.not. zmodel) then
        do k = 1, kmax - 1
           r_below = r_above + thick(k)*(real(dps(n_jet,m_jet),fp) + s1(n_jet,m_jet))
@@ -139,5 +144,8 @@ subroutine findnmk(nlb    ,nub    ,mlb    ,mub    ,xz     , &
           r_above = r_below
        enddo
        if (k_jet == 0) k_jet = kfsmn0(n_jet,m_jet)
+    endif
+    if (z_jet > real(dps(n_jet,m_jet),fp)+s1(n_jet,m_jet)) then
+       in_col = .false.
     endif
 end subroutine findnmk

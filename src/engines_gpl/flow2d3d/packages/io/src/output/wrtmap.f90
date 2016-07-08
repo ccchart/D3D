@@ -99,6 +99,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     real(fp) , dimension(:)         , pointer :: clouarr
     real(fp) , dimension(:)         , pointer :: qmis_out
     real(fp), dimension(:,:,:)      , pointer :: disnf
+    real(fp), dimension(:,:,:)      , pointer :: disnf_intake
     real(fp), dimension(:,:,:,:)    , pointer :: sournf
     logical                         , pointer :: nfl
     logical                         , pointer :: rhum_file
@@ -279,6 +280,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     efree_out      => gdp%gdheat%efree_out
     qmis_out       => gdp%gdheat%qmis_out
     disnf          => gdp%gdnfl%disnf
+    disnf_intake   => gdp%gdnfl%disnf_intake
     sournf         => gdp%gdnfl%sournf
     nfl            => gdp%gdprocs%nfl
     rhumarr        => gdp%gdheat%rhumarr
@@ -1526,7 +1528,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
                    call n_and_m_to_nm(n, m, nm, gdp)
                    do k = kfsmin(n,m), kfsmax(n,m)
                       do i = 1, no_dis
-                         rbuff4(n,m,k,i) = disnf(nm, k, i)
+                         rbuff4(n,m,k,i) = disnf(nm, k, i) + disnf_intake(nm, k, i)
                       enddo
                    enddo
                 enddo
@@ -1537,7 +1539,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
                    call n_and_m_to_nm(n, m, nm, gdp)
                    do k = 1, kmax
                       do i = 1, no_dis
-                         rbuff4(n,m,k,i) = disnf(nm,k,i)
+                         rbuff4(n,m,k,i) = disnf(nm,k,i) + disnf_intake(nm,k,i)
                       enddo
                    enddo
                 enddo

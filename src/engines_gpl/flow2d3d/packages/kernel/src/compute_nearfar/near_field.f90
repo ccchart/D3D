@@ -96,6 +96,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp)      , dimension(:)       , pointer :: sigma0
     real(fp)      , dimension(:)       , pointer :: theta0
     real(fp)      , dimension(:,:,:)   , pointer :: disnf
+    real(fp)      , dimension(:,:,:)   , pointer :: disnf_intake
     real(fp)      , dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp)      , dimension(:,:,:)   , pointer :: nf_src_momv
     real(fp)      , dimension(:,:,:,:) , pointer :: sournf
@@ -190,6 +191,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     real(fp), dimension(:,:)      , allocatable, target :: glb_xz
     real(fp), dimension(:,:)      , allocatable, target :: glb_yz
     real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_disnf
+    real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_disnf_intake
     real(fp), dimension(:,:,:,:,:), allocatable, target :: glb_sournf
     real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_nf_src_momu
     real(fp), dimension(:,:,:,:)  , allocatable, target :: glb_nf_src_momv
@@ -213,6 +215,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     logical                                             :: first_time
     logical                                             :: error
     logical                                             :: error_reading
+    logical                                             :: inside
     logical                                             :: waitlog
     character(1)                                        :: slash
     character(3)                                        :: c_inode
@@ -253,6 +256,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     waitfilesold   => gdp%gdnfl%waitfilesold
     basecase       => gdp%gdnfl%basecase
     disnf          => gdp%gdnfl%disnf
+    disnf_intake   => gdp%gdnfl%disnf_intake
     sournf         => gdp%gdnfl%sournf
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
@@ -354,6 +358,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        ! copied to all partitions
        !
        allocate(glb_disnf      (nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
+       allocate(glb_disnf_intake (nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
        allocate(glb_sournf     (nlb:nub,mlb:mub,1:kmax,1:lstsci,1:no_dis), stat=ierror)
        allocate(glb_nf_src_momu(nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
        allocate(glb_nf_src_momv(nlb:nub,mlb:mub,1:kmax,1:no_dis)         , stat=ierror)
@@ -451,17 +456,17 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    call findnmk(nlb    ,nub       ,mlb         ,mub         , &
                               & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
                               & thick  ,kmax      ,x_diff(idis),y_diff(idis),0.0_fp ,n_diff(idis), m_diff(idis), &
-                              & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                              & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,inside      , gdp         )
                    do iamb = 1, no_amb(idis)
-                      call findnmk(nlb    ,nub       ,mlb         ,mub         , &
-                                 & xz_ptr ,yz_ptr    ,dps_ptr     ,s0_ptr      ,kcs_ptr, &
+                      call findnmk(nlb    ,nub       ,mlb              ,mub              , &
+                                 & xz_ptr ,yz_ptr    ,dps_ptr          ,s0_ptr           ,kcs_ptr, &
                                  & thick  ,kmax      ,x_amb(idis,iamb) ,y_amb(idis,iamb) ,0.0_fp ,n_amb(idis,iamb), m_amb(idis,iamb), &
-                                 & k_dummy,kfsmn0_ptr,kfsmx0_ptr  ,dzs0_ptr    ,zmodel ,gdp    )
+                                 & k_dummy,kfsmn0_ptr,kfsmx0_ptr       ,dzs0_ptr         ,zmodel ,inside          , gdp             )
                    enddo
                    call findnmk(nlb           ,nub       ,mlb           ,mub           , &
                               & xz_ptr        ,yz_ptr    ,dps_ptr       ,s0_ptr        ,kcs_ptr, &
                               & thick         ,kmax      ,x_intake(idis),y_intake(idis),z_intake(idis),n_intake(idis), m_intake(idis), &
-                              & k_intake(idis),kfsmn0_ptr,kfsmx0_ptr    ,dzs0_ptr      ,zmodel        ,gdp           )
+                              & k_intake(idis),kfsmn0_ptr,kfsmx0_ptr    ,dzs0_ptr      ,zmodel        ,inside        , gdp           )
                 enddo
                 !
                 ! Convert flow results to input for cormix and write to input file
@@ -522,7 +527,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                            & idis    ,thick    , &
                            & kcs_ptr ,xz_ptr   ,yz_ptr    ,alfas_ptr      , &
                            & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr     ,kfsmx0_ptr     , &
-                           & dzs0_ptr,glb_disnf,glb_sournf,glb_nf_src_momu,glb_nf_src_momv, &
+                           & dzs0_ptr,glb_disnf,glb_disnf_intake, glb_sournf,glb_nf_src_momu,glb_nf_src_momv, &
                            & linkinf ,gdp      )
                    deallocate(gdp%gdnfl%nf_intake, stat=ierror)
                    deallocate(gdp%gdnfl%nf_sink  , stat=ierror)
@@ -582,6 +587,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
           ! First scatter glb_disnf/glb_sournf/glb_nf_src_momu/glb_nf_src_momv to all nodes 
           ! 
                           call dfbroadc(glb_disnf      ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
+          if (.not.error) call dfbroadc(glb_disnf_intake,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_sournf     ,nmaxgl*mmaxgl*kmax*lstsci*no_dis,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momu,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momv,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
@@ -592,6 +598,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                 do n = nfg, nlg 
                    call n_and_m_to_nm(n-nfg+1, m-mfg+1, nm, gdp)
                    disnf      (nm,:,:)   = glb_disnf      (n,m,:,:) 
+                   disnf_intake(nm,:,:)  = glb_disnf_intake(n,m,:,:) 
                    sournf     (nm,:,:,:) = glb_sournf     (n,m,:,:,:)
                    nf_src_momu(nm,:,:)   = glb_nf_src_momu(n,m,:,:) 
                    nf_src_momv(nm,:,:)   = glb_nf_src_momv(n,m,:,:) 
@@ -603,6 +610,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
              do n = nlb, nub
                 call n_and_m_to_nm(n, m, nm, gdp)
                 disnf      (nm,:,:)   = glb_disnf      (n,m,:,:)
+                disnf_intake(nm,:,:)  = glb_disnf_intake(n,m,:,:)
                 sournf     (nm,:,:,:) = glb_sournf     (n,m,:,:,:)
                 nf_src_momu(nm,:,:)   = glb_nf_src_momu(n,m,:,:)
                 nf_src_momv(nm,:,:)   = glb_nf_src_momv(n,m,:,:)
@@ -629,6 +637,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     endif
     if (nflrwmode /= NFLWRITE) then
        deallocate(glb_disnf      , stat=ierror)
+       deallocate(glb_disnf_intake, stat=ierror)
        deallocate(glb_sournf     , stat=ierror)
        deallocate(glb_nf_src_momu, stat=ierror)
        deallocate(glb_nf_src_momv, stat=ierror)

@@ -128,7 +128,8 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
     
     ! Temporary fix to ensure discharging of mass in case of S = 0 or T = 0
     
-    real(fp)                             :: eps_conc 
+    real(fp)                             :: eps_conc
+    logical                              :: inside
 !
 !! executable statements -------------------------------------------------------
 !
@@ -164,7 +165,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
 
        call findnmk(xz      , yz      , dps     , s0       , kcs      ,nmmax   , &
                   & thick   , kmax    , x_jet(1), y_jet(1) , z_jet(1) ,nm_start, &
-                  & k_start , gdp    )
+                  & k_start , inside  , gdp    )
 
        nm_last = nm_start
        k_last  = k_start
@@ -175,7 +176,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
 
        call findnmk(xz       , yz      , dps         , s0          , kcs         ,nmmax   , &
                     thick    , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) ,nm_end  , &
-                    k_end_top,gdp    )
+                    k_end_top, inside  , gdp    )
 
        !
        ! For postproc essing stor begin and end coordinates of the plume trajectory
@@ -194,7 +195,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
           !
           call findnmk (xz      , yz      , dps         , s0          , kcs         ,nmmax   , &
                         thick   , kmax    , x_jet(irow) , y_jet(irow) , z_jet(irow) ,nm_irow , &
-                        k_irow  ,gdp    )
+                        k_irow  , inside  , gdp    )
 
           if (nm_irow == 0 .or. k_irow == 0) then
              nm_irow = nm_last
@@ -220,18 +221,18 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        !
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax   , &
                      thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) - bv_jet(nrow), nm_end , &
-                     k_end_top ,gdp    )
+                     k_end_top , inside  , gdp    )
 
        !call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
        !              thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow) + bv_jet(nrow), nm_end , &
-       !              k_end_down,gdp    )
+       !              k_end_down, inside  , gdp    )
 
 
        ! Tijdelijk, verdelen over halve waterdiepte (Geeft voor Kepco beste resulaten)
 
-       call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax        , &
+       call findnmk (xz       , yz      , dps         , s0          , kcs         ,nmmax        , &
                     thick     , kmax    , x_jet(nrow) , y_jet(nrow) , z_jet(nrow)               , nm_end , &
-                    k_end_down,gdp    )
+                    k_end_down, inside  , gdp    )
 
 !      k_end_top  = k_last
 !      k_end_down = k_last
@@ -265,7 +266,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
        no_dis   = 1
        call findnmk (xz        , yz      , dps         , s0          , kcs         ,nmmax         , &
                      thick     , kmax    , xstart      , ystart      , 0.0_fp      ,nm_tmp        , &
-                     idum      , gdp    )
+                     idum      , inside  , gdp    )
 
        nm_dis(1) = nm_tmp
        weight(1) = 0.001_fp
@@ -277,7 +278,7 @@ subroutine desa_kepco(x_jet   ,y_jet    ,z_jet   ,s_jet   ,nrow    , &
         do iidis = 1, 999
            call findnmk (xz        , yz      , dps              , s0               , kcs         ,nmmax         , &
                          thick     , kmax    , xstart + iidis*dx, ystart + iidis*dy, 0.0_fp      ,nm_tmp        , &
-                         idum      , gdp    )
+                         idum      , inside  , gdp    )
 
             if (nm_tmp /= nm_dis(no_dis)) then
                no_dis = no_dis + 1

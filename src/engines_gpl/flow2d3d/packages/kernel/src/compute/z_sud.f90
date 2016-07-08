@@ -100,6 +100,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     integer , dimension(:)     , pointer :: k_intake
     real(fp), dimension(:)     , pointer :: q_diff
     real(fp), dimension(:,:,:) , pointer :: disnf
+    real(fp), dimension(:,:,:) , pointer :: disnf_intake
 
     include 'flow_steps_f.inc'
 !
@@ -285,6 +286,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     ntstep     => gdp%gdinttim%ntstep
     no_dis     => gdp%gdnfl%no_dis
     disnf      => gdp%gdnfl%disnf
+    disnf_intake=> gdp%gdnfl%disnf_intake
     m_intake   => gdp%gdnfl%m_intake
     n_intake   => gdp%gdnfl%n_intake
     k_intake   => gdp%gdnfl%k_intake
@@ -498,7 +500,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
        do nm = 1, nmmax
           do k = kfsmn0(nm), kfsmx0(nm)
              do idis = 1, no_dis
-                d0k(nm,k) = d0k(nm,k) + disnf(nm,k,idis)/gsqs(nm)
+                d0k(nm,k) = d0k(nm,k) + (disnf(nm,k,idis)+disnf_intake(nm,k,idis))/gsqs(nm)
              enddo
           enddo
        enddo

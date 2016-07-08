@@ -264,9 +264,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     !
     ! Compute the density of the discharged water
     !
-    sal  = const_diff(idis,2)
-    temp = const_diff(idis,1)
     if (lsal /= 0) then
+       sal  = const_diff(idis,2)
        call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
                   & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
                   & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
@@ -276,6 +275,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
        sal = saleqs
     endif
     if (ltem /= 0) then
+       temp = const_diff(idis,1)
        call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
                   & r0            ,kmax          ,lstsci        ,ltem  ,thick , &
                   & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
@@ -409,7 +409,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     !
     call tree_create_node(node_ptr, 'PHI', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(ctaua)),node_value), 'STRING:XMLDATA')
-    write(string,'(e24.17)') s1(n_diff(idis), m_diff(idis))
+    call tree_create_node(node_ptr, '<!-- S1: zero=reference level, down is positive -->', subnode_ptr)
+    write(string,'(e24.17)') - s1(n_diff(idis), m_diff(idis))
     call tree_create_node(node_ptr, 'S1', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     write(string,'(e24.17)') dps(n_diff(idis), m_diff(idis))
@@ -428,6 +429,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! Intake
     !
     call tree_create_node(subgrid_ptr, 'FFIntake', node_ptr)
+    call tree_create_node(node_ptr, '<!-- Z: zero=reference level, down is positive -->', subnode_ptr)
     allocate(nm(1,2), stat=ierror)
     allocate(xy(1,2), stat=ierror)
     nm(1,1) = n_intake(idis)
@@ -443,6 +445,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! Ambients
     !
     call tree_create_node(subgrid_ptr, 'FFAmbient', node_ptr)
+    call tree_create_node(node_ptr, '<!-- Z: zero=reference level, down is positive -->', subnode_ptr)
     allocate(nm(no_amb(idis),2), stat=ierror)
     allocate(xy(no_amb(idis),2), stat=ierror)
     do i=1,no_amb(idis)
@@ -477,16 +480,30 @@ contains
 
 
 subroutine writePointInfoToFF2NF
+    integer :: k_top
+    integer :: k_down
+    integer :: k_incr
+    !
     npnt = size(nm,1)
     write(string,'(i0)') kmax * npnt
     call tree_create_node(node_ptr, 'XYZ', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLNUMDATALINES')
     do ipnt=1,npnt
-       do k=1,kmax
+       if (zmodel) then
+          k_top  = kfsmx0(nm(ipnt,1),nm(ipnt,2))
+          k_down = kfsmn0(nm(ipnt,1),nm(ipnt,2))
+          k_incr = -1
+       else
+          k_top  = 1
+          k_down = kmax
+          k_incr = 1
+       endif
+       hd = s0(nm(ipnt,1),nm(ipnt,2))+real(dps(nm(ipnt,1),nm(ipnt,2)),fp)
+       do k = k_top, k_down, k_incr
           if (zmodel) then
-             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), (zk(k-1)+zk(k))/2.0_fp
+             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), -(zk(k-1)+zk(k))/2.0_fp
           else
-             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), sig(k)
+             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), -hd*sig(k)
           endif
           write(inttostring,'(i0)') (ipnt-1)*k + k
           call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
@@ -498,7 +515,7 @@ subroutine writePointInfoToFF2NF
     call tree_create_node(node_ptr, 'waterLevel', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLNUMDATALINES')
     do ipnt=1,npnt
-       write(string,'(e24.17)') s0(nm(ipnt,1), nm(ipnt,2))
+       write(string,'(e24.17)') - s0(nm(ipnt,1), nm(ipnt,2))
        write(inttostring,'(i0)') ipnt
        call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
        call tree_put_data(data_ptr, transfer(trim(string),node_value), "STRING:XMLDATALINE")
@@ -519,7 +536,16 @@ subroutine writePointInfoToFF2NF
        kenmv  = max(1, kfv(n,m)+kfv(nd,m ))
        csalfa = cos(alfas(n,m)*deg2rad)
        snalfa = sin(alfas(n,m)*deg2rad)
-       do k=1,kmax
+       if (zmodel) then
+          k_top  = kfsmx0(nm(ipnt,1),nm(ipnt,2))
+          k_down = kfsmn0(nm(ipnt,1),nm(ipnt,2))
+          k_incr = -1
+       else
+          k_top  = 1
+          k_down = kmax
+          k_incr = 1
+       endif
+       do k = k_top, k_down, k_incr
           uuu = (u0(n,m,k)*real(kfu(n,m),fp) + u0(n ,md,k)*real(kfu(n ,md),fp)) / real(kenmu,fp)
           vvv = (v0(n,m,k)*real(kfv(n,m),fp) + v0(nd,m ,k)*real(kfv(nd,m ),fp)) / real(kenmv,fp)
           write(string,'(2(e24.17,x))') uuu*csalfa - vvv*snalfa, uuu*snalfa + vvv*csalfa
@@ -533,7 +559,16 @@ subroutine writePointInfoToFF2NF
     call tree_create_node(node_ptr, 'rho', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLNUMDATALINES')
     do ipnt=1,npnt
-       do k=1,kmax
+       if (zmodel) then
+          k_top  = kfsmx0(nm(ipnt,1),nm(ipnt,2))
+          k_down = kfsmn0(nm(ipnt,1),nm(ipnt,2))
+          k_incr = -1
+       else
+          k_top  = 1
+          k_down = kmax
+          k_incr = 1
+       endif
+       do k = k_top, k_down, k_incr
           write(string,'(e24.17)') rho(nm(ipnt,1), nm(ipnt,2), k)
           write(inttostring,'(i0)') (ipnt-1)*k + k
           call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
@@ -545,7 +580,16 @@ subroutine writePointInfoToFF2NF
     call tree_create_node(node_ptr, 'constituents', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLNUMDATALINES')
     do ipnt=1,npnt
-       do k=1,kmax
+       if (zmodel) then
+          k_top  = kfsmx0(nm(ipnt,1),nm(ipnt,2))
+          k_down = kfsmn0(nm(ipnt,1),nm(ipnt,2))
+          k_incr = -1
+       else
+          k_top  = 1
+          k_down = kmax
+          k_incr = 1
+       endif
+       do k = k_top, k_down, k_incr
           string = ' '
           do i=1,lstsc
              write(string,'(a,e24.17,x)') trim(string), r0(nm(ipnt,1), nm(ipnt,2), k, i)

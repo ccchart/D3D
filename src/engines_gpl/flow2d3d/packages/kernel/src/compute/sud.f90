@@ -115,6 +115,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
     integer , dimension(:)     , pointer :: k_intake
     real(fp), dimension(:)     , pointer :: q_diff
     real(fp), dimension(:,:,:) , pointer :: disnf
+    real(fp), dimension(:,:,:) , pointer :: disnf_intake
 !
 ! Global variables
 !
@@ -301,6 +302,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
     
     no_dis      => gdp%gdnfl%no_dis
     disnf       => gdp%gdnfl%disnf
+    disnf_intake=> gdp%gdnfl%disnf_intake
     m_intake    => gdp%gdnfl%m_intake
     n_intake    => gdp%gdnfl%n_intake
     k_intake    => gdp%gdnfl%k_intake
@@ -458,7 +460,7 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
        do nm = 1, nmmax
           do k = 1, kmax
              do idis = 1, no_dis
-                d0k(nm,k) = d0k(nm,k) + disnf(nm,k,idis)
+                d0k(nm,k) = d0k(nm,k) + disnf(nm,k,idis) + disnf_intake(nm,k,idis)
              enddo
           enddo
        enddo

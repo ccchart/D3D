@@ -49,6 +49,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     integer , dimension(:)           ,pointer :: k_intake
     real(fp), dimension(:)           ,pointer :: q_diff
     real(fp), dimension(:,:,:)       ,pointer :: disnf
+    real(fp), dimension(:,:,:)       ,pointer :: disnf_intake
     real(fp), dimension(:,:,:,:)     ,pointer :: sournf
     logical                          ,pointer :: zmodel
 
@@ -84,6 +85,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 !
     no_dis    => gdp%gdnfl%no_dis
     disnf     => gdp%gdnfl%disnf
+    disnf_intake => gdp%gdnfl%disnf_intake
     sournf    => gdp%gdnfl%sournf
     m_intake  => gdp%gdnfl%m_intake
     n_intake  => gdp%gdnfl%n_intake
@@ -115,6 +117,12 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                       sink(nm, k, lcon) = sink(nm, k, lcon) -             &
                                         & disnf(nm,k,idis)/volum1(nm, k)
                       total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                   enddo
+                endif
+                if (disnf_intake(nm,k,idis) < 0.0_fp) then
+                   do lcon = 1,lstsci
+                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
+                                        & disnf_intake(nm,k,idis)/volum1(nm, k)
                    enddo
                 endif
              enddo
@@ -177,6 +185,12 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                       ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
                       sink(nm, k, lcon) = sink(nm,k,lcon) - disnf(nm,k,idis)
                       total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                   enddo
+                endif
+                if (disnf_intake(nm,k,idis) < 0.0_fp) then
+                   do lcon = 1,lstsci
+                      ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
+                      sink(nm, k, lcon) = sink(nm,k,lcon) - disnf_intake(nm,k,idis)
                    enddo
                 endif
              enddo

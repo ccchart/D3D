@@ -328,6 +328,7 @@ examples/08_nf_2dis_simple/zlagen/COSUMO/tmp/FF2NF_2dis_001_SubMod002_35.000.txt
 examples/08_nf_2dis_simple/zlagen/COSUMO/tmp/FF2NF_2dis_001_SubMod002_40.000.txt -text
 examples/08_nf_2dis_simple/zlagen/COSUMO/tmp/FF2NF_2dis_001_SubMod002_45.000.txt -text
 examples/08_nf_2dis_simple/zlagen/COSUMO/tmp/FF2NF_2dis_001_SubMod002_5.000.txt -text
+examples/08_nf_2dis_simple/zlagen/COSUMOsettings.xml -text
 examples/08_nf_2dis_simple/zlagen/config_d_hydro.xml -text
 examples/08_nf_2dis_simple/zlagen/corinp_lnx.dat -text
 examples/08_nf_2dis_simple/zlagen/corinp_win.dat -text

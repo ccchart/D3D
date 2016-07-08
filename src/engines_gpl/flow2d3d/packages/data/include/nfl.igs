@@ -77,6 +77,7 @@ type gd_nfl
     real(fp), dimension(:,:)            , pointer  :: nf_sink     ! Sinks X,Y,Z,S,H,B as read from NF2FF file
     real(fp), dimension(:,:)            , pointer  :: nf_sour     ! Sources X,Y,Z,S,H,B,Umag,Udir as read from NF2FF file
     real(fp), dimension(:,:,:)          , pointer  :: disnf       ! Discharge volume (nm, k, idis)
+    real(fp), dimension(:,:,:)          , pointer  :: disnf_intake ! Discharge volume (nm, k, idis), not coupled
     real(fp), dimension(:,:,:)          , pointer  :: nf_src_momu ! Discharge momentum in u direction (nm, k, idis)
     real(fp), dimension(:,:,:)          , pointer  :: nf_src_momv ! Discharge momentum in v direction (nm, k, idis)
     real(fp), dimension(:,:,:,:)        , pointer  :: sournf      ! Discharge constituents (nm, k, l, idis)

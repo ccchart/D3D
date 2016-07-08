@@ -355,6 +355,7 @@ subroutine gdp_dealloc(gdp)
     deallocate (gdp%iopartit , STAT = istat)
     !
     !success = free(gdp%gd_ECHandle)
+    deallocate (gdp%uniqueid , STAT = istat)
     deallocate (gdp%arch     , STAT = istat)
     deallocate (gdp%errorcode, STAT = istat)
     !
