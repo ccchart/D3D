@@ -45,7 +45,6 @@ libKernelComputeNearfar_la_SOURCES = \
          ct2jettraj.f90 \
          desa.f90 \
          desa_kepco.f90 \
-         desa_n.f90 \
          determine_densprof.f90 \
          det_num_dis.f90 \
          discha_nf.f90 \

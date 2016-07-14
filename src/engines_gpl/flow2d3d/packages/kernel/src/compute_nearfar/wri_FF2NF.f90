@@ -43,7 +43,6 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     use dfparall
     !
     use globaldata
-    use write_to_matlab
     !
     implicit none
     !
