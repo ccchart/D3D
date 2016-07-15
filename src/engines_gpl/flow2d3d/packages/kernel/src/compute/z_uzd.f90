@@ -122,7 +122,6 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     integer                      , pointer :: no_dis
 	logical                      , pointer :: nf_src_mom
     real(fp), dimension(:,:,:)   , pointer :: disnf
-    real(fp), dimension(:,:,:)   , pointer :: disnf_intake
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
 !
@@ -384,7 +383,6 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     no_dis         => gdp%gdnfl%no_dis
     nf_src_mom     => gdp%gdnfl%nf_src_mom
     disnf          => gdp%gdnfl%disnf
-    disnf_intake   => gdp%gdnfl%disnf_intake
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
     !
@@ -748,12 +746,12 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                 do k = 1, kmax
                    do idis = 1, no_dis
                       if (icx == 1) then
-                         bbk(nm,k) = bbk(nm,k) + (disnf(nm,k,idis)+disnf_intake(nm,k,idis))/(dzu0(nm,k)*gsqs(nm))
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*(disnf(nm,k,idis)+disnf_intake(nm,k,idis))       &
+                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*disnf(nm,k,idis)       &
                                                & /(dzu0(nm,k)*gsqs(nm))
                       else
-                         bbk(nm,k) = bbk(nm,k) + (disnf(nm,k,idis)+disnf_intake(nm,k,idis))/(dzu0(nm,k)*gsqs(nm))
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*(disnf(nm,k,idis)+disnf_intake(nm,k,idis))       &
+                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*disnf(nm,k,idis)       &
                                                & /(dzu0(nm,k)*gsqs(nm))
                       endif
                    enddo

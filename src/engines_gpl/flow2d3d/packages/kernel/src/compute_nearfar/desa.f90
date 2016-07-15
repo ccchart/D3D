@@ -597,7 +597,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           endif
        enddo
        !
-       ! Remove intake from disnf and sournf, distributed over inside-points
+       ! Remove intake from disnf, distributed over inside-points
        !
        dis_per_intake = nf_q_intake / wght_tot
        do irow = 1, ndis_track
@@ -605,9 +605,6 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           m_irow = m_dis(irow)
           k_irow = k_dis(irow)
           disnf_intake(n_irow,m_irow,k_irow,idis) = disnf_intake(n_irow,m_irow,k_irow,idis) - dis_per_intake
-          do lcon = 1, lstsci
-             sournf(n_irow,m_irow,k_irow,lcon,idis) = sournf(n_irow,m_irow,k_irow,lcon,idis) - dis_per_intake * r0(n_irow,m_irow,k_irow,lcon)
-          enddo
        enddo
        deallocate (n_dis, stat=ierror)
        deallocate (m_dis, stat=ierror)
