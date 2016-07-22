@@ -116,6 +116,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: nf
     integer       , dimension(:)       , pointer :: nl
     logical                            , pointer :: zmodel
+    type(tree_data)                    , pointer :: cosumofile_ptr
 !
 ! Global variables
 !
@@ -168,7 +169,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: k_dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
-    real(fp)                                            :: taua
     real(fp), dimension(10)                             :: linkinf ! 1: dis_sal, 2: dis_temp, 3: dis_dens, 4: amb_vel, 5: amb_dir, 6: rel_dir, 7: n_start, 8: m_start, 9: n_end, 10: m_end
     real(fp)                                            :: xstart
     real(fp)                                            :: xend
@@ -272,6 +272,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     iarrc          => gdp%gdparall%iarrc
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
+    cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
     else
@@ -487,12 +488,14 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    call wri_FF2NF(nlb       ,nub       ,mlb      ,mub      ,kmax   , &
                                 & lstsci    ,lsal      ,ltem     ,idensform,idis   , &
-                                & time      ,taua      ,saleqs   ,temeqs   ,thick  , &
+                                & time      ,saleqs   ,temeqs   ,thick  , &
                                 & sig       ,zk        ,kfu_ptr  ,kfv_ptr  , &
                                 & alfas_ptr ,s0_ptr    ,s1_ptr   ,u0_ptr   ,v0_ptr , &
                                 & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
                                 & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,namcon , gdp    )
                 enddo
+                call tree_destroy(gdp%gdnfl%cosumofile_ptr)
+                
              endif
              !
              ! Read near field input files and process them

@@ -1,6 +1,6 @@
 subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
                    & lstsci  ,lsal     ,ltem     ,idensform ,idis   , &
-                   & time    ,taua     ,saleqs   ,temeqs    ,thick  , &
+                   & time    ,saleqs   ,temeqs    ,thick  , &
                    & sig     ,zk       ,kfu      ,kfv       , &
                    & alfas   ,s0       ,s1       ,u0        ,v0     , &
                    & r0      ,rho      ,dps      ,xz        ,yz     , &
@@ -72,6 +72,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp),dimension(:)          , pointer :: sigma0
     integer                        , pointer :: lunsrc
     logical                        , pointer :: zmodel
+    type(tree_data)                , pointer :: cosumofile_ptr
+
 !
 ! Global variables
 !
@@ -89,7 +91,6 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     integer    , dimension(nlb:nub,mlb:mub)               , intent(in)  :: kfv        ! Description and declaration in esm_alloc_int.f90
     integer    , dimension(nlb:nub,mlb:mub)               , intent(in)  :: kfsmx0     ! Description and declaration in esm_alloc_int.f90
     integer    , dimension(nlb:nub,mlb:mub)               , intent(in)  :: kfsmn0     ! Description and declaration in esm_alloc_int.f90
-    real(fp)                                              , intent(out) :: taua
     real(fp)                                              , intent(in)  :: saleqs
     real(fp)                                              , intent(in)  :: temeqs
     real(fp)   , dimension(nlb:nub,mlb:mub)               , intent(in)  :: alfas
@@ -132,19 +133,24 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp)                               :: snalfa
     real(fp)                               :: drohj
     real(fp), dimension(:), allocatable    :: ha
-    real(fp)                               :: hd
+    !
+    real(fp), dimension(:), allocatable    :: hd
     real(fp)                               :: hint
     real(fp)                               :: pi
     real(fp)                               :: rad2deg
     real(fp)                               :: rhoam
     real(fp)                               :: rhoas
     real(fp)                               :: rhoab
-    real(fp)                               :: taurel
+    real(fp), dimension(:), allocatable    :: taurel
     real(fp)                               :: time
-    real(fp)                               :: uuu
-    real(fp)                               :: ua
-    real(fp)                               :: umag
-    real(fp)                               :: vvv
+    real(fp), dimension(:), allocatable    :: uuu
+    !
+    real(fp), dimension(:), allocatable    :: ua
+    real(fp), dimension(:), allocatable    :: umag
+    real(fp), dimension(:), allocatable    :: vvv
+    real(fp), dimension(:), allocatable    :: taua
+    real(fp)                               :: uu
+    real(fp)                               :: vv
     real(fp)                               :: sal
     real(fp)                               :: temp
     real(fp)                               :: dummy
@@ -154,17 +160,26 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp), dimension(:,:), allocatable  :: xy
     character(1)                           :: tab
     character(1)                           :: stype1
+    character(50)                          :: stype1_output
     character(1)                           :: stype2
+    character(50)                          :: stype2_output
     character(3)                           :: c_inode
     character(12)                          :: crhoam
+    character(500)                         :: crhoam_output
     character(12)                          :: crhoas
+    character(500)                         :: crhoas_output
     character(12)                          :: crhoab
+    character(500)                         :: crhoab_output
     character(12)                          :: chint
+    character(500)                         :: chint_output
     character(12)                          :: cdrohj
-    character(12)                          :: ctaua
+    character(500)                         :: cdrohj_output
+    character(500)                         :: ctaua
     character(12)                          :: inttostring
     character(20)                          :: rundat       ! Current date and time containing a combination of DATE and TIME
     character(1000)                        :: string
+    character(1000)                        :: string_temp
+    character(1000)                        :: fmt
     character(256), external               :: windows_path
     type(tree_data)              , pointer :: outfile_ptr
     type(tree_data)              , pointer :: cosumo_ptr
@@ -172,7 +187,13 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     type(tree_data)              , pointer :: node_ptr
     type(tree_data)              , pointer :: subnode_ptr
     type(tree_data)              , pointer :: data_ptr
-!
+    !
+    ! for output the settings
+    !
+    type(tree_data)              , pointer :: cosumoblock_ptr
+    type(tree_data)              , pointer :: settings_node_ptr
+    
+    !
 !! executable statements -------------------------------------------------------
 !
     lundia         => gdp%gdinout%lundia
@@ -195,6 +216,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
     zmodel         => gdp%gdprocs%zmodel
+    cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
+    
     !
     write(c_inode(1:3),'(i3.3)') inode
     !
@@ -209,6 +232,14 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     !
     allocate(dzs0_amb(kmax,no_amb(idis)), stat=ierror)
     allocate(ha      (     no_amb(idis)), stat=ierror)
+    allocate(hd      (     no_amb(idis)), stat=ierror)
+    allocate(ua      (     no_amb(idis)), stat=ierror)
+    allocate(umag    (     no_amb(idis)), stat=ierror)
+    allocate(uuu     (     no_amb(idis)), stat=ierror)
+    allocate(vvv     (     no_amb(idis)), stat=ierror)
+    allocate(taua    (     no_amb(idis)), stat=ierror)
+    allocate(taurel  (     no_amb(idis)), stat=ierror)
+    
     if (zmodel) then
        do i = 1, no_amb(idis)
           dzs0_amb(:,i) = dzs0(n_amb(idis,i), m_amb(idis,i), :)
@@ -221,108 +252,138 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     !
     do i = 1, no_amb(idis)
        ha(i) = s0(n_amb(idis,i), m_amb(idis,i))+real(dps(n_amb(idis,i), m_amb(idis,i)),fp)
+       !
+       ! This is all the same for all the ambient points, just a copy
+       !
+       hd(i) = s0(n_diff(idis), m_diff(idis))+real(dps(n_diff(idis), m_diff(idis)),fp) 
     enddo
-    hd = s0(n_diff(idis), m_diff(idis))+real(dps(n_diff(idis), m_diff(idis)),fp)
     !
     ! Compute depth averaged velocity magnitude and direction
     !
     uuu = 0.0_fp  
     vvv = 0.0_fp
-    if (.not. zmodel) then
-       !
-       ! Sigma-model
-       !
-       do k = 1, kmax
-          uuu      = uuu + 0.5_fp * (u0(n_amb(idis,1), m_amb(idis,1) ,k) + u0(n_amb(idis,1), m_amb(idis,1)-1 ,k))*thick(k)
-          vvv      = vvv + 0.5_fp * (v0(n_amb(idis,1), m_amb(idis,1) ,k) + v0(n_amb(idis,1)-1, m_amb(idis,1) ,k))*thick(k)
-       enddo
-    else
-       !
-       ! Z-model
-       ! We now take the velocity at the k-level of the corresponding cell centre.
-       ! If we loop over the kfumn0 to kfumx0 of the velocity points (corresponding to n_amb(idis), m_amb(idis) and n_amb(idis), m_amb(idis)-1),
-       ! and divide by dzu0/hu and dzv0/hv, would it then be more accurate?
-       !
-       do k = kfsmn0(n_amb(idis,1), m_amb(idis,1)), kfsmx0(n_amb(idis,1), m_amb(idis,1))
-          uuu      = uuu + 0.5_fp * (u0(n_amb(idis,1), m_amb(idis,1) ,k) + u0(n_amb(idis,1), m_amb(idis,1)-1 ,k))*dzs0(n_amb(idis,1), m_amb(idis,1),k)/max(ha(1), 0.01_fp)
-          vvv      = vvv + 0.5_fp * (v0(n_amb(idis,1), m_amb(idis,1) ,k) + v0(n_amb(idis,1)-1, m_amb(idis,1) ,k))*dzs0(n_amb(idis,1), m_amb(idis,1),k)/max(ha(1), 0.01_fp)
-       enddo
-    endif
-    umag = sqrt (uuu*uuu + vvv*vvv)
-    taua = atan2(vvv,uuu)*rad2deg + alfas(n_amb(idis,1), m_amb(idis,1))
-    taua = mod(taua + 360.0_fp,360.0_fp)
-    ua   = umag
-    !
-    ! Density profile classification (Cormixtype)
-    !
-    call determine_densprof(kmax           ,thick          ,s0(n_amb(idis,1),m_amb(idis,1)), &
-                          & real(dps(n_amb(idis,1),m_amb(idis,1)),fp),  rho(n_amb(idis,1),m_amb(idis,1),:) , &
-                          & ha(1)          ,hd             ,stype1         ,stype2               ,rhoam         , &
-                          & rhoas          ,rhoab          ,hint           ,drohj                , &
-                          & kfsmn0(n_amb(idis,1), m_amb(idis,1)),  kfsmx0(n_amb(idis,1),m_amb(idis,1)) ,dzs0_amb    ,zmodel         )
-    !
-    ! Compute the density of the discharged water
-    !
-    if (lsal /= 0) then
-       sal  = const_diff(idis,2)
-       call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
-                  & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
-                  & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
-                  & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
-       sal = sal + add
-    else
-       sal = saleqs
-    endif
-    if (ltem /= 0) then
-       temp = const_diff(idis,1)
-       call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
-                  & r0            ,kmax          ,lstsci        ,ltem  ,thick , &
-                  & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
-                  & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
-       temp = temp + add
-    else
-       temp = temeqs
-    endif
-    select case (idensform)
-       case( dens_Eckart )
-          call dens_eck    (temp, sal ,rho0, dummy, dummy)
-       case( dens_Unesco)
-          call dens_unes   (temp, sal ,rho0, dummy, dummy)
-       case( dens_NaClSol)
-          call dens_nacl   (temp, sal ,rho0, dummy, dummy)
-    end select
-    !
-    ! Make character strings from all requested input
-    !
-    if (stype1 == 'U') then
-       write(crhoam(1:12),'(f12.3)') rhoam
-       crhoas = '-'
-       crhoab = '-'
-       stype2 = '-'
-       chint  = '-'
-       cdrohj = '-'
-    else
-       crhoam ='-'
-       write (crhoas(1:12),'(f12.3)') rhoas
-       write (crhoab(1:12),'(f12.3)') rhoab
-       if (stype2 == 'C') then
-          write (chint (1:12),'(f12.3)') hint
-          write (cdrohj(1:12),'(f12.3)') drohj
+    stype1_output = ''
+    stype2_output = ''
+    crhoam_output = ''
+    crhoas_output = ''
+    crhoab_output = ''
+    chint_output  = ''
+    cdrohj_output = ''
+    do i = 1, no_amb(idis)
+       if (.not. zmodel) then
+          !
+          ! Sigma-model
+          !
+          do k = 1, kmax
+             uuu(i)      = uuu(i) + 0.5_fp * (u0(n_amb(idis,i), m_amb(idis,i) ,k) + u0(n_amb(idis,i), m_amb(idis,i)-1 ,k))*thick(k)
+             vvv(i)      = vvv(i) + 0.5_fp * (v0(n_amb(idis,i), m_amb(idis,i) ,k) + v0(n_amb(idis,i)-1, m_amb(idis,i) ,k))*thick(k)
+          enddo
        else
+          !
+          ! Z-model
+          ! We now take the velocity at the k-level of the corresponding cell centre.
+          ! If we loop over the kfumn0 to kfumx0 of the velocity points (corresponding to n_amb(idis), m_amb(idis) and n_amb(idis), m_amb(idis)-1),
+          ! and divide by dzu0/hu and dzv0/hv, would it then be more accurate?
+          !
+          do k = kfsmn0(n_amb(idis,1), m_amb(idis,1)), kfsmx0(n_amb(idis,1), m_amb(idis,1))
+             uuu(i)      = uuu(i) + 0.5_fp * (u0(n_amb(idis,i), m_amb(idis,i) ,k) + u0(n_amb(idis,i), m_amb(idis,i)-1 ,k))*dzs0(n_amb(idis,i), m_amb(idis,i),k)/max(ha(i), 0.01_fp)
+             vvv(i)      = vvv(i) + 0.5_fp * (v0(n_amb(idis,i), m_amb(idis,i) ,k) + v0(n_amb(idis,i)-1, m_amb(idis,i) ,k))*dzs0(n_amb(idis,i), m_amb(idis,i),k)/max(ha(i), 0.01_fp)
+          enddo
+       endif
+       
+       umag(i) = sqrt (uuu(i)*uuu(i) + vvv(i)*vvv(i))
+       taua(i) = atan2(vvv(i),uuu(i))*rad2deg + alfas(n_amb(idis,i), m_amb(idis,i))
+       taua(i) = mod(taua(i) + 360.0_fp,360.0_fp)
+       ua(i)   = umag(i)
+       !
+       ! Density profile classification (Cormixtype)
+       !
+       call determine_densprof(kmax           ,thick          ,s0(n_amb(idis,i),m_amb(idis,i)), &
+                             & real(dps(n_amb(idis,i),m_amb(idis,i)),fp),  rho(n_amb(idis,i),m_amb(idis,i),:) , &
+                             & ha(i)          ,hd(i)          ,stype1         ,stype2               ,rhoam         , &
+                             & rhoas          ,rhoab          ,hint           ,drohj                , &
+                             & kfsmn0(n_amb(idis,i), m_amb(idis,i)),  kfsmx0(n_amb(idis,i),m_amb(idis,i)) ,dzs0_amb    ,zmodel         )
+       !
+       ! Compute the density of the discharged water
+       !
+       if (lsal /= 0) then
+          sal  = const_diff(idis,2)
+          call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
+                     & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
+                     & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
+                     & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
+          sal = sal + add
+       else
+          sal = saleqs
+       endif
+       if (ltem /= 0) then
+          temp = const_diff(idis,1)
+          call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
+                     & r0            ,kmax          ,lstsci        ,ltem  ,thick , &
+                     & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
+                     & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp   )
+          temp = temp + add
+       else
+          temp = temeqs
+       endif
+       select case (idensform)
+          case( dens_Eckart )
+             call dens_eck    (temp, sal ,rho0, dummy, dummy)
+          case( dens_Unesco)
+             call dens_unes   (temp, sal ,rho0, dummy, dummy)
+          case( dens_NaClSol)
+             call dens_nacl   (temp, sal ,rho0, dummy, dummy)
+       end select
+       !
+       ! Make character strings from all requested input
+       !
+       if (stype1 == 'U') then
+          write(crhoam(1:12),'(f12.3)') rhoam
+          crhoas = '-'
+          crhoab = '-'
+          stype2 = '-'
           chint  = '-'
           cdrohj = '-'
+       else
+          crhoam ='-'
+          write (crhoas(1:12),'(f12.3)') rhoas
+          write (crhoab(1:12),'(f12.3)') rhoab
+          if (stype2 == 'C') then
+             write (chint (1:12),'(f12.3)') hint
+             write (cdrohj(1:12),'(f12.3)') drohj
+          else
+             chint  = '-'
+             cdrohj = '-'
+          endif
        endif
-    endif
+       stype1_output = trim(stype1_output) //' '//trim(stype1)
+       stype2_output = trim(stype2_output) //' '//trim(stype2)
+       crhoam_output = trim(crhoam_output) //' '//trim(crhoam)
+       crhoas_output = trim(crhoas_output) //' '//trim(crhoas)
+       crhoab_output = trim(crhoab_output) //' '//trim(crhoab)
+       chint_output  = trim(chint_output)  //' '//trim(chint)  
+       cdrohj_output = trim(cdrohj_output) //' '//trim(cdrohj)
+    enddo
     !
     ! sigma0 given as direction relative to north in stead of main flow direction; 0, pointing to east, 90 pointing to north etc.
     ! ctaua is port direction relative to main flow direction
     !
-    taua = mod(taua,360.0_fp)
-    taurel = mod(sigma0(idis) - taua + 360.0_fp,360.0_fp)
-    if (taurel > 179.0_fp .and. taurel < 181.0_fp) then
-       taurel = 179.0_fp
-    endif
-    write (ctaua (1:12),'(f12.3)') taurel
+    string = ''
+    do i = 1, no_amb(idis)
+       taua(i) = mod(taua(i),360.0_fp)
+       taurel(i) = mod(sigma0(idis) - taua(i) + 360.0_fp,360.0_fp)
+       if (taurel(i) > 179.0_fp .and. taurel(i) < 181.0_fp) then
+          taurel(i) = 179.0_fp
+       endif
+       write (ctaua,'(f12.3)') taurel(i)
+       string = trim(string) // ctaua
+    enddo
+    ctaua = string
+    !
+    ! Generate a format string
+    !
+    write(string, '(i0)')no_amb(idis)
+    fmt = '('// trim(string) //'e24.17)'
     !
     ! Fill new tree with data to be written
     !
@@ -366,62 +427,159 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     enddo
     !
     call tree_create_node(subgrid_ptr, 'cormix', node_ptr)
+    !
+    ! ha
+    !
     write(string,'(e24.17)') ha(1)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') ha(i)
+       string = trim(string)//string_temp
+    enddo
     call tree_create_node(node_ptr, 'HA', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
-    write(string,'(e24.17)') hd
+    !
+    ! hd
+    !
+    write(string,'(e24.17)') hd(1)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') hd(i)
+       string = trim(string)//string_temp
+    enddo
     call tree_create_node(node_ptr, 'HD', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
-    write(string,'(e24.17)') max(ua,0.001_fp)
+    !
+    ! ua
+    !
+    write(string,'(e24.17)') max(ua(1),0.001_fp)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') max(ua(i),0.001_fp)
+       string = trim(string)//string_temp
+    enddo
     call tree_create_node(node_ptr, 'UA', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
-    write(string,'(i0)') idis
+    !
+    ! UorS
+    !
+    write(string,'(i0)') idis   !?? what is this for?
+    !
     call tree_create_node(node_ptr, 'UorS', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype1)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype1_output)),node_value), 'STRING:XMLDATA')
+    !
     write(string,'(i0)') idis
+    !
+    ! RHOAM
+    !
     call tree_create_node(node_ptr, 'RHOAM', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoam)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoam_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! STYPE
     !
     call tree_create_node(node_ptr, 'STYPE', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype2)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(stype2_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! RHOAS
     !
     call tree_create_node(node_ptr, 'RHOAS', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoas)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoas_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! RHOAB
     !
     call tree_create_node(node_ptr, 'RHOAB', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoab)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(crhoab_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! HINT
     !
     call tree_create_node(node_ptr, 'HINT', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(chint)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(chint_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! DROHJ
     !
     call tree_create_node(node_ptr, 'DROHJ', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(cdrohj)),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(cdrohj_output)),node_value), 'STRING:XMLDATA')
+    !
+    ! Q0
+    !
     write(string,'(e24.17)') q_diff(idis)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') q_diff(idis)
+       string = trim(string)//string_temp
+    enddo 
     call tree_create_node(node_ptr, 'Q0', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    ! RHO0
+    !
     write(string,'(e24.17)') rho0
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') rho0
+       string = trim(string)//string_temp
+    enddo 
     call tree_create_node(node_ptr, 'RHO0', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    ! D0
+    !    
     write(string,'(e24.17)') d0(idis)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') d0(idis)
+       string = trim(string)//string_temp
+    enddo 
     call tree_create_node(node_ptr, 'D0', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     !
+    ! PHI
+    !
     call tree_create_node(node_ptr, 'PHI', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(ctaua)),node_value), 'STRING:XMLDATA')
+    !
+    ! S1
+    !
     call tree_create_node(node_ptr, '<!-- S1: zero=reference level, down is positive -->', subnode_ptr)
     write(string,'(e24.17)') - s1(n_diff(idis), m_diff(idis))
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') - s1(n_diff(idis), m_diff(idis))
+       string = trim(string)//' '//string_temp
+    enddo    
     call tree_create_node(node_ptr, 'S1', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    ! h_dps
+    !
     write(string,'(e24.17)') dps(n_diff(idis), m_diff(idis))
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') dps(n_diff(idis), m_diff(idis))
+       string = trim(string)//string_temp
+    enddo    
     call tree_create_node(node_ptr, 'h_dps', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    ! x_diff
+    !    
     write(string,'(e24.17)') xz(n_diff(idis), m_diff(idis))
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') xz(n_diff(idis), m_diff(idis))
+       string = trim(string)//string_temp
+    enddo    
     call tree_create_node(node_ptr, 'x_diff', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
+    !
+    ! y_diff
+    !
     write(string,'(e24.17)') yz(n_diff(idis), m_diff(idis))
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') yz(n_diff(idis), m_diff(idis))
+       string = trim(string)//string_temp
+    enddo    
     call tree_create_node(node_ptr, 'y_diff', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
-    write(string,'(e24.17)') taua
+    !
+    ! taua
+    !
+    write(string,'(e24.17)') taua(1)
+    do i=2,no_amb(idis)
+       write(string_temp,'(e24.17)') taua(i)
+       string = trim(string)//string_temp
+    enddo
     call tree_create_node(node_ptr, 'taua', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     !
@@ -459,6 +617,25 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     deallocate(nm, stat=ierror)
     deallocate(xy, stat=ierror)
     !
+    !
+    ! cosumofile_ptr%cosumoblock_ptr is from reading.
+    ! settings_node_ptr
+    ! copying setting files and writing to the FF2NF file.
+    !
+    call tree_get_node_by_name( cosumofile_ptr, 'cosumo', cosumoblock_ptr )
+    if (.not.associated(cosumoblock_ptr)) then
+       write(lundia, '(a)') "ERROR: Tag '<COSUMO>' not found"
+       return
+    endif
+    
+    do i=1, size(cosumoblock_ptr%child_nodes)
+       settings_node_ptr => cosumoblock_ptr%child_nodes(i)%node_ptr
+       if (tree_get_name(settings_node_ptr) /= "settings") cycle
+       call tree_add_node(cosumo_ptr,settings_node_ptr,istat)      
+    enddo   
+    !
+    !
+    !
     write(*,'(3a)') "Writing file '", trim(filename(1)), "' ..."
     luntmp = newlun(gdp)
     open (luntmp, file=trim(filename(1)), status='new', iostat=istat)
@@ -470,7 +647,15 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     close (luntmp)
     !
     deallocate(dzs0_amb, stat=ierror)         
-    deallocate(ha      , stat=ierror)         
+    deallocate(ha      , stat=ierror)
+    deallocate(hd      , stat=ierror)
+    deallocate(ua      , stat=ierror)
+    deallocate(umag    , stat=ierror)
+    deallocate(uuu     , stat=ierror)
+    deallocate(vvv     , stat=ierror)
+    deallocate(taua    , stat=ierror)
+    deallocate(taurel  , stat=ierror)
+
     call tree_destroy(outfile_ptr)
 
 
@@ -502,7 +687,7 @@ subroutine writePointInfoToFF2NF
           if (zmodel) then
              write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), -(zk(k-1)+zk(k))/2.0_fp
           else
-             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), -hd*sig(k)
+             write(string,'(3(e24.17,x))') xy(ipnt,1), xy(ipnt,2), -hd(1)*sig(k)
           endif
           write(inttostring,'(i0)') (ipnt-1)*k + k
           call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
@@ -545,9 +730,9 @@ subroutine writePointInfoToFF2NF
           k_incr = 1
        endif
        do k = k_top, k_down, k_incr
-          uuu = (u0(n,m,k)*real(kfu(n,m),fp) + u0(n ,md,k)*real(kfu(n ,md),fp)) / real(kenmu,fp)
-          vvv = (v0(n,m,k)*real(kfv(n,m),fp) + v0(nd,m ,k)*real(kfv(nd,m ),fp)) / real(kenmv,fp)
-          write(string,'(2(e24.17,x))') uuu*csalfa - vvv*snalfa, uuu*snalfa + vvv*csalfa
+          uu = (u0(n,m,k)*real(kfu(n,m),fp) + u0(n ,md,k)*real(kfu(n ,md),fp)) / real(kenmu,fp)
+          vv = (v0(n,m,k)*real(kfv(n,m),fp) + v0(nd,m ,k)*real(kfv(nd,m ),fp)) / real(kenmv,fp)
+          write(string,'(2(e24.17,x))') uu*csalfa - vv*snalfa, uu*snalfa + vv*csalfa
           write(inttostring,'(i0)') (ipnt-1)*k + k
           call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)
           call tree_put_data(data_ptr, transfer(trim(adjustl(string)),node_value), "STRING:XMLDATALINE")
