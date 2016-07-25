@@ -41,6 +41,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     use precision
     use properties
     use dfparall
+    
     !
     use globaldata
     !
@@ -72,8 +73,6 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     real(fp),dimension(:)          , pointer :: sigma0
     integer                        , pointer :: lunsrc
     logical                        , pointer :: zmodel
-    type(tree_data)                , pointer :: cosumofile_ptr
-
 !
 ! Global variables
 !
@@ -179,10 +178,11 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     character(20)                          :: rundat       ! Current date and time containing a combination of DATE and TIME
     character(1000)                        :: string
     character(1000)                        :: string_temp
-    character(1000)                        :: fmt
-    character(256), external               :: windows_path
-    type(tree_data)              , pointer :: outfile_ptr
-    type(tree_data)              , pointer :: cosumo_ptr
+    character(300)                         :: errmsg
+    logical                                :: error = .false.
+    !character(256), external               :: windows_path
+    type(tree_data)              , pointer :: outfile_ptr       ! pointer to the output xml file.
+    type(tree_data)              , pointer :: cosumo_ptr        ! pointer to the output xml file.
     type(tree_data)              , pointer :: subgrid_ptr
     type(tree_data)              , pointer :: node_ptr
     type(tree_data)              , pointer :: subnode_ptr
@@ -190,9 +190,9 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     !
     ! for output the settings
     !
-    type(tree_data)              , pointer :: cosumoblock_ptr
-    type(tree_data)              , pointer :: settings_node_ptr
-    
+    type(tree_data)              , pointer :: cosumoblock_ptr   ! pointer to the blocks.
+    type(tree_data)              , pointer :: settings_node_ptr ! pointer to the settings block.
+    type(tree_data)              , pointer :: cosumofile_ptr    ! pointer for re-read the COSUMO settings file.   
     !
 !! executable statements -------------------------------------------------------
 !
@@ -216,7 +216,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     h0             => gdp%gdnfl%h0
     sigma0         => gdp%gdnfl%sigma0
     zmodel         => gdp%gdprocs%zmodel
-    cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
+    !cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
     
     !
     write(c_inode(1:3),'(i3.3)') inode
@@ -383,7 +383,6 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! Generate a format string
     !
     write(string, '(i0)')no_amb(idis)
-    fmt = '('// trim(string) //'e24.17)'
     !
     ! Fill new tree with data to be written
     !
@@ -399,11 +398,11 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! Because Cosumo is reading/using it and runs on Windows
     !
     call tree_create_node(node_ptr, 'Filename', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(1)))),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(filename(1))),node_value), 'STRING:XMLDATA')
     call tree_create_node(node_ptr, 'waitForFile', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(2)))),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(filename(2))),node_value), 'STRING:XMLDATA')
     call tree_create_node(node_ptr, 'FFrundir', subnode_ptr)
-    call tree_put_data(subnode_ptr, transfer(trim(adjustl(windows_path(filename(3)))),node_value), 'STRING:XMLDATA')
+    call tree_put_data(subnode_ptr, transfer(trim(adjustl(filename(3))),node_value), 'STRING:XMLDATA')
     string = trim(gdp%runid) // '.mdf'
     call tree_create_node(node_ptr, 'FFinputFile', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
@@ -622,6 +621,38 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! settings_node_ptr
     ! copying setting files and writing to the FF2NF file.
     !
+    
+           !
+       ! Create Cosumo input tree
+       !
+       write(lundia,'(3a)') "Reading file '", trim(gdp%gdnfl%infile), "' ..."
+       call tree_create( 'TransportFormula Input', cosumofile_ptr )
+       call tree_put_data( cosumofile_ptr, transfer(trim(gdp%gdnfl%infile),node_value), 'STRING' )
+       !
+       ! Put file in input tree
+       !
+       call prop_file('xml',trim(gdp%gdnfl%infile),cosumofile_ptr,istat)
+       if (istat /= 0) then
+          select case (istat)
+          case(1)
+             errmsg = FILE_NOT_FOUND // trim(gdp%gdnfl%infile)
+             call write_error(errmsg, unit=lundia)
+          case(3)
+             errmsg = PREMATURE_EOF // trim(gdp%gdnfl%infile)
+             call write_error(errmsg, unit=lundia)
+          case default
+             errmsg = FILE_READ_ERROR // trim(gdp%gdnfl%infile)
+             call write_error(errmsg, unit=lundia)
+          endselect
+          !nullify(gdp%gdnfl%cosumofile_ptr)
+          error = .true.
+          return
+       endif
+       !
+       ! Store the file data(-pointer) in GDP
+       !
+       !gdp%gdnfl%cosumofile_ptr => cosumofile_ptr
+       
     call tree_get_node_by_name( cosumofile_ptr, 'cosumo', cosumoblock_ptr )
     if (.not.associated(cosumoblock_ptr)) then
        write(lundia, '(a)') "ERROR: Tag '<COSUMO>' not found"
@@ -633,6 +664,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
        if (tree_get_name(settings_node_ptr) /= "settings") cycle
        call tree_add_node(cosumo_ptr,settings_node_ptr,istat)      
     enddo   
+    
+    
     !
     !
     !
@@ -655,9 +688,10 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     deallocate(vvv     , stat=ierror)
     deallocate(taua    , stat=ierror)
     deallocate(taurel  , stat=ierror)
-
+    
+    nullify(cosumofile_ptr)
     call tree_destroy(outfile_ptr)
-
+    !
 
 
 contains
@@ -786,44 +820,45 @@ subroutine writePointInfoToFF2NF
 end subroutine writePointInfoToFF2NF
 end subroutine wri_FF2NF
 
-function windows_path(inpath) result(outpath)
+!function windows_path(inpath) result(outpath)
 !
 ! return value
 !
-character(256) :: outpath
+!character(256) :: outpath
 !
 ! arguments
 !
-character(*), intent(in)  :: inpath
+!character(*), intent(in)  :: inpath
 !
 ! locals
 !
-integer      :: i
-character(1) :: bslash = '\'
-character(1) :: fslash = '/'
+!integer      :: i
+!character(1) :: bslash = '\'
+!character(1) :: fslash = '/'
 !
 ! body
-if (inpath(1:1)==fslash .and. inpath(3:3)== fslash) then
-   ! Replace /p by p:
-   outpath = inpath
-   outpath(1:1) = outpath(2:2)
-   outpath(2:2) = ':'
-else if (inpath(1:4)=='/opt') then
-   ! Replace /opt by p:\h6\opt
-   outpath = "p:\h6\opt"
-   outpath(10:) = inpath(5:)
-else if (inpath(1:4)=='/mnt') then
-   ! Replace /mnt by d:
-   outpath = "d:"
-   outpath(3:) = inpath(5:)
-else
-   outpath = inpath
-endif
+!if (inpath(1:1)==fslash .and. inpath(3:3)== fslash) then
+!   ! Replace /p by p:
+!   outpath = inpath
+!   outpath(1:1) = outpath(2:2)
+!   outpath(2:2) = ':'
+!else if (inpath(1:4)=='/opt') then
+!   ! Replace /opt by p:\h6\opt
+!   outpath = "p:\h6\opt"
+!   outpath(10:) = inpath(5:)
+!else if (inpath(1:4)=='/mnt') then
+!   ! Replace /mnt by d:
+!   outpath = "d:"
+!   outpath(3:) = inpath(5:)
+!else
+!   outpath = inpath
+!endif
+!!
+!! Replace / by \
+!do i=1,len_trim(outpath)
+!   if (outpath(i:i) == fslash) then
+!      outpath(i:i) = bslash
+!   endif
+!enddo
+!end function windows_path
 !
-! Replace / by \
-do i=1,len_trim(outpath)
-   if (outpath(i:i) == fslash) then
-      outpath(i:i) = bslash
-   endif
-enddo
-end function windows_path

@@ -116,7 +116,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: nf
     integer       , dimension(:)       , pointer :: nl
     logical                            , pointer :: zmodel
-    type(tree_data)                    , pointer :: cosumofile_ptr
+
 !
 ! Global variables
 !
@@ -272,7 +272,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     iarrc          => gdp%gdparall%iarrc
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
-    cosumofile_ptr => gdp%gdnfl%cosumofile_ptr
+
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
     else
@@ -494,8 +494,6 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                                 & r0_ptr    ,rho_ptr   ,dps_ptr  ,xz_ptr   ,yz_ptr , &
                                 & kfsmn0_ptr,kfsmx0_ptr,dzs0_ptr ,filename ,namcon , gdp    )
                 enddo
-                call tree_destroy(gdp%gdnfl%cosumofile_ptr)
-                
              endif
              !
              ! Read near field input files and process them

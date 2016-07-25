@@ -267,9 +267,8 @@ subroutine corinp_gen2(error, gdp)
     !
     ! Delete file info
     ! This will force rereading the Cosumo file at the next Cosumo calculation
-    ! We decide NOT destroy it here but in near_field.f90, after we write the settings to the FF2NF files. 
     !
-    ! call tree_destroy(gdp%gdnfl%cosumofile_ptr)
+    call tree_destroy(gdp%gdnfl%cosumofile_ptr)
     !
     deallocate(r_input, stat=istat)
 end subroutine corinp_gen2
