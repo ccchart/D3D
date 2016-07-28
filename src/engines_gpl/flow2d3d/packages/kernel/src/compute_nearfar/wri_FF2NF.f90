@@ -62,6 +62,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     integer ,dimension(:)          , pointer :: m_intake
     integer ,dimension(:)          , pointer :: n_intake
     integer ,dimension(:)          , pointer :: k_intake
+    real(fp),dimension(:)          , pointer :: x_diff
+    real(fp),dimension(:)          , pointer :: y_diff
     real(fp),dimension(:,:)        , pointer :: x_amb
     real(fp),dimension(:,:)        , pointer :: y_amb
     real(fp),dimension(:)          , pointer :: x_intake
@@ -206,6 +208,8 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     m_intake       => gdp%gdnfl%m_intake
     n_intake       => gdp%gdnfl%n_intake
     k_intake       => gdp%gdnfl%k_intake
+    x_diff         => gdp%gdnfl%x_diff
+    y_diff         => gdp%gdnfl%y_diff
     x_amb          => gdp%gdnfl%x_amb
     y_amb          => gdp%gdnfl%y_amb
     x_intake       => gdp%gdnfl%x_intake
@@ -582,6 +586,22 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     call tree_create_node(node_ptr, 'taua', subnode_ptr)
     call tree_put_data(subnode_ptr, transfer(trim(adjustl(string)),node_value), 'STRING:XMLDATA')
     !
+    ! Diffuser
+    !
+    call tree_create_node(subgrid_ptr, 'FFDiff', node_ptr)
+    call tree_create_node(node_ptr, '<!-- Z: zero=reference level, down is positive -->', subnode_ptr)
+    allocate(nm(1,2), stat=ierror)
+    allocate(xy(1,2), stat=ierror)
+    nm(1,1) = n_diff(idis)
+    nm(1,2) = m_diff(idis)
+    xy(1,1) = x_diff(idis)
+    xy(1,2) = y_diff(idis)
+    !
+    call writePointInfoToFF2NF()
+    !
+    deallocate(nm, stat=ierror)
+    deallocate(xy, stat=ierror)
+    !
     ! Intake
     !
     call tree_create_node(subgrid_ptr, 'FFIntake', node_ptr)
@@ -622,36 +642,36 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     ! copying setting files and writing to the FF2NF file.
     !
     
-           !
-       ! Create Cosumo input tree
-       !
-       write(lundia,'(3a)') "Reading file '", trim(gdp%gdnfl%infile), "' ..."
-       call tree_create( 'TransportFormula Input', cosumofile_ptr )
-       call tree_put_data( cosumofile_ptr, transfer(trim(gdp%gdnfl%infile),node_value), 'STRING' )
-       !
-       ! Put file in input tree
-       !
-       call prop_file('xml',trim(gdp%gdnfl%infile),cosumofile_ptr,istat)
-       if (istat /= 0) then
-          select case (istat)
-          case(1)
-             errmsg = FILE_NOT_FOUND // trim(gdp%gdnfl%infile)
-             call write_error(errmsg, unit=lundia)
-          case(3)
-             errmsg = PREMATURE_EOF // trim(gdp%gdnfl%infile)
-             call write_error(errmsg, unit=lundia)
-          case default
-             errmsg = FILE_READ_ERROR // trim(gdp%gdnfl%infile)
-             call write_error(errmsg, unit=lundia)
-          endselect
-          !nullify(gdp%gdnfl%cosumofile_ptr)
-          error = .true.
-          return
-       endif
-       !
-       ! Store the file data(-pointer) in GDP
-       !
-       !gdp%gdnfl%cosumofile_ptr => cosumofile_ptr
+    !
+    ! Create Cosumo input tree
+    !
+    write(lundia,'(3a)') "Reading file '", trim(gdp%gdnfl%infile), "' ..."
+    call tree_create( 'COSUMO FF2NF', cosumofile_ptr )
+    call tree_put_data( cosumofile_ptr, transfer(trim(gdp%gdnfl%infile),node_value), 'STRING' )
+    !
+    ! Put file in input tree
+    !
+    call prop_file('xml',trim(gdp%gdnfl%infile),cosumofile_ptr,istat)
+    if (istat /= 0) then
+       select case (istat)
+       case(1)
+          errmsg = FILE_NOT_FOUND // trim(gdp%gdnfl%infile)
+          call write_error(errmsg, unit=lundia)
+       case(3)
+          errmsg = PREMATURE_EOF // trim(gdp%gdnfl%infile)
+          call write_error(errmsg, unit=lundia)
+       case default
+          errmsg = FILE_READ_ERROR // trim(gdp%gdnfl%infile)
+          call write_error(errmsg, unit=lundia)
+       endselect
+       !nullify(gdp%gdnfl%cosumofile_ptr)
+       error = .true.
+       return
+    endif
+    !
+    ! Store the file data(-pointer) in GDP
+    !
+    !gdp%gdnfl%cosumofile_ptr => cosumofile_ptr
        
     call tree_get_node_by_name( cosumofile_ptr, 'cosumo', cosumoblock_ptr )
     if (.not.associated(cosumoblock_ptr)) then
@@ -673,7 +693,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     luntmp = newlun(gdp)
     open (luntmp, file=trim(filename(1)), status='new', iostat=istat)
     if (istat /= 0) then
-       write(lundia,'(3a)') "ERRROR: file '", trim(filename(1)), "' already exists."
+       write(lundia,'(3a)') "ERROR: file '", trim(filename(1)), "' already exists."
        call d3stop(1,gdp)
     endif
     call prop_write_xmlfile(luntmp, outfile_ptr, 0, istat)
