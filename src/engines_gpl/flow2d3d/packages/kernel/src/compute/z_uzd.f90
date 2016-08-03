@@ -743,18 +743,22 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
           !
           do nm = 1, nmmax
              if (kfu(nm) == 1) then
-                do k = 1, kmax
-                   do idis = 1, no_dis
-                      if (icx == 1) then
-                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*disnf(nm,k,idis)       &
-                                               & /(dzu0(nm,k)*gsqs(nm))
-                      else
-                         bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*disnf(nm,k,idis)       &
-                                               & /(dzu0(nm,k)*gsqs(nm))
-                      endif
-                   enddo
+                do k = kfumn0(nm), kfumx0(nm)
+                   if (kfuz0(nm, k) == 1) then
+                     do idis = 1, no_dis
+                        if (icx == 1 ) then
+                            if ( disnf(nm,k,idis) > 0.0_fp) then
+                              bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                              ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))  
+                            endif
+                        else 
+                            if (disnf(nm,k,idis) > 0.0_fp) then
+                              bbk(nm,k) = bbk(nm,k) + disnf(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                              ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))       
+                            endif
+                        endif
+                     enddo
+                   endif
                 enddo
              endif
           enddo
