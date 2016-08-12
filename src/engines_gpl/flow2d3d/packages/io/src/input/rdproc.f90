@@ -39,7 +39,7 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
 !                model, rigid wall, tidal forces, density &
 !                wind: KTEMP, FCLOU, SAREA, IVAPOP, SECCHI,
 !                      STANTON, DALTON ,IROV, Z0V, TGFCMP,
-!                      TEMPW, SALW, WSTRES, RHOA
+!                      TEMPW, SALW, WSTRES, RHOA , SDlake, Wslake
 ! Method used:
 !
 !!--pseudo code and references--------------------------------------------------
@@ -65,6 +65,8 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     real(fp)                   , pointer :: dalton
     real(fp)                   , pointer :: qtotmx
     real(fp)                   , pointer :: lambda
+    integer                    , pointer :: wslake
+    integer                    , pointer :: sdlake
     integer                    , pointer :: ivapop
     integer                    , pointer :: maseva
     logical                    , pointer :: free_convec
@@ -175,6 +177,8 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     sarea               => gdp%gdheat%sarea
     fclou               => gdp%gdheat%fclou
     gapres              => gdp%gdheat%gapres
+    wslake              => gdp%gdheat%wslake
+    sdlake              => gdp%gdheat%sdlake
     stanton             => gdp%gdheat%stanton
     dalton              => gdp%gdheat%dalton
     qtotmx              => gdp%gdheat%qtotmx
@@ -514,6 +518,84 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
           else
              dalton = rdef
              write(message, '(a,e14.5)') 'Ocean heat model: Using default Dalton number ', dalton
+             call prterr(lundia, 'G051', trim(message))
+          endif
+          !
+          ! reset RDEF
+          !
+          rdef = 0.0
+          !
+          ! Locate and read 'Wslake'
+          ! default value allowed => defaul
+          !
+          keyw = 'Wslake'
+          ntrec = nrrec
+          rdef = Wslake
+          lkw = 6
+          call search(lunmd     ,lerror    ,newkw     ,nrrec     ,found     , &
+                    & ntrec     ,mdfrec    ,itis      ,keyw      ,lkw       , &
+                    & 'NO'      )
+          lerror = .false.
+          !
+          ! not found ?
+          !
+          if (found) then
+             call read2r(lunmd     ,lerror    ,keyw      ,newkw     ,nlook     , &
+                       & mdfrec    ,rval      ,rdef      ,defaul    ,nrrec     , &
+                       & ntrec     ,lundia    ,gdp       )
+             !
+             ! reading error?
+             !
+             if (lerror) then
+                lerror = .false.
+                Wslake = rdef
+             else
+                Wslake = rval(1)
+                write(message, '(a,e14.5)') 'Ocean heat model: Wslake specified to be ', Wslake
+                call prterr(lundia, 'G051', trim(message))
+             endif
+          else
+             Wslake = rdef
+             write(message, '(a,e14.5)') 'Ocean heat model: Using default Wslake ', Wslake
+             call prterr(lundia, 'G051', trim(message))
+          endif
+          !
+          ! reset RDEF
+          !
+          rdef = 0.0
+          !
+          ! Locate and read 'SDlake'
+          ! default value allowed => defaul
+          !
+          keyw = 'SDlake'
+          ntrec = nrrec
+          rdef = SDlake
+          lkw = 6
+          call search(lunmd     ,lerror    ,newkw     ,nrrec     ,found     , &
+                    & ntrec     ,mdfrec    ,itis      ,keyw      ,lkw       , &
+                    & 'NO'      )
+          lerror = .false.
+          !
+          ! not found ?
+          !
+          if (found) then
+             call read2r(lunmd     ,lerror    ,keyw      ,newkw     ,nlook     , &
+                       & mdfrec    ,rval      ,rdef      ,defaul    ,nrrec     , &
+                       & ntrec     ,lundia    ,gdp       )
+             !
+             ! reading error?
+             !
+             if (lerror) then
+                lerror = .false.
+                SDlake = rdef
+             else
+                SDlake = rval(1)
+                write(message, '(a,e14.5)') 'Ocean heat model: SDlake specified to be ', SDlake
+                call prterr(lundia, 'G051', trim(message))
+             endif
+          else
+             SDlake = rdef
+             write(message, '(a,e14.5)') 'Ocean heat model: Using default SDlake ', SDlake
              call prterr(lundia, 'G051', trim(message))
           endif
           !
