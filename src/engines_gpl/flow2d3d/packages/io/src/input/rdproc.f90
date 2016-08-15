@@ -551,12 +551,12 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
                 Wslake = rdef
              else
                 Wslake = rval(1)
-                write(message, '(a,e14.5)') 'Ocean heat model: Wslake specified to be ', Wslake
+                write(message, '(a,i5)') 'Ocean heat model: Wslake specified to be ', Wslake
                 call prterr(lundia, 'G051', trim(message))
              endif
           else
              Wslake = rdef
-             write(message, '(a,e14.5)') 'Ocean heat model: Using default Wslake ', Wslake
+             write(message, '(a,i5)') 'Ocean heat model: Using default Wslake ', Wslake
              call prterr(lundia, 'G051', trim(message))
           endif
           !
@@ -590,12 +590,12 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
                 SDlake = rdef
              else
                 SDlake = rval(1)
-                write(message, '(a,e14.5)') 'Ocean heat model: SDlake specified to be ', SDlake
+                write(message, '(a,i5)') 'Ocean heat model: SDlake specified to be ', SDlake
                 call prterr(lundia, 'G051', trim(message))
              endif
           else
              SDlake = rdef
-             write(message, '(a,e14.5)') 'Ocean heat model: Using default SDlake ', SDlake
+             write(message, '(a,i5)') 'Ocean heat model: Using default SDlake ', SDlake
              call prterr(lundia, 'G051', trim(message))
           endif
           !

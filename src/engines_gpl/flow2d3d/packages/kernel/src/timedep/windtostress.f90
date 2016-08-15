@@ -104,14 +104,14 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
     ! to compute cd at the 4m/s for wslake formula for TVA project
     !
     if(wslake == 1) then
-        wsp4 = 4.0
-             if (wsp4 <= w2) then
-                cd4 = w1
-             elseif (wsp4 >w2 .and. wsp4 <=w4) then
-                cd4 = w1 + (min(wsp4,w4) - w2) / (w4 - w2) * (w3 - w1)
-             else
-                cd4 = w3 + (min (wsp4,w6) - w4) / (w6 - w4) * (w5 - w3)
-             endif
+       wsp4 = 4.0
+       if (wsp4 <= w2) then
+          cd4 = w1
+       elseif (wsp4 >w2 .and. wsp4 <=w4) then
+          cd4 = w1 + (min(wsp4,w4) - w2) / (w4 - w2) * (w3 - w1)
+       else
+          cd4 = w3 + (min (wsp4,w6) - w4) / (w6 - w4) * (w5 - w3)
+       endif
     endif
     do m = 1, mmax
        do n = 1, nmaxus
