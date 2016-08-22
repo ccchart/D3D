@@ -9,7 +9,7 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
                 & zwndsp    ,zwnddr    ,zairp     ,wind      ,sferic    , &
                 & zprecp    ,zevap     ,itdate    ,dtsec     ,irequest  , &
                 & fds       ,nostatto  ,nostatgl  ,order_sta ,ntruvto   , &
-                & ntruvgl   ,order_tra ,gdp       )
+                & ntruvgl   ,order_tra ,zwndcd    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -104,6 +104,7 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
     real(fp)     , dimension(nostat)                                                  :: ztauks   !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(nostat)                                                  :: zwl      !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(nostat)                                                  :: zwndsp   !  Description and declaration in esm_alloc_real.f90
+    real(fp)     , dimension(nostat)                                                  :: zwndcd   !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(nostat)                                                  :: zprecp   !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(nostat)                                                  :: zevap    !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(nostat)                                                  :: zwnddr   !  Description and declaration in esm_alloc_real.f90
@@ -319,6 +320,7 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDSPD', ' ', IO_REAL4, 1, dimids=(/iddim_nostat/), longname='Wind-speed in station', unit='m/s', attribs=(/idatt_sta/))
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDDIR', ' ', IO_REAL4, 1, dimids=(/iddim_nostat/), longname='Wind-direction in station', unit='degrees_Celsius', attribs=(/idatt_sta/))
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'PATM', ' ', IO_REAL4   , 1, dimids=(/iddim_nostat/), longname='Air pressure', unit='N/m2', attribs=(/idatt_sta/))
+             call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDCD', ' ', IO_REAL4 , 1, dimids=(/iddim_nostat/), longname='Wind drag coef', unit='-', attribs=(/idatt_sta/))
           endif
           if (flwoutput%air .and. temp) then
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZPRECP', ' ', IO_REAL4 , 1, dimids=(/iddim_nostat/), longname='Instantaneous precipitation rate in station', unit='mm/h', attribs=(/idatt_sta/))
@@ -525,7 +527,7 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
              if (ierror/=0) goto 9999
           endif
           !
-          ! element 'ZWNDSPD', 'ZWNDDIR' & 'PATM'
+          ! element 'ZWNDSPD', 'ZWNDDIR', 'PATM' & 'ZWNDCD'
           !
           if (wind .and. flwoutput%air) then
              call wrtarray_n(fds, filename, filetype, grnam3, &
@@ -541,6 +543,10 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
              call wrtarray_n(fds, filename, filetype, grnam3, &
                     & celidt, nostat, nostatto, nostatgl, order_sta, gdp, &
                     & ierror, lundia, zairp, 'PATM', station)
+             !
+             call wrtarray_n(fds, filename, filetype, grnam3, &
+                    & celidt, nostat, nostatto, nostatgl, order_sta, gdp, &
+                    & ierror, lundia, zwndcd, 'ZWNDCD', station)
              if (ierror/=0) goto 9999
           endif
           !

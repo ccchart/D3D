@@ -4,7 +4,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
                 & nsrc      ,zmodel    ,kcs       ,kfs       ,kfu       , &
                 & kfv       ,kfumin    ,kfvmin    ,kfumax    ,kfvmax    , &
                 & kfsmin    ,kfsmax    ,mnksrc    ,s1        , &
-                & dps       ,dzs1      ,thick     , &
+                & dps       ,dzs1      ,thick     ,windcd    , &
                 & u1        ,v1        ,w1        ,wphy      ,r1        , &
                 & rtur1     ,taubpu    ,taubpv    ,taubsu    ,taubsv    , &
                 & vicww     ,dicww     ,rich      ,rho       ,p1        , &
@@ -148,6 +148,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: taubsv      !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: umnldf      !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: vmnldf      !  Description and declaration in esm_alloc_real.f90
+    real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: windcd      !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: windu       !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: windv       !  Description and declaration in esm_alloc_real.f90
     real(fp)      , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)               , intent(in)  :: precip      !  Description and declaration in esm_alloc_real.f90
@@ -1249,6 +1250,13 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
           call wrtarray_nm(fds, filename, filetype, grnam3, celidt, &
                        & nf, nl, mf, ml, iarrc, gdp, &
                        & ierror, lundia, windv, 'WINDV')
+          if (ierror /= 0) goto 9999
+          !
+          ! element 'WINDCD'
+          !
+          call wrtarray_nm(fds, filename, filetype, grnam3, celidt, &
+                       & nf, nl, mf, ml, iarrc, gdp, &
+                       & ierror, lundia, windcd, 'WINDCD')
           if (ierror /= 0) goto 9999
           !
           ! element 'PATM'

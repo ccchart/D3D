@@ -1,6 +1,6 @@
 subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , &
                       & w10mag    ,windu     ,windv     ,windsu    ,windsv    , &
-                      & gdp       )
+                      & windcd    , gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -65,6 +65,7 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(out) :: windsv !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in)  :: windu  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in)  :: windv  !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(out) :: windcd !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
 !
@@ -79,12 +80,8 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
     real(fp):: w6
     real(fp):: wangle ! Wind angle 
     real(fp):: wsp    ! Wind speed 
-    real(fp):: wsp2   ! WSP*WSP
-!
-! Local variables for TVA projects.
-!
-    real(fp):: wsp4   ! constant wind speed 4m/s
-    real(fp):: cd4    ! computed cd based on user input
+    real(fp):: wsp2   ! WSP*WSP 
+    real(fp):: cdwl   ! Cd according to Wuest & Lorke (2003)
 !
 !! executable statements -------------------------------------------------------
 !
@@ -92,7 +89,7 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
     ag        => gdp%gdphysco%ag
     wstcof    => gdp%gdphysco%wstcof
     wslake    => gdp%gdheat%wslake
-    sdlake    => gdp%gdheat%sdlake    
+    sdlake    => gdp%gdheat%sdlake   
     !
     w1 = wstcof(1)
     w2 = wstcof(2)
@@ -101,18 +98,6 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
     w5 = wstcof(5)
     w6 = wstcof(6)
     !
-    ! to compute cd at the 4m/s for wslake formula for TVA project
-    !
-    if(wslake == 1) then
-       wsp4 = 4.0
-       if (wsp4 <= w2) then
-          cd4 = w1
-       elseif (wsp4 >w2 .and. wsp4 <=w4) then
-          cd4 = w1 + (min(wsp4,w4) - w2) / (w4 - w2) * (w3 - w1)
-       else
-          cd4 = w3 + (min (wsp4,w6) - w4) / (w6 - w4) * (w5 - w3)
-       endif
-    endif
     do m = 1, mmax
        do n = 1, nmaxus
           if (kcs(n,m) > 0) then
@@ -139,19 +124,21 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
              else
                 cd = w3 + (min (wsp,w6) - w4) / (w6 - w4) * (w5 - w3)
              endif
-             if(Wslake == 1) then
-                cd = cd4*4.9245/wsp**1.15_fp
-             endif
+             !
+             ! Wuest & Lorke (2003)
+             !
+             if(wslake == 1) cdwl  = 0.0044/wsp**1.15
+             !
+             ! find the max.
+             !
+             windcd(n, m) = max(cdwl, cd)
+             !
              windsu(n, m) = cd*wsp2*cos(wangle)*rhoa
              windsv(n, m) = cd*wsp2*sin(wangle)*rhoa
              w10mag(n, m) = wsp
-             !
-             ! overwrite Stanton and Dalton if SDlake is activated.
-             ! remark:  This implemetation only works for spatially constant wind. Sufficient for TVA project now.
-             !
              if((sdlake == 1) .and. (wslake == 1)) then
-                gdp%gdheat%stanton = cd
-                gdp%gdheat%dalton  = cd
+                gdp%gdheat%stanton = windcd(n, m)
+                gdp%gdheat%dalton  = windcd(n, m)
              endif
           endif
        enddo

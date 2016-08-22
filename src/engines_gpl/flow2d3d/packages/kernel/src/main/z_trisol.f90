@@ -378,6 +378,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     integer(pntrsize)                    , pointer :: w10mag
     integer(pntrsize)                    , pointer :: windsu
     integer(pntrsize)                    , pointer :: windsv
+    integer(pntrsize)                    , pointer :: windcd
     integer(pntrsize)                    , pointer :: windu
     integer(pntrsize)                    , pointer :: windv
     integer(pntrsize)                    , pointer :: wphy
@@ -841,6 +842,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
     w10mag              => gdp%gdr_i_ch%w10mag
     windsu              => gdp%gdr_i_ch%windsu
     windsv              => gdp%gdr_i_ch%windsv
+    windcd              => gdp%gdr_i_ch%windcd
     windu               => gdp%gdr_i_ch%windu
     windv               => gdp%gdr_i_ch%windv
     wphy                => gdp%gdr_i_ch%wphy
@@ -1065,7 +1067,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
        call timer_start(timer_incmeteo, gdp)
        call incmeteo(timhr     , grdang   , &
                    & r (windu ),r (windv ),r (patm  ), &
-                   & i (kcs   ),r (alfas ), &
+                   & i (kcs   ),r (alfas ),r (windcd), &
                    & r (windsu),r (windsv),r (w10mag), gdp)
        call timer_stop(timer_incmeteo, gdp)
     endif
@@ -1974,7 +1976,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    , &
        call timer_start(timer_incmeteo, gdp)
        call incmeteo(timhr     , grdang   , &
                    & r(windu ) , r(windv ), r(patm  ),    &
-                   & i(kcs   ) , r(alfas ),               &
+                   & i(kcs   ) , r(alfas ), r(windcd),    &
                    & r(windsu) , r(windsv), r(w10mag), gdp)
        call timer_stop(timer_incmeteo, gdp)
     endif

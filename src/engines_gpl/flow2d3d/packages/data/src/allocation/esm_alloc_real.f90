@@ -1255,6 +1255,7 @@ subroutine esm_alloc_real(lundia, error, gdp)
     !                        patm  (nmaxddb  ,mmaxddb)
     !                        w10mag(nmaxddb  ,mmaxddb)
     !                        evap  (nmaxddb  ,mmaxddb)
+    !                        windcd(nmaxddb  ,mmaxddb)
     !
     pntnam = 'windu'         !  Current wind velocity at 10 m in the ksi-dir.
     ierr = mkfpnt(pntnam, nmaxddb*mmaxddb, gdp)
@@ -1295,6 +1296,11 @@ subroutine esm_alloc_real(lundia, error, gdp)
     pntnam = 'zprecp'       !  Instantaneous precipitation at monitoring stations
     ierr = mkfpnt(pntnam, nostat, gdp)
     if (ierr <= -9) goto 9999
+    !
+    pntnam = 'windcd'        !  Time and space varying wind drag coef.
+    ierr = mkfpnt(pntnam, nmaxddb*mmaxddb, gdp)
+    if (ierr <= -9) goto 9999
+    !
     !
     !
     !-----arrays for: diffusion, concentrations
@@ -2162,6 +2168,10 @@ subroutine esm_alloc_real(lundia, error, gdp)
     if (ierr <= -9) goto 9999
     !
     pntnam = 'zwndsp'        !  Wind speed at the monitoring stations
+    ierr = mkfpnt(pntnam, nostat, gdp)
+    if (ierr <= -9) goto 9999
+    !
+    pntnam = 'zwndcd'        !  Wind drag coef at the monitoring stations
     ierr = mkfpnt(pntnam, nostat, gdp)
     if (ierr <= -9) goto 9999
     !
