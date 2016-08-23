@@ -591,15 +591,20 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       endif
                    enddo
                    if (nf_src_mom) then
-                   !
-                   !  determine velocity components discharge (single and multiple sources)
-                   !
+                      !
+                      !  determine velocity components discharge (single and multiple sources)
+                      !
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang              , &
                                       & nf_sour(iidis,IUMAG)                      , nf_sour(iidis,IUDIR), momu_tmp, momv_tmp)
-                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source&
-                                          &*momu_tmp/ (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
-                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source&
-                                          &*momv_tmp/ (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      !
+                      ! Based on nf_q_source (without dis_tot)
+                      ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
+                      ! This means that nf_src_momu/v has a non-regular content
+                      !
+                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source &
+                                                                        & * momu_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
+                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source &
+                                                                        & * momv_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi))
                    endif
                 endif
              enddo
