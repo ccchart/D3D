@@ -312,17 +312,19 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        call dfgather(yz    , glb_yz    , nf, nl, mf, ml, iarrc, gdp)
        if (inode == master) then
           kcs_ptr    => glb_kcs
+          kfu_ptr    => glb_kfu
+          kfv_ptr    => glb_kfv
           kfsmx0_ptr => glb_kfsmx0
           kfsmn0_ptr => glb_kfsmn0
           alfas_ptr  => glb_alfas
           dzs0_ptr   => glb_dzs0
           s0_ptr     => glb_s0
+          s1_ptr     => glb_s1
           r0_ptr     => glb_r0
           rho_ptr    => glb_rho
           u0_ptr     => glb_u0
           v0_ptr     => glb_v0
           dps_ptr    => glb_dps
-          s1_ptr     => glb_s1
           xz_ptr     => glb_xz
           yz_ptr     => glb_yz
        endif
@@ -339,12 +341,12 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
        alfas_ptr  => alfas
        dzs0_ptr   => dzs0
        s0_ptr     => s0
+       s1_ptr     => s1
        r0_ptr     => r0
        rho_ptr    => rho
        u0_ptr     => u0
        v0_ptr     => v0
        dps_ptr    => dps
-       s1_ptr     => s1
        xz_ptr     => xz
        yz_ptr     => yz
        xz_ptr     => xz

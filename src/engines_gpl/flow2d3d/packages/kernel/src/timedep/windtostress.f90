@@ -131,11 +131,11 @@ subroutine windtostress(mmax      ,nmax      ,nmaxus    ,grdang    ,kcs       , 
              !
              ! find the max.
              !
-             windcd(n, m) = max(cdwl, cd)
+             windcd(n,m) = max(cdwl, cd)
              !
-             windsu(n, m) = cd*wsp2*cos(wangle)*rhoa
-             windsv(n, m) = cd*wsp2*sin(wangle)*rhoa
-             w10mag(n, m) = wsp
+             windsu(n,m) = windcd(n,m) * wsp2 * cos(wangle) * rhoa
+             windsv(n,m) = windcd(n,m) * wsp2 * sin(wangle) * rhoa
+             w10mag(n,m) = wsp
              if((sdlake == 1) .and. (wslake == 1)) then
                 gdp%gdheat%stanton = windcd(n, m)
                 gdp%gdheat%dalton  = windcd(n, m)
