@@ -739,10 +739,12 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
              do k = 1, kmax
                 do idis = 1, no_dis
                    if (icx == 1) then
-                      bbk(nm,k) = bbk(nm,k) + disnf      (nm,k,idis)/(thick(k)*hugsqs)
+                      !
+                      ! No bbk addition: treat the addition of momentum as the addition of a constituent
                       ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(thick(k)*hugsqs)
                    else
-                      bbk(nm,k) = bbk(nm,k) + disnf      (nm,k,idis)/(thick(k)*hugsqs)
+                      !
+                      ! No bbk addition: treat the addition of momentum as the addition of a constituent
                       ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(thick(k)*hugsqs)
                    endif
                 enddo

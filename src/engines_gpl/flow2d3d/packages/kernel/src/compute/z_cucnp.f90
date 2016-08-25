@@ -633,12 +633,14 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                      do idis = 1, no_dis
                         if (icx == 1 ) then
                             if ( disnf(nm,k,idis) > 0.0_fp) then
-                              bbk(nm,k) = bbk(nm,k) + disnf      (nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                              !
+                              ! No bbk addition: treat the addition of momentum as the addition of a constituent
                               ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))  
                             endif
                         else 
                             if (disnf(nm,k,idis) > 0.0_fp) then
-                              bbk(nm,k) = bbk(nm,k) + disnf      (nm,k,idis)/(dzu0(nm,k)*gsqs(nm))
+                              !
+                              ! No bbk addition: treat the addition of momentum as the addition of a constituent
                               ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))       
                             endif
                         endif

@@ -120,7 +120,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     integer                              :: ierror
     integer                              :: irow
     integer                              :: idum
-    integer                              :: iidis
+    integer                              :: itrack
     integer                              :: k
     integer                              :: k_irow
     integer                              :: k_last
@@ -167,14 +167,16 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     real(fp)                             :: yend
     real(fp)                             :: momu_tmp
     real(fp)                             :: momv_tmp
-    real(fp),dimension(:), allocatable   :: momu
-    real(fp),dimension(:), allocatable   :: momv
     real(fp),dimension(:), allocatable   :: weight
     integer, dimension(:), allocatable   :: n_dis
     integer, dimension(:), allocatable   :: m_dis
     integer, dimension(:), allocatable   :: k_dis
     logical                              :: inside
     logical                              :: new_cell
+    logical                              :: centre_and_width   ! TRUE: >=1 sinks and exactly 1 source point.
+                                                               !       The source point is the centre point, the specified width is used to define the discharge locations
+                                                               ! FALSE: OR 0 sinks, OR >=2 source points.
+                                                               !       The discharge locations are exactly the source points
 !
 !! executable statements -------------------------------------------------------
 !
@@ -281,7 +283,9 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     endif
     !
     if (sour_cnt > 0) then
-       if (sour_cnt==1 .and. sink_cnt>0) then                ! Centre point and width specified at input
+       if (sour_cnt==1 .and. sink_cnt>0) then
+          centre_and_width = .true.
+          ! Centre point and width specified at input
           ! (Single) source point:
           ! Determine the relative thickness over which to distribute the diluted discharge:
           ! Both sink and source point needed for direction connection line.
@@ -300,7 +304,6 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                      & dps          ,s0           ,kcs                        ,thick ,kmax  , &
                      & nf_sour(1,IX),nf_sour(1,IY),nf_sour(1,IZ)-nf_sour(1,IH),n_end ,m_end ,k_end_top, &
                      & kfsmn0       ,kfsmx0       ,dzs0                       ,zmodel,inside,gdp  )
-                     
           ! position bottom of the diffusor   (half height), index k_end_down         
           call findnmk(nlb          ,nub          ,mlb                        ,mub   ,xz    ,yz        , &
                      & dps          ,s0           ,kcs                        ,thick ,kmax  , &
@@ -325,10 +328,8 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           !
           allocate (n_dis (1000), stat=ierror)
           allocate (m_dis (1000), stat=ierror)
-          if (allocated(k_dis)) deallocate(k_dis, stat=ierror) ! indices k_end_top  and k_end_down used in loop
+          if (allocated(k_dis)) deallocate(k_dis, stat=ierror)
           allocate (weight(1000), stat=ierror)
-          allocate (momu  (1000), stat=ierror)
-          allocate (momv  (1000), stat=ierror)
           n_dis      = 0
           m_dis      = 0
           weight     = 0.0_fp
@@ -342,28 +343,17 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           weight(1) = 1.0_fp
           wght_tot  = 1.0_fp
           !
-          ! Momentum  : fixed columns for input momentum: magnitude IU, direction IUDIR=8.
-          !
-          ! Store values velocity for discharge (statements can be removed here???)
-       !   if (nf_src_mom) then
-       !      call magdir_to_uv(alfas(n_dis(1),m_dis(1)), grdang          , &
-       !                      & nf_sour(1,IUMAG)        , nf_sour(1,IUDIR), momu_tmp, momv_tmp)
-       !      momu(1) = momu_tmp * 0.001_fp
-       !      momv(1) = momv_tmp * 0.001_fp
-       !   endif
-          !
           dx = (xend - xstart)/999.0_fp
           dy = (yend - ystart)/999.0_fp
           !
-          do iidis = 1, 999
-             call findnmk(nlb              ,nub              ,mlb   ,mub   ,xz    ,yz  , &
-                        & dps              ,s0               ,kcs   ,thick ,kmax  , &
-                        & xstart + iidis*dx,ystart + iidis*dy,0.0_fp,n_tmp ,m_tmp ,idum, &
-                        & kfsmn0           ,kfsmx0           ,dzs0  ,zmodel,inside,gdp  )
-        !
-        !    ndis_track is variable for number of gridcells over which the source is distributed
-        !    sources may be computed in the same gridcell, then ndis_track is constant
-        !
+          do itrack = 1, 999
+             call findnmk(nlb               ,nub               ,mlb   ,mub   ,xz    ,yz  , &
+                        & dps               ,s0                ,kcs   ,thick ,kmax  , &
+                        & xstart + itrack*dx,ystart + itrack*dy,0.0_fp,n_tmp ,m_tmp ,idum, &
+                        & kfsmn0            ,kfsmx0            ,dzs0  ,zmodel,inside,gdp  )
+             !    ndis_track is variable for number of gridcells over which the source is distributed
+             !    sources may be computed in the same gridcell, then ndis_track is constant
+             !
              if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track)) then
                 ndis_track             = ndis_track + 1
                 n_dis(ndis_track)      = n_tmp
@@ -371,71 +361,51 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
              endif
              weight(ndis_track) = weight(ndis_track) + 1.0_fp  ! weight/wght_tot: relative discharge in this cell
              wght_tot           = wght_tot           + 1.0_fp
-             !
-             ! Momentum
-             !
-         !    Momentum should be discharged only at end of near field!?. (statements can be removed here???)
-         !    if (nf_src_mom) then
-         !       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang          , &
-         !                       & nf_sour(1,IUMAG)                          , nf_sour(1,IUDIR), momu_tmp, momv_tmp)
-         !       momu(ndis_track) = momu(ndis_track) + momu_tmp
-         !       momv(ndis_track) = momv(ndis_track) + momv_tmp
-         !    endif
           enddo
        else
+          centre_and_width = .false.
+          !
           ! Multiple source points defined or no sink points defined
           !
           allocate (n_dis (sour_cnt), stat=ierror)
           allocate (m_dis (sour_cnt), stat=ierror)
           allocate (k_dis (sour_cnt), stat=ierror)
           allocate (weight(sour_cnt), stat=ierror)
-          allocate (momu  (sour_cnt), stat=ierror)
-          allocate (momv  (sour_cnt), stat=ierror)
           n_dis      = 0
           m_dis      = 0
           k_dis      = 0
           ndis_track = 0
           weight     = 0.0_fp
           wght_tot   = 0.0_fp
-          momu       = 0.0_fp
-          momv       = 0.0_fp
-          do iidis = 1, sour_cnt
-             call findnmk(nlb              ,nub              ,mlb              ,mub   ,xz    ,yz   , &
-                        & dps              ,s0               ,kcs              ,thick ,kmax  , &
-                        & nf_sour(iidis,IX),nf_sour(iidis,IY),nf_sour(iidis,IZ),n_tmp ,m_tmp ,k_tmp, &
-                        & kfsmn0           ,kfsmx0           ,dzs0             ,zmodel,inside,gdp  )
-             if (inside) then  ! wet cell where water is discharged in cell which is under free surface
-                if (ndis_track == 0) then  ! initialisation?
+          do itrack = 1, sour_cnt
+             call findnmk(nlb               ,nub               ,mlb               ,mub   ,xz    ,yz   , &
+                        & dps               ,s0                ,kcs               ,thick ,kmax  , &
+                        & nf_sour(itrack,IX),nf_sour(itrack,IY),nf_sour(itrack,IZ),n_tmp ,m_tmp ,k_tmp, &
+                        & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,inside,gdp  )
+             if (inside) then  
+                ! wet cell where water is discharged in cell which is under free surface
+                if (ndis_track == 0) then
+                   ! initialisation
                    new_cell = .true.
                 else
                    if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track) .or. k_tmp/=k_dis(ndis_track)) then
-                      new_cell = .true. !not in previous cell ndis_track
+                      ! not in previous cell ndis_track
+                      new_cell = .true.
                    else
-                      new_cell = .false.!
+                      new_cell = .false.
                    endif
                 endif
                 if (new_cell) then
-                   ndis_track             = ndis_track + 1 ! number of point with discharge is increased
+                   ! number of point with discharge is increased
+                   ndis_track             = ndis_track + 1
                    n_dis(ndis_track)      = n_tmp
                    m_dis(ndis_track)      = m_tmp
-                   k_dis(ndis_track)      = k_tmp  ! there is a discharge only in one single layer 
+                   k_dis(ndis_track)      = k_tmp
+                   ! there is a discharge only in one single layer
                 endif
-                weight(ndis_track) = weight(ndis_track) + 1.0_fp ! weight/wght_tot: relative discharge in this cell
+                ! weight/wght_tot: relative discharge in this cell
+                weight(ndis_track) = weight(ndis_track) + 1.0_fp
                 wght_tot           = wght_tot           + 1.0_fp
-                !
-                ! Momentum
-                !
-               ! if (nf_src_mom) then
-                   !
-                   ! Watch out: the discharge volume is distributed (multiplied with wght) over all source points
-                   !
-                 ! Store values velocity for discharge (statements can be removed here???)
-                 !  
-                 !  call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang              , &
-                 !                  & nf_sour(iidis,IUMAG)                      , nf_sour(iidis,IUDIR), momu_tmp, momv_tmp)
-                 !  momu(ndis_track) = momu(ndis_track) + momu_tmp
-                 !  momv(ndis_track) = momv(ndis_track) + momv_tmp
-              !   endif
              endif
           enddo
        endif
@@ -450,49 +420,58 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
        thick_tot = 0.0_fp
        !
        if (.not. zmodel) then
-          do iidis = 1, ndis_track
-             n    = n_dis(iidis)
-             m    = m_dis(iidis)
-             wght = weight(iidis) / wght_tot
-            ! if (allocated(k_dis)) then   !?????? to discharge over the vertical?
-          if (sour_cnt/=1) then  ! .multiple sources, layer index from array, No vertical loop needed.
-                                  !
-                k_end_top  = k_dis(iidis)
-                k_end_down = k_dis(iidis)
+          do itrack = 1, ndis_track
+             n    = n_dis(itrack)
+             m    = m_dis(itrack)
+             wght = weight(itrack) / wght_tot
+             if (.not.centre_and_width) then
+                ! multiple sources, layer index from array, No vertical loop needed.
+                !
+                k_end_top  = k_dis(itrack)
+                k_end_down = k_dis(itrack)
              endif
-                                  !  for single source values  k_end_top and k_end_down  are used as determined with FINDNMK
-                                  !  based on height diffusor.             
+             !
+             !  for single source values  k_end_top and k_end_down  are used as determined with FINDNMK
+             !  based on height diffusor.             
+             !
              do k = k_end_top, k_end_down
                 if (disnf(n,m,k,idis) == 0.0_fp) then
                    thick_tot = thick_tot + wght*thick(k)
                 endif
              enddo
           enddo
-            do iidis = 1, ndis_track
-              n    = n_dis(iidis)
-              m    = m_dis(iidis)
-              wght = weight(iidis) / wght_tot
-            ! if (allocated(k_dis)) then   !?????? to discharge over the vertical?
-           if (sour_cnt/=1) then  ! .multiple sources, layer index from array, No vertical loop
-                k_end_top  = k_dis(iidis)
-                k_end_down = k_dis(iidis)
+          do itrack = 1, ndis_track
+             n    = n_dis(itrack)
+             m    = m_dis(itrack)
+             wght = weight(itrack) / wght_tot
+             if (.not.centre_and_width) then  
+                ! multiple sources, layer index from array, No vertical loop
+                !
+                k_end_top  = k_dis(itrack)
+                k_end_down = k_dis(itrack)
              endif
-                                  !  for single source values  k_end_top and k_end_down  are used as determined with FINDNMK
-                                  !  based on height diffusor.             
+             !
+             !  for single source values  k_end_top and k_end_down  are used as determined with FINDNMK
+             !  based on height diffusor.
+             !
              do k = k_end_top, k_end_down
                 if (disnf(n,m,k,idis) == 0.0_fp) then
                    disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/(thick_tot/(wght*thick(k)))
                    do lcon = 1, lstsc
-                      if ( flbcktemp(lcon) ) then  ! feature for absolute temperature model added by Erik de Goede, 
-                                                   ! not relevant for this application
+                      if ( flbcktemp(lcon) ) then
+                         ! feature for absolute temperature model added by Erik de Goede, 
+                         ! not relevant for this application
                          !
                          ! Background temperature: discharge with the temeprature last time step in discharge point
                          !
                          conc = 0.0
                          sournf(n,m,k,lcon,idis) = nf_q_source * r0(n,m,k,lcon) / (thick_tot/(wght*thick(k)))
                       else
-                         if (nf_const_operator == NFLCONSTOPERATOR_ABS) then  ! absolute temperature model
-                            conc = nf_const(lcon)                             ! temperature source
+                         if (nf_const_operator == NFLCONSTOPERATOR_ABS) then
+                            !
+                            ! absolute temperature model
+                            ! temperature/salinity/tracer of source
+                            conc = nf_const(lcon)
                          else
                             !
                             ! nf_const_operator = NFLCONSTOPERATOR_EXC:
@@ -502,19 +481,24 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                                        & r0            ,kmax          ,lstsci        ,lcon  ,thick      , &
                                        & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps        , &
                                        & dzs0          ,kfsmn0        ,kfsmx0        ,zmodel,gdp        )
-                            conc = nf_const(lcon) + conc_intake                ! Excess model
+                            ! Excess model
+                            conc = nf_const(lcon) + conc_intake
                          endif
                          sournf(n,m,k,lcon,idis) = nf_q_source * conc &
                                                  & / (thick_tot/(wght*thick(k)))
                       endif
                    enddo
                    if (nf_src_mom) then
-                   !
-                   !  determine velocity components discharge (Single and Multiple sources)  
-                   !
-                      call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang              , &
-                                      & nf_sour(iidis,IUMAG)                      , nf_sour(iidis,IUDIR), momu_tmp, momv_tmp)
-                   
+                      !
+                      !  determine velocity components discharge (Single and Multiple sources)  
+                      !
+                      call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
+                                      & nf_sour(itrack,IUMAG)                     , nf_sour(itrack,IUDIR), momu_tmp, momv_tmp)
+                      ! Additional momentum is treated in the same way as constituents!
+                      ! Based on nf_q_source (without dis_tot)
+                      ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
+                      ! This means that nf_src_momu/v has a non-regular content
+                      !
                       nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source * momu_tmp/&
                                                                           & (thick_tot/(wght*thick(k)))
                       nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source * momv_tmp/&
@@ -527,18 +511,20 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           !
           ! Z-model
           !
-          do iidis = 1, ndis_track
-             n    = n_dis(iidis)
-             m    = m_dis(iidis)
-             wght = weight(iidis) / wght_tot
-            ! if (allocated(k_dis)) then
-          if (sour_cnt/=1) then  ! .multiple sources, layer index from array, No vertical loop             
-                k_end_top  = k_dis(iidis)
-                k_end_down = k_dis(iidis)
+          do itrack = 1, ndis_track
+             n    = n_dis(itrack)
+             m    = m_dis(itrack)
+             wght = weight(itrack) / wght_tot
+             if (.not.centre_and_width) then
+                ! multiple sources, layer index from array, No vertical loop             
+                k_end_top  = k_dis(itrack)
+                k_end_down = k_dis(itrack)
              endif
              hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-                                  !  for single source values  k_end_top and k_end_down  are used as determinde with FINDNMK
-                                  !  based on height diffusor.             
+             !
+             !  for single source values  k_end_top and k_end_down  are used as determinde with FINDNMK
+             !  based on height diffusor.             
+             !
              do k = k_end_top, k_end_down, -1
                 if (k < kfsmn0(n,m)) cycle
                 if (k > kfsmx0(n,m)) cycle
@@ -547,24 +533,24 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                 endif
              enddo
           enddo
-          do iidis = 1, ndis_track
-             n    = n_dis(iidis)
-             m    = m_dis(iidis)
-             wght = weight(iidis) / wght_tot
-          if (sour_cnt/=1) then  ! .multiple sources, layer index from array, No vertical loop                          
-            ! if (allocated(k_dis)) then
-                k_end_top  = k_dis(iidis)
-                k_end_down = k_dis(iidis)
+          do itrack = 1, ndis_track
+             n    = n_dis(itrack)
+             m    = m_dis(itrack)
+             wght = weight(itrack) / wght_tot
+             if (.not.centre_and_width) then
+                ! multiple sources, layer index from array, No vertical loop                          
+                k_end_top  = k_dis(itrack)
+                k_end_down = k_dis(itrack)
              endif
              hhi  = 1.0_fp / max( s0(n,m)+real(dps(n,m),fp) , 0.01_fp )
-                                   !  for single source values  k_end_top and k_end_down  are used as determinde with FINDNMK
-                                   !  based on height diffusor.                         
+             !  for single source values  k_end_top and k_end_down  are used as determinde with FINDNMK
+             !  based on height diffusor.                         
              do k = k_end_top, k_end_down, -1
                 if (k < kfsmn0(n,m)) cycle
                 if (k > kfsmx0(n,m)) cycle
                 if (disnf(n,m,k,idis) == 0.0_fp) then
-                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/&
-                                                          &(thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/ &
+                                                         & (thick_tot/(wght*dzs0(n,m,k)*hhi))
                    do lcon = 1, lstsci
                       if ( flbcktemp(lcon) ) then
                          !
@@ -594,9 +580,9 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       !
                       !  determine velocity components discharge (single and multiple sources)
                       !
-                      call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang              , &
-                                      & nf_sour(iidis,IUMAG)                      , nf_sour(iidis,IUDIR), momu_tmp, momv_tmp)
-                      !
+                      call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
+                                      & nf_sour(itrack,IUMAG)                     , nf_sour(itrack,IUDIR), momu_tmp, momv_tmp)
+                      ! Additional momentum is treated in the same way as constituents!
                       ! Based on nf_q_source (without dis_tot)
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
                       ! This means that nf_src_momu/v has a non-regular content
@@ -615,8 +601,6 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
        deallocate(m_dis , stat=ierror)
        if (allocated(k_dis)) deallocate(k_dis, stat=ierror)
        deallocate(weight, stat=ierror)
-       deallocate(momu  , stat=ierror)
-       deallocate(momv  , stat=ierror)
     endif
     !
     ! Handle intakes
@@ -635,10 +619,10 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
        ! Count points inside (vertical) domain
        !
        do irow = 1, intake_cnt
-          call findnmk(nlb               ,nub               ,mlb               ,mub   ,xz    ,yz    , &
-                     & dps               ,s0                ,kcs               ,thick ,kmax  ,  &
+          call findnmk(nlb                ,nub               ,mlb               ,mub   ,xz    ,yz    , &
+                     & dps                ,s0                ,kcs               ,thick ,kmax  ,  &
                       & nf_intake(irow,IX),nf_intake(irow,IY),nf_intake(irow,IZ),n_irow,m_irow,k_irow, &
-                     & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,inside,gdp   )
+                     & kfsmn0             ,kfsmx0            ,dzs0              ,zmodel,inside,gdp   )
           if (inside) then
              ndis_track        = ndis_track + 1
              n_dis(ndis_track) = n_irow
