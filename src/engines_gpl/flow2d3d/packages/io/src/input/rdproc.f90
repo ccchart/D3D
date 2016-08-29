@@ -521,82 +521,28 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
              call prterr(lundia, 'G051', trim(message))
           endif
           !
-          ! reset RDEF
-          !
-          rdef = 0.0
-          !
           ! Locate and read 'Wslake'
-          ! default value allowed => defaul
+          ! 
+          Wslake = 0
+          call prop_get_integer(gdp%mdfile_ptr, '*', 'Wslake', Wslake)
           !
-          keyw = 'Wslake'
-          ntrec = nrrec
-          rdef = Wslake
-          lkw = 6
-          call search(lunmd     ,lerror    ,newkw     ,nrrec     ,found     , &
-                    & ntrec     ,mdfrec    ,itis      ,keyw      ,lkw       , &
-                    & 'NO'      )
-          lerror = .false.
+          ! test constistency
           !
-          ! not found ?
-          !
-          if (found) then
-             call read2r(lunmd     ,lerror    ,keyw      ,newkw     ,nlook     , &
-                       & mdfrec    ,rval      ,rdef      ,defaul    ,nrrec     , &
-                       & ntrec     ,lundia    ,gdp       )
-             !
-             ! reading error?
-             !
-             if (lerror) then
-                lerror = .false.
-                Wslake = rdef
-             else
-                Wslake = rval(1)
-                write(message, '(a,i5)') 'Ocean heat model: Wslake specified to be ', Wslake
-                call prterr(lundia, 'G051', trim(message))
-             endif
-          else
-             Wslake = rdef
-             write(message, '(a,i5)') 'Ocean heat model: Using default Wslake ', Wslake
-             call prterr(lundia, 'G051', trim(message))
+          if (Wslake<0 .or. Wslake>1) then
+             call prterr(lundia    ,'U061'    ,' '       )
+             Wslake = 0
           endif
           !
-          ! reset RDEF
-          !
-          rdef = 0.0
-          !
           ! Locate and read 'SDlake'
-          ! default value allowed => defaul
           !
-          keyw = 'SDlake'
-          ntrec = nrrec
-          rdef = SDlake
-          lkw = 6
-          call search(lunmd     ,lerror    ,newkw     ,nrrec     ,found     , &
-                    & ntrec     ,mdfrec    ,itis      ,keyw      ,lkw       , &
-                    & 'NO'      )
-          lerror = .false.
+          SDlake = 0
+          call prop_get_integer(gdp%mdfile_ptr, '*', 'SDlake', SDlake)
           !
-          ! not found ?
+          ! test constistency
           !
-          if (found) then
-             call read2r(lunmd     ,lerror    ,keyw      ,newkw     ,nlook     , &
-                       & mdfrec    ,rval      ,rdef      ,defaul    ,nrrec     , &
-                       & ntrec     ,lundia    ,gdp       )
-             !
-             ! reading error?
-             !
-             if (lerror) then
-                lerror = .false.
-                SDlake = rdef
-             else
-                SDlake = rval(1)
-                write(message, '(a,i5)') 'Ocean heat model: SDlake specified to be ', SDlake
-                call prterr(lundia, 'G051', trim(message))
-             endif
-          else
-             SDlake = rdef
-             write(message, '(a,i5)') 'Ocean heat model: Using default SDlake ', SDlake
-             call prterr(lundia, 'G051', trim(message))
+          if (SDlake<0 .or. SDlake>1) then
+             call prterr(lundia    ,'U061'    ,' '       )
+             SDlake = 0
           endif
           !
           ! reset RDEF

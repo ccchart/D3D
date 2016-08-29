@@ -450,6 +450,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
        if (flwoutput%air) then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'WINDU', ' ', IO_REAL4           , 2, dimids=(/iddim_n, iddim_m/), longname='Wind speed in x-direction (zeta point)', unit='m/s', acl='z')
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'WINDV', ' ', IO_REAL4           , 2, dimids=(/iddim_n, iddim_m/), longname='Wind speed in y-direction (zeta point)', unit='m/s', acl='z')
+          call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'WINDCD', ' ', IO_REAL4          , 2, dimids=(/iddim_n, iddim_m/), longname='Wind drag coeffcient (zeta point)', unit='-', acl='z')
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'PATM', ' ', IO_REAL4            , 2, dimids=(/iddim_n, iddim_m/), longname='Air pressure (zeta point)', unit='N/m2', acl='z')
           if (clou_file) then
              call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'CLOUDS', ' ', IO_REAL4       , 2, dimids=(/iddim_n, iddim_m/), longname='Cloud coverage percentage (zeta point)', unit='percent', acl='z')

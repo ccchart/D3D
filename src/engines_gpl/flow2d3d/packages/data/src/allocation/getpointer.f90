@@ -640,6 +640,7 @@ function getpointer(pntnam, gdp)
     w10mag     => gdp%gdr_i_ch%w10mag
     windsu     => gdp%gdr_i_ch%windsu
     windsv     => gdp%gdr_i_ch%windsv
+    windcd     => gdp%gdr_i_ch%windcd
     windu      => gdp%gdr_i_ch%windu
     windv      => gdp%gdr_i_ch%windv
     wlen       => gdp%gdr_i_ch%wlen
