@@ -50,6 +50,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     real(fp), dimension(:)           ,pointer :: q_diff
     real(fp), dimension(:,:,:)       ,pointer :: disnf
     real(fp), dimension(:,:,:)       ,pointer :: disnf_intake
+    real(fp), dimension(:,:,:)       ,pointer :: disnf_entr
     real(fp), dimension(:,:,:,:)     ,pointer :: sournf
     logical                          ,pointer :: zmodel
 
@@ -83,46 +84,46 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 !
 !! executable statements -------------------------------------------------------
 !
-    no_dis    => gdp%gdnfl%no_dis
-    disnf     => gdp%gdnfl%disnf
+    no_dis       => gdp%gdnfl%no_dis
+    disnf        => gdp%gdnfl%disnf
     disnf_intake => gdp%gdnfl%disnf_intake
-    sournf    => gdp%gdnfl%sournf
-    m_intake  => gdp%gdnfl%m_intake
-    n_intake  => gdp%gdnfl%n_intake
-    k_intake  => gdp%gdnfl%k_intake
-    q_diff    => gdp%gdnfl%q_diff
-    zmodel    => gdp%gdprocs%zmodel
+    disnf_entr   => gdp%gdnfl%disnf_entr
+    sournf       => gdp%gdnfl%sournf
+    m_intake     => gdp%gdnfl%m_intake
+    n_intake     => gdp%gdnfl%n_intake
+    k_intake     => gdp%gdnfl%k_intake
+    q_diff       => gdp%gdnfl%q_diff
+    zmodel       => gdp%gdprocs%zmodel
     !
-    ! Fill sinks for difu
-    ! Determine total subtracted mass for negative discharges
-    ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
-    ! and of the total mass per constituent and per diffusor idis for all points.
-    ! This requires an allreduce for parallel runs or the summation must be done previously and stored
+    ! Fill sink and sour for difu
     !
     if (.not. zmodel) then
        !
        ! Sigma-model
        !
        do idis = 1, no_dis
+          ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
+          ! total_mass(lcon): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! q_tot           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
+          ! and of the total mass per constituent and per diffusor idis for all points.
+          ! This requires an allreduce for parallel runs or the summation must be done previously and stored
+          !
           allocate (total_mass(lstsci), stat=ierror)
           total_mass  = 0.0_fp
           q_tot       = 0.0_fp
           do k = 1, kmax
              do nm = 1, nmmax
-                if (disnf(nm,k,idis) > 0.0_fp) then
-                   q_tot = q_tot + disnf(nm,k,idis)
-                endif
-                if (disnf(nm,k,idis) < 0.0_fp) then
+                if (disnf_entr(nm,k,idis) < 0.0_fp) then
+                   q_tot = q_tot - disnf_entr(nm,k,idis)
                    do lcon = 1,lstsci
-                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                        & disnf(nm,k,idis)/volum1(nm, k)
-                      total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                      sink(nm, k, lcon) = sink(nm, k, lcon) - disnf_entr(nm,k,idis)/volum1(nm, k)
+                      total_mass(lcon)  = total_mass(lcon)  - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
                    do lcon = 1,lstsci
-                      sink(nm, k, lcon) = sink(nm, k, lcon) -             &
-                                        & disnf_intake(nm,k,idis)/volum1(nm, k)
+                      sink(nm, k, lcon) = sink(nm, k, lcon) - disnf_intake(nm,k,idis)/volum1(nm, k)
                    enddo
                 endif
              enddo
@@ -148,15 +149,16 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !         endif
           !
           ! Fill sour array for difu
-          ! Add total subtracted mass and initial discharge amount (sournf)
+          ! Add amount discharged via diffuser (sournf),
+          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/q_tot)
           !
           do lcon = 1,lstsci
              do k = 1, kmax
                 do nm = 1, nmmax
                    if (disnf(nm,k,idis) > 0.0_fp) then
-                      sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
-                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)/&
-                                        & volum0(nm, k)
+                      sour(nm, k, lcon) = sour(nm, k, lcon)                                                         &
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*total_mass(lcon)/q_tot) &
+                                        &   / volum0(nm, k)
                    endif
                 enddo
              enddo
@@ -170,6 +172,13 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        ! Z-model
        !
        do idis = 1, no_dis
+          ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
+          ! total_mass(lcon): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! q_tot           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
+          ! and of the total mass per constituent and per diffusor idis for all points.
+          ! This requires an allreduce for parallel runs or the summation must be done previously and stored
+          !
           allocate (total_mass(lstsci), stat=ierror)
           !
           total_mass  = 0.0_fp
@@ -177,14 +186,12 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           do nm = 1, nmmax
              do k = kfsmn0(nm), kfsmx0(nm)
-                if (disnf(nm,k,idis) > 0.0_fp) then
-                   q_tot = q_tot + disnf(nm,k,idis)
-                endif
-                if (disnf(nm,k,idis) < 0.0_fp) then
+                if (disnf_entr(nm,k,idis) < 0.0_fp) then
+                   q_tot = q_tot - disnf_entr(nm,k,idis)
                    do lcon = 1,lstsci
                       ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
-                      sink(nm, k, lcon) = sink(nm,k,lcon) - disnf(nm,k,idis)
-                      total_mass(lcon)  = total_mass(lcon)  - disnf(nm,k,idis)*r0(nm,k,lcon)
+                      sink(nm, k, lcon) = sink(nm,k,lcon)  - disnf_entr(nm,k,idis)
+                      total_mass(lcon)  = total_mass(lcon) - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
@@ -216,15 +223,16 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !         endif
           !
           ! Fill sour array for difu
-          ! Add total subtracted mass and initial discharge amount (sournf)
+          ! Add amount discharged via diffuser (sournf),
+          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/q_tot)
           !
           do lcon = 1,lstsci
              do nm = 1, nmmax
                  do k = kfsmn0(nm), kfsmx0(nm)
                    if (disnf(nm,k,idis) > 0.0_fp) then
                       ! Note that for the z-model, the sources are not divided by the volume!
-                      sour(nm, k, lcon) = sour(nm, k, lcon)  +                        &
-                                        & (sournf(nm,k,lcon,idis) + disnf(nm,k,idis)*total_mass(lcon)/q_tot)
+                      sour(nm, k, lcon) = sour(nm, k, lcon)                          &
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*total_mass(lcon)/q_tot)
                    endif
                 enddo
              enddo

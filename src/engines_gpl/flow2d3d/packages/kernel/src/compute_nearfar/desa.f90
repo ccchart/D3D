@@ -3,7 +3,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
               & idis    ,thick   , &
               & kcs     ,xz      ,yz      ,alfas      , &
               & dps     ,s0      ,r0      ,kfsmn0     ,kfsmx0     , &
-              & dzs0    ,disnf   ,disnf_intake, sournf  ,nf_src_momu,nf_src_momv, &
+              & dzs0    ,disnf   ,disnf_intake, disnf_entr, sournf  ,nf_src_momu,nf_src_momv, &
               & linkinf ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
@@ -110,6 +110,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     real(fp)   , dimension(kmax)                               , intent(in)    :: thick    !  Description and declaration in esm_alloc_real.f90
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: disnf
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: disnf_intake
+    real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: disnf_entr
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,lstsci,no_dis)                 :: sournf
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momu
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momv
@@ -203,11 +204,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     dis_dil   = 0.0_fp
     dis_tot   = 0.0_fp
     !
-    disnf      (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
-    disnf_intake(nlb:nub,mlb:mub, 1:kmax, idis)         = 0.0_fp
-    sournf     (nlb:nub,mlb:mub, 1:kmax, 1:lstsci,idis) = 0.0_fp
-    nf_src_momu(nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
-    nf_src_momv(nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    disnf       (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    disnf_intake(nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    disnf_entr  (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    sournf      (nlb:nub,mlb:mub, 1:kmax, 1:lstsci,idis) = 0.0_fp
+    nf_src_momu (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
+    nf_src_momv (nlb:nub,mlb:mub, 1:kmax, idis)          = 0.0_fp
     !
     ! Handle sinks and sources
     !
@@ -275,9 +277,15 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           ! amounts at the end of the near field
           !
           if (n_last/=n_end .or. m_last/=m_end .or. k_last/=k_end_top) then
-             dis_dil = 1.0_fp * (nf_sink(irow,IS)-nf_sink(irow-1,IS)) * nf_q_source
-             dis_tot = dis_tot + dis_dil
-             disnf(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis) - dis_dil
+             !
+             ! This is the "sink" related to entrainment
+             ! Add this both to disnf (which will also going to contain the diffuser discharge itself)
+             !              and disnf_entr (which will only contain the entrainment (sinks and sources)
+             !
+             dis_dil                               = 1.0_fp * (nf_sink(irow,IS)-nf_sink(irow-1,IS)) * nf_q_source
+             dis_tot                               = dis_tot + dis_dil
+             disnf(n_last,m_last,k_last,idis)      = disnf(n_last,m_last,k_last,idis) - dis_dil
+             disnf_entr(n_last,m_last,k_last,idis) = disnf(n_last,m_last,k_last,idis)
           endif
        enddo
     endif
@@ -456,7 +464,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
              !
              do k = k_end_top, k_end_down
                 if (disnf(n,m,k,idis) == 0.0_fp) then
-                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/(thick_tot/(wght*thick(k)))
+                   !
+                   ! Add the source terms:
+                   ! disnf     : both the entrainment source and the diffuser-discharge source
+                   ! disnf_entr: only entrainment source
+                   !
+                   disnf(n,m,k,idis)      = disnf(n,m,k,idis)      + (nf_q_source+dis_tot)/(thick_tot/(wght*thick(k)))
+                   disnf_entr(n,m,k,idis) = disnf_entr(n,m,k,idis) + (            dis_tot)/(thick_tot/(wght*thick(k)))
                    do lcon = 1, lstsc
                       if ( flbcktemp(lcon) ) then
                          ! feature for absolute temperature model added by Erik de Goede, 
@@ -549,8 +563,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                 if (k < kfsmn0(n,m)) cycle
                 if (k > kfsmx0(n,m)) cycle
                 if (disnf(n,m,k,idis) == 0.0_fp) then
-                   disnf(n,m,k,idis) = disnf(n,m,k,idis) + (nf_q_source+dis_tot)/ &
-                                                         & (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   !
+                   ! Add the source terms:
+                   ! disnf     : both the entrainment source and the diffuser-discharge source
+                   ! disnf_entr: only entrainment source
+                   !
+                   disnf     (n,m,k,idis) = disnf     (n,m,k,idis) + (nf_q_source+dis_tot)/ (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                   disnf_entr(n,m,k,idis) = disnf_entr(n,m,k,idis) + (            dis_tot)/ (thick_tot/(wght*dzs0(n,m,k)*hhi))
                    do lcon = 1, lstsci
                       if ( flbcktemp(lcon) ) then
                          !
