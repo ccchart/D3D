@@ -136,6 +136,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     integer                              :: ndis_track
     integer                              :: sink_cnt
     integer                              :: sour_cnt
+    integer                              :: src_index
     integer                              :: intake_cnt
     integer                              :: n_irow
     integer                              :: m_irow
@@ -390,31 +391,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                         & dps               ,s0                ,kcs               ,thick ,kmax  , &
                         & nf_sour(itrack,IX),nf_sour(itrack,IY),nf_sour(itrack,IZ),n_tmp ,m_tmp ,k_tmp, &
                         & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,inside,gdp  )
-             if (inside) then  
-                ! wet cell where water is discharged in cell which is under free surface
-                if (ndis_track == 0) then
-                   ! initialisation
-                   new_cell = .true.
-                else
-                   if (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track) .or. k_tmp/=k_dis(ndis_track)) then
-                      ! not in previous cell ndis_track
-                      new_cell = .true.
-                   else
-                      new_cell = .false.
-                   endif
-                endif
-                if (new_cell) then
-                   ! number of point with discharge is increased
-                   ndis_track             = ndis_track + 1
-                   n_dis(ndis_track)      = n_tmp
-                   m_dis(ndis_track)      = m_tmp
-                   k_dis(ndis_track)      = k_tmp
-                   ! there is a discharge only in one single layer
-                endif
-                ! weight/wght_tot: relative discharge in this cell
-                weight(ndis_track) = weight(ndis_track) + 1.0_fp
-                wght_tot           = wght_tot           + 1.0_fp
-             endif
+             ndis_track         = ndis_track + 1
+             n_dis(ndis_track)  = n_tmp
+             m_dis(ndis_track)  = m_tmp
+             k_dis(ndis_track)  = k_tmp
+             weight(ndis_track) = weight(ndis_track) + 1.0_fp
+             wght_tot           = wght_tot           + 1.0_fp
           enddo
        endif
        !
@@ -506,8 +488,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       !
                       !  determine velocity components discharge (Single and Multiple sources)  
                       !
+                      if (centre_and_width) then
+                         src_index = 1
+                      else
+                         src_index = itrack
+                      endif
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
-                                      & nf_sour(itrack,IUMAG)                     , nf_sour(itrack,IUDIR), momu_tmp, momv_tmp)
+                                      & nf_sour(src_index,IUMAG)                     , nf_sour(src_index,IUDIR), momu_tmp, momv_tmp)
                       ! Additional momentum is treated in the same way as constituents!
                       ! Based on nf_q_source (without dis_tot)
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
@@ -599,8 +586,13 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       !
                       !  determine velocity components discharge (single and multiple sources)
                       !
+                      if (centre_and_width) then
+                         src_index = 1
+                      else
+                         src_index = itrack
+                      endif
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
-                                      & nf_sour(itrack,IUMAG)                     , nf_sour(itrack,IUDIR), momu_tmp, momv_tmp)
+                                      & nf_sour(src_index,IUMAG)                     , nf_sour(src_index,IUDIR), momu_tmp, momv_tmp)
                       ! Additional momentum is treated in the same way as constituents!
                       ! Based on nf_q_source (without dis_tot)
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
