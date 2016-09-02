@@ -58,6 +58,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
     integer                 :: ios
     integer                 :: i
     integer                 :: numlines
+    integer                 :: sleeptime
     logical                 :: ex_file
     logical                 :: opend
 !
@@ -99,7 +100,13 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
        enddo
     enddo
     call timer_stop(timer_wait, gdp)
-    write(*,'(3a)') "Scanning    file '", trim(filename), "' ..."
+    write(*,'(3a)') "Scanning    file '", trim(filename), "' (after 1 second) ..."
+    !
+    ! sleep time in milliseconds
+    ! Ad Hoc solution, needed for Cosumo to finish writing the file
+    !
+    sleeptime = 1000
+    call CUTIL_SLEEP(sleeptime);
     !
     ! File found: open file and read until you find eof
     !

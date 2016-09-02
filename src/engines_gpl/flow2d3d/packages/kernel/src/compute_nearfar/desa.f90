@@ -387,6 +387,8 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           weight     = 0.0_fp
           wght_tot   = 0.0_fp
           do itrack = 1, sour_cnt
+             ! Add all source points to the arrays n_dis, m_dis, k_dis, even when they are in the same cell
+             !
              call findnmk(nlb               ,nub               ,mlb               ,mub   ,xz    ,yz   , &
                         & dps               ,s0                ,kcs               ,thick ,kmax  , &
                         & nf_sour(itrack,IX),nf_sour(itrack,IY),nf_sour(itrack,IZ),n_tmp ,m_tmp ,k_tmp, &
@@ -489,8 +491,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       !  determine velocity components discharge (Single and Multiple sources)  
                       !
                       if (centre_and_width) then
+                         ! There is only one source line containing momentum information
+                         !
                          src_index = 1
                       else
+                         ! Every source point contains momentum information
+                         !
                          src_index = itrack
                       endif
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
@@ -587,8 +593,12 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       !  determine velocity components discharge (single and multiple sources)
                       !
                       if (centre_and_width) then
+                         ! There is only one source line containing momentum information
+                         !
                          src_index = 1
                       else
+                         ! Every source point contains momentum information
+                         !
                          src_index = itrack
                       endif
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
