@@ -117,6 +117,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: nf
     integer       , dimension(:)       , pointer :: nl
     logical                            , pointer :: zmodel
+	logical                            , pointer :: nf_src_mom
 
 !
 ! Global variables
@@ -159,6 +160,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: ierror
     integer                                             :: ii
     integer                                             :: jj
+    integer                                             :: imom
     integer                                             :: istat
     integer                                             :: m
     integer                                             :: mlb
@@ -275,6 +277,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     iarrc          => gdp%gdparall%iarrc
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
+    nf_src_mom     => gdp%gdnfl%nf_src_mom
 
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
@@ -599,6 +602,24 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
           if (.not.error) call dfbroadc(glb_sournf      ,nmaxgl*mmaxgl*kmax*lstsci*no_dis,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momu ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momv ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
+          if (.not.error) then
+             !
+             ! The master partition sets nf_src_mom based on the NF2FF input read and has to broadcast it
+             ! using the integer variant imom
+             !
+             imom = 0
+             if (inode==master) then
+                if (nf_src_mom) then
+                   imom = 1
+                endif
+             endif
+             call dfbroadc(imom, 1, dfint,error,errmsg)
+             if (imom == 1) then
+                nf_src_mom = .true.
+             else
+                nf_src_mom = .false.
+             endif
+          endif
           if (error) then
              call write_error(errmsg, unit=lundia)
           else
