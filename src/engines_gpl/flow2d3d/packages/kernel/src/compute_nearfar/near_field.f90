@@ -220,7 +220,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     logical                                             :: error
     logical                                             :: error_reading
     logical                                             :: inside
-    logical                                             :: waitlog
+    logical                                             :: waitlog       ! Write the names of the files to wait for to screen, only the first time that subroutine wait_until_finished is visited
     character(1)                                        :: slash
     character(3)                                        :: c_inode
     character(3)                                        :: c_idis
@@ -515,20 +515,28 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                       ! Wait until the new near field files are written
                       ! This is the default case
                       !
-                      call wait_until_finished(no_dis, waitfiles, idis, filename(2), waitlog, gdp)
+                      call wait_until_finished(no_dis, waitfiles, idis, filename(2), waitlog, error, gdp)
                    else
                       !
                       ! Use the old near field files, written some time ago
                       !
-                      call wait_until_finished(no_dis, waitfilesold, idis, filename(2), waitlog, gdp)
+                      call wait_until_finished(no_dis, waitfilesold, idis, filename(2), waitlog, error, gdp)
                    endif
                    waitlog = .false.
+                   !
+                   ! Error: just try again
+                   !
+                   if (error) cycle
                    !
                    ! idis=0 when all files are processed
                    !
                    if (idis == 0) exit
                    !
                    call nf_2_flow(filename(2), error, gdp)
+                   !
+                   ! Error: just try again
+                   !
+                   if (error) cycle
                    !
                    ! Fill sources and sinks following the Desa Method of Prof. Lee
                    !
@@ -538,13 +546,24 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                            & kcs_ptr ,xz_ptr   ,yz_ptr    ,alfas_ptr      , &
                            & dps_ptr ,s0_ptr   ,r0_ptr    ,kfsmn0_ptr     ,kfsmx0_ptr     , &
                            & dzs0_ptr,glb_disnf,glb_disnf_intake, glb_disnf_entr, glb_sournf,glb_nf_src_momu,glb_nf_src_momv, &
-                           & linkinf ,gdp      )
-                   deallocate(gdp%gdnfl%nf_intake, stat=ierror)
-                   deallocate(gdp%gdnfl%nf_sink  , stat=ierror)
-                   deallocate(gdp%gdnfl%nf_sour  , stat=ierror)
+                           & linkinf ,error    ,gdp      )
+                   ! Error: just try again
+                   !
+                   if (error) cycle
+                   if (associated(gdp%gdnfl%nf_intake)) deallocate(gdp%gdnfl%nf_intake, stat=ierror)
+                   if (associated(gdp%gdnfl%nf_sink  )) deallocate(gdp%gdnfl%nf_sink  , stat=ierror)
+                   if (associated(gdp%gdnfl%nf_sour  )) deallocate(gdp%gdnfl%nf_sour  , stat=ierror)
                    nullify(gdp%gdnfl%nf_intake)
                    nullify(gdp%gdnfl%nf_sink)
                    nullify(gdp%gdnfl%nf_sour)
+                   !
+                   ! No error appeared: Remove the processed file from the waitfiles
+                   !
+                   if (nflrwmode == NFLWRITEREADNEW) then
+                      waitfiles(idis) = ' '
+                   else
+                      waitfilesold(idis) = ' '
+                   endif
                 enddo
              endif
              if (nflrwmode==NFLWRITE .or. nflrwmode==NFLWRITEREADOLD) then

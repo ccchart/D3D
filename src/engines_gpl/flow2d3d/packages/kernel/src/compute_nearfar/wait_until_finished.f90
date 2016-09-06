@@ -1,4 +1,4 @@
-subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
+subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, error, gdp)
 !----- GPL ---------------------------------------------------------------------
 !
 !  Copyright (C)  Stichting Deltares, 2011-2016.
@@ -50,6 +50,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
     integer                        , intent(out) :: idis
     character(*)                   , intent(out) :: filename
     logical                        , intent(in)  :: waitlog
+    logical                        , intent(out) :: error
 !
 ! Local variables
 !
@@ -57,13 +58,15 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
     integer                 :: lun
     integer                 :: ios
     integer                 :: i
-    integer                 :: numlines
     integer                 :: sleeptime
-    logical                 :: ex_file
+    logical                 :: ex_file    ! true: file exists
+    logical                 :: fileok     ! true: file contains the end tag </NF2FF>
     logical                 :: opend
+    character(300)          :: line
 !
 !! executable statements -------------------------------------------------------
 !
+    error = .false.
     ! Check for how many files we are waiting to appear
     idis = 0
     do i=1, no_dis
@@ -78,50 +81,56 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, gdp)
     ! Return when all files did appear (and waitfiles is empty). idis must be 0.
     if (idis == 0) return
     !
-    ex_file = .false.
-    !
-    ! Examine if one of the files exists
-    ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
-    !
-    call timer_start(timer_wait, gdp)
-    idis     = 0
-    filename = ' '
-    do while (.not. ex_file)
-       do i=1, no_dis
-          if (waitfiles(i) /= ' ') then
-             inquire (file=waitfiles(i), exist=ex_file)
-             if (ex_file) then
-                filename     = waitfiles(i)
-                idis         = i
-                waitfiles(i) =  ' '
-                exit
+    fileok = .false.
+    do while (.not.fileok)
+       ex_file = .false.
+       !
+       ! Examine if one of the files exists
+       ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
+       !
+       call timer_start(timer_wait, gdp)
+       idis     = 0
+       filename = ' '
+       do while (.not. ex_file)
+          do i=1, no_dis
+             if (waitfiles(i) /= ' ') then
+                inquire (file=waitfiles(i), exist=ex_file)
+                if (ex_file) then
+                   filename     = waitfiles(i)
+                   idis         = i
+                   !
+                   ! Do not remove the found file from the waitfiles here:
+                   ! It will be removed in near_field, when the full reading of the file finished successfully
+                   !
+                   exit
+                endif
              endif
+          enddo
+       enddo
+       call timer_stop(timer_wait, gdp)
+       !
+       ! File found: open file and search for the end tag </NF2FF>
+       !
+       lun = newlun(gdp)
+       inquire(lun, iostat=ios, opened=opend)
+       if (ios /= 0) then
+          ! try again
+          cycle
+       endif
+       if (opend) close(lun, iostat=ios)
+       open (lun,file=filename,iostat=ios)
+       if (ios /= 0) then
+          ! try again
+          cycle
+       endif
+       ios    = 0
+       do while (ios == 0)
+          read (lun,'(a)',iostat=ios) line
+          if (index(line,'</NF2FF>') >= 1) then
+             fileok = .true.
           endif
        enddo
+       close(lun)
     enddo
-    call timer_stop(timer_wait, gdp)
-    write(*,'(3a)') "Scanning    file '", trim(filename), "' (after 1 second) ..."
-    !
-    ! sleep time in milliseconds
-    ! Ad Hoc solution, needed for Cosumo to finish writing the file
-    !
-    sleeptime = 1000
-    call CUTIL_SLEEP(sleeptime);
-    !
-    ! File found: open file and read until you find eof
-    !
-    lun = newlun(gdp)
-    inquire(lun, iostat=ios, opened=opend)
- 10 if (ios==0 .and. opend) close(lun, iostat=ios)
-    open (lun,file=filename,err=10)
-    rewind (lun)
-    ios      = 0
-    numlines = 0
-    do while (ios == 0)
-       read (lun,'(a1)',iostat=ios,err=10,end=20)
-       numlines = numlines + 1
-    enddo
-    write(*,'(a)') "ERROR: This line should not be reached."
-    goto 10
-20  close(lun)
+    write(*,'(3a)') "Scanned    file '", trim(filename), "'"
 end subroutine wait_until_finished

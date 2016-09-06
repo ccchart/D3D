@@ -118,14 +118,12 @@ subroutine nf_2_flow(filename, error, gdp)
           call write_error(errmsg, unit=lundia)
        endselect
        error = .true.
-       return
     endif
     !
     call tree_get_node_by_name(file_ptr, 'nf2ff', nf2ff_ptr )
     if (.not.associated(nf2ff_ptr)) then
        write(lundia, '(a)') "ERROR: Tag '<NF2FF>' not found"
        error = .true.
-       return
     endif
     version     = -999.9
     call prop_get(file_ptr, 'NF2FF/fileVersion', version)
@@ -251,6 +249,10 @@ subroutine nf_2_flow(filename, error, gdp)
              call prop_get(file_ptr, trim(key), nf_sour(i,:), numrealonline)
           enddo
        endif
+    else
+       ! There must be at least 1 source point
+       !
+       error = .true.
     endif
     !
     call tree_destroy(file_ptr)

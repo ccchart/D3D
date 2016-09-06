@@ -4,7 +4,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
               & kcs     ,xz      ,yz      ,alfas      , &
               & dps     ,s0      ,r0      ,kfsmn0     ,kfsmx0     , &
               & dzs0    ,disnf   ,disnf_intake, disnf_entr, sournf  ,nf_src_momu,nf_src_momv, &
-              & linkinf ,gdp     )
+              & linkinf ,error   ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -115,6 +115,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momu
     real(fp)   , dimension(nlb:nub,mlb:mub,kmax,no_dis)                        :: nf_src_momv
     real(prec) , dimension(nlb:nub,mlb:mub)                    , intent(in)    :: dps      !  Description and declaration in esm_alloc_real.f90
+    logical                                                    , intent(out)   :: error
 !
 ! Local variables
 !
@@ -202,6 +203,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
     nf_sour           => gdp%gdnfl%nf_sour  
     nf_src_mom        => gdp%gdnfl%nf_src_mom
     !
+    error     = .false.
     dis_dil   = 0.0_fp
     dis_tot   = 0.0_fp
     !
