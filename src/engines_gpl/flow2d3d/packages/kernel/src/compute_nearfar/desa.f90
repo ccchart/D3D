@@ -395,10 +395,17 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                         & dps               ,s0                ,kcs               ,thick ,kmax  , &
                         & nf_sour(itrack,IX),nf_sour(itrack,IY),nf_sour(itrack,IZ),n_tmp ,m_tmp ,k_tmp, &
                         & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,inside,gdp  )
-             ndis_track         = ndis_track + 1
-             n_dis(ndis_track)  = n_tmp
-             m_dis(ndis_track)  = m_tmp
-             k_dis(ndis_track)  = k_tmp
+             if (ndis_track == 0) then
+                ndis_track         = ndis_track + 1
+                n_dis(ndis_track)  = n_tmp
+                m_dis(ndis_track)  = m_tmp
+                k_dis(ndis_track)  = k_tmp
+             elseif (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track) .or. k_tmp/=k_dis(ndis_track)) then
+                ndis_track         = ndis_track + 1
+                n_dis(ndis_track)  = n_tmp
+                m_dis(ndis_track)  = m_tmp
+                k_dis(ndis_track)  = k_tmp
+             endif
              weight(ndis_track) = weight(ndis_track) + 1.0_fp
              wght_tot           = wght_tot           + 1.0_fp
           enddo
