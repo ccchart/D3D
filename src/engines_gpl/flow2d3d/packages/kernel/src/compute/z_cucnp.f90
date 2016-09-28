@@ -106,6 +106,7 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp), dimension(:,:,:)   , pointer :: disnf
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
+    real(fp)                     , pointer :: momrelax
 !
 ! Global variables
 !
@@ -284,6 +285,7 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)           :: svvv
     real(fp)           :: thvert     ! theta coefficient for vertical advection terms
     real(fp)           :: timest
+    real(fp)           :: trelax
     real(fp)           :: uuu
     real(fp)           :: uweir
     real(fp)           :: vih
@@ -320,6 +322,7 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     disnf          => gdp%gdnfl%disnf
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
+    momrelax       => gdp%gdnfl%momrelax
     !
     call timer_start(timer_cucnp_ini, gdp)
     !
@@ -626,29 +629,35 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
        !
        ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
        !
-        do nm = 1, nmmax
-             if (kfu(nm) == 1) then
-                do k = kfumn0(nm), kfumx0(nm)
-                   if (kfuz0(nm, k) == 1) then
-                     do idis = 1, no_dis
-                        if (icx == 1 ) then
-                            if ( disnf(nm,k,idis) > 0.0_fp) then
-                              !
-                              ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                              ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))  
-                            endif
-                        else 
-                            if (disnf(nm,k,idis) > 0.0_fp) then
-                              !
-                              ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                              ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(dzu0(nm,k)*gsqs(nm))       
-                            endif
-                        endif
-                     enddo
-                   endif
-                enddo
-             endif
-          enddo
+       ! Instead of weighting the nearfield momentum with the volume added via the nearfield source,
+       ! it is choosen to use a trelax, based on the time step.
+       ! This should force the cell velocity to get the a value "growing" fast to the nearfield momentum value.
+       !
+       ! Only change ddk/bbk when disnf is positive.
+       ! If momu/v is zero (and nf_src_mom) then do change ddk/bbk: a velocity of zero is then prescribed.
+       !
+       trelax = momrelax * 2.0_fp * hdt
+       do nm = 1, nmmax
+          if (kfu(nm) == 1) then
+             do k = kfumn0(nm), kfumx0(nm)
+                if (kfuz0(nm, k) == 1) then
+                  do idis = 1, no_dis
+                     if (icx == 1 ) then
+                         if (disnf(nm,k,idis) > 0.0_fp) then
+                           ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/trelax  
+                           bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
+                         endif
+                     else 
+                         if (disnf(nm,k,idis) > 0.0_fp) then
+                           ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/trelax       
+                           bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
+                         endif
+                     endif
+                  enddo
+                endif
+             enddo
+          endif
+       enddo
     endif
     call timer_stop(timer_cucnp_dismmt, gdp)
     !

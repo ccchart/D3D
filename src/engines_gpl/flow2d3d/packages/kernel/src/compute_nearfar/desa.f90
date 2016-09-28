@@ -119,6 +119,8 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
 !
 ! Local variables
 !
+    integer                              :: i
+    integer                              :: icur
     integer                              :: ierror
     integer                              :: irow
     integer                              :: idum
@@ -389,25 +391,47 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           weight     = 0.0_fp
           wght_tot   = 0.0_fp
           do itrack = 1, sour_cnt
-             ! Add all source points to the arrays n_dis, m_dis, k_dis, even when they are in the same cell
+             ! Combine source points that are in the same cell. This is needed because of the ugly "disnf>0" test later on.
              !
              call findnmk(nlb               ,nub               ,mlb               ,mub   ,xz    ,yz   , &
                         & dps               ,s0                ,kcs               ,thick ,kmax  , &
                         & nf_sour(itrack,IX),nf_sour(itrack,IY),nf_sour(itrack,IZ),n_tmp ,m_tmp ,k_tmp, &
                         & kfsmn0            ,kfsmx0            ,dzs0              ,zmodel,inside,gdp  )
+             ! ndis_track: number of cells containing source points
+             ! icur      : cell containing current source point
+             !
              if (ndis_track == 0) then
+                ! No cells in administration yet
+                !
                 ndis_track         = ndis_track + 1
                 n_dis(ndis_track)  = n_tmp
                 m_dis(ndis_track)  = m_tmp
                 k_dis(ndis_track)  = k_tmp
-             elseif (n_tmp/=n_dis(ndis_track) .or. m_tmp/=m_dis(ndis_track) .or. k_tmp/=k_dis(ndis_track)) then
-                ndis_track         = ndis_track + 1
-                n_dis(ndis_track)  = n_tmp
-                m_dis(ndis_track)  = m_tmp
-                k_dis(ndis_track)  = k_tmp
+                icur               = ndis_track
+             else
+                ! Check whether the administration already contains the cell in which this source point resides
+                !
+                icur = 0
+                do i=1, ndis_track
+                   if (n_tmp==n_dis(i) .and. m_tmp==m_dis(i) .and. k_tmp==k_dis(i)) then
+                      ! Yes, cell found. Use this i as current cell
+                      !
+                      icur = i
+                      exit
+                   endif
+                enddo
+                if (icur == 0) then
+                   ! No, cell not found. Add it to the administration
+                   !
+                   ndis_track         = ndis_track + 1
+                   n_dis(ndis_track)  = n_tmp
+                   m_dis(ndis_track)  = m_tmp
+                   k_dis(ndis_track)  = k_tmp
+                   icur               = ndis_track
+                endif
              endif
-             weight(ndis_track) = weight(ndis_track) + 1.0_fp
-             wght_tot           = wght_tot           + 1.0_fp
+             weight(icur) = weight(icur) + 1.0_fp
+             wght_tot     = wght_tot     + 1.0_fp
           enddo
        endif
        !
@@ -617,9 +641,9 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
                       ! This means that nf_src_momu/v has a non-regular content
                       !
-                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source &
+                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source/(nf_q_source+dis_tot) &
                                                                         & * momu_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
-                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source &
+                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source/(nf_q_source+dis_tot) &
                                                                         & * momv_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi))
                    endif
                 endif

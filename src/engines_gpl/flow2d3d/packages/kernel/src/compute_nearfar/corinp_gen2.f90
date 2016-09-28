@@ -57,6 +57,7 @@ subroutine corinp_gen2(error, gdp)
     integer                      , pointer :: no_amb_max
     integer       ,dimension(:)  , pointer :: no_amb
     integer       ,dimension(:)  , pointer :: const_operator
+    real(fp)                     , pointer :: momrelax
     real(fp)      ,dimension(:)  , pointer :: x_diff
     real(fp)      ,dimension(:)  , pointer :: y_diff
     real(fp)      ,dimension(:,:), pointer :: x_amb
@@ -105,6 +106,7 @@ subroutine corinp_gen2(error, gdp)
     no_amb_max     => gdp%gdnfl%no_amb_max
     no_amb         => gdp%gdnfl%no_amb
     const_operator => gdp%gdnfl%const_operator
+    momrelax       => gdp%gdnfl%momrelax
     x_diff         => gdp%gdnfl%x_diff
     y_diff         => gdp%gdnfl%y_diff
     x_amb          => gdp%gdnfl%x_amb
@@ -134,7 +136,7 @@ subroutine corinp_gen2(error, gdp)
        ! Create Cosumo input tree
        !
        write(lundia,'(3a)') "Reading file '", trim(filename), "' ..."
-       call tree_create( 'TransportFormula Input', cosumofile_ptr )
+       call tree_create( 'Cosumo input', cosumofile_ptr )
        call tree_put_data( cosumofile_ptr, transfer(trim(filename),node_value), 'STRING' )
        !
        ! Put file in input tree
@@ -184,10 +186,19 @@ subroutine corinp_gen2(error, gdp)
        write(lundia,'(a,i0)') "ERROR: Unexpected number of discharges read: ", no_dis_read
        error = .true.
     endif
+    !
     call prop_get(cosumofile_ptr, 'COSUMO/fileVersion', version)
-    if (comparereal(version, 0.3_sp)) then
+    if (comparereal(version, 0.3_sp) /= 0) then
        write(lundia,'(a,f5.2)') "ERROR: Unexpected FileVersion number read: ", version
        error = .true.
+    endif
+    !
+    momrelax = -999.0_fp
+    call prop_get(cosumofile_ptr, 'COSUMO/momentumRelaxation', momrelax)
+    if (comparereal(momrelax, 0.0_fp) == 1) then
+       write(lundia,'(a,f5.2,a)') "Message: Nearfield Momentum Relaxation = 1/(", momrelax, "*dt)"
+    else
+       momrelax = 5.0_fp
     endif
     !
     idis = 0

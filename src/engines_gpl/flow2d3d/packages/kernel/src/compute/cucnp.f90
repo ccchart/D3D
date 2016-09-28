@@ -124,6 +124,7 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp), dimension(:,:,:)   , pointer :: disnf
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
+    real(fp)                     , pointer :: momrelax
 !
 ! Global variables
 !
@@ -285,6 +286,7 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp)                   :: rhou
     real(fp)                   :: svvv
     real(fp)                   :: tidegforce
+    real(fp)                   :: trelax
     real(fp)                   :: tsg1
     real(fp)                   :: tsg2
     real(fp)                   :: umod
@@ -327,6 +329,7 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     disnf          => gdp%gdnfl%disnf
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
+    momrelax       => gdp%gdnfl%momrelax
     !
     ! INITIALISATION
     !
@@ -694,19 +697,29 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
        !
        ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
        !
+       ! Instead of weighting the nearfield momentum with the volume added via the nearfield source,
+       ! it is choosen to use a trelax, based on the time step.
+       ! This should force the cell velocity to get the a value "growing" fast to the nearfield momentum value.
+       !
+       ! Only change ddk/bbk when disnf is positive.
+       ! If momu/v is zero (and nf_src_mom) then do change ddk/bbk: a velocity of zero is then prescribed.
+       !
+       trelax = momrelax * 2.0_fp * hdt
        do nm = 1, nmmax
           hugsqs = hu(nm)*gsqs(nm)
           if (kfu(nm) == 1) then
              do k = 1, kmax
                 do idis = 1, no_dis
                    if (icx == 1) then
-                      !
-                      ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                      ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(thick(k)*hugsqs)
+                      if (disnf(nm,k,idis) > 0.0_fp) then
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/trelax
+                         bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
+                      endif
                    else
-                      !
-                      ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                      ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(thick(k)*hugsqs)
+                      if (disnf(nm,k,idis) > 0.0_fp) then
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/trelax
+                         bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
+                      endif
                    endif
                 enddo
              enddo
