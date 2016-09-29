@@ -621,6 +621,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
           if (.not.error) call dfbroadc(glb_sournf      ,nmaxgl*mmaxgl*kmax*lstsci*no_dis,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momu ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
           if (.not.error) call dfbroadc(glb_nf_src_momv ,nmaxgl*mmaxgl*kmax*no_dis       ,dfdble,error,errmsg)
+          if (.not.error) call dfbroadc(gdp%gdnfl%momrelax, 1                            ,dfdble,error,errmsg)
           if (.not.error) then
              !
              ! The master partition sets nf_src_mom based on the NF2FF input read and has to broadcast it
