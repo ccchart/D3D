@@ -127,13 +127,26 @@ subroutine nf_2_flow(filename, error, gdp)
     endif
     version     = -999.9
     call prop_get(file_ptr, 'NF2FF/fileVersion', version)
-    if (comparereal(version, 0.3_sp)) then
+    if (comparereal(version, 0.3_sp) /= 0) then
        write(lundia,'(a,f5.2)') "ERROR: Unexpected FileVersion number read: ", version
        error = .true.
     endif
     !
     call prop_get(file_ptr, 'NF2FF/discharge/Qsource', nf_q_source)
+    if (comparereal(nf_q_source, 0.0_fp) == -1) then
+       write(lundia,'(a)') "ERROR: '<NF2FF> / <discharge> / <Qsource>' expected with a value >= zero"
+       error = .true.
+    endif
     call prop_get(file_ptr, 'NF2FF/discharge/Qintake', nf_q_intake)
+    if (comparereal(nf_q_intake, 0.0_fp) == -1) then
+       if (comparereal(nf_q_intake, -999.0_fp) == 0) then
+          nf_q_intake = 0.0_fp
+          write(lundia,'(a)') "WARNING: '<NF2FF> / <discharge> / <Qintake>' not specified. Set to zero"
+       else
+          write(lundia,'(a)') "ERROR: '<NF2FF> / <discharge> / <Qintake>' expected with a value >= zero"
+          error = .true.
+       endif
+    endif
     call prop_get(file_ptr, 'NF2FF/discharge/constituentsoperator', cdummy)
     call str_lower(cdummy)
     if (cdummy == "absolute") then

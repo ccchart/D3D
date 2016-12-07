@@ -125,7 +125,8 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     integer                   :: uw
     logical                   :: lerror ! Flag=TRUE if an local error is encountered
     logical                   :: found
-    logical                   :: newkw  ! Flag to specify if the keyword to look for is a new keyword 
+    logical                   :: newkw  ! Flag to specify if the keyword to look for is a new keyword
+    logical                   :: skipuniqueid
     character(20)             :: cdef   ! Default value for chulp 
     character(20)             :: chulp  ! Help variable to read character from MD-file 
     character(256)            :: filrol
@@ -368,6 +369,12 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
           call prterr(lundia, 'P004', "Cosumo file not specified in mdf-file with keyword 'Filnfl'")
           call d3stop(1, gdp)
        endif
+    endif
+    !
+    skipuniqueid = .false.
+    call prop_get(gdp%mdfile_ptr, '*', 'SkipUniqueId', skipuniqueid)
+    if (skipuniqueid) then
+       gdp%uniqueid = ' '
     endif
     !
     ! Fixed gates (CDW): get file name

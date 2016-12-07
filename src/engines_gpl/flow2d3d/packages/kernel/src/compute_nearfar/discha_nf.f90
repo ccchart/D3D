@@ -1,5 +1,6 @@
 subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink    , &
-                   & volum1    ,volum0    ,r0        ,thick     ,kfsmn0   ,kfsmx0   , gdp   )
+                   & volum1    ,volum0    ,r0        ,thick     ,kfsmn0   ,kfsmx0   , &
+                   & kcs       ,gdp   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -37,6 +38,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
+    use mathconsts
     use globaldata
     !
     implicit none
@@ -53,7 +55,10 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     real(fp), dimension(:,:,:)       ,pointer :: disnf_entr
     real(fp), dimension(:,:,:,:)     ,pointer :: sournf
     logical                          ,pointer :: zmodel
-
+!
+! Constants
+!
+    integer, parameter :: Q_TOT = 0
 
 !
 ! Global variables
@@ -62,6 +67,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     integer,  dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfs    ! Description and declaration in esm_alloc_int.f90
     integer                                                 , intent(in)  :: lstsci ! Description and declaration in dimens.igs
     integer                                                               :: nmmax  ! Description and declaration in dimens.igs
+    integer , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kcs    !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmx0 ! Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)              , intent(in)  :: kfsmn0 ! Description and declaration in esm_alloc_int.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci), intent(in)  :: r0     ! Description and declaration in esm_alloc_real.f90
@@ -73,14 +79,13 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 !
 ! Local variables
 !
-    integer                               :: ierror
-    integer                               :: idis
-    integer                               :: nm
-    integer                               :: lcon
-    integer                               :: k
-    integer                               :: nm_intake
-    real(fp)                              :: q_tot
-    real(fp) , dimension(:) , allocatable :: total_mass
+    integer                                 :: ierror
+    integer                                 :: idis
+    integer                                 :: nm, n, m
+    integer                                 :: lcon
+    integer                                 :: k
+    integer                                 :: nm_intake
+    real(fp) , dimension(:,:) , allocatable :: tot_mass
 !
 !! executable statements -------------------------------------------------------
 !
@@ -95,7 +100,10 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     q_diff       => gdp%gdnfl%q_diff
     zmodel       => gdp%gdprocs%zmodel
     !
-    ! Fill sink and sour for difu
+    allocate (tot_mass(0:lstsci,no_dis), stat=ierror)
+    tot_mass  = 0.0_fp
+    !
+    ! Fill tot_mass and sink for difu
     !
     if (.not. zmodel) then
        !
@@ -103,22 +111,22 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        !
        do idis = 1, no_dis
           ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
-          ! total_mass(lcon): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! tot_mass(lcon, idis): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
           ! q_tot           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
           ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
           ! and of the total mass per constituent and per diffusor idis for all points.
           ! This requires an allreduce for parallel runs or the summation must be done previously and stored
           !
-          allocate (total_mass(lstsci), stat=ierror)
-          total_mass  = 0.0_fp
-          q_tot       = 0.0_fp
-          do k = 1, kmax
-             do nm = 1, nmmax
+          do nm = 1, nmmax
+             if (kcs(nm) <= 0) cycle
+             do k = 1, kmax
+                call nm_to_n_and_m(nm, n, m, gdp)
+                !if (abs(disnf_entr(nm,k,idis)) > eps_fp .or. abs(disnf(nm,k,idis)) > eps_fp) write(gdp%gdinout%lundia,'(4i4,2f20.10)') nm, n, m, k, disnf_entr(nm,k,idis), disnf(nm,k,idis)
                 if (disnf_entr(nm,k,idis) < 0.0_fp) then
-                   q_tot = q_tot - disnf_entr(nm,k,idis)
+                   tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - disnf_entr(nm,k,idis)
                    do lcon = 1,lstsci
                       sink(nm, k, lcon) = sink(nm, k, lcon) - disnf_entr(nm,k,idis)/volum1(nm, k)
-                      total_mass(lcon)  = total_mass(lcon)  - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
+                      tot_mass(lcon, idis)  = tot_mass(lcon, idis)  - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
@@ -150,21 +158,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           ! Fill sour array for difu
           ! Add amount discharged via diffuser (sournf),
-          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/q_tot)
-          !
-          do lcon = 1,lstsci
-             do k = 1, kmax
-                do nm = 1, nmmax
-                   if (disnf(nm,k,idis) > 0.0_fp) then
-                      sour(nm, k, lcon) = sour(nm, k, lcon)                                                         &
-                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*total_mass(lcon)/q_tot) &
-                                        &   / volum0(nm, k)
-                   endif
-                enddo
-             enddo
-          enddo
-          !
-          deallocate (total_mass, stat=ierror)
+          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/tot_mass(Q_TOT, idis))
           !
        enddo
     else
@@ -173,25 +167,21 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        !
        do idis = 1, no_dis
           ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
-          ! total_mass(lcon): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
-          ! q_tot           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! tot_mass(lcon, idis): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
+          ! tot_mass(Q_TOT, idis)           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
           ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
           ! and of the total mass per constituent and per diffusor idis for all points.
           ! This requires an allreduce for parallel runs or the summation must be done previously and stored
           !
-          allocate (total_mass(lstsci), stat=ierror)
-          !
-          total_mass  = 0.0_fp
-          q_tot       = 0.0_fp
-          !
           do nm = 1, nmmax
+             if (kcs(nm) <= 0) cycle
              do k = kfsmn0(nm), kfsmx0(nm)
                 if (disnf_entr(nm,k,idis) < 0.0_fp) then
-                   q_tot = q_tot - disnf_entr(nm,k,idis)
+                   tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - disnf_entr(nm,k,idis)
                    do lcon = 1,lstsci
                       ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
                       sink(nm, k, lcon) = sink(nm,k,lcon)  - disnf_entr(nm,k,idis)
-                      total_mass(lcon)  = total_mass(lcon) - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
+                      tot_mass(lcon, idis)  = tot_mass(lcon, idis) - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
@@ -224,20 +214,53 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
           !
           ! Fill sour array for difu
           ! Add amount discharged via diffuser (sournf),
-          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/q_tot)
+          ! and the amount subtracted via entrainment (disnf_entr * r0),  weighted with the fraction for this cell (disnf_entr/tot_mass(Q_TOT, idis))
           !
+       enddo
+    endif
+    !
+    ! TODO: exchange tot_mass with other partitions
+    do idis = 1, no_dis
+          write(gdp%gdinout%lundia,'(a,3f20.10)') "tot_mass(Q_TOT, idis), tot_mass(1,2):", (tot_mass(lcon, idis), lcon=0,lstsci)
+    enddo
+    !
+    ! Fill sour (using tot_mass) for difu
+    !
+    if (.not. zmodel) then
+       !
+       ! Sigma-model
+       !
+       do idis = 1, no_dis
+          do lcon = 1,lstsci
+             do k = 1, kmax
+                do nm = 1, nmmax
+                   if (disnf(nm,k,idis) > 0.0_fp) then
+                      sour(nm, k, lcon) = sour(nm, k, lcon)                                                         &
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*tot_mass(lcon, idis)/tot_mass(Q_TOT, idis)) &
+                                        &   / volum0(nm, k)
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+    else
+       !
+       ! Z-model
+       !
+       do idis = 1, no_dis
           do lcon = 1,lstsci
              do nm = 1, nmmax
                  do k = kfsmn0(nm), kfsmx0(nm)
                    if (disnf(nm,k,idis) > 0.0_fp) then
                       ! Note that for the z-model, the sources are not divided by the volume!
                       sour(nm, k, lcon) = sour(nm, k, lcon)                          &
-                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*total_mass(lcon)/q_tot)
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*tot_mass(lcon, idis)/tot_mass(Q_TOT, idis))
                    endif
                 enddo
              enddo
           enddo
-          deallocate (total_mass, stat=ierror)
        enddo
     endif
+    !
+    deallocate (tot_mass, stat=ierror)
 end subroutine discha_nf

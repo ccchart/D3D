@@ -1869,7 +1869,8 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           !
           if (nfl) then
              call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
-                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) ,gdp )
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) , &
+                          & i(kcs)    ,gdp )
           endif
           call timer_stop(timer_discha, gdp)
        endif
@@ -2936,7 +2937,8 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           !
           if (nfl) then
              call discha_nf(kmax      ,lstsci    ,nmmax   ,i(kfs)   ,r(sour)   ,r(sink)   , &
-                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) ,gdp )
+                          & r(volum1) ,r(volum0) ,r(r0)   ,r(thick) ,i(kfsmn0) ,i(kfsmx0) , &
+                          & i(kcs)    ,gdp )
           endif
           call timer_stop(timer_discha, gdp)
        endif
