@@ -35,11 +35,16 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
 !             added to the sink and source terms of the continuity equation.
 !
 !!--pseudo code and references--------------------------------------------------
-! NONE
+! 1. Collect all subtracted masses due to negative discharges in disnf_entr
+!    Add them to the global sink array and the local tot_mass array
+!    Also add the intake volumes to the sink array
+! 2. In case of parallel computations: distribute array tot_mass via mpi_allreduce
+! 3. Use tot_mass and sournf to add the correct volumes to the global sour array
 !!--declarations----------------------------------------------------------------
     use precision
     use mathconsts
     use globaldata
+    use dfparall
     !
     implicit none
     !
@@ -85,7 +90,9 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     integer                                 :: lcon
     integer                                 :: k
     integer                                 :: nm_intake
-    real(fp) , dimension(:,:) , allocatable :: tot_mass
+    real(hp) , dimension(:,:) , allocatable :: tot_mass   ! for each (:,idis): (0   ,:): total volume             "removed" in this time step due to entrainment
+                                                          !                    (lcon,:): mass of constituent lcon "removed" in this time step due to entrainment
+                                                          ! By putting this in one array, only one mpi_allreduce call is needed
 !
 !! executable statements -------------------------------------------------------
 !
@@ -101,32 +108,36 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
     zmodel       => gdp%gdprocs%zmodel
     !
     allocate (tot_mass(0:lstsci,no_dis), stat=ierror)
-    tot_mass  = 0.0_fp
+    tot_mass  = 0.0_hp
     !
-    ! Fill tot_mass and sink for difu
+    ! 1. Collect all subtracted masses due to negative discharges in disnf_entr
+    !    Add them to the global sink array and the local tot_mass array
+    !    Also add the intake volumes to the sink array
+    !
+    ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
+    ! tot_mass(lcon , idis): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
+    ! tot_mass(Q_TOT, idis): discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
     !
     if (.not. zmodel) then
        !
        ! Sigma-model
        !
        do idis = 1, no_dis
-          ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
-          ! tot_mass(lcon, idis): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
-          ! q_tot           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
-          ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
-          ! and of the total mass per constituent and per diffusor idis for all points.
-          ! This requires an allreduce for parallel runs or the summation must be done previously and stored
-          !
           do nm = 1, nmmax
-             if (kcs(nm) <= 0) cycle
              do k = 1, kmax
-                call nm_to_n_and_m(nm, n, m, gdp)
-                !if (abs(disnf_entr(nm,k,idis)) > eps_fp .or. abs(disnf(nm,k,idis)) > eps_fp) write(gdp%gdinout%lundia,'(4i4,2f20.10)') nm, n, m, k, disnf_entr(nm,k,idis), disnf(nm,k,idis)
                 if (disnf_entr(nm,k,idis) < 0.0_fp) then
-                   tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - disnf_entr(nm,k,idis)
+                   if (kcs(nm) > 0) then
+                      ! Only add to tot_mass when not a halo point (to avoid double counting when doing mpi_allreduce)
+                      !
+                      tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - real(disnf_entr(nm,k,idis),hp)
+                   endif
                    do lcon = 1,lstsci
                       sink(nm, k, lcon) = sink(nm, k, lcon) - disnf_entr(nm,k,idis)/volum1(nm, k)
-                      tot_mass(lcon, idis)  = tot_mass(lcon, idis)  - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
+                      if (kcs(nm) > 0) then
+                         ! Only add to tot_mass when not a halo point (to avoid double counting when doing mpi_allreduce)
+                         !
+                         tot_mass(lcon, idis)  = tot_mass(lcon, idis)  - real(disnf_entr(nm,k,idis)*r0(nm,k,lcon),hp)
+                      endif
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
@@ -166,22 +177,22 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        ! Z-model
        !
        do idis = 1, no_dis
-          ! Determine total subtracted mass from negative discharges in disnf_entr (or disnf)
-          ! tot_mass(lcon, idis): mass of constituent lcon, removed from the system by negative discharges, summed over the full domain, for this discharge
-          ! tot_mass(Q_TOT, idis)           : discharge volume        , removed from the system by negative discharges, summed over the full domain, for this discharge
-          ! Parallel: The loop below performs a summation of the total nearfield-farfield discharges (per diffusor idis)
-          ! and of the total mass per constituent and per diffusor idis for all points.
-          ! This requires an allreduce for parallel runs or the summation must be done previously and stored
-          !
           do nm = 1, nmmax
-             if (kcs(nm) <= 0) cycle
              do k = kfsmn0(nm), kfsmx0(nm)
                 if (disnf_entr(nm,k,idis) < 0.0_fp) then
-                   tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - disnf_entr(nm,k,idis)
+                   if (kcs(nm) > 0) then
+                      ! Only add to tot_mass when not a halo point (to avoid double counting when doing mpi_allreduce)
+                      !
+                      tot_mass(Q_TOT, idis) = tot_mass(Q_TOT, idis) - real(disnf_entr(nm,k,idis),hp)
+                   endif
                    do lcon = 1,lstsci
                       ! Note that for the z-model, the sinks are not divided by the volume! (compare with sigma)
                       sink(nm, k, lcon) = sink(nm,k,lcon)  - disnf_entr(nm,k,idis)
-                      tot_mass(lcon, idis)  = tot_mass(lcon, idis) - disnf_entr(nm,k,idis)*r0(nm,k,lcon)
+                      if (kcs(nm) > 0) then
+                         ! Only add to tot_mass when not a halo point (to avoid double counting when doing mpi_allreduce)
+                         !
+                         tot_mass(lcon, idis)  = tot_mass(lcon, idis) - real(disnf_entr(nm,k,idis)*r0(nm,k,lcon),hp)
+                      endif
                    enddo
                 endif
                 if (disnf_intake(nm,k,idis) < 0.0_fp) then
@@ -219,12 +230,11 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
        enddo
     endif
     !
-    ! TODO: exchange tot_mass with other partitions
-    do idis = 1, no_dis
-          write(gdp%gdinout%lundia,'(a,3f20.10)') "tot_mass(Q_TOT, idis), tot_mass(1,2):", (tot_mass(lcon, idis), lcon=0,lstsci)
-    enddo
+    ! 2. In case of parallel computations: distribute array tot_mass via mpi_allreduce
     !
-    ! Fill sour (using tot_mass) for difu
+    call dfreduce_gdp(tot_mass, (lstsci+1)*no_dis , dfdble, dfsum, gdp )
+    !
+    ! 3. Use tot_mass and sournf to add the correct volumes to the global sour array
     !
     if (.not. zmodel) then
        !
@@ -236,7 +246,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                 do nm = 1, nmmax
                    if (disnf(nm,k,idis) > 0.0_fp) then
                       sour(nm, k, lcon) = sour(nm, k, lcon)                                                         &
-                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*tot_mass(lcon, idis)/tot_mass(Q_TOT, idis)) &
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*real(tot_mass(lcon, idis)/tot_mass(Q_TOT, idis),fp)) &
                                         &   / volum0(nm, k)
                    endif
                 enddo
@@ -254,7 +264,7 @@ subroutine discha_nf(kmax      ,lstsci    ,nmmax     ,kfs       ,sour      ,sink
                    if (disnf(nm,k,idis) > 0.0_fp) then
                       ! Note that for the z-model, the sources are not divided by the volume!
                       sour(nm, k, lcon) = sour(nm, k, lcon)                          &
-                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*tot_mass(lcon, idis)/tot_mass(Q_TOT, idis))
+                                        & + (sournf(nm,k,lcon,idis) + disnf_entr(nm,k,idis)*real(tot_mass(lcon, idis)/tot_mass(Q_TOT, idis),fp))
                    endif
                 enddo
              enddo
