@@ -383,6 +383,9 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     ! Therefore, ddk must be synchronised with neighbouring partitions.
     ! With sigma layers, the horizontal viscosity is added in uzd only.
     !
+    call dfexchg ( aak, 1, kmax, dfloat, nm_pos, gdp )
+    call dfexchg ( bbk, 1, kmax, dfloat, nm_pos, gdp )
+    call dfexchg ( cck, 1, kmax, dfloat, nm_pos, gdp )
     call dfexchg ( ddk, 1, kmax, dfloat, nm_pos, gdp )
     !
     ! When neighbor cells ly higher, mass in/outflow is added to current column

@@ -188,12 +188,12 @@ subroutine z_checku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
              !
              if (kfu(nm) == 0) then
                 !
-                if ( hu(nm) > floodtrsh &
+                if ( hu(nm) > floodtrsh .and. kcu(nm)==1 &
                    & .and. max(s0(nm),s0(nmu)) - max(-real(dps(nm),fp),-real(dps(nmu),fp)) >= floodtrsh) then
                    !
                    ! set kfuz0 for the flooded points
                    !
-                   kfu(nm) = 1
+                   kfu(nm) = 1           
                    !
                    ! Set some parameters in the points which are flooded
                    ! s1u is used for setting kfumx0
