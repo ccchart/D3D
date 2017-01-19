@@ -1,4 +1,4 @@
-subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,gdp       )
+subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,qsrcrt    ,nsrc     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -51,7 +51,7 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,gdp       )
     integer                       , pointer :: parget_offset
     integer                       , pointer :: rtc_domainnr
     integer                       , pointer :: rtc_ndomains
-    logical                       , pointer :: rtcact
+    integer                       , pointer :: rtcact
     logical                       , pointer :: anyRTCtoFLOW
     integer                       , pointer :: rtcmod
     integer                       , pointer :: stacnt
@@ -61,8 +61,10 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,gdp       )
 ! Global variables
 !
     integer                      , intent(in) :: nsluv  ! number of barriers
+    integer                      , intent(in) :: nsrc   ! number of discharge points
     real(fp)                     , intent(in) :: cursec ! Current simulation time in seconds 
     real(fp), dimension(2, nsluv)             :: cbuvrt ! Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(2, nsrc)              :: qsrcrt ! Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
 !
@@ -86,6 +88,26 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,gdp       )
     tparget        => gdp%gdrtc%tparget
     !
     ! RTC  -> FLOW : get steering parameters for current date and time
+    !
+    if (rtcact == RTCviaBMI) then
+       !
+       ! set appropriate flag when values are set via BMI
+       !
+       do id = 1, nsluv
+          if (comparereal(cbuvrt(2,id), -998.0_fp) == 1) then
+             cbuvrt(1,id) = 1.0_fp
+          endif
+       enddo
+       do id = 1, nsrc
+          if (comparereal(qsrcrt(2,id), -998.0_fp) == 1) then
+             qsrcrt(1,id) = 1.0_fp
+          endif
+       enddo
+       !
+       ! For BMI exchange, we are finished here
+       !
+       return
+    endif
     !
     call timer_start(timer_wait, gdp)
     !
@@ -113,11 +135,14 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,gdp       )
        do id = 1, nsluv
           cbuvrt(:,id) = tparget(:,parget_offset+id)
        enddo
+       do id = 1, nsrc
+          qsrcrt(:,id) = tparget(:,parget_offset+nsluv+id)
+       enddo
     endif
     call timer_stop(timer_wait, gdp)
     !
     if (rtcsta < 0) then
-       rtcact = .false.
+       rtcact = noRTC
        write (*, '(a)') ' '
        write (*, '(a)') ' Stop signal from RTC '
        call prterr(lundia, 'P004', 'Stop signal from RTC ')

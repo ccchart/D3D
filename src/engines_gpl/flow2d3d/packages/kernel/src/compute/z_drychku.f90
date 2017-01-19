@@ -47,7 +47,7 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    !use dfparall
+    use dfparall
     !
     use globaldata
     !
@@ -127,6 +127,7 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
     kkmin = 0
     kkmax = 0
     umean = 0.0_fp
+    nm_pos  = 1
     !
     do nm = 1, nmmax
        nmu = nm + icx
@@ -313,6 +314,10 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
           endif
        endif
     enddo
+    !
+    ! exchange u1 with neighbours for parallel runs
+    !
+    !call dfexchg ( u1, 1, kmax, dfloat, nm_pos, gdp )
     !
     ! Determine umean based on the complete water depth
     !

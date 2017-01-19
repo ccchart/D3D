@@ -181,6 +181,7 @@ else
     Attribs = {};
 end
 %
+XYneeded = false;
 removeTime   = 0;
 activeloaded = 0;
 if DataRead && Props.NVal>0
@@ -192,7 +193,11 @@ if DataRead && Props.NVal>0
                 [Discharge, status] = qp_netcdf_get(FI,ivar,Props.DimName,edge_idx);
                 %
                 meshInfo    = FI.Dataset(Info.Mesh{2});
-                meshAttribs = {meshInfo.Attribute.Name};
+                if isempty(meshInfo.Attribute)
+                    meshAttribs = {};
+                else
+                    meshAttribs = {meshInfo.Attribute.Name};
+                end
                 connect     = strmatch('edge_node_connectivity',meshAttribs,'exact');
                 [EdgeConnect, status] = qp_netcdf_get(FI,meshInfo.Attribute(connect).Value);
                 EdgeConnect(EdgeConnect<0) = NaN;
@@ -216,6 +221,8 @@ if DataRead && Props.NVal>0
                 Psi = Psi - min(Psi);
                 %
                 Ans.Val = Psi(idx{3});
+            case {'node_index','edge_index','face_index'}
+                Ans.Val = idx{3}(:);
             otherwise
                 error('Special case "%s" not yet implemented.',Props.varid{1})
         end
@@ -270,6 +277,7 @@ if DataRead && Props.NVal>0
             Ans.NormalComp = Ans.XComp;
             Ans.TangentialComp = Ans.YComp;
             % rotation at end of function
+            XYneeded = true;
         otherwise
             % no rotation
     end
@@ -320,7 +328,7 @@ if ~isnan(npolpnt)
     end
 end
 
-if XYRead
+if XYRead || XYneeded
     npolpnt = 0;
     if strncmp(Props.Geom,'UGRID',5)
         %ugrid
@@ -346,7 +354,11 @@ if XYRead
             end
         end
         %
-        meshAttribs = {meshInfo.Attribute.Name};
+        if isempty(meshInfo.Attribute)
+            meshAttribs = {};
+        else
+            meshAttribs = {meshInfo.Attribute.Name};
+        end
         connect = strmatch('face_node_connectivity',meshAttribs,'exact');
         if ~isempty(connect)
             iconnect = strmatch(meshInfo.Attribute(connect).Value,{FI.Dataset.Name},'exact');
@@ -354,7 +366,11 @@ if XYRead
                 ui_message('error','Face_node_connectivity not found!')
             else
                 [Ans.FaceNodeConnect, status] = qp_netcdf_get(FI,meshInfo.Attribute(connect).Value);
-                istart = strmatch('start_index',{FI.Dataset(iconnect).Attribute.Name},'exact');
+                if isempty(FI.Dataset(iconnect).Attribute)
+                    istart = [];
+                else
+                    istart = strmatch('start_index',{FI.Dataset(iconnect).Attribute.Name},'exact');
+                end
                 if isempty(istart)
                     maxNode = max(Ans.FaceNodeConnect(:));
                     minNode = min(Ans.FaceNodeConnect(Ans.FaceNodeConnect>=0));
@@ -366,6 +382,13 @@ if XYRead
                     end
                 else
                     start = FI.Dataset(iconnect).Attribute(istart).Value;
+                    maxNode = max(Ans.FaceNodeConnect(:));
+                    minNode = min(Ans.FaceNodeConnect(Ans.FaceNodeConnect>=0));
+                    if minNode-start+1<1
+                        error('File specifies start_index %g, but lowest node index in file is %g.',start,minNode)
+                    elseif maxNode-start+1>length(Ans.X)
+                        error('File specifies start_index %g and the largest node index in file is %g, but the number of nodes is only %g.',start,maxNode,length(Ans.X))
+                    end
                 end
                 Ans.FaceNodeConnect = Ans.FaceNodeConnect - start + 1;
                 Ans.FaceNodeConnect(Ans.FaceNodeConnect<1) = NaN;
@@ -384,7 +407,11 @@ if XYRead
             Ans.EdgeNodeConnect(Ans.EdgeNodeConnect<0) = NaN;
         end
         if isfield(Ans,'EdgeNodeConnect')
-            istart = strmatch('start_index',{FI.Dataset(iconnect).Attribute.Name},'exact');
+            if isempty(FI.Dataset(iconnect).Attribute)
+                istart = [];
+            else
+                istart = strmatch('start_index',{FI.Dataset(iconnect).Attribute.Name},'exact');
+            end
             if isempty(istart)
                 maxNode = max(Ans.EdgeNodeConnect(:));
                 minNode = min(Ans.EdgeNodeConnect(Ans.EdgeNodeConnect>=0));
@@ -578,7 +605,11 @@ if XYRead
         vdimid = Info.Z;
         CoordInfo = FI.Dataset(vdimid);
         %
-        Attribs = {CoordInfo.Attribute.Name};
+        if isempty(CoordInfo.Attribute)
+            Attribs = {};
+        else
+            Attribs = {CoordInfo.Attribute.Name};
+        end
         j=strmatch('formula_terms',Attribs,'exact');
         formula = '';
         if ~isempty(j)
@@ -854,6 +885,12 @@ if isfield(Ans,'NormalComp')
     end
 end
 
+if XYneeded && ~XYRead
+    f = {'X','Y','FaceNodeConnect','EdgeNodeConnect'};
+    f(~isfield(Ans,f)) = [];
+    Ans = rmfield(Ans,f);
+end
+
 % read time ...
 T=[];
 if Props.DimFlag(T_)
@@ -862,11 +899,13 @@ end
 Ans.Time=T;
 
 % Work around stupid DeltaShell files that write lat/lon, but actually store metric coordinates.
-ds = strcmp('FileVersion_DeltaShell',{FI.Attribute.Name});
-if any(ds) && isfield(Ans,'XUnits') && strcmp(Ans.XUnits,'deg')
-    if min(Ans.X(:))<-360 || max(Ans.X(:))>360
-        Ans.XUnits = 'm';
-        Ans.YUnits = 'm';
+if ~isempty(FI.Attribute)
+    ds = strcmp('FileVersion_DeltaShell',{FI.Attribute.Name});
+    if any(ds) && isfield(Ans,'XUnits') && strcmp(Ans.XUnits,'deg')
+        if min(Ans.X(:))<-360 || max(Ans.X(:))>360
+            Ans.XUnits = 'm';
+            Ans.YUnits = 'm';
+        end
     end
 end
 
@@ -888,8 +927,8 @@ end
 function Out=infile(FI,domain)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 %======================== SPECIFIC CODE =======================================
-PropNames={'Name'                   'Units' 'Geom' 'Coords' 'DimFlag' 'DataInCell' 'NVal' 'SubFld' 'MNK' 'varid'  'DimName' 'hasCoords' 'VectorDef' 'ClosedPoly' 'UseGrid'};
-DataProps={'dummy field'            ''      ''     ''      [0 0 0 0 0]  0           0      []       0     []          {}          0         0          0          0};
+PropNames={'Name'                   'Units' 'TemperatureType' 'Geom' 'Coords' 'DimFlag' 'DataInCell' 'NVal' 'SubFld' 'MNK' 'varid'  'DimName' 'hasCoords' 'VectorDef' 'ClosedPoly' 'UseGrid'};
+DataProps={'dummy field'            ''      ''                ''     ''      [0 0 0 0 0]  0           0      []       0     []          {}          0         0          0          0};
 Out=cell2struct(DataProps,PropNames,2);
 %Out.MName='M';
 %Out.NName='N';
@@ -965,6 +1004,34 @@ else
             Insert.Units = Info.Attribute(j).Value;
         else
             Insert.Units = '';
+        end
+        switch standard_name
+            case {'air_potential_temperature','air_temperature', 'air_temperature_at_cloud_top', ...
+                    'air_temperature_at_effective_cloud_top_defined_by_infrared_radiation', ...
+                    'air_temperature_threshold','brightness_temperature', ...
+                    'brightness_temperature_at_cloud_top','canopy_temperature', ...
+                    'dew_point_temperature','dynamic_tropopause_potential_temperature', ...
+                    'equivalent_potential_temperature','equivalent_temperature', ...
+                    'fire_temperature','freezing_temperature_of_sea_water', ...
+                    'land_ice_temperature','product_of_air_temperature_and_omega', ...
+                    'product_of_air_temperature_and_specific_humidity', 'product_of_eastward_sea_water_velocity_and_temperature', ...
+                    'product_of_eastward_wind_and_air_temperature', 'product_of_northward_sea_water_velocity_and_temperature', ...
+                    'product_of_northward_wind_and_air_temperature','product_of_omega_and_air_temperature', ...
+                    'product_of_upward_air_velocity_and_air_temperature','pseudo_equivalent_potential_temperature', ...
+                    'pseudo_equivalent_temperature','sea_ice_surface_temperature', ...
+                    'sea_ice_temperature','sea_surface_foundation_temperature', ...
+                    'sea_surface_skin_temperature','sea_surface_subskin_temperature', ...
+                    'sea_surface_temperature','sea_water_conservative_temperature', ...
+                    'sea_water_potential_temperature','sea_water_potential_temperature_at_sea_floor', ...
+                    'sea_water_temperature','soil_temperature','square_of_air_temperature', ...
+                    'square_of_sea_surface_temperature','surface_brightness_temperature', ...
+                    'surface_temperature','temperature_in_surface_snow','temperature_of_sensor_for_oxygen_in_sea_water', ...
+                    'toa_brightness_temperature','toa_brightness_temperature_assuming_clear_sky', ...
+                    'toa_brightness_temperature_of_standard_scene','tropical_cyclone_eye_brightness_temperature', ...
+                    'tropopause_air_temperature','virtual_temperature','wet_bulb_temperature'}
+                Insert.TemperatureType = 'absolute';
+            otherwise
+                Insert.TemperatureType = 'unspecified';
         end
         %
         % Scalar variables by default
@@ -1049,6 +1116,26 @@ else
         %
         Out(end+1)=Insert;
         %
+        if ~isempty(Info.Mesh) && isequal(Info.Mesh{3},-1)
+            Nm = Insert.Name;
+            %
+            Insert.Name = [Nm ' - node indices'];
+            Insert.NVal = 1;
+            Insert.varid = {'node_index' Insert.varid};
+            Out(end+1) = Insert;
+            %
+            Insert.Name = [Nm ' - edge indices'];
+            Insert.Geom = 'UGRID-EDGE';
+            Insert.varid{1} = 'edge_index';
+            Out(end+1) = Insert;
+            %
+            Insert.Name = [Nm ' - face indices'];
+            Insert.Geom = 'UGRID-FACE';
+            Insert.DataInCell = 1;
+            Insert.varid{1} = 'face_index';
+            Out(end+1) = Insert;
+        end
+        %
         if strcmp(standard_name,'discharge') && strcmp(Insert.Geom,'UGRID-EDGE')
             Insert.Name = 'stream function'; % previously: discharge potential
             Insert.Geom = 'UGRID-NODE';
@@ -1069,9 +1156,9 @@ end
 %                 5: normal and tangential (on ugrid edge)
 VecStdNameTable = {
     'sea_water_speed',               'direction_of_sea_water_velocity',4,'sea_water_velocity'
-    'sea_ice_speed',                 'direction_of_sea_ice_speed',     4,'sea_water_velocity'
+    'sea_ice_speed',                 'direction_of_sea_ice_speed',     4,'sea_ice_velocity'
     'wind_speed',                    'wind_to_direction',              4,'air_velocity'
-    'eastward_sea_water_velocity',   'northward_sea_water_velocity',   0,'velocity'
+    'eastward_sea_water_velocity',   'northward_sea_water_velocity',   0,'sea_water_velocity'
     'eastward_sea_ice_velocity',     'northward_sea_ice_velocity',     0,'sea_ice_velocity'
     'eastward_wind_shear',           'northward_wind_shear',           0,'wind_shear'
     'surface_downward_eastward_wind','surface_downward_northward_wind',0,'surface_downward_wind'
@@ -1222,7 +1309,7 @@ for loop = 1:2
                 varid = get_varid(Out(i));
                 thisMesh = FI.Dataset(varid+1).Mesh;
                 if loop == 1
-                    if thisMesh{3} == -1
+                    if thisMesh{3} == -1 && Out(i).NVal == 0
                         Meshes(end+1,:) = [thisMesh{2} i];
                     end
                 else % loop == 2
@@ -1317,6 +1404,15 @@ if iscell(Props.varid)
             % get the node dimension
             dimNodes = FI.Dataset(XVar).TSMNK(3)+1;
             sz(3) = FI.Dimension(dimNodes).Length;
+        case 'node_index'
+            Info = FI.Dataset(Props.varid{2}+1);
+            sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{4})).Length;
+        case 'edge_index'
+            Info = FI.Dataset(Props.varid{2}+1);
+            sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{5})).Length;
+        case 'face_index'
+            Info = FI.Dataset(Props.varid{2}+1);
+            sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{6})).Length;
         otherwise
             error('Size function not yet implemented for special case "%s"',Props.varid{1})
     end

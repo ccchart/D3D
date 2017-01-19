@@ -53,13 +53,15 @@ integer, parameter :: ihalon = 3   ! width of halo area in y-direction
 !
 ! Module variables
 !
+logical, save  :: mpi_initialized_by_engine
+integer, target, save  :: engine_comm_world
 integer, save  :: inode  = 0       ! rank of present node
 integer, save  :: idir   = 0       ! direction of domain cutting  
                                    ! 1(row n) or 2(column m)
 integer, save  :: nproc  = 0       ! number of nodes
 integer, save  :: dfint  = 0       ! MPI datatype for integers
 integer, save  :: dfloat = 0       ! datatype for real indicating single or double precision
-integer, save  :: dfreal = 0       ! MPI datatype for reals
+integer, save  :: dfreal = 0       ! MPI datatype for (single precision) reals
 integer, save  :: dfdble = 0       ! MPI datatype for double precision
 integer, save  :: dfchar = 0       ! MPI datatype for characters
 integer, save  :: dfmax  = 0       ! MPI collective maximum operation

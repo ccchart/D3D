@@ -60,12 +60,12 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use sp_buffer
     use flow_tables
     use bedcomposition_module
     use globaldata
     use dfparall
     use sediment_basics_module
+    use morstatistics, only: morstats
     !
     implicit none
     !
@@ -993,6 +993,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
           !
           ! Update layers and obtain the depth change
           !
+          call morstats(gdp, dbodsd, s1, dps, umean, vmean, sbuu, sbvv, ssuu, ssvv, gdp%d%nmlb, gdp%d%nmub, lsedtot, lsed)
           if (updmorlyr(gdp%gdmorlyr, dbodsd, depchg, gdp%messages) /= 0) then
              call writemessages(gdp%messages, lundia)
              call d3stop(1, gdp)

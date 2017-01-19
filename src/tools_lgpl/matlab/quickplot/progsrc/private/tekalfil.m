@@ -178,6 +178,7 @@ if max(idx{T_})>sz(T_)
     error('Selected timestep (%i) larger than number of timesteps (%i) in file.',max(idx{T_}),sz(T_))
 end
 
+xy='dummy';
 x='dummy';
 y='dummy';
 z='dummy';
@@ -216,10 +217,12 @@ switch FI.FileType
             Data = cat(1,Data{:});
         elseif isfield(FI,'combinelines') && FI.combinelines % LDB
             Data=tekal('read',FI,0);
-            for i=1:length(Data)-1
-                Data{i}(end+1,:)=NaN;
+            if iscell(Data) % if there is more than one block
+                for i=1:length(Data)-1
+                    Data{i}(end+1,:)=NaN;
+                end
+                Data=cat(1,Data{:});
             end
-            Data=cat(1,Data{:});
             blck=1;
         else
             if isempty(blck)
@@ -239,9 +242,11 @@ switch FI.FileType
     case 'AutoCAD DXF'
         Data=FI.Lines(1:2,:)';
     case 'BNA File'
-        Data=bna('read',FI);
+        already_selected = 1;
+        Data=bna('readc',FI,idx{M_});
     case 'ArcInfoUngenerate'
-        Data=ai_ungen('read',FI);
+        already_selected = 1;
+        Data=ai_ungen('readc',FI,idx{M_});
     case 'ESRI-Shape'
         already_selected = 1;
         if strcmp(Props.Geom,'PNT')
@@ -250,14 +255,20 @@ switch FI.FileType
             [Data,Obj]=shape('read',FI,idx{M_},'lines');
         end
         if Props.NVal>0
-            val1=dbase('read',FI.dBase,0,Props.Select);
+            val1=dbase('read',FI.dBase,idx{M_},Props.Select);
             val1=val1{1};
-            miss=isnan(Obj);
-            Obj(miss)=1;
-            val1=val1(Obj);
+            % miss=isnan(Obj);
+            % expand val1 array to match size of Obj/Data.
+            [lia,idxM] = ismember(Obj,idx{M_});
+            miss = ~lia;
+            idxM(miss) = 1;
+            val1 = val1(idxM);
             if iscell(val1)
                 % cell array of strings
                 val1(miss)={''};
+            elseif ischar(val1)
+                % array of characters
+                val1(miss)=' ';
             else
                 val1(miss)=NaN;
             end
@@ -343,12 +354,16 @@ if XYRead
         end
     elseif DimFlag(M_)
         if already_selected
-            x=Data(:,1);
-            if strcmp(Props.Coords,'xy')
-                y=Data(:,2);
-            end
-            if size(Data,2)==3
-                z=Data(:,3);
+            if iscell(Data)
+                xy=Data;
+            else
+                x=Data(:,1);
+                if strcmp(Props.Coords,'xy')
+                    y=Data(:,2);
+                end
+                if size(Data,2)==3
+                    z=Data(:,3);
+                end
             end
         else
             x=Data(idx{M_},1);
@@ -376,7 +391,9 @@ if ~ischar(z)
 end
 
 % return data ...
-if Ann
+if Props.NVal==0
+    % no data
+elseif Ann
     if Props.DimFlag(ST_)
         val1=Data{2}(idx{ST_});
     else
@@ -426,7 +443,7 @@ elseif DimFlag(M_) && DimFlag(N_)
         if ~isempty(val2)
             val2(~act)=NaN;
         end
-        if XYRead % not for DataInCell !
+        if XYRead && ~DataInCell
             x(~act)=NaN;
             y(~act)=NaN;
         end
@@ -437,7 +454,11 @@ elseif DimFlag(M_)
     switch FI.FileType
         case 'tekal'
             if ~already_selected
-                val1=Data(idx{M_},idx{ST_}+1);
+                if isempty(idx{ST_}) % polygon case
+                    val1=Data(idx{M_},3);
+                else
+                    val1=Data(idx{M_},idx{ST_}+1);
+                end
             end
         otherwise
             if isempty(val1)
@@ -456,6 +477,9 @@ end
 
 % generate output ...
 if XYRead
+    if ~ischar(xy)
+        Ans.XY = xy;
+    end
     if ~ischar(x)
         Ans.X=x;
     end
@@ -534,7 +558,20 @@ switch FI.FileType
                 DataProps(2+i,end) = {i};
             end
         elseif isfield(FI,'combinelines') && FI.combinelines
-            DataProps={'line'              'POLYL' 'xy'    [0 0 1 0 0]   0           0       0       0       1          []      {}  };
+            if FI.Field(1).Size(2)==3 % pliz-file
+                DataProps={'line'              'POLYL' 'xy'    [0 0 1 0 0]   0           0       0       0       1          []      {}
+                           'column 3'          'POLYL' 'xy'    [0 0 1 0 0]   0           1       0       0       0          []      {}  };
+                if ~isempty(FI.Field(1).ColLabels{3})
+                    DataProps{2,1} = FI.Field(1).ColLabels{3};
+                else
+                    [p,f,e]=fileparts(FI.FileName);
+                    if strcmpi(e,'.pliz')
+                        DataProps{2,1} = 'elevation';
+                    end
+                end
+            else
+                DataProps={'line'              'POLYL' 'xy'    [0 0 1 0 0]   0           0       0       0       1          []      {}  };
+            end
         else
             [p,f,e]=fileparts(FI.FileName);
             for i=1:length(FI.Field)
@@ -586,47 +623,57 @@ switch FI.FileType
                                 Fourier = strmatch('* Results fourier analysis on:',FI.Field(i).Comments);
                                 Elliptic = strmatch('* Elliptic parameters of',FI.Field(i).Comments);
                                 if ~isempty(Fourier)
-                                    Quant = deblank2(FI.Field(i).Comments{Fourier}(31:end));
+                                    Quant = strtrim(FI.Field(i).Comments{Fourier}(31:end));
                                     DP{10}=1;
-                                    if FI.Field(i).Size(2)==13
-                                        %
-                                        % Vector quantity (amplitudes and phases)
-                                        %
-                                        DP{11}={5,7,6,8};
-                                    else
-                                        %
-                                        % Scalar quantity (amplitude and phase)
-                                        %
-                                        DP{11}={5,6};
+                                    switch FI.Field(i).Size(2)
+                                        case 13
+                                            %
+                                            % Vector quantity (amplitudes and phases)
+                                            %
+                                            DP{11}={5,7,6,8};
+                                        case 12
+                                            %
+                                            % Vector quantity (minimum or maximum) - component wise and magnitude 
+                                            %
+                                            DP{11}={5,6,7};
+                                        otherwise
+                                            %
+                                            % Scalar quantity (amplitude and phase)
+                                            %
+                                            DP{11}={5,6};
                                     end
                                     DP{4}=[0 0 1 1 0];
                                     DP{5}=1;
                                     Freq = strmatch('* Frequency [degrees/hour]   :',FI.Field(i).Comments);
-                                    if ~isempty(strmatch('* column    7 : Maximum value',FI.Field(i).Comments))
+                                    if length(FI.Field(i).ColLabels)>=7 && strcmp(FI.Field(i).ColLabels(7),'Maximum value')
                                         DP{1}=sprintf('%s, maximum',Quant);
                                         %
-                                        % amplitude(s) only
+                                        % use amplitude column only - scalar quantity
                                         %
-                                        DP{11}=DP{11}(1:length(DP{11})/2);
-                                    elseif ~isempty(strmatch('* column    7 : Minimum value',FI.Field(i).Comments))
+                                        DP{11}=DP{11}(1);
+                                    elseif length(FI.Field(i).ColLabels)>=7 && strcmp(FI.Field(i).ColLabels(7),'Minimum value')
                                         DP{1}=sprintf('%s, minimum',Quant);
                                         %
-                                        % amplitude(s) only
+                                        % use amplitude column only - scalar quantity
                                         %
-                                        DP{11}=DP{11}(1:length(DP{11})/2);
+                                        DP{11}=DP{11}(1);
+                                    elseif length(FI.Field(i).ColLabels)>=9 && strcmp(FI.Field(i).ColLabels(9),'Maximum magnitude')
+                                        DP{1}=sprintf('%s, maximum',Quant);
+                                    elseif length(FI.Field(i).ColLabels)>=9 && strcmp(FI.Field(i).ColLabels(9),'Minimum magnitude')
+                                        DP{1}=sprintf('%s, minimum',Quant);
                                     elseif ~isempty(Freq)
                                         Freq = sscanf(FI.Field(i).Comments{Freq}(31:end),'%f',1);
                                         if Freq==0
                                             DP{1}=sprintf('%s, mean',Quant);
                                             %
-                                            % amplitude(s) only
+                                            % use amplitude column(s) only
                                             %
                                             DP{11}=DP{11}(1:length(DP{11})/2);
                                             %
                                             if length(DP{11})==2
                                                 DP{6} = 2;
                                                 DP{10}=[];
-                                                DP{11} = {cat(2,DP{11}{:})};
+                                                DP{11} = {cat(2,DP{11}{:})}; % put the two amplitudes into a cell array to match the correct subfields switch
                                             end
                                         else
                                             DP{1}=sprintf('%s, %g deg/hr',Quant,Freq);
@@ -635,7 +682,7 @@ switch FI.FileType
                                         DP{1}=sprintf('%s',FI.Field(i).Name);
                                     end
                                 elseif ~isempty(Elliptic)
-                                    Quant = deblank2(FI.Field(i).Comments{Elliptic}(32:end));
+                                    Quant = strtrim(FI.Field(i).Comments{Elliptic}(32:end));
                                     DP{10}=2;
                                     DP{11}={5,6,7,8};
                                     DP{4}=[0 0 1 1 0];
@@ -794,9 +841,13 @@ if isempty(Props.SubFld)
 end
 switch length(Props.Select)
     case 1
-        subf={'amplitude'};
+        %subf={'amplitude'};
+        return
     case 2
         subf={'amplitude','phase'};
+    case 3
+        right_part = fliplr(strtok(fliplr(Props.Name)));
+        subf={['u component ' right_part],['v component ' right_part],['magnitude ' right_part]};
     case 4
         if Props.NVal==-1
             subf={'ellipsephase','ellipsephasevec','ellipse','cross'};
@@ -872,7 +923,7 @@ switch FI.FileType
             end
         end
     case {'BNA File','ArcInfoUngenerate'}
-        sz(M_)=FI.TotalNPnt;
+        sz(M_)=length(FI.Seg);
     case {'AutoCAD DXF'}
         sz(M_)=size(FI.Lines,2);
     case {'ESRI-Shape'}

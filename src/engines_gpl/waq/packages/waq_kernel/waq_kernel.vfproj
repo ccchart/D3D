@@ -69,7 +69,6 @@
 		<File RelativePath=".\src\bloom\dayeu.f"/>
 		<File RelativePath=".\src\bloom\diel.f"/>
 		<File RelativePath=".\src\bloom\domina.f"/>
-		<File RelativePath=".\src\bloom\dynade.f"/>
 		<File RelativePath=".\src\bloom\dynrun.f"/>
 		<File RelativePath=".\src\bloom\ebcalc.f"/>
 		<File RelativePath=".\src\bloom\edit.f"/>
@@ -486,6 +485,7 @@
 		<File RelativePath=".\src\waq_kernel\dlwqtc.f"/>
 		<File RelativePath=".\src\waq_kernel\dlwqtd.f"/>
 		<File RelativePath=".\src\waq_kernel\dlwqtk.f"/>
+		<File RelativePath=".\src\waq_kernel\dlwqtr.f"/>
 		<File RelativePath=".\src\waq_kernel\dlwqwq.f"/>
 		<File RelativePath=".\src\waq_kernel\dlwqwx.f"/>
 		<File RelativePath=".\src\waq_kernel\dlwqwy.f"/>
@@ -533,8 +533,18 @@
 		<File RelativePath=".\src\waq_kernel\outbal.f"/>
 		<File RelativePath=".\src\waq_kernel\outdmp.f"/>
 		<File RelativePath=".\src\waq_kernel\outhis.f"/>
+		<File RelativePath=".\src\waq_kernel\outhnc.f"/>
 		<File RelativePath=".\src\waq_kernel\outhnf.f"/>
 		<File RelativePath=".\src\waq_kernel\outmap.f"/>
+		<File RelativePath=".\src\waq_kernel\outmnc.F">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="NetCDF3"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="NetCDF3"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="NetCDF3"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="NetCDF3"/></FileConfiguration></File>
 		<File RelativePath=".\src\waq_kernel\outmnf.f"/>
 		<File RelativePath=".\src\waq_kernel\outmo1.f"/>
 		<File RelativePath=".\src\waq_kernel\outmo2.f"/>
@@ -859,7 +869,15 @@
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
-		<File RelativePath=".\src\waq_process\debgrz.f"/>
+		<File RelativePath=".\src\waq_process\debgrz.f">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\waq_process\decbod.f">
 			<FileConfiguration Name="Debug|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
@@ -1067,7 +1085,15 @@
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
-		<File RelativePath=".\src\waq_process\hdispa.f"/>
+		<File RelativePath=".\src\waq_process\hdispa.f">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\waq_process\hdispv.f">
 			<FileConfiguration Name="Debug|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
@@ -1384,6 +1410,15 @@
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\waq_process\rear.f">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
+		<File RelativePath=".\src\waq_process\refl.f">
 			<FileConfiguration Name="Debug|Win32">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
 			<FileConfiguration Name="Release|x64">

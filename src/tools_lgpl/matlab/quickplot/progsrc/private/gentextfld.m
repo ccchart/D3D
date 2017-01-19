@@ -34,17 +34,17 @@ function hNew=gentextfld(hOld,Ops,Parent,Val,X,Y,Z)
 delete(hOld);
 zcoord=nargin>6;
 convert=0;
-if iscellstr(Val)
+if iscellstr(Val) || ischar(Val)
     blank=0;
 else
     convert=1;
     blank=isnan(Val(:));
 end
 if zcoord
-    blank=isnan(X(:))|isnan(Y(:))|isnan(Z(:));
+    blank=blank|isnan(X(:))|isnan(Y(:))|isnan(Z(:));
     Z=Z(~blank); Z=Z(:);
 else
-    blank=isnan(X(:))|isnan(Y(:));
+    blank=blank|isnan(X(:))|isnan(Y(:));
 end
 X=X(~blank); X=X(:);
 Y=Y(~blank); Y=Y(:);
@@ -78,8 +78,10 @@ else
     for i=1:length(Val)
         if convert
             Str=sprintf(Ops.numformat,Val(i));
-        else
+        elseif iscell(Val)
             Str=Val{i};
+        else % char
+            Str=Val(i);
         end
         hNew(i+1)=text(X(i),Y(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
     end

@@ -221,7 +221,7 @@ for ivar = 1:nvars
         %
         id = strmatch(node_dim,DimensionNames,'exact');
         if isempty(id)
-            ui_message('error','The node dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+            ui_message('error','The node dimension ''%s'' of UGRID mesh %s does not exist as NetCDF dimension in the file.',face_dim,Info.Name)
         else
             nc.Dimension(id).Type = 'ugrid_node';
         end
@@ -229,7 +229,7 @@ for ivar = 1:nvars
         if ~isempty(edge_dim)
             id = strmatch(edge_dim,DimensionNames,'exact');
             if isempty(id)
-                ui_message('error','The edge dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+                ui_message('error','The edge dimension ''%s'' of UGRID mesh %s does not exist as NetCDF dimension in the file.',face_dim,Info.Name)
             else
                 nc.Dimension(id).Type = 'ugrid_edge';
             end
@@ -238,7 +238,7 @@ for ivar = 1:nvars
         if ~isempty(face_dim)
             id = strmatch(face_dim,DimensionNames,'exact');
             if isempty(id)
-                ui_message('error','The face dimension ''%s'' of UGRID mesh %s is not defined.',face_dim,Info.Name)
+                ui_message('error','The face dimension ''%s'' of UGRID mesh %s does not exist as NetCDF dimension in the file.',face_dim,Info.Name)
             else
                 nc.Dimension(id).Type = 'ugrid_face';
             end
@@ -269,6 +269,15 @@ for ivar = 1:nvars
         if Info.Rank==2
             if strcmp(Info.Dimension{1},Info.Name);
                 Info.Type = 'coordinate';
+            else
+                j = strmatch('cf_role',Attribs,'exact');
+                if ~isempty(j)
+                    if strcmp(Info.Attribute(j).Value,'timeseries_id') || ...
+                            strcmp(Info.Attribute(j).Value,'profile_id') || ...
+                            strcmp(Info.Attribute(j).Value,'trajectory_id')
+                        AuxCoordVars=union(AuxCoordVars,{Info.Name});
+                    end
+                end
             end
         end
     elseif Info.Rank==1
@@ -307,7 +316,11 @@ for i = 1:length(AuxCoordVars)
     for ivar = 1:nvars
         Info = nc.Dataset(ivar);
         if strcmp(Info.Name,AuxCoordVars{i})
-            AuxCoordVar_Dimens{i} = Info.Dimension;
+            if Info.Nctype==2 % character
+                AuxCoordVar_Dimens{i} = Info.Dimension(1:end-1);
+            else
+                AuxCoordVar_Dimens{i} = Info.Dimension;
+            end
             if strcmp(Info.Type,'unknown')
                 nc.Dataset(ivar).Type = 'auxiliary coordinate';
                 CoordVarDims = union(CoordVarDims,Info.Dimension);
@@ -425,7 +438,7 @@ for ivar = 1:nvars
                 %
                 nc = setType(nc,ivar,idim,'z-coordinate');
                 continue
-            case {'millisecond','milliseconds','millisec','millisecs','ms'}
+            case {'millisecond','milliseconds','millisec','millisecs','msec','ms'}
                 dt = 0.001;
             case {'second','seconds','sec','secs','s'}
                 dt = 1;
@@ -435,7 +448,9 @@ for ivar = 1:nvars
                 dt = 3600;
             case {'day','days','d'}
                 dt = 86400; % 24*3600
-            case {'month','months'}
+            case {'week'}
+                dt = 7*86400;
+            case {'month','months','mon'}
                 dt = 365.242198781*24*3600/12;
             case {'year','years','yr','yrs'}
                 dt = 365.242198781*24*3600;
@@ -470,19 +485,24 @@ for ivar = 1:nvars
             if ~isequal(nc.Dataset(ivar).Type,'time')
                 nc = setType(nc,ivar,idim,'aux-time');
             end
-            refdate = sscanf(unit2,' since %d-%d-%d %d:%d:%f %d:%d',[1 8]);
+            % even though there is a space between the time and the time
+            % zone, this line supports the case in which a + or - of the
+            % time zone is directly attached to the time.
+            refdate = sscanf(unit2,' since %d-%d-%d%*1[ T]%d:%d:%f %d:%d',[1 8]);
+            if length(refdate)==1
+                % possibly basic (condensed) format
+                refdate = sscanf(unit2,' since %4d%2d%2d%*1[ T]%2d%2d%f %d:%d',[1 8]);
+            end
             if length(refdate)>=6
                 if length(refdate)==8
+                    % offset HH:MM
                     TZshift = refdate(7) + sign(refdate(7))*refdate(8)/60;
                 elseif length(refdate)==7
-                    % this is actually not correct: report this and continue
+                    % offset HH or HHMM
                     TZshift = refdate(7);
-                    TZformat = 'HH';
                     if abs(TZshift)>24
                         TZshift = fix(TZshift/100)+rem(TZshift,100)/60;
-                        TZformat = 'HHMM';
                     end
-                    ui_message('error','Time zone format invalid in "%s", expecting HH:MM instead of %s',unit,TZformat)
                 else
                     TZshift = 0;
                 end
@@ -564,6 +584,8 @@ iUGrid = strcmp({nc.Dataset.Type}','ugrid_mesh');
 UGrid  = {nc.Dataset(iUGrid).Name};
 iUGrid = find(iUGrid);
 varNames = {nc.Dataset.Name};
+ugridLoc = {'node','edge','face','volume'};
+auto_ugrid = cell(4,nvars);
 for ivar = 1:nvars
     Info = nc.Dataset(ivar);
     if ~isempty(Info.Attribute)
@@ -572,7 +594,7 @@ for ivar = 1:nvars
         j2 = strmatch('location',Attr,'exact');
         if ~isempty(j1) && ~isempty(j2)
             j3 = strmatch(Info.Attribute(j1).Value,UGrid,'exact');
-            j4 = strmatch(Info.Attribute(j2).Value,{'node','edge','face','volume'},'exact')-1;
+            j4 = strmatch(Info.Attribute(j2).Value,ugridLoc,'exact')-1;
             %if strcmp(Info.Attribute(j2).Value,'poly')
             %    j4 = 2;
             %end
@@ -594,6 +616,20 @@ for ivar = 1:nvars
                     Info.Mesh = {'ugrid' iUGrid(j3) j4};
                     Info.TSMNK(3) = strmatch(topoDim,DimensionNames,'exact')-1;
                 end
+            end
+        end
+    end
+    %
+    % auto detect UGRID dimensions
+    %
+    if isempty(Info.Mesh) && ~isempty(iUGrid)
+        for u = iUGrid'
+            [udim,ia,ib] = intersect(Info.Dimension,nc.Dataset(u).Mesh(4:end));
+            if ~isempty(udim)
+                Info.Mesh = {'ugrid' u ib-1};
+                Info.TSMNK(3) = strmatch(udim,DimensionNames,'exact')-1;
+                auto_ugrid(:,ivar) = {Info.Name, udim{1}, nc.Dataset(u).Name, ugridLoc{ib}}';
+                break
             end
         end
     end
@@ -685,19 +721,32 @@ for ivar = 1:nvars
         end
     end
     if ~isempty(Info.Station)
-        %
-        % Assumption: station is always unique and coordinate dimension.
-        %
-        statdim = intersect(Info.Dimid,nc.Dataset(Info.Station).Dimid(1));
-        if length(Info.Station)>1 || length(statdim)>2
+        if length(Info.Station)>1
             Names = {nc.Dataset(Info.Station).Name};
+            for is = 1:length(Names)
+                isInfo = nc.Dataset(Info.Station(is));
+                dims = sprintf('%s, ',isInfo.Dimension{:});
+                Names{is} = [isInfo.Datatype ' :: ' Names{is} ' (' dims(1:end-2) ')'];
+            end
+            %
+            % rather than always using the first one, we may keep track of
+            % the ones being used and then preferentially select one that
+            % has been used before (only necessary if the order in which we
+            % find them is not consistent). Implement if necessary. What if
+            % both variables v1 and v2 would do and variable X points to v1
+            % and Y points to v2, so both have been used by the time
+            % variable Z is processed. Then we still need to select the
+            % either one.
+            %
             ui_message('error', ...
-                {sprintf('Problem detecting station coordinate for "%s".',Info.Name) ...
-                'Any one of the following variables seems to be valid' ...
+                [{sprintf('Problem detecting station coordinate for "%s".',Info.Name) ...
+                'Any one of the following variables seems to be valid'} ...
                 Names{:} ...
-                'Using the first one.'})
+                {'Using the first one.'}])
             Info.Station = Info.Station(1);
         end
+        %
+        statdim = intersect(Info.Dimid,nc.Dataset(Info.Station).Dimid(1));
         Info.TSMNK(2) = statdim;
     end
     %
@@ -769,7 +818,11 @@ for ivar = 1:nvars
         %
         % If X coordinates have been defined, check whether bounds have been given.
         %
-        coordAttribs = {nc.Dataset(Info.X).Attribute.Name}';
+        if isempty(nc.Dataset(Info.X).Attribute)
+            coordAttribs = {};
+        else
+            coordAttribs = {nc.Dataset(Info.X).Attribute.Name}';
+        end
         j = strmatch('bounds',coordAttribs,'exact');
         if ~isempty(j)
             Info.XBounds = strmatch(nc.Dataset(Info.X).Attribute(j).Value,varNames);
@@ -832,7 +885,11 @@ for ivar = 1:nvars
         %
         % If Y coordinates have been defined, check whether bounds have been given.
         %
-        coordAttribs = {nc.Dataset(Info.Y).Attribute.Name}';
+        if isempty(nc.Dataset(Info.Y).Attribute)
+            coordAttribs = {};
+        else
+            coordAttribs = {nc.Dataset(Info.Y).Attribute.Name}';
+        end
         j = strmatch('bounds',coordAttribs,'exact');
         if ~isempty(j)
             Info.YBounds = strmatch(nc.Dataset(Info.Y).Attribute(j).Value,varNames);
@@ -868,6 +925,25 @@ for ivar = 1:nvars
     %end
     %
     nc.Dataset(ivar) = Info;
+end
+%
+auto_ugrid(:,cellfun('isempty',auto_ugrid(1,:))) = [];
+if ~isempty(auto_ugrid)
+    message = {'Missing UGRID attributed automatically added for:'};
+    [ugrids,dummy,iugrids] = unique(auto_ugrid(3,:));
+    for iu = 1:length(ugrids)
+        thisgrid = auto_ugrid(:,iugrids==iu);
+        [ulocs,dummy,iulocs] = unique(thisgrid(4,:));
+        %
+        for il = 1:length(ulocs)
+            thisloc = thisgrid(:,iulocs==il);
+            message{end+1} = ['  variables: ' sprintf('%s, ',thisloc{1,:})];
+            message{end}(end-1:end) = [];
+            message{end} = [message{end} ' (common UGRID dimension: ' thisloc{2,1} ')'];
+            message{end+1} = sprintf('    attributes: mesh="%s", location="%s"',thisloc{3,1},thisloc{4,1});
+        end
+    end
+    ui_message('warning',message)
 end
 
 function nc = setType(nc,ivar,idim,value)

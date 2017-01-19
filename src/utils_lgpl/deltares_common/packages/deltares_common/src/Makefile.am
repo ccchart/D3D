@@ -54,9 +54,10 @@ libDeltaresCommon_la_SOURCES = \
 	scannr.f90 \
 	skipstarlines.f90 \
 	small.f90 \
-	timers.f \
+	timers.f90 \
 	util.f90 \
 	multi_file_io.f90 \
+	hash_search.f90 \
 	wavenr.f90
 
 # For source distributions: the tar.gz will contain the correct version numbers in the generated *version.F90

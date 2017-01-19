@@ -119,6 +119,21 @@ if Props.NVal>0
             Ans = setfield(Ans,fld{i},v1);
         end
     end
+    %
+    % temperature units are always relative or unspecified
+    %
+    if isfield(Ans,'AbsoluteUnits')
+        Ans = rmfield(Ans,'AbsoluteUnits');
+        Ans.TemperatureType = 'relative';
+    elseif isfield(Ans,'TemperatureType')
+        % The difference of two temperature quantities will always be relative
+        % however only if the base quantities are simple temperatures and not
+        % if the quantity is e.g. a temperature flux or square of temperature
+        % So, keep TemperatureType unspecified unchanged.
+        if ~strcmp(Ans.TemperatureType,'unspecified')
+            Ans.TemperatureType = 'relative';
+        end
+    end
 end
 
 varargout={Ans FI};

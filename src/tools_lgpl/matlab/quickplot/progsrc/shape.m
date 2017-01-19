@@ -236,6 +236,8 @@ while ~feof(fid)
         case {11,21} % pointz, pointm
             % x,y,z or x,y,m
             fread(fid,3,'float64');
+            TNPnt=TNPnt+1;
+            TNPrt=TNPrt+1;
         case {13,15,23,25} % polylinez, polygonz, polylinem, polygonm
             % box, NPrt, NPnt, {iprt}, {x,y} zrange, {z} or mrange, {m}
             fread(fid,4,'float64');
@@ -467,13 +469,12 @@ switch datatype
                     fread(fid,NrSize(2)-2,'int16');
             end
         end
-        if TNPnt>0 && TNPnt<size(Out,1)
-            Out(TNPnt:end,:)=[];
-            Obj(TNPnt:end,:)=[];
-        end
-    case 'patches'
     otherwise
-end
+    end
+    if TNPnt>0 && TNPnt<size(Out,1)
+        Out(TNPnt+1:end,:)=[];
+        Obj(TNPnt+1:end,:)=[];
+    end
 try
     fclose(fid);
 end

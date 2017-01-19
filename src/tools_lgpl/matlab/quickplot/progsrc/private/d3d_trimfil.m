@@ -429,7 +429,7 @@ if DataRead
         case {'thin dams','temporarily inactive velocity points','domain decomposition boundaries','open boundaries','closed boundaries'}
             Props.NVal=2;
             ThinDam=1;
-        case 'base level of sediment layer'
+        case {'sediment thickness','base level of sediment layer'}
             switch Props.Val1
                 case 'THLYR'
                     elidx{end+1}=0;
@@ -592,6 +592,10 @@ if DataRead
             if ~Chk
                 val3=[];
                 Props.NVal=2;
+            end
+        case 'sediment thickness'
+            if size(val1,4)>1
+                val1=sum(val1,4);
             end
         case 'base level of sediment layer'
             if size(val1,4)>1
@@ -1046,13 +1050,21 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'wind speed'                       'm/s'    [1 0 1 1 0]  1         2    'x'       'z'   'z'       ''      'map-series'     'WINDU'   'WINDV'  []       0
     'precipitation rate'               'mm/h'   [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'PRECIP'  ''       []       0
     'evaporation rate'                 'mm/h'   [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'EVAP'    ''       []       0
+    'evaporation heat flux'            'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QEVA'    ''       []       0
+    'heat flux of forced convection'   'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QCO'     ''       []       0
+    'nett back radiation'              'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QBL'     ''       []       0
+    'nett solar radiation'             'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QIN'     ''       []       0
+    'total nett heat flux'             'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QNET'    ''       []       0
+    'free convection of sensible heat' 'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'HFREE'   ''       []       0
+    'free convection of latent heat'   'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'EFREE'   ''       []       0
+    'computed minus derived heat flux' 'W/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-series'     'QMIS'    ''       []       0
     '-------'                          ''       [0 0 0 0 0]  0         0    ''        ''    ''        ''      ''               ''        ''       []       0
-    'wave height'                        'm'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'WAVE_HEIGHT' ''  []       0
-    'significant wave height'            'm'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-rol-series'  'HS'     ''       []       0
-    'wave vector'                        'm'    [1 0 1 1 0]  1         2    'm'       'z'   'z'       ''      'map-trit-series' 'WAVE_HEIGHT' 'DIR' []     0
-    'orbital velocity amplitude'        'm/s'   [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'UORB'   ''       []       0
-    'wave period'                        's'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'PERIOD' ''       []       0
-    'wave length'                        'm'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'WAVE_LENGTH' ''  []       0
+    'wave height'                      'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'WAVE_HEIGHT' ''  []       0
+    'significant wave height'          'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-rol-series'  'HS'     ''       []       0
+    'wave vector'                      'm'      [1 0 1 1 0]  1         2    'm'       'z'   'z'       ''      'map-trit-series' 'WAVE_HEIGHT' 'DIR' []     0
+    'orbital velocity amplitude'       'm/s'    [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'UORB'   ''       []       0
+    'wave period'                      's'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'PERIOD' ''       []       0
+    'wave length'                      'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-trit-series' 'WAVE_LENGTH' ''  []       0
     'short-wave energy'                'J/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-rol-series' 'EWAVE1'  ''       []       0
     'roller energy'                    'J/m^2'  [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-rol-series' 'EROLL1'  ''       []       0
     'transport velocity of roller energy' ...
@@ -1181,6 +1193,8 @@ DataProps={'morphologic grid'          ''       [0 0 1 1 0]  0         0    ''  
     'reduction factor due to limited sediment thickness' ...
     '-'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'FIXFAC'  ''       'sb1'    0
     'sediment thickness'               'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DPSED'   ''       []       0
+    'sediment thickness'               'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'THLYR'   ''       []       0
+    'sediment thickness'               'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DP_BEDLYR' ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DP_BEDLYR' ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'THLYR'   ''       []       0
     'base level of sediment layer'     'm'      [1 0 1 1 0]  1         1    ''        'z'   'z'       ''      'map-sed-series' 'DPSED'   ''       []       0
@@ -1410,7 +1424,7 @@ end
 for i=1:length(Out)
     if isequal(Out(i).Units,'*')
         Info = vs_disp(FI,Out(i).Group,Out(i).Val1);
-        eUnit = deblank2(Info.ElmUnits(2:end-1));
+        eUnit = strtrim(Info.ElmUnits(2:end-1));
         switch lower(eUnit)
             case {'m3/sm','m3/s/m'}
                 eUnit = 'm^3/s/m';
@@ -1425,11 +1439,17 @@ end
 for i=1:length(Out)
     switch Out(i).ReqLoc
         case 'd'
-            Out(i).UseGrid=1;
+            Out(i).UseGrid=3;%1;
+            Out(i).Geom='SGRID-NODE';
         case 'z'
-            Out(i).UseGrid=2;
+            Out(i).UseGrid=3;%2;
+            Out(i).Geom='SGRID-FACE';
     end
+    Out(i).Coords='xy';
 end
+
+[Out.TemperatureType] = deal('unspecified');
+[Out(strcmp({Out.Name},'temperature')).TemperatureType] = deal('absolute');
 % -------------------------------------------------------------------------
 
 
@@ -1791,7 +1811,7 @@ end
 for i = 1:length(Out)
     if isequal(Out(i).Unit,'*')
         Info = vs_disp(FI,Out(i).Group,Out(i).Val1);
-        eUnit = deblank2(Info.ElmUnits(2:end-1));
+        eUnit = strtrim(Info.ElmUnits(2:end-1));
         switch lower(eUnit)
             case {'m3/sm','m3/s/m'}
                 eUnit = 'm^3/s/m';

@@ -147,8 +147,9 @@ function adddim(gdp, lundia, ifile, dname, length) result (id)
 !
 ! Local variables
 !
-    integer  :: ndim
-    integer  :: istat
+    integer         :: ndim
+    integer         :: istat
+    character(1024) :: error_string
 !
 !! executable statements -------------------------------------------------------
 !
@@ -160,7 +161,8 @@ function adddim(gdp, lundia, ifile, dname, length) result (id)
           if (dim_length(id) == length) then
              return
           else
-             call prterr(lundia, 'U021', 'Adddim: inconsistent definition of dimension '//trim(dname))
+             write(error_string,'(a,i0,a,i0)') 'Adddim: inconsistent definition of dimension '//trim(dname)//' Old value: ',dim_length(id),' New value: ',length
+             call prterr(lundia, 'U021', trim(error_string))
              call d3stop(1, gdp)
           endif
        endif
@@ -836,6 +838,8 @@ subroutine defnewgrp_core(fds, ifile, gname, gdp, filnam, grpdim, errlog)
           nefisunit = '[M0.5/S ]'
        case ('m2')
           nefisunit = '[  M2   ]'
+       case ('m/s')
+          nefisunit = '[  M/S  ]'
        case ('m/s2')
           nefisunit = '[  M/S2 ]'
        case ('m2/s')

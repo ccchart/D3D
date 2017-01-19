@@ -270,7 +270,7 @@ subroutine forfil(nmmax     ,kmax      ,lstsci    , &
     if (forfww=='Y') then
        do l = 1, lstsci
           !
-          ! Vertical Forester filter only for salt and temperature
+          ! Vertical Forester filter not only for salinity and temperature but also for tracers
           !
           if (l/=lsal .and. l/=ltem .and. (.not. flbcktemp(l))) then
              cycle

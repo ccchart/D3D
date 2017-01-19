@@ -229,6 +229,7 @@
 
       if ( action == ACTION_FINALISATION ) then
           include 'dlwqdata_restore.inc'
+          if ( timon ) call timstrt ( "dlwqnm", ithandl )
           goto 50
       endif
 
@@ -414,6 +415,7 @@
      &                 a(iconc), a(icons), a(iparm), a(ifunc), a(isfun),
      &                 a(ivol) , nocons  , nofun   , idt     , noutp   ,
      &                 lchar   , lun     , j(iiout), j(iiopo), a(iriob),
+     &                 c(iosnm), c(iouni), c(iodsc), c(issnm), c(isuni), c(isdsc), 
      &                 c(ionam), nx      , ny      , j(igrid), c(iedit),
      &                 nosys   , a(iboun), j(ilp)  , a(imass), a(imas2),
      &                 a(ismas), nflux   , a(iflxi), isflag  , iaflag  ,
@@ -658,6 +660,7 @@
 
  9999 if ( timon ) call timstop ( ithandl )
 
+      dlwqd%iaflag = iaflag
       dlwqd%itime = itime
 
       return

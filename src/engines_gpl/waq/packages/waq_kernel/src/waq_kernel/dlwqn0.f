@@ -102,6 +102,7 @@
 
       if ( ACTION == ACTION_FINALISATION ) then
           include 'dlwqdata_restore.inc'
+          if ( timon ) call timstrt ( "dlwqn0", ithandl )
           goto 20
       endif
 
@@ -164,7 +165,7 @@
 !     properly initialised and restored
 !
       IF ( ACTION == ACTION_INITIALISATION ) THEN
-          if ( timon ) call timstrt ( "dlwqn1", ithandl )
+          if ( timon ) call timstrt ( "dlwqn0", ithandl )
           INCLUDE 'dlwqdata_save.inc'
           if ( timon ) call timstop ( ithandl )
           RETURN
@@ -175,7 +176,7 @@
           call apply_operations( dlwqd )
       ENDIF
 
-      if ( timon ) call timstrt ( "dlwqn1", ithandl )
+      if ( timon ) call timstrt ( "dlwqn0", ithandl )
 
 !======================= simulation loop ============================
 
@@ -254,6 +255,7 @@
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , IDT     , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC), 
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IMASS), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,
@@ -347,6 +349,7 @@
 
  9999 if ( timon ) call timstop ( ithandl )
 
+      dlwqd%iaflag = iaflag
       dlwqd%itime = itime
 
       RETURN

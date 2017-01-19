@@ -48,6 +48,7 @@ subroutine dfexitmpi ( iexit )
 #ifdef HAVE_MPI
     use mpi
 #endif
+    use dfparall
     !
     implicit none
 !
@@ -59,20 +60,25 @@ subroutine dfexitmpi ( iexit )
 !
     integer :: ierr           ! error value of MPI call
     logical :: mpi_is_initialized       ! if true, parallel process is carried out with MPI
+    logical :: mpi_is_finalized         ! if true, mpi_finalize has already been called
 !
 !! executable statements -------------------------------------------------------
 !
 #ifdef HAVE_MPI
+    ! Don't stop MPI if this component didn't start it
+    if (.not.mpi_initialized_by_engine) return
+    !
     call mpi_initialized ( mpi_is_initialized, ierr )
-    if ( mpi_is_initialized ) then
+    call mpi_finalized   ( mpi_is_finalized  , ierr )
+    if ( mpi_is_initialized .and. .not. mpi_is_finalized ) then
 
-       call mpi_barrier ( MPI_COMM_WORLD, ierr )
+       call mpi_barrier ( engine_comm_world, ierr )
 
        if ( iexit /= 0 ) then
 
        ! in case of an error abort all MPI processes
 
-          call mpi_abort ( MPI_COMM_WORLD, iexit, ierr )
+          call mpi_abort ( engine_comm_world, iexit, ierr )
 
        else
 

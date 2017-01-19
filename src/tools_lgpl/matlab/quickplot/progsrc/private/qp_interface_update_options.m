@@ -344,11 +344,19 @@ switch geometry
             axestype={'X-Z'};
         end
     case {'POLYL','POLYG'}
-        axestype={'X-Y'};
-        if strcmp(geometry,'POLYG') && ~isfield(Props,'ClosedPoly')
-            Props.ClosedPoly = 2;
+        if multiple(T_) && ~multiple(M_) && ~multiple(K_)
+            if nval==0
+                axestype={'X-Y'};
+            else
+                axestype={'Time-Val'};
+            end
+        elseif ~multiple(T_)
+            axestype={'X-Y'};
+            if strcmp(geometry,'POLYG') && ~isfield(Props,'ClosedPoly')
+                Props.ClosedPoly = 2;
+            end
         end
-    case {'sQUAD','sQUAD+'}
+    case {'sQUAD','sQUAD+','SGRID-FACE','SGRID-EDGE','SGRID-NODE'}
         if multiple(K_)
             if multiple(M_) && multiple(N_) && ~vslice
                 axestype={'X-Y-Z'};
@@ -754,10 +762,14 @@ end
 %---- presentation type
 %
 extend2edge = 0;
-if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'strings') || strcmp(nvalstr,'boolean') || (strcmp(geometry,'POLYG') && nval~=2) % || (nval==0 & ~DimFlag(ST_))
+if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'strings') || strcmp(nvalstr,'boolean') || (strcmp(geometry,'POLYG') && nval~=2 && ~TimeDim) % || (nval==0 & ~DimFlag(ST_))
     switch nvalstr
-        case 1.9
-            PrsTps={'vector','edge'};
+        case 1.9 % EDGE
+            if strcmp(geometry,'SGRID-EDGE')
+                PrsTps={'vector','edge','edge M','edge N'};
+            else
+                PrsTps={'vector','edge'};
+            end
         case 'strings'
             if multiple(T_)
                 PrsTps={'tracks'}; % {'labels';'tracks'};
@@ -803,7 +815,7 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
                                 case {'SEG','SEG-NODE'}
                                     PrsTps={'continuous shades';'markers';'values'};
                                 case {'POLYL'}
-                                    PrsTps={'polylines'};
+                                    PrsTps={'polylines','values'};
                                 case {'UGRID-EDGE'}
                                     PrsTps={'markers';'values';'edge'};
                                 otherwise
@@ -875,7 +887,7 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
             %
             ask_for_numformat=1;
             ask_for_thinningmode=1;
-            if strcmp(geometry,'POLYG')
+            if strcmp(geometry,'POLYG') || strcmp(geometry,'POLYL')
                 geometry='PNT';
             end
         case {'contour lines','coloured contour lines','contour patches','contour patches with lines'}
@@ -905,7 +917,7 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
                     %
                     ask_for_thinningmode=1;
             end
-            if strcmp(geometry,'POLYG')
+            if strcmp(geometry,'POLYG') || strcmp(geometry,'POLYL')
                 geometry='PNT';
             end
         case 'patches'
@@ -916,6 +928,9 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
         case 'labels'
             ask_for_textprops=1;
             SingleColor=1;
+            if strcmp(geometry,'POLYG') || strcmp(geometry,'POLYL')
+                geometry='PNT';
+            end
         case 'polygons'
             lineproperties=1;
         case 'polylines'
@@ -924,7 +939,7 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
             lineproperties=1;
         case 'grid with numbers'
             ask_for_textprops=1;
-        case 'edge'
+        case {'edge','edge m','edge n'}
             thindams=1;
             lineproperties=1;
             nval=0.9;
@@ -997,6 +1012,46 @@ if ~isempty(Units)
         'backgroundcolor',Active)
     system=get(dunit,'value');
     systems=get(dunit,'string');
+    try
+        [conversion,SIunit,dimensions]=qp_unitconversion(Units,'relative');
+    catch
+        conversion = 'failed';
+    end
+    if ischar(conversion) || (dimensions.temperature~=0 && (~isfield(Props,'TemperatureType') || strcmp(Props.TemperatureType,'unspecified')))
+        % If conversion attempt fails.
+        % Temperature unit, but unknown whether it's an absolute temperature
+        % or a relative temperature (e.g. a temperature difference).
+        % We can't do any conversion, so show only the options "As in file" and "Hide".
+        if system==length(systems)
+            system = 2;
+        else
+            system = 1;
+        end
+        set(dunit,'value',system,'string',systems([1 end]))
+    elseif dimensions.temperature~=0 && (dimensions.temperature~=1 || sum(cell2mat(struct2cell(dimensions))~=0)>1) && isfield(Props,'TemperatureType') && strcmp(Props.TemperatureType,'absolute')
+        % Absolute temperature (with offset) can only be converted if it is
+        % just a simple temperature and not multiplied by something else.
+        % Actually the dimensionality check isn't enough also A*T can't be
+        % converted when A is an unknown dimensionless constant since we
+        % wouldn't be able to determine both A and T from the product A*T
+        % and hence we can't convert T.
+        if system==length(systems)
+            system = 2;
+        else
+            system = 1;
+        end
+        set(dunit,'value',system,'string',systems([1 end]))
+    else
+        % Simple absolute temperature, or relative temperature mixed with
+        % other dimensions, or no temperature involved at all.
+        if length(systems)==2
+            systems = cat(2,{'As in file'},qp_unitconversion('systems'),{'Other','Hide'});
+            if system==2
+                system = length(systems);
+            end
+            set(dunit,'string',systems,'value',system)
+        end
+    end
     if system==1
         % As in file
         qp_settings('UnitSystem',systems{system})
@@ -1240,7 +1295,10 @@ end
 if ismember(geometry,{'PNT'}) && ~multiple(T_) && nval>=0
     Ops.linestyle='none';
     Ops.linewidth=0.5;
-    if ~isfield(Ops,'presentationtype') || ~strcmp(Ops.presentationtype,'values')
+    if ~isfield(Ops,'presentationtype')
+        usesmarker = 1;
+        forcemarker = 1;
+    elseif ~ask_for_textprops
         usesmarker = 1;
         forcemarker = 1;
     end
@@ -1502,11 +1560,17 @@ if nval>=0
         if ~isfield(Ops,'presentationtype') || ~isequal(Ops.presentationtype,'continuous shades')
             ExpTypes{end+1}='ARCview shape';
         end
+        if strcmp(geometry,'sQUAD') && nval==0
+            ExpTypes{end+1}='landboundary file';
+        end
     elseif strcmp(geometry,'POLYL') || strcmp(geometry,'POLYG')
         ExpTypes{end+1}='ARCview shape';
         ExpTypes{end+1}='landboundary file';
     end
-    maxt = 100; % TODO maxt=get(findobj(mfig,'tag','max_t'),'userdata');
+    maxt = get(findobj(UD.MainWin.Fig,'tag','max_t'),'userdata');
+    if ~isnumeric(maxt) || ~isequal(size(maxt),[1 1]) || maxt<=0
+        maxt = inf;
+    end
     if ((length(selected{T_})<11 && ~isequal(selected{T_},0)) || (maxt<11 && isequal(selected{T_},0))) && nval>0 && (multiple(M_) || multiple(N_) || multiple(K_))
         ExpTypes{end+1}='Tekal file';
         ExpTypes{end+1}='Tecplot file';

@@ -147,7 +147,7 @@
          write(lun2,'(2x,a  )') ' Obsolete input file '
          write(lun2,'(2x,a  )') ' Version found             : ',filvers(1:19)
          write(lun2,'(2x,a  )') ' Lowest version requested  : ','V3.66.00'
-         stop
+         call stop_exit(1)
       endif
 
 !       read titles
@@ -1797,7 +1797,7 @@
       call alloc ( "imap  ", imap  , npmax       , 3      )
       call alloc ( "kpart ", kpart , npmax        )
       call alloc ( "mpart0", mpart0, npmax        )
-      call alloc ( "vrtdsp", vrtdsp, 7           , npmax  )
+!      call alloc ( "vrtdsp", vrtdsp, 7           , npmax  )  ! only used for debugging
       call alloc ( "npart0", npart0, npmax        )
       call alloc ( "npart ", npart , npmax        )
       call alloc ( "rbuff ", rbuff , 3           , npmax  )

@@ -187,7 +187,11 @@ elseif iscell(s1)  % & s2 is also cell! if cell -> check per element
     else
         ivec = cell(1,ndims(s1));
     end
+    CellEqual = cellfun(@(x,y)isequal(x,y),s1,s2);
     for i=1:numel(s1)  % s2 has same size!
+        if CellEqual(i)
+            continue
+        end
         if length(ivec)>1
             [ivec{:}] = ind2sub(size(s1),i);
             istr = sprintf('%i,',ivec{:});
@@ -195,12 +199,14 @@ elseif iscell(s1)  % & s2 is also cell! if cell -> check per element
         else
             str = sprintf('%s{%i}',substr,i);
         end
-        Diff=detailedcheck(s1{i},s2{i},fid,br,str);
-        if Diff
-            if ~DiffFound
-                DiffFound=Diff;
-            else
-                DiffFound=min(Diff,DiffFound);
+        if ~isequal(s1{i},s2{i})
+            Diff=detailedcheck(s1{i},s2{i},fid,br,str);
+            if Diff
+                if ~DiffFound
+                    DiffFound=Diff;
+                else
+                    DiffFound=min(Diff,DiffFound);
+                end
             end
         end
     end
@@ -215,13 +221,24 @@ elseif isstruct(s1) || isobject(s1)
     fn1=fieldnames(s1);
     fn2=fieldnames(s2);
     nf=length(fn1);
-    if ~isequal(fn1,fn2)  % fieldnames the same?
+    [sfn1,i1] = sort(fn1);
+    [sfn2,i2] = sort(fn2);
+    if ~isequal(fn1,fn2) && isequal(sfn1,sfn2)
+        s1=struct2cell(s1);
+        s2=struct2cell(s2);
+        s1 = s1(i1,:);
+        s2 = s2(i2,:);
+        fields = sfn1;
+        printdiff(fid,br,'fieldnames',fn1,fn2,substr);
+    elseif ~isequal(fn1,fn2)  % fieldnames the same?
         DiffFound=1;
         printdiff(fid,br,'fieldnames',fn1,fn2,substr);
         return
+    else
+        s1=struct2cell(s1);
+        s2=struct2cell(s2);
+        fields = fn1;
     end
-    s1=struct2cell(s1);
-    s2=struct2cell(s2);
     j=0;
     for i=1:numel(s1)  % s2 has same size! (array size is the same and fields are the same)
         j=j+1;
@@ -229,16 +246,18 @@ elseif isstruct(s1) || isobject(s1)
             j=1;
         end
         if numel(s1)~=nf
-            Nsubstr=sprintf('%s(%i).%s',substr,(i-j)/nf+1,fn1{j});
+            Nsubstr=sprintf('%s(%i).%s',substr,(i-j)/nf+1,fields{j});
         else
-            Nsubstr=sprintf('%s.%s',substr,fn1{j});
+            Nsubstr=sprintf('%s.%s',substr,fields{j});
         end
-        Diff=detailedcheck(s1{i},s2{i},fid,br,Nsubstr);
-        if Diff
-            if ~DiffFound
-                DiffFound=Diff;
-            else
-                DiffFound=min(Diff,DiffFound);
+        if ~isequal(s1{i},s2{i})
+            Diff=detailedcheck(s1{i},s2{i},fid,br,Nsubstr);
+            if Diff
+                if ~DiffFound
+                    DiffFound=Diff;
+                else
+                    DiffFound=min(Diff,DiffFound);
+                end
             end
         end
     end

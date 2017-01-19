@@ -199,7 +199,16 @@ if isfield(Ops,'units')
             Units=Ops.units;
         end            
     elseif ~isempty(Ops.units) && ~isempty(Units)
-        dataX=qp_unitconversion(Units,Ops.units,data);
+        if isfield(data,'TemperatureType')
+            if data.TemperatureType
+                TempType = 'absolute';
+            else
+                TempType = 'relative';
+            end
+        else
+            TempType = 'unspecified';
+        end
+        dataX=qp_unitconversion(Units,Ops.units,data,TempType);
         if ~ischar(dataX)
             data=dataX;
             dataX=[];
@@ -260,7 +269,9 @@ if NVal==0.6 || NVal==0.9
     % 0.9 = coloured thindam
     NVal=0.5;
 elseif  NVal==1.9 
-    if isequal(Ops.presentationtype,'edge')
+    if isequal(Ops.presentationtype,'edge') || ...
+             isequal(Ops.presentationtype,'edge m') || ...
+              isequal(Ops.presentationtype,'edge n')
         % 1.9 = coloured thindam or vector perpendicular to thindam
         NVal=0.5;
     else
@@ -549,6 +560,16 @@ end
 stn='';
 if any(cellfun('isclass',Selected,'cell'))
     stn='';
+elseif isfield(data,'LocationName') && length(data)==1
+    if ischar(data.LocationName)
+        stn = data.LocationName;
+    elseif iscell(data.LocationName)
+        if length(data.LocationName)==1
+            stn = data.LocationName{1};
+        else
+            stn = '<multiple>';
+        end
+    end
 elseif length(Selected{ST_})>1 || isequal(Selected{ST_},0)
     stn='<multiple>';
 elseif ~isempty(stats)
@@ -854,6 +875,7 @@ else
         Param.compat7={'v6'};
     end
 
+    hNew = hOld;
     for d = length(data):-1:1
         do=min(length(hOld),d);
         plotargs={hOld{do},Parent,Param,data(d),Ops,Props};
@@ -883,6 +905,7 @@ else
                 [hNew{d},Thresholds,Param,Parent]=qp_plot_default(plotargs{:});
                 PlotState.Parent=Parent;
         end
+        hNew{d} = hNew{d}(:);
     end
     for d = length(data)+1:length(hNew)
         delete(hNew{d});
@@ -1059,7 +1082,7 @@ IUD.PlotState.FI=FileInfo;
 IUD.PlotState.Handles=hNew;
 IUD.XInfo=[];
 if isfield(data,'XInfo')
-    IUD.XInfo=data.XInfo;
+    IUD.XInfo=data(1).XInfo;
 end
 if ~isempty(Thresholds)
     IUD.XInfo.Thresholds=Thresholds;
@@ -1101,7 +1124,7 @@ for i=1:length(hNewVec)
         cp = get(a,'cameraposition');
         if cp(3)<Level
             cp(3) = 1.1*Level;
-            set(a,'cameraposition',cp)
+            set(a,'cameraposition',cp,'cameraupvector',get(a,'cameraupvector'))
         end
     end
     %set(a,'zlim',limits(a,'zlim')+[-1 +1])

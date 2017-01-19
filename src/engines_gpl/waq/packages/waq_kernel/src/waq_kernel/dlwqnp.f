@@ -165,8 +165,9 @@ C
 
       include 'state_data.inc'
 
-      if ( action == action_finalisation ) then
+      if ( action == ACTION_FINALISATION ) then
           include 'dlwqdata_restore.inc'
+          if ( timon ) call timstrt ( "dlwqnp", ithandl )
           goto 20
       endif
 
@@ -214,7 +215,7 @@ C     Note: the handle to the timer (ithandl) needs to be
 C     properly initialised and restored
 C
       IF ( ACTION == ACTION_INITIALISATION ) THEN
-          if ( timon ) call timstrt ( "dlwqnd", ithandl )
+          if ( timon ) call timstrt ( "dlwqnp", ithandl )
           INCLUDE 'dlwqdata_save.inc'
           if ( timon ) call timstop ( ithandl )
           RETURN
@@ -339,6 +340,7 @@ C
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , IDT     , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC),
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IMASS), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,
@@ -533,6 +535,7 @@ C
 
  9999 if ( timon ) call timstop ( ithandl )
 
+      dlwqd%iaflag = iaflag
       dlwqd%itime = itime
 
       RETURN

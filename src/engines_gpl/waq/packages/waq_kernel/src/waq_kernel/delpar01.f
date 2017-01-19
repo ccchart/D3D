@@ -306,15 +306,16 @@
 
 !     write particle tracks
 
-      if (ltrack) then            ! get the absolute x,y,z's of the particles
+      if (ltrack.and.itime.eq.(itstrtp+idelt*itrakc-idelt)) then
+         ! get the absolute x,y,z's of the particles
          call part11 ( lgrid    , xb       , yb       , nmaxp    , npart    ,
      &                 mpart    , xpart    , ypart    , xa       , ya       ,
      &                 nopart   , npwndw   , lgrid2   , kpart    , zpart    ,
      &                 za       , locdep   , dpsp     , nolayp   , mmaxp    ,
      &                 tcktot   )
-                                  ! write actual particle tracks (file #16)
-         call wrttrk ( lunut    , fout     , fnamep(16),itrakc   , nopart   ,
-     &                 xa       , ya       , za       , xyztrk   , npmax    )
+         ! write actual particle tracks (file #16)
+         call wrttrk ( lunut   , fout     , fnamep(16), itrakc   , nopart  ,
+     &                 npmax    , xa       , ya       , za       , xyztrk   )
          itrakc = itrakc + itraki
       endif
 

@@ -1,5 +1,5 @@
 subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , &
-                      & nmmax     ,kcs       ,sedim     ,gdp)
+                      & nmmax     ,sedim     ,gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -98,7 +98,6 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
     integer                                       , intent(in)  :: nmax   !  Description and declaration in esm_alloc_int.f90
     integer                                       , intent(in)  :: nmaxus !  Description and declaration in esm_alloc_int.f90
     integer                                       , intent(in)  :: nmmax  !  Description and declaration in esm_alloc_int.f90
-    integer   , dimension(gdp%d%nmlb:gdp%d%nmub)  , intent(in)  :: kcs    !  Description and declaration in esm_alloc_int.f90 
     logical                                       , intent(out) :: error  !  Flag=TRUE if an error is encountered
     logical                                       , intent(in)  :: sedim  !  Flag=TRUE if sediment process is active
 !
@@ -650,8 +649,8 @@ subroutine rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , 
     !---------------------------
     ! Reading initial dune height/dune length
     !
-    call restart_bdf_from_trim(lundia   ,nmaxus   ,mmax     ,duneheight, &
-                             & hdread   ,dunelength,ldread  ,gdp      )
+    call restart_trim_bdf(lundia   ,nmaxus   ,mmax     ,duneheight, &
+                        & hdread   ,dunelength,ldread  ,gdp      )
     !
     if (.not.hdread) then
        !

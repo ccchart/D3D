@@ -592,7 +592,9 @@ contains
             elseif ( kp .eq. 2 ) then
                dred = pblay
             else
-               stop ' The layer-number is too large for modtyp=2'
+               write (*,*) ' The layer-number is too large for modtyp=2'
+               write( lun2,*) ' The layer-number is too large for modtyp=2'
+               call stop_exit(1)
             endif
          endif
 
@@ -919,13 +921,15 @@ contains
          dspmax = max(disp,dspmax)
          dsprms = dsprms + disp*disp
          nrms   = nrms   + 1.0
-         vrtdsp(1,ipart) = disp
-         vrtdsp(2,ipart) = dvz  * depthl
-         vrtdsp(3,ipart) = dvzs * depthl
-         vrtdsp(4,ipart) = dvzt * depthl
-         vrtdsp(5,ipart) = depthl
-         vrtdsp(6,ipart) = depth1
-         vrtdsp(7,ipart) = n0
+
+!         debugging code
+!         vrtdsp(1,ipart) = disp
+!         vrtdsp(2,ipart) = dvz  * depthl
+!         vrtdsp(3,ipart) = dvzs * depthl
+!         vrtdsp(4,ipart) = dvzt * depthl
+!         vrtdsp(5,ipart) = depthl
+!         vrtdsp(6,ipart) = depth1
+!         vrtdsp(7,ipart) = n0
 !**
 !**       this is innerloop for particles crossing gridcell borders
 !**

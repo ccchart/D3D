@@ -38,6 +38,7 @@ function install_all () {
     echo "installing all open source projects . . ."
 
     d_hydro
+    dimr
     flow2d3d
     # flow2d3d_openda is currently not added to the Linux installation
     #flow2d3d_openda
@@ -66,6 +67,7 @@ function delft3d_flow () {
     echo "installing delft3d-flow . . ."
 
     d_hydro
+    dimr
     flow2d3d
     # flow2d3d_openda is currently not added to the Linux installation
     #flow2d3d_openda
@@ -97,6 +99,33 @@ function d_hydro () {
     echo "Gathering libraries for d_hydro..."
     cp -u `$gatherScript $prefix/bin/d_hydro.exe | eval grep -v $gatherExcludeFilter` $dest_bin
     cp -u `$gatherScript $prefix/bin/d_hydro.exe | eval grep $gatherIncludeFilter` $dest_bin
+
+    # chrpath -r \$ORIGIN $dest_bin/d_hydro.exe
+
+    return
+}
+
+
+
+# =======================
+# === INSTALL_DIMR ======
+# =======================
+function dimr () {
+    echo "installing dimr . . ."
+
+    dest_bin="$dest_main/lnx64/dimr/bin"
+    dest_menu="$dest_main/lnx64/menu/bin"
+
+    mkdir -p $dest_bin
+    mkdir -p $dest_menu
+
+    copyFile "$prefix/engines_gpl/dimr/packages/dimr/src/.libs/dimr.exe"    $dest_bin
+    copyFile "$prefix/lib/libdimr.so"                                       $dest_bin
+    copyFile "$srcdir/engines_gpl/d_hydro/scripts/create_config_xml.tcl"    $dest_menu
+
+    echo "Gathering libraries for dimr..."
+    cp -u `$gatherScript $prefix/engines_gpl/dimr/packages/dimr/src/.libs/dimr.exe $prefix/lib/libdimr.so | eval grep -v $gatherExcludeFilter` $dest_bin
+    cp -u `$gatherScript $prefix/engines_gpl/dimr/packages/dimr/src/.libs/dimr.exe $prefix/lib/libdimr.so | eval grep $gatherIncludeFilter` $dest_bin
 
     # chrpath -r \$ORIGIN $dest_bin/d_hydro.exe
 
@@ -201,10 +230,13 @@ function waq () {
     mkdir -p $dest_bin
     mkdir -p $dest_default
 
-    copyFile "$prefix/bin/delwaq1"                    $dest_bin
-    copyFile "$prefix/bin/delwaq2"                    $dest_bin
-    copyFile "$prefix/lib/libwaq_plugin_wasteload.so" $dest_bin
-    copyFile "$srcdir/engines_gpl/waq/default/*"          $dest_default
+    copyFile "$prefix/bin/delwaq1"                           $dest_bin
+    copyFile "$prefix/bin/delwaq2"                           $dest_bin
+    copyFile "$prefix/lib/libwaq_plugin_wasteload.so"        $dest_bin
+    copyFile "$srcdir/engines_gpl/waq/default/bloom.spe"     $dest_default
+    copyFile "$srcdir/engines_gpl/waq/default/bloominp.d09"  $dest_default
+    copyFile "$srcdir/engines_gpl/waq/default/proc_def.dat"  $dest_default
+    copyFile "$srcdir/engines_gpl/waq/default/proc_def.def"  $dest_default
 
     echo "Gathering libraries for delwaq..."
     cp -u `$gatherScript $prefix/bin/delwaq1 $prefix/bin/delwaq2 | eval grep -v $gatherExcludeFilter` $dest_bin

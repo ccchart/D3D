@@ -91,7 +91,15 @@ else
     Info=[];
     if ~isempty(X) && isstruct(X{1})
         tp = qp_gettype(X{1});
-        if ~strcmp(tp,'unknown file type')
+        if strcmp(tp,'unknown file type')
+            % the second argument should then be of type DataFld
+            if  ~isfield(X,'Name') || ~isfield(X,'Units') || ~isfield(X,'DimFlag') || ~isfield(X,'NVal')
+                % This isn't a DataFld structure, so there is something
+                % wrong. Most likely the filetype cannot be identified
+                % because the structure didn't come from qpfopen.
+                error('Unable to identify filetype associated with the first argument.')
+            end
+        else
             Info=X{1};
             X=X(2:end);
         end
@@ -104,7 +112,7 @@ else
         %
         Info=vs_use('lastread');
         if isempty(Info)
-            error('No data file specified or data file not recognized.');
+            error('No data file specified or data file not recognized.')
         end
     end
 end
@@ -483,8 +491,7 @@ catch Ex
     if ~isempty(calltype)
         calltype = ['/' calltype];
     end
-    stacklist = stack2str(Ex.stack,'d3d_qp_core');
-    ui_message('error',{sprintf('Caught in qp_getdata%s:',calltype),Ex.message,stacklist{:}})
+    qp_error(sprintf('Caught in qp_getdata%s:',calltype),Ex)
 end
 
 
@@ -571,5 +578,16 @@ if isstruct(arg2)
             Units='';
         end
         [arg2.Units]=deal(Units);
+        try
+            [conversion,SIunit,dimensions]=qp_unitconversion(Units,'relative');
+            if dimensions.temperature~=0
+                if isfield(Props,'TemperatureType')
+                    TempType = Props.TemperatureType;
+                else
+                    TempType = 'unspecified';
+                end
+                [arg2.TemperatureType] = deal(TempType);
+            end
+        end
     end
 end

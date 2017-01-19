@@ -14,17 +14,28 @@
       public :: mf_close                ! close a file handle 
 !     public :: mf_inquire              ! mimics fortran's inquire
       public :: mf_eof                  ! end-of_file reached ??
- 
+      public :: mf_increase_max_open    ! set the maximum number of open files 
+      
       contains 
+
+        function mf_increase_max_open(max_open_files) result (ret_val)
+        implicit none
+        integer(kind=4)                 :: ret_val
+        integer(kind=4), intent(in)     :: max_open_files
+        integer(kind=4)             :: CUTIL_MF_SETMAXSTDIO
+        ret_val = CUTIL_MF_SETMAXSTDIO(max_open_files)
+        end function mf_increase_max_open
 
         function mf_open(fname) result (fptr)
         implicit none 
         integer(kind=8)             ::      fptr 
         character(len=*),intent(in) ::      fname 
+        integer(kind=4)             :: ret_val
         integer(kind=8)             :: CUTIL_MF_OPEN
         logical :: exist
 
         fptr=0
+
         inquire(file=trim(fname),exist=exist)
 
         if (exist) then 

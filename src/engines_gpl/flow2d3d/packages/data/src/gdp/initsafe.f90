@@ -117,10 +117,10 @@ subroutine initsafe(gdp)
        gdp%uniqueid(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
     enddo
     ! 
-    ! Since GDP allocation has not yet succeeded, I can't call prterr(...,gdp) and d3stop(...)
+    ! Since GDP allocation has not yet succeeded, calling prterr(...,gdp) and d3stop(...) does not work
     !
     if (istat /= 0) then
        write(*,*) 'ERROR during initialization of GDP structure'
-       stop 1
+       call throwexception()
     endif
 end subroutine initsafe

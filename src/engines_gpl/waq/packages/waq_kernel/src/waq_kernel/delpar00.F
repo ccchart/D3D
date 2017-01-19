@@ -27,6 +27,7 @@
       use partmem      !   for PARTicle tracking
       use filtyp_mod   !   for PARTicle tracking
       use alloc_mod    !   for PARTicle tracking
+      use writrk_mod   !   for PARTicle tracking
       use timers
 
       implicit none
@@ -52,6 +53,7 @@
       integer(ip) i, i2, itime, indx, ierr
       integer     lunut         ! report file
       real   (rp) depmin
+      real   (sp) dtstep
       logical update
 
       integer(4) ithandl /0/
@@ -140,21 +142,15 @@
          call part06 ( lunut     , lgrid     , lgrid2    , nmaxp    , mmaxp    ,
      &                 xb        , yb        , nodye     , nocont   , xwaste   ,
      &                 ywaste    , nwaste    , mwaste    )
+
+         ltrack = notrak  /=  0
+
          call getdps ( lunut     , lunitp(17), fnamep(17), nmaxp    , mmaxp    ,
      &                 noseglp   , dpsp      , cellpntp  , ltrack   )
          call part03 ( lgrid     , volumep   , flow      , dx       , dy       ,
      &                 nmaxp     , mmaxp     , mnmaxk    , lgrid2   , velo     ,
      &                 layt      , area      , depth     , dpsp     , locdep   ,
      &                 zlevel    , tcktot    , ltrack)
-         if (ltrack) then
-            call part11 ( lgrid    , xb       , yb        , nmaxp   , npart    ,
-     &                    mpart    , xpart    , ypart     , xa      , ya       ,
-     &                    nopart   , npwndw   , lgrid2    , kpart   , zpart    ,
-     &                    za       , locdep   , dpsp      , layt    , mmaxp    ,
-     &                    tcktot   )
-            call wrttrk ( lunut    , fout     , fnamep(16), itrakc  , nopart   ,
-     &                    xa       , ya       , za        , xyztrk  , npmax    )
-         endif
          oil    = modtyp == 4
          if ( ini_opt .eq. 1 .and. oil ) then
             call inipart( lgrid    , lgrid2   , nmaxp     , mmaxp   , xb       ,
@@ -168,7 +164,6 @@
          npwndn   = 0
          acomp  = .false.
          accrjv = 1.0e-9 !_sp
-         ltrack = notrak  /=  0
          oil2dh = oil .and. layt == 1
          oil3d  = oil .and. layt  > 1
          if (oil2dh) hmin = const(noconsp ) ! 2dh: last par        =hmin
@@ -187,8 +182,23 @@
          ptlay  = 1.0 - pblay
          nstep = 1 + (itstopp - itstrtp)/idelt
          itrakc = 0
-         itraki = 1
-         if ( ltrack) itrakc = itrakc + itraki
+         itraki = notrak  ! timestep for writing trackinformation to the track file, if notrack =0 then no track file
+         if (ltrack) then
+!     write initial information to track file
+            dtstep = float(idelt)
+            nstept = 1 + ((itstopp - itstrtp)/idelt)/itraki
+            call writrk ( lunut    , fout     , fnamep(16), nopart   , title(4) ,
+     &                    dtstep   , nstept   , ibuff     , rbuff    , cbuff    ,
+     &                    track    , npmax    )
+            call part11 ( lgrid    , xb       , yb        , nmaxp   , npart    ,
+     &                    mpart    , xpart    , ypart     , xa      , ya       ,
+     &                    nopart   , npwndw   , lgrid2    , kpart   , zpart    ,
+     &                    za       , locdep   , dpsp      , layt    , mmaxp    ,
+     &                    tcktot   )
+            call wrttrk ( lunut    , fout     , fnamep(16), itrakc  , nopart   ,
+     &                    npmax    , xa       , ya        , za      , xyztrk   )
+            itrakc = itrakc + itraki
+         endif
          call exit_alloc ( i2 )
       endif
 

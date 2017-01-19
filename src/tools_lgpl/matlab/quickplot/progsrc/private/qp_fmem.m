@@ -126,20 +126,28 @@ switch cmd
         try_next='nefis';
         [pn,fn,en]=fileparts(FileName);
         
+        fn_ = lower(fn);
+        fen_ = lower([fn en]);
         if DoDS
             try_next='NetCDF';
-        elseif strmatch('sds-',lower(fn))
+        elseif strncmp('sds-',fn_,4)
             try_next='waquasds';
-        elseif strmatch('morf',lower(fn))
+        elseif strncmp('morf',fn_,4)
             try_next='morf';
-        elseif strmatch('bagdpt',lower(fn))
+        elseif strncmp('bagdpt',fn_,6)
             try_next='bagdpt';
-        elseif strcmp('gcmplt',lower(fn)) || strcmp('gcmtsr',lower(fn))
+        elseif strncmp('fourier',fn_,7)
+            try_next='tekal';
+        elseif strcmp('gcmplt',fn_) || strcmp('gcmtsr',fn_)
             try_next='ecomsed-binary';
-        elseif strcmp('network.ntw',lower([fn en])) || strcmp('deptop.1',lower([fn en]))
+        elseif strcmp('network.ntw',fen_) || strcmp('deptop.1',fen_)
             try_next='sobek1d';
         else
             switch lower(en)
+                case {'.mdf',',mdw','.md1d','.mdu'}
+                    try_next='md*-file';
+                case {'.bln'}
+                    try_next='surfer';
                 case {'.grd','.rgf'}
                     try_next='wlgrid';
                 case {'.n','.e','.node','.ele'}
@@ -212,6 +220,12 @@ switch cmd
                     try_next='NOOS time series';
                 case {'.wml'}
                     try_next='WaterML2';
+                otherwise
+                    if strncmp('hot',fn_,3)
+                        try_next='SWAN spectral';
+                    else
+                        try_next='nefis';
+                    end
             end
         end
         FileName = absfullfile(FileName);
@@ -233,12 +247,42 @@ switch cmd
         %try opening the file ...
         userasked=0;
         usertrytp='';
+        if DoDS
+            ASCII = false;
+        else
+            ASCII = verifyascii(FileName);
+        end
         while isempty(FI)
             %ui_message('','Trying %s ...\n',trytp);
             %pause
             try
                 switch try_next
+                    case 'md*-file'
+                        asciicheck(ASCII,try_next)
+                        FI=mdf('read',FileName);
+                        Tp=FI.FileType;
+                        switch Tp
+                            case 'Delft3D D-Flow1D'
+                                [p,f,e]=fileparts(FI.md1d.FileName);
+                                % by default the output is located in a subdirectory "output"
+                                % relative to the folder of the input files
+                                po = absfullfile(p,'output');
+                                d = dir(fullfile(po,'*.his'));
+                                if isempty(d)
+                                    % if the files are not there assume that they have been moved
+                                    % to another folder by DeltaShell. If the md1d-file is located
+                                    % in ...\FileWriters then the associated model output files are
+                                    % located in ...\work, so relative to the md1d file in: ..\work.
+                                    po = absfullfile(p,'..','work');
+                                    d = dir(fullfile(po,'*.his'));
+                                end
+                                for i = 1:length(d)
+                                    [fp,f,e] = fileparts(d(i).name);
+                                    FI.(f) = delwaq('open',fullfile(po,d(i).name));
+                                end
+                        end
                     case 'qpsession'
+                        asciicheck(ASCII,try_next)
                         PAR.X=[];
                         PAR = rmfield(PAR,'X');
                         qp_session('rebuild',FileName,PAR);
@@ -320,6 +364,7 @@ switch cmd
                             FI=[];
                         end
                     case 'WaterML2'
+                        asciicheck(ASCII,try_next)
                         FI=waterml2('open',FileName);
                         Tp=FI.FileType;
                     case 'ecomsed-binary'
@@ -518,6 +563,7 @@ switch cmd
                             end
                         end
                     case 'arcgrid'
+                        asciicheck(ASCII,try_next)
                         FI=arcgrid('open',FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check')
@@ -533,6 +579,7 @@ switch cmd
                         FI=surfer('open',FileName);
                         Tp=FI.FileType;
                     case 'asciiwind'
+                        asciicheck(ASCII,try_next)
                         FI=asciiwind('open',FileName);
                         if ~isfield(FI,'Check')
                             FI=[];
@@ -652,18 +699,21 @@ switch cmd
                             Tp=FI.FileType;
                         end
                     case 'adcircmesh'
+                        asciicheck(ASCII,try_next)
                         FI=adcircmesh('open',FileName);
                         if ~isempty(FI)
                             FI.Options=0;
                             Tp=FI.FileType;
                         end
                     case 'mikemesh'
+                        asciicheck(ASCII,try_next)
                         FI=mikemesh('open',FileName);
                         if ~isempty(FI)
                             FI.Options=0;
                             Tp=FI.FileType;
                         end
                     case 'SHYFEM mesh'
+                        asciicheck(ASCII,try_next)
                         FI=shyfemmesh('open',FileName);
                         if ~isempty(FI)
                             FI.Options=0;
@@ -683,6 +733,7 @@ switch cmd
                             Tp=FI.FileType;
                         end
                     case 'tekal'
+                        asciicheck(ASCII,try_next)
                         FI=tekal('open',FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check')
@@ -696,13 +747,16 @@ switch cmd
                                 [pn,fn,ex]=fileparts(FI.FileName);
                                 FI.can_be_ldb=1;
                                 FI.combinelines=0;
+                                ncol = [2 3];
                                 for i=1:length(FI.Field)
                                     if length(FI.Field(i).Size)~=2
                                         FI.can_be_ldb=0;
-                                    elseif FI.Field(i).Size(2)~=2
+                                    elseif ~ismember(FI.Field(i).Size(2),ncol)
                                         FI.can_be_ldb=0;
                                     elseif ~strcmp(FI.Field(i).DataTp,'numeric')
                                         FI.can_be_ldb=0;
+                                    else
+                                        ncol = FI.Field(i).Size(2);
                                     end
                                     if ~FI.can_be_ldb
                                         break
@@ -710,7 +764,7 @@ switch cmd
                                 end
                                 can_be_kub=0;
                                 switch lower(ex)
-                                    case {'.ldb','.pol'}
+                                    case {'.ldb','.pol','.pli','.pliz'}
                                         if FI.can_be_ldb
                                             FI.combinelines=1;
                                         end
@@ -793,6 +847,7 @@ switch cmd
                             Tp=FI.FileType;
                         end
                     case 'SWAN spectral'
+                        asciicheck(ASCII,try_next)
                         FI=readswan(FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check')
@@ -804,11 +859,13 @@ switch cmd
                             end
                         end
                     case 'DelwaqTimFile'
+                        asciicheck(ASCII,try_next)
                         FI=delwaqtimfile(FileName);
                         if ~isempty(FI)
                             Tp=FI.FileType;
                         end
                     case 'morf'
+                        asciicheck(ASCII,try_next)
                         FI=morf('read',FileName);
                         if ~isempty(FI)
                             Tp='MorfTree';
@@ -819,6 +876,7 @@ switch cmd
                             Tp='AukePC';
                         end
                     case 'bct'
+                        asciicheck(ASCII,try_next)
                         FI=bct_io('read',FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check') || strcmp(FI.Check,'NotOK')
@@ -946,6 +1004,7 @@ switch cmd
                             end
                         end
                     case 'samples'
+                        asciicheck(ASCII,try_next)
                         XYZ=samples('read',FileName,'struct');
                         if isempty(XYZ)
                             FI=[];
@@ -956,6 +1015,7 @@ switch cmd
                             FI=[];
                         end
                     case 'BNA File'
+                        asciicheck(ASCII,try_next)
                         FI=bna('open',FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check')
@@ -967,6 +1027,7 @@ switch cmd
                             end
                         end
                     case 'ArcInfoUngenerate'
+                        asciicheck(ASCII,try_next)
                         FI=ai_ungen('open',FileName);
                         if ~isempty(FI)
                             if ~isfield(FI,'Check')
@@ -989,6 +1050,7 @@ switch cmd
                             end
                         end
                     case 'NOOS time series'
+                        asciicheck(ASCII,try_next)
                         FI=noosfile('open',FileName);
                         Tp=try_next;
                     case 'shipma'
@@ -1065,3 +1127,26 @@ if isempty(FI)
     lasttp=[];
 end
 qp_settings('LastFileType',lasttp)
+
+
+function ASCII = verifyascii(arg)
+if ischar(arg)
+    fid = fopen(arg,'r');
+    pos = -1;
+else
+    fid = arg;
+    pos = ftell(fid);
+end
+S = fread(fid,[1 100],'char');
+ASCII = ~any(S~=9 & S~=10 & S~=13 & S<32); % TAB,LF,CR allowed
+if pos>=0
+    fseek(fid,pos,-1);
+else
+    fclose(fid);
+end
+
+
+function asciicheck(ASCII,filetype)
+if ~ASCII
+    error('%s should be an ASCII file. Reading unexpected characters.',filetype)
+end

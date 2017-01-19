@@ -207,6 +207,7 @@
          ! for openda-usage, where multiple instances are launched,
          ! the time module does not work correctly.
          if ( dlwqd%set_timer ) timon = .true.
+         timon = .true.
          if (timon) call timstrt( "delwaq2", ithndl )
 !
 !        boot the system; read dimensions of sysn from delwaq03.wrk-file
@@ -320,9 +321,11 @@
                ENDIF
             ENDIF
 
-            WRITE(*,*)
-            WRITE(*,*) ' runid : ',TRIM(RUNID)
-            WRITE(*,*)
+            IF (ACTION .EQ. ACTION_FULLCOMPUTATION) THEN
+               WRITE(*,*)
+               WRITE(*,'(A9,A)') '  runid: ',TRIM(RUNID)
+               WRITE(*,*)
+            ENDIF
 
             if ( nolic .and. noseg > 150 ) then
                write(*,'(//a)') 'Error: Authorisation problem'

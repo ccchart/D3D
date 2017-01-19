@@ -205,7 +205,8 @@ subroutine z_drychk(idry      ,j         ,nmmaxj    ,nmmax     ,kmax      , &
     !
     ! Exchange mask array kfs with neighbours for parallel runs
     !
-    call dfexchg ( kfs, 1,    1, dfint, nm_pos, gdp )
+    call dfexchg ( kfs   , 1,    1, dfint, nm_pos, gdp )
+    !call dfexchg ( kfsmax, 1,    1, dfint, nm_pos, gdp )
     !
     ! issue warning if maximum water level is above zk(kmax) (ZTOP)
     !

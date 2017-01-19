@@ -164,6 +164,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     real(fp)                      , pointer :: gammax
     real(fp)                      , pointer :: rmincf
     real(fp)                      , pointer :: thetqh
+    real(fp)                      , pointer :: thetqt
     real(fp)                      , pointer :: nudvic
     integer                       , pointer :: ibaroc
     integer                       , pointer :: iter1
@@ -423,6 +424,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     gammax              => gdp%gdnumeco%gammax
     rmincf              => gdp%gdnumeco%rmincf
     thetqh              => gdp%gdnumeco%thetqh
+    thetqt              => gdp%gdnumeco%thetqt
     ibaroc              => gdp%gdnumeco%ibaroc
     iter1               => gdp%gdnumeco%iter1
     bndneu              => gdp%gdnumeco%bndneu
@@ -660,8 +662,9 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
        call rdbcg(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                 & itlfsm    ,tlfsmo    ,dt        ,tunit     ,nto       , &
                 & lstsc     ,bndneu    ,cstbnd    ,ch(nambnd),ch(typbnd), &
-                & r(rettim) ,ntoq      ,thetqh    ,restid    ,filic     , &
-                & paver     ,pcorr     ,tstart    ,tstop     ,gdp       )
+                & r(rettim) ,ntoq      ,thetqh    ,thetqt    ,restid    , &
+                & filic     ,paver     ,pcorr     ,tstart    ,tstop     , &
+                & gdp       )
        if (error) goto 9999
     endif
     !
@@ -813,7 +816,8 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
               & nprttm    ,itfinish  ,iphisf    ,iphisi    ,iphisl    , &
               & itmapf    ,itmapi    ,itmapl    ,ithisf    ,ithisi    , &
               & ithisl    ,itcomf    ,itcomi    ,itcoml    ,itrsti    , &
-              & itnflf    ,itnfli    ,itnfll    ,itnflrf   ,itnflri   ,gdp       )
+              & itnflf    ,itnfli    ,itnfll    ,itnflrf   ,itnflri   , &
+              & lstsci    ,gdp       )
     if (error) goto 9999
     !
     ! Read waq parameters, such as output flag for writing binary waq files
@@ -831,7 +835,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     ! Read bedform characteristics
     !
     call rdbedformpar(lundia    ,error     ,nmax      ,mmax      ,nmaxus    , &
-                    & nmmax     ,kcs       ,sedim     ,gdp       )
+                    & nmmax     ,sedim     ,gdp       )
     if (error) goto 9999
     !
     ! Sediment input if flag SEDIM = .true.

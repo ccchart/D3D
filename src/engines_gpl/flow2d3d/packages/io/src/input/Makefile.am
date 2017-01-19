@@ -34,7 +34,9 @@ FMODULES += \
 #-------------------------------------------------------------------------------
 #Sources
 libIOInput_la_SOURCES = \
-         restart_lyrs.f90 \
+         rdarray.f90 \
+         restart_trim_lyrs.f90 \
+         split_stations.f90 \
          barfil.f90 \
          bndfil.f90 \
          bubfil.f90 \
@@ -61,7 +63,7 @@ libIOInput_la_SOURCES = \
          edyfil.f90 \
          expblk.f90 \
          fbcorr.f90 \
-         flow_nefis_restart.f90 \
+         restart_trim_flow.f90 \
          flsfil.f90 \
          grdfil.f90 \
          hybfil.f90 \
@@ -112,13 +114,13 @@ libIOInput_la_SOURCES = \
          rdusrp.f90 \
          rdwaqpar.f90 \
          rdxyzo.f90 \
-         roller_nefis_restart.f90 \
+         restart_trim_roller.f90 \
          reacmp.f90 \
          readmd.f90 \
          read_triana.f90 \
          reafou.f90 \
-         restart_bdf_from_trim.f90 \
-         restart_bodsed.f90 \
+         restart_trim_bdf.f90 \
+         restart_trim_fluff.f90 \
          rstfil.f90 \
          srcfil.f90 \
          stafil.f90 \

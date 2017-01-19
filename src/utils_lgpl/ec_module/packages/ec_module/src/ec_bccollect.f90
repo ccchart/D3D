@@ -71,16 +71,17 @@ module m_ec_bccollect
           return ! beter break?
        endif  
        lineno = lineno + 1 
+       if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
        reclen = len_trim(rec)                                  ! deal with various comment delimiters 
        commentpos = index(rec,'//')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'%')
+       commentpos = index(rec,' %')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'#')
+       commentpos = index(rec,' #')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'*')
+       commentpos = index(rec,' *')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'!')
+       commentpos = index(rec,' !')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
 
        if (len_trim(rec(1:reclen))>0) then                     ! skip empty lines 
@@ -226,16 +227,17 @@ module m_ec_bccollect
           return ! beter break?
        endif  
        lineno = lineno + 1 
+       if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
        reclen = len_trim(rec)                                  ! deal with various comment delimiters 
        commentpos = index(rec,'//')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'%')
+       commentpos = index(rec,' %')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'#')
+       commentpos = index(rec,' #')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'*')
+       commentpos = index(rec,' *')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,'!')
+       commentpos = index(rec,' !')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
        
        if (reclen < 3) cycle
@@ -304,7 +306,9 @@ module m_ec_bccollect
                       count = count + 1 
                       iostat = EC_NOERR
                    else 
-                      call mf_close(bcBlockPtr%fhandle)
+                      if (bcBlockPtr%fhandle /= 0) then
+                         call mf_close(bcBlockPtr%fhandle)
+                      endif
                       iostat = EC_DATA_NOTFOUND
                    end if
                    jaheader = .false.

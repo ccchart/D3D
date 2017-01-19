@@ -159,8 +159,8 @@
 
       include 'state_data.inc'
 
-      if ( action == action_initialisation  .or.
-     &     action == action_finalisation           ) then
+      if ( action == ACTION_INITIALISATION  .or.
+     &     action == ACTION_FINALISATION           ) then
           return
       endif
 
@@ -357,6 +357,7 @@
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , 1       , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC), 
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IDERV), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,

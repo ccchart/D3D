@@ -474,10 +474,10 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
        call dfsync(gdp)
        call dffind_duplicate(lundia, ntruv, ntruvto, ntruvgl, order_tra, gdp)
        !
-       ! When order_tra points to tra_orgline, both partition-related and re-ordering-related stuff is taken care of
+       ! When order_tra points to tra_orgline, both partition-related and re-ordering-related stuff are taken care of
        !
        order_tra => gdp%gdstations%tra_orgline
-    else
+    elseif (part_nr == '') then
        nostatto = nostat
        nostatgl = nostat
        ntruvto  = ntruv
@@ -522,7 +522,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
              !
              ! global attributes
              !
-             ierror = nf90_put_att(fds, nf90_global,  'Conventions', 'CF-1.6'); call nc_check_err(lundia, ierror, "put_att global Conventions", filename)
+             ierror = nf90_put_att(fds, nf90_global,  'Conventions', 'CF-1.6 SGRID-0.3'); call nc_check_err(lundia, ierror, "put_att global Conventions", filename)
              ierror = nf90_put_att(fds, nf90_global,  'institution', trim('Deltares')); call nc_check_err(lundia, ierror, "put_att global institution", filename)
              ierror = nf90_put_att(fds, nf90_global,  'references', trim('www.deltares.nl')); call nc_check_err(lundia, ierror, "put_att global references", filename)
              ierror = nf90_put_att(fds, nf90_global,  'source', trim(version_full)); call nc_check_err(lundia, ierror, "put_att global source", filename)

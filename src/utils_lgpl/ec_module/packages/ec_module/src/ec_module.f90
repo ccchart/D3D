@@ -167,6 +167,10 @@ module m_ec_module
       module procedure ecQuantitySetVectorMax
    end interface ecSetQuantityVectorMax
 
+   interface ecSetQuantityUnitsFillScaleOffsetFromNcidVarid
+      module procedure ecQuantitySetUnitsFillScaleOffsetFromNcidVarid
+   end interface ecSetQuantityUnitsFillScaleOffsetFromNcidVarid
+
    
    ! ElementSet
    
@@ -190,9 +194,9 @@ module m_ec_module
       module procedure ecElementSetSetZArray
    end interface ecSetElementSetZArray
 
-   interface ecSetElementSetItype3D
-      module procedure ecElementSetSetItype3D
-   end interface ecSetElementSetItype3D
+   interface ecSetElementSetvptyp
+      module procedure ecElementSetSetvptyp
+   end interface ecSetElementSetvptyp
    
    interface ecSetElementSetX0Dx
       module procedure ecElementSetSetX0Dx
@@ -201,14 +205,6 @@ module m_ec_module
    interface ecSetElementSetY0Dy
       module procedure ecElementSetSetY0Dy
    end interface ecSetElementSetY0Dy
-   
-   interface ecSetElementSetLatitudeArray
-      module procedure ecElementSetSetLatitudeArray
-   end interface ecSetElementSetLatitudeArray
-   
-   interface ecSetElementSetLongitudeArray
-      module procedure ecElementSetSetLongitudeArray
-   end interface ecSetElementSetLongitudeArray
    
    interface ecSetElementSetDirectionArray
       module procedure ecElementSetSetDirectionArray
@@ -357,4 +353,8 @@ module m_ec_module
    interface ecFindItemByQuantityLocation
       module procedure ecSupportFindItemByQuantityLocation
    end interface ecFindItemByQuantityLocation
+   interface ecFindFileReader
+      module procedure ecSupportFindFileReader
+      module procedure ecSupportFindFileReaderByFileName
+   end interface ecFindFileReader
 end module m_ec_module

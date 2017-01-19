@@ -8,14 +8,15 @@
 include $(top_srcdir)/common.am
 noinst_LTLIBRARIES = libWaqKernel.la
 
-AM_FCFLAGS += $(OPENMP_FCFLAGS)
-AM_FFLAGS += $(OPENMP_FFLAGS)
+AM_FCFLAGS += $(OPENMP_FCFLAGS) $(FINCLUDES) $(FMODULES) ${NETCDF_CFLAGS} ${NETCDF_FORTRAN_CFLAGS}
+AM_FFLAGS  += $(OPENMP_FFLAGS)  $(FINCLUDES) $(FMODULES) ${NETCDF_CFLAGS} ${NETCDF_FORTRAN_CFLAGS}
 
 #-------------------------------------------------------------------------------
 #Includes
 
 
 FMODULES += \
+        -I${NETCDFROOT}/include \
         -I$(top_builddir)/engines_gpl/waq/include \
         -I$(top_builddir)/engines_gpl/part/packages/data_f/src/ \
         -I$(top_builddir)/engines_gpl/part/packages/utils_f/src/ \
@@ -24,6 +25,7 @@ FMODULES += \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/waq_utils \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_timings \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_couplib \
+        -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/dlwq_netcdf \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_plugin_wasteload/src/ \
         -I$(top_builddir)/utils_lgpl/delftio/packages/delftio/src/diof90 \
 	-I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src/rd_token \
@@ -40,6 +42,7 @@ libWaqKernel_la_SOURCES = \
        oil2waq.f \
        wqparcom.F90 \
        wqhbcom.f90 \
+       dlwqtr.f \
        actloc.f \
        baldmp.f \
        dmpsurf.f \
@@ -206,6 +209,7 @@ libWaqKernel_la_SOURCES = \
        outhnf.f \
        outmap.f \
        outmnf.f \
+       outmnc.F \
        outmo1.f \
        outmo2.f \
        outmo3.f \
@@ -235,7 +239,6 @@ libWaqKernel_la_SOURCES = \
        usolve.f \
        values.f \
        wascal.f \
-       wqparcom.F90 \
        xerbla.f \
        zercum.f \
        zlayer.f \

@@ -40,7 +40,7 @@
 !  *********************************************************************
 !
       SUBROUTINE SETABC(XINIT,EXTB,EXTTOT,ZOOD,CSOL,DSOL,T,DEP,ID,NSET,
-     1                  LCOUPL)
+     1                  SWBLSA)
       IMPLICIT REAL*8 (A-H,O-Z)
       SAVE
       INCLUDE 'blmdim.inc'
@@ -55,6 +55,7 @@
       INCLUDE 'dynam.inc'
       INCLUDE 'ioblck.inc'
       REAL*8 XINIT(*),PMAX20(MT),TCORR(MT),SDMIXN(MT),ZOOD(0:MG)
+      INTEGER SWBLSA
 !
 !  If this is the first time through the subroutine,
 !  then initiate A, B and C
@@ -140,22 +141,6 @@
       IF ( FLUSH .LT. 1.0D-6) GO TO 70
       WRITE (IOU(10),99998) FLUSH
    70 CONTINUE
-!
-!  Calculate solar radiation level for particular week.
-!
-!
-!  Determine surface reflectance and transmitted radiation
-!  -- average reflection modified according to WETZEL--
-!  Do not coreect for reflection when ID is negative: BLOOM model is
-!  is applied to a bottom segment.
-!
-      ALPHA=0.95
-      IF ((ID .LE. 17) .OR. (ID .GE. 32)) ALPHA=0.94
-      IF ((ID .LE. 13) .OR. (ID .GE. 36)) ALPHA=0.92
-      IF ((ID .LE.  4) .OR. (ID .GE. 45)) ALPHA=0.90
-      IF (ID .GT. 0) CSOL=ALPHA * CSOL
-!
-!
 !  Convert CSOL from:
 !  Joules per cm2 per week to Joules per m2 per day.
 !  Determine temperature correction, assuming that the nominal
@@ -201,7 +186,7 @@
 !  If RNUT(2,I)=1.0, remineralisation rate I =RNUT(1,I) * temperature
 !
       QMREM = 0.0
-      IF (LCOUPL .NE. 0) GO TO 170
+      IF (SWBLSA .NE. 1) GO TO 170
       DO 150 J=1,NUNUCO
       IF (RNUT(2,J) .LT. 1.0D-6) THEN
          RNUTRI=RNUT(1,J)+SEDRAT+FLUSH
@@ -213,7 +198,7 @@
       REMEXP(J)=EXPNUT
       REMINU(J)=RNUTRI
       DO 140 K=1,NUSPEC
-  140 A(J,K)=AA(J,K)*(AVAILN*RMORT(K)*(1.0-EXPNUT)+RNUTRI)/RNUTRI
+  140 A(J,K)=AA(J,K)*(AVAILN(K)*RMORT(K)*(1.0-EXPNUT)+RNUTRI)/RNUTRI
   150 CONTINUE
 !
 !  Calculate extinction coefficients
@@ -223,27 +208,18 @@
 !
 !
       REMIT=DEXP(REMILI(1)*T-REMILI(2))
-      QMREM=AVAILN/(REMIT+SEDRAT+FLUSH)
       DO 160 K=1,NUSPEC
-      ATEMP=EKX(K)*(QMREM*RMORT(K)*DABS(SDMIX(K))+1.0)
-      DO 160 J=NUFILI,NUABCO
-  160 A(J,K)=ATEMP
+        QMREM=AVAILN(K)/(REMIT+SEDRAT+FLUSH)
+        ATEMP=EKX(K)*(QMREM*RMORT(K)*DABS(SDMIX(K))+1.0)
+        DO 160 J=NUFILI,NUABCO
+  160     A(J,K)=ATEMP
 !
 !  Set "B" values for nutrients by substracting the amount in
 !  zooplankton from the input values and correcting for deviations
 !  from steady state if option DYNADEAD was selected
 !
   170 DO 180 K=1,NUNUCO
-        IF (NUGRAZ .GT. 0) THEN
-          B(K)=CONCEN(K)-DETRIT(K)*REMEXP(K)
-
-!         0895 MvdV subtract nutrients for all grazer types
-          DO 190 J=1,NUGRAZ
-            B(K)=B(K)-ZOONUT(K,J)*ZOOD(J)
-  190     CONTINUE
-        ELSE
-          B(K)=CONCEN(K)-ZOONUT(K,0)*ZOOD(0)-DETRIT(K)*REMEXP(K)
-        ENDIF
+        B(K)=CONCEN(K)    
   180 CONTINUE
       IF (LDYDEA .EQ. 0) RETURN
       EXPMUL=1.0
@@ -261,9 +237,9 @@
      3        1X,'the amount of nutrients flushed from the dead algal',
      4        ' pool',/,' to be replaced by dissolved nutrients',
      5        ' from the intake water.',//)
-99997 FORMAT ('  Tcorr(j):   ',10(F5.2,1X))
+99997 FORMAT ('  Tcorr(j):  ',30(F5.2,1X))
 99996 FORMAT (//,1X,'Computation with inhomogeneous mixing.',/,
-     1        '  SDMIX(J):   ',20(F5.2,1X))
-99995 FORMAT ('  SDMIXN(J):  ',20(F5.2,1X))
+     1        '  SDMIX(J):   ',30(F5.2,1X))
+99995 FORMAT ('  SDMIXN(J):  ',30(F5.2,1X))
       RETURN
       END

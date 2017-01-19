@@ -56,20 +56,25 @@
       REAL(4) SM          ! I  macrophyte submerged                       (gC/m2)
       REAL(4) smmax       ! I  Maximum biomass macrophyte submerged       (gC/m2)
       REAL(4) SwDisSM     ! I  macrophyt distr. function (1: lin, 2:Exp)      (-)
-      REAL(4) Hmax        ! I  Maxmimum Lenght Macrophytes                    (m)
+      REAL(4) Hmax        ! I  Maxmimum Length Macrophytes                    (m)
       REAL(4) Ffac        ! I  Form factor lin: F = M(mean)/(M/Hmax)          (-)
       REAL(4) BmLaySM     ! O  Biomass Layer macrophyt submerged 01       (gC/m2)
-      REAL(4) Hact        ! O  Actual Lenght Macrophytes                      (m)
+      REAL(4) Hact        ! O  Actual Length Macrophytes                      (m)
       REAL(4) Z2          !    Height Bottom Segment from Bottom              (m)
       REAL(4) Z1          !    Height Top Segment from Bottom                 (m)
       REAL(4) Z2a         !    Height Bottom Segment from Bottom              (m)
       REAL(4) Z1a         !    Height Top Segment from Bottom                 (m)
+      REAL(4) Hactd       !    Actual Length Macrophytes - relative to top    (-)
+      REAL(4) Z2ad        !    Height Bottom Segment from Bottom - relative   (-)
+      REAL(4) Z1ad        !    Height Top Segment from Bottom - relative      (-)
+      REAL(4) absHmax     !    Absolute maxmimum Length Macrophytes           (m)
       INTEGER IKMRK1
-!     INTEGER IKMRK2
+      INTEGER IKMRK2
       REAL(4) FrBmLay     !    Fraction BM per layer                          (-)
       REAL(4) Zm          !    Watersurface to top Macropyte                  (-)
       REAL(4) A           !    Lineair factor A (Ax + B)                      (-)
       REAL(4) B           !    Lineair factor B (Ax + B)                      (-)
+      REAL(4) OriginalDepth
 c     INTEGER IQ          !    Loop counter
 c     INTEGER Ifrom       !    From Segment
 c     INTEGER Ito         !    From Segment
@@ -102,18 +107,29 @@ c     LOGICAL First
 
             ! get biomass from bottom segment
 
+            !SM          = max( 1.0e-10, PMSA(IPOINT(5)+(IBOTSEG-1)*INCREM(5)) )
             SM          = PMSA(IPOINT(5)+(IBOTSEG-1)*INCREM(5))
 
-!           Convert to absolute heigth
-            Hmax        = Hmax * TotalDepth
+!           Limit the maximum height of the plants to the water depth
+            absHmax     = min( abs(Hmax), TotalDepth )
 
             ! actual height is fraction of maximum height
 
             if ( smmax .gt. 1e-20 ) then
-               Hact        = min( Hmax * SM/smmax , TotalDepth - 0.001 )
+               Hact        = min( absHmax * SM/smmax , TotalDepth - 0.001 )
                Hact        = max(Hact,0.01)
             else
                Hact        = 0.01
+            endif
+            Hactd = 1.0 ! Represents the entire length of the plants
+
+            !
+            ! Hmax > 0: the macrophytes grow from the bottom upwards
+            ! Hmax < 0: the macrophytes grow from the surface downwards
+            !
+            OriginalDepth = TotalDepth
+            if ( hmax < 0.0 ) then
+               TotalDepth = Hact
             endif
 
             Zm = TotalDepth - Hact
@@ -122,21 +138,26 @@ c     LOGICAL First
             Z1a = TotalDepth - LocalDepth
             Z2a = TotalDepth - LocalDepth + Depth
 
+            Z1ad = Z1a / Hact
+            Z2ad = Z2a / Hact
+
 !           Switch = 1:  linear Biomass distribution
             If (SwDisSM .EQ. 1 ) Then
 
 !              Check Ffac: 0,1 or 2
 
                If (Ffac  .LT.  0 .OR. Ffac . GT. 2) Then
-                  CALL GETMLU( LUNREP )
-                  WRITE (LUNREP,*) 'MACDIS: Illegal option for Macrophyte form factor - should be between 0 and 2'
-                  WRITE (LUNREP,*) '   Value now: ', ffac
-                  WRITE (LUNREP,*) '   Input error (linear biomass distribution)'
-                  STOP 'Input error in process MACDIS'
+                  call getmlu( lunrep )
+                  write (lunrep,*) 'MACDIS: Illegal option for Macrophyte form factor - should be between 0 and 2'
+                  write (lunrep,*) '   Value now: ', ffac
+                  write (lunrep,*) '   Input error (linear biomass distribution)'
+                  write (lunrep,*) 'Input error in process MACDIS'
+                  write (*,*) 'Input error in process MACDIS'
+                  call srstop(1)
                Endif
 
-               A = (SM / Hact) * (2 - (2 * Ffac)) / (TotalDepth - Zm)
-               B = (SM / Hact) * (Ffac * (Zm + TotalDepth) -2 * Zm) / (TotalDepth - Zm)
+               A = (SM / Hact) * (2 - (2 * Ffac)) / Hact
+               B = (SM / Hact) * (Ffac * (Zm + TotalDepth) -2 * Zm) / Hact
 
 !              Macrophyte is not in segment:
                If (Zm .GT. Z2) Then
@@ -155,41 +176,63 @@ c     LOGICAL First
 
             ElseIf (SwDisSM .EQ. 2) Then
 
-               If (Ffac  .LE.  0 ) Then
-                  CALL GETMLU( LUNREP )
-                  WRITE (LUNREP,*) 'MACDIS: Illegal option for Macrophyte form factor - should be positive'
-                  WRITE (LUNREP,*) '   Value now: ', ffac
-                  WRITE (LUNREP,*) '   Input error (exponential biomass distribution)'
-                  STOP 'Input error in process MACDIS'
+               If (Ffac  .LE.  0 .OR. Ffac .GT. 50.0 ) Then
+                  call getmlu( lunrep )
+                  write (lunrep,*) 'MACDIS: Incorrect value for Macrophyte form factor - ',
+     &                             'should be positive and lower than or equal to 50'
+                  write (lunrep,*) '   Value now: ', ffac
+                  write (lunrep,*) '   Input error (exponential biomass distribution)'
+                  write (lunrep,*) 'Input error in process MACDIS'
+                  write (*,*) 'Input error in process MACDIS'
+                  call srstop(1)
                Endif
 
-               A = SM / ((exp(Ffac * Hact) - 1)/ Ffac - Hact)
+               A = SM / Hactd / ((exp(Ffac * Hactd) - 1.0)/ Ffac - Hactd)
 !              Macrophyte is not in segment:
                If (Hact .LT. Z1a) Then
                   BmLaySM = 0
 !              Macrophyte is completely in segment:
                Elseif (Hact . GT. Z2a) Then
-                  BmLaySM = A * ( (exp(Ffac * Z2a) - exp(Ffac * Z1a)) / Ffac - (Z2a - Z1a) )
+                  BmLaySM = A * ( (exp(Ffac * Z2ad) - exp(Ffac * Z1ad)) / Ffac - (Z2ad - Z1ad) )
 !              Macrophyte is partially in segment: TIP !!!
                Else
-                  BmLaySM = A * ((exp(Ffac * Hact) - exp(Ffac * Z1a)) / Ffac - (Hact - Z1a) )
+                  BmLaySM = A * ((exp(Ffac * Hactd) - exp(Ffac * Z1ad)) / Ffac - (Hactd - Z1ad) )
 !                 For the segment IBotSeg, current segment is ITopSeg!!!
                   PMSA(IPOINT(14)+(IBotSeg-1)*INCREM(14   )) = ISEG
                Endif
 
             ENDIF
 
+            !
+            ! One complication: we need to set the top segment explicitly
+            ! if we start at the top
+            !
+            If ( Hmax < 0.0 ) Then
+                CALL DHKMRK(2,IKNMRK(ISEG),IKMRK2)
+                If ( IKMRK2 .EQ. 0 .OR. IKMRK2 .EQ. 1 ) Then
+                    PMSA(IPOINT(14)+(IBotSeg-1)*INCREM(14   )) = ISEG
+                Endif
+            Endif
+
             If (SM .GT. 0) Then
                FrBmLay = BmLaySm / SM
             Else
-               FrBmLay = 0
+               If ( iseg .eq. IBotseg ) Then
+                  FrBmLay = 1.0
+               Else
+                  FrBmLay = 0.0
+               Endif
             Endif
 
 !           Return Outputparameters to delwaq
 
             PMSA( IPNT(11) ) = FrBmLay
             PMSA( IPNT(12) ) = BmLaySM / Depth
-            PMSA( IPNT(13) ) = Hact
+            If ( Hmax > 0.0 ) Then
+                PMSA( IPNT(13) ) = Hact
+            Else
+                PMSA( IPNT(13) ) = OriginalDepth
+            Endif
 
         ENDIF
 

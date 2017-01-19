@@ -22,7 +22,10 @@
 !!  rights reserved.
 
       module delwaq_user_wasteloads
+
       use delwaq_loads
+      use waq_plugin_wasteload_version_module
+
       contains
       subroutine delwaq_user_wasteload ( nowst , wasteloads, notot , nosys , noseg ,
      +                                   itime , conc      , syname)
@@ -43,6 +46,7 @@
       integer                             :: itime                  ! system time
       real                                :: conc(notot,noseg)      ! concentration array
       character(len=*)                    :: syname(notot)          ! substance names
+      character(len=120)                  :: idstr                  ! waq_plugin_wasteload version number
 
       ! local declarations
 
@@ -55,11 +59,17 @@
       ! the inlet outlet coupling
 
       if (ifirst == 1) then
+         ifirst = 0
+
          call dhopnf (lunrep, 'delwaq_user_wasteloads.mon', 19, 1, ierr)
          if (ierr .ne. 0) then
             write(*,'(A)') 'Could not open delwaq_user_wasteloads.mon for writing.'
             call srstop(1)
          endif
+
+         ! waq_plugin_wasteload version number
+         call getfullversionstring_waq_plugin_wasteload(idstr)
+         write ( lunrep , * ) idstr
       endif
 
       call delwaq_user_inlet_outlet ( nowst , wasteloads, notot , nosys , noseg ,
@@ -74,8 +84,6 @@
 
       call delwaq_user_bubble_bath  ( nowst , wasteloads, notot , nosys , noseg ,
      &                                itime , conc      , syname, lunrep)
-
-      ifirst = 0
 
       return
       end subroutine delwaq_user_wasteload
@@ -630,7 +638,7 @@
             read( 84, *, iostat = ierr ) dummy, dummy, dummy, dummy
             if ( ierr /= 0 ) then
                write( lunrep, 2004 ) next_time
-               stop
+               call srstop(1)
             endif
          enddo
 

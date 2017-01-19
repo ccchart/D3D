@@ -1,6 +1,6 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
-AC_PREREQ(2.59)
+AC_PREREQ(2.68)
 AC_INIT(Delft3D, 0.0, delft3d.support@deltares.nl)
 dnl Store generated files in config dir
 AC_CONFIG_AUX_DIR(config)
@@ -345,6 +345,12 @@ engines_gpl/d_hydro/Makefile
 engines_gpl/d_hydro/packages/d_hydro/Makefile
 engines_gpl/d_hydro/packages/d_hydro/src/Makefile
 engines_gpl/d_hydro/packages/Makefile
+engines_gpl/dimr/Makefile
+engines_gpl/dimr/packages/Makefile
+engines_gpl/dimr/packages/dimr/Makefile
+engines_gpl/dimr/packages/dimr/src/Makefile
+engines_gpl/dimr/packages/dimr_lib/Makefile
+engines_gpl/dimr/packages/dimr_lib/src/Makefile
 engines_gpl/flow2d3d/Makefile
 engines_gpl/flow2d3d/packages/data/Makefile
 engines_gpl/flow2d3d/packages/data/src/allocation/Makefile
@@ -403,21 +409,13 @@ engines_gpl/part/packages/kernel_f/src/Makefile
 engines_gpl/part/packages/Makefile
 engines_gpl/part/packages/utils_f/Makefile
 engines_gpl/part/packages/utils_f/src/Makefile
-engines_gpl/part/packages/version_number/Makefile
-engines_gpl/part/packages/version_number/src/Makefile
 engines_gpl/waq/Makefile
-engines_gpl/waq/packages/delwaq1_lib/Makefile
-engines_gpl/waq/packages/delwaq1_lib/src/Makefile
+engines_gpl/waq/packages/delwaq/Makefile
+engines_gpl/waq/packages/delwaq/src/Makefile
 engines_gpl/waq/packages/delwaq1/Makefile
 engines_gpl/waq/packages/delwaq1/src/Makefile
-engines_gpl/waq/packages/delwaq1_version_number/Makefile
-engines_gpl/waq/packages/delwaq1_version_number/src/Makefile
-engines_gpl/waq/packages/delwaq2_lib/Makefile
-engines_gpl/waq/packages/delwaq2_lib/src/Makefile
 engines_gpl/waq/packages/delwaq2/Makefile
 engines_gpl/waq/packages/delwaq2/src/Makefile
-engines_gpl/waq/packages/delwaq2_version_number/Makefile
-engines_gpl/waq/packages/delwaq2_version_number/src/Makefile
 engines_gpl/waq/packages/Makefile
 engines_gpl/waq/packages/waq_data/Makefile
 engines_gpl/waq/packages/waq_data/src/Makefile
@@ -431,7 +429,6 @@ engines_gpl/waq/packages/waq_io/src/proc_preprocess/Makefile
 engines_gpl/waq/packages/waq_io/src/waq_io/Makefile
 engines_gpl/waq/packages/waq_kernel/Makefile
 engines_gpl/waq/packages/waq_kernel/src/bloom/Makefile
-engines_gpl/waq/packages/waq_kernel/src/charon/Makefile
 engines_gpl/waq/packages/waq_kernel/src/Makefile
 engines_gpl/waq/packages/waq_kernel/src/waq_kernel/Makefile
 engines_gpl/waq/packages/waq_kernel/src/waq_process/Makefile
@@ -440,6 +437,7 @@ engines_gpl/waq/packages/waq_plugin_wasteload/src/Makefile
 engines_gpl/waq/packages/waq_utils_c/Makefile
 engines_gpl/waq/packages/waq_utils_c/src/Makefile
 engines_gpl/waq/packages/waq_utils_f/Makefile
+engines_gpl/waq/packages/waq_utils_f/src/dlwq_netcdf/Makefile
 engines_gpl/waq/packages/waq_utils_f/src/interact/Makefile
 engines_gpl/waq/packages/waq_utils_f/src/Makefile
 engines_gpl/waq/packages/waq_utils_f/src/mod_couplib/Makefile
@@ -576,7 +574,6 @@ utils_lgpl/esmfsm/packages/esmfsm_c/src/Makefile
 utils_lgpl/esmfsm/packages/esmfsm/Makefile
 utils_lgpl/esmfsm/packages/esmfsm/src/fsm/Makefile
 utils_lgpl/esmfsm/packages/esmfsm/src/Makefile
-utils_lgpl/esmfsm/packages/esmfsm_version_number/include/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_version_number/Makefile
 utils_lgpl/esmfsm/packages/esmfsm_version_number/src/Makefile
 utils_lgpl/esmfsm/packages/Makefile
@@ -588,6 +585,14 @@ utils_lgpl/ftnunit/Makefile
 utils_lgpl/ftnunit/packages/ftnunit/Makefile
 utils_lgpl/ftnunit/packages/ftnunit/src/Makefile
 utils_lgpl/ftnunit/packages/Makefile
+utils_lgpl/hyd_to_waq_part_lib/packages/hyd_to_waq_part_lib/src/Makefile
+utils_lgpl/hyd_to_waq_part_lib/packages/hyd_to_waq_part_lib/Makefile
+utils_lgpl/hyd_to_waq_part_lib/packages/Makefile
+utils_lgpl/hyd_to_waq_part_lib/Makefile
+utils_lgpl/io_netcdf/packages/io_netcdf/src/Makefile
+utils_lgpl/io_netcdf/packages/io_netcdf/Makefile
+utils_lgpl/io_netcdf/packages/Makefile
+utils_lgpl/io_netcdf/Makefile
 utils_lgpl/Makefile
 utils_lgpl/nefis/Makefile
 utils_lgpl/nefis/packages/Makefile

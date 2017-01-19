@@ -47,138 +47,126 @@
 !     Name     Type   Library
 !     ------   -----  ------------
 
-      REAL     PMSA  ( * ) , FL    (*)
-      INTEGER  IPOINT( * ) , INCREM(*) , NOSEG , NOFLUX,
-     +         IEXPNT(4,*) , IKNMRK(*) , NOQ1, NOQ2, NOQ3, NOQ4
+      implicit none
+      real     pmsa  ( * ) , fl    (*)
+      integer  ipoint( * ) , increm(*) , noseg , noflux,
+     +         iexpnt(4,*) , iknmrk(*) , noq1, noq2, noq3, noq4
 
-      DOUBLE PRECISION LATITU, DECLIN, TEMP
-      DOUBLE PRECISION SIN50M, E     , PI
-      PARAMETER ( SIN50M = -1.454389765D-2 )
-      PARAMETER ( E  = 1.721420632D-2 )
-      PARAMETER ( PI = 3.141592654D0)
-      LOGICAL  VARFLG
+      integer ip1,ip2,ip3,ip4,ip5
+      integer in1,in2,in3,in4,in5
+      real    time, tref, auxsys
+      real    latitudeg, daynr
+      double precision latitu, declin, temp, daylength
+      double precision sin50m, e     , pi
+      parameter ( sin50m = -1.454389765d-2 )
+      parameter ( e  = 1.721420632d-2 )
+      parameter ( pi = 3.141592654d0)
+      logical  varflg
+      integer  iseg
 
-      IN1  = INCREM( 1)
-      IN2  = INCREM( 2)
-      IN3  = INCREM( 3)
-      IN4  = INCREM( 4)
-      IN5  = INCREM( 5)
+      in1  = increm( 1)
+      in2  = increm( 2)
+      in3  = increm( 3)
+      in4  = increm( 4)
+      in5  = increm( 5)
 
-      IP1  = IPOINT( 1)
-      IP2  = IPOINT( 2)
-      IP3  = IPOINT( 3)
-      IP4  = IPOINT( 4)
-      IP5  = IPOINT( 5)
-!
-      VARFLG = .TRUE.
-      IF ( IN1 .EQ. 0 .AND. IN2 .EQ. 0 .AND. IN3 .EQ. 0 .AND.
-     +     IN4 .EQ. 0                                        ) THEN
-!
-         VARFLG = .FALSE.
-!
-         TIME    = PMSA( IP1 )
+      ip1  = ipoint( 1)
+      ip2  = ipoint( 2)
+      ip3  = ipoint( 3)
+      ip4  = ipoint( 4)
+      ip5  = ipoint( 5)
+
+      varflg = .true.
+
+      if ( in1 .eq. 0 .and. in2 .eq. 0 .and. in3 .eq. 0 .and.
+     +     in4 .eq. 0                                        ) then
+
+!        Only constant inputs, so only single calculation of daylength needed to be set to all segments
+         varflg = .false.
+         time    = pmsa( ip1 )
 !        Conversion Latitude to rads
-         LATITU  = PMSA( IP2 ) / 360 * 2 * PI
-         TREF    = PMSA( IP3 )
-         AUXSYS  = PMSA( IP4 )
-
-!***********************************************************************
-!****    Processes connected to the DAYLENGTH calculation
-!***********************************************************************
+         latitu  = pmsa( ip2 ) / 360 * 2 * pi
+         tref    = pmsa( ip3 )
+         auxsys  = pmsa( ip4 )
 
 !        Conversion time to daynumbers relative to tref
-         DAYNR =  MOD (TIME / AUXSYS + TREF, 365.)
+         daynr =  mod (time / auxsys + tref, 365.)
 
 !        Computes declination of sun on day DAYNR.
-         IF (( DAYNR .LT. 0.) .OR. ( DAYNR .GT. 365.)) THEN
-            DECLIN = 9.9999D9
-         ELSE
-            DECLIN = 6.918D-3 -
-     1               3.99912D-1 * DCOS ( E * DAYNR) -
-     2               6.758D-3   * DCOS ( 2.0D0 * E * DAYNR) -
-     3               2.697D-3   * DCOS ( 3.0D0 * E * DAYNR) +
-     4               7.0257D-2  * DSIN ( E * DAYNR) +
-     5               9.07D-4    * DSIN ( 2.0D0 * E * DAYNR) +
-     6               1.480D-3   * DSIN ( 3.0D0 * E * DAYNR)
-         ENDIF
+         if (( daynr .lt. 0.) .or. ( daynr .gt. 365.)) then
+            declin = 9.9999d9
+         else
+            declin = 6.918d-3 -
+     1               3.99912d-1 * dcos ( e * daynr) -
+     2               6.758d-3   * dcos ( 2.0d0 * e * daynr) -
+     3               2.697d-3   * dcos ( 3.0d0 * e * daynr) +
+     4               7.0257d-2  * dsin ( e * daynr) +
+     5               9.07d-4    * dsin ( 2.0d0 * e * daynr) +
+     6               1.480d-3   * dsin ( 3.0d0 * e * daynr)
+         endif
 
 !       Computes daylenth
 
-         TEMP = (( SIN50M - DSIN ( DECLIN) * DSIN ( LATITU)) /
-     &                    ( DCOS ( DECLIN) * DCOS ( LATITU)))
+         temp = (( sin50m - dsin ( declin) * dsin ( latitu)) /
+     &                    ( dcos ( declin) * dcos ( latitu)))
 
-         IF ( TEMP .GT. 1.0) THEN
-            TEMP   = 0.0
-         ELSEIF ( TEMP .LT. -1.0) THEN
-            TEMP   = 24.0
-         ELSE
-            TEMP   = 7.639437268D0 * ACOS ( TEMP)
-         ENDIF
-         TEMP = TEMP / 24.0
-!
-      ENDIF
-!
-      DO 9000 ISEG = 1 , NOSEG
-!!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!!    IF (IKMRK1.GT.0) THEN
-      IF (BTEST(IKNMRK(ISEG),0)) THEN
+         if ( temp .gt. 1.0) then
+            temp   = 0.0
+         elseif ( temp .lt. -1.0) then
+            temp   = 24.0
+         else
+            temp   = 7.639437268d0 * acos ( temp)
+         endif
+         daylength = temp / 24.0
+      endif
 
-      IF ( VARFLG ) THEN
-!
-         TIME    = PMSA( IP1 )
-!        Conversion Latitude to rads
-         LATITU  = PMSA( IP2 ) / 360 * 2 * PI
-         TREF    = PMSA( IP3 )
-         AUXSYS  = PMSA( IP4 )
+      do 9000 iseg = 1 , noseg
+         if ( varflg ) then
+            time    = pmsa( ip1 )
+!           Conversion Latitude to rads
+            latitu  = pmsa( ip2 ) / 360 * 2 * pi
+            tref    = pmsa( ip3 )
+            auxsys  = pmsa( ip4 )
 
-!***********************************************************************
-!****    Processes connected to the DAYLENGTH calculation
-!***********************************************************************
+!           Conversion time to daynumbers relative to tref
+            daynr =  mod (time / auxsys + tref, 365.)
 
-!        Conversion time to daynumbers relative to tref
-         DAYNR =  MOD (TIME / AUXSYS + TREF, 365.)
+!           Computes declination of sun on day DAYNR.
+            if (( daynr .lt. 0) .or. ( daynr .gt. 365.)) then
+               declin = 9.9999d9
+            else
+               declin = 6.918d-3 -
+     1                  3.99912d-1 * dcos ( e * daynr) -
+     2                  6.758d-3   * dcos ( 2.0d0 * e * daynr) -
+     3                  2.697d-3   * dcos ( 3.0d0 * e * daynr) +
+     4                  7.0257d-2  * dsin ( e * daynr) +
+     5                  9.07d-4    * dsin ( 2.0d0 * e * daynr) +
+     6                  1.480d-3   * dsin ( 3.0d0 * e * daynr)
+            endif
 
-!        Computes declination of sun on day DAYNR.
-         IF (( DAYNR .LT. 0) .OR. ( DAYNR .GT. 365.)) THEN
-            DECLIN = 9.9999D9
-         ELSE
-            DECLIN = 6.918D-3 -
-     1               3.99912D-1 * DCOS ( E * DAYNR) -
-     2               6.758D-3   * DCOS ( 2.0D0 * E * DAYNR) -
-     3               2.697D-3   * DCOS ( 3.0D0 * E * DAYNR) +
-     4               7.0257D-2  * DSIN ( E * DAYNR) +
-     5               9.07D-4    * DSIN ( 2.0D0 * E * DAYNR) +
-     6               1.480D-3   * DSIN ( 3.0D0 * E * DAYNR)
-         ENDIF
+!           Computes daylenth
 
-!       Computes daylenth
+            temp = (( sin50m - dsin ( declin) * dsin ( latitu)) /
+     &                       ( dcos ( declin) * dcos ( latitu)))
 
-         TEMP = (( SIN50M - DSIN ( DECLIN) * DSIN ( LATITU)) /
-     &                    ( DCOS ( DECLIN) * DCOS ( LATITU)))
+            if ( temp .gt. 1.0) then
+               temp   = 0.0
+            elseif ( temp .lt. -1.0) then
+               temp   = 24.0
+            else
+               temp   = 7.639437268d0 * acos ( temp)
+            endif
+            daylength = temp / 24.0
+         endif
+         pmsa (ip5) = daylength
 
-         IF ( TEMP .GT. 1.0) THEN
-            TEMP   = 0.0
-         ELSEIF ( TEMP .LT. -1.0) THEN
-            TEMP   = 24.0
-         ELSE
-            TEMP   = 7.639437268D0 * ACOS ( TEMP)
-         ENDIF
-         TEMP = TEMP / 24.0
-!
-      ENDIF
-!
-      PMSA (IP5) = TEMP
-!
-      ENDIF
-!
-         IP1   = IP1   + IN1
-         IP2   = IP2   + IN2
-         IP3   = IP3   + IN3
-         IP4   = IP4   + IN4
-      IP5   = IP5   + IN5
-!
- 9000 CONTINUE
+         ip1   = ip1   + in1
+         ip2   = ip2   + in2
+         ip3   = ip3   + in3
+         ip4   = ip4   + in4
+         ip5   = ip5   + in5
 
-      RETURN
-!
-      END
+ 9000 continue
+
+      return
+      end

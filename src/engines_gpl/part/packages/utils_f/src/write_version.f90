@@ -22,7 +22,8 @@
 !!  rights reserved.
 
       subroutine write_version(lun)
-      use precision_part    ! single/double precision
+
+      use part_version_module
       use timers
 !
       implicit none    ! force explicit typing
@@ -151,7 +152,7 @@
 !        scherm uitvoer
          do i = 1 , size(opkom)
             if ( opkom(i)(3:15) .eq. 'Version xx.xx' ) then
-               write(opkom(i)(3:72),'(a)') cident(5:74)
+               write(opkom(i)(3:72),'(a)') cident(1:70)
             end if
             if ( os .ne. 'WIN' .and. os .ne. 'Win' .and. os .ne. 'win' ) then
                do j = 1,len(opkom(i))
@@ -164,12 +165,11 @@
 !        print uitvoer
          write(lun,'(//13x,a)')   'PART - Particle tracking'
          write(lun,'(   6x,a)')   ' Water quality simulation in 2D/3D models      '
-         write(lun,'(    a//)')   cident(5:)
+         write(lun,'(    a//)')   trim(cident)
       end if
 !
 !     end of routine
 !
       if ( timon ) call timstop ( ithndl )
       return
-      stop ' Part aborted'
       end subroutine

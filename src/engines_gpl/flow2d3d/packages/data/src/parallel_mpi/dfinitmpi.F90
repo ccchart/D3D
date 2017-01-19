@@ -134,9 +134,14 @@ subroutine dfinitmpi
        !
        ! early return if MPI was already initialized before...
        !
-       if (.not. mpi_is_initialized) then
+       if (mpi_is_initialized) then
+          mpi_initialized_by_engine = .FALSE.
+          ! external component should also have set engine_comm_world via BMI
+       else
+          mpi_initialized_by_engine = .TRUE.
 #ifdef HAVE_MPI
           call mpi_init ( ierr )
+          engine_comm_world = MPI_COMM_WORLD
 #endif
           if ( ierr /= MPI_SUCCESS ) then
              write (msgstr,'(a,i5)') 'MPI produces some internal error in mpi_init - return code is ',ierr
@@ -157,7 +162,7 @@ subroutine dfinitmpi
 #ifdef HAVE_MPI
        host      = 'unknown'
        processor = 'unknown'
-       call mpi_comm_rank ( MPI_COMM_WORLD, inode, ierr )
+       call mpi_comm_rank ( engine_comm_world, inode, ierr )
        call util_getenv('HOSTNAME',host)
        call mpi_get_processor_name (processor,len,ierr)
        write (6,'(a,i3.3,4a)') 'MPI process number ', inode, ' has host ', trim(host), ' and is running on processor ', trim(processor)
@@ -176,7 +181,7 @@ subroutine dfinitmpi
     ! determine total number of processes
     !
 #ifdef HAVE_MPI
-       call mpi_comm_size ( MPI_COMM_WORLD, nproc, ierr )
+       call mpi_comm_size ( engine_comm_world, nproc, ierr )
 #endif
        if ( ierr /= MPI_SUCCESS ) then
           write (msgstr,'(a,i5,a,i3.3)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',inode

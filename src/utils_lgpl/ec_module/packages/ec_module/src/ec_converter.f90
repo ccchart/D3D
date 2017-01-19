@@ -321,13 +321,8 @@ module m_ec_converter
                allocate(weight%weightFactors(4, n_points))
                weight%weightFactors = ec_undef_hp
                do i=1, n_points
-                  if (sourceElementSet%ofType == elmSetType_cartesian) then
-                     call findnm(targetElementSet%x(i), targetElementSet%y(i), sourceElementSet%x, sourceElementSet%y, &
+                  call findnm(targetElementSet%x(i), targetElementSet%y(i), sourceElementSet%x, sourceElementSet%y, &
                               n_cols, n_rows, n_cols, n_rows, inside, mp, np, in, jn, wf)
-                  elseif (sourceElementSet%ofType == elmSetType_spheric) then
-                     call findnm(targetElementSet%x(i), targetElementSet%y(i), sourceElementSet%lon, sourceElementSet%lat, &
-                              n_cols, n_rows, n_cols, n_rows, inside, mp, np, in, jn, wf)
-                  endif 
                   if (inside == 1) then
                      if (allocated(srcmask%msk)) then
                         fmask(1) = (srcmask%msk((np   -srcmask%nmin)*srcmask%mrange+mp   -srcmask%mmin+1))
@@ -782,7 +777,9 @@ module m_ec_converter
          allocate(valuesT(maxlay*n_data), stat=istat)
          valuesT=ec_undef_hp
          do i=1, size(valuesT0,dim=1)
-            valuesT(i) = valuesT0(i)*a0 + valuesT1(i)*a1
+            ! "val0+(val1-val0)*a1" is more precise than "val0*a0+val1*a1" when val0 and val1 are huge
+            !
+            valuesT(i) = valuesT0(i)  + ( valuesT1(i)-valuesT0(i) )*a1
          end do
          !
 
@@ -1063,6 +1060,7 @@ module m_ec_converter
       !> Execute the Converters in the Connection sequentially.
       !! meteo1 : polyint
       function ecConverterPolytim(connection, timesteps) result (success)
+      use m_ec_elementset, only:ecElementSetGetAbsZ
       use m_ec_message
          logical                            :: success    !< function status
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
@@ -1077,9 +1075,12 @@ module m_ec_converter
          integer  :: maxlay_srcR      !< number of layers at the RIGHT interpolation support point
          real(hp) :: fieldValue       !< 
          integer  :: kbegin, kend, kbeginL, kendL, kbeginR, kendR, idxL1, idxR1, idxL2, idxR2 !< 
-         real(hp) :: sigma, wwL, wwR  !< 
+         real(hp) :: wwL, wwR  !< 
          real(hp), dimension(:), allocatable :: valL1, valL2, valR1, valR2, val !< 
-         real(hp), dimension(:), allocatable :: sigmaL, sigmaR !< 
+         real(hp), dimension(:), allocatable :: sigmaL, sigmaR, sigma !< 
+         real(hp), dimension(:),     pointer :: zmin => null() !< vertical min
+         real(hp), dimension(:),     pointer :: zmax => null() !< vertical max
+
          integer  :: idx              !< helper variable
          integer  :: vectormax
          integer  :: from, thru       !< contiguous range of indices in the target array 
@@ -1120,12 +1121,40 @@ module m_ec_converter
                allocate(valR2(vectormax))
                if (allocated(val)) deallocate(val)
                allocate(val(vectormax))
+
                if (associated(connection%targetItemsPtr(1)%ptr%elementSetPtr%z)) then
                   maxlay_tgt = size(connection%targetItemsPtr(1)%ptr%elementSetPtr%z) /   &
                                size(connection%targetItemsPtr(1)%ptr%elementSetPtr%x)
                else
                   maxlay_tgt = 1 
                end if
+               if (associated(connection%targetItemsPtr(1)%ptr%elementSetPtr%z)) then
+                  maxlay_tgt = size(connection%targetItemsPtr(1)%ptr%elementSetPtr%z) /   &
+                               size(connection%targetItemsPtr(1)%ptr%elementSetPtr%x)
+               else
+                  maxlay_tgt = 1 
+               end if
+               if (associated(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z)) then
+                  maxlay_src = size(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z) /   &
+                               size(connection%sourceItemsPtr(1)%ptr%elementSetPtr%x)
+               else
+                  maxlay_src = 1 
+               end if
+
+               if (associated(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z) .and. &     ! source has sigma
+                         associated(connection%targetItemsPtr(1)%ptr%elementSetPtr%z)) then    ! target has sigma
+                  if (allocated(sigma)) deallocate(sigma)
+                  allocate(sigma(maxlay_tgt*connection%targetItemsPtr(1)%ptr%elementSetPtr%nCoordinates))
+                  sigma = connection%targetItemsPtr(1)%ptr%elementSetPtr%z
+                  if (allocated(sigmaL)) deallocate(sigmaL)
+                  allocate(sigmaL(maxlay_src))
+                  if (allocated(sigmaR)) deallocate(sigmaR)
+                  allocate(sigmaR(maxlay_src))
+               end if
+
+				   ! zmax and zmin are absolute top and bottom at target point coordinates
+				   zmax => connection%targetItemsPtr(1)%ptr%elementSetPtr%zmax
+				   zmin => connection%targetItemsPtr(1)%ptr%elementSetPtr%zmin
                !
                ! The polytim FileReader's source Item is actually a target Item, containing the time-interpolated wind_magnitude from the subFileReaders.
                do i=1, connection%targetItemsPtr(1)%ptr%elementSetPtr%nCoordinates
@@ -1138,13 +1167,6 @@ module m_ec_converter
                         ! Are the subproviders 3D or 2D?
                         if (associated(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z) .and. &     ! source has sigma
                                associated(connection%targetItemsPtr(1)%ptr%elementSetPtr%z)) then    ! target has sigma
-                           ! 3D subproviders
-                           maxlay_src = size(connection%sourceItemsPtr(1)%ptr%ElementSetPtr%z) /   &
-                                        size(connection%sourceItemsPtr(1)%ptr%ElementSetPtr%x)
-                           if (allocated(sigmaL)) deallocate(sigmaL)
-                           allocate(sigmaL(maxlay_src))
-                           if (allocated(sigmaR)) deallocate(sigmaR)
-                           allocate(sigmaR(maxlay_src))
                            ! deal with one-sided interpolation
                            if ( kL == 0 .and. kR /= 0 ) then
                               kL = kR
@@ -1166,7 +1188,23 @@ module m_ec_converter
                                  kbeginR = maxlay_src*(kR-1)+1                       ! refers to source right column 
                                  kendR   = maxlay_src*kR
                                  sigmaR  = connection%sourceItemsPtr(1)%ptr%ElementSetPtr%z(kbeginR:kendR)
-                                 !
+                                 
+				                     ! Convert Z-coordinate to absolute z wrt datum
+                                 ! For the time being, let's assume that both support points have the same 
+                                 ! zmin and zmax as the support points. This way interpolation from sigma->sigma
+                                 ! and z->z gives the same result. 
+                                 ! Convert target elementset 
+                                 if (.not.ecElementSetGetAbsZ (connection%targetItemsPtr(1)%ptr%ElementSetPtr,   &
+                                                                                                  kbegin,kend,   &
+                                                                                        zmin(i),zmax(i),sigma(kbegin:kend)))  return
+                                 ! Convert source elementset, first point 
+                                 if (.not.ecElementSetGetAbsZ (connection%sourceItemsPtr(1)%ptr%ElementSetPtr,   &
+                                                                                                  kbeginR,kendR, &
+                                                                                       zmin(i),zmax(i),sigmaR))  return
+                                 ! Convert source elementset, second point 
+                                 if (.not.ecElementSetGetAbsZ (connection%sourceItemsPtr(1)%ptr%ElementSetPtr,   &
+                                                                                                  kbeginL,kendL, &
+                                                                                       zmin(i),zmax(i),sigmaL))  return
                                  do maxlay_srcL=maxlay_src,1,-1
                                     if (sigmaL(maxlay_srcL)>0.5*ec_undef_hp) exit
                                  enddo 
@@ -1188,10 +1226,9 @@ module m_ec_converter
                                  !
                                  do k=kbegin,kend
                                     ! RL: BUG!!! z(k) not initialised if the model is not 3D !!! TO BE FIXED !!!!!!!!!!!!!!
-                                    sigma = connection%targetItemsPtr(1)%ptr%elementSetPtr%z(k)
-                                    if ( sigma < 0.5*ec_undef_hp ) cycle
+                                    if ( sigma(k) < 0.5*ec_undef_hp ) cycle
                                     do kkL=0, maxlay_srcL-1                       ! find vertical indices and weights for the LEFT point
-                                       if (sigma<=sigmaL(kkL+1)) exit 
+                                       if (sigma(k)<=sigmaL(kkL+1)) exit 
                                     enddo
                                     if (kkL==0) then                              ! only use upper of idxL1 and idxL2
                                        wwL = 0.5d0
@@ -1202,13 +1239,13 @@ module m_ec_converter
                                        idxL1 = maxlay_src*(kL-1) + kkL 
                                        idxL2 = idxL1
                                     else                                          ! save to use both idxL1 AND idxL2
-                                       wwL = (sigmaL(kkL+1)-sigma) / (sigmaL(kkL+1)-sigmaL(kkL))
+                                       wwL = (sigmaL(kkL+1)-sigma(k)) / (sigmaL(kkL+1)-sigmaL(kkL))
                                        idxL1 = maxlay_src*(kL-1) + kkL
                                        idxL2 = maxlay_src*(kL-1) + kkL + 1
                                     endif 
 
                                     do kkR=0, maxlay_srcR-1                       ! find vertical indices and weights for the RIGHT point
-                                       if (sigma<=sigmaR(kkR+1)) exit 
+                                       if (sigma(k)<=sigmaR(kkR+1)) exit 
                                     enddo
                                     if (kkR==0) then
                                        wwR = 0.5d0
@@ -1219,7 +1256,7 @@ module m_ec_converter
                                        idxR1 = maxlay_src*(kR-1) + kkR
                                        idxR2 = idxR1
                                     else 
-                                       wwR = (sigmaR(kkR+1)-sigma) / (sigmaR(kkR+1)-sigmaR(kkR))
+                                       wwR = (sigmaR(kkR+1)-sigma(k)) / (sigmaR(kkR+1)-sigmaR(kkR))
                                        idxR1 = maxlay_src*(kR-1) + kkR
                                        idxR2 = maxlay_src*(kR-1) + kkR + 1
                                     endif 
@@ -1294,6 +1331,9 @@ module m_ec_converter
                call setECMessage("ERROR: ec_converter::ecConverterPolytim: Unsupported interpolation type requested.")
                return
          end select
+         if (allocated(sigma)) deallocate(sigma)
+         if (allocated(sigmaL)) deallocate(sigmaL)
+         if (allocated(sigmaR)) deallocate(sigmaR)
          success = .true.   
       end function ecConverterPolytim
 !     maxlaysource 
@@ -1779,6 +1819,7 @@ module m_ec_converter
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
          real(hp),            intent(in)    :: timesteps  !< convert to this number of timesteps past the kernel's reference date
          !
+         integer  :: i
          real(hp) :: spwdphi !< angular increment: 2pi/#colums
          real(hp) :: spwdrad !< radial increment: radius/#rows
          real(hp) :: a0, a1
@@ -1822,13 +1863,14 @@ module m_ec_converter
          real(hp) :: h1, h2
          real(hp) :: fa, fi
          real(hp) :: earthrad
+         real(hp) :: rcycl, yy, spwf, spw_merge_frac          !< temporary variables used for blending spiderwebdata with the background
          real(hp) :: tmp !< helper temporary
          integer :: n_rows, n_cols
          integer :: n !< loop counter
          integer :: mf, nf
-         ! TODO : get from MDU
-         real(hp) :: paver !< average absolute pressure, to which p_drop is relative.
-         paver = 101325.0_hp
+         integer :: twx, twy, twp                             !< numbering of target items
+         integer :: swr, swd, swp                             !< numbering of source items
+
          !
          success = .false.
          fa = pi / 180.0_hp
@@ -1837,9 +1879,49 @@ module m_ec_converter
          n_rows = connection%sourceItemsPtr(1)%ptr%elementSetPtr%n_rows
          n_cols = connection%sourceItemsPtr(1)%ptr%elementSetPtr%n_cols
          !
+         ! Which quantities should be updated and in what target items ?
+         twx = 0
+         twy = 0
+         twp = 0
+         swr = 0
+         swd = 0
+         swp = 0
+         select case(connection%targetItemsPtr(1)%ptr%quantityPtr%name)
+            case ('airpressure_windx_windy')
+               twx = 1
+               twy = 2
+               twp = 3
+            case ('atmosphericpressure')
+               twp = 1
+            case ('windx')
+               twx = 1
+            case ('windy')
+               twy = 1
+            case ('windxy')
+               twx = 1
+               twy = 2
+            case default
+               call setECMessage("ERROR: ec_converter::ecConverterSpiderweb: '"     &
+                  // trim(connection%targetItemsPtr(1)%ptr%quantityPtr%name)         &
+                  // "' is not a known spiderweb quantity.")
+               return
+            end select
+            do i = 1, connection%nSourceItems
+              select case (connection%sourceItemsPtr(i)%ptr%quantityPtr%name) 
+                 case ('windspeed')
+                    swr = i
+                 case ('winddirection')
+                    swd = i
+                 case ('p_drop')
+                    swp = i
+              end select
+            end do
+      
+         !
          ! Calculate the basic spiderweb grid settings
          spwdphi = 360.0_hp / (n_cols - 1) ! 0 == 360 degrees, so -1
          spwdrad = connection%sourceItemsPtr(1)%ptr%elementSetPtr%radius / (n_rows - 1)
+         spw_merge_frac = connection%sourceItemsPtr(1)%ptr%elementSetPtr%spw_merge_frac
          !
          ! Determine the (x,y) coordinate pair of the cyclone eye at t=timesteps.
          t0 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%timesteps
@@ -1853,8 +1935,8 @@ module m_ec_converter
          yeye = cyclic_interpolation(yeye0, yeye1, a0, a1) ! cyclic inteprolation (spheric coord)
          !
          do n=1, connection%targetItemsPtr(1)%ptr%elementSetPtr%nCoordinates
-            xc = connection%targetItemsPtr(1)%ptr%elementSetPtr%lat(n)
-            yc = connection%targetItemsPtr(1)%ptr%elementSetPtr%lon(n)
+            xc = connection%targetItemsPtr(1)%ptr%elementSetPtr%x(n)
+            yc = connection%targetItemsPtr(1)%ptr%elementSetPtr%y(n)
             dlat = modulo(yc, 360.0_hp) - yeye
             dlon = modulo(xc, 360.0_hp) - xeye
             h1 = (sin(dlat/2.0_hp*fa))**2 + cos(yeye*fa)*cos(yc*fa)*(sin(dlon/2.0_hp*fa))**2
@@ -1866,8 +1948,12 @@ module m_ec_converter
             else
                spwphihat = 0d0
             end if
-            if ((dlat < 0.0_hp .and. dlon <= 0.0_hp .and. spwphihat >= 0.0_hp) .or. &
-                (dlat < 0.0_hp .and. dlon >= 0.0_hp .and. spwphihat <= 0.0_hp) ) then
+            if (comparereal(dlon, 0d0) == 0) then     ! exceptional case of being excatly SOUTH of the eye, phi should be 180 degrees 
+               if (dlat<0) then
+                  spwphihat = 180.0d0
+               endif 
+            endif
+            if (dlon*spwphihat<0) then                ! relative longitude should have the same sign as phi
                spwphihat = spwphihat + 180.0_hp
             endif
             spwphihat = modulo(spwphihat, 360.0_hp)
@@ -1878,78 +1964,110 @@ module m_ec_converter
             if (nf >= connection%sourceItemsPtr(1)%ptr%elementSetPtr%n_rows .or. (dlat == 0.0_hp .and. dlon == 0.0_hp)) then
                uintp = 0.0_hp
                vintp = 0.0_hp
-               pintp = paver ! TODO : obtain the average ambient pressure from the kernel.
+               pintp = 0.0_hp
             else
                ! Get data from stencil (mf (+1), nf (+1))
-               spwr1 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a0 + &
-                       connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a1 ! linear time interp of magnitude
-               spwd1 = cyclic_interpolation(connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1)), &
-                       connection%sourceItemsPtr(2)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1)), a0, a1) ! cyclic time interp of direction
-               spwp1 = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a0 + &
-                       connection%sourceItemsPtr(3)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a1 ! linear time interp of pressure
-               spwr2 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a0 + &
-                       connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of magnitude  
-               spwd2 = cyclic_interpolation(connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1)), &
-                       connection%sourceItemsPtr(2)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1)), a0, a1) ! cyclic time interp of direction
-               spwp2 = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a0 + &
-                       connection%sourceItemsPtr(3)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of pressure
-               spwr3 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf)*a0 + &
-                       connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf)*a1 ! linear time interp of magnitude
-               spwd3 =  cyclic_interpolation(connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf), &
-                       connection%sourceItemsPtr(2)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf), a0, a1) ! cyclic time interp of direction
-               spwp3 = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf)*a0 + &
-                       connection%sourceItemsPtr(3)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf)*a1 ! linear time interp of pressure
-               spwr4 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a0 + &
-                       connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a1 ! linear time interp of magnitude
-               spwd4 = cyclic_interpolation(connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf), &
-                       connection%sourceItemsPtr(2)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf), a0, a1) ! cyclic time interp of direction
-               spwp4 = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a0 + &
-                       connection%sourceItemsPtr(3)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a1 ! linear time interp of pressure
-               ! Safety at center
-               if (nf == 1) then
-                  spwr1 = 0.0_hp
-                  spwd1 = spwd3
-               endif
+               if ((twx>0).or.(twy>0)) then
+                  spwr1 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a0 + &
+                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a1 ! linear time interp of magnitude
+                  spwr2 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a0 + &
+                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of magnitude  
+                  spwr3 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf)*a0 + &
+                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf)*a1 ! linear time interp of magnitude
+                  spwr4 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a0 + &
+                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a1 ! linear time interp of magnitude
+
+                  spwd1 = cyclic_interpolation(connection%sourceItemsPtr(swd)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1)), &
+                          connection%sourceItemsPtr(swd)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1)), a0, a1) ! cyclic time interp of direction
+                  spwd2 = cyclic_interpolation(connection%sourceItemsPtr(swd)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1)), &
+                          connection%sourceItemsPtr(swd)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1)), a0, a1) ! cyclic time interp of direction
+                  spwd3 =  cyclic_interpolation(connection%sourceItemsPtr(swd)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf), &
+                          connection%sourceItemsPtr(swd)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf), a0, a1) ! cyclic time interp of direction
+                  spwd4 = cyclic_interpolation(connection%sourceItemsPtr(swd)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf), &
+                          connection%sourceItemsPtr(swd)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf), a0, a1) ! cyclic time interp of direction
+                  ! Safety at center
+                  if (nf == 1) then
+                     spwr1 = 0.0_hp
+                     spwd1 = spwd3
+                  endif
+               end if
+               if (twp>0) then
+                  spwp1 = connection%sourceItemsPtr(swp)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a0 + &
+                          connection%sourceItemsPtr(swp)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a1 ! linear time interp of pressure
+                  spwp2 = connection%sourceItemsPtr(swp)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a0 + &
+                          connection%sourceItemsPtr(swp)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of pressure
+                  spwp3 = connection%sourceItemsPtr(swp)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf)*a0 + &
+                          connection%sourceItemsPtr(swp)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf)*a1 ! linear time interp of pressure
+                  spwp4 = connection%sourceItemsPtr(swp)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a0 + &
+                          connection%sourceItemsPtr(swp)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a1 ! linear time interp of pressure
+               end if
                !
-               ! Interpolate over wind direction
                wphi  = 1.0_hp - (spwphihat - (mf-1)*spwdphi)/(spwdphi)   ! weightfactor for the direction
                wrad  = 1.0_hp - (spwradhat - (nf-1)*spwdrad)/(spwdrad)   ! weightfactor for the radius
-               spwrA = spwr1*wphi + spwr2*(1.0_hp-wphi)                  ! space interp magnitude (direction)
-               spwrB = spwr3*wphi + spwr4*(1.0_hp-wphi)                  ! space interp magnitude (direction)
-               tmp = 1.0_hp-wphi
-               spwdA = cyclic_interpolation(spwd1, spwd2, wphi, tmp) ! space interp direction (direction)
-               spwdB = cyclic_interpolation(spwd3, spwd4, wphi, tmp) ! space interp direction (direction)
-               spwpA = spwp1*wphi + spwp2*(1.0_hp-wphi)                  ! space interp pressure (direction)
-               spwpB = spwp3*wphi + spwp4*(1.0_hp-wphi)                  ! space interp pressure (direction)
-               !
-               ! Interpolate over radial direction                     
-               rintp = spwrA*wrad + spwrB*(1.0_hp-wrad)                  ! space interp (radius)
-               tmp = 1.0_hp-wrad
-               dintp = cyclic_interpolation(spwdA, spwdB, wrad, tmp) ! space interp (radius)
-               pintp = spwpA*wrad + spwpB*(1.0_hp-wrad)                  ! space interp (radius)
-               !
-               ! Final treatment of the data
-               dintp =  90.0_hp - dintp         ! revert from nautical conventions
-               dintp =  modulo(dintp, 360.0_hp)    ! for debug purposes
-               uintp = -rintp*cos(dintp*fa)     ! minus sign: wind from N points to S
-               vintp = -rintp*sin(dintp*fa)     ! minus sign: wind from N points to S
-               pintp =  paver - pintp           ! relate pressure drop to actual pressure
+   
+               if ((twx>0).or.(twy>0)) then
+                  spwrA = spwr1*wphi + spwr2*(1.0_hp-wphi)                  ! space interp magnitude (direction)
+                  spwrB = spwr3*wphi + spwr4*(1.0_hp-wphi)                  ! space interp magnitude (direction)
+                  tmp = 1.0_hp-wphi
+                  spwdA = cyclic_interpolation(spwd1, spwd2, wphi, tmp) ! space interp direction (direction)
+                  spwdB = cyclic_interpolation(spwd3, spwd4, wphi, tmp) ! space interp direction (direction)
+                  rintp = spwrA*wrad + spwrB*(1.0_hp-wrad)              ! space interp (radius)
+                  tmp = 1.0_hp-wrad
+                  dintp = cyclic_interpolation(spwdA, spwdB, wrad, tmp) ! space interp (radius)
+                  dintp =  90.0_hp - dintp         ! revert from nautical conventions
+                  dintp =  modulo(dintp, 360.0_hp) ! for debug purposes
+                  uintp = -rintp*cos(dintp*fa)     ! minus sign: wind from N points to S
+                  vintp = -rintp*sin(dintp*fa)     ! minus sign: wind from N points to S
+               end if
+
+               if (twp>0) then
+                  spwpA = spwp1*wphi + spwp2*(1.0_hp-wphi)                  ! space interp pressure (direction)
+                  spwpB = spwp3*wphi + spwp4*(1.0_hp-wphi)                  ! space interp pressure (direction)
+                  pintp = spwpA*wrad + spwpB*(1.0_hp-wrad)                  ! space interp (radius)
+               end if
+
             endif
             select case(connection%converterPtr%operandType)
                case(operand_replace)
-                  connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n) = uintp
-                  connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n) = vintp
-                  connection%targetItemsPtr(3)%ptr%targetFieldPtr%arr1dPtr(n) = pintp
-                  connection%targetItemsPtr(1)%ptr%targetFieldPtr%timesteps = timesteps
-                  connection%targetItemsPtr(2)%ptr%targetFieldPtr%timesteps = timesteps
-                  connection%targetItemsPtr(3)%ptr%targetFieldPtr%timesteps = timesteps
+                  if (twx>0) then
+                     connection%targetItemsPtr(twx)%ptr%targetFieldPtr%arr1dPtr(n) = uintp
+                     connection%targetItemsPtr(twx)%ptr%targetFieldPtr%timesteps = timesteps
+                  end if
+                  if (twy>0) then
+                     connection%targetItemsPtr(twy)%ptr%targetFieldPtr%arr1dPtr(n) = vintp
+                     connection%targetItemsPtr(twy)%ptr%targetFieldPtr%timesteps = timesteps
+                  end if
+                  if (twp>0) then
+                     ! Only pressure is considered relative here, so we don't overwrite the background pressure 
+                     connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) =                          &
+                                   connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) - pintp
+                     connection%targetItemsPtr(twp)%ptr%targetFieldPtr%timesteps = timesteps
+                  end if
                case(operand_add)
-                  connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n) = connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n) + uintp
-                  connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n) = connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n) + vintp
-                  connection%targetItemsPtr(3)%ptr%targetFieldPtr%arr1dPtr(n) = connection%targetItemsPtr(3)%ptr%targetFieldPtr%arr1dPtr(n) + pintp
-                  connection%targetItemsPtr(1)%ptr%targetFieldPtr%timesteps = timesteps
-                  connection%targetItemsPtr(2)%ptr%targetFieldPtr%timesteps = timesteps
-                  connection%targetItemsPtr(3)%ptr%targetFieldPtr%timesteps = timesteps
+                  rcycl = connection%sourceItemsPtr(1)%ptr%elementSetPtr%radius
+                  yy = spwradhat
+                  spwf = 0.d0 
+                  if (yy<rcycl) then
+                     spwf   = min((1.0_hp - yy/rcycl)/spw_merge_frac,1.0_hp)
+                     ! spwf is the weightfactor for the spiderweb! Differs from the Delft3D implementation
+                     if (twx>0) then
+                        connection%targetItemsPtr(twx)%ptr%targetFieldPtr%arr1dPtr(n) =                       &
+                              (1.0_hp-spwf) * connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n)     & 
+                            +         spwf  * uintp
+                        connection%targetItemsPtr(twx)%ptr%targetFieldPtr%timesteps = timesteps
+                     end if
+                     if (twy>0) then
+                        connection%targetItemsPtr(twy)%ptr%targetFieldPtr%arr1dPtr(n) =                       &
+                              (1.0_hp-spwf) * connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n)     & 
+                            +         spwf  * vintp
+                        connection%targetItemsPtr(twy)%ptr%targetFieldPtr%timesteps = timesteps
+                     end if
+                     if (twp>0) then
+                        connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) =                       &
+                              connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) - spwf * pintp
+                        connection%targetItemsPtr(twp)%ptr%targetFieldPtr%timesteps = timesteps
+                     end if
+                  end if
                case default
                   call setECMessage("ERROR: ec_converter::ecConverterSpiderweb: Unsupported operand type requested.")
                   return
@@ -1985,8 +2103,8 @@ module m_ec_converter
          type(tEcIndexWeight), pointer :: indexWeight !< helper pointer, saved index weights
          type(tEcElementSet), pointer :: sourceElementSet !< source ElementSet
          integer :: n_cols, mp, np, n_points
-         type(tEcItem), pointer  :: windxPtr => null() ! pointer to item for windx     
-         type(tEcItem), pointer  :: windyPtr => null() ! pointer to item for windy
+         type(tEcItem), pointer  :: windxPtr ! pointer to item for windx     
+         type(tEcItem), pointer  :: windyPtr ! pointer to item for windy
          real(hp), dimension(:), allocatable :: targetValues
          double precision        :: PI, phi, xtmp
          !
@@ -1998,6 +2116,8 @@ module m_ec_converter
          indexWeight => null()
          sourceElementSet => null()
          ! ===== preprocessing: rotate windx and windy of the source fields if the array of rotations exists in the filereader =====
+         windxPtr => null()
+         windyPtr => null()
          do i=1, connection%nSourceItems
             if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='eastward_wind') then 
                windxPtr => connection%SourceItemsPtr(i)%ptr

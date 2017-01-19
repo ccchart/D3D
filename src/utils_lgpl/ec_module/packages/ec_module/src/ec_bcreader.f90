@@ -48,10 +48,13 @@ contains
     type(tEcQuantity), pointer :: qptr
 
     success = .false.
-    bc%quantity => null()
     bc%qname = quantityName
     bc%bcname = plilabel
     bc%fname = fname                                  ! store original filename for later referece (?)
+    if (associated(bc%quantity)) then                 ! allocate quantity struct attached to the bc-block 
+       deallocate(bc%quantity)
+    endif
+    allocate(bc%quantity)
     call str_upper(bc%qname,len(trim(bc%qname)))
     call str_upper(bc%bcname,len(trim(bc%bcname)))
     !
@@ -67,22 +70,26 @@ contains
           return                                               ! quantityName-plilabel combination not found
        endif
     case (BC_FTYPE_NETCDF)
-       bc%func = BC_FUNC_TSERIES                               ! For the time being we only support (1d, vectormax=1) timeseries
        ! in combination with netcdf
-       if (.not.ecNetCDFscan(bc%ncptr, quantityName, plilabel, bc%ncvarndx, bc%nclocndx)) then
+       if (.not.ecNetCDFscan(bc%ncptr, quantityName, plilabel, bc%ncvarndx, bc%nclocndx, bc%dimvector)) then
           return                                               ! quantityName-plilabel combination not found
+       endif
+       if (bc%numlay<=1) then
+          bc%func = BC_FUNC_TSERIES
+       else
+          bc%func = BC_FUNC_TIM3D
        endif
        ! TODO:
        ! Harvest the netCDF and the selected variable for metadata, using ecNetCDFGetAttrib
        ! parse them and store in the BC instance, analogous to processhdr for the ASCII BC-files
-       if (ecNetCDFGetVectormax (bc%ncptr, bc%ncvarndx, vectormax)) then
-          bc%quantity%vectormax = vectormax
-       endif
-       bc%quantity%vectormax  = 1                              ! To be removed later, when we enable vectormax>1 for netcdf files
-       !if (ecNetCDFGetAttrib (bc%ncptr, q_id, attribname, attribvalue)) then
-       !endif
-
        bc%timeunit = bc%ncptr%timeunit
+      !  Set vector of dimensions for the found variable to 1
+      ! For the time being we only allow scalars to be read from netCDF variables
+      ! TODO: Introduce the vector-attribute (string) similar to the bc-format, composing a vector from scalar variables
+      bc%quantity%vectormax = 1
+    case default
+       call setECMessage("Forcing file ("//trim(bc%fname)//") should either be of type .nc (netcdf timeseries file) or .bc (ascii BC-file).")
+       return
     end select
     success=.true.
   end function ecBCInit
@@ -102,7 +109,7 @@ contains
     integer             ::  reclen
     integer             ::  commentpos
     character(len=:),   &
-         allocatable   ::  keyvaluestr                         ! all key-value pairs in one header
+         allocatable    ::  keyvaluestr                         ! all key-value pairs in one header
     integer             ::  posfs
     integer             ::  nfld
     integer             ::  nq
@@ -131,16 +138,17 @@ contains
           return ! beter break?
        endif
        lineno = lineno + 1
-       reclen = len_trim(rec)                                  ! duplicate with strip_comment in ec_filereader_read, but otherwise circular dependency
+       if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
+       reclen = len_trim(rec)                                  ! deal with various comment delimiters 
        commentpos = index(rec(1:reclen),'//')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),'%')
+       commentpos = index(rec(1:reclen),' %')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),'#')
+       commentpos = index(rec(1:reclen),' #')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),'*')
+       commentpos = index(rec(1:reclen),' *')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),'!')
+       commentpos = index(rec(1:reclen),' !')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
 
        if (len_trim(rec(1:reclen))>0) then                     ! skip empty lines
@@ -458,7 +466,7 @@ contains
     do iq = 1, nq
        if (iv(iq)>0) then
           bc%quantity%col2elm(iq) = (il(iq)-1)*bc%quantity%vectormax + iv(iq)
-          if (allocated(bc%vp)) then
+          if (associated(bc%vp)) then
              bc%quantity%col2elm(iq) = (perm_vpos(il(iq))-1)*bc%quantity%vectormax + iv(iq)
           else
              bc%quantity%col2elm(iq) = iv(iq)
@@ -661,8 +669,7 @@ contains
           call setECMessage("Datablock end (eof) has been reached in file: "//trim(bcPtr%fname))
           return
        endif
-
-       if (.not.ecNetCDFGetTimeseriesValue (BCPtr%ncptr,BCPtr%ncvarndx,BCPtr%nclocndx,BCPtr%nctimndx,ec_timesteps,values)) then
+       if (.not.ecNetCDFGetTimeseriesValue (BCPtr%ncptr,BCPtr%ncvarndx,BCPtr%nclocndx,BCPtr%dimvector,BCPtr%nctimndx,ec_timesteps,values)) then
           call setECMessage("Read failure in file: "//trim(bcPtr%fname))
           return
        else
@@ -746,6 +753,11 @@ contains
     integer   :: i
 
     success = .False.
+
+    !----------------------------------------
+    success = .True.        ! RL666 : This destructor needs fixing asap, disabled for now, crashes
+    return
+    !----------------------------------------
     if (associated(bcblock%ncptr)) then
        bcblock%ncptr => null()
        ! TODO: also clean up netcdf instance somewhere (or is this not necessary)
@@ -761,7 +773,7 @@ contains
     if (allocated(bcblock%columns)) then
        deallocate(bcblock%columns)
     endif
-    if (allocated(bcblock%vp)) then
+    if (associated(bcblock%vp)) then
        deallocate(bcblock%vp)
     endif
 

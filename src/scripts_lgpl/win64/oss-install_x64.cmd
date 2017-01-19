@@ -135,13 +135,13 @@ rem ===============
     echo "installing all open source projects . . ."
 
     call :d_hydro
+    call :dimr
     call :flow2d3d
     call :flow2d3d_openda
     call :delwaq1
-    call :delwaq1_lib
     call :delwaq2
-    call :delwaq2_lib
-    call :delwaq2_openda_lib
+    call :delwaq_dll
+rem     call :delwaq2_openda_lib
     call :waq_plugin_wasteload
     call :part
     call :wave
@@ -175,6 +175,7 @@ rem ========================
     echo "installing delft3d-flow . . ."
 
     call :d_hydro
+    call :dimr
     call :flow2d3d
     call :flow2d3d_openda
     call :plugin_culvert
@@ -198,6 +199,29 @@ rem ===================
     
     call :copyFile engines_gpl\d_hydro\bin\x64\Release\d_hydro.exe          !dest_bin!
     call :copyFile engines_gpl\d_hydro\scripts\create_config_xml.tcl    !dest_menu!
+goto :endproc
+
+
+
+rem ================
+rem === INSTALL_DIMR
+rem ================
+:dimr
+    echo "installing dimr . . ."
+
+    set dest_bin="!dest_main!\win64\dimr\bin"
+    set dest_menu="!dest_main!\win64\menu\bin"
+
+    call :makeDir !dest_bin!
+    call :makeDir !dest_menu!
+    
+    call :copyFile engines_gpl\dimr\bin\x64\Release\dimr.exe             !dest_bin!
+    call :copyFile engines_gpl\dimr\bin\x64\Release\dimr_dll.dll         !dest_bin!
+    call :copyFile "third_party_open\expat\x64\x64\Release\libexpat.dll" !dest_bin!
+    call :copyFile "third_party_open\pthreads\bin\x64\*.dll"             !dest_bin!
+    call :copyFile "third_party_open\mpich2\x64\bin\*.exe"               !dest_bin!
+    call :copyFile "third_party_open\mpich2\x64\lib\*.dll"               !dest_bin!
+    call :copyFile engines_gpl\d_hydro\scripts\create_config_xml.tcl     !dest_menu!
 goto :endproc
 
 
@@ -296,28 +320,6 @@ goto :endproc
 
 
 
-rem =======================
-rem === INSTALL_DELWAQ1_LIB
-rem =======================
-:delwaq1_lib
-    echo "installing delwaq1_lib . . ."
-
-    set dest_bin="!dest_main!\win64\waq\bin"
-    set dest_default="!dest_main!\win64\waq\default"
-    
-    call :makeDir !dest_bin!
-    call :makeDir !dest_default!
-
-    call :copyFile engines_gpl\waq\bin\x64\Release\delwaq1_lib.dll         	       !dest_bin!
-	
-    call :copyFile engines_gpl\waq\default\bloom.spe                           !dest_default!
-    call :copyFile engines_gpl\waq\default\bloominp.d09                        !dest_default!
-    call :copyFile engines_gpl\waq\default\proc_def.dat                        !dest_default!
-    call :copyFile engines_gpl\waq\default\proc_def.def                        !dest_default!
-goto :endproc
-
-
-
 rem ===================
 rem === INSTALL_DELWAQ2
 rem ===================
@@ -333,17 +335,40 @@ goto :endproc
 
 
 
-rem =======================
-rem === INSTALL_DELWAQ2_LIB
-rem =======================
-:delwaq2_lib
-    echo "installing delwaq2_lib . . ."
+rem ============================
+rem === INSTALL_DELWAQ_DIMR_TEST
+rem ============================
+:delwaq_dimr_test
+    echo "installing delwaq_dimr_test . . ."
 
     set dest_bin="!dest_main!\win64\waq\bin"
     
     call :makeDir !dest_bin!
+
+    call :copyFile engines_gpl\waq\bin\x64\Release\delwaq_dimr_test.exe               	   !dest_bin!
+goto :endproc
+
+
+
+rem ======================
+rem === INSTALL_DELWAQ_DLL
+rem ======================
+:delwaq_dll
+    echo "installing delwaq dll . . ."
+
+    set dest_bin="!dest_main!\win64\waq\bin"
+    set dest_default="!dest_main!\win64\waq\default"
     
-    call :copyFile engines_gpl\waq\bin\x64\Release\delwaq2_lib.dll           !dest_bin!
+    call :makeDir !dest_bin!
+    call :makeDir !dest_default!
+    
+    call :copyFile engines_gpl\waq\bin\x64\Release\delwaq.dll                  !dest_bin!
+    call :copyNetcdf
+
+    call :copyFile engines_gpl\waq\default\bloom.spe                           !dest_default!
+    call :copyFile engines_gpl\waq\default\bloominp.d09                        !dest_default!
+    call :copyFile engines_gpl\waq\default\proc_def.dat                        !dest_default!
+    call :copyFile engines_gpl\waq\default\proc_def.def                        !dest_default!
 	
     rem
     rem The following if-else statements MUST BE executed AFTER copying "third_party_open\intel_fortran" libraries.
@@ -380,6 +405,7 @@ rem
 rem    call :makeDir !dest_bin!
 rem    
 rem    call :copyFile engines_gpl\waq\bin\Release\delwaq2_openda_lib.dll          !dest_bin!
+rem    call :copyNetcdf
 rem	
 
 rem    rem

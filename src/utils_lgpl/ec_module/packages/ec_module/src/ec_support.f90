@@ -56,10 +56,12 @@ module m_ec_support
    public :: ecSupportFindConnection
    public :: ecSupportFindConverter
    public :: ecSupportFindFileReader
+   public :: ecSupportFindFileReaderByFilename
    public :: ecSupportFindBCBlock
    public :: ecSupportFindNetCDF
    public :: ecSupportFindNetCDFByFilename
    public :: ecSupportNetcdfCheckError
+   public :: ecSupportNCFindCFCoordinates
    public :: ecSupportTimestringToUnitAndRefdate
    public :: ecSupportTimeUnitConversionFactor
    public :: ecSupportTimeToTimesteps
@@ -678,6 +680,34 @@ end subroutine ecInstanceListSourceItems
       end function ecSupportFindFileReader
       
       ! =======================================================================
+      !> Retrieve the pointer to the FileReader with id == converterId.
+      function ecSupportFindFileReaderByFilename(instancePtr, filename) result(fileReaderPtr)
+         type(tEcFileReader), pointer            :: fileReaderPtr !< FileReader corresponding to fileReaderId
+         type(tEcInstance),   pointer            :: instancePtr   !< intent(in)
+         character(*),        intent(in)         :: filename      !< relative path of data file
+         !
+         integer :: i !< loop counter
+         !
+         fileReaderPtr => null()
+         !
+         if (associated(instancePtr)) then
+            do i=1, instancePtr%nFileReaders
+               if (associated(instancePtr%ecFileReadersPtr(i)%ptr%bc)) then                  ! if filereader has bc-block
+                  if (strcmpi(instancePtr%ecFileReadersPtr(i)%ptr%bc%fName, fileName)) then  ! this bc-block has the filename
+                     fileReaderPtr => instancePtr%ecFileReadersPtr(i)%ptr
+                  end if
+               else                                                                          ! else
+                  if (strcmpi(instancePtr%ecFileReadersPtr(i)%ptr%fileName, fileName)) then  ! the filereader has the filename
+                     fileReaderPtr => instancePtr%ecFileReadersPtr(i)%ptr
+                  end if
+               end if
+            end do
+         else
+            call setECMessage("ERROR: ec_support::ecSupportFindFileReader: Dummy argument instancePtr is not associated.")
+         end if
+      end function ecSupportFindFileReaderByFilename
+
+      ! =======================================================================
 
       !> Retrieve the pointer to the BCBlock with id == bcBlockId.
       function ecSupportFindBCBlock(instancePtr, bcBlockId) result(bcBlockPtr)
@@ -761,6 +791,7 @@ end subroutine ecInstanceListSourceItems
          character(len=maxFileNameLen), intent(in) :: filename    !< 
          !
          character(3000) :: message
+         integer         :: iostat
          !
          if (ierror /= nf90_noerr) then
             write (message,'(6a)') 'ERROR ', trim(description), '. NetCDF file : "', trim(filename), '". Error message:', nf90_strerror(ierror)
@@ -776,7 +807,7 @@ end subroutine ecInstanceListSourceItems
       !> Extracts time unit and reference date from a standard time string.
       !! ASCII example: "TIME = 0 hours since 2006-01-01 00:00:00 +00:00"
       !! NetCDF example: "minutes since 1970-01-01 00:00:00.0 +0000"
-      function ecSupportTimestringToUnitAndRefdate(string, unit, ref_date) result(success)
+      function ecSupportTimestringToUnitAndRefdate(string, unit, ref_date, tzone) result(success)
          use netcdf
          use time_module
          !
@@ -784,6 +815,8 @@ end subroutine ecInstanceListSourceItems
          character(len=*),   intent(in)   :: string   !< units string
          integer,  optional, intent(out)  :: unit     !< time unit enumeration
          real(hp), optional, intent(out)  :: ref_date !< reference date formatted as Modified Julian Date
+         integer                          :: iostat
+         real(hp), optional, intent(out)  :: tzone    !< timezone
          !
          integer :: i        !< helper index
          integer :: temp     !< helper variable
@@ -820,15 +853,26 @@ end subroutine ecInstanceListSourceItems
 !              ref_date = real(ymd2jul(yyyymmdd)) - 2400001.0_hp ! Julian Day to Modified Julian Date (exact)
                ref_date = real(ymd2jul(yyyymmdd)) - 2400000.5_hp ! Julian Day to Reduced Julian Date (exact)
                ! Time
-               read(string(i+11 : i+13), '(I2)') temp
-               ref_date = ref_date + dble(temp) / 24.0_hp
-               read(string(i+14 : i+16), '(I2)') temp
-               ref_date = ref_date + dble(temp) / 24.0_hp / 60.0_hp
-               read(string(i+17 : i+19), '(I2)') temp
-               ref_date = ref_date + dble(temp) / 24.0_hp / 60.0_hp / 60.0_hp
+               if(len_trim(string)>=i+18) then
+                  read(string(i+11 : i+12), *) temp
+                  ref_date = ref_date + dble(temp) / 24.0_hp
+                  read(string(i+14 : i+15), *) temp
+                  ref_date = ref_date + dble(temp) / 24.0_hp / 60.0_hp
+                  read(string(i+17 : i+18), *) temp
+                  ref_date = ref_date + dble(temp) / 24.0_hp / 60.0_hp / 60.0_hp
+               end if
             else
                call setECMessage("ERROR: ec_support::ecSupportTimestringToUnitAndRefdate: Unable to identify keyword: since.")
                return
+            end if
+         end if
+
+         ! Determine the timezone
+         if (present(tzone)) then
+            tzone = 0
+            i = index(string, '+',BACK=.True.)           ! Timezone following a '+'
+            if (i>0) then
+               read(string(i+1:i+2),*,iostat=iostat) tzone
             end if
          end if
          !
@@ -867,8 +911,8 @@ end subroutine ecInstanceListSourceItems
          !
          timesteps = tframe%times(index) * factor + (tframe%ec_refdate - tframe%k_refdate) * 60.0_hp*60.0_hp*24.0_hp
          !
-         ! Correct for Kernel's timzone.
-         timesteps = timesteps + tframe%k_timezone*3600.0_hp
+         ! Correct for Kernel's timzone in seconds
+         timesteps = timesteps + (tframe%k_timezone-tframe%ec_timezone) * 60.0_hp*60.0_hp
       end function ecSupportTimeToTimesteps
 
       ! =======================================================================
@@ -898,8 +942,100 @@ end subroutine ecInstanceListSourceItems
             factor_in = ecSupportTimeUnitConversionFactor(tframe%ec_timestep_unit)
             timesteps = tframe%ec_refdate + factor_in * thistime / 86400.0_hp
          endif
-         
       end function ecSupportThisTimeToTimesteps
+      
+
+      !> Find the CF-compliant longitude and latitude dimensions and associated variables
+      function ecSupportNCFindCFCoordinates(ncid, lon_varid, lon_dimid, lat_varid, lat_dimid,      &
+                                                    x_varid,   x_dimid,   y_varid,   y_dimid,      &
+                                                  tim_varid, tim_dimid) result(success)
+      use netcdf
+      logical              :: success
+      integer, intent(in)  :: ncid           !< NetCDF file ID
+      integer, intent(out) :: lon_varid      !< One dimensional coordinate variable recognized as longitude
+      integer, intent(out) :: lat_varid      !< One dimensional coordinate variable recognized as latitude
+      integer, intent(out) ::   x_varid      !< One dimensional coordinate variable recognized as X
+      integer, intent(out) ::   y_varid      !< One dimensional coordinate variable recognized as Y
+      integer, intent(out) :: tim_varid      !< One dimensional coordinate variable recognized as time
+      integer, intent(out) :: lon_dimid      !< Longitude dimension
+      integer, intent(out) :: lat_dimid      !< Latitude dimension
+      integer, intent(out) ::   x_dimid      !< X dimension
+      integer, intent(out) ::   y_dimid      !< Y dimension
+      integer, intent(out) :: tim_dimid      !< Time dimension
+      integer :: ndim, nvar, ivar, nglobatts, unlimdimid, ierr
+      integer :: dimids(1)
+      character(len=NF90_MAX_NAME)  :: units, axis
+
+      success = .False.
+      lon_varid = -1
+      lat_varid = -1
+      x_varid = -1
+      y_varid = -1
+      tim_varid = -1
+      lon_dimid = -1
+      lat_dimid = -1
+      x_dimid = -1
+      y_dimid = -1
+      tim_dimid = -1
+      ierr = nf90_inquire(ncid, ndim, nvar, nglobatts, unlimdimid)
+      do ivar=1,nvar
+         ierr = nf90_inquire_variable(ncid, ivar, ndims=ndim)                      ! number of variables
+         units=''
+         ierr = nf90_get_att(ncid, ivar, 'units', units)
+         if (ndim==1) then
+            ierr = nf90_inquire_variable(ncid, ivar, dimids=dimids)                ! number of variables
+            select case (trim(units))
+               case ('degrees_east','degree_east','degree_E','degrees_E','degreeE','degreesE')
+                  lon_varid = ivar
+                  lon_dimid = dimids(1)
+               case ('degrees_north','degree_north','degree_N','degrees_N','degreeN','degreesN')
+                  lat_varid = ivar
+                  lat_dimid = dimids(1)
+               case ('m','meters','km','kilometers')
+                  axis=''
+                  ierr = nf90_get_att(ncid, ivar, 'axis', axis)
+                  if (strcmpi(axis,'X')) then
+                     x_varid = ivar
+                     x_dimid = dimids(1)
+                  end if
+                  if (strcmpi(axis,'Y')) then
+                     y_varid = ivar
+                     y_dimid = dimids(1)
+                  end if
+               case default
+                  ! see if is the time dimension
+                  if ((index(units,'seconds since')>0)   &
+                  .or.(index(units,'minutes since')>0)   &
+                  .or.(index(units,'hours since')>0)     &
+                  .or.(index(units,'days since')>0))     then
+                     tim_varid = ivar
+                     tim_dimid = dimids(1)
+                  end if
+               end select
+         end if
+         if (ndim==2) then                ! Find lat and lon even if they are no coordinate axis
+            select case (trim(units))
+               case ('degrees_east','degree_east','degree_E','degrees_E','degreeE','degreesE')
+                  lon_varid = ivar
+               case ('degrees_north','degree_north','degree_N','degrees_N','degreeN','degreesN')
+                  lat_varid = ivar
+               end select
+         end if
+      end do   !ivar
+      
+      success = .True.
+      end function ecSupportNCFindCFCoordinates
+
+      !!> Return dimension id's and lengths for the specified variable
+      !function ecSupportNCGetVarDim(ncid, varid, dimid, dimlen, ndim) result(success)
+      !use netcdf
+      !logical              :: success
+      !integer, intent(in)  :: ncid                      !< NetCDF file ID
+      !integer, intent(in)  :: varid                     !< Variable file ID
+      !
+      !integer, dimension(:), allocatable :: intent(out) !< array of dimension ID's for this variable 
+      !integer, dimension(:), allocatable :: intent(out) !< array of dimension s for this variable 
+      !end function ecSupportNCGetVarDim
 
 end module m_ec_support
 
@@ -1224,5 +1360,5 @@ module m_ec_alloc
             end if
          end if
       end function ecQuantityPtrArrayIncrease
-
+      
 end module m_ec_alloc

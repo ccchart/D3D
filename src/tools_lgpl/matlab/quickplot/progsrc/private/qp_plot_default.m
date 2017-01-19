@@ -87,6 +87,11 @@ switch NVal
                     if ~FirstFrame
                         delete(hNew)
                     end
+                    if strcmp(Ops.presentationtype,'edge m')
+                        data.XDamVal(:) = NaN;
+                    elseif strcmp(Ops.presentationtype,'edge n')
+                        data.YDamVal(:) = NaN;
+                    end
                     if isfield(data,'XDamVal') && Ops.colourdams
                         hNew=thindam(data.X,data.Y,data.XDam,data.YDam,'color',data.XDamVal,data.YDamVal,'parent',Parent);
                         set(hNew,'linewidth',Ops.linewidth, ...
@@ -347,10 +352,8 @@ switch NVal
                             y=data.Y;
                             z=data.Val;
                         otherwise %case {'path distance','reverse path distance'}
-                            data.X(mask)=NaN;
                             xx=data.X;
                             if isfield(data,'Y')
-                                data.Y(mask)=NaN;
                                 yy=data.Y;
                             else
                                 yy=0*xx;
@@ -374,6 +377,7 @@ switch NVal
                             if strcmp(Ops.plotcoordinate,'reverse path distance')
                                 x=flipud(fliplr(x));
                             end
+                            x(mask)=NaN;
                             y=data.Val;
                             z=zeros(size(x));
                     end

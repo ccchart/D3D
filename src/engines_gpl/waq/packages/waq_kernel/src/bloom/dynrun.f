@@ -63,7 +63,7 @@
 !  version of BLOOM II.
 !
       SUBROUTINE DYNRUN(EXTTOT,EXTB,TMP,SOL,DEP,DAYL,CHLOR,ID,ISEG,
-     1                  LCOUPL,NSET,EXTLIM,DEAT,TOTCHL,TOTDRY,TOTCAR)
+     1                  LCOUPL,NSET,EXTLIM,DEAT,TOTCHL,TOTDRY,TOTCAR,SWBLSA)
       IMPLICIT REAL*8 (A-H,O-Z)
 
       INCLUDE 'blmdim.inc'
@@ -82,15 +82,20 @@
       INTEGER NONUN(MT)
       REAL*8  ZOODII(0:MG)
 !
-!  Check whether a selective dump is requested for this period.
-!
+!  Check whether a selective dump for periods and/or segments is requested for this period.
+      IDUMP = 0
+      IGDUMP = -1
       IF (ISDUMP .EQ. 1) THEN
-         IF (ID .GE. ISDPER(1) .AND. ID .LE. ISDPER(2)) THEN
+         IF ((ID .GE. ISDPER(1) .AND. ID .LE. ISDPER(2)) .AND.
+     &       (IGDUMP .EQ. 0 .OR. IGDUMP .EQ. ISEG)) THEN
             IDUMP = 1
-         ELSE
-            IDUMP = 0
+         END IF
+      ELSE
+         IF  (IGDUMP .EQ. ISEG) THEN
+            IDUMP = 1
          END IF
       END IF
+
 !
 !  Calculate solarradion level for week; correct for total radiadion.
 !
@@ -106,9 +111,9 @@
 !  Update 1.91: allow large segment numbers: use I5
 !
       WRITE (CDATE, 115) ISEG, ID
-115   FORMAT (I4,1X,I2)
+115   FORMAT (I5,1X,I2)
       IF ( IDUMP .EQ. 0) GO TO 120
-      WRITE (IOU(6),99960) CDATE
+      WRITE (IOU(6),99960) ISEG, ID
 !
 !  Print parameter values on unit IOU(6) if "DUMP" is specified.
 !
@@ -126,7 +131,7 @@
   129 CONTINUE
       CALL BLOOM(CDATE,ID,MI,TMP,SOL,CHLOR,EXTB,DAYL,DEAT,ZOODII,
      1           DEP,XINIT,XDEF,XECO,TOTCHL,EXTTOT,EXTLIM,NSET,INFEAS,
-     2           NONUN,NUMUN,LCOUPL)
+     2           NONUN,NUMUN,LCOUPL,SWBLSA)
       TOTDRY = XDEF (NUCOLS+2)
       TOTCAR = 0.0
       DO 130 I = 1, NUSPEC
@@ -142,7 +147,8 @@
 99980 FORMAT(2X,'The following species have reduced relative depth',/,
      1       2X,'for buoyancy control: ')
 99970 FORMAT(2X,'Species ',A8,' has relative depth of ',F5.2)
-99960 FORMAT (/,23X,'****** TIME PERIOD ',2X,A8,2X,'******',/)
+99960 FORMAT (/,23X,'******',2X,' SEGMENT ',I8,' WEEK ',
+     1       I2, 2X,'******',/)
 99950 FORMAT(2X,'Important parameter values for this week:',/,
      1       2X,'Temperature =',F5.1,4X,'Solar radiation =',F8.1,
      2       4X,'Total depth =',F5.2)

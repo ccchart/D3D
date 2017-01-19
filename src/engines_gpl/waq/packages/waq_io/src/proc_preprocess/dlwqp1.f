@@ -45,6 +45,7 @@
       use processet
       use output
       use partable
+      use string_module
 
       implicit none
 
@@ -69,7 +70,8 @@
 
       ! local declarations
 
-      real, parameter           :: versip = 4.52   ! version process system
+      real, parameter           :: versip = 5.06   ! version process system
+      real                      :: verspe = 1.0    ! version bloom.spe file
       integer, parameter        :: novarm = 15000  ! max number of variables overall
       integer, parameter        :: nbprm  = 1750   ! max number of processes
       integer, parameter        :: nopred = 6      ! number of pre-defined variables
@@ -101,12 +103,15 @@
       integer                   :: igrp            ! index variable
       integer                   :: iatyp           ! index variable
       integer                   :: ialg            ! index variable
+      integer                   :: icof            ! index variable
       integer                   :: ico             ! index variable
       integer                   :: iconf           ! index variable
       integer                   :: istat           ! index variable
       integer                   :: iioitem         ! index variable
       integer                   :: ioutp           ! index variable
       integer                   :: i               ! index variable
+      integer                   :: iitem           ! index variable
+      integer                   :: iindx           ! index variable
       integer                   :: ix_act          ! index variable
       integer                   :: ix_dbl          ! index variable
       integer                   :: ioff            ! offset for index item
@@ -137,6 +142,12 @@
       character*20,allocatable  :: diname(:)       ! dispersion names
       character*20,allocatable  :: vename(:)       ! velocity names
       character*20,allocatable  :: locnam(:)       ! loacal array names
+      character*20 ,allocatable :: ainame(:)       ! all item names names in the proc_def
+      character*20              :: subname         ! substance name
+      character*100,allocatable :: substdname(:)   ! substance standard name
+      character*40 ,allocatable :: subunit(:)      ! substance unit
+      character*60 ,allocatable :: subdescr(:)     ! substance description
+      character*20              :: outname         ! output name
 
       ! proces definition structure
 
@@ -159,10 +170,12 @@
       ! settings
 
       character*80   swinam
+      character*80   blmnam
       character*80   line
       character*256  pdffil
       character*10   config
       logical        lfound, laswi , swi_nopro, l3dmod, nolic
+      integer        blm_act                       ! index of ACTIVE_BLOOM_P
 
       ! charon coupling
 
@@ -421,20 +434,44 @@
             write(line,'(a22,a58)') ' using eco input file:', blmfil
             call monsys(line,1)
          endif
-
+      else
+         blmnam = 'ACTIVE_BLOOM_P'
+         blm_act = dlwq_find(constants,blmnam)
+         if ( blm_act .gt. 0 .and. .not.swi_nopro) then
+            l_eco = .true.
+            line = ' '
+            call monsys(line,1)
+            write(line,'(a)' ) ' found constant ACTIVE_BLOOM_P without -eco command line switch'
+            call monsys(line,1)
+            blmfil = 'bloom.spe'
+            write(line,'(a39,a41)') ' will try using default eco input file:', blmfil
+            call monsys(line,1)
+         else
+            l_eco = .false.
+            noprot  = 0
+            nopralg = 0
+         endif
+      endif
          ! read the bloom-species database.
 
+      if ( l_eco ) then
          lunblm = 88
          open ( lunblm    , file=blmfil )
-         call reaalg ( lurep  , lunblm , maxtyp , maxcof, notyp ,
-     +                 nocof  , noutgrp, nouttyp, alggrp, abrgrp,
-     +                 algtyp , abrtyp , algdsc , cofnam, algcof,
-     +                 outgrp , outtyp , noprot , namprot,nampact,
-     +                 nopralg,nampralg)
-      else
-         l_eco = .false.
-         noprot  = 0
-         nopralg = 0
+         read ( lunblm    , '(a)' ) line
+         verspe = 1.0
+         ioff =  index(line, 'BLOOMSPE_VERSION_')
+         if(ioff.eq.0) then
+            rewind( lunblm )
+         else
+            read (line(ioff+17:), *, err = 100) verspe
+100         continue
+         endif
+
+         call reaalg ( lurep  , lunblm , verspe , maxtyp , maxcof , 
+     +                 notyp  , nocof  , noutgrp, nouttyp, alggrp ,
+     +                 abrgrp , algtyp , abrtyp , algdsc , cofnam ,
+     +                 algcof , outgrp , outtyp , noprot , namprot,
+     +                 nampact, nopralg, nampralg)
       endif
 
       ! chem coupling
@@ -600,12 +637,12 @@
       ! charon coupling
 
       if ( l_chem ) then
-         call pdfch1 ( lurep   , chemid, nosys , syname, procha,
-     +                 allitems)
+!         call pdfch1 ( lurep   , chemid, nosys , syname, procha,
+!     +                 allitems)
 
          ! fill in the names of the charon coupling, manipulate stochiometric terms for
 
-         call pdfch2 ( lurep , procesdef, procha)
+!         call pdfch2 ( lurep , procesdef, procha)
       endif
 
       ! add the statistical processes in the structure
@@ -657,7 +694,7 @@
 
          lunfrm = 89
          open ( lunfrm    , file='bloominp.frm' )
-         call blmeff (lurep , lunblm, lunfrm, grpnam, nogrp )
+         call blmeff (lurep , lunblm, verspe, lunfrm, grpnam, nogrp , typnam, noalg)
          close(lunblm)
          close(lunfrm)
 
@@ -802,10 +839,90 @@
 
       nrvart = outputs%cursize
 
+      ! Prepare descrtion and unit information for output from the proces library to be written in the NetCDF-file
+
+      ! Extract names list from allitems
+      allocate(ainame(allitems%cursize))
+      do iitem = 1, allitems%cursize
+         ainame(iitem) = allitems%itemproppnts(iitem)%pnt%name
+      enddo
+
+      ! Get location of FixAlg in algcof
+      name10 = 'FixAlg'
+      call zoek( name10, maxcof, cofnam, 10 , icof )
+
+      ! Get information about the substances
+      allocate (substdname(notot))
+      allocate (subunit(notot))
+      allocate (subdescr(notot))
+      do isys = 1, notot
+         subname = syname(isys)
+         call str_lower(subname)
+         call zoek(subname,allitems%cursize,ainame,20,iindx)
+         if ( iindx .gt. 0) then
+            substdname(isys) = allitems%itemproppnts(iindx)%pnt%stdn
+            subunit(isys) = allitems%itemproppnts(iindx)%pnt%stdu
+            subdescr(isys) = trim(allitems%itemproppnts(iindx)%pnt%text)//' '//
+     &                            allitems%itemproppnts(iindx)%pnt%unit
+         else
+            ! Is it an algae?
+            call zoek( subname(1:10), maxtyp, algtyp, 10 , ialg )
+            if ( ialg .gt. 0) then
+               if (algcof(icof, ialg) .ge. 0) then
+                  substdname(isys) = ' '
+                  subunit(isys) = 'g m-3'
+                  subdescr(isys) = algdsc(ialg)//' (gC/m3)'
+               else
+                  substdname(isys) = ' '
+                  subunit(isys) = 'g m-2'
+                  subdescr(isys) = algdsc(ialg)//' (gC/m2)'
+               endif
+            else
+               substdname(isys) = ' '
+               subunit(isys) = ' '
+               subdescr(isys) = syname(isys)
+            endif
+         endif
+      enddo
+
+      ! Lookup output names in names list
+      do ioutp = 1, outputs%cursize
+         outname = outputs%names(ioutp)
+         call str_lower(outname)
+         call zoek(outname,allitems%cursize,ainame,20,iindx)
+         if ( iindx .gt. 0) then
+            outputs%stdnames(ioutp) = allitems%itemproppnts(iindx)%pnt%stdn
+            outputs%units(ioutp) = allitems%itemproppnts(iindx)%pnt%stdu
+            outputs%descrs(ioutp) = allitems%itemproppnts(iindx)%pnt%text//' '//allitems%itemproppnts(iindx)%pnt%unit
+         else if (outname.eq.'theta') then
+            outputs%stdnames(ioutp) = ' '
+            outputs%units(ioutp) = ' '
+            outputs%descrs(ioutp) = 'Local-theta, generated by numerical scheme (-)'
+         else
+            ! Is it an algae?
+            call zoek( outname(1:10), maxtyp, algtyp, 10 , ialg )
+            if ( ialg .gt. 0) then
+               if (algcof(icof, ialg) .ge. 0) then
+                  outputs%stdnames(ioutp) = ' '
+                  outputs%units(ioutp) = 'g m-3'
+                  outputs%descrs(ioutp) = algdsc(ialg)//' (gC/m3)'
+               else
+                  outputs%stdnames(ioutp) = ' '
+                  outputs%units(ioutp) = 'g m-2'
+                  outputs%descrs(ioutp) = algdsc(ialg)//' (gC/m2)'
+               endif
+            else
+               outputs%stdnames(ioutp) = ' '
+               outputs%units(ioutp) = ' '
+               outputs%descrs(ioutp) = outputs%names(ioutp)
+            endif
+         endif
+      enddo
       ! write updated output work file ( output.wrk )
 
       call dhopnf ( lun(25), lchar(25), 25    , 1     , ierr2 )
-      call wrwrko ( lun(25), noutp , nbufmx , ioutps, outputs)
+      call wrwrko ( lun(25), noutp , nbufmx , ioutps, outputs,
+     &              notot,  substdname, subunit, subdescr )
       close ( lun(25) )
 
       ! write altoys input files, only for old balnce file
@@ -823,4 +940,20 @@
  2003 format( ' Serial                        : ',i10  )
  2020 format (//' Model :            ',a40,/20x,a40 )
  2030 format (//' Run   :            ',a40,/20x,a40//)
+
+ 2540 format ( / ' ERROR, no variable found with requested attribute "delwaq_role"' )
+ 2550 format ( / ' Mesh used for Delwaq output: ', A )
+ 2555 format ( / ' ERROR, Getting the mesh name failed' )
+ 2556 format ( / ' Getting the mesh ID failed - variable: ', A )
+ 2560 format ( / ' Creating the output file failed. Filename:', A )
+ 2570 format ( / ' Copying the attributes failed' )
+ 2571 format ( / ' Writing the UUID failed' )
+ 2572 format ( / ' Copying the mesh data failed' )
+ 2573 format ( / ' Rewriting the attribute failed' )
+ 2580 format ( / ' Creating layer dimension failed' )
+
+ 2590 format ( / ' ERROR, closing NetCDF file. Filename: ',A )
+ 2599 format ( / ' NetCDF error message: ', A60 )
+ 2640 format ( / ' Creating time failed' )
+
       end

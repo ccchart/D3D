@@ -3,7 +3,8 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                 & nprttm    ,itfinish  ,iphisf    ,iphisi    ,iphisl    , &
                 & itmapf    ,itmapi    ,itmapl    ,ithisf    ,ithisi    , &
                 & ithisl    ,itcomf    ,itcomi    ,itcoml    ,itrsti    , &
-                & itnflf    ,itnfli    ,itnfll    ,itnflrf   ,itnflri   ,gdp       )
+                & itnflf    ,itnfli    ,itnfll    ,itnflrf   ,itnflri   , &
+                & lstsci    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2016.                                
@@ -84,6 +85,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                          , intent(in)    :: itfinish !  Description and declaration in inttim.igs
     integer                                          :: lundia   !  Description and declaration in inout.igs
     integer                                          :: lunmd    !  Description and declaration in inout.igs
+    integer                                          :: lstsci   !  Description and declaration in esm_alloc_int.f90
     integer                          , intent(in)    :: maxprt
     integer                                          :: nprttm   !!  Number of print times steps
     integer                                          :: nrrec    !!  Pointer to the record number in the MD-file
@@ -465,8 +467,10 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     !
     ! Additional output options
     !
-    call prop_get_logical(gdp%mdfile_ptr, '*', 'AdvFlx', flwoutput%difuflux)
-    call prop_get_logical(gdp%mdfile_ptr, '*', 'CumAFl', flwoutput%cumdifuflux)
+    if (lstsci>0) then
+       call prop_get_logical(gdp%mdfile_ptr, '*', 'AdvFlx', flwoutput%difuflux)
+       call prop_get_logical(gdp%mdfile_ptr, '*', 'CumAFl', flwoutput%cumdifuflux)
+    endif
     call prop_get_logical(gdp%mdfile_ptr, '*', 'MomTrm', flwoutput%momentum)
     call prop_get_logical(gdp%mdfile_ptr, '*', 'Chezy' , flwoutput%chezy)
     call prop_get_logical(gdp%mdfile_ptr, '*', 'Rough' , flwoutput%roughness)
@@ -493,6 +497,16 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! Flag for output at half time steps
     !
     call prop_get_logical(gdp%mdfile_ptr, '*', 'HdtOut' , flwoutput%halfdt)
+    !
+    ! Flag for writing barrier height to history file
+    !
+    call prop_get_logical(gdp%mdfile_ptr, '*', 'HisBar' , flwoutput%hisbar)
+    !
+    ! Flag for writing flow rates and in-/outflow locations of discharges to history file
+    ! For historical reasons this flag is set to true for simulations with culverts.
+    !
+    if (gdp%gdprocs%culvert) flwoutput%hisdis = .true.
+    call prop_get_logical(gdp%mdfile_ptr, '*', 'HisDis' , flwoutput%hisdis)
     !
     ! Flag for additional timers (print extra timers in tri-diag file)
     !

@@ -82,24 +82,21 @@
       ELSE
         READ (INPU,99987) NUSPEC,NUECOG,NUNUCO,NUADCO,NUGRAZ
       ENDIF
-!     write(*,*) 'Arjen: LCOUPL:',lcoupl
-!     write(*,*) 'Arjen: ',NUSPEC,NUECOG,NUNUCO,NUADCO,NUGRAZ
-
       IF (NUSPEC .GT. MT) THEN
          WRITE (OUUNI,99985) NUSPEC,MT
-         STOP
+         CALL SRSTOP(6)
       END IF
       IF (NUECOG .GT. MS) THEN
          WRITE (OUUNI,99983) NUECOG,MS
-         STOP
+         CALL SRSTOP(6)
       END IF
       IF (NUNUCO .GT. MN) THEN
          WRITE (OUUNI,99981) NUNUCO,MN
-         STOP
+         CALL SRSTOP(6)
       END IF
       IF (NUGRAZ .GT. MG) THEN
          WRITE (OUUNI,99979) NUGRAZ,MG
-         STOP
+         CALL SRSTOP(6)
       END IF
       DO 260 J=1,NUGRAZ
         BZOOD(J) = 1.D0
@@ -130,10 +127,6 @@
       NUSPE1=NUROWS+1
       NUCOLS=NUROWS+NUSPEC
 
-!     write(*,*)'Arjen: ', NUFILI,NOABCO,NOEXRO,NOROWS,NUSPE1,NOCOLS
-!     write(*,*)'Arjen: reading'
-!     write(*,*)'Arjen: nunuco:',nunuco
-!
 !  Read names of nutrient constraints, temperature (in)dependence,
 !  and whether the input value is to be used or some externally
 !  specified modification.
@@ -212,9 +205,6 @@
 !               (2) A species dependent function. The coefficients
 !                   are read following lable 140 of this subroutine.
 !
-!     read(inpu,'(a)') aline
-!     write(*,*)'Arjen: >',aline,'<'
-!     READ (aline,99995) WMODE,FLUSH
       READ (INPU,99995) WMODE,FLUSH
       IF (WMODE .NE. CONTRO(2)) GO TO 90
       LCAL=1
@@ -226,7 +216,7 @@
    90 CONTINUE
       IF (WMODE .EQ. CONTRO(7)) GO TO 110
       WRITE (OUUNI,99986) WMODE
-      STOP
+      CALL SRSTOP(6)
   110 CONTINUE
       LCAL=4
   120 CONTINUE
@@ -296,7 +286,7 @@
                 LPMAX(I) = 1
              ELSE
                 WRITE (OUUNI,99984) PWORD
-                STOP
+                CALL SRSTOP(6)
              END IF
           END IF
         ENDIF
@@ -307,7 +297,7 @@
 !
       IF (LCOUPL.EQ.0) THEN
         CALL SPINDI (LSPIND)
-        IF (LSPIND .EQ. 1) STOP
+        IF (LSPIND .EQ. 1) CALL SRSTOP(6)
       ENDIF
 !
 !  Read data for the integrated photosynthetic efficiency curves
@@ -324,6 +314,15 @@
 !----------------------------------------------------------------------
 !  Input section for FORMATTED read of efficiency curves!
 !
+      READ ( INEFF    , '(A)' ) ALINE
+      IOFF =  INDEX(ALINE, 'BLOOMFRM_VERSION_2.00')
+      IF(IOFF.EQ.0) THEN
+         REWIND( INEFF )
+      ELSE
+         READ (INEFF,199) (GRNAME(J),J=1,NUECOG)
+         READ (INEFF,199) (SPNAME(I),I=1,NUSPEC)
+      ENDIF
+  199 FORMAT (30(A10,X))
       READ (INEFF,200) NZ,TEFCUR
   200 FORMAT (I5,5X,F10.2)
       READ (INEFF,210) (ZVEC(I),I=1,NZ)
@@ -356,8 +355,6 @@
       LIMNAM (NUNUCO+1) = 'E  '
       LIMNAM (NUNUCO+2) = 'Gro'
       LIMNAM (NUNUCO+3) = 'Mor'
-
-!     write(*,*)'Arjen: 2', NUFILI,NOABCO,NOEXRO,NOROWS,NUSPE1,NOCOLS
 !
 !  Formats.
 !

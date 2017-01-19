@@ -636,6 +636,9 @@ end
 if Props.NVal==0
 elseif Props.NVal==1 || Props.NVal==4
     Ans.Val=val1;
+    if strcmp(Props.Name,'temperature')
+        Ans.AbsoluteUnits = true;
+    end
 else
     Ans.XComp=val1;
     Ans.YComp=val2;
@@ -650,7 +653,7 @@ varargout={Ans FI};
 function Out=infile(FI,domain)
 T_=1; ST_=2; M_=3; N_=4; K_=5;
 %======================== SPECIFIC CODE =======================================
-TRB='turbines';
+TRB='turbines'; BAR='barriers';
 PropNames={'Name'            'Units'   'DimFlag' 'DataInCell' 'NVal' 'VecType' 'Loc' 'ReqLoc'  'Loc3D' 'Group'          'Val1'     'Val2'    'SubFld' 'MNK'};
 DataProps={'location observation points'   ''   [1 6 0 0 0]  0         4     ''       'z'   'z'       ''      'his-series'     'XYSTAT'   ''  []       0
     'location tidal turbines'   ''       [1 3 0 0 0]  0         4     ''       TRB   'z'       ''      'his-const'      'XYTURBINES'   ''     []       0
@@ -667,6 +670,7 @@ DataProps={'location observation points'   ''   [1 6 0 0 0]  0         4     '' 
     '-------'                   ''       [0 0 0 0 0]  0         0     ''       ''    ''        ''      ''               ''         ''         []       0
     'wind speed'                'm/s'    [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'ZWNDSPD'  ''         []       0
     'wind direction'            'deg'    [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'ZWNDDIR'  ''         []       0
+    'wind drag coefficient'     '-'      [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'ZWNDCD'   ''         []       0
     'air pressure'              'Pa'     [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'PATM'     ''         []       0
     'precipitation rate'        'mm/h'   [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'ZPRECP'   ''         []       0
     'evaporation rate'          'mm/h'   [1 5 0 0 0]  0         1     ''       'z'   'z'       ''      'his-series'     'ZEVAP'    ''         []       0
@@ -702,6 +706,8 @@ DataProps={'location observation points'   ''   [1 6 0 0 0]  0         4     '' 
     'instantaneous discharge'   'm^3/s'  [1 5 0 0 0]  0         1     ''       ''    ''        ''      'his-series'     'CTR'      ''         []       0
     'cumulative discharge'      'm^3'    [1 5 0 0 0]  0         1     ''       ''    ''        ''      'his-series'     'FLTR'     ''         []       0
     'concentration'             ''       [1 5 0 0 0]  0         1     ''       ''    ''        ''      'his-dis-series' 'RINT'     ''         []       0
+    '-------'                   ''       [0 0 0 0 0]  0         0     ''       ''    ''        ''      ''               ''         ''         []       0
+    'barrier height'            'm'      [1 5 0 0 0]  0         1     ''       BAR   ''        ''      'his-series'     'ZBAR'     ''         []       0
     '-------'                   ''       [0 0 0 0 0]  0         0     ''       ''    ''        ''      ''               ''         ''         []       0
     'advective transport'       ''       [1 5 0 0 0]  0         1     ''       ''    ''        ''      'his-series'     'ATR'      ''         []       0
     'dispersive transport'      ''       [1 5 0 0 0]  0         1     ''       ''    ''        ''      'his-series'     'DTR'      ''         []       0
@@ -895,6 +901,7 @@ for i=size(Out,1):-1:1
                     Out(i)=[];
                 end
             case {'LINK_SUM','MORFAC','RINT'}
+            case {'ZBAR'}
             otherwise
                 % point
                 if NSt==0
@@ -983,7 +990,7 @@ end
 for i=1:length(Out)
     if isequal(Out(i).Units,'*')
         Info = vs_disp(FI,Out(i).Group,Out(i).Val1);
-        eUnit = deblank2(Info.ElmUnits(2:end-1));
+        eUnit = strtrim(Info.ElmUnits(2:end-1));
         switch lower(eUnit)
             case 'm3'
                 eUnit = 'm^3';
@@ -993,6 +1000,15 @@ for i=1:length(Out)
                 eUnit = 'kg';
             case 'kg/s'
                 eUnit = 'kg/s';
+            case ''
+                Info = vs_disp(FI,Out(i).Group,'SBTR');
+                eUnit = strtrim(Info.ElmUnits(2:end-1));
+                switch lower(eUnit)
+                    case 'm3/s'
+                        eUnit = 'm^3';
+                    case 'kg/s'
+                        eUnit = 'kg';
+                end
         end
         Out(i).Units = eUnit;
     end
@@ -1009,6 +1025,9 @@ else
     end
     Out=insstruct(Out,i,Ins);
 end
+
+[Out.TemperatureType] = deal('unspecified');
+[Out(strcmp({Out.Name},'temperature')).TemperatureType] = deal('absolute');
 % -----------------------------------------------------------------------------
 
 
@@ -1092,6 +1111,10 @@ if Props.DimFlag(ST_)
         case {'RINT','ZQ_SUM','ZQ'}
             % discharges
             Info=vs_disp(FI,'his-dis-series',Props.Val1);
+            sz(ST_)=Info.SizeDim(1);
+        case {'ZBAR'}
+            % barriers
+            Info=vs_disp(FI,'his-const','NAMBAR');
             sz(ST_)=Info.SizeDim(1);
         case {'FLTR','CTR'}
             % cross-section and discharges
@@ -1187,6 +1210,8 @@ switch Props.Val1
         end
     case {'RINT','ZQ_SUM','ZQ'}
         [S,Chk]=vs_get(FI,'his-dis-const','DISCHARGES','quiet');
+    case {'ZBAR'}
+        [S,Chk]=vs_get(FI,'his-const','NAMBAR','quiet');
     case {'FLTR','CTR'}
         [NSt,Chk]=vs_get(FI,'his-const','NTRUV','quiet');
         if (NSt==0)
