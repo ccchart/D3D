@@ -269,14 +269,7 @@ subroutine z_checku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
                        endif
                     endif
                     !
-                    ! A "trick" to ensure that "wet" cells that were dry
-                    ! obtain a velocity
-                    !
-                    if (kfumx0(nm) > kfumn0(nm)) then
-                       do k = max(kfumx0(nm),kfumn0(nm)), kfumx0(nm)
-                          u0(nm, k) = u0(nm, kfumn0(nm))
-                       enddo
-                    endif
+
                  endif
              endif
           endif
