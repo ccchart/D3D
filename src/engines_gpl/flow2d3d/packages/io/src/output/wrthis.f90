@@ -329,7 +329,6 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDDIR', ' ', io_prec , 1, dimids=(/iddim_nostat/), longname='Wind-direction in station', unit='degrees_Celsius', attribs=(/idatt_sta/))
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'PATM', ' ', io_prec    , 1, dimids=(/iddim_nostat/), longname='Air pressure', unit='N/m2', attribs=(/idatt_sta/))
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDCD', ' ', io_prec , 1, dimids=(/iddim_nostat/), longname='Wind drag coef', unit='-', attribs=(/idatt_sta/))
-             call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZWNDCD', ' ', IO_REAL4 , 1, dimids=(/iddim_nostat/), longname='Wind drag coef', unit='-', attribs=(/idatt_sta/))
           endif
           if (flwoutput%air .and. temp) then
              call addelm(gdp, lundia, FILOUT_HIS, grnam3, 'ZPRECP', ' ', io_prec  , 1, dimids=(/iddim_nostat/), longname='Instantaneous precipitation rate in station', unit='mm/h', attribs=(/idatt_sta/))

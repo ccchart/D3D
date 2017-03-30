@@ -694,6 +694,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
     open (luntmp, file=trim(filename(1)), status='new', iostat=istat)
     if (istat /= 0) then
        write(lundia,'(3a)') "ERROR: file '", trim(filename(1)), "' already exists."
+       write(lundia,'(a,i0)') "       istat: ", istat
        call d3stop(1,gdp)
     endif
     call prop_write_xmlfile(luntmp, outfile_ptr, 0, istat)
