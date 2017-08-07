@@ -40,6 +40,7 @@ subroutine soursin_2d(umod      ,ustarc    ,h0        ,h1        , &
 !!--declarations----------------------------------------------------------------
     use precision
     use mathconsts
+    !use glob_bankPLIC ,only:moveEDtoBED
     !
     implicit none
     !
@@ -109,9 +110,15 @@ subroutine soursin_2d(umod      ,ustarc    ,h0        ,h1        , &
           !
        endif
        hots = wsl/(tsd*factsd)
-       sour_ex = rsedeq*hots/h0
-       sour_im = (hots-wsl)/h1
-       sink    = wsl/h1
+       !if (moveEDtoBED) then
+       !   sour_ex = rsedeq*hots/h0
+       !   sour_im = 0._fp
+       !   sink    = hots/h1
+       !else
+          sour_ex = rsedeq*hots/h0
+          sour_im = (hots-wsl)/h1
+          sink    = wsl/h1
+       !endif
     else
        sink = wsl/h1
     endif

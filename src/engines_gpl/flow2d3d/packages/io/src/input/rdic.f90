@@ -3,7 +3,7 @@ subroutine rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
               & temp      ,const     ,secflo    ,lturi     ,lsal      , &
               & ltem      ,lstsc     ,zini      ,u0ini     ,v0ini     , &
               & s0ini     ,t0ini     ,c0ini     ,i0ini     ,mmax      , &
-              & nmax      ,nmaxus    ,kmax      ,lstsci    ,ltur      , &
+              & nmax      ,nmaxus    ,kmax      ,w1        ,lstsci    ,ltur      , &
               & namcon    ,s1        ,u1        ,v1        ,r1        , &
               & rtur1     ,decay     ,umnldf    ,vmnldf    ,kfu       , &
               & kfv       ,dp        ,lsed      ,gdp       )
@@ -100,6 +100,7 @@ subroutine rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax, ltur) :: rtur1  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)         :: u1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)         :: v1     !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax)       :: w1
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax, lstsci) :: r1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(lstsc)                                                  :: decay  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(mxkmax)                                                 :: i0ini  !!  Initial condition for secondary flow
@@ -284,7 +285,7 @@ subroutine rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
        rst_layer_model = 'UNKNOWN'
        !
        call rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
-                 & nmaxus    ,kmax      ,lstsci    ,ltur      , &
+                 & nmaxus    ,kmax      ,lstsci    ,ltur      ,w1        , &
                  & s1        ,u1        ,v1        ,r1        ,rtur1     , &
                  & umnldf    ,vmnldf    ,kfu       ,kfv       , &
                  & dp        ,namcon    ,coninit   ,gdp       )

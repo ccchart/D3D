@@ -2,7 +2,7 @@ subroutine z_checku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
                   & flood     ,kfu       ,kcs       ,kcu       ,kspu      , &
                   & kfumn0    ,kfumx0    ,hu        ,s0        ,dpu       , &
                   & dps       ,umean     ,kfuz0     ,kfsmn0    ,kfsmx0    , &
-                  & u0        ,dzu0      ,zk        ,gdp       )
+                  & u0        ,dzu0      ,zk        ,aguu      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -96,6 +96,7 @@ subroutine z_checku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: u0     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)                    :: umean  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(0:kmax)                     , intent(in)  :: zk
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in) :: aguu
 !
 ! Local variables
 !
@@ -167,7 +168,8 @@ subroutine z_checku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s0        ,dpu       ,umean     ,hu        ,gdp       )
+             & s0        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     do nm = 1, nmmax
        nmd = nm - icx
        nmu = nm + icx

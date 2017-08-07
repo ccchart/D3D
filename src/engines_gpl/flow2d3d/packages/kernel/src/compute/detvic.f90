@@ -65,6 +65,8 @@ subroutine detvic(lundia    ,j         ,nmmaxj    ,nmmax     ,kmax      , &
     real(fp)               , pointer :: ag
     real(fp)               , pointer :: vonkar
     real(fp)               , pointer :: vicmol
+    logical, pointer :: HORIZdiffZERO
+    logical, pointer :: HORIZviscZERO
 !
 ! Global variables
 !
@@ -128,6 +130,8 @@ subroutine detvic(lundia    ,j         ,nmmaxj    ,nmmax     ,kmax      , &
 !
 !! executable statements -------------------------------------------------------
 !
+    HORIZdiffZERO => gdp%gdimbound%HORIZdiffZERO
+    HORIZviscZERO => gdp%gdimbound%HORIZviscZERO
     nd        => gdp%gdhtur2d%nd
     sigmat    => gdp%gdhtur2d%sigmat
     flp       => gdp%gdhtur2d%flp
@@ -207,6 +211,8 @@ subroutine detvic(lundia    ,j         ,nmmaxj    ,nmmax     ,kmax      , &
              vicuv(nm, khtur) = vicuv(nm, khtur) + vicmol
              dicuv(nm, khtur) = dicuv(nm, khtur) + dicmol
           endif
+          if (HORIZdiffZERO) dicuv(nm, khtur) = 0._fp !
+          if (HORIZviscZERO) vicuv(nm, khtur) = 0._fp ! HORIZviscZERO is used in uzd also (after HLES viscosity is added)
        else
           vicuv(nm, khtur) = 0.0
           dicuv(nm, khtur) = 0.0

@@ -17,7 +17,8 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                & ubrlsu    ,pship     ,diapl     ,rnpl      ,cfurou    , &
                & u1        ,s0        ,dpu       ,qxk       ,qyk       , &
                & norow     ,nocol     ,irocol    ,nst       ,umean     , &
-               & crbc      ,ustokes   ,gdp       )
+               & nmax      ,mmax      ,nmaxus    ,u0INTv    ,v0INTu    , &
+               & crbc      ,ustokes   ,xcor      ,ycor      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -119,6 +120,19 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)                , pointer :: dzmin
     integer                 , pointer :: mfg
     integer                 , pointer :: nfg
+    integer                 , pointer :: lunscr
+    integer                 , pointer :: nmlb
+    integer                 , pointer :: nmub
+    integer                 , pointer :: mlb
+    integer                 , pointer :: mub
+    integer                 , pointer :: nlb
+    integer                 , pointer :: nub
+    integer, pointer :: cutcell
+    integer, pointer :: GhostMethod
+    logical, pointer :: periodSURFACE
+    integer, pointer :: PERIODalongM
+    logical, pointer :: TRANSVperIMPL
+    integer, pointer :: GHOSTIMPL
 !
 ! Global variables
 !
@@ -131,12 +145,15 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     integer                                                              :: kmax    !  Description and declaration in esm_alloc_int.f90
     integer                                                              :: nmmax   !  Description and declaration in dimens.igs
     integer                                                              :: nmmaxj  !  Description and declaration in dimens.igs
+    integer                                                 , intent(in) :: nmax      
+    integer                                                 , intent(in) :: mmax 
+    integer                                                 , intent(in) :: nmaxus 
     integer                                                 , intent(in) :: nsrc    !  Description and declaration in esm_alloc_int.f90
     integer                                                 , intent(in) :: nst     !  Time step number
     integer     , dimension(7, nsrc)                        , intent(in) :: mnksrc  !  Description and declaration in esm_alloc_int.f90
     integer                                                              :: nocol   !  Description and declaration in esm_alloc_int.f90
     integer                                                              :: norow   !  Description and declaration in esm_alloc_int.f90
-    integer     , dimension(5, norow)                                    :: irocol  !  Description and declaration in esm_alloc_int.f90
+    integer     , dimension(7, norow)                                    :: irocol  !  Description and declaration in esm_alloc_int.f90
     integer     , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: kcs     !  Description and declaration in esm_alloc_int.f90
     integer     , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: kfs     !  Description and declaration in esm_alloc_int.f90
     integer     , dimension(gdp%d%nmlb:gdp%d%nmub)          , intent(in) :: kfsmn0  !  Description and declaration in esm_alloc_int.f90
@@ -169,6 +186,8 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: gud     !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: guu     !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: guv     !  Description and declaration in esm_alloc_real.f90
+    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: xcor     !  Description and declaration in esm_alloc_real.f90
+    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: ycor     !  Description and declaration in esm_alloc_real.f90    
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)          , intent(in) :: guz     !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: gvd     !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: gvu     !  Description and declaration in esm_alloc_real.f90
@@ -231,6 +250,8 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)    , intent(in) :: ubrlsu  !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: ustokes !  Description and declaration in trisol.igs
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: v0      !  Description and declaration in esm_alloc_real.f90
+    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: v0INTu
+    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: u0INTv
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: uvdwk   !  Internal work array for Jac.iteration
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                 :: vvdwk   !  Internal work array for Jac.iteration
     real(fp)    , dimension(nsrc)                           , intent(in) :: disch   !  Description and declaration in esm_alloc_real.f90
@@ -342,10 +363,20 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)           :: wsul     ! local, modified wsu
     real(fp)           :: wsumax
     real(fp)           :: zz
+    real(fp)           :: bddx(1, 1) !dummy 
+    real(fp)           :: bddy(1, 1) !dummy 
+    real(fp)           :: buux(1, 1) !dummy  
+    real(fp)           :: buuy(1, 1) !dummy 
     character(20)      :: errtxt
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell       => gdp%gdimbound%cutcell
+    GhostMethod   => gdp%gdimbound%GhostMethod
+    periodSURFACE => gdp%gdimbound%periodSURFACE
+    PERIODalongM  => gdp%gdimbound%PERIODalongM
+    TRANSVperIMPL => gdp%gdimbound%TRANSVperIMPL
+    GHOSTIMPL     => gdp%gdimbound%GHOSTIMPL
     !
     eps        => gdp%gdconst%eps
     lundia     => gdp%gdinout%lundia
@@ -1001,6 +1032,28 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              enddo
           endif
        enddo
+      !
+      !  cut cell modification
+      !
+       if (cutcell.gt.0.and.(GhostMethod.eq.1.or.GhostMethod.eq.2)) THEN
+          call forceGHOSTuzd(icx        ,icy        ,u0         ,& !CALLED WITH u0!
+                           & aak        ,bbk        ,cck        ,ddk        ,&
+                           & buux       ,bux        ,bdx        ,&
+                           & bddx       ,buuy       ,buy        ,bdy        ,bddy       ,&
+                           & mmax       ,nmax       ,kmax       ,&
+                           & nst        ,nlb        ,nub        ,mlb        ,mub        ,&
+                           & nmlb       ,nmub       ,0          ,.true.     ,gdp) !iter=0
+       endif
+!     
+       if (periodSURFACE) then
+          CALL forcePERvelUZD(u0,bbk,ddk,aak,buux,bux,bdx,bddx,buuy,buy,bdy,bddy,cck,hdt,icx,nlb,nub,mlb,mub,kmax, gdp)
+          if ((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1)) then
+             CALL OFFonPERvel(kfv,kfu,icy,nlb,nub,mlb,mub,1, gdp)   !turn on kfu and kfv (second argument has to be the location of the tangential velocity)
+          else
+             CALL OFFonPERvel(kfu,kfv,icy,nlb,nub,mlb,mub,1, gdp)   !turn on kfu and kfv (second argument has to be the location of the tangential velocity)
+          endif
+      
+       endif
        call timer_stop(timer_uzd_lhs, gdp)
        !
        ! Domain decomposition:
@@ -1120,6 +1173,37 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
           else
              call timer_start(timer_uzd_solve5v, gdp)
           endif
+          !
+          !recompute the transversal velocity point value if periodic is implicit
+          if (TRANSVperIMPL.AND.iter.gt.1) then !
+             if ((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1)) then
+                call velocityPERIOD(v0,u1,icx,nlb,nub,mlb,mub,kmax, gdp)  !in this way I copy also the explicit parallel, no big deal.
+             else
+                call velocityPERIOD(u1,v0,icx,nlb,nub,mlb,mub,kmax, gdp)  !in this way I copy also the explicit parallel, no big deal.
+             endif
+             !    call WATERlevelPERIOD(s0,dps,icx,nlb,nub,mlb,mub,kmax) not needed, it does not change
+             CALL forcePERvelUZD(u1,bbk,ddk,aak,buux,bux,bdx,bddx,buuy,buy,bdy,bddy,cck,1._fp,icx,nlb,nub,mlb,mub,kmax, gdp)   !hdt=1.fp here
+          endif
+          !
+          !recompute the ghost value at u-velocity point if scheme is implicit (note that only u is updated, so s0 hu and hv stay the same)
+          if (cutcell.gt.0.and.(GhostMethod.eq.1.or.GhostMethod.eq.2)) THEN
+             if ((GHOSTimpl.eq.1).AND.(iter.gt.1)) then
+                call recompGHOSTiterUZD(icx        ,icy        ,u1         ,v0          ,u0INTv     ,&
+                                      & v0INTu     ,kcs        ,guu        ,xcor       ,ycor       ,&
+                                      & gvv        ,mmax       ,nmax       ,kmax                   ,&
+                                      & nst        ,nlb        ,nub        ,mlb        ,mub        ,&
+                                      & nmlb       ,nmub       ,iter       ,Irov       ,gdp%d%ddbound    ,&
+                                      & kcu        ,lunscr     ,nmmax      ,nmaxus     ,gdp)    
+                call forceGHOSTuzd(icx        ,icy        ,u1         ,&  !CALLED WITH u1!
+                                 & aak        ,bbk        ,cck        ,ddk        ,&
+                                 & buux       ,bux        ,bdx        ,&
+                                 & bddx       ,buuy       ,buy        ,bdy        ,bddy       ,&
+                                 & mmax       ,nmax       ,kmax       ,&
+                                 & nst        ,nlb        ,nub        ,mlb        ,mub        ,&
+                                 & nmlb       ,nmub       ,iter       ,.true.     ,gdp)  
+             endif
+          endif
+   
           !
           ! loop starts at red or black point depending on own subdomain
           !

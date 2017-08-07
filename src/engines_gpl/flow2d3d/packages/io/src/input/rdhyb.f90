@@ -51,6 +51,8 @@ subroutine rdhyb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    real(fp), pointer :: ccofu_stored
+    real(fp), pointer :: ccofv_stored
 !
 ! Global variables
 !
@@ -104,6 +106,8 @@ subroutine rdhyb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    ccofu_stored => gdp%gdimbound%ccofu_stored
+    ccofv_stored => gdp%gdimbound%ccofv_stored
     !
     ! initialize local parameters
     !
@@ -259,4 +263,7 @@ subroutine rdhyb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     else
        rouwav = '    '
     endif
+    !store ccofu/v
+    ccofu_stored = ccofu
+    ccofv_stored = ccofv
 end subroutine rdhyb

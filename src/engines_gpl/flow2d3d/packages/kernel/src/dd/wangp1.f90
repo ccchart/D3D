@@ -66,7 +66,7 @@ subroutine wangp1(s1        ,kcs       ,irocol    ,norow     ,icx       , &
                                                                       !!  index, J = -2*NMAX + 1
     integer                                                 :: nmmaxj !  Description and declaration in dimens.igs
     integer                                   , intent(in)  :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer , dimension(5, norow)             , intent(in)  :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer , dimension(7, norow)             , intent(in)  :: irocol !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub), intent(in)  :: kcs    !  Description and declaration in esm_alloc_int.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)              :: a
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)              :: b

@@ -7,6 +7,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
                 & scour     ,ubot_from_com        ,camax     ,eps       , &
                 & iform     ,par       ,numintpar ,numrealpar,numstrpar , &
                 & dllfunc   ,dllhandle ,intpar    ,realpar   ,strpar    , &
+                & islope    ,ratio_ca_c2d , moveEDtoBED, &
 !output:
                 & aks       ,caks      ,taurat    ,seddif    ,rsedeq    , &
                 & kmaxsd    ,conc2d    ,sbcu      ,sbcv      ,sbwu      , &
@@ -52,6 +53,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     use mathconsts, only: pi, ee
     use iso_c_binding, only: c_char
     use morphology_data_module
+    !use glob_bankPLIC ,only: consistency_ce_Cav,uAXIS,hAXIS,simpleVR84
     !
     implicit none
 !
@@ -67,6 +69,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     integer                             , intent(in)    :: numintpar
     integer                             , intent(in)    :: numrealpar
     integer                             , intent(in)    :: numstrpar
+    integer                             , intent(in)    :: islope
     integer      , dimension(numintpar) , intent(inout) :: intpar
     real(fp)                            , intent(in)    :: bed
     real(fp)                            , intent(in)    :: bedw
@@ -79,6 +82,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     real(fp)                            , intent(in)    :: espir
     real(fp)                            , intent(in)    :: frac     !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(30)        , intent(inout) :: par
+    real(fp)                            , intent(in)    :: ratio_ca_c2d
     real(fp)                            , intent(in)    :: rksrs    !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(kmax)      , intent(in)    :: sig      !  Description and declaration in esm_alloc_real.f90
     real(fp)                            , intent(in)    :: sigmol   !  Description and declaration in esm_alloc_real.f90
@@ -92,6 +96,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     real(fp)                            , intent(in)    :: ubot     !  Description and declaration in esm_alloc_real.f90
     real(fp)     , dimension(0:kmax)    , intent(in)    :: ws       !  Description and declaration in esm_alloc_real.f90
     real(hp)     , dimension(numrealpar), intent(inout) :: realpar
+    logical                             , intent(in)    :: moveEDtoBED
     logical                             , intent(in)    :: scour
     logical                             , intent(in)    :: suspfrac !  suspended sediment fraction
     logical                             , intent(in)    :: ubot_from_com
@@ -181,6 +186,12 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     real(fp)                    :: ua
     real(fp)                    :: va
     real(fp)                    :: uamg
+    real(fp)                    :: chezy_islp5 
+    real(fp)                    :: h_islp5 
+    real(fp)                    :: R_islp5
+    real(fp)                    :: f_VR84
+    real(fp)                    :: rmuc
+    real(fp)                    :: fc
     !
     ! Interface to dll is in High precision!
     !
@@ -277,7 +288,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
           ! By default entrainment and deposition (re)move sediment into/from
           ! the bottom-most layer.
           !
-          kmaxsd = kmax
+          kmaxsd = kmax  !Alberto: useless, it is overwritten in  factor3d2d
           !
           ! Use diffusivity of turbulence model as vertical sediment diffusion
           ! coefficient. In the future, we may OPTIONALLY enable Van Rijn's
@@ -407,11 +418,29 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
        !
        ! Van Rijn (1984, modified)
        !
-       call tranb7(utot      ,di50       ,d90       ,h1        ,par        , &
-                 & sbot      ,ssus       ,vonkar    ,mudfrac)
+       !if (simpleVR84/=1) then
+          call tranb7(utot      ,di50      ,d90       ,h1        ,par        , &
+                    & sbot      ,ssus      ,vonkar    ,mudfrac   ,i2d3d      , &
+                    & chezy     ,sag       ,f_VR84    ,utot      ,h1         , &  !utot is duplicated on purpose
+                    & rmuc      ,fc        ,ws        ,kmax) 
+       !else !if (simpleVR84==1) then
+       !   call tranb7(uAXIS     ,di50      ,d90       ,hAXIS     ,par        , & !here the value of hAXIS and uAXIS on the axis are used
+       !             & sbot      ,ssus      ,vonkar    ,mudfrac   ,i2d3d      , &
+       !             & chezy     ,sag       ,f_VR84    ,utot      ,h1         , &
+       !             & rmuc      ,fc        ,ws        ,kmax)   
+       !endif
        !
        sbc_total = .true.
        sus_total = .true.
+       if (moveEDtoBED) then
+          t_relax = f_VR84 ! it would be t_relax = 1/ratio with ratio=1/f_VR84, where ratio is >1 while f_VR84 <1 (the former brings C to the bottom and the latter from the bottom to the depth averaged valu
+       endif
+       !if (consistency_ce_Cav.and.kmax>1) then !only 3D
+       !   call write_error('consistency_ce_Cav needs to be reimplemented')
+       !   error = .true.
+       !   return
+       !   !crep    = f_VR84 ! see factor3d2d below
+       !endif
     elseif (iform == 8) then
        !
        ! Van Rijn / Ribberink (1994)
@@ -679,6 +708,14 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
              alphaspir = sqrt(ag) / 0.4_fp / chezy
              alphaspir = 12.5_fp * espir * (1.0_fp-alphaspir) ! 12.5 = 2.0_fp/(von Karman)^2
              alphaspir = alphaspir * spirint / umod
+             if (islope==5)  then
+                chezy_islp5 = 40._fp
+                alphaspir = sqrt(ag) / 0.4_fp / chezy_islp5
+                alphaspir = 12.5_fp * espir * (1.0_fp-0.5_fp*alphaspir)
+                h_islp5 = 1.356910921605423_fp
+                R_islp5 = 60._fp
+                alphaspir = alphaspir * h_islp5 / R_islp5 !SINCE spirint/umod = h/R
+             endif
           endif
           txg  = ust2 * (uuu + alphaspir*vvv) / umod
           tyg  = ust2 * (vvv - alphaspir*uuu) / umod
@@ -759,10 +796,18 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
           ! Convert depth averaged concentration to reference concentration
           ! at distance aks from bed.
           !
-          kmaxsd    = kmax
+          kmaxsd    = kmax ! Alberto: useless, it is overwritten in  factor3d2d
+            !NOTE Alberto: calling factor3d2d is done only for output purposes, since caks is never used but
+            !      only printed as output
+            !Also Alberto: since   seddif(k) = dicww(k), we can have that dicww is zero for 2D simul since its user defined and fac3d2d becomes very small 
+            !Also Alberto: fac3d2d is the depth-averaged concentration, while it should be a dimensionless factor
+
           call factor3d2d(kmax      ,aks       ,kmaxsd    ,sig       , &
-                        & thick     ,seddif    ,ws        ,bakdif    , &
-                        & z0rou     ,h1        ,fac3d2d   )
+                      & thick     ,seddif    ,ws        ,bakdif    , &
+                      & z0rou     ,h1        ,fac3d2d   )
+          if (iform == 7) then  
+             fac3d2d = f_VR84
+          endif
           caks      = conc2d / (fac3d2d+eps) / rhosol
           rsedeq    = 0.0_fp
           !

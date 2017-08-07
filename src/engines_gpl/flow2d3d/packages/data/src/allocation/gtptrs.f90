@@ -167,6 +167,7 @@ subroutine gtptrs(gdp)
     integer(pntrsize), pointer :: gro
     integer(pntrsize), pointer :: gsqd
     integer(pntrsize), pointer :: gsqs
+    integer(pntrsize), pointer :: gsqsR
     integer(pntrsize), pointer :: guu
     integer(pntrsize), pointer :: guv
     integer(pntrsize), pointer :: gvu
@@ -644,6 +645,7 @@ subroutine gtptrs(gdp)
     gro        => gdp%gdr_i_ch%gro
     gsqd       => gdp%gdr_i_ch%gsqd
     gsqs       => gdp%gdr_i_ch%gsqs
+    gsqsR      => gdp%gdr_i_ch%gsqsR
     guu        => gdp%gdr_i_ch%guu
     guv        => gdp%gdr_i_ch%guv
     gvu        => gdp%gdr_i_ch%gvu
@@ -1193,6 +1195,7 @@ subroutine gtptrs(gdp)
     gsqiu      = gtrpnt('gsqiu' , gdp)
     gsqiv      = gtrpnt('gsqiv' , gdp)
     gsqs       = gtrpnt('gsqs'  , gdp)
+    gsqsR      = gtrpnt('gsqsR'  , gdp)
     gud        = gtrpnt('gud'   , gdp)
     guu        = gtrpnt('guu'   , gdp)
     guv        = gtrpnt('guv'   , gdp)

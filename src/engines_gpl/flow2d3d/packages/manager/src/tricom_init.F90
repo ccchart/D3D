@@ -115,6 +115,10 @@ subroutine tricom_init(olv_handle, gdp)
     real(fp)                            , pointer :: cp
     real(fp)                            , pointer :: sarea
     real(fp)                            , pointer :: fclou
+    real(fp), dimension(:,:)            , pointer :: dpL
+    real(fp), dimension(:,:)            , pointer :: dpH
+    integer                             , pointer :: itmorB
+    real(fp)                            , pointer :: tmorB
     integer                             , pointer :: lunmd
     integer                             , pointer :: lundia
     integer                             , pointer :: lunprt
@@ -390,7 +394,7 @@ subroutine tricom_init(olv_handle, gdp)
     real(fp)                            , pointer :: anglon        ! Angle of longitude of the model centre (used to determine solar radiation) 
     real(fp)                            , pointer :: dtsec         ! DT in seconds 
     real(fp)                            , pointer :: timnow        ! Current timestep (multiples of dt)  = number of time steps since itdate, 00:00:00 hours
-!
+!    
 ! Global variables
 !
     type(olvhandle) :: olv_handle
@@ -439,6 +443,7 @@ subroutine tricom_init(olv_handle, gdp)
     character(60)                                 :: txtput        ! Text to be print
     character(300)                                :: message
     character(256)                                :: errstring
+    character(256)                                :: filic
 !
 !! executable statements -------------------------------------------------------
 !
@@ -491,6 +496,10 @@ subroutine tricom_init(olv_handle, gdp)
     cp                  => gdp%gdheat%cp
     sarea               => gdp%gdheat%sarea
     fclou               => gdp%gdheat%fclou
+    dpL                 => gdp%gdimbound%dpL
+    dpH                 => gdp%gdimbound%dpH
+    itmorB              => gdp%gdimbound%itmorB
+    tmorB               => gdp%gdimbound%tmorB
     lunmd               => gdp%gdinout%lunmd
     lundia              => gdp%gdinout%lundia
     lunprt              => gdp%gdinout%lunprt
@@ -1049,6 +1058,22 @@ subroutine tricom_init(olv_handle, gdp)
        if (wavcmp) then
           call rbsig(ncmax     ,r(ampbc)  ,r(ombc)   ,r(phibc)  ,r(thetbc) , &
                    & filrol    ,lundia    ,gdp       )
+          !compute itmorB for bank changes
+          if (tmorB.gt.0._fp) then
+             tdif   = tmorB + itstrt*dt
+             itmorB = nint(tdif/dt)
+             if (abs(itmorB*dt-tdif) > (0.1*dt)) then
+                error  = .true.
+                txtput = 'Morphological (banks) calculation start time'
+                call prterr(lundia, 'U044', txtput)
+             endif
+             write(txtput,'(a,i0)') 'Bank Morphological Changes Start Time (step) : ',itmorB
+             call prterr(lundia, 'G051', txtput)
+          else
+             itmorB = itmor
+          endif
+       else
+          itmorB = 2000000000  !needed in reconvof. (close to maximum signed integer  2,147,483,647)
        endif
     endif
     if (dredge) then
@@ -1284,7 +1309,7 @@ subroutine tricom_init(olv_handle, gdp)
     call inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
               & cyclic    ,sferic    ,grdang    ,temeqs    ,saleqs    , &
               & lturi     ,rouflo    ,rouwav    ,ktemp     ,temint    , &
-              & evaint    ,gdp       )
+              & evaint    ,filic     ,gdp       )
     if (error) goto 9997
     !
     ! Initialize Delft3D-Sobek after coordinates etc have been set 

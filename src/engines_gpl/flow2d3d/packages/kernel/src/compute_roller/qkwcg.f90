@@ -62,7 +62,7 @@ subroutine qkwcg(tp        ,rlabda    ,teta      ,qxkw      ,qykw      , &
     integer                                                                     :: nmax   !  Description and declaration in esm_alloc_int.f90
     integer                                                                     :: nocol  !  Description and declaration in esm_alloc_int.f90
     integer                                                                     :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, *)                                                    :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, *)                                                    :: irocol !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in)    :: kfs    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                :: kfu    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                :: kfv    !  Description and declaration in esm_alloc_int.f90

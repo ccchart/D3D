@@ -175,6 +175,7 @@ function getpointer(pntnam, gdp)
     integer(pntrsize) , pointer :: gro
     integer(pntrsize) , pointer :: gsqd
     integer(pntrsize) , pointer :: gsqs
+    integer(pntrsize) , pointer :: gsqsR
     integer(pntrsize) , pointer :: guu
     integer(pntrsize) , pointer :: guv
     integer(pntrsize) , pointer :: gvu
@@ -1003,6 +1004,8 @@ function getpointer(pntnam, gdp)
        returnval = gsqiv
     case ('gsqs')
        returnval = gsqs
+    case ('gsqsR')
+       returnval = gsqsR
     case ('gud')
        returnval = gud
     case ('guu')

@@ -323,6 +323,7 @@ subroutine wrsedm(lundia    ,error     ,mmax      ,kmax      ,nmaxus    , &
           if (moroutput%sourcesink) then
              call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'SOURSE', ' ', io_prec , 3, dimids=(/iddim_n, iddim_m, iddim_lsed/), longname='Source term suspended sediment fractions', unit='kg/(m3 s)', acl='z')
              call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'SINKSE', ' ', io_prec , 3, dimids=(/iddim_n, iddim_m, iddim_lsed/), longname='Sink term suspended sediment fractions', unit='1/s', acl='z')
+             ! 'sourseBANK','m/s','Source term from bank for each sediment fraction',(nmaxus,mmax,lsed)
           endif
           if (moroutput%aks) then
              call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'AKS', ' ', io_prec    , 3, dimids=(/iddim_n, iddim_m, iddim_lsed/), longname='Near-bed reference concentration height', unit='m', acl='z')
@@ -334,10 +335,12 @@ subroutine wrsedm(lundia    ,error     ,mmax      ,kmax      ,nmaxus    , &
        call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'DPS', ' ', io_prec          , 2, dimids=(/iddim_n, iddim_m/), longname='Bottom depth (zeta point)', unit='m', acl='z')
        if (lfsdu) then       
           call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'SDU', ' ', io_prec          , 2, dimids=(/iddim_n, iddim_m/), longname='Cumulative bed level change due to subsidence/uplift', unit='m', acl='z')
-       endif    
+       endif
+       ! 'curstr_print','m','Curvature (zeta point)', (nmaxus,mmax), curstr_print
        if (moroutput%dzduuvv) then
           call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'DZDUU', ' ', io_prec     , 2, dimids=(/iddim_n , iddim_mc/), longname='Bed slope in u-direction (u point)', acl='u')
           call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'DZDVV', ' ', io_prec     , 2, dimids=(/iddim_nc, iddim_m /), longname='Bed slope in v-direction (v point)', acl='v')
+          ! 'absSLOPE','-','Absolute value of bed slope at zeta point', (nmaxus,mmax), "sqrt(dzduuCENTR(nm)**2+dzdvvCENTR(nm)**2)"
        endif
        if (scour) then
           call addelm(gdp, lundia, FILOUT_MAP, grpnam, 'TAUADD', ' ', io_prec    , 2, dimids=(/iddim_n, iddim_m/), longname='Extra shear stress due to scour feature', unit='N/m2', acl='z')

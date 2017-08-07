@@ -221,13 +221,13 @@ subroutine z_hormom_fls(nmmax     ,kmax      ,icx       , &
              if (kspu(nmd,0) > 0 .or. kspu(nmdd,0) > 0 ) then
                 du1   = 0.0_fp
              endif
-             ua(nm,k) =  u0(nmd,k) + ulim(du1,du2)*du1
+             ua(nm,k) =  u0(nmd,k) + ulim(du1,du2, gdp)*du1
           else
              du1      = (u0(nmu,k)-u0(nm,k)) * kfuz0(nmu,k) * kfuz0(nm,k)
              if (kspu(nm,0) > 0 .or. kspu(nmu,0) > 0 ) then
                 du1   = 0.0_fp
              endif
-             ua(nm,k) =  u0(nm,k)  - ulim(du1,du2)*du1
+             ua(nm,k) =  u0(nm,k)  - ulim(du1,du2, gdp)*du1
           endif
           !
           ! Compute UB (appr. of velocity in depth points) at internal points
@@ -238,11 +238,11 @@ subroutine z_hormom_fls(nmmax     ,kmax      ,icx       , &
              if (qyk(nm,k) + qyk(nmu,k) > 0.0_fp) then
                 du1      = (u0(nm ,k)-u0(ndm,k)) * kfuz0(nm ,k) * kfuz0(ndm,k)
                 du2      = (u0(num,k)-u0(nm ,k)) * kfuz0(num,k) * kfuz0(nm ,k)
-                ub(nm,k) =  u0(nm ,k) + ulim(du1,du2)*du1
+                ub(nm,k) =  u0(nm ,k) + ulim(du1,du2, gdp)*du1
              else
                 du1      = (u0(nuum,k)-u0(num,k)) * kfuz0(nuum,k) * kfuz0(num,k)
                 du2      = (u0(num ,k)-u0(nm ,k)) * kfuz0(num ,k) * kfuz0(nm ,k)
-                ub(nm,k) =  u0(num ,k) - ulim(du1,du2)*du1
+                ub(nm,k) =  u0(num ,k) - ulim(du1,du2, gdp)*du1
              endif
           endif
        enddo

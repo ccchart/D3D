@@ -1,4 +1,4 @@
-function ulim(du1,du2)
+function ulim(du1,du2, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -37,12 +37,16 @@ function ulim(du1,du2)
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-    use precision
+    use globaldata
+    !
     implicit none
+    !
+    type(globdat),target :: gdp
 !
 ! Function return value
 !
     real(fp) :: ulim
+    logical, pointer :: SECordVEL
 !
 ! Global variables
 !
@@ -51,11 +55,14 @@ function ulim(du1,du2)
 !
 !! executable statements -------------------------------------------------------
 !
+    SECordVEL => gdp%gdimbound%SECordVEL
     !
     ! default value of ULIM = 0.0
     !
     ulim = 0.0
-     if (du1*du2 > 0.0) then
-        ulim = 0.5*min(1.0_fp,du2/du1)
-     endif
+    IF (SECordVEL) THEN
+       if (du1*du2 > 0.0) then
+          ulim = 0.5*min(1.0_fp,du2/du1)
+       endif
+    ENDIF
 end function ulim

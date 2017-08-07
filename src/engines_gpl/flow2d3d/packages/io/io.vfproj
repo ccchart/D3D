@@ -96,6 +96,7 @@
 		<File RelativePath="src\input\rdhyvd.f90"/>
 		<File RelativePath="src\input\rdibch.f90"/>
 		<File RelativePath="src\input\rdic.f90"/>
+		<File RelativePath="src\input\rdimbound.f90"/>
 		<File RelativePath="src\input\rdirt.f90"/>
 		<File RelativePath="src\input\rdiwe.f90"/>
 		<File RelativePath="src\input\rdlaydis.f90"/>
@@ -261,6 +262,7 @@
 		<File RelativePath="src\output\wrsedwaqm.f90"/>
 		<File RelativePath="src\output\wrspcp.f90"/>
 		<File RelativePath="src\output\wrtarray.f90"/>
+		<File RelativePath=".\src\output\wrtbanks.f90"/>
 		<File RelativePath="src\output\wrtdro.f90"/>
 		<File RelativePath="src\output\wrthis.f90"/>
 		<File RelativePath="src\output\wrthisbal.f90"/>

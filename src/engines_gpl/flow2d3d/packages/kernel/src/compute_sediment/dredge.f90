@@ -1,6 +1,6 @@
 subroutine dredge(nmmax  ,lsedtot,nst    , &
                 & cdryb  ,dps    ,dbodsd ,kfsed  , &
-                & s1     ,timhr  ,morhr  ,gdp    )
+                & s1     ,timhr  ,morhr  ,agsqs  , gsqs ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -88,6 +88,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     integer                        , pointer :: numdomains
     integer                        , pointer :: lundia
     integer                        , pointer :: julday
+    integer, pointer :: cutcell
 !
 ! Global variables
 !
@@ -101,6 +102,8 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     real(fp)  , dimension(lsedtot, gdp%d%nmlb:gdp%d%nmub)              :: dbodsd  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: s1      !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)                       :: dps     !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                         :: agsqs
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                         :: gsqs
 
 !
 ! Local variables
@@ -186,6 +189,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell => gdp%gdimbound%cutcell
     duneheight          => gdp%gdbedformpar%duneheight
     tseriesfile         => gdp%gddredge%tseriesfile
     link_percentage     => gdp%gddredge%link_percentage
@@ -1464,6 +1468,20 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     !--------------------------------------------------------------------------
     ! And finally: Dumping
     !
+    if (cutcell==2) then ! areas of active cell can vary with bank erosion, recompute them (not ok for parellel/domain decomposition case since    globalareadump (=localareadump ) is simply overwriten
+       do ib = 1, nadump
+          pdump => dump_prop(ib)
+          area => pdump%area
+          globalareadump(ib) = 0._fp !I overwrite it
+          do i = 1, pdump%npnt
+             nm = pdump%nm(i)
+             if (nm==0) cycle
+             area(i) = gsqs(nm)*agsqs(nm)
+             globalareadump(ib) = globalareadump(ib) + area(i)
+          enddo           
+       enddo
+    endif
+!
     dbodsd(1:lsedtot, 1:nmmax) = 0.0_fp
     do ib = 1, nadump
        pdump => dump_prop(ib)

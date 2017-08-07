@@ -82,6 +82,7 @@ module globaldata
     include 'fourier.igs'
     include 'heat.igs'
     include 'htur2d.igs'
+    include 'imbound.igs'
     include 'inout.igs'
     include 'inttim.igs'
     include 'iwearr.igs'
@@ -167,6 +168,7 @@ module globaldata
        type (gd_fourier)  , pointer :: gdfourier
        type (gd_heat)     , pointer :: gdheat
        type (gd_htur2d)   , pointer :: gdhtur2d
+       type (gd_imbound)  , pointer :: gdimbound
        type (gd_inout)    , pointer :: gdinout
        type (gd_inttim)   , pointer :: gdinttim
        type (gd_iwearr)   , pointer :: gdiwearr

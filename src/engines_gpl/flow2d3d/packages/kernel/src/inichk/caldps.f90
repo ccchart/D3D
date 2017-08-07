@@ -1,5 +1,6 @@
 subroutine caldps(nmmax     ,nfltyp    ,icx       , &
-                & icy       ,kcs       ,dp        ,dps       ,gdp       )
+                & icy       ,kcs       ,dp        ,dps      ,&
+                & dpL       ,dpH       ,gdp )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -67,6 +68,8 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
     !
     character(8)   , pointer :: dpsopt
     logical        , pointer :: rst_dp
+    integer, pointer :: cutcell
+    logical, pointer :: bndBEDfromFILE
 !
 ! Global variables
 !
@@ -76,6 +79,8 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
     integer                                     , intent(in)  :: nmmax  !  Description and declaration in dimens.igs
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)              :: kcs    !  Description and declaration in esm_alloc_int.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: dp     !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: dpH    !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: dpL    !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub), intent(out) :: dps    !  Description and declaration in esm_alloc_real.f90
 !
 ! Local variables
@@ -102,6 +107,8 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell        => gdp%gdimbound%cutcell
+    bndBEDfromFILE => gdp%gdimbound%bndBEDfromFILE
     dpsopt             => gdp%gdnumeco%dpsopt
     rst_dp             => gdp%gdrestart%rst_dp
     !
@@ -189,6 +196,10 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
              if (kcs(nmd)==1) dep = min(dep, dp(nmd), dp(ndmd))
              if (kcs(ndm)==1) dep = min(dep, dp(ndm), dp(ndmd))
              dps(nm) = real(dep,prec)
+             if (cutcell.eq.2) then
+               dpL(nm) = dps(nm)
+               dpH(nm) = dpL(nm)
+             endif
           else
           endif
        enddo
@@ -213,11 +224,19 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
           elseif (kcs(nm)==2) then
              nmu = nm + icx
              num = nm + icy
-             if (kcs(nmu)==1) dep = dp(nmu)
-             if (kcs(num)==1) dep = dp(num)
-             if (kcs(nmd)==1) dep = dp(nmd)
-             if (kcs(ndm)==1) dep = dp(ndm)
-             dps(nm) = real(dep,prec)
+             if (.NOT.bndBEDfromFILE) then
+                if (kcs(nmu)==1) dep = dp(nmu)
+                if (kcs(num)==1) dep = dp(num)
+                if (kcs(nmd)==1) dep = dp(nmd)
+                if (kcs(ndm)==1) dep = dp(ndm)
+                dps(nm) = real(dep,prec)
+                if (cutcell.eq.2) then
+                  dpL(nm) = dps(nm)
+                  dpH(nm) = dpL(nm)
+                endif
+             else
+                dps(nm) = real(dp(nm),prec)
+             endif
           else
           endif
        enddo

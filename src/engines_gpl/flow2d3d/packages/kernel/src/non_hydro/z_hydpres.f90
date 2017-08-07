@@ -85,7 +85,7 @@ subroutine z_hydpres(mmax      ,nmax      ,j         ,nmmaxj    ,nmmax     , &
     integer                                             , intent(in) :: norow  !  Description and declaration in esm_alloc_int.f90
     integer                                             , intent(in) :: nsrc   !  Description and declaration in esm_alloc_int.f90
     integer                                                          :: nst
-    integer   , dimension(5, norow + nocol)             , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer   , dimension(7, norow + nocol)             , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(7, nsrc)                      , intent(in) :: mnksrc !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)        , intent(in) :: kcshyd !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)        , intent(in) :: kcs    !  Description and declaration in esm_alloc_int.f90

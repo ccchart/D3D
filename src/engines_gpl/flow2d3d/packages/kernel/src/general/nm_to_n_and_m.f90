@@ -65,3 +65,39 @@ subroutine nm_to_n_and_m(nm, n, m, gdp)
     m = floor(real(nm-1)/real(nmaxddb)) + 1 - ddb
     n = nm - nmaxddb * (m - 1 + ddb ) - ddb
 end subroutine nm_to_n_and_m
+
+
+
+subroutine nm_to_n_and_m_noGDP(nm, n, m, nmaxddb,ddb)
+!!--declarations----------------------------------------------------------------
+    use globaldata
+    !
+    implicit none
+    !
+    type(globdat),target :: gdp
+    !
+    ! The following list of pointer parameters is used to point inside the gdp structure
+    !
+!
+! Global parameters
+!
+    integer, intent(in)  :: nm
+    integer, intent(out) :: m
+    integer, intent(out) :: n
+    integer, intent(in)  :: nmaxddb
+    integer, intent(in)  :: ddb
+!
+! Local parameters
+!
+!
+!! executable statements -------------------------------------------------------
+!
+    !
+    ! Calculation of m:
+    ! This used to be:
+    ! m = int (nm / nmaxddb ) + 1 - ddb
+    ! But that goes wrong for negative nm and nm is a multiple of nmaxddb
+    !
+    m = floor(real(nm-1)/real(nmaxddb)) + 1 - ddb
+    n = nm - nmaxddb * (m - 1 + ddb ) - ddb
+end subroutine nm_to_n_and_m_noGDP

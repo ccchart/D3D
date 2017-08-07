@@ -263,6 +263,7 @@ type bedbndtype
     integer , dimension(:), pointer :: lm       ! "flow link"
     real(fp), dimension(:), pointer :: alfa_mag
     real(fp), dimension(:), pointer :: alfa_dist
+    real(fp), dimension(:), pointer :: width
 end type bedbndtype
 
 !
@@ -409,6 +410,7 @@ type morpar_type
                            !  3: 
     integer :: telform     !  switch for thickness of exchange layer
                            !  1: fixed (user-spec.) thickness
+    integer :: MAXnpnt     !  MAX number of boundary points (npnt) among all boundaries 
     !
     ! pointers
     !
@@ -1198,6 +1200,7 @@ subroutine nullmorpar(morpar)
     integer                              , pointer :: telform
     real(hp)                             , pointer :: hydrt
     real(hp)                             , pointer :: hydrt0
+    integer                              , pointer :: MAXnpnt
     real(hp)                             , pointer :: morft
     real(hp)                             , pointer :: morft0
     real(fp)                             , pointer :: morfac
@@ -1330,6 +1333,7 @@ subroutine nullmorpar(morpar)
     xx                  => morpar%xx
     ttlform             => morpar%ttlform
     telform             => morpar%telform
+    MAXnpnt             => morpar%MAXnpnt
     !
     bedupd              => morpar%bedupd
     cmpupd              => morpar%cmpupd
@@ -1476,6 +1480,7 @@ subroutine nullmorpar(morpar)
     nxx                = 0
     ttlform            = 1
     telform            = 1
+    MAXnpnt            = 0
     !
     bedupd             = .false.
     cmpupd             = .false.
@@ -1643,6 +1648,7 @@ subroutine clrmorpar(istat, morpar)
           if (associated(morbnd(i)%lm))        deallocate(morbnd(i)%lm,        STAT = istat)
           if (associated(morbnd(i)%alfa_dist)) deallocate(morbnd(i)%alfa_dist, STAT = istat)
           if (associated(morbnd(i)%alfa_mag))  deallocate(morbnd(i)%alfa_mag,  STAT = istat)
+          if (associated(morbnd(i)%width))     deallocate(morbnd(i)%width,     STAT = istat)
        enddo
        deallocate(morpar%morbnd, STAT = istat)
     endif

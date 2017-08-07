@@ -50,8 +50,10 @@ subroutine dredgedump(dbodsd    ,cdryb     ,nst       ,timhr     ,morft     , &
     integer(pntrsize)     , pointer :: dps
     integer(pntrsize)     , pointer :: s1
     integer , dimension(:), pointer :: kfsed
+    integer(pntrsize) , pointer :: gsqs
     integer               , pointer :: nmmax
     integer               , pointer :: lsedtot
+    real(fp), dimension(:,:), pointer :: agsqs
 !
 ! Global variables
 !
@@ -67,14 +69,16 @@ subroutine dredgedump(dbodsd    ,cdryb     ,nst       ,timhr     ,morft     , &
 !
 !! executable statements -------------------------------------------------------
 !
+    agsqs => gdp%gdimbound%agsqs
     nmmax     => gdp%d%nmmax
     lsedtot   => gdp%d%lsedtot
     dps       => gdp%gdr_i_ch%dps
     s1        => gdp%gdr_i_ch%s1
     kfsed     => gdp%gderosed%kfsed
+    gsqs      => gdp%gdr_i_ch%gsqs
     !
     morhr = real(morft*24.0_hp,fp)
     call dredge(nmmax   ,lsedtot ,nst     , &
               & cdryb   ,d(dps)  ,dbodsd  ,kfsed   , &
-              & r(s1)   ,timhr   ,morhr   ,gdp     )
+              & r(s1)   ,timhr   ,morhr   ,agsqs   , r(gsqs) , gdp     )
 end subroutine dredgedump

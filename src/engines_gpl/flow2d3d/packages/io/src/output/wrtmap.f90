@@ -359,14 +359,14 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
        if (selmap(5:5) == 'Y') then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'WPHY', ' ', io_prec     , 3, dimids=(/iddim_n, iddim_m, iddim_kmaxout_restr/), longname='W-velocity per layer in zeta point', unit='m/s', acl='z')
        endif
-       if (index(selmap(6:13), 'Y') /= 0) then
+       if (index(selmap(6:13), 'Y') /= 0 .and. lstsci>0) then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'R1', ' ', io_prec       , 4, dimids=(/iddim_n, iddim_m, iddim_kmaxout_restr, iddim_lstsci/), longname='Concentrations per layer in zeta point', acl='z')
        endif
-       if (flwoutput%difuflux) then
+       if (flwoutput%difuflux .and. lstsci>0) then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'R1FLX_UU', ' ', io_prec , 4, dimids=(/iddim_n , iddim_mc, iddim_kmaxout_restr, iddim_lstsci/), longname='Constituent flux in u-direction (u point)', acl='u')
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'R1FLX_VV', ' ', io_prec , 4, dimids=(/iddim_nc, iddim_m , iddim_kmaxout_restr, iddim_lstsci/), longname='Constituent flux in v-direction (v point)', acl='v')
        endif
-       if (flwoutput%cumdifuflux) then
+       if (flwoutput%cumdifuflux .and. lstsci>0) then
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'R1FLX_UUC', ' ', io_prec , 4, dimids=(/iddim_n , iddim_mc, iddim_kmaxout_restr, iddim_lstsci/), longname='Cumulative constituent flux in u-direction (u point)', acl='u')
           call addelm(gdp, lundia, FILOUT_MAP, grnam3, 'R1FLX_VVC', ' ', io_prec , 4, dimids=(/iddim_nc, iddim_m , iddim_kmaxout_restr, iddim_lstsci/), longname='Cumulative constituent flux in v-direction (v point)', acl='v')
        endif
@@ -641,13 +641,13 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
        ! element 'R1', only if LSTSCI > 0
        ! (:= SELMAP( 6:13) <> 'NNNNNNNN')
        !
-       if (index(selmap(6:13),'Y') /= 0) then
+       if (index(selmap(6:13),'Y') /= 0 .and. lstsci>0) then
           call wrtarray_nmkl(fds, filename, filetype, grnam3, celidt, &
                         & nf, nl, mf, ml, iarrc, gdp, &
                         & 1, kmax, lstsci, ierror, lundia, r1, 'R1', &
                         & smlay_restr, kmaxout_restr, kfsmin, kfsmax)
           if (ierror /= 0) goto 9999
-          if (flwoutput%difuflux) then
+          if (flwoutput%difuflux .and. lstsci>0) then
              !
              ! element 'R1FLX_UU'
              !
@@ -667,7 +667,7 @@ subroutine wrtmap(lundia    ,error     ,filename  ,selmap    ,itmapc    , &
              if (ierror /= 0) goto 9999
           endif
           !
-          if (flwoutput%cumdifuflux) then
+          if (flwoutput%cumdifuflux .and. lstsci>0) then
              !
              ! element 'R1FLX_UUC'
              !

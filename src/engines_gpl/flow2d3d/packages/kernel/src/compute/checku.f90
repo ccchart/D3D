@@ -2,7 +2,7 @@ subroutine checku(hu        ,s1        ,dpu       ,umean     , &
                 & kfu       ,kcs       ,kcu       , &
                 & kspu      ,hkru      ,j         ,nmmaxj    , &
                 & nmmax     ,kmax      ,icx       ,flood     ,dps       , &
-                & gdp       )
+                & aguu      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -78,10 +78,11 @@ subroutine checku(hu        ,s1        ,dpu       ,umean     , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: hu     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: s1     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)              :: umean  !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub) , intent(in) :: aguu
 !
 ! Local variables
 !
-    integer :: nm
+    integer :: nm,n,m
     real(fp):: drytrsh
     real(fp):: hucres
     real(fp):: floodtrsh
@@ -99,7 +100,8 @@ subroutine checku(hu        ,s1        ,dpu       ,umean     , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s1        ,dpu       ,umean     ,hu        ,gdp       )
+             & s1        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     do nm = 1, nmmax
        !
        ! Approach for 2D weirs (following WAQUA)

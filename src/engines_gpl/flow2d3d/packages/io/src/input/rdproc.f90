@@ -228,7 +228,7 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     tdef        = ' '
     idef        = 0
     nlook       = 1
-    rsmall      = 1.0e-20
+    rsmall      = 1.0e-20_fp
     !
     ! initialize parameters that are to be read
     !
@@ -245,8 +245,8 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     solrad_read2 = .false.
     ztbml        = .false.
     !
-    stanton     = 1.30e-3
-    dalton      = 1.30e-3
+    stanton     = 1.30e-3_fp
+    dalton      = 1.30e-3_fp
     maseva      = 0
     !
     irov        = 0
@@ -254,8 +254,8 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     !
     tgfcmp      = ' '
     !
-    temeqs      = 15.0
-    saleqs      = 0.0
+    temeqs      = 15.0_fp
+    saleqs      = 0.0_fp
     !
     wstcof(1)   = 0.0025_fp
     wstcof(2)   = 0.0_fp
@@ -263,7 +263,7 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     wstcof(4)   = 50.0_fp
     wstcof(5)   = 0.0025_fp
     wstcof(6)   = 100.0_fp
-    rhoa        = 1.0
+    rhoa        = 1.0_fp
     !
     ! Density formula
     !
@@ -271,11 +271,11 @@ subroutine rdproc(error    ,nrrec     ,mdfrec    ,htur2d      ,salin    , &
     !
     ! items related to secundairy flow
     !
-    betac       = 0.0
+    betac       = 0.0_fp
     equili      = 'N'
     lsec        = 0
-    chzmin      = 20.0
-    rmincf      = 2.5
+    chzmin      = 20.0_fp
+    rmincf      = 2.5_fp
     !
     m1_nhy      = 0
     n1_nhy      = 0

@@ -75,7 +75,7 @@ subroutine wrcomi(comfil    ,lundia    ,error     ,zmodel    ,mmax      , &
     integer                                                             :: nsrc   !  Description and declaration in esm_alloc_int.f90
     integer                                                             :: nto    !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(7, nto)                                       :: mnbnd  !  Description and declaration in esm_alloc_int.f90
-    integer   , dimension(5, noroco)                                    :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer   , dimension(7, noroco)                                    :: irocol !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(7, nsrc)                                      :: mnksrc !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(8, nrob)                                      :: nob    !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)     :: kcs    !  Description and declaration in esm_alloc_int.f90

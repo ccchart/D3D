@@ -103,7 +103,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
     integer                                                                                         :: nsrc        !  Description and declaration in esm_alloc_int.f90
     integer                                                                                         :: ntruv       !  Description and declaration in dimens.igs
     integer , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                     , intent(in)  :: ipartition  !  Partition number
-    integer , dimension(5, noroco)                                                                  :: irocol      !  Description and declaration in esm_alloc_int.f90
+    integer , dimension(7, noroco)                                                                  :: irocol      !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                     , intent(in)  :: kcs         !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                     , intent(in)  :: kcu         !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)                     , intent(in)  :: kcv         !  Description and declaration in esm_alloc_int.f90
@@ -199,7 +199,6 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
     integer                                           :: iddim_lsedbl
     integer                                           :: iddim_2
     integer                                           :: iddim_4
-    integer                                           :: iddim_5
     integer                                           :: iddim_7
     integer                                           :: iddim_x
     !
@@ -341,7 +340,6 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
        if (lsedbl  >0) iddim_lsedbl = adddim(gdp, lundia, ifile, 'LSEDBL'            , lsedbl  ) ! Number of bedload sediment fractions
                        iddim_2      = adddim(gdp, lundia, ifile, 'length_2'          , 2       )
                        iddim_4      = adddim(gdp, lundia, ifile, 'length_4'          , 4       )
-                       iddim_5      = adddim(gdp, lundia, ifile, 'length_5'          , 5       )
                        iddim_7      = adddim(gdp, lundia, ifile, 'length_7'          , 7       )
        !
        idatt_xyc  = addatt(gdp, lundia, ifile, 'coordinates','XCOR YCOR')
@@ -408,7 +406,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
           call addelm(gdp, lundia, ifile, grnam2, 'DRYFLP', ' ', 8            , 0, longname='Criterium to calculate depth in zeta points') !CHARACTER
           call addelm(gdp, lundia, ifile, grnam2, 'NOROW', ' ', IO_INT4       , 0, longname='Number of rows for IROCOL table')
           call addelm(gdp, lundia, ifile, grnam2, 'NOROCO', ' ', IO_INT4      , 0, longname='Number of rows & columns of IROCOL table')
-          call addelm(gdp, lundia, ifile, grnam2, 'IROCOL', ' ', IO_INT4      , 2, dimids=(/iddim_5, iddim_noroco/), longname='Administration of zeta points')
+          call addelm(gdp, lundia, ifile, grnam2, 'IROCOL', ' ', IO_INT4      , 2, dimids=(/iddim_7, iddim_noroco/), longname='Administration of zeta points')
           call addelm(gdp, lundia, ifile, grnam2, 'THICK', ' ', io_prec       , 1, dimids=(/iddim_kmax/), longname='Fraction part of layer thickness of total water-height', unit='[ .01*% ]')
           call addelm(gdp, lundia, ifile, grnam2, 'NAMCON', ' ', 20           , 1, dimids=(/iddim_x/), longname='Name of constituent & turbulent quantity') !CHARACTER
           if (nostatgl>0) then

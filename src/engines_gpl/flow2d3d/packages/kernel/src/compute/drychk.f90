@@ -1,7 +1,7 @@
 subroutine drychk(idry      ,s1        ,qxk       ,qyk       ,icx       , &
                 & icy       ,dps       ,kfu       ,kfv       ,kfs       , &
                 & j         ,nmmaxj    ,nmmax     ,kmax      ,nfltyp    , &
-                & excbed    ,kcs       ,gdp       )
+                & excbed    ,kcs       ,nst       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -58,6 +58,7 @@ subroutine drychk(idry      ,s1        ,qxk       ,qyk       ,icx       , &
 !
 ! Global variables
 !
+    integer                                         , intent(in)  :: nst
     integer                                         , intent(in)  :: icx    !!  Increment in the X-dir., if ICX= NMAX then computation proceeds in the X-dir. If icx=1 then computation proceeds in the Y-dir.
     integer                                         , intent(in)  :: icy    !!  Increment in the Y-dir. (see ICX)
     integer                                                       :: idry   !!  Flag set to 1 if a dry point is detected in routine DRYCHK after SUD is completed
@@ -102,12 +103,13 @@ subroutine drychk(idry      ,s1        ,qxk       ,qyk       ,icx       , &
           if ( (kcs(nm)==1 .or. kcs(nm)==2) ) then
              nmd = nm - icx
              ndm = nm - icy
-             !
-             ! Check on kfs(nm) == 1 is necessary, because when the last active cell edge of a cell
-             ! was set dry in SUD, all KFU/KFV are zero and this check would not be performed
-             !
-             if ( kfu(nm)==1 .or. kfu(nmd)==1  .or.  kfv(nm)==1 .or. kfv(ndm)==1  .or. kfs(nm)==1 ) then
-                if ( s1(nm) <= -real(dps(nm),fp) ) then
+             if (       ( kfu(nm)==1 .or. kfu(nmd)==1 ) &
+                 & .or. ( kfv(nm)==1 .or. kfv(ndm)==1 )  ) then
+                if ( comparereal(s1(nm),-real(dps(nm),fp))<=0) then
+                   !write(111213,'(5i6,10f25.15)') nm, kfu(nm),kfv(nm) ,kfu(nmd),kfv(ndm),s1(nm),dps(nm)
+                   !write(*,'(a,i0,a,i0,a)') 'nst=',nst,': z-point nm = ',nm,' is dry!!!'
+                   !write(515151,'(a,i0,a,i0,a)') 'nst=',nst,': z-point nm = ',nm,' is dry!!!'
+                   !call d3stop(1, gdp)
                    kfu(nm) = 0
                    kfu(nmd) = 0
                    kfv(nm) = 0

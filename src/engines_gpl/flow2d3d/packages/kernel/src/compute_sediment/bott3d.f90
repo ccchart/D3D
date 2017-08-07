@@ -1,7 +1,7 @@
-subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
+subroutine bott3d(nmmax     ,kmax      ,lsed      ,timnow    ,lsedtot  , &
                 & lsal      ,ltem      ,kfs       ,kfu       ,kfv       , &
                 & r1        ,s0        ,kcs       , &
-                & dps       ,gsqs      ,guu       , &
+                & dps       ,gsqs      ,guu       ,agsqs     ,&
                 & gvv       ,s1        ,thick     ,dp        , &
                 & umean     ,vmean     ,sbuu      ,sbvv      , &
                 & depchg    ,nst       ,hu        , &
@@ -9,7 +9,9 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                 & sscomp    ,kcsbot    , &
                 & guv       ,gvu       ,kcu       , &
                 & kcv       ,icx       ,icy       ,timhr     , &
-                & nto       ,volum0    ,volum1    ,dt        ,gdp       )
+                & nto       ,volum0    ,volum1    ,dt        ,aguu      , &
+                & agvv      ,dpL       ,dpH       ,poros     ,kfs_cc    , &
+                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -74,6 +76,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
     include 'flow_steps_f.inc'
+    integer                              , pointer :: itstrt
+    integer                              , pointer :: itlfsm
     integer                              , pointer :: lundia
     real(hp)                             , pointer :: hydrt
     real(hp)                             , pointer :: morft
@@ -83,8 +87,10 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     real(fp)                             , pointer :: thetsd
     real(fp)                             , pointer :: sedthr
     real(fp)                             , pointer :: hmaxth
+    real(fp)                             , pointer :: tstart
     integer                              , pointer :: mergehandle
     integer                              , pointer :: itmor
+    integer                              , pointer :: MAXnpnt
     type (handletype)                    , pointer :: bcmfile
     type (bedbndtype)     , dimension(:) , pointer :: morbnd
     real(hp)              , dimension(:) , pointer :: mergebuf
@@ -92,6 +98,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     logical                              , pointer :: cmpupd
     logical                              , pointer :: neglectentrainment
     logical                              , pointer :: multi
+    logical                              , pointer :: distr_bdl_per
     logical                              , pointer :: wind
     logical                              , pointer :: temp
     logical                              , pointer :: const
@@ -140,6 +147,26 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
 ! Local parameters
 !
     integer, parameter :: bedchangemessmax = 50
+    integer                 , pointer :: cutcell
+    integer                 , pointer :: dim_nmlist
+    logical                 , pointer :: virtualMERGEupdBED
+    integer                 , pointer :: distQHn
+    integer                 , pointer :: distQHm
+    real(fp), dimension(:,:), pointer :: qfilt_bdl
+    real(fp)                , pointer :: reltim_qtq_bdl
+    integer                 , pointer :: nrPER
+    logical                 , pointer :: bedUPDandFIXdepth
+    real(fp)                , pointer :: thresMERGE_zb
+    real(fp)                , pointer :: perSMOfac_Qb
+    logical                 , pointer :: distr_qtq_bdl_NNprism
+    integer, dimension(:,:) , pointer :: NMlistMERGED_bed
+    integer, dimension(:)   , pointer :: Nmerged_bed
+    logical                 , pointer :: USEfixedBEDequilQb
+    integer                 , pointer :: idebugCUThardINI
+    integer                 , pointer :: idebugCUThardFIN
+    real(fp)                , pointer :: DELAYfixedBEDequilQS
+    real(fp), dimension(:)  , pointer :: depchgH
+    real(fp), dimension(:)  , pointer :: depth0
 !
 ! Global variables
 !
@@ -161,8 +188,16 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: kfu    !  Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: kfv    !  Description and declaration in esm_alloc_int.f90
     logical                                            , intent(in)  :: sscomp
+    real(fp)                                           , intent(in)  :: timnow !!  Current timestep (multiples of dt)
     real(fp)                                           , intent(in)  :: dt
     real(fp)                                                         :: timhr
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: agsqs
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: aguu
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: agvv
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(out) :: dpL       
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(out) :: dpH       
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: poros     
+    integer, dimension(gdp%d%nmlb:gdp%d%nmub)          , intent(in)  :: kfs_cc 
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                       :: depchg !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                       :: dp     !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)                     :: dps    !  Description and declaration in esm_alloc_real.f90
@@ -175,8 +210,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: hv     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                       :: s0     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                       :: s1     !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: umean  !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: vmean  !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(inout)  :: umean  !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(inout)  :: vmean  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)   , intent(in)  :: u1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)   , intent(in)  :: v1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)   , intent(in)  :: volum0 !  Description and declaration in esm_alloc_real.f90
@@ -189,6 +224,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
 !
 ! Local variables
 !
+    integer  :: nmaxddb
     integer  :: i
     integer  :: ib
     integer  :: icond
@@ -197,6 +233,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     integer  :: k
     integer  :: kvalue
     integer  :: l
+    integer  :: J
     integer  :: li
     integer  :: ll
     integer  :: lsedbed
@@ -204,6 +241,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     integer  :: m
     integer  :: n
     integer  :: ndm
+    integer  :: nmORT
+    integer  :: nmORTm1
     integer  :: nhystp
     integer  :: nm
     integer  :: nmd
@@ -218,6 +257,18 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     logical  :: from_nmd
     logical  :: from_nmu
     logical  :: from_num
+    integer  :: nm8(1:8)
+    integer  :: nm4(1:4)
+    integer  :: nm4c(1:4)
+    integer  :: nmj
+    integer  :: nmOK
+    integer  :: nmEX
+    integer  :: shiftPERnm
+    real(fp) :: itlfsm_per_Qs
+    real(fp) :: tdif
+    real(fp) :: Qini
+    real(fp) :: tfrac
+    real(fp) :: diff
     real(fp) :: aksu
     real(fp) :: apower
     real(fp) :: cavg
@@ -236,9 +287,12 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     real(fp) :: gsqsmin
     real(fp) :: gsqsinv
     real(fp) :: h1
+    real(fp) :: h2
     real(fp) :: dtmor
     real(fp) :: htdif
     real(fp) :: rate
+    real(fp) :: rateAD
+    real(fp) :: rateADi(gdp%gdmorpar%MAXnpnt)
     real(fp) :: r1avg
     real(fp) :: sedflx
     real(fp) :: thet
@@ -247,10 +301,46 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     real(fp) :: totdbodsd
     real(fp) :: totfixfrac
     real(fp) :: trndiv
+    real(fp) :: width(gdp%gdmorpar%MAXnpnt)
+    real(fp) :: widthAD(gdp%gdmorpar%MAXnpnt)
+    real(fp) :: widthtot
     real(fp) :: z
+    real(fp) :: dbodsdAV
+    real(fp) :: rateNEW
+    real(fp) :: a
+    real(fp),allocatable,save :: Qb_EQ(:,:)
+    !real(fp), dimension(gdp%d%nmlb:gdp%d%nmub) :: depchgH ! variation of HIGH bed eleveation in cutcell method
+    !real(fp), dimension(gdp%d%nmlb:gdp%d%nmub) :: depth0
+    logical,SAVE :: firstCALL = .TRUE.
+    logical  :: exceeded
+    integer  :: nxmxB(gdp%gdmorpar%MAXnpnt)
+    integer  :: nxmxAD(gdp%gdmorpar%MAXnpnt)
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell               => gdp%gdimbound%cutcell
+    dim_nmlist            => gdp%gdimbound%dim_nmlist
+    virtualMERGEupdBED    => gdp%gdimbound%virtualMERGEupdBED
+    distQHn               => gdp%gdimbound%distQHn
+    distQHm               => gdp%gdimbound%distQHm
+    qfilt_bdl             => gdp%gdimbound%qfilt_bdl
+    reltim_qtq_bdl        => gdp%gdimbound%reltim_qtq_bdl
+    nrPER                 => gdp%gdimbound%nrPER
+    bedUPDandFIXdepth     => gdp%gdimbound%bedUPDandFIXdepth
+    thresMERGE_zb         => gdp%gdimbound%thresMERGE_zb
+    perSMOfac_Qb          => gdp%gdimbound%perSMOfac_Qb
+    distr_qtq_bdl_NNprism => gdp%gdimbound%distr_qtq_bdl_NNprism
+    NMlistMERGED_bed      => gdp%gdimbound%NMlistMERGED_bed
+    Nmerged_bed           => gdp%gdimbound%Nmerged_bed
+    USEfixedBEDequilQb    => gdp%gdimbound%USEfixedBEDequilQb
+    idebugCUThardINI      => gdp%gdimbound%idebugCUThardINI
+    idebugCUThardFIN      => gdp%gdimbound%idebugCUThardFIN
+    DELAYfixedBEDequilQS  => gdp%gdimbound%DELAYfixedBEDequilQS
+    depchgH               => gdp%gdimbound%Dwrka1
+    depth0                => gdp%gdimbound%Dwrka2
+    itstrt              => gdp%gdinttim%itstrt
+    itlfsm              => gdp%gdinttim%itlfsm
+    tstart              => gdp%gdexttim%tstart
     lundia              => gdp%gdinout%lundia
     hydrt               => gdp%gdmorpar%hydrt
     morft               => gdp%gdmorpar%morft
@@ -269,6 +359,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     cmpupd              => gdp%gdmorpar%cmpupd
     neglectentrainment  => gdp%gdmorpar%neglectentrainment
     multi               => gdp%gdmorpar%multi
+    MAXnpnt             => gdp%gdmorpar%MAXnpnt
     wind                => gdp%gdprocs%wind
     temp                => gdp%gdprocs%temp
     const               => gdp%gdprocs%const
@@ -313,11 +404,17 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     mfluff              => gdp%gdmorpar%flufflyr%mfluff
     sinkf               => gdp%gdmorpar%flufflyr%sinkf
     sourf               => gdp%gdmorpar%flufflyr%sourf
+    distr_bdl_per       => gdp%gdbcdat%distr_bdl_per
     !
     lstart  = max(lsal, ltem)
     bedload = .false.
     dtmor   = dt*morfac
     nm_pos  = 1
+    if (nst.ge.idebugCUThardINI.and.nst.le.idebugCUThardFIN) then
+       do k = 1,nmmax
+          write(98919900,'(2i6,15f21.15)') nst,k,dps(k),dpL(k),dpH(k)
+       enddo
+    endif
     !
     !   Calculate suspended sediment transport correction vector (for SAND)
     !   Note: uses GLM velocites, consistent with DIFU
@@ -331,6 +428,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
     !   vector arrays are blank
     !
     !
+    depchgH = 0._fp
     sucor = 0.0_fp
     svcor = 0.0_fp
     ssuu  = 0.0_fp
@@ -388,7 +486,11 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                             cumflux = cumflux + fluxu(nm, k, ll)
                          endif
                       enddo
-                      cumflux = cumflux / guu(nm)
+                      if (comparereal(aguu(nm),0._fp)/=0) then !to be removed when reconvof fixed (see below)
+                         cumflux = cumflux / (guu(nm)*aguu(nm)) !Here aguu has to be the % of active wet edge that is never zero when kfu=1. Otherwise I have div by zero 
+                      else 
+                         cumflux = 0._fp
+                      endif
                       !
                       ! integration finished
                       ! suspended transport correction = opposite of the
@@ -470,7 +572,11 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                             cumflux = cumflux + fluxv(nm,k,ll)
                          endif
                       enddo
-                      cumflux = cumflux / gvv(nm)
+                      if (comparereal(agvv(nm),0._fp)/=0) then !to be removed when reconvof fixed (see below)
+                         cumflux = cumflux / (gvv(nm)*agvv(nm))
+                      else
+                         cumflux = 0._fp
+                      endif
                       !
                       ! integration finished
                       ! suspended transport correction = opposite of the
@@ -552,7 +658,11 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                    !
                    ! total suspended transport
                    !
-                   ssuu(nm, l) = cumflux/guu(nm) + sucor(nm, l)
+                   if (comparereal(aguu(nm),0._fp)/=0) then !to be removed when reconvof fixed (see below)
+                      ssuu(nm, l) = cumflux/(guu(nm)*aguu(nm)) + sucor(nm, l) !Here aguu has to be the % of active wet edge that is never zero when kfu=1. Otherwise I have div by zero 
+                   else
+                      ssuu(nm, l) = 0._fp
+                   endif
                 endif
                 !
                 ! v component
@@ -565,16 +675,26 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                    !
                    ! total suspended transport
                    !
-                   ssvv(nm, l) = cumflux/gvv(nm) + svcor(nm, l)
+                   if (comparereal(agvv(nm),0._fp)/=0) then !to be removed when reconvof fixed (see below)
+                      ssvv(nm, l) = cumflux/(gvv(nm)*agvv(nm)) + svcor(nm, l)
+                   else
+                      ssvv(nm, l) = 0._fp
+                   endif
                 endif
              enddo  ! nm
           enddo     ! l
        endif        ! sscomp .or. nst>=itmor
     endif           ! sus /= 0.0
     !
+    if (USEfixedBEDequilQb.and.itmor-itstrt==0.and.DELAYfixedBEDequilQS>0._fp) then !move it at the beginning of the code
+       write(*,*) 'If USEfixedBEDequilQb=Y then itmor must be >0'
+       !pause
+       stop
+    endif
+    !
     ! if morphological computations have started
     !
-    if (nst >= itmor) then
+    if (1==1) then !(nst >= itmor) then !removed for output purposes and for computing Qb_EQ if USEfixedBEDequilQb=Y
        !
        ! Increment morphological time
        ! Note: dtmor in seconds, hydrt and morft in days!
@@ -681,8 +801,197 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                    endif
                 enddo ! l (sediment fraction)
              enddo    ! ib (boundary point)
-          endif       ! icond = 4, 5 or 8 (boundary with transport condition)
+          elseif (icond == 9 .or. icond == 10) then
+             !
+             ! Open boundary with transport boundary condition:
+             ! Get data from table file
+             !
+             call flw_gettabledata(bcmfile  , morbnd(jb)%ibcmt(1) , &
+                      & morbnd(jb)%ibcmt(2) , morbnd(jb)%ibcmt(3) , &
+                      & morbnd(jb)%ibcmt(4) , bc_mor_array        , &
+                      & timhr      ,julday  , gdp        )
+             !
+             ! loop over sediment fractions
+             !
+             li = 0
+             lsedbed = lsedtot - nmudfrac
+             do l = 1, lsedtot
+                !
+                ! bed load transport always zero for mud fractions
+                !
+                if (sedtyp(l) == SEDTYP_COHESIVE) cycle
+                li = li + 1
+                !
+                rate = bc_mor_array(li)
+                !
+                if (icond == 6) then
+                   !
+                   ! transport including pores
+                   !
+                   rate = rate*cdryb(l)
+                else
+                   !
+                   ! transport excluding pores
+                   !
+                   rate = rate*rhosol(l)
+                endif
+                !
+                ! Loop over boundary points and compute total bed transport
+                !
+                rateAD    = 0.0_fp
+                widthtot = 0.0_fp
+                do ib = 1, morbnd(jb)%npnt
+                   idir_scalar = morbnd(jb)%idir(ib)
+                   nxmx        = morbnd(jb)%nxmx(ib)
+                   !width       = morbnd(jb)%width(ib)
+                   nm          = morbnd(jb)%nm(ib)
+                   nmu = nm + icx
+                   num = nm + icy
+                   nmd = nm - icx
+                   ndm = nm - icy
+                   if (distr_bdl_per) then
+                      shiftPERnm = icy*distQHn+icx*distQHm
+                   else
+                      shiftPERnm = 0
+                   endif
+                   if (nxmx == nmu .or. nxmx == num) then !beginning of boundary (small n or m)
+                      nxmxAD(ib) = nxmx-shiftPERnm ! it is the first velocity point inside the domain next to the boundary
+                      nxmxB(ib)  = nm     ! it is the velocity point at the boundary
+                   else  !end of boundary (high n or m)
+                      if (nxmx == nmd) then !along m
+                        nxmxAD(ib) = nxmx-icx-shiftPERnm ! it is the first velocity point inside the domain next to the boundary (if shiftPERnm=0, otherwise it is the velocity point in the corresponding periodic H boundary)
+                      else !if (nxmx == ndm) then !along n
+                        nxmxAD(ib) = nxmx-icy-shiftPERnm ! it is the first velocity point inside the domain next to the boundary (if shiftPERnm=0, otherwise it is the velocity point in the corresponding periodic H boundary)
+                      endif
+                      nxmxB(ib) = nxmx       ! it is the velocity point at the boundary
+                   endif
+                   if (idir_scalar == 1) then
+                      widthAD(ib) = aguu(nxmxAD(ib))*guu(nxmxAD(ib))
+                      width  (ib) = aguu(nxmxB (ib))*guu(nxmxB (ib))
+                   else
+                      widthAD(ib) = agvv(nxmxAD(ib))*gvv(nxmxAD(ib))
+                      width  (ib) = agvv(nxmxB (ib))*gvv(nxmxB (ib))
+                   endif
+                   !
+                   widthtot = widthtot + widthAD(ib)
+                   if (idir_scalar == 1) then
+                      rateADi(ib) = sbuu(nxmxAD(ib), l)*widthAD(ib)   !rate for 1 single boundary cell
+                      if (distr_qtq_bdl_NNprism) then 
+                         if (nxmx == nmu) then ! beginning of boundary
+                            nmORT   = nmu
+                            nmORTm1 = ndm + icx !it is basically ndmu
+                         else !end of boundary
+                            nmORT   = nm
+                            nmORTm1 = ndm  
+                         endif
+                         if (comparereal(aguu(nxmxB(ib)),0._fp).gt.0) then !if its width at the boundary is zero the rate has to be zero even if adjacent have flux
+                            rateADi(ib) = rateADi(ib) + sbvv(nmORT,l)*agvv(nmORT)*gvv(nmORT) - sbvv(nmORTm1,l)*agvv(nmORTm1)*gvv(nmORTm1)  
+                         else
+                            rateADi(ib) = 0._fp
+                         endif
+                      endif
+                      rateAD = rateAD + rateADi(ib)
+                   else
+                      rateADi(ib) = sbvv(nxmxAD(ib), l)*widthAD(ib)  
+                      if (distr_qtq_bdl_NNprism) then 
+                         if (nxmx == num) then ! beginning of boundary
+                            nmORT   = num
+                            nmORTm1 = num - icx !it is basically numd
+                         else !end of boundary
+                            nmORT   = nm
+                            nmORTm1 = nmd  
+                         endif
+                         if (comparereal(agvv(nxmxB(ib)),0._fp).gt.0) then !if its width at the boundary is zero the rate has to be zero even if adjacent have flux
+                            rateADi(ib) = rateADi(ib) + sbuu(nmORT,l)*aguu(nmORT)*guu(nmORT) - sbuu(nmORTm1,l)*aguu(nmORTm1)*guu(nmORTm1)  
+                         else
+                            rateADi(ib) = 0._fp
+                         endif
+                      endif
+                      rateAD = rateAD + rateADi(ib) 
+                   endif
+
+                enddo ! ib (boundary point)
+                if (USEfixedBEDequilQb.and.((nst < itmor .and. DELAYfixedBEDequilQS>0._fp)   .or. nst == itstrt )) then !DELAYfixedBEDequilQS is one for susp and bedload, since for bedload it counts only if DELAYfixedBEDequilQS<0, otherwise boundary condition does not affect bedload transport inside the domain
+                   if (.not. allocated(Qb_EQ)) allocate(Qb_EQ(lsedtot,nto))
+                 !  if (nst < itmor) then 
+                      Qb_EQ(l,jb) =  rateAD                     
+                 !  endif                   
+                endif
+                if (USEfixedBEDequilQb) rate = Qb_EQ(l,jb) ! I overwrite boundary condition from the internal or periodic discharge, and it will be fixed in time once the morphodynamic will start (nst>itmor)
+                !
+                ! smoothing/  I presecribe rate as BC. While the first cell inside (or the periodic downstream boundary) has rateAD. I go smoothly from rateAD to rate.
+                !
+                itlfsm_per_Qs = itlfsm*perSMOfac_Qb 
+                tdif = timnow*dt*2._fp/60._fp - tstart !dt IS IN SECONDS (if ADI then dt="hdt")
+                if (itlfsm_per_Qs>0 .and. tdif<=itlfsm_per_Qs*dt*2._fp/60._fp) then
+                   Qini = rateAD 
+                   tfrac = tdif/(itlfsm_per_Qs*dt*2._fp/60._fp)
+                   diff  = rate - Qini
+                   rate = Qini + tfrac*diff             
+                endif
+                !
+                ! convert absolute flux into a relative ratio of the computed flux (rateAD)
+                ! if the computed flux is zero, then use a constant rate per unit width (rateAD)
+                !
+                if (abs(rateAD).gt.0._fp) then
+                   do ib = 1, morbnd(jb)%npnt
+                      rateADi(ib) = rateADi(ib)/rateAD 
+                      !
+                      !if periodical BC use filter to remove oscillation (probably filter on periodic water discharge is enough)
+                      if (distr_bdl_per) then 
+                         !this is valid only for 1 boundary with prescribed totalload. If periodic BC, only one boundary should be present. However, a check should be done at the beginning to make sure this is the case
+                         rateNEW = rateADi(ib)  
+                         if (reltim_qtq_bdl>0) then
+                            if (morbnd(jb)%npnt.ne.nrPER) then ! to be moved to the beginning
+                               write(*,*) 'Error in bott3D' 
+                               !pause
+                               stop
+                            endif
+                            if (.NOT.firstCALL) then
+                               a = exp( - dt/reltim_qtq_bdl/60.0_fp) !dt (= "hdt" for ADI) in sec, reltim in minutes
+                               qfilt_bdl(ib,l) = a*qfilt_bdl(ib,l) + (1._fp - a)*rateNEW
+                            else
+                               qfilt_bdl(ib,l) = rateNEW
+                            endif
+                         else
+                            qfilt_bdl(ib,l) = rateNEW 
+                         endif     
+                         rateADi(ib) = qfilt_bdl(ib,l)   
+                      endif
+                   enddo
+                   firstCALL = .FALSE.
+                   rateAD  = 0.0_fp
+                else
+                   rateADi(1:morbnd(jb)%npnt) = 0._fp ! they could be alternatively positive and negative and sum up to zero
+                   rateAD = rate/widthtot
+                endif
+                !
+                ! Loop over boundary points and impose bed transport
+                !
+                do ib = 1, morbnd(jb)%npnt
+                   idir_scalar = morbnd(jb)%idir(ib)
+                   !nxmx        = morbnd(jb)%nxmx(ib)
+                   !
+                   if (idir_scalar == 1) then
+                      if (comparereal(width(ib),0._fp).gt.0) then
+                         sbuu(nxmxB(ib), l) = rate*rateADi(ib)/width(ib) + rateAD !divided by width(ib) since rate*rateADi(ib) it is in kg/s, but I want it for unit width.
+                      else
+                         sbuu(nxmxB(ib), l) = 0._fp
+                      endif
+                   else
+                      if (comparereal(width(ib),0._fp).gt.0) then
+                         sbvv(nxmxB(ib), l) = rate*rateADi(ib)/width(ib) + rateAD !divided by width(ib) since rate*rateADi(ib) it is in kg/s, but I want it for unit width.
+                      else
+                         sbvv(nxmxB(ib), l) = 0._fp
+                      endif
+                   endif
+                enddo ! ib (boundary point)
+             enddo    ! l (sediment fraction)
+          endif       ! icond = 4, 5, 8, 9 or 10 (boundary with transport condition)
        enddo          ! jb (open boundary) 
+       !
+    endif
+    if (nst >= itmor) then
        !
        ! Update quantity of bottom sediment
        !
@@ -722,8 +1031,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                             & *(  ssuu(nmd, l)*guu(nmd) - ssuu(nm, l)*guu(nm))
                    else
                      trndiv = trndiv + gsqsinv                                   &
-                            & *(  ssuu(nmd, l)*guu(nmd) - ssuu(nm, l)*guu(nm)    &
-                            &   + ssvv(ndm, l)*gvv(ndm) - ssvv(nm, l)*gvv(nm))
+                            & *(  ssuu(nmd, l)*guu(nmd)*aguu(nmd) - ssuu(nm, l)*guu(nm)*aguu(nm)    &
+                            &   + ssvv(ndm, l)*gvv(ndm)*agvv(ndm) - ssvv(nm, l)*gvv(nm)*agvv(nm))
                    endif
                 else
                    !
@@ -762,8 +1071,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                              &         *( sucor(nmd,l)*guu(nmd)-sucor(nm,l)*guu(nm))
                    else
                       trndiv = trndiv + gsqsinv                                     &
-                             &         *( sucor(nmd,l)*guu(nmd)-sucor(nm,l)*guu(nm) &
-                             &           +svcor(ndm,l)*gvv(ndm)-svcor(nm,l)*gvv(nm))
+                             &         *( sucor(nmd,l)*guu(nmd)*aguu(nmd)-sucor(nm,l)*guu(nm)*aguu(nm) &
+                             &           +svcor(ndm,l)*gvv(ndm)*agvv(ndm)-svcor(nm,l)*gvv(nm)*agvv(nm))
                    endif
                 endif
              endif
@@ -776,8 +1085,8 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                          &         *( sbuu(nmd,l)*guu(nmd)-sbuu(nm,l)*guu(nm))
                 else
                   trndiv = trndiv + gsqsinv                                     &
-                         &         *( sbuu(nmd,l)*guu(nmd)-sbuu(nm,l)*guu(nm)   &
-                         &           +sbvv(ndm,l)*gvv(ndm)-sbvv(nm,l)*gvv(nm))
+                         &         *( sbuu(nmd,l)*guu(nmd)*aguu(nmd)-sbuu(nm,l)*guu(nm)*aguu(nm)   &
+                         &           +sbvv(ndm,l)*gvv(ndm)*agvv(ndm)-sbvv(nm,l)*gvv(nm)*agvv(nm))
                 endif
              endif
              !
@@ -788,7 +1097,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
              !
              dhmax = 0.05_fp
              h1 = max(0.01_fp, s1(nm) + real(dps(nm),fp))
-             if (abs(dsdnm) > dhmax*h1*cdryb(l) .and. bedupd) then
+             if (abs(dsdnm) > dhmax*h1*cdryb(l) .and. bedupd.and.(agsqs(nm).gt.thresMERGE_zb.or..not.virtualMERGEupdBED)) then 
                 !
                 ! Only write bed change warning when bed updating is true
                 ! (otherwise no problem)
@@ -916,28 +1225,28 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                       dv             = thet*fixfac(ndm, l)*frac(ndm, l)
                       dbodsd(l, ndm) = dbodsd(l, ndm) - dv/gsqs(ndm)
                       dbodsd(l, nm ) = dbodsd(l, nm ) + dv/gsqs(nm)
-                      sbvv(ndm, l)   = sbvv(ndm, l) + dv/(dtmor*gvv(ndm))
+                      sbvv(ndm, l)   = sbvv(ndm, l) + dv/(dtmor*gvv(ndm)) !use agvv?
                    endif
                    !
                    if (from_nmd) then
                       dv             = thet*fixfac(nmd, l)*frac(nmd, l)
                       dbodsd(l, nmd) = dbodsd(l, nmd) - dv/gsqs(nmd)
                       dbodsd(l, nm ) = dbodsd(l, nm ) + dv/gsqs(nm)
-                      sbuu(nmd, l)   = sbuu(nmd, l) + dv/(dtmor*guu(nmd))
+                      sbuu(nmd, l)   = sbuu(nmd, l) + dv/(dtmor*guu(nmd))  !use aguu?
                    endif
                    !
                    if (from_nmu) then
                       dv             = thet*fixfac(nmu, l)*frac(nmu, l)
                       dbodsd(l, nmu) = dbodsd(l, nmu) - dv/gsqs(nmu)
                       dbodsd(l, nm ) = dbodsd(l, nm ) + dv/gsqs(nm)
-                      sbuu(nm, l)    = sbuu(nm, l) - dv/(dtmor*guu(nm))
+                      sbuu(nm, l)    = sbuu(nm, l) - dv/(dtmor*guu(nm)) !use aguu?
                    endif
                    !
                    if (from_num) then
                       dv             = thet*fixfac(num, l)*frac(num, l)
                       dbodsd(l, num) = dbodsd(l, num) - dv/gsqs(num)
                       dbodsd(l, nm ) = dbodsd(l, nm ) + dv/gsqs(nm)
-                      sbvv(nm, l)    = sbvv(nm, l) - dv/(dtmor*gvv(nm))
+                      sbvv(nm, l)    = sbvv(nm, l) - dv/(dtmor*gvv(nm))  !use agvv?
                    endif
                 enddo ! l
              endif    ! totfixfrac > 1.0e-7
@@ -984,6 +1293,14 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
              ssvvc(nm, l) = ssvvc(nm, l) + ssvv(nm, l) * dtmor
           enddo
        enddo
+       !
+       ! for small cutcells (agsqs<thresMERGE_zb): they are virtually merged with large cells
+       if (cutcell.gt.0.and.virtualMERGEupdBED) THEN
+          nmaxddb = gdp%d%nmax + 2*gdp%d%ddbound
+          CALL virtMERG(dbodsd,gsqs,s1,dps,cdryb,icx,icy,nmmax,gdp%d%nmlb,gdp%d%nmub,nst,1,lsedtot,1,lsedtot,lundia,bedupd,&   
+                        bedchangemesscount,bedchangemessmax,ntstep,1,nmaxddb,gdp%d%ddbound,& !1 check large bed variations
+                        NMlistMERGED_bed,Nmerged_bed, dim_nmlist)
+       endif
        !
        ! Apply erosion and sedimentation to bookkeeping system
        !
@@ -1073,11 +1390,11 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
              endif
              !
              select case(icond)
-             case (0,4,5,8)
+             case (0,4,5,8,9,10)
                 !
                 ! outflow or free boundary (0)
-                ! or prescribed transport volume with pores (4)
-                ! or prescribed transport volume without pores (5)
+                ! or prescribed transport volume with pores (4,9)
+                ! or prescribed transport volume without pores (5,10)
                 ! or prescribed transport mass (8)
                 !
                 depchg(nm) = depchg(nm) + depchg(nxmx) * alfa_mag
@@ -1122,6 +1439,16 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
           depchg(nm) = 0.0_fp
        enddo
     endif ! nst >= itmor
+    !
+    ! store depth0 in case we want to do an update of the bottom and keep the depth constant instead of the water surface
+    !
+    if (bedUPDandFIXdepth) then
+       do nm = 1, nmmax
+          if (comparereal(depchg(nm),0._fp).ne.0) then
+             depth0(nm) = s0(nm) + dps(nm)
+          endif
+       enddo
+    endif
     !
     ! Update bottom elevations
     !
@@ -1207,6 +1534,54 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
              dp(nm) = dp(nm) - (  depchg(nm) *gsqs(nm)  + depchg(num) *gsqs(num)     &
                     &           + depchg(nmu)*gsqs(nmu) + depchg(numu)*gsqs(numu))/fact
           endif
+       enddo
+    endif
+!   for cutcell: compute dpL and dpH from dps and correct boundaries
+    if (cutcell.gt.0) then 
+       do nm = 1, nmmax
+          if (kcs(nm)==2) then !only for boundary!!!this is needed because some cell just inside the boundary could be partially active but the adjacent halo cell is fully dry with dpH=dpL, therefore the veriation of dps does not have to be copied.
+             if (comparereal(abs(depchgH(nm)),0._fp).gt.0) then
+                if (comparereal(poros(nm),0._fp)==0) then
+                   dpL(nm) = dpH(nm)  !they concide there is no lower elevation!
+                   dps(nm) = dpH(nm)  ! it was maybe changed but it should not
+                else if (comparereal(poros(nm),0._fp)==0) then
+                   dpL(nm) = dps(nm) ! dps might have changed
+                   dpH(nm) = dpL(nm) ! if I change dpH above I have to rechange it here
+                endif
+             else
+                if (comparereal(poros(nm),0._fp)==0) then
+                   dps(nm) = dpL(nm) !dps was changed but thats not possible!
+                   s1(nm)  = - dpL(nm) !s1 was changed but thats not possible since depchgH=0 and dpH didnt change
+                   s0(nm)  = - dpL(nm) !s0 was changed but thats not possible since depchgH=0 and dpH didnt change
+                endif
+             endif
+          else ! if kcs(n,m).ne.2
+             if (kfs_cc(nm)==0) then !partially dry cut cell (kcs(n,m)==2 already treated above
+                dpL(nm) = dps(nm)
+                !dpH does not change since its dry
+             elseif (kfs_cc(nm)==1) then !flooded cut cell
+                !here dps was the average of dpL and dpH. I go back to dpL and dpH and it is like if I deposited the same abount of dz in both dpL and dpH
+                dpL(nm) = dpL(nm) - depchg(nm) !poros(nm)*dps(nm) 
+                dpH(nm) = dpH(nm) - depchg(nm) !(1._fp-poros(nm))*dps(nm)
+             elseif (kfs_cc(nm)==2.or.kfs_cc(nm)==3) then ! 2,-2, 3, -3
+                dpL(nm) = dps(nm)
+                dpH(nm) = dps(nm)
+             else !if (kfs_cc(nm)==-1,-2,-3   !dry cell nothing happens
+   !            nothing happens
+             endif
+          endif
+       enddo
+    endif
+    if (bedUPDandFIXdepth) then
+       do nm = 1, nmmax
+          if (comparereal(depchg(nm),0._fp).ne.0) then
+             s1(nm) = depth0(nm) - dps(nm)
+          endif
+       enddo
+    endif
+    if (nst.ge.idebugCUThardINI.and.nst.le.idebugCUThardFIN) then
+       do k = 1,nmmax
+          write(98919901,'(2i6,15f21.15)') nst,k,dps(k),dpL(k),dpH(k)
        enddo
     endif
 end subroutine bott3d

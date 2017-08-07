@@ -69,6 +69,8 @@ subroutine z_chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lstsci    , &
     logical        , pointer :: kfuv_from_restart
     real(fp)       , pointer :: dzmin
     
+    real(fp), dimension(:,:), pointer :: aguu
+    real(fp), dimension(:,:), pointer :: agvv
 !
 ! Global variables
 !
@@ -148,6 +150,8 @@ subroutine z_chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lstsci    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    aguu => gdp%gdimbound%aguu
+    agvv => gdp%gdimbound%agvv
     lundia             => gdp%gdinout%lundia
     zmodel             => gdp%gdprocs%zmodel
     drycrt             => gdp%gdnumeco%drycrt
@@ -285,10 +289,12 @@ subroutine z_chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lstsci    , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kfu       ,kspu      ,dps       , &
-             & s1        ,dpu       ,umean     ,hu        ,gdp       )
+             & s1        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icy       , &
              & zmodel    ,kcs       ,kfv       ,kspv      ,dps       , &
-             & s1        ,dpv       ,vmean     ,hv        ,gdp       )
+             & s1        ,dpv       ,vmean     ,hv        ,agvv      , &
+             & gdp)
    !
     ! Check for dry velocity points
     ! Approach for 2D weirs (following WAQUA)

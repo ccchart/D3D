@@ -574,6 +574,11 @@ subroutine compute_secundary_state(gdp       )
     real(fp)                             , pointer :: anglon
     logical                              , pointer :: sferic    
     integer                              , pointer :: keva
+    real(fp), dimension(:,:), pointer :: aguu
+    real(fp), dimension(:,:), pointer :: agvv
+    real(fp), dimension(:,:), pointer :: agsqs
+    real(fp), dimension(:,:), pointer :: dpL
+    real(fp), dimension(:,:), pointer :: dpH
 
 !
 ! Local variables
@@ -592,9 +597,15 @@ subroutine compute_secundary_state(gdp       )
     character(8)                       :: stage       ! First or second half time step 
                                                       ! Stage = 'both' means that in F0ISF1 the layering administration
                                                       ! is copied for both the U- and the V-direction
+    character(256)                       :: filic
 !
 !! executable statements -------------------------------------------------------
 !
+    aguu  => gdp%gdimbound%aguu
+    agvv  => gdp%gdimbound%agvv
+    agsqs => gdp%gdimbound%agsqs
+    dpL   => gdp%gdimbound%dpL
+    dpH   => gdp%gdimbound%dpH
     wrka1               => gdp%gdaddress%wrka1
     wrka2               => gdp%gdaddress%wrka2
     wrka3               => gdp%gdaddress%wrka3
@@ -857,6 +868,7 @@ subroutine compute_secundary_state(gdp       )
     sink                => gdp%gdr_i_ch%sink
     xz                  => gdp%gdr_i_ch%xz
     yz                  => gdp%gdr_i_ch%yz
+    filic =' ' !not to have it undefined
     !
     ! First repair some output variables due to 
     ! inconsistent usage
@@ -907,7 +919,8 @@ subroutine compute_secundary_state(gdp       )
     icx = nmaxddb
     icy = 1
     call caldps(nmmax     ,nfltyp    ,icx       , &
-                 & icy       ,i(kcs)    ,r(dp)     ,d(dps)    ,gdp       )
+                 & icy       ,i(kcs)    ,r(dp)     ,d(dps)    ,&
+                 & dpL       ,dpH       ,gdp       )
     !
     call caldpu(lundia    ,mmax      ,nmaxus    ,kmax      , &
                  & zmodel    , &
@@ -915,7 +928,7 @@ subroutine compute_secundary_state(gdp       )
                  & i(kspu)   ,i(kspv)   ,r(hkru)   ,r(hkrv)   , &
                  & r(umean)  ,r(vmean)  ,r(dp)     ,r(dpu)    ,r(dpv)    , &
                  & d(dps)    ,r(dzs1)   ,r(u1)     ,r(v1)     ,r(s1)     , &
-                 & r(thick)  ,gdp       )
+                 & r(thick)  ,nst       ,gdp       )
     !
     ! CHKDRY: set initial depth at velocity points
     ! define mask arrays for velocity points
@@ -937,7 +950,7 @@ subroutine compute_secundary_state(gdp       )
                  & r(dpv)    ,r(hu)     ,r(hv)     ,r(hkru)   ,r(hkrv)   , &
                  & r(thick)  ,r(s1)     ,d(dps)    ,r(u1)     ,r(v1)     , &
                  & r(umean)  ,r(vmean)  ,r(r1)     ,r(rtur1)  ,r(guu)    , &
-                 & r(gvv)    ,r(qxk)    ,r(qyk)    ,gdp       )
+                 & r(gvv)    ,r(qxk)    ,r(qyk)    ,filic     ,gdp       )
     else
        icx = nmaxddb
        icy = 1
@@ -992,7 +1005,9 @@ subroutine compute_secundary_state(gdp       )
               & i(kfumin) ,i(kfumax) ,i(kfvmin) ,i(kfvmax) ,r(thick)  , &
               & r(s1)     ,d(dps)    ,r(gsqs)   ,r(guu)    ,r(gvv)    , &
               & r(hu)     ,r(hv)     ,r(dzs1)   ,r(dzu1)   ,r(dzv1)   , &
-              & r(volum1) ,r(porosu) ,r(porosv) ,r(areau)  ,r(areav)  ,gdp       )
+              & r(volum1) ,r(porosu) ,r(porosv) ,r(areau)  ,r(areav)  , &
+              & aguu      ,agvv      ,agsqs     ,i(kfs)    ,gdp       )
+ 
     !
     ! DENS  : compute densities 
     !
@@ -1038,14 +1053,14 @@ subroutine compute_secundary_state(gdp       )
               & rouflo    ,zmodel    , &
               & i(kcs)    ,i(kcu)    ,i(kfu)    ,i(kspu)   , &
               & r(s1)     ,r(dpu)    ,r(umean)  ,r(wrkb1)  ,d(dps)    , &
-              & r(cfurou) ,r(z0urou) ,gdp       )
+              & r(cfurou) ,r(z0urou) ,aguu      ,gdp       )
     icx = 1
     icy = nmaxddb
     call initau(jstart    ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
               & rouflo    ,zmodel    , &
               & i(kcs)    ,i(kcv)    ,i(kfv)    ,i(kspv)   , &
               & r(s1)     ,r(dpv)    ,r(vmean)  ,r(wrkb2)  ,d(dps)    , &
-              & r(cfvrou) ,r(z0vrou) ,gdp       )
+              & r(cfvrou) ,r(z0vrou) ,agvv      ,gdp       )
     !
     ! EULER: calculate adjusted velocities for mass flux
     ! NOTE: Array SIG has a different meaning (ZK) in case
@@ -1096,13 +1111,14 @@ subroutine compute_secundary_state(gdp       )
        if (.not. zmodel) then
           call upwhu(jstart    ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                    & zmodel    ,i(kcs)    ,i(kcu)    ,i(kspu)   ,d(dps)    , &
-                   & r(s1)     ,r(dpu)    ,r(umean)  ,r(wrkb1)  ,gdp       )
+                   & r(s1)     ,r(dpu)    ,r(umean)  ,r(wrkb1)  ,aguu      , &
+                   & gdp       )
        endif
        call taubot(jstart    ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                  & icy       ,rouflo    ,rouwav    ,kcucopy   ,kcvcopy   , &
                  & i(kfumin) ,i(kfumax) ,i(kspu)   ,i(kcs)    ,i(kcscut) , &
                  & d(dps)    ,r(s1)     ,r(wrkb3)  ,r(wrkb4)  , &
-                 & r(guu)    ,r(xcor)   ,r(ycor)   ,r(rho)    , &
+                 & r(guu)    ,r(gvv)    ,r(xcor)   ,r(ycor)   ,r(rho)    , &
                  & r(taubpu) ,r(taubsu) ,r(wrka1)  ,r(dis)    ,r(rlabda) , &
                  & r(teta)   ,r(uorb)   ,r(tp)     ,r(wsu)    ,r(wsv)    , &
                  & r(grmasu) ,r(dfu)    ,r(deltau) ,r(hrms)   , &
@@ -1113,13 +1129,14 @@ subroutine compute_secundary_state(gdp       )
        if (.not. zmodel) then
           call upwhu(jstart    ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                    & zmodel    ,i(kcs)    ,i(kcv)    ,i(kspv)   ,d(dps)    , &
-                   & r(s1)     ,r(dpv)    ,r(vmean)  ,r(wrkb2)  ,gdp       )
+                   & r(s1)     ,r(dpv)    ,r(vmean)  ,r(wrkb2)  ,agvv      , &
+                   & gdp       )
        endif
        call taubot(jstart    ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                  & icy       ,rouflo    ,rouwav    ,kcvcopy   ,kcucopy   , &
                  & i(kfvmin) ,i(kfvmax) ,i(kspv)   ,i(kcs)    ,i(kcscut) , &
                  & d(dps)    ,r(s1)     ,r(wrkb4)  ,r(wrkb3)  , &
-                 & r(gvv)    ,r(ycor)   ,r(xcor)   ,r(rho)    , &
+                 & r(gvv)    ,r(guu)    ,r(ycor)   ,r(xcor)   ,r(rho)    , &
                  & r(taubpv) ,r(taubsv) ,r(wrka2)  ,r(dis)    ,r(rlabda) , &
                  & r(teta)   ,r(uorb)   ,r(tp)     ,r(wsv)    ,r(wsu)    , &
                  & r(grmasv) ,r(dfv)    ,r(deltav) ,r(hrms)   , &

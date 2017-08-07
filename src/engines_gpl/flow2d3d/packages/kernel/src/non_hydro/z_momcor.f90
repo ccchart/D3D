@@ -84,7 +84,7 @@ subroutine z_momcor(nmmax     ,kmax      ,icx       ,icy       ,s1        , &
     integer                                            , intent(in) :: nst    !!  Time step number
     integer                                            , intent(in) :: nocol  !  Description and declaration in esm_alloc_int.f90
     integer                                            , intent(in) :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer , dimension(5, norow + nocol)              , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer , dimension(7, norow + nocol)              , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
     integer , dimension(7, nsrc)                                    :: mnksrc !  Description and declaration in esm_alloc_int.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                :: d0k    !!  Internal work array
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in) :: dps    !  Description and declaration in esm_alloc_real.f90

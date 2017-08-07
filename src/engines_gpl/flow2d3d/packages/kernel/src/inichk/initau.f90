@@ -2,7 +2,7 @@ subroutine initau(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                 & rouflo    ,zmodel    , &
                 & kcs       ,kcu       ,kfu       ,kspu      , &
                 & s1        ,dpu       ,umean     ,hu        ,dps       , &
-                & cfurou    ,z0urou    ,gdp       )
+                & cfurou    ,z0urou    ,aguu      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -80,6 +80,7 @@ subroutine initau(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)   , intent(out) :: z0urou !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 3), intent(in)  :: cfurou !  Description and declaration in esm_alloc_real.f90
     character(4)                             , intent(in)  :: rouflo !  Description and declaration in esm_alloc_char.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in) :: aguu
 !
 ! Local variables
 !
@@ -107,7 +108,8 @@ subroutine initau(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s1        ,dpu       ,umean     ,hu        ,gdp       )
+             & s1        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     !
     do nm = 1, nmmax
        hu(nm) = max(hu(nm), 0.01_fp)

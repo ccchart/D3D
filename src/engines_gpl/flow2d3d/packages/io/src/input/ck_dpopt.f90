@@ -61,6 +61,7 @@ subroutine ck_dpopt(lundia    ,lsedtot   ,zmodel    ,bedupd    ,dpsopt    , &
     !
     character(6)   , pointer :: momsol
     logical        , pointer :: rst_dp
+    integer, pointer :: cutcell
 !
 ! Global variables
 !
@@ -74,6 +75,7 @@ subroutine ck_dpopt(lundia    ,lsedtot   ,zmodel    ,bedupd    ,dpsopt    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell => gdp%gdimbound%cutcell
     momsol             => gdp%gdnumeco%momsol
     rst_dp             => gdp%gdrestart%rst_dp
     !
@@ -173,6 +175,12 @@ subroutine ck_dpopt(lundia    ,lsedtot   ,zmodel    ,bedupd    ,dpsopt    , &
     !
     ! dpsopt
     !
+    ! cut cell only compatible with depth at cell centers.
+    if (dpsopt /= 'DP'.and.cutcell>0) then
+       call prterr(lundia, 'U021', 'Depths have to be at cell centers if cutcell>0.')
+       call d3stop(1, gdp)          
+    endif
+!
     if (dpsopt == 'MIN_DPD' ) dpsopt = 'MIN'
     if (dpsopt == 'MAX_DPD' ) dpsopt = 'MAX'
     if (dpsopt == 'MEAN_DPD') dpsopt = 'MEAN'

@@ -58,7 +58,7 @@ subroutine chkkc(lundia    ,error     ,runid     ,fldry     ,fltd      , &
     integer                                                      , intent(in) :: nmax   !  Description and declaration in esm_alloc_int.f90
     integer                                                      , intent(in) :: noroco !  Description and declaration in esm_alloc_int.f90
     integer                                                      , intent(in) :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, noroco)                                , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, noroco)                                , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              :: kcs    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              :: kcu    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              :: kcv    !  Description and declaration in esm_alloc_int.f90

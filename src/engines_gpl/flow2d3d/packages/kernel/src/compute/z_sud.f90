@@ -20,7 +20,10 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                & patm      ,fcorio    ,tgfsep    ,drhodx    ,zk        , &
                & p0        ,crbc      ,idry      ,porosu    ,ubrlsu    , &
                & pship     ,diapl     ,rnpl      ,cfurou    ,precip    , &
-               & ustokes   ,gdp       ) 
+               & ustokes   ,GHOSTu1   ,GHOSTv1   ,xG_L      ,yG_L      , & 
+               & aguu      ,agvv      ,agsqs     ,nmaxus    , & 
+               & v1INTu    ,xcor      ,ycor      , &
+               & gdp       ) 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -93,6 +96,35 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     logical                , pointer :: zmodel
     logical                , pointer :: wavcmp
     logical                , pointer :: bubble
+    integer                , pointer :: nmlb
+    integer                , pointer :: nmub
+    integer                , pointer :: mlb
+    integer                , pointer :: mub
+    integer                , pointer :: nlb
+    integer                , pointer :: nub
+    integer                , pointer :: lunscr
+    integer                , pointer :: irov
+    integer                   , pointer :: cutcell
+    integer                   , pointer :: dim_nmlist
+    integer                   , pointer :: GhostMethod
+    integer                   , pointer :: PERIODalongM
+    logical                   , pointer :: corrSURFslopeSUD
+    integer, dimension(:,:)   , pointer :: por012
+    integer, dimension(:,:)   , pointer :: kfs_cc
+    logical                   , pointer :: periodSURFACE
+    logical                   , pointer :: TRANSVperIMPL
+    logical                   , pointer :: virtualMERGEupdDEPTH
+    real(fp)                  , pointer :: thresMERGE_d
+    integer, dimension(:,:)   , pointer :: NMlistMERGED_d
+    integer, dimension(:)     , pointer :: Nmerged_d
+    integer, dimension(:)     , pointer :: isMERGEDu_d
+    integer, dimension(:)     , pointer :: isMERGEDv_d
+    integer                   , pointer :: typeVIRTmergeUPDdepth
+    logical                   , pointer :: printSUDITERghost
+    integer, dimension(:)     , pointer :: MERGEDwith_d
+    logical                   , pointer :: virtualLINK
+    real(fp), dimension(:)    , pointer :: gsqsR
+!
     include 'flow_steps_f.inc'
 !
 ! Global variables
@@ -110,13 +142,19 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     integer                                                       :: kmax    !  Description and declaration in esm_alloc_int.f90
     integer                                         , intent(in)  :: mmax    !  Description and declaration in esm_alloc_int.f90
     integer                                         , intent(in)  :: nmax    !  Description and declaration in esm_alloc_int.f90
+    integer                                         , intent(in)  :: nmaxus
     integer                                                       :: nmmax   !  Description and declaration in dimens.igs
     integer                                                       :: nmmaxj  !  Description and declaration in dimens.igs
     integer                                                       :: norow   !  Description and declaration in esm_alloc_int.f90
     integer                                                       :: nsrc    !  Description and declaration in esm_alloc_int.f90
     integer                                         , intent(in)  :: nst     !!  Time step number
-    integer    , dimension(5, norow)                              :: irocol  !  Description and declaration in esm_alloc_int.f90
+    integer    , dimension(7, norow)                              :: irocol  !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(7, nsrc)                               :: mnksrc  !  Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: GHOSTu1
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: GHOSTv1
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: agsqs
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: aguu      !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: agvv      !  Description and declaration in esm_alloc_real.f9
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kcs     !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kcs45
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kcscut  !  Description and declaration in esm_alloc_int.f90
@@ -130,6 +168,8 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kfvmn0 !  Description and declaration in iidim.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kfvmx0  !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: kfv     !  Description and declaration in esm_alloc_int.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: xcor   !  Description and declaration in esm_alloc_real.f90
+    real(fp)   , dimension(gdp%d%nmlb:gdp%d%nmub)                 :: ycor
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)         :: kspu    !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)           :: kfsz0   !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)           :: kfuz0   !  Description and declaration in esm_alloc_int.f90
@@ -174,6 +214,8 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: gvu     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: gvv     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: gvz     !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: xG_L
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: yG_L
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: hu      !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: hv      !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: patm    !  Description and declaration in esm_alloc_real.f90
@@ -222,6 +264,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: ubrlsu  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: ustokes !  Description and declaration in trisol.igs
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: v1      !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: v1INTu
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax+2)            :: vicuv   !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(kmax)                                     :: thick   !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(0:kmax)                                   :: zk
@@ -233,6 +276,9 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
 !
 ! Local variables
 !
+    integer       :: Idummy
+    integer       :: Idummyy
+    integer       :: Idummyyy
     integer       :: ddb
     integer       :: i
     integer       :: icxy
@@ -254,8 +300,12 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     integer       :: nmf
     integer       :: nmlu
     integer       :: nmu
+    integer       :: icxOK
+    integer       :: icYOK
     integer       :: nm_pos   ! indicating the array to be exchanged has nm index at the 2nd place, e.g., dbodsd(lsedtot,nm)
     logical       :: error    ! Flag for detection of closure error in mass-balance
+    logical       :: Ldummy
+    real(fp)      :: Rdummy
     real(hp)      :: bi
     real(hp)      :: fac
     real(fp)      :: dxid
@@ -268,9 +318,32 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     real(fp)      :: pr
     real(fp)      :: s1u
     character(80) :: errtxt
+    !real(fp)     , dimension(gdp%d%nmlb:gdp%d%nmub)                             :: gsqsR
+    real(fp)     , dimension(1)                                                 :: Rdummy1
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell               => gdp%gdimbound%cutcell
+    dim_nmlist            => gdp%gdimbound%dim_nmlist
+    GhostMethod           => gdp%gdimbound%GhostMethod
+    PERIODalongM          => gdp%gdimbound%PERIODalongM
+    corrSURFslopeSUD      => gdp%gdimbound%corrSURFslopeSUD
+    por012                => gdp%gdimbound%por012
+    kfs_cc                => gdp%gdimbound%kfs_cc
+    periodSURFACE         => gdp%gdimbound%periodSURFACE
+    TRANSVperIMPL         => gdp%gdimbound%TRANSVperIMPL
+    virtualMERGEupdDEPTH  => gdp%gdimbound%virtualMERGEupdDEPTH
+    virtualMERGEupdDEPTH  => gdp%gdimbound%virtualMERGEupdDEPTH
+    thresMERGE_d          => gdp%gdimbound%thresMERGE_d
+    NMlistMERGED_d        => gdp%gdimbound%NMlistMERGED_d
+    Nmerged_d             => gdp%gdimbound%Nmerged_d
+    isMERGEDu_d           => gdp%gdimbound%isMERGEDu_d
+    isMERGEDv_d           => gdp%gdimbound%isMERGEDv_d
+    typeVIRTmergeUPDdepth => gdp%gdimbound%typeVIRTmergeUPDdepth
+    printSUDITERghost     => gdp%gdimbound%printSUDITERghost
+    MERGEDwith_d          => gdp%gdimbound%MERGEDwith_d
+    virtualLINK           => gdp%gdimbound%virtualLINK
+    gsqsR                 => gdp%gdimbound%Dwrka2
     eps        => gdp%gdconst%eps
     lundia     => gdp%gdinout%lundia
     ntstep     => gdp%gdinttim%ntstep
@@ -286,6 +359,14 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     rhow       => gdp%gdphysco%rhow
     ag         => gdp%gdphysco%ag
     iro        => gdp%gdphysco%iro
+    nmlb       => gdp%d%nmlb  
+    nmub       => gdp%d%nmub
+    mlb        => gdp%d%mlb  
+    nlb        => gdp%d%nlb  
+    mub        => gdp%d%mub  
+    nub        => gdp%d%nub  
+    lunscr     => gdp%gdinout%lunscr
+    irov       => gdp%gdphysco%irov
     !
     call timer_start(timer_sud_rest, gdp)
     ddb     = gdp%d%ddbound
@@ -319,7 +400,8 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s0        ,dpu       ,umean     ,hu        ,gdp       )
+             & s0        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     !
     nmu = +icx
     do nm = 1, nmmax
@@ -341,6 +423,16 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     enddo
     call timer_stop(timer_sud_rest, gdp)
     !
+!   Note: kfv is turned on and then off for periodic condition in order to have the correct value of vvv at boundaries for coriolis and transversal advection
+!
+    if (periodSURFACE) then
+       if ((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1)) then
+          CALL OFFonPERvel(kfv,kfu,icx,nlb,nub,mlb,mub,1, gdp)   !turn on kfu and kfv (second argument has to be the location of the tangential velocity)
+       else
+          CALL OFFonPERvel(kfu,kfv,icx,nlb,nub,mlb,mub,1, gdp)   !turn on kfu and kfv (second argument has to be the location of the tangential velocity)
+       endif
+    endif
+!
     call timer_start(timer_sud_cucnp, gdp)
     call z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                & icy       ,nsrc      ,kcs       ,kcs45     ,kcscut    , &
@@ -366,6 +458,14 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     ! With sigma layers, the horizontal viscosity is added in uzd only.
     !
     call dfexchg ( ddk, 1, kmax, dfloat, nm_pos, gdp )
+    !
+    if (periodSURFACE) then
+      ! if (FORCEuAThPERbnd) then
+          if (.not.((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1))) then 
+             call forcePERvelSUD(u1,aa,bb,cc,dd,aak,bbk,cck,ddk,thick,icx,nlb,nub,mlb,mub,kmax, gdp) ! I use u1 since i copied the periodic condition there
+          endif
+       !endif
+    endif
     !
     ! When neighbor cells ly higher, mass in/outflow is added to current column
     !
@@ -539,14 +639,46 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                 & icy       ,zmodel    ,irocol    ,kcs       ,kfu       , &
                 & kfumn0    ,kfumx0    ,s0        ,u0        ,dpu       , &
                 & hu        ,umean     ,tetau     ,guu       ,gvu       , &
+                & aguu      ,nmmax     , &
                 & dzu0      ,thick     ,circ2d    ,circ3d    ,a         , &
                 & b         ,c         ,d         ,aa        ,bb        , &
                 & cc        ,dd        ,aak       ,bbk       ,cck       , &
-                & ddk       ,crbc      ,wavcmp    ,gdp       )
+                & ddk       ,crbc      ,wavcmp    ,GHOSTu1   ,gdp       )
        call timer_stop(timer_sud_cucbp, gdp)
        !
        ! SET UP SYSTEM OF EQUATIONS FOR INTERIOR POINTS
        !
+       if (TRANSVperIMPL.AND.iter.gt.1) then !
+          
+          if (.not.((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1))) then 
+             call uvelocityPERIODsud(u1,icx,nlb,nub,mlb,mub,kmax, gdp) 
+             call forcePERvelSUD(u1,aa,bb,cc,dd,aak,bbk,cck,ddk,thick,icx,nlb,nub,mlb,mub,kmax, gdp) 
+          endif
+
+          !Note periodic water levels are not needed at Q boundary since I have actually to modify Newmann condition otherwise at the end of the cycle it computes the wrong hnm.
+          !  Something like this (both in nmf and nml):
+          !  a(nmf) =  0.0
+          !  b(nmf) =  1.0
+          !  c(nmf) = -1.0
+          !  d(nmf) =  0.0 here the difference between H at the internal Q and external Q. So if s1 at nmf+1 changes, the  one in nmf changes of that quantity plus d(nmf).
+          !                or also the difference of bed elvation might be considered if extrapolated linearly
+          !And at H boundary water levels are already prescribed in circ as BC so I can remove it
+          !call WATERlevelPERIOD(s0,dps,icx,nlb,nub,mlb,mub,kmax) 
+       endif
+       if (cutcell.gt.0.and.GhostMethod.le.1) then 
+          !force u1 and Umean at ghost points
+          call forceGHOSTsud(icx        ,icy        ,u0         ,v1         ,kcs        ,&
+                           & xcor       ,ycor       ,guu        ,gvv        ,v1INTu     ,&
+                           & hu         ,aguu       ,u1         ,Umean      ,s1         ,&
+                           & kfs        ,kfu        ,kfv        ,thick      ,qxk        ,&
+                           & aa         ,bb         ,cc         ,dd         ,&
+                           & aak        ,bbk        ,cck        ,ddk        ,&
+                           & mmax       ,nmax       ,nmmax      ,nmaxus     ,kmax       ,&
+                           & nst        ,nlb        ,nub        ,mlb        ,mub        ,&
+                           & nmlb       ,nmub       ,gdp%d%ddbound    ,lunscr     ,Irov       ,&
+                           & iter       ,gdp)
+       endif 
+!
        call timer_start(timer_sud_rest, gdp)
        do nm = 1, nmmax
           nmd = nm - icx
@@ -729,6 +861,29 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
              enddo
           endif
           !
+          ! VIRTUAL merging of small cut cells
+          !
+          if (cutcell>0.and.virtualMERGEupdDEPTH.and..not.(virtualLINK)) then
+             IF (icx==1) then
+              !  icxOK = icy
+              !  icyOK = icx
+             ELSE
+              !  icxOK = icx
+              !  icyOK = icy
+             ENDIF
+             CALL COMPUTEmergingCARATT(kcs,kfs,agsqs,aguu,agvv,icx,icy,nmmax,nmlb,nmub,nst,lundia,& !note aguu and agvv and icx and icy are inverted 
+                                virtualMERGEupdDEPTH,typeVIRTmergeUPDdepth,thresMERGE_d,NMlistMERGED_d,Nmerged_d,&
+                                isMERGEDu_d,isMERGEDv_d,MERGEDwith_d,1._fp,dim_nmlist,gdp)  
+             call REDUCEgsqs(gsqs,agsqs,gsqsR,nmlb,nmub) !virtMERG wants gsqs*agsqs as actual argument
+             !virtual merge of s1
+             CALL virtMERG(s1,gsqsR,s1,dps,Rdummy1,icxOK,icyOK,nmmax,nmlb,nmub,nst,1,1,1,1,lundia,Ldummy,& !1,1,1,1: ini vector,end vector,iniCYCLE,endCYCLE
+                           Idummy,Idummyy,Idummyyy,0,nmaxddb,gdp%d%ddbound,& !0 do not check large bed variations
+                           NMlistMERGED_d,Nmerged_d, dim_nmlist)
+             do nm = 1, nmmax
+                d(nm) = s1(nm) !It should be done only for the small cut and merging adjacent
+             enddo
+          endif
+          !
           ! exchange s1 with neighbours for parallel runs
           !
           call dfexchg ( s1, 1, 1, dfloat, nm_pos, gdp )
@@ -790,6 +945,27 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                     & c         ,d         ,gdp       )
           call timer_stop(timer_sud_wangback, gdp)
           !
+          !
+          ! VIRTUAL merging of small cut cells
+          !
+          if (cutcell.gt.0.and.virtualMERGEupdDEPTH) THEN
+             IF (icx==1) then
+             !   icxOK = icy
+             !   icyOK = icx
+             ELSE
+             !   icxOK = icx
+             !   icyOK = icy
+             ENDIF
+             CALL COMPUTEmergingCARATT(kcs,kfs,agsqs,aguu,agvv,icx,icy,nmmax,nmlb,nmub,nst,lundia,& !note aguu and agvv and icx and icy are inverted 
+                                virtualMERGEupdDEPTH,typeVIRTmergeUPDdepth,thresMERGE_d,NMlistMERGED_d,Nmerged_d,&
+                                isMERGEDu_d,isMERGEDv_d,MERGEDwith_d,1._fp,dim_nmlist,gdp)  
+             call REDUCEgsqs(gsqs,agsqs,gsqsR,nmlb,nmub) !virtMERG wants gsqs*agsqs as actual argument
+             !virtual merge of s1
+             CALL virtMERG(s1,gsqsR,s1,dps,Rdummy1,icxOK,icyOK,nmmax,nmlb,nmub,nst,1,1,1,1,lundia,Ldummy,&  !1,1,1,1: ini vector,end vector,iniCYCLE,endCYCLE
+                           Idummy,Idummyy,Idummyyy,0,nmaxddb,gdp%d%ddbound,& !0 do not check large bed variations
+                           NMlistMERGED_d,Nmerged_d, dim_nmlist)
+          endif
+          !
           ! in case of Hydra (DD method, Wang approach) array d does
           ! not contain the solution, but the right-hand side evaluation.
           ! Since array d (and also s1) is used in the remainder of SUD
@@ -846,6 +1022,10 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
        !
        ! repeat computation if point is set dry
        !
+       IF (printSUDITERghost) then
+            CALL postpr_ghost(nst+1 , s1 , u1 , v1 , qxk , qyk , Umean , Umean , hu , hv , dpu , dpu , dps , & ! I GIVE TWICE Umean and dpu since they are not passed
+                           & kmax,nlb,nub,mlb,mub,gdp)
+       ENDIF
        if (nhystp==d3dflow_build_adi_zeta .or. &
          & (nhystp==noneighbors .and. itr==1)) then
           !
@@ -884,6 +1064,14 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
        else
        endif
     enddo
+!   turn off kfv,kfu at periodic external boundaries (I needed them on to see them on output, otherwise they were set to zero above)
+    if (periodSURFACE) then
+       if ((icx==1.and.PERIODalongM==1).or.(icx/=1.and..not.PERIODalongM==1)) then
+          CALL OFFonPERvel(kfv,kfu,icy,nlb,nub,mlb,mub,0, gdp)   !turn off kfu and kfv (second argument has to be the location of the tangential velocity)
+       else
+          CALL OFFonPERvel(kfu,kfv,icy,nlb,nub,mlb,mub,0, gdp)   !turn off kfu and kfv (second argument has to be the location of the tangential velocity)
+       endif
+    endif
     !
     ! exchange u1 with neighbours for parallel runs
     !

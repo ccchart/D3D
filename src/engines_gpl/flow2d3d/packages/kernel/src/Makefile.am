@@ -1,6 +1,7 @@
 include $(top_srcdir)/common.am
 SUBDIRS = \
          compute \
+         compute_banks \
          compute_nearfar \
          compute_roller \
          compute_sediment \

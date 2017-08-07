@@ -69,6 +69,13 @@ subroutine rdbndd(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer              , pointer :: nmaxgl
     integer, dimension(:), pointer :: bct_order
     integer              , pointer :: gntoftoq
+    logical              , pointer :: distr_avc
+    logical              , pointer :: distr_qtq
+    logical              , pointer :: distr_qtq_per
+    logical              , pointer :: distr_bdl_per
+    logical              , pointer :: distr_qtqNNprism
+    logical, pointer :: suspLOADper
+    logical, pointer :: suspCONCper
 !
 ! Global variables
 !
@@ -155,6 +162,8 @@ subroutine rdbndd(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    suspLOADper => gdp%gdimbound%suspLOADper
+    suspCONCper => gdp%gdimbound%suspCONCper
     itis      => gdp%gdrdpara%itis
     mfg       => gdp%gdparall%mfg
     mlg       => gdp%gdparall%mlg
@@ -164,6 +173,11 @@ subroutine rdbndd(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     mmaxgl    => gdp%gdparall%mmaxgl
     bct_order => gdp%gdbcdat%bct_order
     gntoftoq  => gdp%gdbcdat%gntoftoq
+    distr_avc => gdp%gdbcdat%distr_avc
+    distr_qtq => gdp%gdbcdat%distr_qtq
+    distr_qtq_per    => gdp%gdbcdat%distr_qtq_per
+    distr_bdl_per    => gdp%gdbcdat%distr_bdl_per
+    distr_qtqNNprism => gdp%gdbcdat%distr_qtqNNprism
     !
     ! initialize local parameters
     !
@@ -197,6 +211,25 @@ subroutine rdbndd(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     statns = ' '
     tprofu = 'uniform'
     typbnd = 'Z'
+    distr_avc = .false.
+    call prop_get(gdp%mdfile_ptr,'*','BndDAC',distr_avc)
+    if ((suspLOADper.or.suspCONCper).and.distr_avc) then
+       distr_avc = .false.
+       write (lundia, '(3a)') 'Note: suspLOADper=T cannot be used with bnd_distr_avgc=T. bnd_distr_avgc is set =F' 
+    endif
+    distr_qtq = .false.
+    call prop_get(gdp%mdfile_ptr,'*','BndQTQ',distr_qtq)
+    distr_qtqNNprism = .false.
+    call prop_get(gdp%mdfile_ptr,'*','BndQTQ_NNprism',distr_qtqNNprism)
+    distr_qtq_per =.false.
+    call prop_get(gdp%mdfile_ptr,'*','BndQTQ_per',distr_qtq_per)
+    distr_bdl_per =.false.
+    call prop_get(gdp%mdfile_ptr,'*','BndBDL_per',distr_bdl_per)
+    !
+    if (distr_qtq.and.distr_qtq_per) then
+      call prterr(lundia, 'U021', 'Activated periodic redistribution of discharge. Deactivate BndQTQ!!')
+      call d3stop(1, gdp)
+    endif
     !
     ! locate 'Filbnd' record for boundary definition in extra input file
     !

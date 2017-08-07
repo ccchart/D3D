@@ -103,6 +103,7 @@ subroutine initsafe(gdp)
     call initz_initcg  (gdp)
     call initzmodel    (gdp)
     call initsdu       (gdp)
+    call initimbound   (gdp)
     !
     call sbuff_init
     !

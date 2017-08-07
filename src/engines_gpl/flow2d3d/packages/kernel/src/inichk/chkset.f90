@@ -58,8 +58,10 @@ subroutine chkset(lundia    ,error     ,sferic    ,method    ,trasol    , &
     integer                       , pointer :: nto
     integer                       , pointer :: ntoq
     integer                       , pointer :: ndro
+    integer                       , pointer :: lsedtot
     logical                       , pointer :: multi
     integer                       , pointer :: nh_level
+    integer                       , pointer :: cutcell    
     character(8)                  , pointer :: dpsopt
     character(8)                  , pointer :: dpuopt
 
@@ -122,6 +124,7 @@ subroutine chkset(lundia    ,error     ,sferic    ,method    ,trasol    , &
     nto                 => gdp%d%nto
     ntoq                => gdp%d%ntoq
     ndro                => gdp%d%ndro
+    lsedtot             => gdp%d%lsedtot    
     multi               => gdp%gdmorpar%multi
     nh_level            => gdp%gdnonhyd%nh_level
     dpsopt              => gdp%gdnumeco%dpsopt
@@ -154,6 +157,7 @@ subroutine chkset(lundia    ,error     ,sferic    ,method    ,trasol    , &
     itcomi              => gdp%gdinttim%itcomi
     ztbml               => gdp%gdzmodel%ztbml
     ztbml_upd_r1        => gdp%gdzmodel%ztbml_upd_r1
+    cutcell             => gdp%gdimbound%cutcell
     !
     ierror = 0
     iwarn  = 0
@@ -435,6 +439,13 @@ subroutine chkset(lundia    ,error     ,sferic    ,method    ,trasol    , &
           call prterr(lundia ,'U021' ,errtxt )
           ierror = ierror+ 1
        endif
+    endif
+    !
+    ! IBM
+    !    
+    if (cutcell>0.and.lsedtot>1) then
+       call prterr(lundia, 'P004', 'Cutcells are not allowed with multiple grain sizes')
+       ierror = ierror+ 1
     endif
     !
     !

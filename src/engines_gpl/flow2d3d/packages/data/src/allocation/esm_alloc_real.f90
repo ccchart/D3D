@@ -821,6 +821,12 @@ subroutine esm_alloc_real(lundia, error, gdp)
     ierr = mkfpnt(pntnam, nmaxddb*mmaxddb, gdp)
     if (ierr <= -9) goto 9999
     !
+    pntnam = 'gsqsR'         !  Area of computational cell defined at
+                             !  zeta point reduced by immersed boundary.
+
+    ierr = mkfpnt(pntnam, nmaxddb*mmaxddb, gdp)
+    if (ierr<= - 9) goto 9999
+    !
     pntnam = 'gsqd'          !  Area of a cell defined at the depth point
     ierr = mkfpnt(pntnam, nmaxddb*mmaxddb, gdp)
     if (ierr <= -9) goto 9999

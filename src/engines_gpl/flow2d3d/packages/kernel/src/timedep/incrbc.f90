@@ -68,7 +68,7 @@ subroutine incrbc(timsec    ,j         ,nmmaxj    ,nmax      ,norow     , &
     integer                                :: nmmaxj !  Description and declaration in dimens.igs
     integer                                :: nocol !  Description and declaration in esm_alloc_int.f90
     integer                                :: norow !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, norow + nocol)   :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, norow + nocol)   :: irocol !  Description and declaration in esm_alloc_int.f90
     real(fp)                               :: hdt !  Description and declaration in esm_alloc_real.f90
     real(fp)                               :: timsec !  Description and declaration in inttim.igs
     real(fp), dimension(4, norow + nocol)      :: circ2d !  Description and declaration in esm_alloc_real.f90

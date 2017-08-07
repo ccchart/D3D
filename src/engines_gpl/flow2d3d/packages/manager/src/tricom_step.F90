@@ -332,6 +332,9 @@ subroutine tricom_step(olv_handle, gdp)
     real(fp)                            , pointer :: dtsec           ! DT in seconds 
     real(fp)                            , pointer :: timnow          ! Current timestep (multiples of dt)  = number of time steps since itdate, 00:00:00 hours
 !
+    integer, pointer :: cutcell
+    integer, pointer :: GhostMethod
+!
 ! Global variables: NONE
 !
 ! Local variables
@@ -359,6 +362,8 @@ subroutine tricom_step(olv_handle, gdp)
 !
 !! executable statements -------------------------------------------------------
 !
+    cutcell     => gdp%gdimbound%cutcell
+    GhostMethod => gdp%gdimbound%GhostMethod
     thr                 => gdp%gdbetaro%thr
     ncmax               => gdp%d%ncmax
     nmax                => gdp%d%nmax
@@ -683,12 +688,14 @@ subroutine tricom_step(olv_handle, gdp)
        !
        call psemnefis
        call timer_start(timer_postpr, gdp)
+      ! if (cutcell.gt.0.and.GhostMethod.ge.1) call kfsuv_ghost(r(Umean),r(Vmean),r(qxk),r(qyk),r(hu),r(hv),r(dpu),r(dpv),r(gsqs),i(kfs),i(kfu),i(kfv),i(kcs),i(kcu),i(kcv),r(s1),r(u1),r(v1),r(s1),r(u1),r(v1),d(dps),mmax,nmax,kmax,nmaxus,1,0,nlb,nub,mlb,mub,nmlb,nmub) !set kfs,kfu,kfv active in ghost points     
        call postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
                  & trifil    ,runid     ,prsmap    ,prshis    ,selmap    , &
                  & selhis    ,rhow      ,grdang    ,dtsec     , &
                  & nst       ,iphisc    ,npmap     ,itcomc    ,itimc     , &
                  & itcur     ,ntcur     ,ithisc    ,itmapc    ,itdroc    , &
                  & itrstc    ,ktemp     ,.false.   ,gdp       )
+    !   if (cutcell.gt.0.and.GhostMethod.ge.1) call kfsuv_ghost(r(Umean),r(Vmean),r(qxk),r(qyk),r(hu),r(hv),r(dpu),r(dpv),r(gsqs),i(kfs),i(kfu),i(kfv),i(kcs),i(kcu),i(kcv),r(s1),r(u1),r(v1),r(s1),r(u1),r(v1),d(dps),mmax,nmax,kmax,nmaxus,0,0,nlb,nub,mlb,mub,nmlb,nmub) !set kfs,kfu,kfv active in ghost points     
        call timer_stop(timer_postpr, gdp)
        call vsemnefis
        if (error) goto 9998
@@ -901,7 +908,11 @@ subroutine tricom_step(olv_handle, gdp)
        call timer_stop(timer_trisol, gdp)
        call timer_stop(timer_timeintegr, gdp)
     enddo
-    
+    !
+    ! print u1,v1,s1 on text file
+    ! 
+    !call outputDELFT(r(s1),r(u1),r(v1),mmax,nmax,nlb,nub,mlb,mub,kmax)
+    !
     ! The sequence of the 2 next calls is important for the OLV client.
     !
     call FLOWOL_Timestep (nst)

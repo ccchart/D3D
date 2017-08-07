@@ -102,6 +102,7 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
     real(fp)                            , pointer :: xlo
     integer                             , pointer :: iro
     type (flwoutputtype)                , pointer :: flwoutput
+    real(fp), pointer :: THRESsmallCELL
 !
 ! Global variables
 !
@@ -125,7 +126,7 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
     integer                                                     , intent(in)  :: nmmaxj     !  Description and declaration in dimens.igs
     integer                                                     , intent(in)  :: norow      !  Description and declaration in esm_alloc_int.f90
     integer                                                     , intent(in)  :: nst
-    integer, dimension(5, norow)                                , intent(in)  :: irocol     !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, norow)                                , intent(in)  :: irocol     !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)                   , intent(in)  :: kcs        !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)                   , intent(in)  :: kcu        !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)                   , intent(in)  :: kfs        !  Description and declaration in esm_alloc_int.f90
@@ -255,6 +256,7 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
 !
 !! executable statements -------------------------------------------------------
 !
+    THRESsmallCELL => gdp%gdimbound%THRESsmallCELL
     eps         => gdp%gdconst%eps
     fluxu       => gdp%gdflwpar%fluxu
     fluxuc      => gdp%gdflwpar%fluxuc
@@ -312,7 +314,11 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
     do k = 1, kmax
        do nm = 1, nmmax
           if (kfs(nm)==1) then
-             bbk(nm, k) = volum1(nm, k)/timest
+             if (volum1(nm, k).gt.THRESsmallCELL) then
+                bbk(nm, k) = volum1(nm, k)/timest
+             else
+                bbk(nm, k) = 1.0_fp
+             endif
           else
              bbk(nm, k) = 1.0_fp
              if (lsec>0) r0(nm, k, lsecfl) = 0.0_fp
@@ -326,7 +332,11 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
        do k = 1, kmax
           do nm = 1, nmmax
              if ( (kfs(nm)==1) .and. (kcs(nm)==1) ) then 
+                if (volum1(nm, k).gt.THRESsmallCELL) then
                 ddkl(nm, k, l) = volum0(nm, k)*r0(nm, k, l)/timest
+             else
+                ddkl(nm, k, l) = r0(nm, k, l)
+             endif
              else
                 ddkl(nm, k, l) = r0(nm, k, l)
              endif
@@ -740,8 +750,10 @@ subroutine difuvl(icreep    ,timest    ,lundia    ,nst       ,icx       , &
           do k = 1, kmax
              do nm = 1, nmmax
                 if ( (kfs(nm)==1) .and. (kcs(nm)==1) ) then 
+                   if (volum1(nm, k).gt.THRESsmallCELL) then ! I already set bbkl(nm, k, l)=1 if volum1 small
                    bbkl(nm, k, l) = bbkl(nm, k, l) + sink(nm, k, l)*volum1(nm, k)
                    ddkl(nm, k, l) = ddkl(nm, k, l) + sour(nm, k, l)*volum0(nm, k)
+                endif
                 endif
              enddo
           enddo

@@ -52,6 +52,12 @@ subroutine rddept(lundia    ,error     , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    real(fp), dimension(:,:), pointer :: dpH
+    real(fp), dimension(:,:), pointer :: dpL
+    integer                 , pointer :: cutcell
+    integer                 , pointer :: TYPEtauCRbank
+    character(255)          , pointer :: TAUcrBANKfil
+    real(fp), dimension(:,:), pointer :: taucr
 !
 ! Global variables
 !
@@ -64,6 +70,8 @@ subroutine rddept(lundia    ,error     , &
     real(fp)    , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              :: dp     !  Description and declaration in esm_alloc_real.f90
     character(*)                                                                   :: fildep !!  File name for variable depth values
     character(2)                                                                   :: fmtdep !!  File format definition for depth file
+    character(256)                                                                 :: fildepHIGH !!  File name for variable depth values
+    real(fp)    , allocatable,dimension(:,:)                                       :: dpHprov    
 !
 ! Local variables
 !
@@ -75,6 +83,12 @@ subroutine rddept(lundia    ,error     , &
 !
 !! executable statements -------------------------------------------------------
 !
+    dpH           => gdp%gdimbound%dpH
+    dpL           => gdp%gdimbound%dpL
+    cutcell       => gdp%gdimbound%cutcell
+    TYPEtauCRbank => gdp%gdimbound%TYPEtauCRbank
+    TAUcrBANKfil  => gdp%gdimbound%TAUcrBANKfil
+    taucr         => gdp%gdimbound%taucr
     depuni = real(gdp%gdconst%amiss,fp)
     !
     ! locate 'Fildep' record for depth values in extra input file
@@ -92,6 +106,9 @@ subroutine rddept(lundia    ,error     , &
        call filfmt(lundia    ,'Fmtdep'      ,fmttmp    ,lerror    ,gdp       )
        call depfil(lundia    ,error     ,fildep    ,fmttmp    , &
                  & dp        ,1         ,1         ,gdp%griddim)
+    elseif (cutcell.gt.0) then 
+       call prterr(lundia, 'U021', 'File depth (fildep) is missing in .mdf file and cutcell is active.')
+       call d3stop(1, gdp)   
     else
        !
        ! No depth values in file
@@ -114,4 +131,58 @@ subroutine rddept(lundia    ,error     , &
           enddo
        enddo
     endif
+    !
+    ! Only for cutcell approach: locate 'fildepHIGH' record for depth values in extra input file:
+    ! 
+    if (cutcell.gt.0) then     
+       allocate (dpHprov            (gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub))
+       !allocate (gdp%gdimbound%dpH  (gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub))
+       !allocate (gdp%gdimbound%dpL  (gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub))
+       allocate (gdp%gdimbound%taucr(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub))
+       !dpH           => gdp%gdimbound%dpH
+       !dpL           => gdp%gdimbound%dpL
+       taucr         => gdp%gdimbound%taucr
+       !
+       fildepHIGH= ' '
+       call prop_get_string(gdp%mdfile_ptr, '*', 'fildepHIGH', fildepHIGH)
+       if (fildepHIGH /= ' ') then
+          !
+          ! depth values in file
+          ! locate 'Fmtdep' record for format definition of input file
+          !
+          fmtdep = 'FR'
+          call prop_get_string(gdp%mdfile_ptr, '*', 'Fmtdep', fmtdep)
+          fmttmp = fmtdep
+          call filfmt(lundia    ,'Fmtdep'  ,fmttmp        ,lerror    ,gdp       )
+          call depfil(lundia    ,error     ,fildepHIGH,fmttmp    , &
+                    & dpHprov   ,1         ,1         ,gdp%griddim)
+       else
+          call prterr(lundia, 'U021', 'File depth (fildepHIGH) is missing in .mdf file and cutcell is active.')
+          call d3stop(1, gdp)   
+       endif
+       call prop_get(gdp%mdfile_ptr, '*', 'TYPEtauCRbank', TYPEtauCRbank)
+       if (TYPEtauCRbank == 2) then
+          call prop_get_string(gdp%mdfile_ptr, '*', 'TAUcrBANKfil', TAUcrBANKfil)
+          if (TAUcrBANKfil /= ' ') then
+             call filfmt(lundia    ,'Fmtdep'  ,fmttmp        ,lerror    ,gdp       )
+             call depfil(lundia    ,error     ,TAUcrBANKfil,fmttmp    , &
+                       & taucr     ,1         ,1           ,gdp%griddim)
+          else
+             call prterr(lundia, 'U021', 'File (TAUcrBANKfil) is missing in .mdf file and TYPEtauCRbank == 2.')
+          endif
+       endif
+       !
+       do m = 1, mmax
+          do n = 1, nmaxus
+             dpH(n, m) = dpHprov(n, m) 
+          enddo
+       enddo
+       do m = 1, mmax
+          do n = 1, nmaxus
+             dpL(n, m) = dp(n, m) 
+          enddo
+       enddo
+       deallocate(dpHprov)
+    endif
+    !
 end subroutine rddept

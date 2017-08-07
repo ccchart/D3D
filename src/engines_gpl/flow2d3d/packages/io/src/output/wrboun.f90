@@ -59,7 +59,7 @@ subroutine wrboun(comfil    ,lundia    ,error     ,norow     ,nocol     , &
     integer                                    :: nrob   !  Description and declaration in esm_alloc_int.f90
     integer                                    :: nto    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(7, nto)                 :: mnbnd  !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, noroco)              :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, noroco)              :: irocol !  Description and declaration in esm_alloc_int.f90
     integer, dimension(8, nrob)                :: nob    !  Description and declaration in esm_alloc_int.f90
     logical                      , intent(out) :: error  !!  Flag=TRUE if an error is encountered
     character(*)                               :: comfil !!  Name for communication file
@@ -94,7 +94,7 @@ subroutine wrboun(comfil    ,lundia    ,error     ,norow     ,nocol     , &
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'NOROW', ' ', IO_INT4, 1, (/1/), ' ', 'Number of computational grid rows in IROCOL table', '[   -   ]')
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'NOCOL', ' ', IO_INT4, 1, (/1/), ' ', 'Number of computational grid columns in IROCOL table', '[   -   ]')
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'NOROCO', ' ', IO_INT4, 1, (/1/), ' ', 'NOROW+NOCOL', '[   -   ]')
-       call addelm(gdp, lundia, FILOUT_COM, grpnam, 'IROCOL', ' ', IO_INT4, 2, (/5, noroco/), ' ', 'Administration of zeta-points, IROCOL-table', '[   -   ]')
+       call addelm(gdp, lundia, FILOUT_COM, grpnam, 'IROCOL', ' ', IO_INT4, 2, (/7, noroco/), ' ', 'Administration of zeta-points, IROCOL-table', '[   -   ]')
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'NTO', ' ', IO_INT4, 1, (/1/), ' ', 'Number of open boundaries', '[   -   ]')
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'MNBND', ' ', IO_INT4, 2, (/6, nto/), ' ', 'Open boundary begin and end points (ml, mh, nl, nh, kl, kh)', '[   -   ]')
        call addelm(gdp, lundia, FILOUT_COM, grpnam, 'NROB', ' ', IO_INT4, 1, (/1/), ' ', 'Number of open boundary points', '[   -   ]')

@@ -1,4 +1,4 @@
-function slim(ds1,ds2)
+function slim(ds1,ds2, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -40,12 +40,16 @@ function slim(ds1,ds2)
 !    Int. J. Numer. Meth. Fluids,  Vol. 43, pp 1329 - 1354
 !
 !!--declarations----------------------------------------------------------------
-    use precision
+    use globaldata
+    !
     implicit none
-!
+    !
+    type(globdat),target :: gdp
+    !
 ! Function return value
 !
     real(fp) :: slim
+    logical, pointer :: SECordLEVEL
 !
 ! Global variables
 !
@@ -57,11 +61,15 @@ function slim(ds1,ds2)
 !
 !! executable statements -------------------------------------------------------
 !
+    SECordLEVEL => gdp%gdimbound%SECordLEVEL
     !
     ! default value of SLIM = 0.0
     !
     slim = 0.0
-!    if (ds1*ds2 > 0.) then
-!       slim = ds1*ds2/(ds1+ds2)
-!    endif
+    IF (SECordLEVEL) THEN
+       if (ds1*ds2 > 0.) then
+          slim = ds1*ds2/(ds1+ds2)
+       endif
+    ENDIF
+
 end function slim

@@ -85,7 +85,7 @@ subroutine setwav(comfil    ,lundia    ,error     ,mmax       ,nmax       , &
     integer                                                          , intent(in)  :: waveol     !  Wave setting (0 = offline, 1 = offline mimicking online, 2 = online)
     integer   , dimension(2)                                                       :: ifcore     !!  Time indices (cell id's) of the wave
                                                                                                  !!  functions which are in core available
-    integer   , dimension(5, noroco)                                 , intent(in)  :: irocol     !  Description and declaration in esm_alloc_int.f90
+    integer   , dimension(7, noroco)                                 , intent(in)  :: irocol     !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(ntwav)                                     , intent(in)  :: timwav     !!  Array with time steps on comm. file
                                                                                                  !!  for wave results
     logical                                                                        :: error      !!  Flag=TRUE if an error is encountered

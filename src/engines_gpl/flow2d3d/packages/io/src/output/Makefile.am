@@ -114,6 +114,7 @@ libIOOutput_la_SOURCES = \
          wrsedmgrp.f90 \
          wrsedwaqm.f90 \
          wrspcp.f90 \
+         wrtbanks.f90 \
          wrtdro.f90 \
          wrthis.f90 \
          wrthisbal.f90 \

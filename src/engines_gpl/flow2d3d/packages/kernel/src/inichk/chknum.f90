@@ -106,7 +106,7 @@ subroutine chknum(lundia    ,error     ,roumet    ,rouflo    ,gdp)
     if (momsol == 'flood ') then
        defaultiter = 1
     else
-       defaultiter = 2
+       defaultiter = iter1 !2
     endif
     if (iter1 < defaultiter) then
        iter1 = defaultiter

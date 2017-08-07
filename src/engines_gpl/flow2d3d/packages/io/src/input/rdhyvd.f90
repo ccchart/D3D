@@ -74,6 +74,8 @@ subroutine rdhyvd(error     ,nrrec     ,mdfrec    ,filedy    ,fmtedy    , &
     real(fp) , pointer :: dicmol
     logical  , pointer :: elder
     logical  , pointer :: htur2d
+    logical, pointer :: HORIZdiffZERO
+    logical, pointer :: HORIZviscZERO
 !
 ! Global variables
 !
@@ -125,6 +127,8 @@ subroutine rdhyvd(error     ,nrrec     ,mdfrec    ,filedy    ,fmtedy    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    HORIZdiffZERO => gdp%gdimbound%HORIZdiffZERO
+    HORIZviscZERO => gdp%gdimbound%HORIZviscZERO
     htur2d     => gdp%gdprocs%htur2d
     nd         => gdp%gdhtur2d%nd
     alpha      => gdp%gdhtur2d%alpha
@@ -239,11 +243,13 @@ subroutine rdhyvd(error     ,nrrec     ,mdfrec    ,filedy    ,fmtedy    , &
        ! 'Vicouv': uniform horizontal eddy-viscosity
        !
        call prop_get(gdp%mdfile_ptr,'*','Vicouv',vicouv)
+       if (HORIZviscZERO) dicouv = 0._fp
        if (lstsci > 0) then
           !
           ! 'dicouv': uniform horizontal eddy-diffusivity
           !
           call prop_get(gdp%mdfile_ptr,'*','Dicouv',dicouv)
+          if (HORIZdiffZERO) dicouv = 0._fp
        endif
        !
        ! write per nmaxus mmax vicouv in vicuv array

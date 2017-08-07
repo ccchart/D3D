@@ -225,6 +225,8 @@ subroutine prterr(lundia, msgno, filtxt)
        msg = '*** WARNING No convergence in DIFU for resp. constituent nr. & tstep: #'
     case ('S208')
        msg = '*** WARNING Sinks set to zero at tstep and (dry) discharge point nr. #'
+    case ('S209')
+       msg = '*** WARNING No convergence in SUD at tstep: #'       
     case ('S220')
        msg = '*** ERROR Tide Generating Forces file not found. Re-run program from the shell'
     case ('U001')

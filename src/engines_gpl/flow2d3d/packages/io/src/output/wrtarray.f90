@@ -2424,7 +2424,60 @@ subroutine wrtarray_nml(fds, filename, filetype, grpnam, &
     if (allocated(rbuff3gl)) deallocate(rbuff3gl)
 end subroutine wrtarray_nml
 
-                    
+subroutine wrtarray_lnm(fds, filename, filetype, grpnam, &
+                    & itime, nf, nl, mf, ml, iarrc, gdp, &
+                    & ul, ierr, lundia, var, varnam)
+    use precision
+    use dfparall, only: inode, master, nproc, parll
+    use dffunctionals, only: dfgather_lnm, dfgather_lnm_seq
+    use globaldata
+    !
+    implicit none
+    !
+    type(globdat),target :: gdp
+    !
+    integer                                                                  , intent(in)  :: fds
+    integer                                                                  , intent(in)  :: filetype
+    integer                                                                  , intent(out) :: ierr
+    integer                                                                  , intent(in)  :: itime
+    integer                                                                  , intent(in)  :: lundia
+    integer                                                                  , intent(in)  :: ul            ! upperbound dim3
+    integer      , dimension(0:nproc-1)                                      , intent(in)  :: mf            ! first index w.r.t. global grid in x-direction
+    integer      , dimension(0:nproc-1)                                      , intent(in)  :: ml            ! last index w.r.t. global grid in x-direction
+    integer      , dimension(0:nproc-1)                                      , intent(in)  :: nf            ! first index w.r.t. global grid in y-direction
+    integer      , dimension(0:nproc-1)                                      , intent(in)  :: nl            ! last index w.r.t. global grid in y-direction
+    integer      , dimension(4,0:nproc-1)                                    , intent(in)  :: iarrc         ! array containing collected grid indices 
+    real(fp)     , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, ul)   , intent(in)  :: var
+    character(*)                                                             , intent(in)  :: varnam
+    character(*)                                                             , intent(in)  :: grpnam
+    character(*)                                                             , intent(in)  :: filename
+    !
+    ! local
+    integer                                       :: idvar
+    integer                                       :: istat
+    integer                                       :: m
+    integer                                       :: n
+    integer                                       :: namlen
+    integer    , dimension(3,5)                   :: uindex
+    real(fp)   , dimension(:,:,:)  , allocatable  :: rbuff3gl
+    character(16)                                 :: varnam_nfs
+    character(16)                                 :: grpnam_nfs
+    character(256)                                :: errmsg        ! Character var. containing the error message to be written to file. The message depend on the error.
+    integer                        , external     :: neferr
+    integer                        , external     :: putelt
+    !
+    ! body
+    !
+    if (parll) then
+       call dfgather_lnm(var, rbuff3gl, nf, nl, mf, ml, iarrc, gdp)
+    else
+       call dfgather_lnm_seq(var, rbuff3gl, 1-gdp%d%nlb, 1-gdp%d%mlb, gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl)
+    endif   
+    call wrtvar(fds, filename, filetype, grpnam, &
+              & itime, gdp, ierr, lundia, rbuff3gl, varnam)
+    if (allocated(rbuff3gl)) deallocate(rbuff3gl)
+end subroutine wrtarray_lnm
+
 subroutine wrtarray_nm_sp_1d_ptr(fds, filename, filetype, grpnam, &
                      & itime, nf, nl, mf, ml, iarrc, gdp, &
                      & ierr, lundia, varptr, varnam)

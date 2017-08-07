@@ -159,8 +159,10 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
     logical                , pointer :: fltd
     logical                , pointer :: solrad_read
     logical                , pointer :: swrf_file
+    logical                , pointer :: cstbnd
     character(256)         , pointer :: flbdfh
     real(fp), dimension(:) , pointer :: duneheight
+    logical, pointer :: periodSURFACE
 !
 ! Global variables
 !
@@ -222,6 +224,7 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    periodSURFACE => gdp%gdimbound%periodSURFACE
     nmax        => gdp%d%nmax
     mmax        => gdp%d%mmax
     ddbound     => gdp%d%ddbound
@@ -330,6 +333,7 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
     duneheight  => gdp%gdbedformpar%duneheight
     solrad_read => gdp%gdheat%solrad_read
     swrf_file   => gdp%gdheat%swrf_file
+    cstbnd      => gdp%gdnumeco%cstbnd
     !
     icx     = 0
     icy     = 0
@@ -415,6 +419,9 @@ subroutine inchki(lundia    ,error     ,runid     ,sferic    ,filrgf    , &
               & r(gvd + iofset)      ,r(gsqiu + iofset)    ,r(gsqiv + iofset)    ,i(kcu + iofset)      ,i(kcv + iofset)      , &
               & i(kcs + iofset)      ,r(guu)               ,r(gvv)               ,gdp       )
     if (error) goto 9999
+    !
+    if(cstbnd.or.periodSURFACE) call guu0gvv0(r(guu)     ,r(gvv)    ,mmax      ,nmax      ,nmaxus, &
+                           & i(kcs)     ,gdp)
     !
     ! DFUPDGEO: exchange geometrical information as computed in routine inigeo with neighbours in case of parallel runs
     !

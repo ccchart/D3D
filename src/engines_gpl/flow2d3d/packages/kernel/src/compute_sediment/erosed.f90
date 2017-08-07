@@ -76,6 +76,10 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    integer  , pointer :: mlb
+    integer  , pointer :: mub
+    integer  , pointer :: nlb
+    integer  , pointer :: nub
     real(fp)                             , pointer :: gammax
     real(fp)                             , pointer :: ag
     real(fp)                             , pointer :: vicmol
@@ -188,6 +192,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     integer                              , pointer :: max_integers
     integer                              , pointer :: max_reals
     integer                              , pointer :: max_strings
+    integer                              , pointer :: islope
     character(256)   , dimension(:)      , pointer :: dll_function
     integer(pntrsize), dimension(:)      , pointer :: dll_handle
     integer          , dimension(:)      , pointer :: dll_integers
@@ -211,6 +216,42 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
 ! Local parameters
 !
     integer, parameter :: kmax2d = 20
+    logical                   , pointer :: bedLOADper
+    integer                   , pointer :: dim_nmlist
+    real(fp), dimension(:,:,:), pointer :: dxk
+    real(fp), dimension(:,:,:), pointer :: dyk
+    real(fp), dimension(:,:)  , pointer :: agsqs
+    real(fp), dimension(:,:)  , pointer :: ETAx
+    real(fp), dimension(:,:)  , pointer :: ETAy
+    real(fp), dimension(:,:)  , pointer :: PSIx
+    real(fp), dimension(:,:)  , pointer :: PSIy
+    real(fp), dimension(:,:)  , pointer :: aguu
+    real(fp), dimension(:,:)  , pointer :: agvv
+    logical                   , pointer :: forceCHEZYtransp
+    real(fp)                  , pointer :: ccofu_stored
+    real(fp)                  , pointer :: ccofv_stored
+    real(fp), dimension(:)    , pointer :: dzduu_w
+    real(fp), dimension(:)    , pointer :: dzdvv_w
+    integer                   , pointer :: cutcell
+    real(fp), dimension(:,:)  , pointer :: xG_L
+    real(fp), dimension(:,:)  , pointer :: yG_L
+    logical                   , pointer :: useCUTstyle
+    integer, dimension(:,:)   , pointer :: kfs_cc
+    logical                   , pointer :: virtualMERGEupdBED
+    integer                   , pointer :: typeVIRTmergeUPDbed
+    real(fp)                  , pointer :: thresMERGE_zb
+    integer, dimension(:,:)   , pointer :: NMlistMERGED_bed
+    integer, dimension(:)     , pointer :: Nmerged_bed
+    integer, dimension(:)     , pointer :: isMERGEDu_bed
+    integer, dimension(:)     , pointer :: isMERGEDv_bed
+    integer, dimension(:,:)   , pointer :: por012
+    real(fp), dimension(:,:)  , pointer :: poros
+    real(fp)                  , pointer :: ratio_ca_c2d
+    logical                   , pointer :: moveEDtoBED
+    integer, dimension(:)     , pointer :: MERGEDwith_bed
+    real(fp), dimension(:,:)  , pointer :: sourseBANK
+    integer                   , pointer :: idebugCUThardINI
+    integer                   , pointer :: idebugCUThardFIN
 !
 ! Global variables
 !
@@ -283,6 +324,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
 !
 ! Local variables
 !
+    integer                         :: Nc
     integer                         :: i
     integer                         :: istat
     integer                         :: j
@@ -390,6 +432,43 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    bedLOADper          => gdp%gdimbound%bedLOADper
+    dim_nmlist          => gdp%gdimbound%dim_nmlist
+    dxk                 => gdp%gdimbound%dxk
+    dyk                 => gdp%gdimbound%dyk
+    agsqs               => gdp%gdimbound%agsqs
+    ETAx                => gdp%gdimbound%ETAx
+    ETAy                => gdp%gdimbound%ETAy
+    PSIx                => gdp%gdimbound%PSIx
+    PSIy                => gdp%gdimbound%PSIy
+    aguu                => gdp%gdimbound%aguu
+    agvv                => gdp%gdimbound%agvv
+    forceCHEZYtransp    => gdp%gdimbound%forceCHEZYtransp
+    ccofu_stored        => gdp%gdimbound%ccofu_stored
+    ccofv_stored        => gdp%gdimbound%ccofv_stored
+    dzduu_w             => gdp%gdimbound%dzduu_w
+    dzdvv_w             => gdp%gdimbound%dzdvv_w
+    cutcell             => gdp%gdimbound%cutcell
+    xG_L                => gdp%gdimbound%xG_L
+    yG_L                => gdp%gdimbound%yG_L
+    useCUTstyle         => gdp%gdimbound%useCUTstyle
+    kfs_cc              => gdp%gdimbound%kfs_cc
+    virtualMERGEupdBED  => gdp%gdimbound%virtualMERGEupdBED
+    typeVIRTmergeUPDbed => gdp%gdimbound%typeVIRTmergeUPDbed
+    thresMERGE_zb       => gdp%gdimbound%thresMERGE_zb
+    NMlistMERGED_bed    => gdp%gdimbound%NMlistMERGED_bed
+    Nmerged_bed         => gdp%gdimbound%Nmerged_bed
+    isMERGEDu_bed       => gdp%gdimbound%isMERGEDu_bed
+    isMERGEDv_bed       => gdp%gdimbound%isMERGEDv_bed
+    por012              => gdp%gdimbound%por012
+    poros               => gdp%gdimbound%poros
+    ratio_ca_c2d        => gdp%gdimbound%ratio_ca_c2d
+    moveEDtoBED         => gdp%gdimbound%moveEDtoBED
+    MERGEDwith_bed      => gdp%gdimbound%MERGEDwith_bed
+    sourseBANK          => gdp%gdimbound%sourseBANK
+    idebugCUThardINI    => gdp%gdimbound%idebugCUThardINI
+    idebugCUThardFIN    => gdp%gdimbound%idebugCUThardFIN
+    islope              => gdp%gdmorpar%islope
     wave                => gdp%gdprocs%wave
     nmudfrac            => gdp%gdsedpar%nmudfrac
     rhosol              => gdp%gdsedpar%rhosol
@@ -520,6 +599,10 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     depfac              => gdp%gdmorpar%flufflyr%depfac
     mfluff              => gdp%gdmorpar%flufflyr%mfluff
     wetslope            => gdp%gdmorpar%wetslope
+    mlb                 => gdp%d%mlb  
+    nlb                 => gdp%d%nlb  
+    mub                 => gdp%d%mub  
+    nub                 => gdp%d%nub  
     !
     allocate (localpar (gdp%gdtrapar%npar), stat = istat)
     !
@@ -612,9 +695,10 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     call dwnvel(nmmax     ,kmax      ,icx       ,kcs       ,kfu       , &
               & kfv       ,kcu       ,kcv       ,s1        ,dps       , &
               & u0eul     ,v0eul     ,uuu       ,vvv       ,umod      , &
-              & zumod     ,sig       ,hu        ,hv        ,kfsed     , &
-              & deltau    ,deltav    ,gdp       )
-
+              & deltau    ,deltav    ,zumod     ,sig       ,hu        , &
+              & hv        ,kfsed     ,gsqs      ,dxk       ,dyk       , &
+              & agsqs     ,ETAx      ,ETAy      ,PSIx      ,PSIy      , &
+              & guu       ,gvv       ,aguu      ,agvv      ,gdp       )
     !
     ! Get the reduction factor if thickness of sediment at bed is less than
     ! user specified threshold. Also get maximum erosion source SRCMAX
@@ -658,6 +742,17 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           endif
        enddo
     endif
+    !
+!   check for NaN in bodsed
+!
+    istat = bedcomp_getpointer_realprec(gdp%gdmorlyr,'bodsed',bodsed)
+    do l = 1, lsedtot
+       do nm = 1, nmmax
+          if (bodsed(l,nm) /= bodsed(l,nm)) then
+             write(lundia,'(a,i0,a,i0,a,i0)') 'NaN in bodsed at (l,nm,nst) = ',l,',',nm,',',nst
+          endif
+       enddo
+    enddo
     !
     ! in case of multiple (non-mud) fractions, the following quantities
     ! --- that are initialized in INISED --- may be time-dependent and
@@ -707,6 +802,18 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           dzdvv(nm) = 0.0_fp
        endif
     enddo
+    if (cutcell>0.and.virtualMERGEupdBED) then ! define slope in wet region
+       call COMPUTEmergingCARATT(kcs,kfs,agsqs,aguu,agvv,icx,icy,nmmax,gdp%d%nmlb,gdp%d%nmub,nst,lundia,&
+                                 virtualMERGEupdBED,typeVIRTmergeUPDbed,thresMERGE_zb,NMlistMERGED_bed,Nmerged_bed,&
+                                 isMERGEDu_bed,isMERGEDv_bed,MERGEDwith_bed,1._fp,dim_nmlist,gdp) 
+       call BEDslopeCORR&!(dps,xG_L,yG_L,kfs_cc,kcs,kfu,kfv,kfs,agsqs,gvu,guv,icx,icy,nmmax,gdp%d%nmlb,gdp%d%nmub,nst)
+                        (dps,xG_L,yG_L,gsqs,agsqs,por012,poros,PSIx,PSIy,dzduu,dzdvv,kfs_cc,kcs,kfu,kfv,&
+                        kfs,gvu,guv,icx,icy,nmmax,gdp%d%nmlb,gdp%d%nmub,nlb,nub,mlb,mub,nst,gdp)
+    elseif(useCUTstyle) then !needed in adjust_bedload
+       dzduu_w(:) = dzduu(:)
+       dzdvv_w(:) = dzdvv(:)
+    endif
+
     !
     !================================================================
     !    Start of sand part
@@ -745,7 +852,9 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        h0   = max(0.01_fp, s0(nm) + real(dps(nm),fp))
        h1   = max(0.01_fp, s1(nm) + real(dps(nm),fp))
        nmd  = nm - icx
+       nmu  = nm + icx
        ndm  = nm - icy
+       num  = nm + icy
        call nm_to_n_and_m(nm, n, m, gdp)
        ! In z-layer use kmaxlc, siglc and thicklc for morphology (like sigma-layer).
        if (kmax>1) then  
@@ -810,9 +919,15 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        !
        ! Calculate total (possibly wave enhanced) roughness
        !
-       z0rou = (  kfu(nmd)*z0urou(nmd) + kfu(nm)*z0urou(nm) &
-             &  + kfv(ndm)*z0vrou(ndm) + kfv(nm)*z0vrou(nm)  )/kn
-       chezy = sag * log( 1.0_fp + h1/max(1.0e-8_fp,ee*z0rou) ) / vonkar
+       if (forceCHEZYtransp) then !force input value from mdf file, in the future pass cfurou,cfurou; it looks like cvalu0 can be -999
+          chezy = (ccofu_stored+ccofv_stored)*0.5
+          z0rou = (  kfu(nmd)*z0urou(nmd) + kfu(nm)*z0urou(nm) &
+                &  + kfv(ndm)*z0vrou(ndm) + kfv(nm)*z0vrou(nm)  )/kn !OTHERWISE ITS UNDEFINED
+       else
+          z0rou = (  kfu(nmd)*z0urou(nmd) + kfu(nm)*z0urou(nm) &
+                &  + kfv(ndm)*z0vrou(ndm) + kfv(nm)*z0vrou(nm)  )/kn
+          chezy = sag * log( 1.0_fp + h1/max(1.0e-8_fp,ee*z0rou) ) / vonkar
+       endif
        !
        ! bed shear stress as used in flow, or
        ! skin fiction following Soulsby; "Bed shear stress under
@@ -834,7 +949,11 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           taub = taubmx(nm)
        endif
        !
-       ustarc = umod(nm)*vonkar/log(1.0_fp + zumod(nm)/z0rou)
+       if (z0rou > 0.0_fp) then
+          ustarc = umod(nm)*vonkar/log(1.0_fp + zumod(nm)/z0rou)
+       else
+          ustarc = 0.0_fp
+       endif
        if (scour) then
           !
           ! Calculate extra stress (tauadd) for point = nm, if so required by
@@ -1183,6 +1302,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
                        & scour     ,ubot_from_com        ,camax     ,eps       , &
                        & iform(l)  ,localpar  ,max_integers,max_reals,max_strings, &
                        & dll_function(l),dll_handle(l),dll_integers,dll_reals,dll_strings, &
+                       & islope    ,ratio_ca_c2d , moveEDtoBED, &
                        & taks      ,caks      ,taurat(nm,l),sddflc  ,rsdqlc    , &
                        & kmaxsd    ,conc2d    ,sbcu(nm,l ),sbcv(nm,l),sbwu(nm,l), &
                        & sbwv(nm,l),sswu(nm,l),sswv(nm,l),tdss      ,caks_ss3d , &
@@ -1259,6 +1379,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
                        & scour     ,ubot_from_com        ,camax     ,eps       , &
                        & iform(l)  ,localpar  ,max_integers,max_reals,max_strings, &
                        & dll_function(l),dll_handle(l),dll_integers,dll_reals,dll_strings, &
+                       & islope    ,ratio_ca_c2d , moveEDtoBED, &
                        & taks      ,caks      ,taurat(nm,l),sddf2d  ,rsdq2d    , &
                        & kmaxsd    ,trsedeq   ,sbcu(nm,l),sbcv(nm,l),sbwu(nm,l), &
                        & sbwv(nm,l),sswu(nm,l),sswv(nm,l),tdss      ,caks_ss3d , &
@@ -1279,6 +1400,12 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           endif ! kmax = 1
           if (suspfrac) then
              rca(nm, l) = caks * rhosol(l)
+          endif
+          !
+          ! NOTE AUGUST 2016: Next 3 lines have to be moved in a new nm cycle, since here its only for sand and for kfsed==1, while I want to deposit also mud in adjacent hydridynamic active cells
+          !          
+          if (cutcell>0) then
+             sourse(nm,l) = sourse(nm,l) + sourseBANK(nm,l)/(thick(kmxsed(nm, l))*h1)
           endif
        enddo ! next sediment fraction
     enddo ! next nm point
@@ -1313,7 +1440,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sbcu      ,sbcv      ,sbcuu     ,sbcvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
     if (bedw>0.0_fp .and. wave) then
@@ -1323,7 +1450,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sbwu      ,sbwv      ,sbwuu     ,sbwvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
     if (susw>0.0_fp .and. wave) then
@@ -1333,9 +1460,14 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sswu      ,sswv      ,sswuu     ,sswvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
+    if (nst.ge.idebugCUThardINI.and.nst.le.idebugCUThardFIN) then
+       do k = 1,nmmax
+          write(92919900,'(2i6,15f21.15)') nst,k,sbcuu(k,1),sbcvv(k,1)
+       enddo
+    endif
 
     !
     ! Bed-slope and sediment availability effects for
@@ -1350,6 +1482,11 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
               & .true.    ,rhowat    ,kmax      ,dps       ,gsqs      , &
               & guu       ,gvv       ,guv       ,gvu       ,kbed      , &
               & gdp       )
+    endif
+    if (nst.ge.idebugCUThardINI.and.nst.le.idebugCUThardFIN) then
+       do k = 1,nmmax
+          write(92919901,'(2i6,15f21.15)') nst,k,sbcuu(k,1),sbcvv(k,1)
+       enddo
     endif
     !
     ! Bed-slope and sediment availability effects for
@@ -1390,6 +1527,9 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           enddo
        endif
     enddo
+    if (bedLOADper) then
+       CALL bedLOADperiod(sbuu,sbvv,lsedtot,dt,nlb,nub,mlb,mub,gdp)
+    endif
     !
     ! Update sourse fluxes due to sand-mud interaction
     !
@@ -1428,6 +1568,16 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
             sinkse(nm, l) = sinkse(nm, l) + sour_im(nm, l)
         enddo
     enddo
+    !
+    ! Add bank erosion term sourse
+    !
+   ! if (cutcell>0) then
+   !    do l = 1, lsed
+   !        do nm = 1, nmmax
+   !            sourse(nm, l) = sourse(nm, l) + 
+   !        enddo
+   !    enddo
+   ! endif
     !
     ! Finally fill sour and sink arrays for both sand and silt
     ! note that sourse/sinkse and sourf/sinkf arrays are required for BOTT3D

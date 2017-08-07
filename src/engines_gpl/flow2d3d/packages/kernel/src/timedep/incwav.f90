@@ -66,7 +66,7 @@ subroutine incwav(timsec    ,j         ,nmmaxj    ,norow     ,icx       , &
     integer                                :: ncmax
     integer                                :: nmmaxj !  Description and declaration in dimens.igs
     integer                                :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, norow)           :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, norow)           :: irocol !  Description and declaration in esm_alloc_int.f90
     real(fp)                               :: timsec !  Description and declaration in inttim.igs
     real(fp)                               :: urf
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub) :: dpu    !  Description and declaration in esm_alloc_real.f90

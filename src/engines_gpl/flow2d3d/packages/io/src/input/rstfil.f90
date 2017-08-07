@@ -1,5 +1,5 @@
 subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
-                & nmaxus    ,kmax      ,lstsci    ,ltur      , &
+                & nmaxus    ,kmax      ,lstsci    ,ltur      ,w1        , &
                 & s1        ,u1        ,v1        ,r1        ,rtur1     , &
                 & umnldf    ,vmnldf    ,kfu       ,kfv       , &
                 & dp        ,namcon    ,coninit   ,gdp       )
@@ -87,6 +87,7 @@ subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax, ltur), intent(out) :: rtur1  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(out) :: u1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(out) :: v1     !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax)      , intent(out) :: w1
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax, lstsci), intent(out) :: r1     !  Description and declaration in esm_alloc_real.f90
     character(*)                                                                             :: restid !!  Run identification of the restart file. If RESTID = non-blank then current simulation will use this file for setting the initial conditions
     character(20), dimension(lstsci + ltur)                                    , intent(in)  :: namcon !  Description and declaration in esm_alloc_char.f90
@@ -164,7 +165,7 @@ subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
           !
           write (restid, '(2a)') trim(filpath), trim(restid)
           call restart_trim_flow(lundia    ,error     ,restid    ,lturi     ,mmax      , &
-                               & nmaxus    ,kmax      ,lstsci    ,ltur      , &
+                               & nmaxus    ,kmax      ,lstsci    ,ltur      ,w1        , &
                                & s1        ,u1        ,v1        ,r1        ,rtur1     , &
                                & umnldf    ,vmnldf    ,kfu       ,kfv       , &
                                & dp        ,ex_nfs    ,namcon    ,coninit   ,gdp       )

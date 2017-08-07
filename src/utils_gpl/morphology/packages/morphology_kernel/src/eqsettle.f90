@@ -182,7 +182,11 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
           ! hindered settling Richardson and Zaki formula
           ! Previous approach: Oliver's formula
           !
-          hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil)) 
+          if (.false.) then ! use hindered from glob_bankPLIC
+             hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil)) 
+          else
+             hinset = 1.0_fp
+          endif
        endif
        wsloc = ffloc * wsloc * hinset**5
     elseif (iform_settle == 15) then

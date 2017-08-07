@@ -474,6 +474,32 @@ subroutine inigeo(lundia    ,error     ,filrgf    ,sferic    ,            &
              endif
           enddo
        enddo
+!
+       !
+       ! Mirroring of interior cells to the boundaries: needed for anular channel (testcase with cutcells). Otherwise area at kcs=2 is equal to zero and  INTERPvATuPOINT gives NaN
+       !
+       do n = 1, nmaxus
+          nd = max(n-1, 1)
+          nu = min(n+1, nmaxus)
+          do m = 1, mmax
+             md = max(m-1, 1)
+             mu = min(m+1, mmax)
+             if (kcs(n,m) == 2) then
+                !
+                ! boundary cell
+                !
+                if (kcs(n,md) == 1) then
+                   gsqs(n,m) = gsqs(n,md)
+                elseif (kcs(n,mu) == 1) then
+                   gsqs(n,m) = gsqs(n,mu)
+                elseif(kcs(nd,m) == 1) then
+                   gsqs(n,m) = gsqs(nd,m)
+                elseif(kcs(nu,m) == 1) then
+                   gsqs(n,m) = gsqs(nu,m)
+                endif
+             endif
+          enddo
+       enddo
     endif
     !
     ! Check computed GUU, GVU, GVV, GUV and GSQS

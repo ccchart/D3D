@@ -4,7 +4,7 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
                    & kfumx0    ,hu        ,s1        ,dpu       ,dps       , &
                    & umean     ,u0        ,u1        ,dzu0      ,dzu1      , &
                    & dzs1      ,zk        ,kfsmx0    ,guu       ,qxk       , &
-                   & gdp       )
+                   & aguu      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -97,6 +97,7 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: u0     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)              :: u1     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(0:kmax)                     , intent(in)  :: zk
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: aguu
 !
 ! Local variables
 !
@@ -186,7 +187,8 @@ subroutine z_drychku(j         ,nmmaxj    ,nmmax     ,icx       ,kmax      , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s1        ,dpu       ,umean     ,hu        ,gdp       )
+             & s1        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     do nm = 1, nmmax
        nmu = nm + icx
        nmd = nm - icx

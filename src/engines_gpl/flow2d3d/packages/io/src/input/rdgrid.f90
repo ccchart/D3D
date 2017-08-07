@@ -2,7 +2,7 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
                 & mdfrec    ,runid     ,mmax      ,nmaxus    ,filgrd    , &
                 & fmtgrd    ,flgrd     ,fildry    ,fmtdry    ,fldry     , &
                 & filtd     ,fmttd     ,fltd      ,filcut    ,flcut     , &
-                & fil45     ,fl45      ,gdp       )
+                & fil45     ,fl45      ,kmax      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -62,6 +62,8 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    real(fp),pointer :: eps
+    integer, pointer :: irov
     integer, pointer :: itis
     integer, pointer :: mfg
     integer, pointer :: nfg
@@ -71,6 +73,8 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
     integer                                      :: lundia !  Description and declaration in inout.igs
     integer                                      :: lunmd  !  Description and declaration in inout.igs
     integer                        , intent(in)  :: mmax   !  Description and declaration in esm_alloc_int.f90
+    integer                        , intent(in)  :: kmax   !  Description and declaration in esm_alloc_int.f90
+
     integer                        , intent(in)  :: nmaxus !  Description and declaration in esm_alloc_int.f90
     integer                                      :: nrrec  !!  Pointer to the record number in the MD-file
     logical                                      :: fl45
@@ -98,6 +102,7 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
 !
 ! Local variables
 !
+    integer               :: k
     integer               :: i      ! Help var. 
     integer               :: idef   ! Help var. containing default va- lue(s) for integer variable 
     integer               :: imnd   ! Help var. for the dry points 
@@ -111,6 +116,7 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
     integer               :: lun45
     integer               :: luncut
     integer               :: lundry ! Unit number of local scratch file for dry point sections 
+    integer               :: lunPER ! Unit number of local scratch file for periodic locations
     integer               :: lungrd ! Unit number of local scratch file for grid enclosure points 
     integer               :: luntd  ! Unit number of local scratch file for thin dam point sections 
     integer               :: n
@@ -119,6 +125,7 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
     integer               :: ntrec  ! Help. var to keep track of NRREC 
     integer, dimension(4) :: ival   ! Help array 
     logical               :: defaul ! Flag set to YES if default value may be applied in case var. read is empty (ier <= 0, or nrread < nlook) 
+    logical               :: ex
     logical               :: found  ! FOUND=TRUE if KEYW in the MD-file was found 
     logical               :: lerror ! Flag=TRUE if a local error is encountered 
     logical               :: newkw  ! Logical var. specifying whether a new recnam should be read from the MD-file or just new data in the continuation line 
@@ -133,6 +140,21 @@ subroutine rdgrid(lunmd     ,lundia    ,error     ,zmodel    ,nrrec     , &
     character(256)        :: fixid  ! fixed size version of runid, needed for character concatenation 
     character(3)          :: errmsg ! Help string for errormessage 
     character(6)          :: keyw   ! Name of record to look for in the MD-file (usually KEYWRD or RECNAM) 
+    character(200)        :: txtput2
+    character(60)         :: txtput1      
+    real(sp)              :: percEDGE_sp
+    real(sp)              :: THRESextCUTedge_sp
+    real(sp)              :: THRlocalMASSbal_sp
+    real(sp)              :: THRESsmallCELL_sp
+    real(sp)              :: perSMOfac_sp
+    real(sp)              :: perSMOfac_Qb_sp
+    real(sp)              :: reltim_qtq_sp
+    real(sp)              :: reltim_qtq_C_sp
+    real(sp)              :: thresMERGE_d_sp
+    real(sp)              :: thresMERGE_w_sp
+    real(sp)              :: thresMERGE_zb_sp
+    real(sp)              :: reltim_S1_sp
+    real(sp)              :: reltim_qtq_bdl_sp
 !
 !! executable statements -------------------------------------------------------
 !

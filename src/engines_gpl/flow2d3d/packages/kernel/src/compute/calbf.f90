@@ -85,7 +85,7 @@ subroutine calbf(stage     ,nmmax     ,nmaxddb   ,dps       ,s1        , &
     integer                                              , intent(in)  :: norow   !  Description and declaration in esm_alloc_int.f90
     integer                                              , intent(in)  :: nocol   !  
     integer                                              , intent(in)  :: nst
-    integer   , dimension(5, norow+nocol)                , intent(in)  :: irocol  !  Description and declaration in esm_alloc_int.f90
+    integer   , dimension(7, norow+nocol)                , intent(in)  :: irocol  !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: kcs     !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: kcu     !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nmlb:gdp%d%nmub)         , intent(in)  :: kcv     !  Description and declaration in esm_alloc_int.f90

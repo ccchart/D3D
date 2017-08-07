@@ -105,11 +105,15 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     integer(pntrsize)                    , pointer :: guu
     integer(pntrsize)                    , pointer :: gvv
     integer(pntrsize)                    , pointer :: hrms
+    integer(pntrsize)                    , pointer :: hu
+    integer(pntrsize)                    , pointer :: hv
     integer(pntrsize)                    , pointer :: p1
     integer(pntrsize)                    , pointer :: patm
     integer(pntrsize)                    , pointer :: precip
+    integer(pntrsize)                    , pointer :: qxk
     integer(pntrsize)                    , pointer :: qxkr
     integer(pntrsize)                    , pointer :: qxkw
+    integer(pntrsize)                    , pointer :: qyk
     integer(pntrsize)                    , pointer :: qykr
     integer(pntrsize)                    , pointer :: qykw
     integer(pntrsize)                    , pointer :: r1
@@ -294,11 +298,15 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     guu                 => gdp%gdr_i_ch%guu
     gvv                 => gdp%gdr_i_ch%gvv
     hrms                => gdp%gdr_i_ch%hrms
+    hu                  => gdp%gdr_i_ch%hu
+    hv                  => gdp%gdr_i_ch%hv
     p1                  => gdp%gdr_i_ch%p1
     patm                => gdp%gdr_i_ch%patm
     precip              => gdp%gdr_i_ch%precip
+    qxk                 => gdp%gdr_i_ch%qxk
     qxkr                => gdp%gdr_i_ch%qxkr
     qxkw                => gdp%gdr_i_ch%qxkw
+    qyk                 => gdp%gdr_i_ch%qyk
     qykr                => gdp%gdr_i_ch%qykr
     qykw                => gdp%gdr_i_ch%qykw
     r1                  => gdp%gdr_i_ch%r1
@@ -584,6 +592,14 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
                     & r(precip) ,r(evap)   ,irequest  ,fds       ,iarrc     , &
                     & mf        ,ml        ,nf        ,nl        ,gdp       )
           if (error) goto 9999
+          !
+          call wrtbanks(lundia    ,error     ,filename  ,itmapc    ,nmax      , &
+                      & mmax      ,nmaxus    ,r(rbuff)  ,irequest  ,fds       , &
+                      & iarrc     ,mf        ,ml        ,nf        ,nl        , &
+                      & velt      ,kmax      ,r(u1)     ,r(v1)     ,r(s1)     , &
+                      & r(qxk)    ,r(qyk)    ,i(kfumin) ,i(kfumax) ,i(kfvmin) , &
+                      & i(kfvmax) ,d(dps)    ,r(hu)     ,r(hv)     ,r(dpu)    , &
+                      & r(dpv)    ,r(guu)    ,r(gvv)    ,gdp       )
           !
           if (lsedtot>0 .or. lfbedfrm .or. lfsdu) then
              call wrsedmgrp(lundia    ,error     ,filename  ,itmapc    ,mmax      , &

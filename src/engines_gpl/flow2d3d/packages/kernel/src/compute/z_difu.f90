@@ -127,7 +127,7 @@ subroutine z_difu(lundia    ,nst       ,icx       ,icy       ,j         , &
     integer                                                  , intent(in)  :: nocol     ! Description and declaration in esm_alloc_int.f90
     integer                                                  , intent(in)  :: norow     ! Description and declaration in esm_alloc_int.f90
     integer                                                                :: nst
-    integer , dimension(5, norow+nocol)                      , intent(in)  :: irocol    ! Description and declaration in esm_alloc_int.f90
+    integer , dimension(7, norow+nocol)                      , intent(in)  :: irocol    ! Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kcs       ! Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kcu       ! Description and declaration in esm_alloc_int.f90
     integer , dimension(gdp%d%nmlb:gdp%d%nmub)               , intent(in)  :: kcv       ! Description and declaration in esm_alloc_int.f90

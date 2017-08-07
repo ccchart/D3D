@@ -82,6 +82,7 @@ libIOInput_la_SOURCES = \
          rdfcio.f90 \
          rdfour.f90 \
          rdgrid.f90 \
+         rdimbound.f90 \
          rdhyb.f90 \
          rdhyg.f90 \
          rdhyvd.f90 \

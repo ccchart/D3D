@@ -145,6 +145,7 @@ type gd_r_i_ch
        integer(pntrsize) :: gro        !  Description and declaration in esm_alloc_real.f90
        integer(pntrsize) :: gsqd       !  Description and declaration in esm_alloc_real.f90
        integer(pntrsize) :: gsqs       !  Description and declaration in esm_alloc_real.f90
+       integer(pntrsize) :: gsqsR      !  Description and declaration in esm_alloc_real.f90
        integer(pntrsize) :: guu        !  Description and declaration in esm_alloc_real.f90
        integer(pntrsize) :: guv        !  Description and declaration in esm_alloc_real.f90
        integer(pntrsize) :: gvu        !  Description and declaration in esm_alloc_real.f90

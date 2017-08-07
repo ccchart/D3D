@@ -190,6 +190,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     integer                              , pointer :: max_integers
     integer                              , pointer :: max_reals
     integer                              , pointer :: max_strings
+    integer                              , pointer :: islope
     character(256)   , dimension(:)      , pointer :: dll_function
     integer(pntrsize), dimension(:)      , pointer :: dll_handle
     integer          , dimension(:)      , pointer :: dll_integers
@@ -213,6 +214,8 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
 ! Local parameters
 !
     integer, parameter :: kmax2d = 20
+    real(fp), pointer :: ratio_ca_c2d
+    logical , pointer :: moveEDtoBED
 !
 ! Global variables
 !
@@ -396,6 +399,8 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    ratio_ca_c2d => gdp%gdimbound%ratio_ca_c2d
+    moveEDtoBED  => gdp%gdimbound%moveEDtoBED
     wave                => gdp%gdprocs%wave
     nmudfrac            => gdp%gdsedpar%nmudfrac
     rhosol              => gdp%gdsedpar%rhosol
@@ -1219,6 +1224,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
                        & scour     ,ubot_from_com        ,camax     ,eps       , &
                        & iform(l)  ,localpar  ,max_integers,max_reals,max_strings, &
                        & dll_function(l),dll_handle(l),dll_integers,dll_reals,dll_strings, &
+                       & islope    ,ratio_ca_c2d , moveEDtoBED, &
                        & taks      ,caks      ,taurat(nm,l),sddflc  ,rsdqlc    , &
                        & kmaxsd    ,conc2d    ,sbcu(nm,l ),sbcv(nm,l),sbwu(nm,l), &
                        & sbwv(nm,l),sswu(nm,l),sswv(nm,l),tdss      ,caks_ss3d , &
@@ -1298,6 +1304,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
                        & scour     ,ubot_from_com        ,camax     ,eps       , &
                        & iform(l)  ,localpar  ,max_integers,max_reals,max_strings, &
                        & dll_function(l),dll_handle(l),dll_integers,dll_reals,dll_strings, &
+                       & islope    ,ratio_ca_c2d , moveEDtoBED, &
                        & taks      ,caks      ,taurat(nm,l),sddf2d  ,rsdq2d    , &
                        & kmaxsd    ,trsedeq   ,sbcu(nm,l),sbcv(nm,l),sbwu(nm,l), &
                        & sbwv(nm,l),sswu(nm,l),sswv(nm,l),tdss      ,caks_ss3d , &
@@ -1353,7 +1360,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sbcu      ,sbcv      ,sbcuu     ,sbcvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
     if (bedw>0.0_fp .and. wave) then
@@ -1363,7 +1370,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sbwu      ,sbwv      ,sbwuu     ,sbwvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
     if (susw>0.0_fp .and. wave) then
@@ -1373,7 +1380,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        call upwbed(sswu      ,sswv      ,sswuu     ,sswvv     ,kfu       , &
                  & kfv       ,kcs       ,kfsed     ,lsedtot   , &
                  & nmmax     ,icx       ,icy       ,sutot     ,svtot     , &
-                 & gdp       )
+                 & nst       ,gdp       )
     endif
     !
 

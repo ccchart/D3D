@@ -181,11 +181,13 @@
       logical                            :: error       !<    .FALSE. Suppose there would be no error 
       logical                            :: oldmudfrac  !<    ignore frac factor for cohesive fractions
       logical                            :: flmd2l      !<    2 layer fluid mud model
+      logical                            :: moveEDtoBED !<    immersed boundaries dummy variable
 !
       real(fp)                           :: srcmax      !<    maximum entrainment rate                           (kg/m2/s)
       real(fp)                           :: dzmax       !<    maximum bed level change as fraction of LocalDepth (-)
       real(fp)                           :: dz          !<    bed level change                                   (m)
       real(fp)                           :: wstau       !<    special sink term for flmd2l
+      real(fp)                           :: ratio_ca_c2d!<    immersed boundaries dummy variable: ratio of concentrations
       real(fp)                           :: reducfac    !<    reduction factor in case of too high erosion rate  (-)
       real(fp)                           :: sigmol      !<    Prandtl-Schmidt number                             (-)
       real(fp)                           :: thick0      !<    thickness of gridcell kmaxsd during entrainment    (m)
@@ -199,6 +201,7 @@
       real(fp), dimension(:), allocatable:: dicww       !<    diffusion coefficient array for fluid
       real(fp), dimension(:), allocatable:: seddif      !<    diffusion coefficient array for sediment
       real(fp), dimension(:), allocatable:: rsedeq      !<    diffusion coefficient array
+      integer                            :: islope      !<    immersed boundaries dummy variable: bed slope formulation
       integer                            :: active      !<    attribute 1 - segment active flag
       integer                            :: kmaxsd      !<    flag depth-averaged (2) or 3D (3)!
       integer                            :: k           !<    layer number
@@ -210,24 +213,28 @@
       real(fp)                           :: SinkTot
       real(fp)                           :: SourFl
 !
-      real(fp), dimension(:), allocatable:: par         !<    old array for real transport formula parameters
-      real(hp), dimension(:), allocatable:: realpar     !<    real transport formula parameters
-      integer, dimension(:), allocatable :: intpar      !<    integer transport formula parameters
-      character(256), dimension(:), allocatable :: strpar !<    string transport formula parameters
+      real(fp)      , dimension(:), allocatable :: par         !<    old array for real transport formula parameters
+      real(hp)      , dimension(:), allocatable :: realpar     !<    real transport formula parameters
+      integer       , dimension(:), allocatable :: intpar      !<    integer transport formula parameters
+      character(256), dimension(:), allocatable :: strpar      !<    string transport formula parameters
 !
 !------------------------------------------------------------------------------
 !
 !     Initialise pointers
 !
-      ipnt        = ipoint
-      iflux       = 0
-      nsegments2D = noseg - noq3
-      nlayers     = noseg / nsegments2D
-      kmax        = nlayers
+      ipnt         = ipoint
+      iflux        = 0
+      nsegments2D  = noseg - noq3
+      nlayers      = noseg / nsegments2D
+      kmax         = nlayers
+      islope       = 0
+      moveEDtoBED  = .false.
+      ratio_ca_c2d = 1.0
+      !
       if (nlayers==1) kmax = kmax2d
-!
-!     Initialize constants and arrays
-!
+      !
+      !     Initialize constants and arrays
+      !
       ee          = exp(1.0)
       third       = 1.0/3.0
       ITIME       = pmsa( ipnt( 65) ) ! TODO: check that increm(65) and increm(66) are 0
@@ -539,11 +546,10 @@
                       & scour     ,ubot_from_com        ,camax     ,eps       , &
                       & iform     ,par       ,MAX_IP    ,MAX_RP    ,MAX_SP    , &
                       & dllfunc   ,dllhandle ,intpar    ,realpar   ,strpar    , &
+                      & islope    ,ratio_ca_c2d , moveEDtoBED, &
 !output:
-                      & aks       ,caks      ,taurat    ,&  ! output
-                      & seddif    ,rsedeq    , &            ! local variables in array
-                      & kmaxsd    ,&                        ! local variables
-                      & conc2d    ,SBCx      ,SBCy      ,SBWx      , &
+                      & aks       ,caks      ,taurat    ,seddif    ,rsedeq    , &
+                      & kmaxsd    ,conc2d    ,SBCx      ,SBCy      ,SBWx      , &
                       & SBWy      ,SSWx      ,SSWy      ,dss       ,caks_ss3d , &
                       & aks_ss3d  ,ust2      ,T_relax   ,error     )
             !       

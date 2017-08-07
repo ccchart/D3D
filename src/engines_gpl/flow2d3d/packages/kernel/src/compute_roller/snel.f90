@@ -62,7 +62,7 @@ subroutine snel(mmax      ,nmax      ,norow     ,noroco    ,ubot      , &
     integer                                                        , intent(in)  :: nmax
     integer                                                        , intent(in)  :: noroco
     integer                                                        , intent(in)  :: norow
-    integer   , dimension(5, noroco)                               , intent(in)  :: irocol
+    integer   , dimension(7, noroco)                               , intent(in)  :: irocol
     real(fp)  , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in)  :: alfas
     real(prec), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in)  :: dps
     real(fp)  , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)              :: ewave0

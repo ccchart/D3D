@@ -80,6 +80,8 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     integer            , dimension(:)  , pointer :: dll_integers
     real(hp)           , dimension(:)  , pointer :: dll_reals
     character(256)     , dimension(:)  , pointer :: dll_strings
+    real(fp), pointer :: facws
+    logical , pointer :: hindered
 !
 ! Global variables
 !
@@ -160,6 +162,8 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
 !
 !! executable statements -------------------------------------------------------
 !
+    facws    => gdp%gdimbound%facws
+    hindered => gdp%gdimbound%hindered
     ag                  => gdp%gdphysco%ag
     vonkar              => gdp%gdphysco%vonkar
     !
@@ -365,4 +369,5 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
        enddo        ! nm
     enddo           ! l
     deallocate (localpar, stat = istat)
+    ws(1:nmmax,1:kmax,1:lsed) = ws(1:nmmax,1:kmax,1:lsed)*facws
 end subroutine fallve          

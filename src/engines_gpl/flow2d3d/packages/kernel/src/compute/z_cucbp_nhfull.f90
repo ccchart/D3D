@@ -72,7 +72,7 @@ subroutine z_cucbp_nhfull(kmax      ,norow     ,icx       , &
     integer                                                       :: icy    !!  Increment in the Y-dir. (see ICX)
     integer                                         , intent(in)  :: kmax   !  Description and declaration in esm_alloc_int.f90
     integer                                         , intent(in)  :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer, dimension(5, norow)                    , intent(in)  :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(7, norow)                    , intent(in)  :: irocol !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kcs    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfu    !  Description and declaration in esm_alloc_int.f90
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfumx0 !  Description and declaration in esm_alloc_int.f90

@@ -4,7 +4,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
                 & betac     ,dml       ,restid    ,icreep    ,trasol    ,forfuv    , &
                 & forfww    ,ktemp     ,keva      ,temint    ,evaint    ,lturi     , &
                 & tkemod    ,riglid    ,tstprt    ,prsmap    ,prshis    ,selmap    , &
-                & selhis    ,filrol    ,gdp       )
+                & selhis    ,filrol    ,filic     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -116,6 +116,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     integer(pntrsize)             , pointer :: namsrc
     integer(pntrsize)             , pointer :: tprofu
     integer(pntrsize)             , pointer :: typbnd
+    integer(pntrsize)             , pointer :: w1
     integer                       , pointer :: rtcmod
     include 'pardef.igd'
     integer                       , pointer :: ncmax
@@ -257,6 +258,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     real(fp)                      , pointer :: zbot
     real(fp)                      , pointer :: ztop
 !    type(tECHandle)               , pointer :: ECHandle
+    real(fp), pointer :: t
 !
 ! Global variables
 !
@@ -337,12 +339,13 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     character(10)                         :: citdat      ! Reference date for the simulation times. Format: "DD MMM 'YY"
     character(12)  , dimension(mxnto, 2)  :: statns      ! References to tidal stations at boundary support points
     character(100)                        :: message
-    character(256)                        :: filic       !  File name of initial condition file
+    character(*), intent(out)             :: filic       !  File name of initial condition file
     character(256)                        :: filnam      ! File name for attribute files
     character(300)                        :: mdfrec      ! Standard rec. length in MD-file (300) 300 = 256 + a bit (field, =, ##, etc.)
 !
 !! executable statements -------------------------------------------------------
 !
+    t => gdp%gdimbound%t
     ncmax               => gdp%d%ncmax
     nmax                => gdp%d%nmax
     mmax                => gdp%d%mmax
@@ -496,6 +499,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     s1                  => gdp%gdr_i_ch%s1
     thick               => gdp%gdr_i_ch%thick
     u1                  => gdp%gdr_i_ch%u1
+    w1                  => gdp%gdr_i_ch%w1
     ubrlsu              => gdp%gdr_i_ch%ubrlsu
     ubrlsv              => gdp%gdr_i_ch%ubrlsv
     umnldf              => gdp%gdr_i_ch%umnldf
@@ -589,7 +593,12 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
               & mdfrec    ,runid     ,mmax      ,nmaxus    ,filnam    , &
               & fmtfil    ,flgrd     ,filnam    ,fmtfil    ,fldry     , &
               & filnam    ,fmtfil    ,fltd      ,filnam    ,flcut     , &
-              & filnam    ,fl45      ,gdp       )
+              & filnam    ,fl45      ,kmax      ,gdp       )
+    if (error) goto 9999
+    !
+    ! Read Immersed Boundary information (among others for bank erosion)
+    !
+    call rdimbound(lundia, mmax, nmaxus, kmax, gdp)
     if (error) goto 9999
     !
     ! Special points, discharge sources ,barriers and weir losses
@@ -644,7 +653,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
             & temp      ,const     ,secflo    ,lturi     ,lsal      , &
             & ltem      ,lstsc     ,zini      ,wrkini    ,wrkini    , &
             & wrkini    ,wrkini    ,wrkini    ,wrkini    ,mmax      , &
-            & nmax      ,nmaxus    ,kmax      ,lstsci    ,ltur      , &
+            & nmax      ,nmaxus    ,kmax      ,r(w1)     ,lstsci    ,ltur      , &
             & ch(namcon),r(s1)     ,r(u1)     ,r(v1)     ,r(r1)     , &
             & r(rtur1)  ,r(decay)  ,r(umnldf) ,r(vmnldf) ,i(kfu)    , &
             & i(kfv)    ,r(dp)     ,lsed      ,gdp       )

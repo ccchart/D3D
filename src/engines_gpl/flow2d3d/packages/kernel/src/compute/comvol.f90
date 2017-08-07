@@ -1,7 +1,7 @@
 subroutine comvol(nmmax     ,kmax      ,zmodel    ,kcs       ,kcu       , &
                 & thick     ,guu       ,gsqs      ,dps       ,s1        , &
                 & dzs1      ,dzu0      ,hu        ,porosu    ,volum1    , &
-                & areau     ,gdp       )
+                & areau     ,aguu      ,agsqs     ,kfs       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -51,12 +51,14 @@ subroutine comvol(nmmax     ,kmax      ,zmodel    ,kcs       ,kcu       , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    real(fp), dimension(:), pointer :: agsqs_link
 !
 ! Global variables
 !
     integer                                         , intent(in)  :: kmax   !  Description and declaration in esm_alloc_int.f90
     integer                                         , intent(in)  :: nmmax  !  Description and declaration in dimens.igs
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kcs    !  Description and declaration in esm_alloc_int.f90
+    integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kfs  
     integer, dimension(gdp%d%nmlb:gdp%d%nmub)       , intent(in)  :: kcu    !  Description and declaration in esm_alloc_int.f90
     logical                                         , intent(in)  :: zmodel !  Description and declaration in procs.igs
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)    , intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
@@ -69,7 +71,11 @@ subroutine comvol(nmmax     ,kmax      ,zmodel    ,kcs       ,kcu       , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax), intent(in)  :: porosu !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax), intent(out) :: volum1 !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax), intent(out) :: areau  !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(kmax)                       , intent(in)  :: thick  !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(kmax)                       , intent(in)  :: thick  !  Description and declaration in esm_alloc_real.f9
+!   cutcells:
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: aguu      !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)      , intent(in)  :: agsqs
+ 
 !
 ! Local variables
 !
@@ -78,9 +84,11 @@ subroutine comvol(nmmax     ,kmax      ,zmodel    ,kcs       ,kcu       , &
     integer, dimension(:), allocatable :: masks  ! temporary array for masking volumes
     integer, dimension(:), allocatable :: masku  ! temporary array for masking areas
     integer                            :: nm_pos ! indicating the array to be exchanged has nm index at the 2nd place, e.g., dbodsd(lsedtot,nm)
+    integer                            :: idummy
 !
 !! executable statements -------------------------------------------------------
 !
+    agsqs_link => gdp%gdimbound%agsqs_link
 ! mask initial arrays
 ! Note: for parallel runs, temporary arrays are allocated for masking volumes and areas
 !
@@ -95,8 +103,8 @@ call dfexchg ( masku, 1, 1, dfint, nm_pos, gdp )
 if (.not.zmodel) then
    do k = 1, kmax
       do nm = 1, nmmax
-         volum1(nm, k) = thick(k)*(s1(nm) + real(dps(nm),fp))*gsqs(nm) * masks(nm)
-         areau (nm, k) = thick(k)*hu(nm)*guu(nm)*porosu(nm, k)* masku(nm)
+         volum1(nm, k) = thick(k)*(s1(nm) + real(dps(nm),fp))*gsqs(nm) * agsqs_link(nm) * masks(nm)
+         areau (nm, k) = thick(k)*hu(nm)*aguu(nm)*guu(nm)*porosu(nm, k)* masku(nm)
       enddo
    enddo
 else
@@ -106,8 +114,8 @@ else
    !
    do k = 1, kmax
       do nm = 1, nmmax
-         volum1(nm, k) = dzs1(nm, k)*gsqs(nm)*masks(nm)
-         areau (nm, k) = dzu0(nm, k)*guu(nm)*porosu(nm, k) * masku(nm)
+         volum1(nm, k) = dzs1(nm, k)*gsqs(nm)*agsqs(nm)*masks(nm)
+         areau (nm, k) = dzu0(nm, k)*aguu(nm)*guu(nm)*porosu(nm, k) * masku(nm)
       enddo
    enddo
 endif

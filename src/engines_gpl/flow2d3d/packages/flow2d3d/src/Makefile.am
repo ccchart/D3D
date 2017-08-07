@@ -36,6 +36,7 @@ libflow2d3d_la_LIBADD = \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/taylor/libKernelTaylor.la \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/timedep/libKernelTimedep.la \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/compute/libKernelCompute.la \
+    $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/compute_banks/libPLICcutCELLS.la \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/compute_nearfar/libKernelComputeNearfar.la \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/compute_roller/libKernelComputeRoller.la \
     $(top_builddir)/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/libKernelComputeSediment.la \

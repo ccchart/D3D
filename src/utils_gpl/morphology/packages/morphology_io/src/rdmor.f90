@@ -308,6 +308,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        morbnd(j)%npnt  = 0
        nullify(morbnd(j)%alfa_dist)
        nullify(morbnd(j)%alfa_mag)
+       nullify(morbnd(j)%width)
        nullify(morbnd(j)%idir)
        nullify(morbnd(j)%nm)
        nullify(morbnd(j)%nxmx)
@@ -606,9 +607,9 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           call prop_get(mor_ptr, 'Morphology', 'Espir', espir)
        endif
        call prop_get_integer(mor_ptr, 'Morphology', 'ISlope', islope)
-       if (islope < 1 .or. islope > 4) then
+       if (islope < 1 .or. islope > 5) then
           ! bedslope effect formulation
-          errmsg = 'ISlope should be 1 to 4 in ' // trim(filmor)
+          errmsg = 'ISlope should be 1 to 5 in ' // trim(filmor)
           call write_error(errmsg, unit=lundia)
           error = .true.
           return
@@ -624,6 +625,9 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           call prop_get(mor_ptr, 'Morphology', 'FlFdRat', flfdrat)
           alfpa = coulfri / (1.0 + flfdrat * coulfri)
           call prop_get(mor_ptr, 'Morphology', 'ThetaCr', thcrpa)
+       elseif (islope == 5) then
+          call prop_get(mor_ptr, 'Morphology', 'AShld', ashld)
+          call prop_get(mor_ptr, 'Morphology', 'BShld', bshld)
        endif
        !
        ! Boundary conditions
@@ -670,7 +674,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           ! Read bed boundary condition for open boundary
           !
           call prop_get_integer(morbound_ptr, '*', 'IBedCond', morbnd(j)%icond)
-          if (morbnd(j)%icond<0 .or. morbnd(j)%icond>8) then
+          if (morbnd(j)%icond<0 .or. morbnd(j)%icond>10) then
              errmsg = 'Invalid bed boundary condition at "'//trim(bndname)//'" in '//trim(filmor)
              call write_error(errmsg, unit=lundia)
              error = .true.
@@ -1272,6 +1276,8 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     character(120)                                                    :: txtput3
     character(256)                                                    :: errmsg
     character(MAXTABLECLENGTH) , dimension(:)               , pointer :: parnames
+    logical                                                           :: readtotal
+    character(30)                                                     :: bndparname
 !
 !! executable statements -------------------------------------------------------
 !
@@ -1661,34 +1667,35 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
        ! Display boundary conditions
        !
        txtput1 = '  Depth prescribed'
+       readtotal = .false.
        select case(morbnd(j)%icond)
        case (0)
           txtput2 = '                free'
-          parname = ' '
+          bndparname = ' '
        case (1)
           txtput2 = '               fixed'
-          parname = ' '
+          bndparname = ' '
        case (2)
           txtput2 = '         time series'
-          parname = 'depth               '
+          bndparname = 'depth               '
           ibndtyp = 1
           nval    = 1
        case (3)
           txtput1 = '  Depth change prescribed'
           txtput2 = '         time series'
-          parname = 'depth change        '
+          bndparname = 'depth change        '
           ibndtyp = 1
           nval    = 1
        case (4)
-          txtput1 = '  Transport incl pores prescribed'
+          txtput1    = '  Bed transport incl pores prescribed'
           txtput2 = '         time series'
-          parname = 'transport incl pores'
+          bndparname = 'transport incl pores'
           ibndtyp = 2
           nval    = lsedtot - nmudfrac
        case (5)
-          txtput1 = '  Transport excl pores prescribed'
+          txtput1    = '  Bed transport excl pores prescribed'
           txtput2 = '         time series'
-          parname = 'transport excl pores'
+          bndparname = 'transport excl pores'
           ibndtyp = 2
           nval    = lsedtot - nmudfrac
        case (6)
@@ -1709,17 +1716,30 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
           parname = 'transport mass'
           ibndtyp = 2
           nval    = lsedtot - nmudfrac
+       case (9)
+          txtput1    = '  Bed transport incl pores prescribed'
+          txtput2    = '         time series'
+          bndparname = 'total bed transport incl pores'
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
+          readtotal  = .true.
+       case (10)
+          txtput1    = '  Bed transport excl pores prescribed'
+          txtput2    = '         time series'
+          bndparname = 'total bed transport excl pores'
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
        end select
        write (lundia, '(3a)') txtput1, ':', txtput2
        !
        ! Check boundary conditions
        !
-       if (parname /= ' ') then
+       if (bndparname /= ' ') then
           if (bcmfilnam /= ' ') then
              !
              ! Find entries in table
              !
-             call gettable(bcmfile     ,nambnd(j) ,parname   , &
+             call gettable(bcmfile     ,nambnd(j) ,bndparname, &
                     & morbnd(j)%ibcmt(1)   ,morbnd(j)%ibcmt(2)   , &
                 & morbnd(j)%ibcmt(3)   ,1         ,errmsg    )
              if (errmsg /= ' ') then
@@ -1736,16 +1756,20 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 !
                 ! Uniform values
                 !
-                txtput2 = '             uniform'
+                if (readtotal) then
+                    txtput2 = '               total'
+                else
+                    txtput2 = '             uniform'
+                endif
                 write (lundia, '(3a)') txtput1, ':', txtput2
                 if (ibndtyp == 1) then
-                   parnames(1) = trim(parname)
+                   parnames(1) = trim(bndparname)
                 else
                    i = 0
                    do l = 1, lsedtot
                       if (sedtyp(l) /= SEDTYP_COHESIVE) then
                          i = i + 1
-                         parnames(i) = trim(parname) // ' ' // trim(namsed(l))
+                         parnames(i) = trim(bndparname) // ' ' // trim(namsed(l))
                       endif
                    enddo
                 endif
@@ -1758,22 +1782,22 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                    error = .true.
                    return
                 endif
-             elseif (morbnd(j)%ibcmt(3) == nval*2) then
+             elseif (morbnd(j)%ibcmt(3) == nval*2 .and. .not.readtotal) then
                 !
                 ! Values at "end A" and "end B"
                 !
                 txtput2 = '              linear'
                 write (lundia, '(3a)') txtput1, ':', txtput2
                 if (ibndtyp == 1) then
-                   parnames(1) = trim(parname) // ' end A'
-                   parnames(2) = trim(parname) // ' end B'
+                   parnames(1) = trim(bndparname) // ' end A'
+                   parnames(2) = trim(bndparname) // ' end B'
                 else
                    i = 0
                    do l = 1, lsedtot
                       if (sedtyp(l) /= SEDTYP_COHESIVE) then
                          i = i + 1
-                         parnames(i)      = trim(parname) // ' ' // trim(namsed(l)) // ' end A'
-                         parnames(nval+i) = trim(parname) // ' ' // trim(namsed(l)) // ' end B'
+                         parnames(i)      = trim(bndparname) // ' ' // trim(namsed(l)) // ' end A'
+                         parnames(nval+i) = trim(bndparname) // ' ' // trim(namsed(l)) // ' end B'
                       endif
                    enddo
                 endif
@@ -1791,7 +1815,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 ! Invalid number of values specified
                 !
                 errmsg = 'Invalid number of parameters specified for ''' // &
-                   & trim(parname) // ''' at ''' // nambnd(j) // ''' in ' // &
+                   & trim(bndparname) // ''' at ''' // nambnd(j) // ''' in ' // &
                    & trim(bcmfilnam)
                 call write_error(errmsg, unit=lundia)
                 error = .true.

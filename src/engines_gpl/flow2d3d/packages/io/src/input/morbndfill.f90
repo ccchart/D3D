@@ -125,9 +125,11 @@ subroutine morbndfill(kcs       ,guu       ,gvv       ,icx       ,icy       , &
          & .and. (kcs(num) == 1 .or. kcs(ndm) == 1)  ) nf = 2
        !
        morbnd(jb)%npnt = nf*npnt
+       if (morbnd(jb)%npnt.gt.gdp%gdmorpar%MAXnpnt) gdp%gdmorpar%MAXnpnt = morbnd(jb)%npnt !note MAXnpnt is initialized to zero in initmorpar
        istat           = 0
                        allocate(morbnd(jb)%alfa_dist(nf*npnt), stat = istat)
        if (istat == 0) allocate(morbnd(jb)%alfa_mag(nf*npnt) , stat = istat)
+       if (istat == 0) allocate(morbnd(jb)%width(nf*npnt)    , stat = istat)
        if (istat == 0) allocate(morbnd(jb)%idir(nf*npnt)     , stat = istat)
        if (istat == 0) allocate(morbnd(jb)%nm(nf*npnt)       , stat = istat)
        if (istat == 0) allocate(morbnd(jb)%nxmx(nf*npnt)     , stat = istat)
@@ -217,6 +219,7 @@ subroutine morbndfill(kcs       ,guu       ,gvv       ,icx       ,icy       , &
           !
           morbnd(jb)%alfa_dist(i) = totdist
           morbnd(jb)%alfa_mag(i)  = 1.0
+          morbnd(jb)%width(i)     = width
           morbnd(jb)%idir(i)      = idir
           morbnd(jb)%nm(i)        = nm
           morbnd(jb)%nxmx(i)      = nxmx
@@ -225,6 +228,7 @@ subroutine morbndfill(kcs       ,guu       ,gvv       ,icx       ,icy       , &
              morbnd(jb)%alfa_mag(i)  = width / totwidth
              i = i + 1
              morbnd(jb)%alfa_mag(i)  = width2 / totwidth
+             morbnd(jb)%width(i)     = width2
              morbnd(jb)%alfa_dist(i) = totdist
              morbnd(jb)%idir(i)      = idir2
              morbnd(jb)%nm(i)        = nm

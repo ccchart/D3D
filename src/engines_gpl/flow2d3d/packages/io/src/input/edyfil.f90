@@ -60,6 +60,8 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
     integer, pointer                      :: nlg 
     integer, pointer                      :: mmaxgl 
     integer, pointer                      :: nmaxgl 
+    logical, pointer :: HORIZdiffZERO
+    logical, pointer :: HORIZviscZERO
 !
 ! Global variables
 !
@@ -90,6 +92,8 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
 !
 !! executable statements -------------------------------------------------------
 !
+    HORIZdiffZERO => gdp%gdimbound%HORIZdiffZERO
+    HORIZviscZERO => gdp%gdimbound%HORIZviscZERO
     !
     mfg    => gdp%gdparall%mfg 
     mlg    => gdp%gdparall%mlg 
@@ -149,6 +153,7 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
        do m = mfg, mlg 
           do n = nfg, nlg 
              vicuv(n-nfg+1,m-mfg+1,kbg) = tmp(n,m) 
+             if (HORIZviscZERO)  vicuv(n-nfg+1,m-mfg+1,kbg)  = 0._fp
           enddo 
        enddo
        !
@@ -175,6 +180,7 @@ subroutine edyfil(lundia    ,error     ,filedy    ,fmttmp    ,nmax      , &
           do m = mfg, mlg 
              do n = nfg, nlg 
                 dicuv(n-nfg+1,m-mfg+1,kbg) = tmp(n,m)
+                if (HORIZdiffZERO) dicuv(n-nfg+1,m-mfg+1,kbg) = 0._fp
              enddo
           enddo
        endif

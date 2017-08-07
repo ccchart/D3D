@@ -5,7 +5,7 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
                 & dpv       ,hu        ,hv        ,hkru      ,hkrv      , &
                 & thick     ,s1        ,dps       ,u1        ,v1        , &
                 & umean     ,vmean     ,r1        ,rtur1     ,guu       , &
-                & gvv       ,qxk       ,qyk       ,gdp       )
+                & gvv       ,qxk       ,qyk       ,filic     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2017.                                
@@ -67,6 +67,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
     character(256)       , pointer :: restid
     integer              , pointer :: nofou
     integer, dimension(:), pointer :: foumask
+    logical                 , pointer :: bndBEDfromFILE
+    real(fp), dimension(:,:), pointer :: aguu
+    real(fp), dimension(:,:), pointer :: agvv
 !
 ! Global variables
 !
@@ -107,6 +110,7 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax)                      :: v1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci)              :: r1     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(kmax)                               , intent(in)  :: thick  !  Description and declaration in esm_alloc_real.f90
+    character(*)                                            , intent(in)  :: filic
 !
 ! Local variables
 !
@@ -124,6 +128,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
 !
 !! executable statements -------------------------------------------------------
 !
+    bndBEDfromFILE => gdp%gdimbound%bndBEDfromFILE
+    aguu           => gdp%gdimbound%aguu
+    agvv           => gdp%gdimbound%agvv
     lundia             => gdp%gdinout%lundia
     kfst0              => gdp%gdpostpr%kfst0
     temp               => gdp%gdprocs%temp
@@ -164,7 +171,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
            !   Boundary at left side
            !
            if (kcs(nmd)==2 .and. kcs(nm)==1) then
-              s1(nmd) = s1(nm)
+                 if (.not.(bndBEDfromFILE.and. filic /= ' ')) then
+                     s1(nmd) = s1(nm) !if is only needed to have initial condition from ini file on the halo
+                 endif
               do k = 1, kmax
                  do l = 1, lstsci
                    r1(nmd, k, l) = r1(nm, k, l)
@@ -180,7 +189,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
            !   Boundary at right side
            !
            if (kcs(nm)==1 .and. kcs(nmu)==2) then
-              s1(nmu) = s1(nm)
+                 if (.not.(bndBEDfromFILE.and. filic /= ' ')) then
+                     s1(nmu) = s1(nm) !if is only needed to have initial condition from ini file on the halo
+                 endif
               do k = 1, kmax
                  do l = 1, lstsci
                    r1(nmu, k, l) = r1(nm, k, l)
@@ -196,7 +207,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
            !   Boundary at bottom side
            !
            if (kcs(ndm)==2 .and. kcs(nm)==1) then
-              s1(ndm) = s1(nm)
+                 if (.not.(bndBEDfromFILE.and. filic /= ' ')) then
+                     s1(ndm) = s1(nm) !if is only needed to have initial condition from ini file on the halo
+                 endif
               do k = 1, kmax
                  do l = 1, lstsci
                    r1(ndm, k, l) = r1(nm, k, l)
@@ -212,7 +225,9 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
            !   Boundary at top side
            !
            if (kcs(nm)==1 .and. kcs(num)==2) then
-              s1(num) = s1(nm)
+                 if (.not.(bndBEDfromFILE.and. filic /= ' ')) then
+                     s1(num) = s1(nm) !if is only needed to have initial condition from ini file on the halo
+                 endif
               do k = 1, kmax
                  do l = 1, lstsci
                    r1(num, k, l) = r1(nm, k, l)
@@ -271,10 +286,12 @@ subroutine chkdry(j         ,nmmaxj    ,nmmax     ,kmax      ,lsec      , &
     !
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              & zmodel    ,kcs       ,kcu       ,kspu      ,dps       , &
-             & s1        ,dpu       ,umean     ,hu        ,gdp       )
+             & s1        ,dpu       ,umean     ,hu        ,aguu      , &
+             & gdp       )
     call upwhu(j         ,nmmaxj    ,nmmax     ,kmax      ,icy       , &
              & zmodel    ,kcs       ,kcv       ,kspv      ,dps       , &
-             & s1        ,dpv       ,vmean     ,hv        ,gdp       )
+             & s1        ,dpv       ,vmean     ,hv        ,agvv      , &
+             & gdp       )
     !
     ! check for dry velocity points
     ! Approach for 2D weirs (following WAQUA)

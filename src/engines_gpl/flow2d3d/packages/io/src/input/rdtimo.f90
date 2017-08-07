@@ -60,6 +60,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                            , pointer :: ifis
     integer                            , pointer :: itis
     logical                            , pointer :: ztbml
+    logical, pointer :: QUARTERdt
 !
 ! Global variables
 !
@@ -136,6 +137,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !
 !! executable statements -------------------------------------------------------
 !
+    QUARTERdt => gdp%gdimbound%QUARTERdt
     smiss          => gdp%gdconst%smiss
     smax           => gdp%gdf0isf1%smax
     velmax         => gdp%gdf0isf1%velmax
@@ -472,6 +474,10 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! Flag for output at half time steps
     !
     call prop_get_logical(gdp%mdfile_ptr, '*', 'HdtOut' , flwoutput%halfdt)
+    !
+    ! Flag for output at quarter time steps (print after uzd is called)
+    !
+    call prop_get_logical(gdp%mdfile_ptr, '*', 'QUARTERdt' , QUARTERdt) 
     !
     ! Flag for writing barrier height to history file
     !

@@ -67,7 +67,7 @@ subroutine radstr(ewave1    ,eroll1    ,sinkr     ,c         ,cgc       , &
     integer                                                        , intent(in) :: nmax   !  Description and declaration in esm_alloc_int.f90
     integer                                                        , intent(in) :: nocol  !  Description and declaration in esm_alloc_int.f90
     integer                                                        , intent(in) :: norow  !  Description and declaration in esm_alloc_int.f90
-    integer   , dimension(5, norow + nocol)                        , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
+    integer   , dimension(7, norow + nocol)                        , intent(in) :: irocol !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in) :: kfs    !  Description and declaration in esm_alloc_int.f90
     integer   , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub), intent(in) :: kcs    !  Description and declaration in esm_alloc_int.f90
     logical                                                        , intent(in) :: wavcmp
