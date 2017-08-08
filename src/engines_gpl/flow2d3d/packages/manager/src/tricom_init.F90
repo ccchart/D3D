@@ -807,15 +807,12 @@ subroutine tricom_init(olv_handle, gdp)
     ! Read md-file, only if initialisation is wanted
     !
     call readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt    , &
-              & filrgf    ,dx        ,dy        ,sferic    , &
-              & anglat    ,anglon    ,grdang    ,tgfcmp    ,roumet    ,rouwav    , &
-              & temeqs    ,saleqs    ,betac     ,dml       , &
-              & restid    ,icreep    ,trasol    , &
-              & forfuv    ,forfww    ,ktemp     ,keva      , &
-              & temint    ,evaint    , &
-              & lturi     ,tkemod    ,riglid    , &
-              & tstprt    ,prsmap    ,prshis    ,selmap    , &
-              & selhis    ,filrol    ,gdp       )
+              & filrgf    ,dx        ,dy        ,sferic    ,anglat    ,anglon    , &
+              & grdang    ,tgfcmp    ,roumet    ,rouwav    ,temeqs    ,saleqs    , &
+              & betac     ,dml       ,restid    ,icreep    ,trasol    ,forfuv    , &
+              & forfww    ,ktemp     ,keva      ,temint    ,evaint    ,lturi     , &
+              & tkemod    ,riglid    ,tstprt    ,prsmap    ,prshis    ,selmap    , &
+              & selhis    ,filrol    ,filic     ,gdp       )
     call dfsync (gdp)
     if (error) goto 9996
     !
