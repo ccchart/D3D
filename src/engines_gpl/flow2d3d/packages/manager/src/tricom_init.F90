@@ -1245,7 +1245,7 @@ subroutine tricom_init(olv_handle, gdp)
               & i(kspu)   ,i(kspv)   ,r(hkru)   ,r(hkrv)   , &
               & r(umean)  ,r(vmean)  ,r(dp)     ,r(dpu)    ,r(dpv)    , &
               & d(dps)    ,r(dzs1)   ,r(u1)     ,r(v1)     ,r(s1)     , &
-              & r(thick)  ,gdp       )
+              & r(thick)  ,nst       ,gdp       )
     !
     ! After Flowmapper has adjusted the KC[UVS] arrays, recalculate some
     ! geometric information in D3dFlow in vicinity of interfaces
