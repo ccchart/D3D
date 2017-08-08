@@ -1158,7 +1158,8 @@ subroutine tricom_init(olv_handle, gdp)
     icx = nmaxddb
     icy = 1
     call caldps(nmmax     ,nfltyp    ,icx       , &
-              & icy       ,i(kcs)    ,r(dp)     ,d(dps)    ,gdp       )
+              & icy       ,i(kcs)    ,r(dp)     ,d(dps)    , &
+              & gdp%gdimbound%dpL    ,gdp%gdimbound%dpH    ,gdp       )
     if (waveol>0) then
        !
        ! In case of wave online: write DPS to comm-file instead of DP
