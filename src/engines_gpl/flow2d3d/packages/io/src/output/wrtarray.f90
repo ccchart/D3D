@@ -2447,7 +2447,7 @@ subroutine wrtarray_lnm(fds, filename, filetype, grpnam, &
     integer      , dimension(0:nproc-1)                                      , intent(in)  :: nf            ! first index w.r.t. global grid in y-direction
     integer      , dimension(0:nproc-1)                                      , intent(in)  :: nl            ! last index w.r.t. global grid in y-direction
     integer      , dimension(4,0:nproc-1)                                    , intent(in)  :: iarrc         ! array containing collected grid indices 
-    real(fp)     , dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, ul)   , intent(in)  :: var
+    real(fp)     , dimension(ul, gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub)   , intent(in)  :: var
     character(*)                                                             , intent(in)  :: varnam
     character(*)                                                             , intent(in)  :: grpnam
     character(*)                                                             , intent(in)  :: filename

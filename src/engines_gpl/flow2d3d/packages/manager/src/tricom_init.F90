@@ -1239,6 +1239,7 @@ subroutine tricom_init(olv_handle, gdp)
     !
     ! Calculate DPU/DPV (depth at velocity points)
     !
+    nst = -100
     call caldpu(lundia    ,mmax      ,nmaxus    ,kmax      , &
               & zmodel    , &
               & i(kcs)    ,i(kcu)    ,i(kcv)    , &

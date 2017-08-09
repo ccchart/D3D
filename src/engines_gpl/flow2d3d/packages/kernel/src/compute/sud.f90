@@ -1631,13 +1631,6 @@ subroutine sud(dischy    ,nst       ,icreep    ,betac     ,mmax      , &
           call computeU1V1accuratezza(s1,kfs,u0,u1,v1,xG_V1,yG_V1,xG_U1,yG_U1,ghostU1,ghostV1,nlb,nub,mlb,mub,icy,kmax,1,gdp)
        endif
     endif
-    if (nst<=1) then
-       do nm=1,nmmax
-          if (kfu(nm)==1) then
-             write(8765432,'(2i9,10f25.15)') nst,nm,U0(nm,1),U1(nm,1),U0(nm,1)-U1(nm,1)
-          endif
-       enddo
-    endif
     !
     ! Optionally compute individual momentum terms for output
     !
