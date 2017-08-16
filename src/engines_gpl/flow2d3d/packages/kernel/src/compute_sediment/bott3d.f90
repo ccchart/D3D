@@ -801,9 +801,9 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,timnow    ,lsedtot  , &
                    endif
                 enddo ! l (sediment fraction)
              enddo    ! ib (boundary point)
-          elseif (icond == 9 .or. icond == 10) then
+          elseif (icond == 9 .or. icond == 10 .or. icond == 11) then
              !
-             ! Open boundary with transport boundary condition:
+             ! Open boundary with total transport boundary condition:
              ! Get data from table file
              !
              call flw_gettabledata(bcmfile  , morbnd(jb)%ibcmt(1) , &
@@ -824,16 +824,21 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,timnow    ,lsedtot  , &
                 !
                 rate = bc_mor_array(li)
                 !
-                if (icond == 6) then
+                if (icond == 9) then
                    !
                    ! transport including pores
                    !
                    rate = rate*cdryb(l)
-                else
+                elseif (icond == 10) then
                    !
                    ! transport excluding pores
                    !
                    rate = rate*rhosol(l)
+                elseif (icond == 11) then
+                   !
+                   ! transport mass
+                   !
+                   !rate = rate
                 endif
                 !
                 ! Loop over boundary points and compute total bed transport
@@ -987,7 +992,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,timnow    ,lsedtot  , &
                    endif
                 enddo ! ib (boundary point)
              enddo    ! l (sediment fraction)
-          endif       ! icond = 4, 5, 8, 9 or 10 (boundary with transport condition)
+          endif       ! icond = 4, 5, 8, 9, 10 or 11 (boundary with transport condition)
        enddo          ! jb (open boundary) 
        !
     endif
@@ -1390,12 +1395,12 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,timnow    ,lsedtot  , &
              endif
              !
              select case(icond)
-             case (0,4,5,8,9,10)
+             case (0,4,5,8,9,10,11)
                 !
                 ! outflow or free boundary (0)
                 ! or prescribed transport volume with pores (4,9)
                 ! or prescribed transport volume without pores (5,10)
-                ! or prescribed transport mass (8)
+                ! or prescribed transport mass (8,11)
                 !
                 depchg(nm) = depchg(nm) + depchg(nxmx) * alfa_mag
              case (1)

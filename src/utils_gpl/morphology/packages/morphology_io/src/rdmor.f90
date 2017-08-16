@@ -166,6 +166,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
 ! Local variables
 !
     integer                                                           :: i
+    integer                                                           :: ic
     integer                                                           :: ilist
     integer                                                           :: ilun     ! Unit number for attribute file
     integer                                                           :: iqnt
@@ -192,7 +193,8 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     character(10)                                                     :: versionstring
     character(20)                                                     :: fluxlimstring
     character(80)                                                     :: bndname
-    character(256)                                                    :: errmsg
+    character(1024)                                                   :: errmsg
+    character(256)                                                    :: icstr
     character(256)                                                    :: pxxstr
     character(256)                                                    :: string
     character(10)              , dimension(:) , allocatable           :: cfield
@@ -642,7 +644,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
              call write_error(errmsg, unit=lundia)
              error = .true.
              return
-       endif
+          endif
        endif
        !
        do i = 1, size(mor_ptr%child_nodes)
@@ -673,12 +675,53 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           !
           ! Read bed boundary condition for open boundary
           !
-          call prop_get_integer(morbound_ptr, '*', 'IBedCond', morbnd(j)%icond)
-          if (morbnd(j)%icond<0 .or. morbnd(j)%icond>10) then
-             errmsg = 'Invalid bed boundary condition at "'//trim(bndname)//'" in '//trim(filmor)
+          ic = -999
+          call prop_get_integer(morbound_ptr, '*', 'IBedCond', ic)
+          if (ic == -999) then
+             icstr = ' '
+             call prop_get(morbound_ptr, '*', 'IBedCond', icstr)
+             select case (icstr)
+             case (' ') ! keyword not specified, use default value
+                ic = morbnd(j)%icond
+             case ('depth change at boundary matches internal change','bed level change at boundary matches internal change')
+                ic = 0
+             case ('constant depth','constant bed level')
+                ic = 1
+             case ('time series of depth')
+                ic = 2
+             case ('time series of depth change')
+                ic = 3
+             case ('time series of bedload: transported volume including pores')
+                ic = 4
+             case ('time series of bedload: transported volume excluding pores')
+                ic = 5
+             case ('time series of bed level')
+                ic = 6
+             case ('time series of bed level change')
+                ic = 7
+             case ('time series of bedload: transported mass')
+                ic = 8
+             case ('time series of total bedload: transported volume including pores')
+                ic = 9
+             case ('time series of total bedload: transported volume excluding pores')
+                ic = 10
+             case ('time series of total bedload: transported mass')
+                ic = 11
+             case default
+                errmsg = 'Unknown bed condition "'//trim(icstr)//'" specified for boundary "'//trim(bndname)//'" in '//trim(filmor)
+                call write_error(errmsg, unit=lundia)
+                error = .true.
+                return
+             end select
+          endif
+          if (ic<0 .or. ic>11) then
+             write(icstr,'(i0)') ic
+             errmsg = 'Unknown bed condition number '//trim(icstr)//' specified for boundary "'//trim(bndname)//'" in '//trim(filmor)
              call write_error(errmsg, unit=lundia)
              error = .true.
              return
+          else
+             morbnd(j)%icond = ic
           endif
        enddo
        !
@@ -1270,7 +1313,6 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     integer                                                           :: j
     integer                                                           :: l
     integer                                                           :: nval
-    character(20)                                                     :: parname
     character(40)                                                     :: txtput1
     character(20)                                                     :: txtput2
     character(120)                                                    :: txtput3
@@ -1670,52 +1712,52 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
        readtotal = .false.
        select case(morbnd(j)%icond)
        case (0)
-          txtput2 = '                free'
+          txtput2    = '                free'
           bndparname = ' '
        case (1)
-          txtput2 = '               fixed'
+          txtput2    = '               fixed'
           bndparname = ' '
        case (2)
-          txtput2 = '         time series'
+          txtput2    = '         time series'
           bndparname = 'depth               '
-          ibndtyp = 1
-          nval    = 1
+          ibndtyp    = 1
+          nval       = 1
        case (3)
-          txtput1 = '  Depth change prescribed'
-          txtput2 = '         time series'
+          txtput1    = '  Depth change prescribed'
+          txtput2    = '         time series'
           bndparname = 'depth change        '
-          ibndtyp = 1
-          nval    = 1
+          ibndtyp    = 1
+          nval       = 1
        case (4)
           txtput1    = '  Bed transport incl pores prescribed'
-          txtput2 = '         time series'
+          txtput2    = '         time series'
           bndparname = 'transport incl pores'
-          ibndtyp = 2
-          nval    = lsedtot - nmudfrac
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
        case (5)
           txtput1    = '  Bed transport excl pores prescribed'
-          txtput2 = '         time series'
+          txtput2    = '         time series'
           bndparname = 'transport excl pores'
-          ibndtyp = 2
-          nval    = lsedtot - nmudfrac
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
        case (6)
-          txtput1 = '  Bed level prescribed'
-          txtput2 = '         time series'
-          parname = 'bed level           '
-          ibndtyp = 1
-          nval    = 1
+          txtput1    = '  Bed level prescribed'
+          txtput2    = '         time series'
+          bndparname = 'bed level           '
+          ibndtyp    = 1
+          nval       = 1
        case (7)
-          txtput1 = '  Bed level change prescribed'
-          txtput2 = '         time series'
-          parname = 'bed level change    '
-          ibndtyp = 1
-          nval    = 1
+          txtput1    = '  Bed level change prescribed'
+          txtput2    = '         time series'
+          bndparname = 'bed level change    '
+          ibndtyp    = 1
+          nval       = 1
        case (8)
-          txtput1 = '  Transport mass prescribed'
-          txtput2 = '         time series'
-          parname = 'transport mass'
-          ibndtyp = 2
-          nval    = lsedtot - nmudfrac
+          txtput1    = '  Transport mass prescribed'
+          txtput2    = '         time series'
+          bndparname = 'transport mass'
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
        case (9)
           txtput1    = '  Bed transport incl pores prescribed'
           txtput2    = '         time series'
@@ -1729,6 +1771,14 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
           bndparname = 'total bed transport excl pores'
           ibndtyp    = 2
           nval       = lsedtot - nmudfrac
+          readtotal  = .true.
+       case (11)
+          txtput1    = '  Bed transport mass prescribed'
+          txtput2    = '         time series'
+          bndparname = 'total bed transport mass'
+          ibndtyp    = 2
+          nval       = lsedtot - nmudfrac
+          readtotal  = .true.
        end select
        write (lundia, '(3a)') txtput1, ':', txtput2
        !
@@ -1886,7 +1936,6 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
     type(tree_data), pointer  :: sedblock_ptr
     character(256)            :: filfluff
     character(11)             :: fmttmp       ! Format file ('formatted  ') 
-    character(256)            :: parname
     character(256)            :: errmsg
 !
 !! executable statements -------------------------------------------------------

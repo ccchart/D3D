@@ -74,6 +74,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     real(fp)                 :: temp
     real(fp)                 :: thunlyr
     integer                  :: i
+    integer                  :: ic
     integer                  :: istat
     integer                  :: j
     integer                  :: l
@@ -85,7 +86,8 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     character(20)            :: txtput2
     character(40)            :: txtput1
     character(80)            :: bndname
-    character(256)           :: errmsg
+    character(1024)          :: errmsg
+    character(256)           :: icstr
     character(256)           :: fildiff
     logical                  :: log_temp
     logical                  :: ex
@@ -615,12 +617,37 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
           return
        endif
        !
-       call prop_get_integer(morbound_ptr, '*', 'ICmpCond', cmpbnd(j)%icond)
-       if (cmpbnd(j)%icond < 0 .or. cmpbnd(j)%icond > 3) then
-          errmsg = 'Invalid composition boundary condition at "'//trim(bndname)//'" in '//trim(filmor)
+       ic = -999
+       call prop_get_integer(morbound_ptr, '*', 'ICmpCond', ic)
+       if (ic == -999) then
+          icstr = ' '
+          call prop_get(morbound_ptr, '*', 'ICmpCond', icstr)
+          select case (icstr)
+          case (' ') ! keyword not specified, use default value
+             ic = cmpbnd(j)%icond
+          case ('boundary composition matches internal composition')
+             ic = 0
+          case ('constant bed composition')
+             ic = 1
+          case ('time series of mass fractions')
+             ic = 2
+          case ('time series of volume fractions')
+             ic = 3
+          case default
+             errmsg = 'Unknown composition condition "'//trim(icstr)//'" specified for boundary "'//trim(bndname)//'" in '//trim(filmor)
+             call write_error(errmsg, unit=lundia)
+             error = .true.
+             return
+          end select
+       endif
+       if (ic < 0 .or. ic > 3) then
+          write(icstr,'(i0)') ic
+          errmsg = 'Invalid composition condition number '//trim(icstr)//' specified for boundary "'//trim(bndname)//'" in '//trim(filmor)
           call write_error(errmsg, unit=lundia)
           error = .true.
           return
+       else
+          cmpbnd(j)%icond = ic
        endif
        !
     enddo

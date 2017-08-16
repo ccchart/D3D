@@ -115,7 +115,6 @@ subroutine org_readtable(this, filnam, refjulday, errorstring)
 ! Local parameters
 !
     integer, parameter :: MAXFLD    = 400
-    integer, parameter :: MAXERRSTR = 256
     integer, parameter :: MAXLINE   = 4096
     integer, parameter :: INT_READ  = 1  ! used by itype
     integer, parameter :: REAL_READ = 2  ! used by itype
@@ -125,7 +124,7 @@ subroutine org_readtable(this, filnam, refjulday, errorstring)
 !
     integer             , intent(in)  :: refjulday
     character(*)        , intent(in)  :: filnam
-    character(MAXERRSTR), intent(out) :: errorstring
+    character(*)        , intent(out) :: errorstring
     type(tablefiletype)               :: this
 !
 ! Local variables
@@ -448,9 +447,9 @@ subroutine org_readtable(this, filnam, refjulday, errorstring)
     !
     ! 21 is length of 'Reading XLine I004: X'
     !
-    if (lstri1 + lstri3 < MAXERRSTR - 21 - 1) then
-       if (lstri1 + lstri2 + lstri3 >= MAXERRSTR - 21) then
-          lstri2 = MAXERRSTR - 21 - 1 - lstri1 - lstri3
+    if (lstri1 + lstri3 < len(errorstring) - 21 - 1) then
+       if (lstri1 + lstri2 + lstri3 >= len(errorstring) - 21) then
+          lstri2 = len(errorstring) - 21 - 1 - lstri1 - lstri3
        endif
        write(errorstring,'(4A,I4,4A)') &
           & 'Reading ',trim(filnam),char(10), &
@@ -1243,7 +1242,7 @@ subroutine org_gettabletimes(this       ,itable     ,times      ,refjulday  , &
     integer                ,intent(in)  :: refjulday
     real(fp), dimension(*) ,intent(out) :: times
     type(tablefiletype)    ,intent(in)  :: this
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1296,7 +1295,7 @@ subroutine org_gettabledata_vector(this       ,ivec       ,values     , &
     real(fp)               ,intent(in)  :: timhr
     real(fp), dimension(:) ,intent(out) :: values
     type(tablefiletype)    ,intent(in)  :: this
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1336,7 +1335,7 @@ subroutine org_gettabledata_scalar(this       ,itable     ,ipar       , &
     real(fp)               ,intent(in)  :: timhr
     real(fp), dimension(:) ,intent(out) :: values
     type(tablefiletype)    ,intent(in)  :: this
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1536,7 +1535,7 @@ subroutine org_gettable_vector(this      ,location  ,parname   ,ivec      , &
     character(*)           ,intent(in)  :: location
     character(*)           ,intent(in)  :: parname
     type(tablefiletype)    ,intent(in)  :: this
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
 !
 !! executable statements -------------------------------------------------------
 !
@@ -1564,7 +1563,7 @@ subroutine org_gettable_scalar(this      ,location  ,parname   ,itable    , &
     character(*)           ,intent(in)  :: location
     character(*)           ,intent(in)  :: parname
     type(tablefiletype)    ,intent(in)  :: this
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1637,7 +1636,7 @@ subroutine org_checktable(this      ,itable    ,ipar      , &
     integer                      ,intent(in)  :: npar
     integer                      ,intent(in)  :: chktyp
     type(tablefiletype)          ,intent(in)  :: this
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1687,7 +1686,7 @@ end subroutine org_checktable
 !
 !===============================================================================
 subroutine org_checktableparnames(this      ,parnames  ,itable    , &
-                            & ipar      ,npar      ,errorstring)
+                                & ipar      ,npar      ,errorstring)
 !!--description-----------------------------------------------------------------
 !
 !    Function: Check parameter names in table
@@ -1701,7 +1700,7 @@ subroutine org_checktableparnames(this      ,parnames  ,itable    , &
     integer                      ,intent(in)  :: npar
     character(*), dimension(npar),intent(in)  :: parnames
     type(tablefiletype)          ,intent(in)  :: this
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1762,7 +1761,7 @@ integer function org_getntables(this    ,errorstring)
 ! Global variables
 !
     type(tablefiletype)          ,intent(in)  :: this
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1791,7 +1790,7 @@ character(MAXTABLECLENGTH) function org_gettablelocation(this    ,itable     ,er
 !
     type(tablefiletype)          ,intent(in)  :: this
     integer                      ,intent(in)  :: itable
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -1825,7 +1824,7 @@ integer function org_gettablentimes(this    ,itable     ,errorstring)
 !
     type(tablefiletype)          ,intent(in)  :: this
     integer                      ,intent(in)  :: itable
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !

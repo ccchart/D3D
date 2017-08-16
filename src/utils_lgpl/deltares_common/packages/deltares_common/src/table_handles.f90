@@ -88,7 +88,7 @@ subroutine readtable(handle, filnam, refjulday, errorstring)
     integer            ,intent(in)  :: refjulday
     character(*)       ,intent(in)  :: filnam
     type(handletype)                :: handle
-    character(256)     ,intent(out) :: errorstring
+    character(*)       ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -152,7 +152,7 @@ subroutine gettable_vector(handle    ,location  ,parname   ,ivec      , &
     integer                ,intent(in)  :: nparmin
     character(*)           ,intent(in)  :: location
     character(*)           ,intent(in)  :: parname
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
     type(handletype)       ,intent(in)  :: handle
 !
 ! Local variables
@@ -179,7 +179,7 @@ subroutine gettable_scalar(handle    ,location  ,parname   ,itable    , &
     integer                ,intent(in)  :: nparmin
     character(*)           ,intent(in)  :: location
     character(*)           ,intent(in)  :: parname
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
     type(handletype)       ,intent(in)  :: handle
 !
 ! Local variables
@@ -208,7 +208,7 @@ subroutine gettabletimes(handle     ,itable     ,times      ,refjulday  , &
     integer                ,intent(in)  :: itable
     integer                ,intent(in)  :: refjulday
     real(fp), dimension(*) ,intent(out) :: times
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
     type(handletype)       ,intent(in)  :: handle
 !
 ! Local variables
@@ -239,7 +239,7 @@ subroutine gettabledata_vector(handle     ,ivec       ,values     , &
     real(fp), optional     ,intent(in)  :: extrapol_in
     real(fp)               ,intent(in)  :: timhr
     real(fp), dimension(:) ,intent(out) :: values
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
     type(handletype)       ,intent(in)  :: handle
 !
 ! Local variables
@@ -274,7 +274,7 @@ subroutine gettabledata_scalar(handle     ,itable     ,ipar       , &
     real(fp), optional     ,intent(in)  :: extrapol_in
     real(fp)               ,intent(in)  :: timhr
     real(fp), dimension(:) ,intent(out) :: values
-    character(256)         ,intent(out) :: errorstring
+    character(*)           ,intent(out) :: errorstring
     type(handletype)       ,intent(in)  :: handle
 !
 ! Local variables
@@ -310,7 +310,7 @@ subroutine checktable(handle    ,itable    ,ipar      , &
     integer                      ,intent(in)  :: ipar
     integer                      ,intent(in)  :: npar
     integer                      ,intent(in)  :: chktyp
-    character(256)         ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
     type(handletype)             ,intent(in)  :: handle
 !
 ! Local variables
@@ -340,7 +340,7 @@ subroutine checktableparnames(handle    ,parnames  ,itable    , &
     integer                      ,intent(in)  :: ipar
     integer                      ,intent(in)  :: npar
     character(*), dimension(npar),intent(in)  :: parnames
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
     type(handletype)             ,intent(in)  :: handle
 !
 ! Local variables
@@ -394,7 +394,7 @@ integer function getntables(handle  ,errorstring)
 ! Global variables
 !
     type(handletype)             ,intent(in)  :: handle
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -423,7 +423,7 @@ character(MAXTABLECLENGTH) function gettablelocation(handle  ,itable     ,errors
 !
     type(handletype)             ,intent(in)  :: handle
     integer                      ,intent(in)  :: itable
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -452,7 +452,7 @@ integer function gettablentimes(handle  ,itable     ,errorstring)
 !
     type(handletype)             ,intent(in)  :: handle
     integer                      ,intent(in)  :: itable
-    character(256)               ,intent(out) :: errorstring
+    character(*)                 ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -480,7 +480,7 @@ subroutine newtablehandle(tablehandle, errorstring)
 ! Global variables
 !
     type(tablefiletypehandle) ,intent(out) :: tablehandle
-    character(256)            ,intent(out) :: errorstring
+    character(*)              ,intent(out) :: errorstring
 !
 ! Local variables
 !
@@ -510,7 +510,7 @@ logical function validtable(handle, errorstring)
 ! Global variables
 !
     type(handletype)                     :: handle
-    character(256),intent(out), optional :: errorstring
+    character(*),intent(out), optional   :: errorstring
 !
 ! Local variables
 !

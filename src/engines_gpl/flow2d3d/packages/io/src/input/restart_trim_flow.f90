@@ -1,5 +1,5 @@
 subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax      , &
-                           & nmaxus    ,kmax      ,lstsci    ,ltur      , &
+                           & nmaxus    ,kmax      ,lstsci    ,ltur      ,w1        , &
                            & s1        ,u1        ,v1        ,r1        ,rtur1     , &
                            & umnldf    ,vmnldf    ,kfu       ,kfv       , &
                            & dp        ,ex_nfs    ,namcon    ,coninit   ,gdp       )
@@ -73,6 +73,10 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
     real(hp)       , pointer :: morft
     real(hp)       , pointer :: morft0
     real(fp)       , pointer :: bed
+    integer                 , pointer :: cutcell
+    real(fp), dimension(:,:), pointer :: dpL
+    real(fp), dimension(:,:), pointer :: dpH
+    real(fp), dimension(:,:), pointer :: poros
     !
     integer       , dimension(:,:)       , pointer :: iarrc
     integer       , dimension(:)         , pointer :: mf
@@ -101,6 +105,7 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax, ltur), intent(out) :: rtur1
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(out) :: u1
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax)        , intent(out) :: v1
+    real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, 0:kmax)      , intent(out) :: w1
     real(fp), dimension(gdp%d%nlb:gdp%d%nub, gdp%d%mlb:gdp%d%mub, kmax, lstsci), intent(out) :: r1
     character(*)                                                                             :: restid1
     character(20), dimension(lstsci + ltur)                                    , intent(in)  :: namcon !  Description and declaration in esm_alloc_char.f90
@@ -174,6 +179,7 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
     integer                     , pointer :: nlg
     integer                     , pointer :: nmaxgl
     integer                     , pointer :: mmaxgl   
+    !
     character(8)                          :: elmtyp
     integer                               :: nbytsg
     character(16)                         :: elmqty
@@ -229,6 +235,10 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
     nlg                 => gdp%gdparall%nlg
     mmaxgl              => gdp%gdparall%mmaxgl
     nmaxgl              => gdp%gdparall%nmaxgl
+    cutcell             => gdp%gdimbound%cutcell
+    dpL                 => gdp%gdimbound%dpL
+    dpH                 => gdp%gdimbound%dpH
+    poros               => gdp%gdimbound%poros
     !
     mf                  => gdp%gdparall%mf
     ml                  => gdp%gdparall%ml
@@ -567,6 +577,32 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
        if (ierror /= 0) goto 9999
     endif
     !
+    if (cutcell>0) then
+       !note1: here dpL and dpH overwrite the values read from depth files in subroutine rddept
+       !note2: dpL and dpH for now are in map-series, consider to move it to map-sed-series
+       !
+       ! element 'dpL'
+       !
+       call rdarray_nm(fds, filename, filetype, grnam3, i_restart, &
+                    & nf, nl, mf, ml, iarrc, gdp, &
+                    & ierror, lundia, dpL, 'dpL')
+       if (ierror /= 0) goto 9999
+       !
+       ! element 'dpH'
+       !
+       call rdarray_nm(fds, filename, filetype, grnam3, i_restart, &
+                    & nf, nl, mf, ml, iarrc, gdp, &
+                    & ierror, lundia, dpH, 'dpH')
+       if (ierror /= 0) goto 9999
+       !
+       ! element 'poros'
+       !
+       call rdarray_nm(fds, filename, filetype, grnam3, i_restart, &
+                    & nf, nl, mf, ml, iarrc, gdp, &
+                    & ierror, lundia, poros, 'poros')
+       if (ierror /= 0) goto 9999
+    endif
+    !
     ! element 'U1' & 'V1'
     !
     call rdarray_nmk(fds, filename, filetype, grnam3, i_restart, &
@@ -577,6 +613,15 @@ subroutine restart_trim_flow(lundia    ,error     ,restid1   ,lturi     ,mmax   
                   & nf, nl, mf, ml, iarrc, gdp, &
                   & 1, kmax, ierror, lundia, v1, 'V1')
     if (ierror /= 0) goto 9999
+    !
+    ! element 'W1'
+    !
+    if (kmax>1) then
+       call rdarray_nmk(fds, filename, filetype, grnam3, i_restart, &
+                     & nf, nl, mf, ml, iarrc, gdp, &
+                     & 0, kmax, ierror, lundia, w1, 'W')
+       if (ierror /= 0) goto 9999
+    endif
     !
     ! element 'UMNLDF' & 'VMNLDF'
     !
