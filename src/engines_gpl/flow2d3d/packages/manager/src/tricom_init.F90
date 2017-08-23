@@ -985,6 +985,7 @@ subroutine tricom_init(olv_handle, gdp)
     ! continuing simulations
     !
     if (sedim) then
+       !compute itmor for bed changes
        tdif  = tmor + itstrt*dt
        itmor = nint(tdif/dt)
        if (abs(itmor*dt-tdif) > (0.1*dt)) then
@@ -994,6 +995,22 @@ subroutine tricom_init(olv_handle, gdp)
        endif
        write(txtput,'(a,i0)') 'Morphological Changes Start Time (step) : ',itmor
        call prterr(lundia, 'G051', txtput)
+       !compute itmorB for bank changes
+       if (tmorB.gt.0._fp) then
+          tdif   = tmorB + itstrt*dt
+          itmorB = nint(tdif/dt)
+          if (abs(itmorB*dt-tdif) > (0.1*dt)) then
+             error  = .true.
+             txtput = 'Morphological (banks) calculation start time'
+             call prterr(lundia, 'U044', txtput)
+          endif
+          write(txtput,'(a,i0)') 'Bank Morphological Changes Start Time (step) : ',itmorB
+          call prterr(lundia, 'G051', txtput)
+       else
+          itmorB = itmor
+       endif
+    else
+       itmorB = 2000000000  !needed in reconvof. (close to maximum signed integer  2,147,483,647)
     endif
     !
     ! Initialize input arrays and verify input
@@ -1055,22 +1072,6 @@ subroutine tricom_init(olv_handle, gdp)
        if (wavcmp) then
           call rbsig(ncmax     ,r(ampbc)  ,r(ombc)   ,r(phibc)  ,r(thetbc) , &
                    & filrol    ,lundia    ,gdp       )
-          !compute itmorB for bank changes
-          if (tmorB.gt.0._fp) then
-             tdif   = tmorB + itstrt*dt
-             itmorB = nint(tdif/dt)
-             if (abs(itmorB*dt-tdif) > (0.1*dt)) then
-                error  = .true.
-                txtput = 'Morphological (banks) calculation start time'
-                call prterr(lundia, 'U044', txtput)
-             endif
-             write(txtput,'(a,i0)') 'Bank Morphological Changes Start Time (step) : ',itmorB
-             call prterr(lundia, 'G051', txtput)
-          else
-             itmorB = itmor
-          endif
-       else
-          itmorB = 2000000000  !needed in reconvof. (close to maximum signed integer  2,147,483,647)
        endif
     endif
     if (dredge) then

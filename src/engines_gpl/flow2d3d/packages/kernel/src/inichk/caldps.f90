@@ -219,7 +219,7 @@ subroutine caldps(nmmax     ,nfltyp    ,icx       , &
           nmd  = nm - icx
           ndm  = nm - icy
           ndmd = ndm - icx
-          if (kcs(nm)==1 .or. rst_dp .or. comparereal(real(dp(nm),fp),rmissval)/=0) then
+          if (kcs(nm)==1 .or. rst_dp) then
              dps(nm) = real(dp(nm),prec)
           elseif (kcs(nm)==2) then
              nmu = nm + icx
