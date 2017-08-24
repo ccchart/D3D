@@ -279,6 +279,8 @@ module m_ec_converter
          integer  :: fmask(4) !< return value of findnm
          real(hp) :: fsum 
          type(tEcMask), pointer :: srcmask 
+         
+         logical :: Lincreasex, Lincreasey
          !
          success = .false.
          sourceElementSet => null()
@@ -323,14 +325,22 @@ module m_ec_converter
                if (associated(weight%weightFactors)) deallocate(weight%weightFactors)
                allocate(weight%weightFactors(4, n_points))
                weight%weightFactors = ec_undef_hp
+               
+!              determine if x and y are increasing
+               Lincreasex = ( (sourceElementSet%x(2) - sourceElementSet%x(1)) > 0)
+               Lincreasey = ( (sourceElementSet%y(2) - sourceElementSet%y(1)) > 0)
 
                select case (sourceElementSet%ofType)
                   case (elmSetType_spheric_ortho, elmSetType_Cartesian_ortho)
                      do i=1, n_points
+                     
+!                       assumption: x and y are increasing
                         nn = maxloc(sourceElementSet%x, mask=(sourceElementSet%x<=targetElementSet%x(i)))
                         mp = nn(1)
+                        if ( .not.Lincreasex ) mp = max(mp-1,1)
                         nn = maxloc(sourceElementSet%y, mask=(sourceElementSet%y<=targetElementSet%y(i)))
                         np = nn(1)
+                        if ( .not.Lincreasey ) np = max(np-1,1)
 
                         wx = (targetElementSet%x(i) - sourceElementSet%x(mp))/(sourceElementSet%x(mp+1) - sourceElementSet%x(mp)) 
                         wy = (targetElementSet%y(i) - sourceElementSet%y(np))/(sourceElementSet%y(np+1) - sourceElementSet%y(np)) 
@@ -1116,14 +1126,13 @@ module m_ec_converter
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
          real(hp),            intent(in)    :: timesteps  !< convert to this number of timesteps past the kernel's reference date
          !
-         integer  :: i, j, k,m        !< loop counters
+         integer  :: i, k             !< loop counters
          real(hp) :: wL, wR           !< left and right weights
          integer  :: kL, kR, kkL, kkR !< 
          integer  :: maxlay_tgt       !< size of ElementSet of the TARGET in third dimension (if relevant), a.k.a kmx 
          integer  :: maxlay_src       !< size of ElementSet of the SOURCE in third dimension (if relevant)
          integer  :: maxlay_srcL      !< number of layers at the LEFT interpolation support point
          integer  :: maxlay_srcR      !< number of layers at the RIGHT interpolation support point
-         real(hp) :: fieldValue       !< 
          integer  :: kbegin, kend, kbeginL, kendL, kbeginR, kendR, idxL1, idxR1, idxL2, idxR2 !< 
          real(hp) :: wwL, wwR  !< 
          real(hp), dimension(:), allocatable :: valL1, valL2, valR1, valR2, val !< 
@@ -1526,7 +1535,7 @@ module m_ec_converter
          real(hp) :: x01, y01, dx1, dy1 !< uniform grid parameters
          integer  :: mx                 !< n_cols (x or latitude coordinate)
          integer  :: nx                 !< n_rows (y or longitude coordinate)
-         integer  :: n, ic              !< loop counter
+         integer  :: n                  !< loop counter
          real(hp) :: x1, y1             !< 
          integer  :: i1, j1             !< 
          real(hp) :: di1, dj1           !< 
@@ -1652,26 +1661,10 @@ module m_ec_converter
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
          real(hp),            intent(in)    :: timesteps  !< convert to this number of timesteps past the kernel's reference date
          !
-         real(hp) :: x01, y01, dx1, dy1 !< uniform grid parameters
-         integer  :: mx                 !< n_cols (x or latitude coordinate)
-         integer  :: nx                 !< n_rows (y or longitude coordinate)
-         integer  :: n, ic              !< loop counter
-         real(hp) :: x1, y1             !< 
-         integer  :: i1, j1             !< 
-         real(hp) :: di1, dj1           !< 
-         real(hp), dimension(4) :: f    !< spatial weights
-         real(hp), dimension(4) :: fmask!< spatial mask
-         real(hp) :: fsum               !< summed spatial weights*masks 
-         real(hp), dimension(4) :: u    !< source u, v or p at timesteps=t0
-         real(hp), dimension(4) :: v    !< source u, v or p at timesteps=t1
-         real(hp) :: a0, a1             !< 
-         real(hp) :: t0, t1             !< 
-         real(hp) :: vv0                !< target u, v or p at timesteps=t0
-         real(hp) :: vv1                !< target u, v or p at timesteps=t1
+         real(hp) :: x01, y01           !< uniform grid parameters
          real(hp) :: rr                 !< target u, v or p at timesteps=t
          type(tEcField), pointer :: sourceT0Field !< helper pointer
          type(tEcField), pointer :: sourceT1Field !< helper pointer
-         type(tEcMask), pointer :: srcmask 
          integer :: nSamples
          !
          success = .false.
@@ -2170,8 +2163,6 @@ module m_ec_converter
          real(hp)                :: sourceMissing !< Source side missing value 
          real(hp), dimension(:,:,:), pointer :: s3D_T0, s3D_T1   !< 3D representation of linearly indexed array arr1D
          real(hp), dimension(:,:),   pointer :: s2D_T0, s2D_T1   !< 2D representation of linearly indexed array arr1D
-         real(hp)                :: up_old, down_old !< source values on upper and lower level at T0
-         real(hp)                :: up_new, down_new !< source values on upper and lower level at T1
          type(tEcIndexWeight), pointer :: indexWeight !< helper pointer, saved index weights
          type(tEcElementSet), pointer :: sourceElementSet !< source ElementSet
          type(tEcElementSet), pointer :: targetElementSet !< target ElementSet
@@ -2424,7 +2415,7 @@ module m_ec_converter
                            end do kloop2D
 
                            if ( jamissing>0 ) then
-                              targetValues(k) = targetMissing
+                              targetValues(j) = targetMissing
                            else
                               do jj=0,1
                                  do ii=0,1
@@ -2550,7 +2541,7 @@ module m_ec_converter
          integer,                intent(out) :: kR       !< Index of right nearest polyline point (with kcs==1!)
          real(hp),               intent(out) :: wR       !< Relative weight of right nearest polyline point.
          !
-         integer      :: k, km, klastvalid, JACROS
+         integer      :: k, km, JACROS
          real(hp) :: dis, disM, disL, disR
          real(hp) :: SL,SM,SMM,SLM,XCR,YCR,CRP,CRPM,DEPS
          !
