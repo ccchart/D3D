@@ -831,7 +831,7 @@ subroutine writePointInfoToFF2NF
        do k = k_top, k_down, k_incr
           string = ' '
           do i=1,lstsc
-             write(string,'(a,e24.17,x)') trim(string), r0(nm(ipnt,1), nm(ipnt,2), k, i)
+             write(string,'(a,e24.17,x)') trim(string)//' ', r0(nm(ipnt,1), nm(ipnt,2), k, i)
           enddo
           write(inttostring,'(i0)') (ipnt-1)*k + k
           call tree_create_node(subnode_ptr, trim(inttostring), data_ptr)

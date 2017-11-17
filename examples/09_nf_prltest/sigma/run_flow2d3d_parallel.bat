@@ -35,8 +35,7 @@ echo     Version 6.01.17.5275 and older: default ARCH=win32
 echo     Version 6.01.18.5368 and newer: default ARCH=win64
 set ARCH=win64
 set D3D_HOME=..\..\..\bin
-  rem set exedir=%D3D_HOME%\%ARCH%\flow2d3d\bin
-set exedir=c:\code\branches\nearfield\src\engines_gpl\d_hydro\bin\x64\Debug
+set exedir=%D3D_HOME%\%ARCH%\flow2d3d\bin
 
     rem
     rem No adaptions needed below
