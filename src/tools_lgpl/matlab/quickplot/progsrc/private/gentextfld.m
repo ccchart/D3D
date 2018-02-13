@@ -3,7 +3,7 @@ function hNew=gentextfld(hOld,Ops,Parent,Val,X,Y,Z)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -33,25 +33,22 @@ function hNew=gentextfld(hOld,Ops,Parent,Val,X,Y,Z)
 
 delete(hOld);
 zcoord=nargin>6;
-convert=0;
 if iscellstr(Val) || ischar(Val)
-    blank=0;
-else
+    convert=0;
+elseif isfield(Ops,'numformat')
     convert=1;
-    blank=isnan(Val(:));
+else
+    convert=2;
 end
 if zcoord
-    blank=blank|isnan(X(:))|isnan(Y(:))|isnan(Z(:));
+    blank=isnan(X(:))|isnan(Y(:))|isnan(Z(:));
     Z=Z(~blank); Z=Z(:);
 else
-    blank=blank|isnan(X(:))|isnan(Y(:));
+    blank=isnan(X(:))|isnan(Y(:));
 end
 X=X(~blank); X=X(:);
 Y=Y(~blank); Y=Y(:);
 Val=Val(~blank); Val=Val(:);
-if iscell(Val)
-    Val=protectstring(Val);
-end
 %
 if isempty(X)
     X=NaN;
@@ -63,26 +60,31 @@ end
 %
 if zcoord
     hNew = line([min(X) max(X)],[min(Y) max(Y)],[min(Z) max(Z)],'linestyle','none','marker','none','parent',Parent);
-    hNew = repmat(hNew,1,length(Val)+1); % pre-allocate hNew of appropriate length
-    for i=1:length(Val)
-        if convert
-            Str=sprintf(Ops.numformat,Val(i));
-        else
-            Str=Val{i};
-        end
-        hNew(i+1)=text(X(i),Y(i),Z(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
-    end
 else
     hNew = line([min(X) max(X)],[min(Y) max(Y)],'linestyle','none','marker','none','parent',Parent);
-    hNew = repmat(hNew,1,length(Val)+1); % pre-allocate hNew of appropriate length
-    for i=1:length(Val)
-        if convert
+end
+hNew = repmat(hNew,1,length(Val)+1); % pre-allocate hNew of appropriate length
+for i=1:length(Val)
+    if convert==1
+        if iscell(Val)
+            Str=sprintf(Ops.numformat,Val{i});
+        else
             Str=sprintf(Ops.numformat,Val(i));
-        elseif iscell(Val)
-            Str=Val{i};
-        else % char
-            Str=Val(i);
         end
+    elseif convert==2
+        if iscell(Val)
+            Str=var2str(Val{i});
+        else
+            Str=var2str(Val(i));
+        end
+    elseif iscell(Val)
+        Str=protectstring(Val{i});
+    else % char
+        Str=protectstring(Val(i));
+    end
+    if zcoord
+        hNew(i+1)=text(X(i),Y(i),Z(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
+    else
         hNew(i+1)=text(X(i),Y(i),Str,'parent',Parent); % faster to use text(X,Y,Z,Val,...)?
     end
 end

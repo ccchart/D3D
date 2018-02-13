@@ -1,6 +1,6 @@
 //---- GPL ---------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@
 #endif
 #include <expat.h>
 #include <limits.h>
-
+#include <time.h>
 
 #if defined (MEMCHECK)
 #include <mcheck.h>
@@ -66,9 +66,13 @@ using namespace std;
 #  include <Strsafe.h>
 #  include <windows.h>
 #  include <direct.h>
+#include <errno.h>
+#  include <io.h>
+#  include <sys/stat.h>
 #  define strdup _strdup
 #  define chdir _chdir
 #  define getcwd _getcwd
+#  define dup2 _dup2
 #else
 #  include <unistd.h>
 #endif
@@ -77,194 +81,348 @@ using namespace std;
 static Dimr * thisDimr = NULL;     // global pointer to single object instance
 
 Dimr::Dimr(void) {
-    FILE *      logFile = stdout;
-    this->ready = false;
-    this->exePath = NULL;
-    this->exeName = NULL;
-    this->clock = new Clock ();
-    this->logMask = Log::MAJOR;
-    this->log = new Log (logFile, this->clock, this->logMask);
-    this->config = NULL;
-    this->mainArgs = NULL;
-    this->slaveArg = NULL;
-    this->control = NULL;
-    this->componentsList.numComponents = 0;
-    this->couplersList.numCouplers = 0;
-    this->use_mpi = false;
-    this->my_rank = 0;
-    this->numranks = 1;
-    this->configfile = NULL;
-    this->done = false;
+    FILE * logFile               = stdout;
+    ready                        = false;
+    exePath                      = NULL;
+    exeName                      = NULL;
+    clock                        = new Clock ();
+    logLevel                     = WARNING;
+    feedbackLevel                = INFO;
+    log                          = new Log (logFile, clock, logLevel, feedbackLevel);
+    config                       = NULL;
+    mainArgs                     = NULL;
+    slaveArg                     = NULL;
+    control                      = NULL;
+    componentsList.numComponents = 0;
+    couplersList.numCouplers     = 0;
+    use_mpi                      = false;
+    my_rank                      = 0;
+    numranks                     = 1;
+    configfile                   = NULL;
+    done                         = false;
+    // Initialize redirectFile. Default: switched On (!=NULL)
+    const char * filename        = "dimr_redirected.log";
+    int len                      = strlen(filename);
+    redirectFile                 = (char *) malloc((len+1)*sizeof(char));
+    strncpy(redirectFile, (const char*)filename, len);
+    redirectFile[len]            = '\0';
 }
 
 
 extern "C" {
 //------------------------------------------------------------------------------
-DllExport void set_logger_callback(WriteCallback writeCallBack) {
-	if (thisDimr == NULL) {
-		thisDimr = new Dimr();
-	}
-	thisDimr->log->SetWriteCallBack(writeCallBack);
-}
-	
+   DllExport void set_logger_callback(WriteCallback writeCallBack)
+   {
+      if (thisDimr == NULL)
+      {
+         thisDimr = new Dimr();
+      }
+      thisDimr->log->SetWriteCallBack(writeCallBack);
+   }
+    
 //------------------------------------------------------------------------------
-DllExport void set_logger(Log * loggerFromDimrExe) {
-	if (thisDimr == NULL) {
-		thisDimr = new Dimr();
-	}
-	thisDimr->log = loggerFromDimrExe;
-}
+   DllExport void set_dimr_logger(Log * loggerFromDimrExe)
+   {
+      if (thisDimr == NULL)
+      {
+         thisDimr = new Dimr();
+      }
+      thisDimr->log = loggerFromDimrExe;
+   }
 
+   BMI_API void set_logger(Logger logger)
+   {
+      if (thisDimr == NULL)
+      {
+         thisDimr = new Dimr();
+      }
+
+      thisDimr->log->SetExternalLogger(logger);
+      //Update or add the extertnal logger function in the kernels
+      for (int i = 0; i < thisDimr->componentsList.numComponents; i++) {
+         if (thisDimr->componentsList.components[i].type == COMP_TYPE_FLOW1D)
+         {
+            if (thisDimr->componentsList.components[i].setLogger != NULL) {
+               thisDimr->componentsList.components[i].setLogger(logger);
+            }
+            double level = (double)thisDimr->logLevel;
+            thisDimr->componentsList.components[i].dllSetVar("debugLevel", (const void *)&level);
+         }
+      }
+   }
+//------------------------------------------------------------------------------
+   BMI_API int initialize(const char * configfile) {
+
+      // Return to library users informative messages when exceptions are thrown
+      try
+      {
+         int nSettingsSet, nParamsSet;
+         if (thisDimr == NULL)
+         {
+            thisDimr = new Dimr();
+         }
+
+         if (thisDimr->redirectFile != NULL)
+         {
+            // RedirectFile must be including the full path:
+            // - Get the basename (platform dependent implementation)
+            // - if (redirectfile == basename) then
+            //       Make copy of redirectfile
+            //       Put CWD in redirectfile
+            //       redirectfile = redirectfile + / + copy
+            char *fileBasename = new char[MAXSTRING];
+#if defined(HAVE_CONFIG_H)
+            fileBasename = strdup(basename(thisDimr->redirectFile));
+            const char *dirSeparator = "/";
+#else
+            char * ext = new char[5];
+            _splitpath(thisDimr->redirectFile, NULL, NULL, fileBasename, ext);
+            StringCbCatA(fileBasename, MAXSTRING, ext);
+            delete[] ext;
+            const char *dirSeparator = "\\";
+#endif
+            if (strcmp(thisDimr->redirectFile, fileBasename) == 0)
+            {
+               char *filenameCopy = new char[MAXSTRING];
+               strcpy(filenameCopy, thisDimr->redirectFile);
+
+               delete[] thisDimr->redirectFile;
+               thisDimr->redirectFile = (char *)malloc((MAXSTRING) * sizeof(char));
+
+               if (!getcwd(thisDimr->redirectFile, MAXSTRING))
+               {
+                  throw Exception(true, Exception::ERR_OS, "ERROR obtaining the current working directory (init)");
+               }
+
+               strcat(thisDimr->redirectFile, dirSeparator);
+               strcat(thisDimr->redirectFile, filenameCopy);
+               delete[] filenameCopy;
+            }
+            // Redirection to file is currently handled in the logger by writing directly to the specified file
+            thisDimr->log->redirectFile = thisDimr->redirectFile;
+            printf("DIMR messages are redirected to file \"%s\"\n", thisDimr->redirectFile);
+            fflush(stdout);
+            // Create an empty file
+            FILE * fp = fopen(thisDimr->redirectFile, "w+");
+            fclose(fp);
+            delete[] fileBasename;
+         }
+
+         thisDimr->log->Write(INFO, thisDimr->my_rank, getfullversionstring_dimr_lib());
+         thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_dll:initialize(%s)", configfile);
+         //
+         //
+         // Read XML configuration file into tree structure
+         thisDimr->configfile = configfile;
+         FILE * conf;
+         if (strcmp(thisDimr->configfile, "-") == 0)
+            conf = stdin;
+         else
+         {
+            conf = fopen(thisDimr->configfile, "r");
+            if (conf == NULL)
+            {
+               throw Exception(true, Exception::ERR_OS, "Cannot open configuration file \"%s\"", thisDimr->configfile);
+            }
+         }
+
+         thisDimr->config = new XmlTree(conf);
+         thisDimr->config->ExpandEnvironmentVariables();
+         fclose(conf);
+         //
+         // Build controlBlock administration by scanning the XmlTree
+         thisDimr->log->Write(INFO, thisDimr->my_rank, "Build controlBlock administration by scanning the XmlTree");
+         thisDimr->scanConfigFile();
+         //
+         // ToDo: check whether a core dump is requested on abort; if so set global variable for Dimr_CoreDump
+         //
+         // This is a good time to attach to the processes in case you want to debug
+         thisDimr->processWaitFile();
+         //
+         // Build connection with dlls
+         thisDimr->connectLibs();
+         // Init the timers before calling the dllInitialize routines!
+         thisDimr->timersInit();
+         //
+         // Initialize the components in the first controlBlock only
+         if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) 
+         {
+            thisDimr->runParallelInit(&(thisDimr->control->subBlocks[0]));
+         }
+         else 
+         {
+            // Start block
+
+            // Hack for WAVE:
+            if (thisDimr->control->subBlocks[0].unit.component->type == COMP_TYPE_WAVE) {
+               int *waveModePtr = NULL;
+               const char *key = "mode";
+               (thisDimr->control->subBlocks[0].unit.component->dllGetVar) (key, (void**)(&waveModePtr));
+               *waveModePtr = 0;
+            }
+
+            chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
+            thisDimr->log->Write(FATAL, thisDimr->my_rank, "%s.Initialize(%s)", thisDimr->control->subBlocks[0].unit.component->name, thisDimr->control->subBlocks[0].unit.component->inputFile);
+            nSettingsSet = thisDimr->control->subBlocks[0].unit.component->dllSetKeyVals(thisDimr->control->subBlocks[0].unit.component->settings);
+            thisDimr->timerStart(thisDimr->control->subBlocks[0].unit.component);
+            thisDimr->control->subBlocks[0].unit.component->result = (thisDimr->control->subBlocks[0].unit.component->dllInitialize) (thisDimr->control->subBlocks[0].unit.component->inputFile);
+            thisDimr->timerEnd(thisDimr->control->subBlocks[0].unit.component);
+            nParamsSet = thisDimr->control->subBlocks[0].unit.component->dllSetKeyVals(thisDimr->control->subBlocks[0].unit.component->parameters);
+            (thisDimr->control->subBlocks[0].unit.component->dllGetStartTime) (&thisDimr->control->subBlocks[0].tStart);
+            (thisDimr->control->subBlocks[0].unit.component->dllGetEndTime) (&thisDimr->control->subBlocks[0].tEnd);
+            (thisDimr->control->subBlocks[0].unit.component->dllGetTimeStep) (&thisDimr->control->subBlocks[0].tStep);
+            (thisDimr->control->subBlocks[0].unit.component->dllGetCurrentTime) (&thisDimr->control->subBlocks[0].tCur);
+         }
+      }
+      catch (Exception & ex)
+      {
+         printf("#### ERROR: dimr initialize ABORT: %s\n", ex.message);
+         thisDimr->log->Write(INFO, thisDimr->my_rank, ex.message, thisDimr->configfile);
+         return ex.errorCode;
+      }
+      catch (...)
+      {
+         printf("#### ERROR: dimr finalize ABORT with unknown exception\n");
+         return Exception::ERR_UNKNOWN;
+      }
+      // all ok (no exceptions)
+      return 0;
+   }
 
 //------------------------------------------------------------------------------
-DllExport int initialize(const char * configfile) {
-	int nSettingsSet, nParamsSet;
-    if (thisDimr == NULL) {
-        thisDimr = new Dimr();
-    }
-	thisDimr->log->Write(Log::MAJOR, thisDimr->my_rank, getfullversionstring_dimr_lib());
-	thisDimr->log->Write(Log::MAJOR, thisDimr->my_rank, "dimr_dll:initialize(%s)", configfile);
-    //
-    //
-    // Read XML configuration file into tree structure
-    thisDimr->configfile = configfile;
-    FILE * conf;
-    if (strcmp (thisDimr->configfile, "-") == 0)
-        conf = stdin;
-    else {
-        conf = fopen (thisDimr->configfile, "r");
-		if (conf == NULL){
-			thisDimr->log->Write(Log::MAJOR, thisDimr->my_rank, "Cannot open configuration file \"%s\"", thisDimr->configfile);
-			throw new Exception(true, "Cannot open configuration file \"%s\"", thisDimr->configfile);
-		}
-    }
-
-    thisDimr->config = new XmlTree (conf);
-	thisDimr->config->ExpandEnvironmentVariables();
-    fclose (conf);
-    //
-    // Build controlBlock administration by scanning the XmlTree
-	thisDimr->log->Write(Log::MAJOR, thisDimr->my_rank, "Build controlBlock administration by scanning the XmlTree");
-	thisDimr->scanConfigFile();
-    //
-    // ToDo: check whether a core dump is requested on abort; if so set global variable for Dimr_CoreDump
-    //
-    // This is a good time to attach to the processes in case you want to debug
-    thisDimr->processWaitFile();
-    //
-    // Build connection with dlls
-    thisDimr->connectLibs();
-    //
-    // Initialize the components in the first controlBlock only
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        thisDimr->runParallelInit(&(thisDimr->control->subBlocks[0]));
-    } else {
-        // Start block
-
-        // Hack for WAVE:
-        if (thisDimr->control->subBlocks[0].unit.component->type == COMP_TYPE_WAVE) {
-            int *waveModePtr        = NULL;
-            const char *key = "mode";
-            (thisDimr->control->subBlocks[0].unit.component->dllGetVar) (key, (void**)(&waveModePtr));
-            *waveModePtr = 0;
-        }
-
-        chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
-        thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "%s.Initialize(%s)", thisDimr->control->subBlocks[0].unit.component->name, thisDimr->control->subBlocks[0].unit.component->inputFile);
-        nSettingsSet = thisDimr->control->subBlocks[0].unit.component->dllSetKeyVals(thisDimr->control->subBlocks[0].unit.component->settings);
-        thisDimr->control->subBlocks[0].unit.component->result = (thisDimr->control->subBlocks[0].unit.component->dllInitialize) (thisDimr->control->subBlocks[0].unit.component->inputFile);
-        nParamsSet = thisDimr->control->subBlocks[0].unit.component->dllSetKeyVals(thisDimr->control->subBlocks[0].unit.component->parameters );
-        (thisDimr->control->subBlocks[0].unit.component->dllGetStartTime) (&thisDimr->control->subBlocks[0].tStart);
-        (thisDimr->control->subBlocks[0].unit.component->dllGetEndTime) (&thisDimr->control->subBlocks[0].tEnd);
-        (thisDimr->control->subBlocks[0].unit.component->dllGetTimeStep) (&thisDimr->control->subBlocks[0].tStep);
-        (thisDimr->control->subBlocks[0].unit.component->dllGetCurrentTime) (&thisDimr->control->subBlocks[0].tCur);
-
-    }
-	// all ok (no exceptions)
-	return 0;
-}
+   BMI_API int update(double tStep)
+   {
+      // Return to library users informative messages when exceptions are thrown
+      try
+      {
+         thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:update");
+         // Execute update on the first controlBlock only
+         if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
+            thisDimr->runControlBlock(&(thisDimr->control->subBlocks[0]), tStep, GLOBAL_PHASE_UPDATE);
+         }
+         else {
+            // Start block
+            chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
+            thisDimr->log->Write(FATAL, thisDimr->my_rank, "%s.Update(%6.1f)", thisDimr->control->subBlocks[0].unit.component->name, tStep);
+            thisDimr->timerStart(thisDimr->control->subBlocks[0].unit.component);
+            (thisDimr->control->subBlocks[0].unit.component->dllUpdate) (tStep);
+            thisDimr->timerEnd(thisDimr->control->subBlocks[0].unit.component);
+            (thisDimr->control->subBlocks[0].unit.component->dllGetCurrentTime) (&thisDimr->control->subBlocks[0].tCur);
+         }
+      }
+      catch (Exception & ex)
+      {
+         printf("#### ERROR: dimr update ABORT: %s\n", ex.message);
+         thisDimr->log->Write(INFO, thisDimr->my_rank, ex.message, thisDimr->configfile);
+         return ex.errorCode;
+      }
+      catch (...)
+      {
+         printf("#### ERROR: dimr finalize ABORT with unknown exception\n");
+         return Exception::ERR_UNKNOWN;
+      }
+      return 0;
+   }
 
 //------------------------------------------------------------------------------
-DllExport void update (double tStep) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:update");
-    // Execute update on the first controlBlock only
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        thisDimr->runControlBlock(&(thisDimr->control->subBlocks[0]), tStep, GLOBAL_PHASE_UPDATE);
-    } else {
-        // Start block
-        chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
-        thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "%s.Update(%6.1f)", thisDimr->control->subBlocks[0].unit.component->name, tStep);
-        (thisDimr->control->subBlocks[0].unit.component->dllUpdate) (tStep);
-        (thisDimr->control->subBlocks[0].unit.component->dllGetCurrentTime) (&thisDimr->control->subBlocks[0].tCur);
-    }
-}
+   BMI_API int finalize(void)
+   {
+      // Return to library users informative messages when exceptions are thrown
+      try
+      {
+         thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:finalize");
+         // Execute finalize on the first controlBlock and
+         // initialize, step, finalize on all other controlBlocks
+         if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
+            thisDimr->runParallelFinish(&(thisDimr->control->subBlocks[0]));
+         }
+         else {
+            // Start block
+            chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
+            thisDimr->log->Write(FATAL, thisDimr->my_rank, "%s.Finalize()", thisDimr->control->subBlocks[0].unit.component->name);
+            thisDimr->timerStart(thisDimr->control->subBlocks[0].unit.component);
+            (thisDimr->control->subBlocks[0].unit.component->dllFinalize) ();
+            thisDimr->timerEnd(thisDimr->control->subBlocks[0].unit.component);
+            fflush(stdout);
+         }
+         thisDimr->timersFinish();
+         for (int i = 1; i < thisDimr->control->numSubBlocks; i++) {
+            thisDimr->runControlBlock(&(thisDimr->control->subBlocks[i]), 999999999.0, GLOBAL_PHASE_FINISH);
+         }
+
+         if (thisDimr->redirectFile != NULL) {
+            thisDimr->log->redirectFile = NULL;
+            printf("Finished: redirecting DIMR messages to file \"%s\"", thisDimr->redirectFile);
+            fflush(stdout);
+         }
+      }
+      catch (Exception & ex)
+      {
+         printf("#### ERROR: dimr finalize ABORT: %s\n", ex.message);
+         thisDimr->log->Write(INFO, thisDimr->my_rank, ex.message, thisDimr->configfile);
+         return ex.errorCode;
+      }
+      catch (...)
+      {
+         printf("#### ERROR: dimr finalize ABORT with unknown exception\n");
+         return Exception::ERR_UNKNOWN;
+      }
+      return 0;
+   }
 
 //------------------------------------------------------------------------------
-DllExport void finalize (void) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:finalize");
-    // Execute finalize on the first controlBlock and
-    // initialize, step, finalize on all other controlBlocks
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        thisDimr->runParallelFinish(&(thisDimr->control->subBlocks[0]));
-    } else {
-        // Start block
-        chdir(thisDimr->control->subBlocks[0].unit.component->workingDir);
-        thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "%s.Finalize()", thisDimr->control->subBlocks[0].unit.component->name);
-        (thisDimr->control->subBlocks[0].unit.component->dllFinalize) ();
-        fflush(stdout);
-    }
-    for (int i = 1 ; i < thisDimr->control->numSubBlocks ; i++) {
-        thisDimr->runControlBlock(&(thisDimr->control->subBlocks[i]),999999999.0, GLOBAL_PHASE_FINISH);
-    }
-}
+   BMI_API void get_start_time(double * tStart)
+   {
+      thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:get_start_time");
+      if (thisDimr->control->subBlocks[0].type == CT_PARALLEL)
+      {
+         *tStart = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tStart;
+      }
+      else {
+         // Start block
+         *tStart = thisDimr->control->subBlocks[0].tStart;
+      }
+   }
 
 //------------------------------------------------------------------------------
-DllExport void get_start_time (double * tStart) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:get_start_time");
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        *tStart = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tStart;
-    } else {
-        // Start block
-        *tStart = thisDimr->control->subBlocks[0].tStart;
-    }
-}
+   BMI_API void get_end_time(double * tEnd) {
+      thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:get_end_time");
+      if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
+         *tEnd = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tEnd;
+      }
+      else {
+         // Start block
+         *tEnd = thisDimr->control->subBlocks[0].tEnd;
+      }
+   }
 
 //------------------------------------------------------------------------------
-DllExport void get_end_time (double * tEnd) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:get_end_time");
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        *tEnd = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tEnd;
-    } else {
-        // Start block
-        *tEnd = thisDimr->control->subBlocks[0].tEnd;
-    }
-}
+   BMI_API void get_time_step(double * tStep) {
+      thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:get_time_step");
+      if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
+         *tStep = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tStep;
+      }
+      else {
+         // Start block
+         *tStep = thisDimr->control->subBlocks[0].tStep;
+      }
+   }
 
 //------------------------------------------------------------------------------
-DllExport void get_time_step (double * tStep) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:get_time_step");
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        *tStep = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tStep;
-    } else {
-        // Start block
-        *tStep = thisDimr->control->subBlocks[0].tStep;
-    }
-}
+   BMI_API void get_current_time(double * tCur) {
+      thisDimr->log->Write(INFO, thisDimr->my_rank, "dimr_lib:get_current_time");
+      if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
+         *tCur = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tCur;
+      }
+      else {
+         // Start block
+         *tCur = thisDimr->control->subBlocks[0].tCur;
+      }
+   }
 
 //------------------------------------------------------------------------------
-DllExport void get_current_time (double * tCur) {
-    thisDimr->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr_lib:get_current_time");
-    if (thisDimr->control->subBlocks[0].type == CT_PARALLEL) {
-        *tCur = thisDimr->control->subBlocks[0].subBlocks[thisDimr->control->subBlocks[0].masterSubBlockId].tCur;
-    } else {
-        // Start block
-        *tCur = thisDimr->control->subBlocks[0].tCur;
-    }
-}
-
-//------------------------------------------------------------------------------
-DllExport void get_var (const char * key, void ** ref) {
-    char           * componentName = new char[thisDimr->MAXSTRING];
+BMI_API void get_var(const char * key, void ** ref) {
+    char           * componentName = new char[MAXSTRINGLEN];
     const char     * slash         = strstr(key, "/");
     const char     * sourceName;
     dimr_component * compPtr       = NULL;
@@ -275,7 +433,7 @@ DllExport void get_var (const char * key, void ** ref) {
     int              sourceProcess  = 0;   // With multiple possible source processes, sourceProcess flags what process is actualy delivering the value
                                            // Only relevant for parallel calculations. Possibly not working yet?
 
-    thisDimr->log->Write (Log::MINOR, thisDimr->my_rank, "dimr_lib:get_var");
+    thisDimr->log->Write (DEBUG, thisDimr->my_rank, "dimr_lib:get_var");
     // Assumption: "key" has the structure "componentName/group/id/parameter"
     if (slash == NULL) {
         // No component name specified in "key"
@@ -288,8 +446,9 @@ DllExport void get_var (const char * key, void ** ref) {
     componentName[slash-key] = '\0';
     // sourceName is everything behind the first / in key
     sourceName = slash + 1;
-    if (strlen(sourceName) < 1) {
-        throw new Exception(true, "dimr::get_var: No parameter specified. Expecting \"componentName/parameterName\"\n");
+    if (strlen(sourceName) < 1) 
+    {
+        throw Exception(true, Exception::ERR_INVALID_INPUT, "dimr::get_var: No parameter specified. Expecting \"componentName/parameterName\"\n");
     }
     // Search componentName in the list of components of thisDimr
     for (int i = 0 ; i < thisDimr->componentsList.numComponents ; i++) {
@@ -299,22 +458,21 @@ DllExport void get_var (const char * key, void ** ref) {
         }
     }
     if (compPtr == NULL) {
-        throw new Exception(true, "dimr::get_var: Unrecognized component \"%s\". Expecting \"componentName/parameterName\"\n", componentName);
+        throw Exception(true, Exception::ERR_INVALID_INPUT, "dimr::get_var: Unrecognized component \"%s\". Expecting \"componentName/parameterName\"\n", componentName);
     }
     // Get the pointer to the variable being asked for and put it in argument "ref"
-    *ref = thisDimr->send (sourceName, 
-                           compPtr->type,
-                           compPtr->dllGetVar, 
-                           &sourceVarPtr,
-                           compPtr->processes,
-                           compPtr->numProcesses,
-                           sourceProcess);
+    double * transfer = new double [compPtr->numProcesses];
+
+    thisDimr->getAddress(sourceName, compPtr->type, compPtr->dllGetVar, &sourceVarPtr, compPtr->processes, compPtr->numProcesses, transfer);
+    *ref = thisDimr->send(sourceName, compPtr->type, sourceVarPtr, compPtr->processes, compPtr->numProcesses, transfer);
+    
+    delete[] transfer;
     delete[] componentName;
 }
 
 //------------------------------------------------------------------------------
-DllExport void set_var (const char * key, const void * value) {
-    char           * componentName = new char[thisDimr->MAXSTRING];
+BMI_API void set_var(const char * key, const void * value) {
+    char           * componentName = new char[MAXSTRINGLEN];
     const char     * slash = strstr(key, "/");
     const char     * targetName;
     dimr_component * compPtr = NULL;
@@ -329,7 +487,7 @@ DllExport void set_var (const char * key, const void * value) {
     if (thisDimr == NULL) {
         thisDimr = new Dimr();
     }
-    thisDimr->log->Write (Log::MINOR, thisDimr->my_rank, "dimr_lib:set_var");
+    thisDimr->log->Write (DEBUG, thisDimr->my_rank, "dimr_lib:set_var");
     // Catch special keywords for Dimr_dll itself
     if (strcmp(key, "useMPI") == 0) {
         thisDimr->use_mpi = *(bool *)value;
@@ -338,13 +496,32 @@ DllExport void set_var (const char * key, const void * value) {
     } else if (strcmp(key, "myRank") == 0) {
         thisDimr->my_rank = *(int *)value;
     } else if (strcmp(key, "debugLevel") == 0) {
-        thisDimr->logMask = *(Log::Mask *)value;
-        thisDimr->log->SetMask(thisDimr->logMask);
+        thisDimr->logLevel = *(Level *)value;
+        thisDimr->log->SetLevel(thisDimr->logLevel);
+    } else if (strcmp(key, "feedbackLevel") == 0) {
+        thisDimr->feedbackLevel = *(Level *)value;
+        thisDimr->log->SetFeedbackLevel(thisDimr->feedbackLevel);
+    } else if (strcmp(key, "redirectFile") == 0) {
+        // value is a char*
+        // Special value: "stdout/stderr" => switch off redirection to file by setting to NULL
+        // Else: value is the name of the file to redirect to
+        if (strcmp((const char*)value,"stdout/stderr") == 0 && thisDimr->redirectFile != NULL) {
+            free(thisDimr->redirectFile);
+            thisDimr->redirectFile = NULL;
+        } else {
+            if (thisDimr->redirectFile != NULL) {
+                free(thisDimr->redirectFile);
+            }
+            int len = strlen((const char*)value);
+            thisDimr->redirectFile = (char *) malloc((len+1)*sizeof(char));
+            strncpy(thisDimr->redirectFile, (const char*)value, len);
+            thisDimr->redirectFile[len] = '\0';
+        }
     } else {
         // Assumption: "key" has the structure "componentName/group/id/parameter"
         if (slash == NULL) {
             // No component name specified in "key"
-            throw new Exception(true, "dimr::set_var: Unrecognized keyword \"%s\"\n", key);
+            throw Exception(true, Exception::ERR_INVALID_INPUT, "dimr::set_var: Unrecognized keyword \"%s\"\n", key);
         }
         // componentName is everything before the first / in key
         strncpy(componentName, key, slash-key);
@@ -352,7 +529,7 @@ DllExport void set_var (const char * key, const void * value) {
         // targetName is everything behind the first / in key
         targetName = slash + 1;
         if (strlen(targetName) < 1) {
-            throw new Exception(true, "dimr::set_var: No parameter specified. Expecting \"componentName/parameterName\"\n");
+            throw Exception(true, Exception::ERR_INVALID_INPUT, "dimr::set_var: No parameter specified. Expecting \"componentName/parameterName\"\n");
         }
         // Search componentName in the list of components of thisDimr
         for (int i = 0 ; i < thisDimr->componentsList.numComponents ; i++) {
@@ -362,7 +539,7 @@ DllExport void set_var (const char * key, const void * value) {
             }
         }
         if (compPtr == NULL) {
-            throw new Exception(true, "dimr::set_var: Unrecognized component \"%s\". Expecting \"componentName/parameterName\"\n", componentName);
+            throw Exception(true, Exception::ERR_INVALID_INPUT, "dimr::set_var: Unrecognized component \"%s\". Expecting \"componentName/parameterName\"\n", componentName);
         }
         // Send value to the receiving component
         thisDimr->receive (targetName, 
@@ -372,6 +549,7 @@ DllExport void set_var (const char * key, const void * value) {
                                targetVarPtr,
                                compPtr->processes,
                                compPtr->numProcesses,
+                               -1,
                                value);
     }
     delete[] componentName;
@@ -383,20 +561,20 @@ DllExport void set_var (const char * key, const void * value) {
 
 //------------------------------------------------------------------------------
 int dimr_component::dllSetKeyVals (keyValueLL * kv) {
-		// Pass parameters for the first controll block's component: parameters
-		int count = 0;
-	    while(kv){
-			if (this->dllSetVar!=NULL){
-		       (this->dllSetVar) (kv->key,(void*)kv->val);
-			} else {
-			   if (this->dllGetVar!=NULL){
-		          (this->dllGetVar) (kv->key,(void**)kv->val);
-			   }
-			}
+        // Pass parameters for the first controll block's component: parameters
+        int count = 0;
+        while(kv){
+            if (dllSetVar!=NULL){
+               (dllSetVar) (kv->key,(void*)kv->val);
+            } else {
+               if (dllGetVar!=NULL){
+                  (dllGetVar) (kv->key,(void**)kv->val);
+               }
+            }
            kv = kv->nextkv;
-		   count++;
+           count++;
         }
-		return count;
+        return count;
 }
 
 
@@ -405,36 +583,36 @@ int dimr_component::dllSetKeyVals (keyValueLL * kv) {
 //  Destructor
 Dimr::~Dimr (void) {
 
-    if (this->done)
+    if (done)
         return;
 
     // to do:  (void) FreeLibrary(handle);
     freeLibs();
 
-    this->log->Write (Log::MAJOR, thisDimr->my_rank, "dimr shutting down normally");
+    log->Write (INFO, thisDimr->my_rank, "dimr shutting down normally");
 
 #if defined(HAVE_CONFIG_H)
-    free (this->exeName);
+    free (exeName);
 #else
-    delete [] this->exeName;
+    delete [] exeName;
 #endif
 
-    delete this->clock;
-    delete this->config;
-    free (this->exePath);
-    delete this->log;
-    delete [] this->mainArgs;
+    delete clock;
+    delete config;
+    free (exePath);
+    delete log;
+    delete [] mainArgs;
     // componentsList
-    delete [] this->componentsList.components;
+    delete [] componentsList.components;
     // couplersList
-    for (int i = 0 ; i < this->couplersList.numCouplers ; i++) {
-        delete [] this->couplersList.couplers[i].items;
+    for (int i = 0 ; i < couplersList.numCouplers ; i++) {
+        delete [] couplersList.couplers[i].items;
     }
-    delete [] this->couplersList.couplers;
+    delete [] couplersList.couplers;
     // control
-    deleteControlBlock(*(this->control));
-    free(this->control);
-    this->done = true;
+    deleteControlBlock(*(control));
+    free(control);
+    done = true;
 }
 
 
@@ -458,7 +636,7 @@ void Dimr::deleteControlBlock (dimr_control_block cb) {
 //------------------------------------------------------------------------------
 void Dimr::runControlBlock (dimr_control_block * cb, double tStep, int phase) {
     if (cb->type == CT_PARALLEL) {
-        this->log->Write (Log::MAJOR, my_rank, "PARALLEL:");
+        log->Write (INFO, my_rank, "PARALLEL:");
         //
         //
         // Initialize loop
@@ -485,21 +663,27 @@ void Dimr::runControlBlock (dimr_control_block * cb, double tStep, int phase) {
 
 //------------------------------------------------------------------------------
 void Dimr::runStartBlock (dimr_control_block * cb, double tStep, int phase) {
-    this->log->Write (Log::MAJOR, my_rank, "START:");
+    log->Write (INFO, my_rank, "START:");
 
     chdir(cb->unit.component->workingDir);
     if (phase == GLOBAL_PHASE_FINISH) {
-        this->log->Write (Log::MAJOR, my_rank, "%s.Initialize(%s)", cb->unit.component->name, cb->unit.component->inputFile);
+        log->Write (FATAL, my_rank, "%s.Initialize(%s)", cb->unit.component->name, cb->unit.component->inputFile);
+        timerStart(cb->unit.component);
         cb->unit.component->result = (cb->unit.component->dllInitialize) (cb->unit.component->inputFile);
+        timerEnd(cb->unit.component);
         (cb->unit.component->dllGetStartTime) (&cb->tStart);
         (cb->unit.component->dllGetEndTime) (&cb->tEnd);
     }
     cb->tStep = tStep;
-    this->log->Write (Log::MAJOR, my_rank, "%s.Update(%6.1f)", cb->unit.component->name, cb->tStep);
+    log->Write (FATAL, my_rank, "%s.Update(%6.1f)", cb->unit.component->name, cb->tStep);
+    timerStart(cb->unit.component);
     (cb->unit.component->dllUpdate) (cb->tStep);
+    timerEnd(cb->unit.component);
     if (phase == GLOBAL_PHASE_FINISH) {
-        this->log->Write (Log::MAJOR, my_rank, "%s.Finalize()", cb->unit.component->name);
+        log->Write (FATAL, my_rank, "%s.Finalize()", cb->unit.component->name);
+        timerStart(cb->unit.component);
         (cb->unit.component->dllFinalize) ();
+        timerEnd(cb->unit.component);
     }
     fflush(stdout);
 }
@@ -515,7 +699,7 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
     if (use_mpi) {
         ierr = MPI_Comm_group(MPI_COMM_WORLD, &mpiGroupWorld);
         if (ierr != MPI_SUCCESS) {
-            throw new Exception(true, "runParallelInit: cannot obtain MPI world group. Code: %d.", ierr);
+            throw Exception(true, Exception::ERR_MPI, "runParallelInit: cannot obtain MPI world group. Code: %d.", ierr);
         }
     }
 
@@ -524,14 +708,15 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
         if (cb->subBlocks[i].type == CT_START) {
             if (cb->masterSubBlockId == -1) {
                 cb->masterSubBlockId = i;
-                this->log->Write (Log::MINOR, my_rank, "Master: %s", cb->subBlocks[cb->masterSubBlockId].unit.component->name);
+                log->Write (DEBUG, my_rank, "Master: %s", cb->subBlocks[cb->masterSubBlockId].unit.component->name);
             } else {
-                throw new Exception (true, "runParallelInit: a parallel block cannot have more than one start element.");
+                throw Exception (true, Exception::ERR_INVALID_INPUT, "runParallelInit: a parallel block cannot have more than one start element.");
             }
         }
     }
-    if (cb->masterSubBlockId == -1) {
-        throw new Exception (true, "runParallelInit: a parallel block must have at least one start element.");
+    if (cb->masterSubBlockId == -1) 
+	{
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "runParallelInit: a parallel block must have at least one start element.");
     }
 
     // Hack:
@@ -543,26 +728,28 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
     if (use_mpi && masterComponent->mpiCommVar != NULL  && masterComponent->numProcesses > 1) { // TODO: consider removing the numproc>1 check.
         ierr = MPI_Group_incl(mpiGroupWorld, masterComponent->numProcesses, masterComponent->processes, &mpiGroupComp);
         if (ierr != MPI_SUCCESS) {
-            throw new Exception(true, "runParallelInit: cannot create a subgroup of %d processes for component \"%s\". Code: %d.", masterComponent->name, ierr);
+            throw Exception(true, Exception::ERR_MPI, "runParallelInit: cannot create a subgroup of %d processes for component \"%s\". Code: %d.", masterComponent->numProcesses, masterComponent->name, ierr);
         }
         // Needs to be called by *all* ranks:
         ierr = MPI_Comm_create(MPI_COMM_WORLD, mpiGroupComp, &masterComponent->mpiComm);
         if (ierr != MPI_SUCCESS) {
-            throw new Exception(true, "runParallelInit: cannot create a subcommunicator of %d processes for component \"%s\". Code: %d.", masterComponent->name, ierr);
+            throw Exception(true, Exception::ERR_MPI, "runParallelInit: cannot create a subcommunicator of %d processes for component \"%s\". Code: %d.", masterComponent->numProcesses, masterComponent->name, ierr);
         }
         if (masterComponent->onThisRank) {
             MPI_Fint *fComm;
             masterComponent->dllGetVar(masterComponent->mpiCommVar, (void**)(&fComm));
             if (fComm == NULL) {
-                throw new Exception(true, "runParallelInit: cannot obtain reference to communicator handle \"%s\" from component \"%s\".", masterComponent->mpiCommVar, masterComponent->name);
+                throw Exception(true, Exception::ERR_MPI, "runParallelInit: cannot obtain reference to communicator handle \"%s\" from component \"%s\".", masterComponent->mpiCommVar, masterComponent->name);
             }
             *fComm = MPI_Comm_c2f(masterComponent->mpiComm);
         }
     }
     if (masterComponent->onThisRank) {
         chdir(masterComponent->workingDir);
-        this->log->Write (Log::MAJOR, my_rank, "%s.Initialize(%s)", masterComponent->name, masterComponent->inputFile);
+        log->Write (FATAL, my_rank, "%s.Initialize(%s)", masterComponent->name, masterComponent->inputFile);
+        timerStart(masterComponent);
         masterComponent->result = (masterComponent->dllInitialize) (masterComponent->inputFile);
+        timerEnd(masterComponent);
         (masterComponent->dllGetStartTime) (&cb->subBlocks[cb->masterSubBlockId].tStart);
         (masterComponent->dllGetEndTime) (&cb->subBlocks[cb->masterSubBlockId].tEnd);
         (masterComponent->dllGetTimeStep) (&cb->subBlocks[cb->masterSubBlockId].tStep);
@@ -592,8 +779,10 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                         }
 
                         chdir(thisComponent->workingDir);
-                        this->log->Write (Log::MAJOR, my_rank, "%s.Initialize(%s)", thisComponent->name, thisComponent->inputFile);
+                        log->Write (FATAL, my_rank, "%s.Initialize(%s)", thisComponent->name, thisComponent->inputFile);
+                        timerStart(thisComponent);
                         thisComponent->result = (thisComponent->dllInitialize) (thisComponent->inputFile);
+                        timerEnd(thisComponent);
                     }
                 }
             }
@@ -603,8 +792,8 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                     dimr_coupler   * thisCoupler = cb->subBlocks[i].subBlocks[j].unit.coupler;
                     for (int k = 0 ; k < thisCoupler->numItems ; k++) {
                         if (thisCoupler->sourceComponent->type == COMP_TYPE_RTC   ||
-							thisCoupler->sourceComponent->type == COMP_TYPE_WANDA ||
-							thisCoupler->sourceComponent->type == COMP_TYPE_FLOW1D2D) {
+                            thisCoupler->sourceComponent->type == COMP_TYPE_WANDA ||
+                            thisCoupler->sourceComponent->type == COMP_TYPE_FLOW1D2D) {
                             // RTCTools/Wanda: impossible to autodetect which partition will deliver this source var
                             // Assumption: there is only one RTC-partition
                             thisCoupler->items[k].sourceProcess = thisCoupler->sourceComponent->processes[0];
@@ -620,7 +809,7 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                                 sources[m] = 0;
                                 if (my_rank == thisCoupler->sourceComponent->processes[m]) {
                                     // Also for RTCTools_BMI: this is a dummy getvar call, just to check whether it works for this partition
-                                    this->log->Write (Log::MINOR, my_rank, "%s.getVar(%s)", thisCoupler->sourceComponentName, thisCoupler->items[k].sourceName);
+                                    log->Write (DEBUG, my_rank, "%s.getVar(%s)", thisCoupler->sourceComponentName, thisCoupler->items[k].sourceName);
                                     (thisCoupler->sourceComponent->dllGetVar) (thisCoupler->items[k].sourceName, (void**)(&thisCoupler->items[k].sourceVarPtr));
                                     if (thisCoupler->items[k].sourceVarPtr != NULL) {
                                         // Yes, this partition can deliver the source var
@@ -628,7 +817,7 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                                     }
                                 }
                             }
-                            // Do not call MPI_Allreduce when the number of partitions is 1. It will cause a crash on free(gcsource)
+                            // Do not call MPI_Allreduce when the number of partitions is 1. It will cause a crash on free(gsources)
                             if (numranks > 1) {
                                 int ierr = MPI_Allreduce(sources, gsources, thisCoupler->sourceComponent->numProcesses, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
                             } else {
@@ -647,7 +836,7 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                                         // Produce a warning
                                         // The "if (my_rank == m)" avoids multiple identical messages
                                         if (my_rank == m) {
-                                            this->log->Write(Log::WARN, my_rank, "WARNING: coupler %s: item %d: \"%s\" will be delivered by partition %d. Ignoring deliverance by partition %d",
+                                            log->Write(WARNING, my_rank, "WARNING: coupler %s: item %d: \"%s\" will be delivered by partition %d. Ignoring deliverance by partition %d",
                                                 thisCoupler->name, k, thisCoupler->items[k].sourceName, thisCoupler->items[k].sourceProcess, m);
                                         }
                                     }
@@ -660,16 +849,56 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
                         // Target variable
 
                         if (thisCoupler->targetComponent->type == COMP_TYPE_RTC     ||
-							thisCoupler->targetComponent->type == COMP_TYPE_WANDA   ||
-							thisCoupler->targetComponent->type == COMP_TYPE_FLOW1D2D) {
+                            thisCoupler->targetComponent->type == COMP_TYPE_WANDA   ||
+                            thisCoupler->targetComponent->type == COMP_TYPE_FLOW1D2D) {
                             // nothing
                         } else {
+                            // Target variable
+                            // autodetect which (possibly multiple!) partition(s) will accept this target var
+                            int *  targets = (int *)malloc(thisCoupler->targetComponent->numProcesses * sizeof(int));
+                            int * gtargets = (int *)malloc(thisCoupler->targetComponent->numProcesses * sizeof(int));
                             for (int m = 0 ; m < thisCoupler->targetComponent->numProcesses; m++) {
+                                targets[m] = 0;
                                 if (my_rank == thisCoupler->targetComponent->processes[m]) {
-                                        this->log->Write (Log::MINOR, my_rank, "%s.getVar(%s)", thisCoupler->targetComponentName, thisCoupler->items[k].targetName);
+                                        log->Write (DEBUG, my_rank, "%s.getVar(%s)", thisCoupler->targetComponentName, thisCoupler->items[k].targetName);
                                         (thisCoupler->targetComponent->dllGetVar) (thisCoupler->items[k].targetName, (void**)(&thisCoupler->items[k].targetVarPtr));
+                                        if (thisCoupler->items[k].targetVarPtr != NULL) {
+                                            // Yes, this partition can accept the target var
+                                            targets[m] = 1;
+                                        }
                                 }
                             }
+                            // Do not call MPI_Allreduce when the number of partitions is 1. It will cause a crash on free(gtargets)
+                            if (numranks > 1) {
+                                int ierr = MPI_Allreduce(targets, gtargets, thisCoupler->targetComponent->numProcesses, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+                            } else {
+                                for (int m = 0 ; m < thisCoupler->targetComponent->numProcesses ; m++) {
+                                    gtargets[m] = targets[m];
+                                }
+                            }
+                            thisCoupler->items[k].targetProcess = -1;
+                            for (int m = 0 ; m < thisCoupler->targetComponent->numProcesses ; m++) {
+                                if (gtargets[m] == 1) {
+                                    if (thisCoupler->items[k].targetProcess == -1) {
+                                        // First partition that can accept the target var
+                                        thisCoupler->items[k].targetProcess = m;
+                                    } else {
+                                        // Second/Third/... partition that can accept the target var
+                                        // Produce a warning
+                                        // The "if (my_rank == m)" avoids multiple identical messages
+                                        if (my_rank == m) {
+                                            log->Write(WARNING, my_rank, "WARNING: coupler %s: item %d: \"%s\" will be delivered to multiple partitions: %d and %d.",
+                                                thisCoupler->name, k, thisCoupler->items[k].targetName, thisCoupler->items[k].targetProcess, m);
+                                        }
+                                    }
+                                }
+                            }
+                            if (thisCoupler->items[k].targetProcess == -1) {
+                                throw Exception (true, Exception::ERR_MPI, "Coupler %s: item %d: \"%s\" is not accepted by any of the partitions.",
+                                    thisCoupler->name, k, thisCoupler->items[k].targetName);
+                            }
+                            free(targets);
+                            free(gtargets);
                         }
                     }
                 }
@@ -683,8 +912,9 @@ void Dimr::runParallelInit (dimr_control_block * cb) {
 //------------------------------------------------------------------------------
 void Dimr::runParallelUpdate (dimr_control_block * cb, double tStep) {
     dimr_control_block * masterComponent = &cb->subBlocks[cb->masterSubBlockId];
-    if (!masterComponent->unit.component->onThisRank) {
-        throw new Exception (true, "runParallelUpdate: not supported yet: master component \"%s\" should run on all processes.", masterComponent->unit.component->name);
+    if (!masterComponent->unit.component->onThisRank) 
+    {
+        throw Exception (true, Exception::ERR_MPI, "runParallelUpdate: not supported yet: master component \"%s\" should run on all processes.", masterComponent->unit.component->name);
         // TODO: AvD/AM: is this allowed: master component not on *all* dimr processes? NOT YET, but yes we want it, e.g. 3xFM, 7xWAVE. Rethink.
     }
     // Initialize time parameters
@@ -738,7 +968,7 @@ void Dimr::runParallelUpdate (dimr_control_block * cb, double tStep) {
                         // After MasterComponent:
                         // When the MasterComponent is going to run, it will increase currentTime
                         // This does not match with executing this follower at the current time
-                        throw new Exception (true, "runParallelUpdate: Zero timestep, needed for block %d, is not possible.", i);
+                        throw Exception (true, Exception::ERR_INVALID_INPUT, "runParallelUpdate: Zero timestep, needed for block %d, is not possible.", i);
                     }
                 } else {
                     // This follower is not active yet
@@ -759,8 +989,10 @@ void Dimr::runParallelUpdate (dimr_control_block * cb, double tStep) {
             if (i == cb->masterSubBlockId) {
                 // masterComponent
                 chdir(masterComponent->unit.component->workingDir);
-                this->log->Write (Log::MAJOR, my_rank, "%10.1f:    %s.Update(%10.1f)", *currentTime, masterComponent->unit.component->name, tStep);
+                log->Write (FATAL, my_rank, "%10.1f:    %s.Update(%10.1f)", *currentTime, masterComponent->unit.component->name, tStep);
+                timerStart(masterComponent->unit.component);
                 (masterComponent->unit.component->dllUpdate) (tStep);
+                timerEnd(masterComponent->unit.component);
                 *currentTime = *currentTime + tStep;
             } else {
                 // CT_STARTGROUP
@@ -792,40 +1024,47 @@ void Dimr::runParallelUpdate (dimr_control_block * cb, double tStep) {
                             }
                             // Update
                             chdir(thisComponent->workingDir);
-                            this->log->Write (Log::MAJOR, my_rank, "%10.1f:    %s.Update(%10.1f)", *currentTime, thisComponent->name, tUpdate);
+                            log->Write (FATAL, my_rank, "%10.1f:    %s.Update(%10.1f)", *currentTime, thisComponent->name, tUpdate);
+                            timerStart(thisComponent);
                             (thisComponent->dllUpdate) (tUpdate);
+                            timerEnd(thisComponent);
                         } else {
                             // Coupler
                             dimr_coupler * thisCoupler = cb->subBlocks[i].subBlocks[j].unit.coupler;
                             double * transferValuePtr;
-                            this->log->Write (Log::MINOR, my_rank, "%10.1f:    %s.communicate", *currentTime, thisCoupler->name);
+                            log->Write (DEBUG, my_rank, "%10.1f:    %s.communicate", *currentTime, thisCoupler->name);
                             for (int k = 0 ; k < thisCoupler->numItems ; k++) {
-                                this->log->Write (Log::DETAIL, my_rank, "    %s -> %s", thisCoupler->items[k].sourceName, thisCoupler->items[k].targetName);
+                                log->Write (ALL, my_rank, "    %s -> %s", thisCoupler->items[k].sourceName, thisCoupler->items[k].targetName);
                                 // Getting and Setting of data is split to enable
                                 // transferring data, possibly inbetween different partitions
                                 // TODO: This does not work for arrays (yet), only scalar double
                                 //
                                 // Getting data:
-                                transferValuePtr = this->send (thisCoupler->items[k].sourceName, 
-                                                         thisCoupler->sourceComponent->type,
-                                                         thisCoupler->sourceComponent->dllGetVar, 
-                                                         &(thisCoupler->items[k].sourceVarPtr),
-                                                         thisCoupler->sourceComponent->processes,
-                                                         thisCoupler->sourceComponent->numProcesses,
-                                                         thisCoupler->items[k].sourceProcess);
+                                double * transfer = new double [thisCoupler->sourceComponent->numProcesses];
+
+                                // addresses eventually updated
+                                getAddress(thisCoupler->items[k].sourceName, thisCoupler->sourceComponent->type, thisCoupler->sourceComponent->dllGetVar, &(thisCoupler->items[k].sourceVarPtr), 
+                                   thisCoupler->sourceComponent->processes, thisCoupler->sourceComponent->numProcesses, transfer);
+                                // the value of sourceVarPtr is sent here to all MPI processes
+                                transferValuePtr = send(thisCoupler->items[k].sourceName, thisCoupler->sourceComponent->type, thisCoupler->items[k].sourceVarPtr, 
+                                   thisCoupler->sourceComponent->processes, thisCoupler->sourceComponent->numProcesses, transfer);
+
+                                delete[] transfer;
+
                                 // Optional TODO: assuming one source(partition):
                                 //    if there is only one target (partition), and all partitions can act as source partition:
                                 //        choose the target partition to act as source partition
                                 //        no MPI_Bcast needed
                                 //
-                                this->receive (thisCoupler->items[k].targetName,
-                                               thisCoupler->targetComponent->type,
-                                               thisCoupler->targetComponent->dllSetVar,
-                                               thisCoupler->targetComponent->dllGetVar,
-                                               thisCoupler->items[k].targetVarPtr,
-                                               thisCoupler->targetComponent->processes,
-                                               thisCoupler->targetComponent->numProcesses,
-                                               transferValuePtr);
+                                receive (thisCoupler->items[k].targetName,
+                                         thisCoupler->targetComponent->type,
+                                         thisCoupler->targetComponent->dllSetVar,
+                                         thisCoupler->targetComponent->dllGetVar,
+                                         thisCoupler->items[k].targetVarPtr,
+                                         thisCoupler->targetComponent->processes,
+                                         thisCoupler->targetComponent->numProcesses,
+                                         thisCoupler->items[k].targetProcess,
+                                         transferValuePtr);
                             }
                         }
                     }
@@ -842,140 +1081,189 @@ void Dimr::runParallelUpdate (dimr_control_block * cb, double tStep) {
     }
 }
 
-
-
 //------------------------------------------------------------------------------
-double * Dimr::send (const char * name, 
-                     int          compType, 
-                     BMI_GETVAR   dllGetVar, 
-                     double    ** sourceVarPtr,    // Output parameter! Needed when doing a dllSetVar via "get_var, var=value". See "send" call in Dimr::receive
-                     int        * processes,
-                     int          nProc,
-                     int          sourceProcess) {
-    // Array "transfer" is used to collect a scalar double from all partitions
-    // For now: The resulting scalar double is stored in the class parameter "transferValeu"
-    // TODO: Point to variable in related kernel? How when running in parallel?
-    double * transfer = (double *)malloc(nProc * sizeof(double));
-    this->transferValue = -999.0;
-    //
-    // put data to be transferred from this partitions source location into the transfer array
-    for (int m = 0 ; m < nProc; m++) {
-        if (my_rank == processes[m]) {
-            this->log->Write (Log::DETAIL, my_rank, "Send(%s)", name);
-			if (   compType == COMP_TYPE_RTC
-				|| compType == COMP_TYPE_RR
-				|| compType == COMP_TYPE_FLOW1D
-				|| compType == COMP_TYPE_FLOW1D2D
-                || *sourceVarPtr == NULL          ) {
-                // These components only returns a new pointer to a copy of the double value, so call it each time.
-                // sourceVarPtr=NULL: getVar not yet called for this parameter, probably because "send" is being called
-                //                    via the toplevel "get_var"
-                if (dllGetVar == NULL) {
-                    throw new Exception (true, "ABORT: get_var function not defined while processing %s", name);
-                }
-                (dllGetVar) (name, (void**)(sourceVarPtr));
-            } else if (compType == COMP_TYPE_WANDA) {
-                if (dllGetVar == NULL) {
-                    throw new Exception (true, "ABORT: get_var function not defined while processing %s", name);
-                }
-                // Wanda does not use pointers to internal structures:
-                // - Use the DIMR-transfer array
-                // - Note the missing & in the dllGetVar call, when comparing with the dllGetVar call above
-                *sourceVarPtr = transfer;
-                (dllGetVar) (name, (void**)(*sourceVarPtr));
-            } else {
-                // Other components already have direct pointer access to the actual variable.
+// set "value" in the component target location
+void Dimr::receive(const char * name,
+   int          compType,
+   BMI_SETVAR   dllSetVar,
+   BMI_GETVAR   dllGetVar,
+   double     * targetVarPtr,
+   int        * processes,
+   int          nProc,
+   int          targetProcess,
+   const void * transferValuePtr) {
+   // Assumption: transferValuePtr points to a (scalar) double
+   // TODO: allow more types of pointers
+   //
+   // NaN check:
+   if (*(double*)(transferValuePtr) == *(double*)(transferValuePtr)) {
+      for (int m = 0; m < nProc; m++) {
+         if (my_rank == processes[m]) {
+            log->Write(ALL, my_rank, "Dimr::receive(%s) %20.10f", name, *(double*)(transferValuePtr));
+            if (compType == COMP_TYPE_RTC
+               || compType == COMP_TYPE_RR
+               || compType == COMP_TYPE_FLOW1D
+               || compType == COMP_TYPE_FLOW1D2D
+               || compType == COMP_TYPE_WANDA) {
+               if (dllSetVar == NULL) {
+                  throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "ABORT: Dimr::receive: set_var function not defined while processing %s", name);
+               }
+               (dllSetVar)(name, (const void *)transferValuePtr);
+               if (compType == COMP_TYPE_RTC) {
+                  // target = rtc
+                  // SetVar(name, value) sets variable named "name" to "value" at the current time (t = n)
+                  // But, in case of IMPLICIT method, this should be the next time (t = n + 1)
+                  // Clean solution: do not use IMPLICIT method in RTCTools (To Do for Stef Hummel)
+                  // Shortcut hack:
+                  // 1. Set value at current time (t=n)
+                  // AND 2. Set also value at next time (t=n+1),
+                  // by adding a * at the end of the targetName. This is a signal to RTCTools that this
+                  // value belongs to t=n+1
+                  // This "shortcut hack" is identical to what currently is used in Delta Shell via the
+                  // OpenMI interface with RTCTools
+                  char *targetName = new char[strlen(name) + 2];
+                  sprintf(targetName, "%s*\0", name);
+                  (dllSetVar)(targetName, (const void *)transferValuePtr);
+                  delete[] targetName;
+               }
             }
-            // The sourceVarPtr may be NULL for my_rank
-            // Wanda: the value is already in the transfer array
-            if (*sourceVarPtr != NULL && compType != COMP_TYPE_WANDA) {
-                transfer[m] = *(*sourceVarPtr);
-            }
-        } else {
-            // source provider component not available on this rank.
-            // Define a missing value that's useful while debugging
-            transfer[m] = -999.0 -1000.0*my_rank;
-        }
-    }
+            else {
+               // target is a component that uses direct pointer access to the actual variable
+               // When doing a dllSetVar, targetVarPtr is not defined. First do a "getAddress" to get it defined
+               // NOTE: transferValuePtr contains the value calculated by RTCTools: it has been already communicated 
+               // to all processes by a previous send call. 
 
-    // Do not call MPI_Bcast when the number of partitions is 1. Big chance that it will cause a crash
-    if (numranks > 1) {
-        // NOTE: multiple sources not yet supported, so below only use transfer[0], i.e., with size 1
-        int ierr = MPI_Bcast( transfer, 1, MPI_DOUBLE, sourceProcess, MPI_COMM_WORLD);
-    }
-    this->transferValue = transfer[0];
-    free(transfer);
-    return &(this->transferValue);
+               if (targetVarPtr == NULL)
+               {
+                  double * transfer = new double[nProc];
+                  //here we get the address (e.g. weir levels)
+                  getAddress(name, compType, dllGetVar, &targetVarPtr, processes, nProc, transfer);
+                  delete[] transfer;
+               }
+ 
+               //  }
+               // Know we know the location, we need to set it in targetVarPtr
+               //here we do the check
+               if (targetVarPtr == NULL)
+               {
+                  if (targetProcess == -1 || targetProcess == my_rank) 
+                  {
+                     // targetProcess=-1: no process can accept this item
+                     // targetProcess=my_rank: this process is registered to be able to accept this item but something goes wrong
+                     throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "ABORT: Dimr::receive: get_var function not defined while processing %s", name);
+                  }
+               }
+               else
+               {
+                  // Here write the RTC value in FM (direct access to memory using a pointer). 
+                  // Here we already know targetVarPtr is not null. 
+                     *(targetVarPtr) = *(double *)transferValuePtr;
+               }
+            }
+         }
+      }
+   }
 }
 
-
-
 //------------------------------------------------------------------------------
-// set "value" in the comopnents target location
-void Dimr::receive (const char * name,
-                    int          compType,
-                    BMI_SETVAR   dllSetVar,
-                    BMI_GETVAR   dllGetVar, 
-                    double     * targetVarPtr,
-                    int        * processes,
-                    int          nProc,
-                    const void * transferValuePtr) {
-    // Assumption: transferValuePtr points to a (scalar) double
-    // TODO: allow more types of pointers
-    //
-    // NaN check:
-    if (*(double*)(transferValuePtr) == *(double*)(transferValuePtr)) {
-        for (int m = 0 ; m < nProc; m++) {
-            if (my_rank == processes[m]) {
-                this->log->Write (Log::DETAIL, my_rank, "Dimr::receive(%s) %20.10f", name, *(double*)(transferValuePtr));
-				if (   compType == COMP_TYPE_RTC 
-                    || compType == COMP_TYPE_RR 
-                    || compType == COMP_TYPE_FLOW1D 
-					|| compType == COMP_TYPE_FLOW1D2D
-                    || compType == COMP_TYPE_WANDA   ) {
-                    if (dllSetVar == NULL) {
-                        throw new Exception (true, "ABORT: Dimr::receive: set_var function not defined while processing %s", name);
-                    }
-                    (dllSetVar) (name,(const void *)transferValuePtr);
-					if (compType == COMP_TYPE_RTC) {
-						// target = rtc
-						// SetVar(name, value) sets variable named "name" to "value" at the current time (t = n)
-						// But, in case of IMPLICIT method, this should be the next time (t = n + 1)
-						// Clean solution: do not use IMPLICIT method in RTCTools (To Do for Stef Hummel)
-						// Shortcut hack:
-						// 1. Set value at current time (t=n)
-						// AND 2. Set also value at next time (t=n+1),
-						// by adding a * at the end of the targetName. This is a signal to RTCTools that this
-						// value belongs to t=n+1
-						// This "shortcut hack" is identical to what currently is used in Delta Shell via the
-						// OpenMI interface with RTCTools
-						char *targetName = new char[strlen(name) + 2];
-						sprintf(targetName, "%s*\0", name);
-						(dllSetVar) (targetName, (const void *)transferValuePtr);
-						delete[] targetName;
-					}
-                } else {
-                    // target is a component that uses direct pointer access to the actual variable
-                    // When doing a dllSetVar, targetVarPtr is not defined. First do a "send" to get it defined.
-                    if (targetVarPtr == NULL) {
-                        thisDimr->send (name, 
-                                        compType,
-                                        dllGetVar, 
-                                        &targetVarPtr,
-                                        processes,
-                                        nProc,
-                                        0);
-                    }
-                    if (targetVarPtr == NULL) {
-                        throw new Exception (true, "ABORT: Dimr::receive: get_var function not defined while processing %s", name);
-                    }
-    				*(targetVarPtr) = *(double*)(transferValuePtr);
-                }
+// This function gets the address from the components. 
+// Does not do any transfer of the values stored in sourceVarPtr. 
+
+void Dimr::getAddress(
+   const char * name,
+   int          compType,
+   BMI_GETVAR   dllGetVar,
+   double    ** sourceVarPtr,
+   int        * processes,
+   int          nProc,
+   double     * transfer)
+{
+   for (int m = 0; m < nProc; m++) {
+      if (my_rank == processes[m]) {
+         log->Write(ALL, my_rank, "Dimr::getAddress (%s)", name);
+         if (compType == COMP_TYPE_RTC
+            || compType == COMP_TYPE_RR
+            || compType == COMP_TYPE_FLOW1D
+            || compType == COMP_TYPE_FLOW1D2D
+            || *sourceVarPtr == NULL) {
+            // These components only returns a new pointer to a copy of the double value, so call it each time.
+            // sourceVarPtr=NULL: getVar not yet called for this parameter, probably because "send" is being called
+            //                    via the toplevel "get_var"
+            if (dllGetVar == NULL) {
+               throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "ABORT: get_var function not defined while processing %s", name);
             }
-        }
-    }
+            (dllGetVar)(name, (void**)(sourceVarPtr));
+         }
+         else if (compType == COMP_TYPE_WANDA) {
+            if (dllGetVar == NULL) {
+               throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "ABORT: get_var function not defined while processing %s", name);
+            }
+            // Wanda does not use pointers to internal structures:
+            // - Use the DIMR-transfer array
+            // - Note the missing & in the dllGetVar call, when comparing with the dllGetVar call above
+            *sourceVarPtr = transfer;
+            (dllGetVar)(name, (void**)(*sourceVarPtr));
+         }
+         else 
+         {
+            // Other components already have direct pointer access to the actual variable.
+         }
+      }
+   }
 }
 
+//------------------------------------------------------------------------------
+// This function sends the sourceVarPtr value to all processes 
+double* Dimr::send(
+   const char * name,
+   int          compType,
+   double     * sourceVarPtr,
+   int        * processes,
+   int          nProc,
+   double     * transfer)
+{
+   double * reducedTransfer = new double[nProc];
+
+   for (int m = 0; m < nProc; m++) 
+   {
+      transfer[m] = -999000.0;
+      if (my_rank == processes[m]) 
+      {
+         log->Write(ALL, my_rank, "Dimr::send (%s)", name);
+         if (sourceVarPtr != NULL && compType != COMP_TYPE_WANDA) 
+         {
+            transfer[m] = *sourceVarPtr;
+         }
+      }
+   }
+
+   //now you have all source values in the transfer array, we can reduce them
+   double maxValue = -999000.0;
+   // Do not call MPI_Allreduce when the number of partitions is 1. 
+   if (numranks > 1)
+   {
+      // NOTE: here the transfer array has a defined value only at position==my_rank and if *sourceVarPtr != NULL.
+      // We perform a reduction operation to collect the maximum values at each position and afterwards take the maximum of all values.
+      // We could also use only one double instead of a transfer array and perform the reduction on a single scalar (so avoiding the loop below) 
+      int ierr = MPI_Allreduce(transfer, reducedTransfer, nProc, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+      for (int m = 0; m < nProc; m++)
+      {
+         if (reducedTransfer[m] > maxValue) 
+            maxValue = reducedTransfer[m];
+      }
+   }
+   else
+   {
+      maxValue = transfer[0];
+   }
+
+   delete [] reducedTransfer;
+
+   //the reduced value now is set and return to all ranks
+   transferValue = maxValue;
+   return &(transferValue);
+}
 
 
 //------------------------------------------------------------------------------
@@ -990,14 +1278,17 @@ void Dimr::runParallelFinish (dimr_control_block * cb) {
                 continue;
             }
             chdir(cb->subBlocks[i].unit.component->workingDir);
-            this->log->Write (Log::MAJOR, my_rank, "    %s.Finalize()", cb->subBlocks[i].unit.component->name);
+            log->Write (FATAL, my_rank, "    %s.Finalize()", cb->subBlocks[i].unit.component->name);
+            timerStart(cb->subBlocks[i].unit.component);
             (cb->subBlocks[i].unit.component->dllFinalize) ();
+            timerEnd(cb->subBlocks[i].unit.component);
 
             if (use_mpi && cb->subBlocks[i].unit.component->mpiComm != NULL) {
                 MPI_Group mpiGroupComp;
                 int ierr = MPI_Comm_group(cb->subBlocks[i].unit.component->mpiComm, &mpiGroupComp);
                 ierr = MPI_Group_free(&mpiGroupComp);
-                ierr = MPI_Comm_free(&cb->subBlocks[i].unit.component->mpiComm);
+                // Is this really needed? In dflowfm the communicator is already freed in petsc finalize is solver 6 is used and this line causes a runtime error at the end of a dimr run
+                //ierr = MPI_Comm_free(&cb->subBlocks[i].unit.component->mpiComm);
             }
         } else {
             // CT_STARTGROUP
@@ -1007,8 +1298,10 @@ void Dimr::runParallelFinish (dimr_control_block * cb) {
                         continue;
                     }
                     chdir(cb->subBlocks[i].subBlocks[j].unit.component->workingDir);
-                    this->log->Write (Log::MAJOR, my_rank, "    %s.Finalize()", cb->subBlocks[i].subBlocks[j].unit.component->name);
+                    log->Write (FATAL, my_rank, "    %s.Finalize()", cb->subBlocks[i].subBlocks[j].unit.component->name);
+                    timerStart(cb->subBlocks[i].subBlocks[j].unit.component);
                     (cb->subBlocks[i].subBlocks[j].unit.component->dllFinalize) ();
+                    timerEnd(cb->subBlocks[i].subBlocks[j].unit.component);
                     }
             }
         }
@@ -1020,35 +1313,35 @@ void Dimr::runParallelFinish (dimr_control_block * cb) {
 //------------------------------------------------------------------------------
 void Dimr::scanConfigFile (void) {
 
-	XmlTree * rootXml     = this->config->Lookup ("/dimrConfig");
+    XmlTree * rootXml     = config->Lookup ("/dimrConfig");
     if (rootXml == NULL)
-        throw new Exception (true, "Configuration file \"%s\" does not have a <dimrConfig> root element", this->configfile);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Configuration file \"%s\" does not have a <dimrConfig> root element", configfile);
     XmlTree * fileversion = rootXml->Lookup ("documentation/fileVersion");
     if (fileversion == NULL)
-        throw new Exception (true, "Configuration file \"%s\" does not have a deltaresHydro documentation->fileVersion element", this->configfile);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Configuration file \"%s\" does not have a deltaresHydro documentation->fileVersion element", configfile);
 
-	// Check version number
+    // Check version number
     const char * versionnr = fileversion->charData;
     float versionnumber;
     int intRead = sscanf(versionnr, "%f", &versionnumber);
     if (intRead != 1)
-        throw new Exception (true, "Configuration file \"%s\" does not have a version number", this->configfile);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Configuration file \"%s\" does not have a version number", configfile);
     if ((int)floor(versionnumber) != 1)
-        throw new Exception (true, "Configuration file \"%s\": Version number (%3.2f) must have main version 2", this->configfile,versionnumber);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Configuration file \"%s\": Version number (%3.2f) must have main version 2", configfile,versionnumber);
 
-	XmlTree * controlXml  = rootXml->Lookup ("control");
+    XmlTree * controlXml  = rootXml->Lookup ("control");
     if (controlXml == NULL)
-        throw new Exception (true, "Configuration file \"%s\" does not have a deltaresHydro control element", this->configfile);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Configuration file \"%s\" does not have a deltaresHydro control element", configfile);
     // Allocate the control structure and check its size
-    this->control = (dimr_control_block *) malloc(sizeof(dimr_control_block));
-    this->control->numSubBlocks = 0;
-    this->control->subBlocks    = NULL;
-    this->control->masterSubBlockId = -1;
+    control = (dimr_control_block *) malloc(sizeof(dimr_control_block));
+    control->numSubBlocks = 0;
+    control->subBlocks    = NULL;
+    control->masterSubBlockId = -1;
     // First scan the config file for all components and couplers (= units)
     scanUnits(rootXml);
     // Then scan the control part
     // References are added to the list of components/couplers
-    scanControl(controlXml, this->control);
+    scanControl(controlXml, control);
 }
 
 
@@ -1056,36 +1349,36 @@ void Dimr::scanConfigFile (void) {
 //------------------------------------------------------------------------------
 void Dimr::scanUnits(XmlTree * rootXml) {
     // Init
-    this->componentsList.numComponents = 0;
-    this->componentsList.components    = NULL;
-    this->couplersList.numCouplers     = 0;
-    this->couplersList.couplers        = NULL;
+    componentsList.numComponents = 0;
+    componentsList.components    = NULL;
+    couplersList.numCouplers     = 0;
+    couplersList.couplers        = NULL;
     // Scan
-    for (int i = 0 ; i < rootXml->numChildren ; i++) {
+    for (int i = 0 ; i < rootXml->children.size(); i++) {
         if (strcmp(rootXml->children[i]->name, "component") == 0) {
-            this->componentsList.numComponents++;
-            if (this->componentsList.components == NULL) {
-                this->componentsList.components = (dimr_component*)malloc(this->componentsList.numComponents * sizeof(dimr_component));
+            componentsList.numComponents++;
+            if (componentsList.components == NULL) {
+                componentsList.components = (dimr_component*)malloc(componentsList.numComponents * sizeof(dimr_component));
             } else {
-                this->componentsList.components = (dimr_component*)realloc(this->componentsList.components, 
-                                                                          this->componentsList.numComponents * sizeof(dimr_component));
-                if (this->componentsList.components == NULL) {
-                    throw new Exception (true, "Allocation error in scanUnits (component)");
+                componentsList.components = (dimr_component*)realloc(componentsList.components, 
+                                                                          componentsList.numComponents * sizeof(dimr_component));
+                if (componentsList.components == NULL) {
+                    throw Exception (true, Exception::ERR_INVALID_INPUT, "Allocation error in scanUnits (component)");
                 }
             }
-            scanComponent(rootXml->children[i], &(this->componentsList.components[this->componentsList.numComponents - 1]));
+            scanComponent(rootXml->children[i], &(componentsList.components[componentsList.numComponents - 1]));
         }
         if (strcmp(rootXml->children[i]->name, "coupler") == 0) {
-            this->couplersList.numCouplers++;
-            if (this->couplersList.couplers == NULL) {
-                this->couplersList.couplers = (dimr_coupler*)malloc(this->couplersList.numCouplers * sizeof(dimr_coupler));
+            couplersList.numCouplers++;
+            if (couplersList.couplers == NULL) {
+                couplersList.couplers = (dimr_coupler*)malloc(couplersList.numCouplers * sizeof(dimr_coupler));
             } else {
-                this->couplersList.couplers = (dimr_coupler*)realloc(this->couplersList.couplers, this->couplersList.numCouplers * sizeof(dimr_coupler));
-                if (this->couplersList.couplers == NULL) {
-                    throw new Exception (true, "Allocation error in scanUnits (coupler)");
+                couplersList.couplers = (dimr_coupler*)realloc(couplersList.couplers, couplersList.numCouplers * sizeof(dimr_coupler));
+                if (couplersList.couplers == NULL) {
+                    throw Exception (true, Exception::ERR_INVALID_INPUT, "Allocation error in scanUnits (coupler)");
                 }
             }
-            scanCoupler(rootXml->children[i], &(this->couplersList.couplers[this->couplersList.numCouplers - 1]));
+            scanCoupler(rootXml->children[i], &(couplersList.couplers[couplersList.numCouplers - 1]));
         }
     }
 }
@@ -1100,16 +1393,16 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
 #else
     const char *dirSeparator = "\\";
 #endif
-    char curPath[FILENAME_MAX];
-    if (!getcwd(curPath, sizeof(curPath)))
-        throw new Exception (true, "ERROR obtaining the current working directory");
+    char *curPath = new char[MAXSTRING];
+    if (!getcwd(curPath, MAXSTRING))
+        throw Exception (true, Exception::ERR_OS, "ERROR obtaining the current working directory (scan)");
     //
     //
     newComp->name = xmlComponent->GetAttrib("name");
     // Element library
     XmlTree * libraryElement = xmlComponent->Lookup ("library");
     if (libraryElement == NULL)
-        throw new Exception (true, "Component \"%s\" does not contain a library element", newComp->name);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Component \"%s\" does not contain a library element", newComp->name);
     newComp->library = libraryElement->charData;
     int libLen = strlen(newComp->library);
     char *libNameLowercase= new char[libLen+1];
@@ -1140,7 +1433,7 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
        newComp->type = COMP_TYPE_TEST;
     }
     else {
-        throw new Exception (true, "Name of library, \"%s\", is not recognized", newComp->library);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "Name of library, \"%s\", is not recognized", newComp->library);
     }
     delete [] libNameLowercase;
 
@@ -1154,7 +1447,7 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
         newComp->onThisRank = false;         // Not found (yet): only active on other ranks.
         for (int i=0; i < newComp->numProcesses; i++) {
             if (newComp->processes[i] >= numranks) {
-                throw new Exception(true, "Component \"%s\" configured for process #%d, but max running MPI rank is only %d.",
+                throw Exception(true, Exception::ERR_INVALID_INPUT, "Component \"%s\" configured for process #%d, but max running MPI rank is only %d.",
                     newComp->name, newComp->processes[i], numranks-1);
             } else  if (newComp->processes[i] == my_rank) {
                 newComp->onThisRank = true;  // Found:     active.
@@ -1163,6 +1456,7 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
 
     } else {
         // No <process> specified, default: only run on rank #0.
+        log->Write (ALL, my_rank, "INFO: \"<process>\" not specified for component \"%s\". Assuming it only runs on rank #0.", newComp->name);
         newComp->numProcesses = 1;
         char *defaultProc = "0";
         char_to_ints(defaultProc, &(newComp->processes), &(newComp->numProcesses));
@@ -1186,7 +1480,7 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
     // Element inputFile (optional?)
     XmlTree * inputFileElement = xmlComponent->Lookup ("inputFile");
     if (inputFileElement == NULL) {
-        this->log->Write (Log::MAJOR, my_rank, "WARNING: No inputFile specified for component %s.", newComp->name);
+        log->Write (INFO, my_rank, "WARNING: No inputFile specified for component %s.", newComp->name);
         }
     else {
         newComp->inputFile = inputFileElement->charData;
@@ -1195,21 +1489,22 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
     XmlTree * workingDirElement = xmlComponent->Lookup ("workingDir");
     if (workingDirElement == NULL) {
         newComp->workingDir = (char *) &curPath;
-        this->log->Write (Log::MAJOR, my_rank, "WARNING: No workingDir specified for component %s.", newComp->name);
-        this->log->Write (Log::MAJOR, my_rank, "         workingDir is set to %s", newComp->workingDir);
+        log->Write (INFO, my_rank, "WARNING: No workingDir specified for component %s.", newComp->name);
+        log->Write (INFO, my_rank, "         workingDir is set to %s", newComp->workingDir);
         }
     else {
         newComp->workingDir = workingDirElement->charData;
         }
     // Is workingDir a valid relative path?
-    char *combinedPath= new char[FILENAME_MAX];
+    char *combinedPath= new char[MAXSTRING];
     sprintf(combinedPath, "%s%s%s", curPath, dirSeparator, newComp->workingDir);
     if (chdir(combinedPath)) {
         // CombinedPath is not correct. May be just workingDir?
         delete [] combinedPath;
         // Is workingDir a valid absolute path?
-        if (chdir(newComp->workingDir)) {
-            throw new Exception (true, "Component \"%s\" has an invalid workingDir \"%s\"", newComp->name, newComp->workingDir);
+        if (chdir(newComp->workingDir))
+        {
+            throw Exception (true, Exception::ERR_INVALID_INPUT, "Component \"%s\" has an invalid workingDir \"%s\"", newComp->name, newComp->workingDir);
         }
     }
     else {
@@ -1225,6 +1520,7 @@ void Dimr::scanComponent(XmlTree * xmlComponent, dimr_component * newComp) {
     if (strcmp(newComp->inputFile, ".") == 0) {
         newComp->inputFile = newComp->workingDir;
     }
+    delete [] curPath;
 }
 
 
@@ -1235,30 +1531,35 @@ void Dimr::scanCoupler(XmlTree * xmlCoupler, dimr_coupler * newCoup) {
     // Element sourceComponent
     XmlTree * sourceComponent = xmlCoupler->Lookup ("sourceComponent");
     if (sourceComponent == NULL)
-        throw new Exception (true, "The coupler \"%s\" does not contain a sourceComponent element", newCoup->name);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "The coupler \"%s\" does not contain a sourceComponent element", newCoup->name);
     newCoup->sourceComponentName = sourceComponent->charData;
     // Add reference to the actual component acting as source
-    newCoup->sourceComponent = this->getComponent(newCoup->sourceComponentName);
+    newCoup->sourceComponent = getComponent(newCoup->sourceComponentName);
     // Element targetComponent
     XmlTree * targetComponent = xmlCoupler->Lookup ("targetComponent");
     if (targetComponent == NULL)
-        throw new Exception (true, "The coupler \"%s\" does not contain a targetComponent element", newCoup->name);
+        throw Exception (true, Exception::ERR_INVALID_INPUT, "The coupler \"%s\" does not contain a targetComponent element", newCoup->name);
     newCoup->targetComponentName = targetComponent->charData;
     // Add reference to the actual component acting as target
-    newCoup->targetComponent = this->getComponent(newCoup->targetComponentName);
+    newCoup->targetComponent = getComponent(newCoup->targetComponentName);
     // Items
     newCoup->numItems = 0;
     newCoup->items    = NULL;
-    for (int j = 0 ; j < xmlCoupler->numChildren ; j++) {
+    for (int j = 0 ; j < xmlCoupler->children.size(); j++)
+    {
         if (strcmp(xmlCoupler->children[j]->name, "item") == 0) {
             // Create the item
             newCoup->numItems++;
-            if (newCoup->items == NULL) {
+            if (newCoup->items == NULL) 
+            {
                 newCoup->items = (dimr_couple_item*)malloc(newCoup->numItems * sizeof(dimr_couple_item));
-            } else {
+            } 
+            else 
+            {
                 newCoup->items = (dimr_couple_item*)realloc(newCoup->items, newCoup->numItems * sizeof(dimr_couple_item));
-                if (newCoup->items == NULL) {
-                    throw new Exception (true, "Allocation error in scanUnits (couple unit)");
+                if (newCoup->items == NULL) 
+                {
+                    throw Exception (true, Exception::ERR_INVALID_INPUT, "Allocation error in scanUnits (couple unit)");
                 }
             }
             dimr_couple_item *newItem = &(newCoup->items[newCoup->numItems - 1]);
@@ -1266,18 +1567,18 @@ void Dimr::scanCoupler(XmlTree * xmlCoupler, dimr_coupler * newCoup) {
             // Read sourceName
             XmlTree * xmlSource = xmlCoupler->children[j]->Lookup ("sourceName");
             if (xmlSource == NULL)
-                throw new Exception (true, "The coupler \"%s\", item %d, does not contain a sourceName element", newCoup->name, newCoup->numItems);
+                throw Exception (true, Exception::ERR_INVALID_INPUT,"The coupler \"%s\", item %d, does not contain a sourceName element", newCoup->name, newCoup->numItems);
             newItem->sourceName = xmlSource->charData;
             if (newItem->sourceName == NULL)
-                throw new Exception (true, "Item %d of coupler \"%s\" does not contain a source::name element", newCoup->numItems, newCoup->name);
+                throw Exception (true, Exception::ERR_INVALID_INPUT,"Item %d of coupler \"%s\" does not contain a source::name element", newCoup->numItems, newCoup->name);
 
             // Read targetName
             XmlTree * xmlTarget = xmlCoupler->children[j]->Lookup ("targetName");
             if (xmlTarget == NULL)
-                throw new Exception (true, "The coupler \"%s\", item %d, does not contain a targetName element", newCoup->name, newCoup->numItems);
+                throw Exception (true, Exception::ERR_INVALID_INPUT,"The coupler \"%s\", item %d, does not contain a targetName element", newCoup->name, newCoup->numItems);
             newItem->targetName = xmlTarget->charData;
             if (newItem->targetName == NULL)
-                throw new Exception (true, "Item %d of coupler \"%s\" does not contain a target::name element", newCoup->numItems, newCoup->name);
+                throw Exception (true, Exception::ERR_INVALID_INPUT, "Item %d of coupler \"%s\" does not contain a target::name element", newCoup->numItems, newCoup->name);
 
             // source/targetVarPtr will be set in runParallelInit
             newItem->sourceVarPtr = NULL;
@@ -1295,25 +1596,25 @@ void Dimr::scanControl(XmlTree * controlBlockXml, dimr_control_block * controlBl
         controlBlock->type = CT_PARALLEL;
     } else if (strcmp(controlBlockXml->name, "start") == 0) {
         controlBlock->type = CT_START;
-        controlBlock->unit.component = this->getComponent(controlBlockXml->GetAttrib("name"));
+        controlBlock->unit.component = getComponent(controlBlockXml->GetAttrib("name"));
         controlBlock->unit.coupler = NULL;
     } else if (strcmp(controlBlockXml->name, "startGroup") == 0) {
         controlBlock->type = CT_STARTGROUP;
         XmlTree * timeElt = controlBlockXml->Lookup ("time");
         if (timeElt == NULL)
-            throw new Exception (true, "The startGroup component \"%s\" does not contain a time element", controlBlockXml->name);
+            throw Exception (true, Exception::ERR_INVALID_INPUT,"The startGroup component \"%s\" does not contain a time element", controlBlockXml->name);
         int intRead = sscanf(timeElt->charData, "%lf %lf %lf", &(controlBlock->tStart), &(controlBlock->tStep), &(controlBlock->tEnd));
         if (intRead != 3)
-            throw new Exception (true, "Cannot find tStart, tStep, tEnd");
+            throw Exception (true, Exception::ERR_INVALID_INPUT, "Cannot find tStart, tStep, tEnd");
     } else if (strcmp(controlBlockXml->name, "coupler") == 0) {
         controlBlock->type = CT_COUPLER;
         controlBlock->unit.component = NULL;
-        controlBlock->unit.coupler = this->getCoupler(controlBlockXml->GetAttrib("name"));
+        controlBlock->unit.coupler = getCoupler(controlBlockXml->GetAttrib("name"));
     }
     controlBlock->numSubBlocks = 0;
     controlBlock->subBlocks    = NULL;
     controlBlock->masterSubBlockId = -1;
-    for (int i = 0 ; i < controlBlockXml->numChildren ; i++) {
+    for (int i = 0 ; i < controlBlockXml->children.size(); i++) {
         if (   strcmp(controlBlockXml->children[i]->name, "parallel"  ) == 0
             || strcmp(controlBlockXml->children[i]->name, "start"     ) == 0
             || strcmp(controlBlockXml->children[i]->name, "startGroup") == 0
@@ -1324,10 +1625,10 @@ void Dimr::scanControl(XmlTree * controlBlockXml, dimr_control_block * controlBl
             } else {
                 controlBlock->subBlocks = (dimr_control_block*)realloc(controlBlock->subBlocks, controlBlock->numSubBlocks * sizeof(dimr_control_block));
                 if (controlBlock->subBlocks == NULL) {
-                    throw new Exception (true, "Allocation error in scanControl");
+                    throw Exception (true, Exception::ERR_INVALID_INPUT, "Allocation error in scanControl");
                 }
             }
-            this->scanControl(controlBlockXml->children[i], &(controlBlock->subBlocks[controlBlock->numSubBlocks - 1]));
+            scanControl(controlBlockXml->children[i], &(controlBlock->subBlocks[controlBlock->numSubBlocks - 1]));
         }
         fflush(stdout);
     }
@@ -1338,9 +1639,9 @@ void Dimr::scanControl(XmlTree * controlBlockXml, dimr_control_block * controlBl
 //------------------------------------------------------------------------------
 // Search for a named component in the list of components
 dimr_component * Dimr::getComponent(const char * compName) {
-    for (int i = 0 ; i < this->componentsList.numComponents ; i++) {
-        if (strcmp(this->componentsList.components[i].name, compName) == 0) {
-            return &(this->componentsList.components[i]);
+    for (int i = 0 ; i < componentsList.numComponents ; i++) {
+        if (strcmp(componentsList.components[i].name, compName) == 0) {
+            return &(componentsList.components[i]);
         }
     }
 }
@@ -1350,9 +1651,9 @@ dimr_component * Dimr::getComponent(const char * compName) {
 //------------------------------------------------------------------------------
 // Search for a named coupler in the list of couplers
 dimr_coupler * Dimr::getCoupler(const char * coupName) {
-    for (int i = 0 ; i < this->couplersList.numCouplers ; i++) {
-        if (strcmp(this->couplersList.couplers[i].name, coupName) == 0) {
-            return &(this->couplersList.couplers[i]);
+    for (int i = 0 ; i < couplersList.numCouplers ; i++) {
+        if (strcmp(couplersList.couplers[i].name, coupName) == 0) {
+            return &(couplersList.couplers[i]);
         }
     }
 }
@@ -1368,50 +1669,50 @@ void Dimr::connectLibs (void) {
 
 #if defined (OSX)
     // Macintosh:VERY SIMILAR TO LINUX
-    throw new Exception (true, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
+    throw Exception (true, Exception::ERR_OS, "ABORT: %s has not be ported to Apple Mac OS/X yet", exeName);
 #endif
 #if defined (HAVE_CONFIG_H)
     char *err;
 #endif
 
     // do for all libraries
-    for (int i = 0 ; i < this->componentsList.numComponents ; i++) {
-        if (!this->componentsList.components[i].onThisRank) {
-            this->log->Write (Log::DETAIL, my_rank, "Not necessary to load component library \"%s\" on this rank.", this->componentsList.components[i].library);
+    for (int i = 0 ; i < componentsList.numComponents ; i++) {
+        if (!componentsList.components[i].onThisRank) {
+            log->Write (ALL, my_rank, "Not necessary to load component library \"%s\" on this rank.", componentsList.components[i].library);
             continue;
         }
 
 #if defined (HAVE_CONFIG_H)
-        char * lib = new char[strlen (this->componentsList.components[i].library) + 3+3+1];
-        sprintf (lib, "lib%s%s", this->componentsList.components[i].library, D3D_PLUGIN_EXT);
-        if (   strchr (this->componentsList.components[i].library, '/' ) != NULL 
-            || strchr (this->componentsList.components[i].library, '\\') != NULL 
-            || strchr (this->componentsList.components[i].library, '.' ) != NULL) {
-            throw new Exception (true, "Invalid component library name \"%s\"\n", lib, -1);
+        char * lib = new char[strlen (componentsList.components[i].library) + 3+3+1];
+        sprintf (lib, "lib%s%s", componentsList.components[i].library, D3D_PLUGIN_EXT);
+        if (   strchr (componentsList.components[i].library, '/' ) != NULL 
+            || strchr (componentsList.components[i].library, '\\') != NULL 
+            || strchr (componentsList.components[i].library, '.' ) != NULL) {
+            throw Exception (true, Exception::ERR_INVALID_INPUT, "Invalid component library name \"%s\"\n", lib, -1);
         }
 #else
-        char * lib = new char[strlen (this->componentsList.components[i].library) + 4+1];
-        sprintf (lib, "%s.dll", this->componentsList.components[i].library);
-        if (   strchr (this->componentsList.components[i].library, '/' ) != NULL 
-            || strchr (this->componentsList.components[i].library, '\\') != NULL 
-            || strchr (this->componentsList.components[i].library, '.' ) != NULL) {
-            throw new Exception (true, "Invalid component library name \"%s\"\n", lib, -1);
+        char * lib = new char[strlen (componentsList.components[i].library) + 4+1];
+        sprintf (lib, "%s.dll", componentsList.components[i].library);
+        if (   strchr (componentsList.components[i].library, '/' ) != NULL 
+            || strchr (componentsList.components[i].library, '\\') != NULL 
+            || strchr (componentsList.components[i].library, '.' ) != NULL) {
+            throw Exception (true, Exception::ERR_INVALID_INPUT, "Invalid component library name \"%s\"\n", lib, -1);
         }
 #endif
 
-        this->log->Write (Log::DETAIL, my_rank, "Loading library \"%s\"", lib);
+        log->Write (ALL, my_rank, "Loading library \"%s\"", lib);
 
 #if defined (HAVE_CONFIG_H)
         dlerror(); /* clear error code */
         void * dllhandle = dlopen (lib, RTLD_LAZY);
-        this->componentsList.components[i].libHandle = dllhandle;
+        componentsList.components[i].libHandle = dllhandle;
         #define GETPROCADDRESS dlsym
         #define GetLastError dlerror
         #define Sleep sleep
 #else
         SetLastError(0); /* clear error code */
         HINSTANCE dllhandle = LoadLibrary (LPCSTR(lib));
-        this->componentsList.components[i].libHandle = dllhandle;
+        componentsList.components[i].libHandle = dllhandle;
         #define GETPROCADDRESS GetProcAddress
 #endif
 
@@ -1419,110 +1720,141 @@ void Dimr::connectLibs (void) {
 
 #if defined (HAVE_CONFIG_H)
             if ((err = dlerror()) != NULL)
-                throw new Exception (true, "Cannot load component library \"%s\". Error: %s\n", lib, err);
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Error: %s\n", lib, err);
 #else
             if (GetLastError() == 193)
-                throw new Exception (true, "Cannot load component library \"%s\". Return code: %d\n    Most probably a 32bit - 64bit conflict.", lib, GetLastError());
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Return code: %d\n    Most probably a 32bit - 64bit conflict.", lib, GetLastError());
             else
-                throw new Exception (true, "Cannot load component library \"%s\". Return code: %d", lib, GetLastError());
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Return code: %d", lib, GetLastError());
 #endif
         }
 
         // Collect BMI entry points
-        this->componentsList.components[i].dllInitialize = (BMI_INITIALIZE) GETPROCADDRESS (dllhandle, BmiInitializeEntryPoint);
-        if (this->componentsList.components[i].dllInitialize == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiInitializeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllInitialize = (BMI_INITIALIZE) GETPROCADDRESS (dllhandle, BmiInitializeEntryPoint);
+        if (componentsList.components[i].dllInitialize == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiInitializeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllUpdate = (BMI_UPDATE) GETPROCADDRESS (dllhandle, BmiUpdateEntryPoint);
-        if (this->componentsList.components[i].dllUpdate == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiUpdateEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllUpdate = (BMI_UPDATE) GETPROCADDRESS (dllhandle, BmiUpdateEntryPoint);
+        if (componentsList.components[i].dllUpdate == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiUpdateEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllFinalize = (BMI_FINALIZE) GETPROCADDRESS (dllhandle, BmiFinalizeEntryPoint);
-        if (this->componentsList.components[i].dllFinalize == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiFinalizeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllFinalize = (BMI_FINALIZE) GETPROCADDRESS (dllhandle, BmiFinalizeEntryPoint);
+        if (componentsList.components[i].dllFinalize == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiFinalizeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllGetStartTime = (BMI_GETSTARTTIME) GETPROCADDRESS (dllhandle, BmiGetStartTimeEntryPoint);
-        if (this->componentsList.components[i].dllGetStartTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllGetStartTime = (BMI_GETSTARTTIME) GETPROCADDRESS (dllhandle, BmiGetStartTimeEntryPoint);
+        if (componentsList.components[i].dllGetStartTime == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllGetEndTime = (BMI_GETENDTIME) GETPROCADDRESS (dllhandle, BmiGetEndTimeEntryPoint);
-        if (this->componentsList.components[i].dllGetEndTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetEndTimeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllGetEndTime = (BMI_GETENDTIME) GETPROCADDRESS (dllhandle, BmiGetEndTimeEntryPoint);
+        if (componentsList.components[i].dllGetEndTime == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetEndTimeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllGetTimeStep = (BMI_GETTIMESTEP) GETPROCADDRESS (dllhandle, BmiGetTimeStepEntryPoint);
-        if (this->componentsList.components[i].dllGetStartTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllGetTimeStep = (BMI_GETTIMESTEP) GETPROCADDRESS (dllhandle, BmiGetTimeStepEntryPoint);
+        if (componentsList.components[i].dllGetStartTime == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllGetCurrentTime = (BMI_GETCURRENTTIME) GETPROCADDRESS (dllhandle, BmiGetCurrentTimeEntryPoint);
-        if (this->componentsList.components[i].dllGetCurrentTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetCurrentTimeEntryPoint, lib, GetLastError());
+        componentsList.components[i].dllGetCurrentTime = (BMI_GETCURRENTTIME) GETPROCADDRESS (dllhandle, BmiGetCurrentTimeEntryPoint);
+        if (componentsList.components[i].dllGetCurrentTime == NULL) {
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetCurrentTimeEntryPoint, lib, GetLastError());
         }
 
-        this->componentsList.components[i].dllGetAttribute = (BMI_GETATTRIBUTE) GETPROCADDRESS (dllhandle, BmiGetAttributeEntryPoint);
-        if (this->componentsList.components[i].dllGetAttribute == NULL) {
-            this->log->Write (Log::DETAIL, my_rank, "No GetAttribute entry point in %s !", this->componentsList.components[i].library);
-		}	
+        componentsList.components[i].dllGetAttribute = (BMI_GETATTRIBUTE) GETPROCADDRESS (dllhandle, BmiGetAttributeEntryPoint);
+        if (componentsList.components[i].dllGetAttribute == NULL) {
+            log->Write (ALL, my_rank, "No GetAttribute entry point in %s !", componentsList.components[i].library);
+        }    
 //      If GetAttribute is optional in a lib, no need to throw an exception
-//      if (this->componentsList.components[i].dllGetStartTime == NULL) {
-//          throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetAttributeEntryPoint, lib, GetLastError());
+//      if (componentsList.components[i].dllGetStartTime == NULL) {
+//          throw Exception (true,  Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetAttributeEntryPoint, lib, GetLastError());
 //        }
 
-        if (   this->componentsList.components[i].type == COMP_TYPE_FM
-            || this->componentsList.components[i].type == COMP_TYPE_RTC 
-            || this->componentsList.components[i].type == COMP_TYPE_RR 
-            || this->componentsList.components[i].type == COMP_TYPE_FLOW1D 
-            || this->componentsList.components[i].type == COMP_TYPE_FLOW1D2D
-            || this->componentsList.components[i].type == COMP_TYPE_DELWAQ
-            || this->componentsList.components[i].type == COMP_TYPE_TEST
-            || this->componentsList.components[i].type == COMP_TYPE_WANDA) {
+		if (   componentsList.components[i].type == COMP_TYPE_FM
+            || componentsList.components[i].type == COMP_TYPE_RTC 
+            || componentsList.components[i].type == COMP_TYPE_RR 
+            || componentsList.components[i].type == COMP_TYPE_FLOW1D 
+            || componentsList.components[i].type == COMP_TYPE_FLOW1D2D
+            || componentsList.components[i].type == COMP_TYPE_DELWAQ
+            || componentsList.components[i].type == COMP_TYPE_TEST
+            || componentsList.components[i].type == COMP_TYPE_WANDA) {
             // RTC-Tools: setVar is used
-            this->componentsList.components[i].dllSetVar = (BMI_SETVAR) GETPROCADDRESS (dllhandle, BmiSetVarEntryPoint);
-            if (this->componentsList.components[i].dllSetVar == NULL) {
-                throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetVarEntryPoint, lib, GetLastError());
+            componentsList.components[i].dllSetVar = (BMI_SETVAR) GETPROCADDRESS (dllhandle, BmiSetVarEntryPoint);
+            if (componentsList.components[i].dllSetVar == NULL) {
+                throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetVarEntryPoint, lib, GetLastError());
             }
         } else {
-            this->componentsList.components[i].dllSetVar = NULL;
-		}
+            componentsList.components[i].dllSetVar = NULL;
+      }
 
-        // Not implemented yet in Delwaq:
-        if (this->componentsList.components[i].type != COMP_TYPE_DELWAQ) { 
-            this->componentsList.components[i].dllGetVar = (BMI_GETVAR) GETPROCADDRESS (dllhandle, BmiGetVarEntryPoint);
-            if (this->componentsList.components[i].dllGetVar == NULL) {
-                throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetVarEntryPoint, lib, GetLastError());
-            }
-        }
+      // Logger callback: FLOW1D uses BmiSetLogger
+      if (componentsList.components[i].type == COMP_TYPE_FLOW1D) {
+         componentsList.components[i].setLogger = (BMI_SET_LOGGER)GETPROCADDRESS(dllhandle, BmiSetLogger);
+         if (componentsList.components[i].setLogger == NULL) {
+            throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetLogger, lib, GetLastError());
+         }
+         componentsList.components[i].setLogger((Logger)&_log);
+         double level = (double)this->logLevel;
+         componentsList.components[i].dllSetVar("debugLevel", (const void *)&level);
+      }
+      // Logger callback: FLOWFM uses BmiSetLogger2
+      if (componentsList.components[i].type == COMP_TYPE_FM) {
+         componentsList.components[i].setLogger = (BMI_SET_LOGGER)GETPROCADDRESS(dllhandle, BmiSetLogger);
+         if (componentsList.components[i].setLogger == NULL) {
+            throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetLogger, lib, GetLastError());
+         }
+         componentsList.components[i].setLogger((Logger)&_log);
+         // Is it possible to set the debugLevel in FM? componentsList.components[i].dllSetVar("debugLevel", (const void *)&level);
+      }
+
+      // Not implemented yet in Delwaq:
+      if (componentsList.components[i].type != COMP_TYPE_DELWAQ) {
+         componentsList.components[i].dllGetVar = (BMI_GETVAR)GETPROCADDRESS(dllhandle, BmiGetVarEntryPoint);
+         if (componentsList.components[i].dllGetVar == NULL) {
+            throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetVarEntryPoint, lib, GetLastError());
+         }
+      }
 
         delete [] lib;
     }
-    this->printComponentVersionStrings(Log::MAJOR);			// List component version to log 
+    if (my_rank == 0) {
+        printComponentVersionStrings(FATAL);            // List component version to log 
+    }
 }
 
-//void Dimr::printComponentVersionStrings (Log::Mask my_mask) {
-void Dimr::printComponentVersionStrings (unsigned int my_mask) {
+//void Dimr::printComponentVersionStrings (Level my_level) {
+void Dimr::printComponentVersionStrings (Level my_level) {
     const char * version = "version";
-	char * versionstr = new char[MAXSTRING];
-    this->log->Write (my_mask, thisDimr->my_rank, "");
-    this->log->Write (my_mask, thisDimr->my_rank, "Version Information of Components");
-    this->log->Write (my_mask, thisDimr->my_rank, "=================================");
-	for (int i=0;i<this->componentsList.numComponents;i++){
-	   strcpy(versionstr,"");
-	   if (this->componentsList.components[i].dllGetAttribute!=NULL){
-          this->componentsList.components[i].dllGetAttribute(version, versionstr);
-	   } 
-	   if (strlen(versionstr)==0){
-	      strcpy(versionstr,"Unknown");
-	   }
-       this->log->Write (my_mask, thisDimr->my_rank, "%-35s: %s", this->componentsList.components[i].library, versionstr);
-	}
-    this->log->Write (my_mask, my_rank, "---------------------------------");
-    this->log->Write (my_mask, my_rank, "");
+    char * versionstr = new char[MAXSTRINGLEN];
+    log->Write (my_level, my_rank, "");
+    log->Write (my_level, my_rank, "Version Information of Components");
+    log->Write (my_level, my_rank, "=================================");
+    for (int i=0;i<componentsList.numComponents;i++){
+       strcpy(versionstr,"");
+       if (componentsList.components[i].dllGetAttribute!=NULL){
+          componentsList.components[i].dllGetAttribute(version, versionstr);
+       } 
+       if (strlen(versionstr)==0){
+          strcpy(versionstr,"Unknown");
+       }
+       log->Write (my_level, my_rank, "%-35s: %s", componentsList.components[i].library, versionstr);
+    }
+    log->Write (my_level, my_rank, "---------------------------------");
+    log->Write (my_level, my_rank, "");
     delete[] versionstr;
+}
+
+
+//void _log(int level, char * msg) {
+void _log(Level level, const char * msg) {
+	if (thisDimr == NULL) {
+		thisDimr = new Dimr();
+	}	
+	thisDimr->log->Write(level, thisDimr->my_rank, msg);
 }
 
 //------------------------------------------------------------------------------
@@ -1534,31 +1866,31 @@ void Dimr::freeLibs (void) {
 
 #if defined (OSX)
     // Macintosh:VERY SIMILAR TO LINUX
-    throw new Exception (true, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
+    throw Exception (true, Exception::ERR_OS, "ABORT: %s has not be ported to Apple Mac OS/X yet", exeName);
 #endif
 #if defined (HAVE_CONFIG_H)
     char *err;
 #endif
 
     // do for all libraries
-    for (int i = 0 ; i < this->componentsList.numComponents ; i++) {
-        if (!this->componentsList.components[i].onThisRank) {
+    for (int i = 0 ; i < componentsList.numComponents ; i++) {
+        if (!componentsList.components[i].onThisRank) {
             continue;
         }
 
-        this->log->Write (Log::DETAIL, my_rank, "Freeing library \"%s\"", this->componentsList.components[i].library);
+        log->Write (ALL, my_rank, "Freeing library \"%s\"", componentsList.components[i].library);
 #if defined (HAVE_CONFIG_H)
         dlerror(); /* clear error code */
-        int ierr = dlclose(this->componentsList.components[i].libHandle);
+        int ierr = dlclose(componentsList.components[i].libHandle);
         if ((err = dlerror()) != NULL) {
-            throw new Exception (true, "Cannot free component library \"%s\". Error: %s\n",  this->componentsList.components[i].library, err);
+            throw Exception (true, Exception::ERR_OS, "Cannot free component library \"%s\". Error: %s\n",  componentsList.components[i].library, err);
         }
 #else
         DWORD ierr;
         SetLastError(0); /* clear error code */
-        bool success = FreeLibrary(this->componentsList.components[i].libHandle);
+        bool success = FreeLibrary(componentsList.components[i].libHandle);
         if ((ierr = GetLastError()) != 0) {
-            throw new Exception (true, "Cannot free component library \"%s\". Return code: %d.", this->componentsList.components[i].library, ierr);
+            throw Exception (true, Exception::ERR_OS, "Cannot free component library \"%s\". Return code: %d.", componentsList.components[i].library, ierr);
         }
 #endif
 
@@ -1571,21 +1903,61 @@ void Dimr::processWaitFile (void) {
     // The following waitFile code is introduced for
     // debugging parallel runs. It should NOT be used for any other purpose!
 
-    XmlTree * rootXml     = this->config->Lookup ("/dimrConfig");
+    XmlTree * rootXml     = config->Lookup ("/dimrConfig");
     const char * waitFile = rootXml->GetElement ("waitFile");
     if (waitFile != NULL) {
-        this->log->Write (Log::MAJOR, my_rank, "Waiting for file \"%s\" to appear...", waitFile);
+        log->Write (INFO, my_rank, "Waiting for file \"%s\" to appear...", waitFile);
         fflush (stdout);
         FILE * f;
         do {
             f = fopen (waitFile, "r");
             Sleep (1000);
         } while (f == NULL);
-        this->log->Write (Log::MAJOR, my_rank, "Found waitfile \"%s\".", waitFile);
+        log->Write (INFO, my_rank, "Found waitfile \"%s\".", waitFile);
         fclose (f);
     }
-    this->ready = 1;
+    ready = 1;
  }
+
+
+
+//------------------------------------------------------------------------------
+void Dimr::timersInit (void) {
+    for (int i = 0 ; i < thisDimr->componentsList.numComponents ; i++) {
+        componentsList.components[i].timerSum   =  0;
+        componentsList.components[i].timerStart =  0;
+    }
+}
+
+
+
+//------------------------------------------------------------------------------
+void Dimr::timerStart (dimr_component * thisComponent) {
+    thisComponent->timerStart = clock->Epoch();
+}
+
+
+
+//------------------------------------------------------------------------------
+void Dimr::timerEnd (dimr_component * thisComponent) {
+    Clock::Timestamp curtime = clock->Epoch();
+    thisComponent->timerSum   =  curtime - thisComponent->timerStart + thisComponent->timerSum;
+    thisComponent->timerStart =  0;
+}
+
+
+
+//------------------------------------------------------------------------------
+void Dimr::timersFinish (void) {
+    log->Write (FATAL, my_rank, "TIMER INFO:\n");
+    for (int i = 0 ; i < thisDimr->componentsList.numComponents ; i++) {
+        componentsList.components[i].timerStart = 0;
+        log->Write (FATAL, my_rank, "%s\t: %d.%d sec", componentsList.components[i].name, 
+                          componentsList.components[i].timerSum/1000000,
+                          componentsList.components[i].timerSum%1000000);
+        componentsList.components[i].timerSum   =  0.0;
+    }
+}
 
 
 

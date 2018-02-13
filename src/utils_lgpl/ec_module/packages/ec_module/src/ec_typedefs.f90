@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -85,6 +85,7 @@ module m_ec_typedefs
         character(len=8), allocatable  :: astro_component(:)     !< original component label read 
         real(hp), allocatable          :: astro_amplitude(:)     !< original amplitude read 
         real(hp), allocatable          :: astro_phase(:)         !< original phase read  
+        integer, allocatable           :: astro_kbnumber(:)      !< number of astrocomponent in the KompBes table
     end type tEcBCQuantity
 
    
@@ -111,7 +112,7 @@ module m_ec_typedefs
         integer(kind=8)                            ::  fhandle= -1         !< (C) filehandle to open file 
         logical                                    ::  isLateral = .false. !< Lateral discharge? (otherwise: boundary condition)
         integer                                    ::  ftype  = -1         !< ASCII, NetCDF, ....
-        type (tEcBCQuantity), pointer              ::  quantity            !< Quantity object 
+        type (tEcBCQuantity), pointer              ::  quantity => null()  !< Quantity object 
         type (tEcBCQuantity), allocatable          ::  quantities(:)       !< Array of quantity objects for each quantity with the same name  
         type (tEcNetCDF), pointer                  ::  ncptr => null()     !< pointer to a NetCDF instance, responsible for a connected NetCDF file 
         integer                                    ::  ncvarndx = -1       !< varid in the associated netcdf for the requested quantity 
@@ -155,7 +156,7 @@ module m_ec_typedefs
         character(len=50)                            ::  timeunit        !< netcdf-convention time unit definition 
         integer                                      ::  vptyp = -1      !< vertical coordinate type
         real(hp), allocatable, dimension(:)          ::  vp              !< vertical coordinate (layers)
-   end type 
+   end type tEcNetCDF
 
    type tEcNetCDFPtr
       type(tEcNetCDF), pointer :: ptr => null()
@@ -222,8 +223,10 @@ module m_ec_typedefs
       integer,  dimension(:), pointer     :: mask => null() !< points to a 1-dim array field, stored in maskArray OR in a kernel
       integer,  dimension(:), allocatable :: maskArray      !< value = 0: invalid point; value /= 0: valid point
       integer                             :: nCoordinates   !< number of coordinate pairs
+      integer, dimension(:), pointer      :: kbot, ktop     !< locate beginning and end of a contiguous vertical (z) column in a flat 1-dimensional array    ! 
       integer                             :: n_cols         !< number of columns in a data field
       integer                             :: n_rows         !< number of rows in a data field
+      integer                             :: n_layers = 0   !< number of vertical levels 
       integer                             :: vptyp = -1     !< sigma (0) or z (1)
       real(hp)                            :: x0             !< seed coordinate for equidistant x-coordinates
       real(hp)                            :: y0             !< seed coordinate for equidistant x-coordinates
@@ -254,12 +257,14 @@ module m_ec_typedefs
    type tEcField
       integer                                 :: id                 !< unique Field number, set by ecInstanceCreateField
       real(hp)                                :: timesteps          !< Numer of seconds since tEcTimeFrame%k_refdate.
+      integer                                 :: timesndx = -1      !< index into file: used im general for random access fles (nc) to keep track of position
       real(hp)                                :: missingValue       !< value to use for missing data in the data arrays
       real(hp), dimension(:),     pointer     :: arr1dPtr => null() !< points to a 1-dim array field, stored in arr1d OR in a kernel
       real(hp), dimension(:),     allocatable :: arr1d              !< 1-dim array field
       real(hp)                                :: x_spw_eye          !< x-coordinate of spiderweb eye
       real(hp)                                :: y_spw_eye          !< y-coordinate of spiderweb eye
-      character(len=8), allocatable           :: astro_components(:)!< astronomical components for astro bc's
+      character(len=8), allocatable           :: astro_components(:)!< astronomical components labels
+      integer, allocatable                    :: astro_kbnumber(:)  !< astronomical components KompBes numbers
    end type tEcField
    
    type tEcFieldPtr
@@ -325,10 +330,13 @@ module m_ec_typedefs
       character(len=maxNameLen) :: units                    !< physical units of the quantity
       integer                   :: vectorMax = 1            !< number of dimensions (vector data) or 1 in case of scalar
       integer                   :: zInterpolationType       !< Vertical interpolation type ! TODO: Add initialization in the constructor. (4748)
+      integer                   :: timeint = timeint_lin    !< Temporal interpolation type, default is linear
+      logical                   :: periodic = .false.       !< Use timeseries periodically
                                                             !< Intended for quantities from NetCDF:
       real(hp)                  :: fillvalue = 0.d0         !<    default if NaN, missing value
       real(hp)                  :: factor = 1.d0            !<    multiplication (scale) factor
       real(hp)                  :: offset = 0.d0            !<    offset (new = raw*factor + offset)
+      integer                   :: ncid = -1                !<    NetCDF variable ID, only used in case of NetCDF format
    end type tEcQuantity
    
    type tEcQuantityPtr

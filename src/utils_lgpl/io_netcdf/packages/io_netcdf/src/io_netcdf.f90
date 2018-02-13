@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -59,10 +59,20 @@ public :: IONC_ENOTAVAILABLE
 ! Types
 !
 public :: t_ionc
+public :: t_ug_charinfo
+public :: ug_idsLen
+public :: ug_idsLongNamesLen
+public :: t_ug_meta
+public :: ug_strLenMeta
+public :: t_ug_meshgeom
+public :: c_t_ug_meshgeom
+public :: c_t_ug_meshgeomdim
 
 !
 ! Subroutines
 !
+public :: ionc_strerror
+public :: ionc_get_constant
 public :: ionc_create
 public :: ionc_inq_conventions
 public :: ionc_adheresto_conventions
@@ -80,18 +90,73 @@ public :: ionc_get_face_count
 public :: ionc_get_max_face_nodes
 public :: ionc_get_node_coordinates
 public :: ionc_put_node_coordinates
+public :: ionc_get_edge_faces
 public :: ionc_get_edge_nodes
+public :: ionc_get_face_coordinates
+public :: ionc_put_face_coordinates
+public :: ionc_get_face_edges
 public :: ionc_get_face_nodes
 public :: ionc_get_coordinate_system
 public :: ionc_get_var_count
 public :: ionc_inq_varids
 public :: ionc_inq_varid
+public :: ionc_inq_varid_by_standard_name
+public :: ionc_def_var
 public :: ionc_get_var_1D_EightByteReal
 public :: ionc_put_var_1D_EightByteReal
 public :: ionc_write_geom_ugrid
 public :: ionc_write_mesh_struct
 public :: ionc_write_map_ugrid
 public :: ionc_initialize
+!network 1d functions
+public :: ionc_create_1d_network_ugrid
+public :: ionc_write_1d_network_nodes_ugrid
+public :: ionc_put_1d_network_branches_ugrid
+public :: ionc_write_1d_network_branches_geometry_ugrid
+public :: ionc_get_1d_network_nodes_count_ugrid
+public :: ionc_get_1d_network_branches_count_ugrid
+public :: ionc_get_1d_network_branches_geometry_coordinate_count_ugrid
+public :: ionc_read_1d_network_nodes_ugrid
+public :: ionc_get_1d_network_branches_ugrid
+public :: ionc_read_1d_network_branches_geometry_ugrid
+public :: ionc_create_1d_mesh_ugrid
+public :: ionc_put_1d_mesh_discretisation_points_ugrid
+public :: ionc_get_1d_mesh_discretisation_points_count_ugrid
+public :: ionc_get_1d_mesh_discretisation_points_ugrid
+!links functions
+public :: ionc_def_mesh_contact_ugrid
+public :: ionc_get_contacts_count_ugrid
+public :: ionc_put_mesh_contact_ugrid
+public :: ionc_get_mesh_contact_ugrid
+!clone functions
+public :: ionc_clone_mesh_definition_ugrid
+public :: ionc_clone_mesh_data_ugrid
+!get ids functions (obsolete)
+public :: ionc_get_1d_network_id_ugrid
+public :: ionc_get_1d_mesh_id_ugrid
+public :: ionc_get_2d_mesh_id_ugrid
+public :: ionc_get_3d_mesh_id_ugrid
+!get number of meshes
+public :: ionc_get_number_of_networks_ugrid
+public :: ionc_get_number_of_meshes_ugrid
+public :: ionc_get_network_ids_ugrid
+public :: ionc_ug_get_mesh_ids_ugrid
+!branch order
+public :: ionc_put_1d_network_branchorder_ugrid
+public :: ionc_get_1d_network_branchorder_ugrid
+!get network names
+public :: ionc_get_network_name
+!get the meshids from network ids
+public :: ionc_count_mesh_ids_from_network_id_ugrid
+public :: ionc_get_mesh_ids_from_network_id_ugrid
+public :: ionc_get_network_id_from_mesh_id_ugrid
+! define/put/read mesh ids
+public :: ionc_def_mesh_ids_ugrid
+public :: ionc_put_var_chars
+public :: ionc_get_var_chars
+
+public :: ionc_getfullversionstring_io_netcdf
+
 
 private
 
@@ -113,12 +178,12 @@ integer, public, parameter :: MAXSTRLEN = 255 !< Max string length (e.g. for inq
 !
 ! Error statuses
 !
-integer, parameter :: IONC_NOERR         = 0 !< Successful
-integer, parameter :: IONC_EBADID        = 1 !< Not a valid IONC dataset id
-integer, parameter :: IONC_ENOPEN        = 2 !< File could not be opened
-integer, parameter :: IONC_ENOMEM        = 3 !< Memory allocation error
-integer, parameter :: IONC_ENONCOMPLIANT = 4 !< File is non-compliant with its specified conventions
-integer, parameter :: IONC_ENOTAVAILABLE = 5 !< Requested function is not available, because the file has different conventions.
+integer, parameter :: IONC_NOERR         = 0     !< Successful
+integer, parameter :: IONC_EBADID        = -2001 !< Not a valid IONC dataset id
+integer, parameter :: IONC_ENOPEN        = -2002 !< File could not be opened
+integer, parameter :: IONC_ENOMEM        = -2003 !< Memory allocation error
+integer, parameter :: IONC_ENONCOMPLIANT = -2004 !< File is non-compliant with its specified conventions
+integer, parameter :: IONC_ENOTAVAILABLE = -2005 !< Requested function is not available, because the file has different conventions.
 
 
 
@@ -126,17 +191,69 @@ integer, parameter :: IONC_ENOTAVAILABLE = 5 !< Requested function is not availa
 type t_ionc
    integer                  :: ncid      =  0               !< The underlying native NetCDF data set id.
    integer                  :: iconvtype =  IONC_CONV_OTHER !< Detected type of the conventions used in this dataset.
-   double precision         :: convversion =  0 !< Detected version of the conventions used in this dataset.
+   double precision         :: convversion =  0             !< Detected version of the conventions used in this dataset.
    type(t_ug_file), pointer :: ug_file   => null()          !< For UGRID-type files, the underlying file structure.
-   type(t_crs),     pointer :: crs           !< Map projection/coordinate transformation used for the coordinates of this mesh.
+   type(t_crs),     pointer :: crs                          !< Map projection/coordinate transformation used for the coordinates of this mesh.
 end type t_ionc
 
 type(t_ionc), allocatable :: datasets(:) !< List of available datasets, maintained in global library state, indexed by the unique ionc_id.
 integer                   :: ndatasets   !< Number of available datasets. May be smaller than array size of datasets(:).
 
 !-------------------------------------------------------------------------------
-contains
+   contains
 !-------------------------------------------------------------------------------
+
+!> Given an error number, return an error message.
+!!
+!! Use this when a previous function call has returned a nonzero error status.
+!! Note that the error number may be an IONC error, but also an underlying UG error.
+function ionc_strerror(ierr) result(str)
+   integer,                       intent(in) :: ierr !< Integer error code for which to return the error message.
+   character(len=:), allocatable             :: str  !< String variable in which the message will be stored.
+
+   select case (ierr)
+      ! 1. First try list of IONC error numbers...
+   case (IONC_NOERR);         str = 'No error'
+   case (IONC_EBADID);        str = 'Bad io_netcdf dataset ID'
+   case (IONC_ENOPEN);        str = 'File not opened/created'
+   case (IONC_ENOMEM);        str = 'Memory allocation failure'
+   case (IONC_ENONCOMPLIANT); str = 'Dataset non-compliant to any of the supported standards'
+   case (IONC_ENOTAVAILABLE); str = 'Functionality not available for this dataset (possibly dataset adheres to different conventions?)'
+   case default
+      ! 2. Otherwise, try in list of UGRID error numbers...
+      str = ug_strerror(ierr)
+   end select
+
+end function ionc_strerror
+
+
+!> Returns the integer value for a named constant.
+!! When requested constant does not exist, the returned value is undefined, and ierr contains an error code.
+integer function ionc_get_constant(constname, constvalue) result(ierr)
+   character(len=*), intent(in)    :: constname  !< The name of the requested constant.
+   integer,          intent(  out) :: constvalue !< The integer value of the requested constant.
+
+   ierr = IONC_NOERR
+
+   select case (trim(constname))
+      ! 1. First try list of IONC constants...
+   case ('IONC_CONV_NULL');     constvalue = IONC_CONV_NULL
+   case ('IONC_CONV_CF');       constvalue = IONC_CONV_CF
+   case ('IONC_CONV_UGRID');    constvalue = IONC_CONV_UGRID
+   case ('IONC_CONV_SGRID');    constvalue = IONC_CONV_SGRID
+   case ('IONC_CONV_OTHER');    constvalue = IONC_CONV_OTHER
+   case ('IONC_NOERR');         constvalue = IONC_NOERR
+   case ('IONC_EBADID');        constvalue = IONC_EBADID
+   case ('IONC_ENOPEN');        constvalue = IONC_ENOPEN
+   case ('IONC_ENOMEM');        constvalue = IONC_ENOMEM
+   case ('IONC_ENONCOMPLIANT'); constvalue = IONC_ENONCOMPLIANT
+   case ('IONC_ENOTAVAILABLE'); constvalue = IONC_ENOTAVAILABLE
+   case default
+      ! 2. Otherwise, try in list of UGRID constants...
+      ierr = ug_get_constant(constname, constvalue)
+   end select
+end function ionc_get_constant
+
 
 !> Tries to create a NetCDF file and initialize based on its specified conventions.
 function ionc_create(netCDFFile, mode, ioncid, iconvtype, chunksize) result(ierr)
@@ -160,6 +277,8 @@ function ionc_create(netCDFFile, mode, ioncid, iconvtype, chunksize) result(ierr
       goto 999
    end if
 
+   
+   
    ierr = add_dataset(ncid, netCDFFile, ioncid, iconvtype)
    
 999 continue
@@ -248,7 +367,6 @@ function ionc_open(netCDFFile, mode, ioncid, iconvtype, convversion, chunksize) 
    end if
 
    ierr = add_dataset(ncid, netCDFFile, ioncid)
-
    if (ierr /= ionc_noerr) then
       ierr = IONC_ENOPEN
       goto 999
@@ -342,10 +460,19 @@ function ionc_get_mesh_name(ioncid, meshid, meshname) result(ierr)
    integer,             intent(in)    :: meshid   !< The mesh id in the specified data set.
    character(len=*),    intent(  out) :: meshname !< The name of the mesh topology variable.
    integer                            :: ierr     !< Result status, ionc_noerr if successful.
-   
+
    ierr = ug_get_mesh_name(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshname)
-   
 end function ionc_get_mesh_name
+
+!> Gets the name of the network variable in an open dataset.
+function ionc_get_network_name(ioncid, networkid, networkname) result(ierr)
+   integer,             intent(in)    :: ioncid      !< The IONC data set id.
+   integer,             intent(in)    :: networkid   !< The network id in the specified data set.
+   character(len=*),    intent(  out) :: networkname !< The name of the network topology variable.
+   integer                            :: ierr        !< Result status, ionc_noerr if successful.
+
+   ierr = ug_get_network_name(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), networkname)
+end function ionc_get_network_name
 
 !> Gets the dimension of the mesh topology for the specified mesh in a UGRID data set.
 function ionc_get_topology_dimension(ioncid, meshid, dim) result(ierr)
@@ -371,7 +498,6 @@ function ionc_get_topology_dimension(ioncid, meshid, dim) result(ierr)
 
 end function ionc_get_topology_dimension
 
-
 !> Reads the actual mesh geometry from the specified mesh in a IONC/UGRID dataset.
 !! By default only reads in the dimensions (face/edge/node counts).
 !! Optionally, also all coordinate arrays + connectivity tables can be read.
@@ -381,17 +507,30 @@ function ionc_get_meshgeom(ioncid, meshid, meshgeom, includeArrays) result(ierr)
    type(t_ug_meshgeom), intent(inout) :: meshgeom      !< Structure in which all mesh geometry will be stored.
    logical, optional,   intent(in   ) :: includeArrays !< (optional) Whether or not to include coordinate arrays and connectivity tables. Default: .false., i.e., dimension counts only.
    integer                            :: ierr          !< Result status, ionc_noerr if successful.
+   integer                            :: networkid 
+   type(t_ug_network)                 :: netid  
 
    ! TODO: AvD: some error handling if ioncid or meshid is wrong
    if (datasets(ioncid)%iconvtype /= IONC_CONV_UGRID) then
       ierr = IONC_ENOTAVAILABLE
       goto 999
    end if
+   
+   networkid = -1
+   ierr = ug_get_network_id_from_mesh_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), datasets(ioncid)%ug_file, networkid)
 
    if (present(includeArrays)) then
-      ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom, includeArrays)
+      if(networkid /= -1 ) then
+         ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom, includeArrays, datasets(ioncid)%ug_file%netids(networkid))
+      else
+         ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom, includeArrays)
+      endif 
    else
-      ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom)
+      if(networkid /= -1 ) then
+         ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom, netid = datasets(ioncid)%ug_file%netids(networkid))
+      else
+         ierr = ug_get_meshgeom(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), meshgeom)
+      endif
    end if
 
    ! Successful
@@ -476,26 +615,78 @@ function ionc_put_node_coordinates(ioncid, meshid, xarr, yarr) result(ierr)
 end function ionc_put_node_coordinates
 
 
-!> Gets the face-node connectivity table for all faces in the specified mesh.
-!! The output face_nodes array is supposed to be of exact correct size already.
-function ionc_get_edge_nodes(ioncid, meshid, edge_nodes) result(ierr)
-   integer,             intent(in)    :: ioncid  !< The IONC data set id.
-   integer,             intent(in)    :: meshid  !< The mesh id in the specified data set.
-   integer,             intent(  out) :: edge_nodes(:,:) !< Array to the face-node connectivity table.
-   integer                            :: ierr    !< Result status, ionc_noerr if successful.
+!> Gets the edge_faces connectivity table for all faces in the specified mesh.
+!! The output edge_faces array is supposed to be of exact correct size already.
+function ionc_get_edge_faces(ioncid, meshid, edge_faces, fillvalue) result(ierr)
+   integer, intent(in)    :: ioncid  !< The IONC data set id.
+   integer, intent(in)    :: meshid  !< The mesh id in the specified data set.
+   integer, intent(  out) :: edge_faces(:,:)  !< Array to the face-node connectivity table.
+   integer, intent(  out) :: fillvalue  !< Scalar for getting the fill value parameter for the requested variable.
+   integer                :: ierr  !< Result status, ionc_noerr if successful.
 
-   ierr = ug_get_edge_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), edge_nodes)   
+   ierr = ug_get_edge_faces(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), edge_faces, fillvalue)   
+end function ionc_get_edge_faces
+
+
+!> Gets the edge_nodes connectivity table for all edges in the specified mesh.
+!! The output edge_nodes array is supposed to be of exact correct size already.
+function ionc_get_edge_nodes(ioncid, meshid, edge_nodes, start_index) result(ierr)
+   integer, intent(in)    :: ioncid  !< The IONC data set id.
+   integer, intent(in)    :: meshid  !< The mesh id in the specified data set.
+   integer, intent(  out) :: edge_nodes(:,:)  !< Array to the face-node connectivity table.
+   integer                :: ierr  !< Result status, ionc_noerr if successful.
+   integer                :: start_index !< The requested start index   
+
+   ierr = ug_get_edge_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), edge_nodes, start_index)   
 end function ionc_get_edge_nodes
 
+!> Gets the x,y coordinates (representative centre) for all faces in a single mesh from a data set.
+function ionc_get_face_coordinates(ioncid, meshid, xarr, yarr) result(ierr)
+   integer,             intent(in)  :: ioncid  !< The IONC data set id.
+   integer,             intent(in)  :: meshid  !< The mesh id in the specified data set.
+   double precision,    intent(out) :: xarr(:) !< Array for storing x-coordinates
+   double precision,    intent(out) :: yarr(:) !< Array for storing y-coordinates
+   integer                          :: ierr    !< Result status, ionc_noerr if successful.
+
+   ierr = ug_get_face_coordinates(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), xarr, yarr)
+end function ionc_get_face_coordinates
+
+
+!> Puts the x,y coordinates for all faces in a single mesh from a data set.
+function ionc_put_face_coordinates(ioncid, meshid, xarr, yarr) result(ierr)
+   integer,             intent(in)  :: ioncid  !< The IONC data set id.
+   integer,             intent(in)  :: meshid  !< The mesh id in the specified data set.
+   double precision,    intent(in)  :: xarr(:) !< Array containing the x-coordinates
+   double precision,    intent(in)  :: yarr(:) !< Array containing the y-coordinates
+   integer                          :: ierr    !< Result status, ionc_noerr if successful.
+
+   ierr = ug_put_face_coordinates(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), xarr, yarr)
+end function ionc_put_face_coordinates
+
+
+!> Gets the face-edge connectivity table for all faces in the specified mesh.
+!! The output face_edges array is supposed to be of exact correct size already.
+function ionc_get_face_edges(ioncid, meshid, face_edges, fillvalue) result(ierr)
+   integer, intent(in)    :: ioncid  !< The IONC data set id.
+   integer, intent(in)    :: meshid  !< The mesh id in the specified data set.
+   integer, intent(  out) :: face_edges(:,:) !< Array to the face-node connectivity table.
+   integer, intent(  out) :: fillvalue !< Scalar for getting the fill value parameter for the requested variable.
+   integer                :: ierr    !< Result status, ionc_noerr if successful.
+
+   ierr = ug_get_face_edges(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), face_edges, fillvalue)
+end function ionc_get_face_edges
+
+
 !> Gets the face-node connectivity table for all faces in the specified mesh.
 !! The output face_nodes array is supposed to be of exact correct size already.
-function ionc_get_face_nodes(ioncid, meshid, face_nodes) result(ierr)
-   integer,             intent(in)    :: ioncid  !< The IONC data set id.
-   integer,             intent(in)    :: meshid  !< The mesh id in the specified data set.
-   integer,             intent(  out) :: face_nodes(:,:) !< Array to the face-node connectivity table.
-   integer                            :: ierr    !< Result status, ionc_noerr if successful.
+function ionc_get_face_nodes(ioncid, meshid, face_nodes, fillvalue) result(ierr)
+   integer, intent(in)    :: ioncid  !< The IONC data set id.
+   integer, intent(in)    :: meshid  !< The mesh id in the specified data set.
+   integer, intent(  out) :: face_nodes(:,:) !< Array to the face-node connectivity table.
+   integer, intent(  out) :: fillvalue !< Scalar for getting the fill value parameter for the requested variable.
+   integer                :: ierr    !< Result status, ionc_noerr if successful.
 
-   ierr = ug_get_face_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), face_nodes)
+   ierr = ug_get_face_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), face_nodes, fillvalue)
 end function ionc_get_face_nodes
 
 !> Gets the coordinate system from a data set.
@@ -530,16 +721,17 @@ end function ionc_get_var_count
 !> Gets a list of variable IDs that are available in the specified dataset on the specified mesh.
 !! The location type allows to select on specific topological mesh locations
 !! (UGRID-compliant, so UG_LOC_FACE/EDGE/NODE/ALL2D)
-function ionc_inq_varids(ioncid, meshid, iloctype, varids) result(ierr)
+function ionc_inq_varids(ioncid, meshid, iloctype, varids, nvar) result(ierr)
    integer,             intent(in)    :: ioncid    !< The IONC data set id.
    integer,             intent(in)    :: meshid    !< The mesh id in the specified data set.
    integer,             intent(in)    :: iloctype  !< The topological location on which to select data (UGRID-compliant, so UG_LOC_FACE/EDGE/NODE/ALL2D).
    integer,             intent(  out) :: varids(:) !< Array to store the variable ids in.
+   integer,             intent(  out) :: nvar      !< Number of variables found/stored in array.
    integer                            :: ierr      !< Result status, ionc_noerr if successful.
 
 
    ! TODO: AvD: some error handling if ioncid or meshid is wrong
-   ierr = ug_inq_varids(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), iloctype, varids)
+   ierr = ug_inq_varids(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), iloctype, varids, nvar)
 
 end function ionc_inq_varids
 
@@ -560,7 +752,25 @@ function ionc_inq_varid(ioncid, meshid, varname, varid) result(ierr)
 end function ionc_inq_varid
 
 
-!> Gets the values for a named variable in the specified dataset on the specified mesh.
+!> Gets the variable ID for the variable in the specified dataset on the specified mesh,
+!! that also has the specified value for its ':standard_name' attribute, and 
+!! is defined on the specified topological mesh location (UGRID-compliant, so UG_LOC_FACE/EDGE/NODE/ALL2D)
+function ionc_inq_varid_by_standard_name(ioncid, meshid, iloctype, stdname, varid) result(ierr)
+   integer,             intent(in)    :: ioncid   !< The IONC data set id.
+   integer,             intent(in)    :: meshid   !< The mesh id in the specified data set.
+   integer,             intent(in)    :: iloctype !< The topological location on which to select data (UGRID-compliant, so UG_LOC_FACE/EDGE/NODE/ALL2D).
+   character(len=*),    intent(in)    :: stdname  !< The standard_name value that is searched for.
+   integer,             intent(  out) :: varid    !< The resulting variable id, if found.
+   integer                            :: ierr     !< Result status, ionc_noerr if successful.
+
+
+   ! TODO: AvD: some error handling if ioncid or meshid is wrong
+   ierr = ug_inq_varid_by_standard_name(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), iloctype, stdname, varid)
+
+end function ionc_inq_varid_by_standard_name
+
+
+!> Gets the numerical values for a named variable in the specified dataset on the specified mesh.
 !! The location type allows to select the specific topological mesh location.
 !! (UGRID-compliant, so UG_LOC_FACE/EDGE/NODE/ALL2D)
 function ionc_get_var_1D_EightByteReal(ioncid, meshid, iloctype, varname, values, fillvalue) result(ierr) ! TODO (?): AvD: support start, count, stride, map
@@ -601,6 +811,36 @@ function ionc_get_var_1D_EightByteReal(ioncid, meshid, iloctype, varname, values
 end function ionc_get_var_1D_EightByteReal
 
 
+!> Gets the characters values for a named variable in the specified dataset on the specified mesh.
+!! The type is not needed because the variable is retrived from its full name
+function ionc_get_var_chars(ioncid, meshid, varname, values) result(ierr) 
+   integer,             intent(in)          :: ioncid         !< The IONC data set id.
+   integer,             intent(in)          :: meshid         !< The mesh id in the specified data set.
+   character(len=*),    intent(in)          :: varname        !< The name of the variable to be found. Should be without any "meshnd_" prefix.
+   character(len=*),    intent(inout)       :: values(:)      !< Array to store the values in.
+   integer                                  :: ierr           !< Result status, ionc_noerr if successful.
+
+   integer :: varid
+
+   ierr = ionc_inq_varid(ioncid, meshid, varname, varid)
+   if (ierr /= ionc_noerr) then
+      goto 999
+   end if
+
+   ierr = nf90_get_var(datasets(ioncid)%ncid, varid, values)
+   if (ierr /= nf90_noerr) then
+      goto 999
+   end if
+
+   ierr = UG_NOERR
+   return ! Return with success
+
+999 continue
+    ! Some error (status was set earlier)
+
+end function ionc_get_var_chars
+
+
 !> Puts the values for a named variable into the specified dataset on the specified mesh.
 !! NOTE: Assumes that the variable already exists in the file (i.e., needs no def_var anymore).
 !! The location type allows to select the specific topological mesh location.
@@ -637,6 +877,35 @@ function ionc_put_var_1D_EightByteReal(ioncid, meshid, iloctype, varname, values
 
 end function ionc_put_var_1D_EightByteReal
 
+!> Puts the character values for a named variable into the specified dataset on the specified mesh.
+function ionc_put_var_chars(ioncid, meshid, varname, values) result(ierr)
+
+    integer,             intent(in)    :: ioncid           !< The IONC data set id.
+    integer,             intent(in)    :: meshid           !< The mesh id in the specified data set.
+    character(len=*),    intent(in)    :: varname          !< The name of the variable to be found. Should be without any "meshnd_" prefix.
+    character(len=*),    intent(in)    :: values(:)        !< Array with the charter values to be written.
+    integer                            :: ierr, varid      !< Result status, ionc_noerr if successful.
+
+    ierr = UG_SOMEERR
+   ierr = ionc_inq_varid(ioncid, meshid, varname, varid)
+
+   if (ierr /= ionc_noerr) then
+      goto 999
+   end if
+
+   ierr = nf90_put_var(datasets(ioncid)%ncid, varid, values)
+   if (ierr /= nf90_noerr) then
+      goto 999
+   end if
+
+   ierr = UG_NOERR
+   return ! Return with success
+
+999 continue
+    ! Some error (status was set earlier)
+
+end function ionc_put_var_chars
+
 
 !> Writes a complete mesh geometry
 function ionc_write_geom_ugrid(filename) result(ierr)
@@ -657,23 +926,73 @@ end function ionc_write_map_ugrid
 
 
 !> Add the global attributes to a NetCDF file 
-function ionc_add_global_attributes(ioncid, meta) result(ierr)
+function ionc_add_global_attributes(ioncid,institution,source,references,version,modelname) result(ierr)
+
    integer,         intent(in) :: ioncid  !< The IONC data set id.
-   type(t_ug_meta), intent(in) :: meta
    integer                     :: ierr    !< Result status, ionc_noerr if successful.
+   character(len=*), intent(in):: institution, source, references, version, modelname
+   type(t_ug_meta)             :: meta
+   
+   meta%institution = institution
+   meta%source = source
+   meta%references = references
+   meta%version = version
+   meta%modelname = modelname
 
    ierr = ug_addglobalatts(datasets(ioncid)%ncid, meta)
 end function ionc_add_global_attributes
 
 
+!> Defines a new variable in an existing IONC dataset and sets up proper meta-attributes.
+!! NOTE: File should still be in define mode.
+!! Does not write the actual data yet.
+function ionc_def_var(ioncid, meshid, id_var, itype, iloctype, var_name, standard_name, long_name, & ! id_dims, 
+                    unit, cell_method, crs, ifill, dfill) result(ierr)
+   integer,                    intent(in)    :: ioncid    !< The IONC data set id.
+   integer,                    intent(in)    :: meshid    !< The mesh id in the specified data set.
+   integer,                    intent(  out) :: id_var        !< Created NetCDF variable id.
+!   integer, dimension(:),      intent(in)    :: id_dims       !< NetCDF dimension ids for this variable. Example: (/ id_edgedim /) for scalar data on edges, or (/ id_twodim, id_facedim /) for vector data on faces.
+   integer,                    intent(in)    :: itype         !< The variable type expressed in one of the basic nf90_* types, e.g., nf90_double.
+   integer,                    intent(in)    :: iloctype      !< Specifies at which unique mesh location data will be specified.
+   character(len=*),           intent(in)    :: var_name      !< Name for the new data variable.
+   character(len=*),           intent(in)    :: standard_name !< Standard name (CF-compliant) for 'standard_name' attribute in this variable.
+   character(len=*),           intent(in)    :: long_name     !< Long name for 'long_name' attribute in this variable (use empty string if not wanted).
+   character(len=*),           intent(in)    :: unit          !< Unit of this variable (CF-compliant) (use empty string for dimensionless quantities).
+   character(len=*),           intent(in)    :: cell_method   !< Cell method for the spatial dimension (i.e., for edge/face/volume), value should be one of 'point', 'mean', etc. (See CF) (empty string if not relevant).
+   type(t_crs),      optional, intent(in)    :: crs           !< (Optional) Add grid_mapping attribute based on this coordinate reference system for independent coordinates
+   integer,          optional, intent(in)    :: ifill         !< (Optional) Integer fill value.
+   double precision, optional, intent(in)    :: dfill         !< (Optional) Double precision fill value.
+   integer                                :: ierr          !< Result status (UG_NOERR==NF90_NOERR) if successful.
+
+   integer :: id_dims(1)
+
+   ! TODO: UNST-1548: AvD: refactor some of dflowfm's unc_def_var_map functionality into io_ugrid.
+   ! For now, auto-insert some commonly used spatial dimension ids, such that caller ONLY needs to specify iloctype.
+   ! NOTE: this only supports rank-1 arrays for now then.
+   if      (iloctype == UG_LOC_NODE) then
+      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_node)
+   else if (iloctype == UG_LOC_EDGE) then
+      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_edge)
+   else if (iloctype == UG_LOC_FACE) then
+      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_face)
+   else
+      ! loc type error is caught in ug_def_var below
+      continue
+   end if
+
+   ierr = ug_def_var(datasets(ioncid)%ncid, id_var, id_dims, itype, iloctype, datasets(ioncid)%ug_file%meshnames(meshid), var_name, standard_name, long_name, &
+                    unit, cell_method, crs, ifill, dfill)
+end function ionc_def_var
+
+
 !> Writes the complete mesh geometry
 function ionc_write_mesh_struct(ioncid, meshids, meshgeom) result(ierr)
    integer,             intent(in)    :: ioncid   !< The IONC data set id.
-   type(t_ug_meshids),  intent(inout) :: meshids !< Set of NetCDF-ids for all mesh geometry arrays.
+   type(t_ug_mesh),  intent(inout) :: meshids  !< Set of NetCDF-ids for all mesh geometry arrays.
    type(t_ug_meshgeom), intent(in)    :: meshgeom !< The complete mesh geometry in a single struct.
-   integer                            :: ierr    !< Result status, ionc_noerr if successful.
+   integer                            :: ierr     !< Result status, ionc_noerr if successful.
 
-   ierr = ug_write_mesh_struct(datasets(ioncid)%ncid, meshids, meshgeom)
+   ierr = ug_write_mesh_struct(datasets(ioncid)%ncid, meshids, datasets(ioncid)%ug_file%crs, meshgeom)
 end function ionc_write_mesh_struct
 
 !> Initializes the io_netcdf library, setting up the logger.
@@ -902,7 +1221,7 @@ function add_dataset(ncid, netCDFFile, ioncid, iconvtype) result(ierr)
 
    select case (datasets(ioncid)%iconvtype)
    !
-   ! UGRID initialization
+   ! UGRID initialization: If the case is not executed the meshidid structure will not be created
    !
    case (IONC_CONV_UGRID)
       allocate(datasets(ioncid)%ug_file)
@@ -938,5 +1257,435 @@ subroutine netcdfError(errorLevel, message)
         !call closeall()
     endif
 end subroutine netcdfError
+!
+! Network and mesh1d functions
+!
+!> This function creates a 1d mesh accordingly to the new 1d format.
+function ionc_create_1d_network_ugrid(ioncid, networkid, networkName, nNodes, nBranches, nGeometry) result(ierr)
+
+   integer, intent(in)                :: ioncid
+   integer, intent(inout)             :: networkid
+   character(len=*), intent(in)       :: networkName !< File name for netCDF dataset to be opened.
+   integer, intent(in)                :: nNodes, nBranches, nGeometry
+   integer                            :: ierr, dum
+      
+   ! allocate add a meshids
+   ierr = ug_add_network(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, networkid)
+   ! set the network name
+   datasets(ioncid)%ug_file%networksnames(networkid) = networkName
+   ! add a 1d network
+   ierr = ug_create_1d_network(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), networkName, nNodes, nBranches, nGeometry)
+   
+end function ionc_create_1d_network_ugrid
+
+function ionc_write_1d_network_nodes_ugrid(ioncid, networkid, nodesX, nodesY, nodeIds, nodeLongnames) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid  
+   double precision,    intent(in)    :: nodesX(:) 
+   double precision,    intent(in)    :: nodesY(:) 
+   character(len=*), intent(in)       :: nodeIds(:),nodeLongnames(:) !< File name for netCDF dataset to be opened.
+   integer                            :: ierr 
+      
+   ierr = ug_write_1d_network_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), nodesX, nodesY, nodeIds, &
+       nodeLongnames)
+   
+end function ionc_write_1d_network_nodes_ugrid
+
+function ionc_put_1d_network_branches_ugrid(ioncid, networkid, sourcenodeid, targetnodeid, branchids, branchlengths, branchlongnames, &
+    nbranchgeometrypoints, nBranches, startIndex) result(ierr)
+
+   integer, intent(in)                :: ioncid, startIndex   
+   integer, intent(in)                :: networkId, nBranches 
+   integer, intent(in)                :: sourcenodeid(:), targetnodeid(:), nbranchgeometrypoints(:)
+   character(len=*),intent(in)        :: branchids(:),branchlongnames(:)
+   double precision, intent(in)       :: branchlengths(:)
+   integer                            :: ierr
+   
+   ierr = ug_put_1d_network_branches(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid),sourcenodeid,targetnodeid, &
+       branchIds, branchlengths, branchlongnames, nbranchgeometrypoints,nBranches, startIndex) 
+   
+    end function ionc_put_1d_network_branches_ugrid
+    
+!< write the branch order array, it might be temporary function
+function ionc_put_1d_network_branchorder_ugrid(ioncid, networkid, branchorder) result(ierr)
+    
+    integer, intent(in)                :: ioncid   
+    integer, intent(in)                :: networkId
+    integer, intent(in)                :: branchorder(:)
+    integer                            :: ierr
+    
+    ierr =  ug_put_1d_network_branchorder(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), branchorder)
+    
+end function ionc_put_1d_network_branchorder_ugrid
+
+function ionc_write_1d_network_branches_geometry_ugrid(ioncid, networkid, geopointsX, geopointsY) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   double precision, intent(in)       :: geopointsX(:),geopointsY(:)
+   integer                            :: ierr
+   
+   ierr = ug_write_1d_network_branches_geometry(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), geopointsX, &
+       geopointsY)
+
+end function ionc_write_1d_network_branches_geometry_ugrid
+
+function ionc_get_1d_network_nodes_count_ugrid(ioncid, networkid, nNodes) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   integer, intent(out)               :: nNodes 
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_nodes_count(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid),nNodes)
+
+end function ionc_get_1d_network_nodes_count_ugrid
+
+function ionc_get_1d_network_branches_count_ugrid(ioncid, networkid, nBranches)  result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   integer, intent(out)               :: nBranches 
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_branches_count(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid),nBranches)
+
+end function ionc_get_1d_network_branches_count_ugrid
+
+function  ionc_get_1d_network_branches_geometry_coordinate_count_ugrid(ioncid, networkid, ngeometrypoints)  result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   integer, intent(out)               :: ngeometrypoints 
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_branches_geometry_coordinate_count(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), & 
+       ngeometrypoints)
+   
+end function ionc_get_1d_network_branches_geometry_coordinate_count_ugrid
+
+function  ionc_read_1d_network_nodes_ugrid(ioncid, networkid, nodesX, nodesY, nodeids, nodelongnames) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   double precision,intent(out)       :: nodesX(:), nodesY(:)  
+   character(len=*),intent(out)       :: nodeids(:), nodelongnames(:)  
+   integer                            :: ierr
+   
+   ierr = ug_read_1d_network_nodes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), nodesX, nodesY, nodeids, nodelongnames)
+
+end function ionc_read_1d_network_nodes_ugrid
+
+function  ionc_get_1d_network_branches_ugrid(ioncid, networkid, sourcenodeid, targetnodeid, branchid, branchlengths, branchlongnames, nbranchgeometrypoints, startIndex) result(ierr)
+
+   integer, intent(in)                :: ioncid, startIndex   
+   integer, intent(in)                :: networkid 
+   integer,intent(out)                :: sourcenodeid(:), targetnodeid(:), nbranchgeometrypoints(:)  
+   character(len=*), intent(out)      :: branchid(:), branchlongnames(:)  
+   double precision, intent(out)      :: branchlengths(:)
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_branches(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), sourcenodeid, & 
+       targetnodeid,branchid,branchlengths,branchlongnames,nbranchgeometrypoints, startIndex)
+
+end function ionc_get_1d_network_branches_ugrid
+
+
+!< get the branch order array, it might be temporary function
+function ionc_get_1d_network_branchorder_ugrid(ioncid, networkid, branchorder) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   integer,intent(out)                :: branchorder(:)
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_branchorder(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), branchorder)
+
+end function ionc_get_1d_network_branchorder_ugrid  
+   
+
+function  ionc_read_1d_network_branches_geometry_ugrid(ioncid, networkid, geopointsX, geopointsY) result(ierr)
+
+   integer, intent(in)                :: ioncid, networkid  
+   double precision, intent(out)      :: geopointsX(:), geopointsY(:)
+   integer                            :: ierr
+
+   ierr = ug_read_1d_network_branches_geometry(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), geopointsX, geopointsY)
+
+end function ionc_read_1d_network_branches_geometry_ugrid
+
+
+function ionc_create_1d_mesh_ugrid(ioncid, networkid, meshid, meshname, nmeshpoints, nmeshedges) result(ierr)
+
+   integer, intent(in)         :: ioncid, networkid, nmeshpoints, nmeshedges
+   integer, intent (inout)     :: meshid
+   character(len=*),intent(in) :: meshname 
+   integer                     :: ierr
+   
+   !adds a meshids structure
+   ierr = ug_add_mesh(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshid)
+   ! set the meshname
+   datasets(ioncid)%ug_file%meshnames(meshid) = meshname
+   ! create mesh
+   ierr = ug_create_1d_mesh(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), datasets(ioncid)%ug_file%meshids(meshid), meshname, nmeshpoints, nmeshedges)
+  
+end function ionc_create_1d_mesh_ugrid
+
+
+function ionc_def_mesh_ids_ugrid(ioncid, meshid, locationType) result(ierr)
+
+   integer, intent(in)         :: ioncid, meshid, locationType
+   integer                     :: ierr
+
+   ierr = ug_def_mesh_ids(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid),datasets(ioncid)%ug_file%meshnames(meshid), locationType)
+
+end function ionc_def_mesh_ids_ugrid
+
+
+function ionc_put_1d_mesh_discretisation_points_ugrid(ioncid, networkid, branchidx, offset, startIndex) result(ierr) 
+
+  integer, intent(in)         :: ioncid, networkid, startIndex  
+  integer, intent(in)         :: branchidx(:)
+  double precision,intent(in) :: offset(:)
+  integer                     :: ierr
+  
+  ierr=ug_put_1d_mesh_discretisation_points(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(networkid), branchidx, offset, startIndex)  
+  
+end function ionc_put_1d_mesh_discretisation_points_ugrid
+
+function ionc_get_1d_mesh_discretisation_points_count_ugrid(ioncid, networkid, nmeshpoints) result(ierr) 
+
+   integer, intent(in)    :: ioncid, networkid 
+   integer, intent(out)   :: nmeshpoints
+   integer                :: ierr
+   
+   ierr = ug_get_1d_mesh_discretisation_points_count(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(networkid), nmeshpoints)
+   
+end function ionc_get_1d_mesh_discretisation_points_count_ugrid
+
+
+function ionc_get_1d_mesh_discretisation_points_ugrid(ioncid, networkid, branchidx, offset, startIndex) result(ierr) 
+
+  integer, intent(in)         :: ioncid, networkid, startIndex 
+  integer, intent(out)        :: branchidx(:)
+  double precision,intent(out):: offset(:)
+  integer                     :: ierr
+  
+  ierr = ug_get_1d_mesh_discretisation_points(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(networkid), branchidx, offset, startIndex)
+   
+end function ionc_get_1d_mesh_discretisation_points_ugrid
+
+!
+! create mesh links
+!
+
+function ionc_def_mesh_contact_ugrid(ioncid, contactsmesh, contactmeshname, ncontacts, idmesh1, idmesh2, locationType1Id, locationType2Id) result(ierr) 
+
+   integer, intent(in)                :: ioncid, ncontacts, idmesh1, idmesh2,locationType1Id,locationType2Id   
+   integer, intent(inout)             :: contactsmesh
+   character(len=*), intent(in)       :: contactmeshname 
+   integer                            :: ierr
+  
+  ! first add an ug datastructure
+  ierr = ug_add_mesh_contact(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, contactsmesh)
+  
+  ! set the contact mesh name
+  datasets(ioncid)%ug_file%contactsnames(contactsmesh) = contactmeshname
+  ! create the variables and attributes
+  ierr = ug_def_mesh_contact(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%contactids(contactsmesh), contactmeshname, ncontacts, idmesh1, idmesh2, locationType1Id, locationType2Id)
+   
+end function ionc_def_mesh_contact_ugrid
+
+function ionc_get_contacts_count_ugrid(ioncid, contactsmesh, ncontacts) result(ierr) 
+
+   integer, intent(in)      :: ioncid, contactsmesh
+   integer, intent(inout)   :: ncontacts
+   integer                  :: ierr
+   
+   ierr = ug_get_contacts_count(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%contactids(contactsmesh), ncontacts) 
+   
+end function ionc_get_contacts_count_ugrid
+
+function ionc_put_mesh_contact_ugrid(ioncid, contactsmesh, mesh1indexes, mesh2indexes, contactsids, contactslongnames,startIndex)  result(ierr) 
+
+   integer, intent(in)                :: ioncid, contactsmesh, startIndex 
+   integer, intent(in)                :: mesh1indexes(:),mesh2indexes(:)
+   character(len=*), intent(in)       :: contactsids(:), contactslongnames(:)  
+   integer                            :: ierr
+
+   ierr = ug_put_mesh_contact(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%contactids(contactsmesh), mesh1indexes, mesh2indexes, contactsids, contactslongnames, startIndex) 
+
+end function ionc_put_mesh_contact_ugrid
+
+function ionc_get_mesh_contact_ugrid(ioncid, contactsmesh, mesh1indexes, mesh2indexes, contactsids, contactslongnames, startIndex)  result(ierr) 
+
+   integer, intent(in)                :: ioncid, contactsmesh, startIndex 
+   integer, intent(inout)             :: mesh1indexes(:),mesh2indexes(:)
+   character(len=*), intent(inout)    :: contactsids(:), contactslongnames(:)  
+   integer                            :: ierr
+
+   ierr = ug_get_mesh_contact(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%contactids(contactsmesh), mesh1indexes, mesh2indexes, contactsids, contactslongnames, startIndex) 
+
+end function ionc_get_mesh_contact_ugrid
+
+!
+! Cloning functions
+!
+
+function ionc_clone_mesh_definition_ugrid( ncidin, ncidout, meshidin, meshidout ) result(ierr)
+
+   integer, intent(in)               :: ncidin, ncidout, meshidin
+   integer, intent(inout)            :: meshidout
+   integer                           :: ierr,status,sourceid,targetid
+   character(len=nf90_max_name)      :: buffer
+   
+   !We always add meshes, not links (otherwise we need to check here if ug_add_links should be used instead)
+   ierr = ug_add_mesh(datasets(ncidout)%ncid, datasets(ncidout)%ug_file, meshidout)
+   ierr = ug_clone_mesh_definition( datasets(ncidin)%ncid, datasets(ncidout)%ncid, datasets(ncidin)%ug_file%meshids(meshidin), datasets(ncidout)%ug_file%meshids(meshidout))
+
+end function ionc_clone_mesh_definition_ugrid
+
+function ionc_clone_mesh_data_ugrid( ncidin, ncidout, meshidin, meshidout ) result(ierr)
+
+   integer, intent(in)    :: ncidin, ncidout, meshidin
+   integer, intent(in)    :: meshidout
+   integer                :: ierr,status,sourceid,targetid
+   
+   ierr = ug_clone_mesh_data( datasets(ncidin)%ncid, datasets(ncidout)%ncid,datasets(ncidin)%ug_file%meshids(meshidin), datasets(ncidout)%ug_file%meshids(meshidout))
+
+end function ionc_clone_mesh_data_ugrid
+
+function ionc_getfullversionstring_io_netcdf( version_string )  result(ierr)
+   use io_netcdf_version_module
+   
+   character(len=*), intent(inout) :: version_string !< String to contain the full version string of this io_netcdf library.
+   integer                :: ierr
+   
+   call getfullversionstring_io_netcdf(version_string)
+   ierr = 0
+    
+end function ionc_getfullversionstring_io_netcdf
+
+!
+! Get the mesh ids
+!
+
+function ionc_get_number_of_networks_ugrid(ioncid, nnumNetworks)  result(ierr)
+
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: nnumNetworks
+   integer                :: ierr
+   
+   ierr = ug_ionc_get_number_of_networks(datasets(ioncid)%ug_file, nnumNetworks)
+
+end function ionc_get_number_of_networks_ugrid
+
+function ionc_get_number_of_meshes_ugrid(ioncid, meshType, numMeshes)  result(ierr)
+
+   integer, intent(in)    :: ioncid,meshType
+   integer, intent(inout) :: numMeshes
+   integer                :: ierr
+   
+   ierr=ug_get_number_of_meshes(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshType, numMeshes)
+   
+end function ionc_get_number_of_meshes_ugrid
+
+function ionc_get_network_ids_ugrid(ioncid, networkids)  result(ierr)
+   
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: networkids(:)
+   integer                :: ierr
+   
+   ierr=ug_get_network_ids(datasets(ioncid)%ug_file, networkids) 
+
+end function ionc_get_network_ids_ugrid
+
+function ionc_ug_get_mesh_ids_ugrid(ioncid, meshType, meshids)  result(ierr)
+
+   integer, intent(in)    :: ioncid,meshType
+   integer, intent(inout) :: meshids(:)
+   integer                :: ierr
+   
+   ierr = ug_get_mesh_ids(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshType, meshids) 
+   
+end function ionc_ug_get_mesh_ids_ugrid
+
+
+function ionc_get_1d_network_id_ugrid(ioncid, networkid) result(ierr)
+
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: networkid
+   integer                :: ierr
+   
+   ierr = ug_get_1d_network_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, networkid)
+
+end function ionc_get_1d_network_id_ugrid
+
+function ionc_get_1d_mesh_id_ugrid(ioncid, meshid) result(ierr)
+
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: meshid
+   integer                :: ierr
+   
+   ierr = ug_get_mesh_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshid, 1)
+
+end function ionc_get_1d_mesh_id_ugrid
+
+function ionc_get_2d_mesh_id_ugrid(ioncid, meshid) result(ierr)
+
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: meshid
+   integer                :: ierr
+   
+   ierr = ug_get_mesh_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshid, 2)
+
+end function ionc_get_2d_mesh_id_ugrid
+
+function ionc_get_3d_mesh_id_ugrid(ioncid, meshid) result(ierr)
+
+   integer, intent(in)    :: ioncid
+   integer, intent(inout) :: meshid
+   integer                :: ierr
+   
+   ierr = ug_get_mesh_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, meshid, 3)
+
+end function ionc_get_3d_mesh_id_ugrid
+
+!< Count the number of meshes associated with a network
+function ionc_count_mesh_ids_from_network_id_ugrid(ioncid, netid, nmeshids) result(ierr)
+
+   integer,  intent(in)              :: ioncid 
+   integer,  intent(in)              :: netid
+   integer,  intent(inout)           :: nmeshids
+   integer                           :: ierr
+      
+   ierr = ug_count_mesh_ids_from_network_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, netid, nmeshids)
+   
+end function ionc_count_mesh_ids_from_network_id_ugrid
+
+!< Get an integer array array of the mesh ids associated with the network id
+function ionc_get_mesh_ids_from_network_id_ugrid(ioncid, netid, meshids) result(ierr)
+
+   integer,  intent(in)              :: ioncid 
+   integer,  intent(in)              :: netid
+   integer,  intent(inout)           :: meshids(:)
+   integer                           :: ierr
+   
+   ierr = ug_get_mesh_ids_from_network_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file, netid, meshids)
+
+end function ionc_get_mesh_ids_from_network_id_ugrid
+
+
+function ionc_get_network_id_from_mesh_id_ugrid(ioncid, meshid, networkid) result(ierr)
+
+   integer,  intent(in)              :: ioncid 
+   integer,  intent(in)              :: meshid
+   integer,  intent(inout)           :: networkid
+   integer                           :: ierr
+   
+   ierr = ug_get_network_id_from_mesh_id(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), datasets(ioncid)%ug_file, networkid)
+
+end function ionc_get_network_id_from_mesh_id_ugrid
 
 end module io_netcdf

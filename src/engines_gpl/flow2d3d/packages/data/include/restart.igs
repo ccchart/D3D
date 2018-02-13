@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -37,7 +37,6 @@ type sv_restart
     !
     ! integers
     !
-    integer        :: fds               !  NEFIS or NetCDF handle of restart file
     integer        :: filetype          !  Type of restart file
     integer        :: i_restart         !  Restart index
     !

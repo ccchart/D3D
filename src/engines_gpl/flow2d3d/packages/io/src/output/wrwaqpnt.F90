@@ -6,7 +6,7 @@
 
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2016.
+!  Copyright (C)  Stichting Deltares, 2011-2017.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,6 @@
 !
 !! executable statements -------------------------------------------------------
 !
-      lunout = newunit()
       mnmax  = nmax*mmax
       notot  = mnmax*kmax
                     allocate ( lgrid( nmax , mmax ) , stat=istat)    !!  lgrid-table is now a full matrix
@@ -95,9 +94,9 @@
 !            write the 'total' lgrid table (currently a full matrix)
 
 #ifdef HAVE_FC_FORM_BINARY
-      open  ( lunout , file=trim(filnam)//'lgt', form='binary' )
+      open  ( newunit = lunout , file=trim(filnam)//'lgt', form='binary' )
 #else
-      open  ( lunout , file=trim(filnam)//'lgt', form = 'unformatted', access='stream')
+      open  ( newunit = lunout , file=trim(filnam)//'lgt', form = 'unformatted', access='stream')
 #endif
       k     = 1
       do j = 1,mmax
@@ -112,9 +111,9 @@
 !            write the lgrid tabel with zero's and bounds
 
 #ifdef HAVE_FC_FORM_BINARY
-      open  ( lunout , file=trim(filnam)//'lgo', form='binary' )
+      open  ( newunit = lunout , file=trim(filnam)//'lgo', form='binary' )
 #else
-      open  ( lunout , file=trim(filnam)//'lgo', form = 'unformatted', access='stream')
+      open  ( newunit = lunout , file=trim(filnam)//'lgo', form = 'unformatted', access='stream')
 #endif
       write ( lunout ) nmax, mmax, mnmax, ilaggr(kmax)
       k     = 1
@@ -149,9 +148,9 @@
 
 !            make the 'from' 'to' pointer table and the aggregation table
 #ifdef HAVE_FC_FORM_BINARY
-      open  ( lunout , file=trim(filnam)//'poi', form='binary' )
+      open  ( newunit = lunout , file=trim(filnam)//'poi', form='binary' )
 #else
-      open  ( lunout , file=trim(filnam)//'poi', form = 'unformatted', access='stream')
+      open  ( newunit = lunout , file=trim(filnam)//'poi', form = 'unformatted', access='stream')
 #endif
 !            determine the type of aggregation
       aggre = -1                                         ! no aggregation
@@ -159,8 +158,7 @@
       inquire ( file=flaggr, EXIST=filex )
       if ( filex ) then                          ! the dido aggregation file
          aggre = 1
-         lunaggr = newunit()
-         open ( lunaggr , file=flaggr )
+         open ( newunit = lunaggr , file=flaggr )
          read ( lunaggr , * , iostat=istat) n, m, k, i, j
          if ( istat /= 0) then
             write ( message , '(3A)' ) &
@@ -275,9 +273,9 @@
 
 !            write the aggregated lgrid tabel with zero's and bounds
 #ifdef HAVE_FC_FORM_BINARY
-      open  ( lunout , file=trim(filnam)//'lga', form='binary' )
+      open  ( newunit = lunout , file=trim(filnam)//'lga', form='binary' )
 #else
-      open  ( lunout , file=trim(filnam)//'lga', form = 'unformatted', access='stream')
+      open  ( newunit = lunout , file=trim(filnam)//'lga', form = 'unformatted', access='stream')
 #endif
       write ( lunout ) nmax, mmax, nosegl, ilaggr(kmax), noq1, noq2, noq3
       write ( lunout ) iapnt(1:mnmax)
@@ -285,7 +283,7 @@
 
 !            write the attribute file
 
-      open  ( lunout, file=trim(filnam)//'atr', recl=max(min(nmax*2+8,1008),202) )
+      open  ( newunit = lunout, file=trim(filnam)//'atr', recl=max(min(nmax*2+8,1008),202) )
       write ( lunout , '(a)' )  '         ; DELWAQ_COMPLETE_ATTRIBUTES'
       write ( lunout , '(a)' )  '    2    ; two blocks with input     '
       write ( lunout , '(a)' )  '    1    ; number of attributes, they are :'

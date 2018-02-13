@@ -13,7 +13,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
                   & ntruvto   ,ntruvgl   ,order_tra ,ipartition,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -74,6 +74,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
     integer                         , pointer :: nfg
     integer                         , pointer :: nmaxgl
     integer                         , pointer :: mmaxgl
+    integer                         , pointer :: io_fp
     integer                         , pointer :: io_prec
     integer       , dimension(:)    , pointer :: smlay
     logical                         , pointer :: densin
@@ -243,6 +244,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
     !
     mnit           => gdp%gdstations%mnit
     mnstat         => gdp%gdstations%mnstat
+    io_fp          => gdp%gdpostpr%io_fp
     io_prec        => gdp%gdpostpr%io_prec
     smlay          => gdp%gdpostpr%smlay
     namst          => gdp%gdstations%namst
@@ -376,7 +378,7 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
           call addelm(gdp, lundia, ifile, grnam2, 'ITDATE', ' ', IO_INT4      , 1, dimids=(/iddim_2/), longname='Initial date (input) & time (default 00:00:00)', unit='[YYYYMMDD]')
           call addelm(gdp, lundia, ifile, grnam2, 'TZONE', ' ', io_prec       , 0, longname='Local time zone', unit='h')
           call addelm(gdp, lundia, ifile, grnam2, 'TUNIT', ' ', io_prec       , 0, longname='Time scale related to seconds', unit='s')
-          call addelm(gdp, lundia, ifile, grnam2, 'DT',    ' ', io_prec       , 0, longname='Time step (DT*TUNIT sec)')
+          call addelm(gdp, lundia, ifile, grnam2, 'DT',    ' ', io_fp         , 0, longname='Time step (DT*TUNIT sec)')
           call addelm(gdp, lundia, ifile, grnam2, 'SIMDAT', ' ', 16           , 0, longname='Simulation date and time [YYYYMMDD  HHMMSS]') !CHARACTER
           call addelm(gdp, lundia, ifile, grnam2, 'SELMAP', ' ', 21           , 0, longname='Selection flag for field values (2dH, 1dV & 2dV)') !CHARACTER
           call addelm(gdp, lundia, ifile, grnam2, 'NMAX', ' ', IO_INT4        , 0, longname='Number of N-grid points')
@@ -390,15 +392,19 @@ subroutine wrimap(lundia      ,error     ,filename  ,selmap    ,simdat    , &
           call addelm(gdp, lundia, ifile, grnam2, 'NTRUV', ' ', IO_INT4       , 0, longname='Number of monitoring cross-sections')
           call addelm(gdp, lundia, ifile, grnam2, 'GRDANG', ' ', io_prec      , 0, longname='Edge between y-axis and real north', unit='arc_degrees')
        endif
-       call addelm(gdp, lundia, ifile, grnam2, 'XCOR', xcoordname, io_prec , 2, dimids=(/iddim_nc, iddim_mc/), longname='X-coordinate of grid points', unit=xcoordunit)
-       call addelm(gdp, lundia, ifile, grnam2, 'YCOR', ycoordname, io_prec , 2, dimids=(/iddim_nc, iddim_mc/), longname='Y-coordinate of grid points', unit=ycoordunit)
-       call addelm(gdp, lundia, ifile, grnam2, 'XZ', xcoordname, io_prec   , 2, dimids=(/iddim_n , iddim_m /), longname='X-coordinate of cell centres', unit=xcoordunit)
-       call addelm(gdp, lundia, ifile, grnam2, 'YZ', ycoordname, io_prec   , 2, dimids=(/iddim_n , iddim_m /), longname='Y-coordinate of cell centres', unit=ycoordunit)
+       call addelm(gdp, lundia, ifile, grnam2, 'XCOR', xcoordname, io_fp   , 2, dimids=(/iddim_nc, iddim_mc/), longname='X-coordinate of grid points', unit=xcoordunit)
+       call addelm(gdp, lundia, ifile, grnam2, 'YCOR', ycoordname, io_fp   , 2, dimids=(/iddim_nc, iddim_mc/), longname='Y-coordinate of grid points', unit=ycoordunit)
+       call addelm(gdp, lundia, ifile, grnam2, 'XZ', xcoordname, io_fp     , 2, dimids=(/iddim_n , iddim_m /), longname='X-coordinate of cell centres', unit=xcoordunit)
+       call addelm(gdp, lundia, ifile, grnam2, 'YZ', ycoordname, io_fp     , 2, dimids=(/iddim_n , iddim_m /), longname='Y-coordinate of cell centres', unit=ycoordunit)
        call addelm(gdp, lundia, ifile, grnam2, 'ALFAS', ' ', io_prec       , 2, dimids=(/iddim_n , iddim_m /), longname='Orientation ksi-axis w.r.t. pos.x-axis at water level point', unit='arc_degrees', acl='z')
        call addelm(gdp, lundia, ifile, grnam2, 'KCU', ' ', IO_INT4         , 2, dimids=(/iddim_n , iddim_mc/), longname='Mask array for U-velocity points', acl='u')
        call addelm(gdp, lundia, ifile, grnam2, 'KCV', ' ', IO_INT4         , 2, dimids=(/iddim_nc, iddim_m /), longname='Mask array for V-velocity points', acl='v')
        call addelm(gdp, lundia, ifile, grnam2, 'KCS', ' ', IO_INT4         , 2, dimids=(/iddim_n , iddim_m /), longname='Non-active/active water-level point', acl='z')
-       call addelm(gdp, lundia, ifile, grnam2, 'DP0', ' ', io_prec         , 2, dimids=(/iddim_nc, iddim_mc/), longname='Initial bottom depth (positive down)', unit='m', acl='d')
+       if (dpsopt == 'DP') then
+          call addelm(gdp, lundia, ifile, grnam2, 'DP0', ' ', io_prec         , 2, dimids=(/iddim_n, iddim_m/), longname='Initial bottom depth (positive down)', unit='m', acl='z')
+       else
+          call addelm(gdp, lundia, ifile, grnam2, 'DP0', ' ', io_prec         , 2, dimids=(/iddim_nc, iddim_mc/), longname='Initial bottom depth (positive down)', unit='m', acl='d')
+       endif
        call addelm(gdp, lundia, ifile, grnam2, 'DPS0', ' ', io_prec        , 2, dimids=(/iddim_n , iddim_m /), longname='Initial bottom depth at zeta points (positive down)', unit='m', acl='z')
        call addelm(gdp, lundia, ifile, grnam2, 'DPU0', ' ', io_prec        , 2, dimids=(/iddim_n , iddim_mc/), longname='Initial bottom depth at u points (positive down)', unit='m', acl='u')
        call addelm(gdp, lundia, ifile, grnam2, 'DPV0', ' ', io_prec        , 2, dimids=(/iddim_nc, iddim_m /), longname='Initial bottom depth at v points (positive down)', unit='m', acl='v')

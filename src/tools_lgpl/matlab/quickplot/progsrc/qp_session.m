@@ -4,7 +4,7 @@ function S = qp_session(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -658,7 +658,7 @@ for fgi = length(S):-1:1
                             d3d_qp('usemarkerfillcolour',0)
                         else
                             d3d_qp('usemarkerfillcolour',1)
-                            d3d_qp('makerfillcolour',Ops.markerfillcolour)
+                            d3d_qp('markerfillcolour',Ops.markerfillcolour)
                         end
                     end
                     if isfield(Ops,'presentationtype') && strcmp(Ops.presentationtype,'patches')

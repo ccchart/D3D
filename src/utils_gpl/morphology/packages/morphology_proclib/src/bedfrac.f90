@@ -7,7 +7,7 @@
 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -190,7 +190,7 @@
          istat = inibedcomp(bed%comp, noseg, numIS, sedtyp, d50, logstd, rhosol, swUnderLyr, swPorosity)
          if (istat /= 0) then
             write(*,'(A)') 'An error occurred in BEDFRAC. Program stops.'
-            call throwexception()
+            stop
          endif
          deallocate(d50,logstd,rhosol)
          !

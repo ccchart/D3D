@@ -4,7 +4,7 @@ function [FI,FileName,Tp,Otherargs]=qp_fmem(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -59,7 +59,7 @@ switch cmd
         DoDS=0;
         if strcmp(cmd,'openurl')
             DoDS=1;
-        elseif length(filterspec)>7 && isequal(lower(filterspec(1:7)),'http://')
+        elseif length(filterspec)>8 && (isequal(lower(filterspec(1:7)),'http://') || isequal(lower(filterspec(1:8)),'https://'))
             DoDS=1;
         elseif isempty(targetdir) || exist(targetdir)~=7
             targetdir=pwd;
@@ -278,6 +278,7 @@ switch cmd
                                 end
                                 for i = 1:length(d)
                                     [fp,f,e] = fileparts(d(i).name);
+                                    f = strrep(f,'-','_');
                                     FI.(f) = delwaq('open',fullfile(po,d(i).name));
                                 end
                         end
@@ -331,6 +332,16 @@ switch cmd
                                     FI = qp_option(FI,'displaytime','hydrodynamic time');
                                 case {'delft3d-trih'}
                                     FI = qp_option(FI,'displaytime','hydrodynamic time');
+                                case {'delft3d-com'}
+                                    Opt = get_matching_names(FileName,'-',-1);
+                                    if ~isempty(Opt)
+                                        FI.Partitions = Opt;
+                                        for d = Opt{1}:-1:1
+                                            FN = FileName;
+                                            FN(Opt{2}+(1:Opt{3})) = sprintf('%3.3i',d);
+                                            FI.NEFIS(d) = vs_use(FN,'quiet');
+                                        end
+                                    end
                             end
                             if isfield(FI,'SubType')
                                 Tp=FI.SubType;
@@ -407,33 +418,7 @@ switch cmd
                             end
                         end
                     case 'NetCDF'
-                        [p,n,e]=fileparts(FileName);
-                        Opt = {};
-                        uscore = find(n=='_');
-                        if length(uscore)>=2 ...
-                               && all(ismember(n(uscore(end-1)+1:uscore(end)-1),'0123456789'))
-                            iOffset  = uscore(end-1);
-                            nDigits  = uscore(end)-uscore(end-1)-1;
-                            iPOffset = length(p)+1+iOffset;
-                            FileName1 = FileName(1:iPOffset);
-                            FileName2 = FileName(iPOffset+5:end);
-                            %
-                            % find all files with same structure
-                            d = dir([FileName1 '*' FileName2]);
-                            Files = {d.name}';
-                            lFiles = cellfun('length',Files);
-                            Files(lFiles~=length([n e])) = [];
-                            %
-                            Files = char(Files);
-                            N = Files(:,iOffset+(1:nDigits));
-                            N(~all(ismember(N,'0':'9'),2),:) = [];
-                            N = str2num(N)';
-                            %
-                            if isequal(sort(N),0:length(N)-1)
-                                Opt = {length(N) iPOffset nDigits};
-                            end
-                        end
-                        %
+                        Opt = get_matching_names(FileName,'_',-2);
                         FI = nc_interpret(FileName,Opt{:});
                         %nc_dump(FileName)
                         FI.FileName = FI.Filename;
@@ -1149,4 +1134,39 @@ end
 function asciicheck(ASCII,filetype)
 if ~ASCII
     error('%s should be an ASCII file. Reading unexpected characters.',filetype)
+end
+
+
+function Opt = get_matching_names(FileName,sep,nr)
+[p,n,e]=fileparts(FileName);
+Opt = {};
+locsep = find(n==sep);
+if nr==-2 && length(locsep)>=2
+    iOffset = locsep(end-1);
+    nDigits = locsep(end)-iOffset-1;
+elseif nr==-1 && length(locsep)>=1
+    iOffset = locsep(end);
+    nDigits = length(n)-iOffset;
+else
+    nDigits = 0;
+end
+if nDigits>0 && all(ismember(n(iOffset+(1:nDigits)),'0123456789'))
+    iPOffset  = length(p)+1+iOffset;
+    FileName1 = FileName(1:iPOffset);
+    FileName2 = FileName(iPOffset+nDigits+1:end);
+    %
+    % find all files with same structure
+    d = dir([FileName1 '*' FileName2]);
+    Files = {d.name}';
+    lFiles = cellfun('length',Files);
+    Files(lFiles~=length([n e])) = [];
+    %
+    Files = char(Files);
+    N = Files(:,iOffset+(1:nDigits));
+    N(~all(ismember(N,'0':'9'),2),:) = [];
+    N = sort(str2num(N))';
+    %
+    if isequal(N,0:length(N)-1) || isequal(N,1:length(N))
+        Opt = {length(N) iPOffset nDigits N(1)};
+    end
 end

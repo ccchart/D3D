@@ -3,7 +3,7 @@ function [DomainNr,Props,subf,selected,stats,Ops]=qp_interface_update_options(mf
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -579,7 +579,11 @@ if strfind(axestype,'Y')
     %    axestype = strrep(axestype,'Y',Props.NName);
     %end
 else
-    if isfield(Props,'MName') && ~isempty(Props.MName) && multiple(M_)
+    if ~ismember('y',coordinates) && ~ismember('x',coordinates)
+        coords={'coordinate'};
+    elseif ~ismember('y',coordinates)
+        coords={'path distance','reverse path distance','x coordinate'};
+    elseif isfield(Props,'MName') && ~isempty(Props.MName) && multiple(M_)
         %    axestype = strrep(axestype,'X',Props.MName);
         coords={'x coordinate'};
     elseif isfield(Props,'NName') && ~isempty(Props.NName)
@@ -604,6 +608,9 @@ if ismember(axestype,{'X-Val','X-Z','X-Time','Time-X'})
     if length(coords)>1
         set(findobj(OH,'tag','plotcoordinate'),'enable','on');
         set(pd,'string',coords,'value',i,'enable','on','backgroundcolor',Active)
+    else
+        set(findobj(OH,'tag','plotcoordinate'),'enable','off');
+        set(pd,'string',coords,'value',i,'enable','off','backgroundcolor',Inactive)
     end
     Ops.plotcoordinate=coords{i};
 elseif SpatialH==1
@@ -766,15 +773,22 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
     switch nvalstr
         case 1.9 % EDGE
             if strcmp(geometry,'SGRID-EDGE')
-                PrsTps={'vector','edge','edge M','edge N'};
+                PrsTps={'vector';'edge';'edge M';'edge N'};
             else
-                PrsTps={'vector','edge'};
+                PrsTps={'vector';'edge';'values'};
             end
         case 'strings'
-            if multiple(T_)
-                PrsTps={'tracks'}; % {'labels';'tracks'};
-            else
-                PrsTps={'labels';'markers'};
+            switch geometry
+                case {'POLYG'}
+                    PrsTps={'polygons';'labels';'markers'};
+                case {'POLYL'}
+                    PrsTps={'polylines';'labels';'markers'};
+                otherwise
+                    if multiple(T_)
+                        PrsTps={'tracks'}; % {'labels';'tracks'};
+                    else
+                        PrsTps={'labels';'markers'};
+                    end
             end
         case 'boolean'
             PrsTps={'patches'};
@@ -783,7 +797,7 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
                 case {'POLYG'}
                     PrsTps={'polygons'};
                 otherwise
-                    PrsTps={'grid','grid with numbers'};
+                    PrsTps={'grid';'grid with numbers'};
             end
         otherwise
             if nval==6
@@ -818,6 +832,8 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
                                     PrsTps={'polylines','values'};
                                 case {'UGRID-EDGE'}
                                     PrsTps={'markers';'values';'edge'};
+                                case {'UGRID-NODE'}
+                                    PrsTps={'patches';'patches with lines';'continuous shades';'markers';'values';'contour lines';'coloured contour lines';'contour patches';'contour patches with lines'};
                                 otherwise
                                     PrsTps={'continuous shades';'markers';'values';'contour lines';'coloured contour lines';'contour patches';'contour patches with lines'};
                             end
@@ -936,6 +952,8 @@ if ((nval==1 || nval==6) && TimeSpatial==2) || nval==1.9 || strcmp(nvalstr,'stri
         case 'polylines'
             markerflatfill=nval>0;
             edgeflatcolour=nval>0;
+            SingleColor=0;
+            MultipleColors=1;
             lineproperties=1;
         case 'grid with numbers'
             ask_for_textprops=1;
@@ -1095,10 +1113,29 @@ if ~isempty(Units)
         Ops.units=SIunit;
     end
 end
+if isfield(Ops,'units')
+    Units = Ops.units;
+end
 
 if ask_for_angleconvention
     pd=findobj(OH,'tag','angleconvention=?');
     conventions=get(pd,'string');
+    if strcmp(Units,'radians') || strcmp(Units,'radian') || strcmp(Units,'**Hide**')
+        % ignoring the possibility that the user selects a strange unit like "milliradians"
+        if isempty(strfind(conventions{1},'Pi'))
+            % Units is radians, but conventions contains ranges in degrees
+            conventions = strrep(strrep(conventions,'180','Pi'),'360','2Pi');
+            set(pd,'string',conventions)
+        end
+        % for communication within QuickPlot we always use degrees
+        conventions = strrep(strrep(conventions,'2Pi','360'),'Pi','180');
+    else
+        if ~isempty(strfind(conventions{1},'Pi'))
+            % Units is degrees, but conventions contains ranges in radians
+            conventions = strrep(strrep(conventions,'2Pi','360'),'Pi','180');
+            set(pd,'string',conventions)
+        end
+    end
     i=get(pd,'value');
     Ops.angleconvention=conventions{i};
     %
@@ -1509,10 +1546,15 @@ Ops.axestype=axestype;
 %---- clipping values
 %
 
-if (nval==1 || isfield(Ops,'vectorcolour') || isfield(Ops,'colourdams')) && (lineproperties || TimeSpatial==2)
+if (nval==1 || isfield(Ops,'vectorcolour') || isfield(Ops,'colourdams') || (isfield(Ops,'presentationtype') && strcmp(Ops.presentationtype,'values'))) && (lineproperties || TimeSpatial==2)
     set(findobj(OH,'tag','clippingvals'),'enable','on')
     set(findobj(OH,'tag','clippingvals=?'),'enable','on','backgroundcolor',Active)
     Ops.clippingvalues=get(findobj(OH,'tag','clippingvals=?'),'userdata');
+end
+
+if isfield(Ops,'presentationtype') && strcmp(Ops.presentationtype,'values')
+    set(findobj(OH,'tag','clipnans'),'enable','on')
+    Ops.clipnans=get(findobj(OH,'tag','clipnans'),'value');
 end
 
 if (SpatialH==2)
@@ -1537,6 +1579,10 @@ if nval>=0
         ExpTypes{end+1}='grid file';
         ExpTypes{end+1}='grid file (old format)';
     end
+    if strncmp(geometry,'UGRID',5) && multiple(M_) && ~multiple(K_) && ~multiple(T_)
+        ExpTypes{end+1}='netCDF3 file';
+        ExpTypes{end+1}='netCDF4 file';
+    end
     if sum(multiple)==1 && sum(multiple([M_ N_]))==1 && nval==0
         ExpTypes{end+1}='spline';
     end
@@ -1557,21 +1603,32 @@ if nval>=0
         end
     end
     if (multiple(M_) && (multiple(N_) || triangles || strncmp(geometry,'UGRID',5) || strcmp(geometry,'sSEG'))) && ~multiple(K_) && ~multiple(T_)
-        if ~isfield(Ops,'presentationtype') || ~isequal(Ops.presentationtype,'continuous shades')
+        if ~isfield(Ops,'presentationtype')
             ExpTypes{end+1}='ARCview shape';
+        elseif  ~isequal(Ops.presentationtype,'continuous shades')
+            ExpTypes{end+1}='ARCview shape';
+            if isequal(Ops.presentationtype,'contour patches') || isequal(Ops.presentationtype,'contour patches with lines')
+                ExpTypes{end+1}='polygon file';
+            end
         end
         if strcmp(geometry,'sQUAD') && nval==0
             ExpTypes{end+1}='landboundary file';
         end
     elseif strcmp(geometry,'POLYL') || strcmp(geometry,'POLYG')
         ExpTypes{end+1}='ARCview shape';
+        if strcmp(geometry,'POLYG')
+            ExpTypes{end+1}='polygon file';
+        end
         ExpTypes{end+1}='landboundary file';
     end
     maxt = get(findobj(UD.MainWin.Fig,'tag','max_t'),'userdata');
     if ~isnumeric(maxt) || ~isequal(size(maxt),[1 1]) || maxt<=0
         maxt = inf;
     end
-    if ((length(selected{T_})<11 && ~isequal(selected{T_},0)) || (maxt<11 && isequal(selected{T_},0))) && nval>0 && (multiple(M_) || multiple(N_) || multiple(K_))
+    %
+    maxTimeSteps = qp_settings('export_max_ntimes');
+    if ((length(selected{T_})<=maxTimeSteps && ~isequal(selected{T_},0)) || (maxt<=maxTimeSteps && isequal(selected{T_},0))) && nval>0 && (multiple(M_) || multiple(N_) || multiple(K_))
+        ExpTypes{end+1}='csv file';
         ExpTypes{end+1}='Tekal file';
         ExpTypes{end+1}='Tecplot file';
     end

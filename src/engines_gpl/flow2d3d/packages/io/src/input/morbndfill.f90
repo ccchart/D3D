@@ -2,7 +2,7 @@ subroutine morbndfill(kcs       ,guu       ,gvv       ,icx       ,icy       , &
                     & mnbnd     ,nto       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -196,10 +196,10 @@ subroutine morbndfill(kcs       ,guu       ,gvv       ,icx       ,icy       , &
              totwidth = sqrt(width**2 + width2**2)
           else
              idir = 2  ! v boundary
-             if (kcs(num) == 1) then
+             if (kcs(ndm) == 0) then
                 nxmx  = num
                 width = gvv(nm)
-             elseif (kcs(ndm) == 1) then
+             elseif (kcs(num) == 0) then
                 nxmx  = ndm
                 width = gvv(ndm)
              endif

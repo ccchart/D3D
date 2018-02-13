@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -95,10 +95,7 @@ module m_ec_provider
 
          type(tEcBCBlock),    pointer :: bcBlockPtr     !< BCBlock corresponding to bcBlockId
          type(tEcFileReader), pointer :: fileReaderPtr  !< FileReader associated with the BC instance 
-         integer(kind=8)              :: filehandle 
-         integer                      :: iostat, istat_
-         integer                      :: unit
-         real(hp)                     :: ref_date
+         integer                      :: iostat
 
          integer                      :: netCDFId
 
@@ -192,10 +189,7 @@ module m_ec_provider
          real(kind=hp),    optional, intent(in) :: dtnodal      !< Nodal factors update interval
          !
          type(tEcFileReader), pointer :: fileReaderPtr  !< FileReader corresponding to fileReaderId
-         integer                      :: i              !< loop counter
          character(maxNameLen)        :: l_quantityName !< explicit length version of quantityName
-         integer                      :: iostat         !< status returned from various file operations 
-         logical                      :: exist, opened  !< status of the file obtained by inquire
          !
          success = .false.
          fileReaderPtr => null()
@@ -251,7 +245,6 @@ module m_ec_provider
          character(maxNameLen), optional :: quantityname     !< Names of the quantities read from file, needed for structured files (NetCDF),
                                                              !< but also for bct-file 
          character(maxNameLen), optional :: bctfilename      !< file name of bct-file with data
-         integer                         :: iitem
          !
          success = .false.
          select case(fileReaderPtr%ofType)
@@ -296,10 +289,17 @@ module m_ec_provider
                   select case(quantityname)
                      case ("ERA_Interim_Dataset")
                         success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname)
-                     case ("rainfall","airpressure_windx_windy","windxy","windx","windy","atmosphericpressure",    &
-                                     "dewpoint_airtemperature_cloudiness","dewpoint_airtemperature_cloudiness_solarradiation")
+                     case ("rainfall",                                              &
+                           "airpressure_windx_windy",                               &
+                           "windxy","windx","windy",                                &
+                           "nudge_salinity_temperature",                            &
+                           "atmosphericpressure",                                   &
+                           "humidity_airtemperature_cloudiness",                    &
+                           "humidity_airtemperature_cloudiness_solarradiation",     &
+                           "dewpoint_airtemperature_cloudiness",                    &
+                           "dewpoint_airtemperature_cloudiness_solarradiation")
                         success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname)
-                     case ("hrms","tp", "tps", "rtp","dir","fx","fy","wsbu","wsbv","mx","my") 
+                     case ("hrms","tp", "tps", "rtp","dir","fx","fy","wsbu","wsbv","mx","my","dissurf","diswcap") 
                         success = ecProviderCreateWaveNetcdfItems(instancePtr, fileReaderPtr, quantityname)
                      case default
                         call setECMessage("ERROR: ec_provider::ecProviderCreateItems: Unsupported quantity name '"   &
@@ -314,6 +314,7 @@ module m_ec_provider
             case default
                call setECMessage("ERROR: ec_provider::ecProviderCreateItems: Unknown file type.")
          end select
+         success = .true.
       end function ecProviderCreateItems
       
       ! =======================================================================
@@ -372,7 +373,7 @@ module m_ec_provider
                quantityName = 'water_discharge'
             endif
          endif
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, quantityName))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=quantityName))) then
             success = .false.
          end if
 
@@ -410,7 +411,7 @@ module m_ec_provider
                quantityName = 'water_level'
             endif
          endif
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, quantityName))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=quantityName))) then
             success = .false.
          end if
          elementSetId = ecInstanceCreateElementSet(instancePtr)
@@ -440,7 +441,7 @@ module m_ec_provider
          end if
          ! Create the item 'slope'.
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'slope'))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='slope'))) then
             success = .false.
          end if
          if (.not. (ecElementSetSetName(instancePtr, elementSetId, elementSetName) .and. &
@@ -470,7 +471,7 @@ module m_ec_provider
          !
          ! Create the item 'crossing'.
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'crossing'))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='crossing'))) then
             success = .false.
          end if
          elementSetId = ecInstanceCreateElementSet(instancePtr)
@@ -577,8 +578,7 @@ module m_ec_provider
          if (ecFourierReadAll(fileReaderPtr, periods, components, magnitudes, phases, nPeriods)) then
             ! ===== all periods =====
             quantityId = ecInstanceCreateQuantity(instancePtr)
-            if (.not. (ecQuantitySetName(instancePtr, quantityId, 'period') .and. &
-                        ecQuantitySetUnits(instancePtr, quantityId, 'minute'))) then
+            if (.not.ecQuantitySet(instancePtr, quantityId, name='period', units='minute')) then
                success = .false.
             end if
             elementSetId = ecInstanceCreateElementSet(instancePtr)
@@ -617,8 +617,7 @@ module m_ec_provider
             end if
             ! ===== magnitude =====
             quantityId = ecInstanceCreateQuantity(instancePtr)
-            if (.not. (ecQuantitySetName(instancePtr, quantityId, 'magnitude') .and. &
-                        ecQuantitySetUnits(instancePtr, quantityId, 'm'))) then
+            if (.not. (ecQuantitySet(instancePtr, quantityId, name='magnitude', units='m'))) then
                success = .false.
             end if
             elementSetId = ecInstanceCreateElementSet(instancePtr)
@@ -647,8 +646,7 @@ module m_ec_provider
             end if
             ! ===== phase =====
             quantityId = ecInstanceCreateQuantity(instancePtr)
-            if (.not. (ecQuantitySetName(instancePtr, quantityId, 'phase') .and. &
-                        ecQuantitySetUnits(instancePtr, quantityId, 'degree'))) then
+            if (.not. (ecQuantitySet(instancePtr, quantityId, name='phase', units='degree'))) then
                success = .false.
             end if
             elementSetId = ecInstanceCreateElementSet(instancePtr)
@@ -743,13 +741,9 @@ module m_ec_provider
          integer                :: field0Id     !< helper variable 
          integer                :: field1Id     !< helper variable 
          integer                :: itemId       !< helper variable 
-         integer                :: indx         !< 
-         real(hp)               :: time_steps   !< number of time steps for next data block
          type(tEcItem), pointer :: item         !< Item containing all components
-         character(len=1)       :: excl         !< 
          character(len=300)     :: msgbuf 
          character(len=:), allocatable :: elementSetName
-         character(len=:), allocatable :: quantityName
          character(len=maxMessageLen)  :: message
          !
          success = .false.
@@ -787,7 +781,7 @@ module m_ec_provider
          quantityId = ecInstanceCreateQuantity(instancePtr)
          select case (fileReaderPtr%ofType)
             case (provFile_uniform, provFile_unimagdir)
-               if (.not. ecQuantitySetName(instancePtr, quantityId, 'uniform_item')) then
+               if (.not. ecQuantitySet(instancePtr, quantityId, name='uniform_item')) then
                   return
                end if
                elementSetName = fileReaderPtr%fileName
@@ -795,7 +789,7 @@ module m_ec_provider
                   elementSetName = elementSetName(1:index(elementSetName,'.'))
                end if 
             case (provFile_bc)
-               if (.not. ecQuantitySetName(instancePtr, quantityId, fileReaderPtr%bc%quantity%name)) then ! trim(fileReaderPtr%bc%qname))) then
+               if (.not. ecQuantitySet(instancePtr, quantityId, name=fileReaderPtr%bc%quantity%name)) then ! trim(fileReaderPtr%bc%qname))) then
                   return
                end if
                elementSetName = fileReaderPtr%bc%bcname
@@ -882,8 +876,6 @@ module m_ec_provider
          integer  :: field1Id     !< helper variable 
          integer  :: itemId       !< helper variable
          type(tEcItem), pointer :: item
-         character(len=20) :: name   !< 
-         integer :: i !< loop counter
          !
          success = .true.
          item => null()
@@ -901,29 +893,29 @@ module m_ec_provider
             if (index(fileReaderPtr%fileName, '.amu') /= 0) then
                ! ===== quantity: wind component u (usually == x) =====
                quantityId = ecInstanceCreateQuantity(instancePtr)
-               if (.not. (ecQuantitySetName(instancePtr, quantityId, 'wind_u') .and. &
-                           ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='wind_u', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
             else if (index(fileReaderPtr%fileName, '.amv') /= 0) then
                ! ===== quantity: wind component v (usually == y) =====
                quantityId = ecInstanceCreateQuantity(instancePtr)
-               if (.not. (ecQuantitySetName(instancePtr, quantityId, 'wind_v') .and. &
-                           ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='wind_v', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
             else if (index(fileReaderPtr%fileName, '.amp') /= 0) then
                ! ===== quantity: wind component p =====
                quantityId = ecInstanceCreateQuantity(instancePtr)
-               if (.not. (ecQuantitySetName(instancePtr, quantityId, 'wind_p') .and. &
-                           ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='wind_p', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
             else if (index(fileReaderPtr%fileName, '.amr') /= 0) then
                ! ===== quantity: wind component p =====
                quantityId = ecInstanceCreateQuantity(instancePtr)
-               if (.not. (ecQuantitySetName(instancePtr, quantityId, 'rainfall') .and. &
-                           ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='rainfall', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
             end if
@@ -1103,7 +1095,7 @@ module m_ec_provider
             write(postfix, '(I1)') i
             ! Quantity.
             quantityId = ecInstanceCreateQuantity(instancePtr)
-            if (.not. ecQuantitySetName(instancePtr, quantityId, 'curvi_source_item_'//postfix)) return
+            if (.not. ecQuantitySet(instancePtr, quantityId, name='curvi_source_item_'//postfix)) return
             ! Field for T0.
             field0Id = ecInstanceCreateField(instancePtr)
             if (.not.      ecFieldCreate1dArray(instancePtr, field0Id, n_cols*n_rows)) return
@@ -1153,7 +1145,6 @@ module m_ec_provider
          integer  :: field1Id     !< helper variable 
          integer  :: itemId       !< helper variable
          type(tEcItem), pointer :: item
-         character(len=20) :: name   !< 
          integer :: i !< loop counter
          !
          success = .false.
@@ -1163,7 +1154,7 @@ module m_ec_provider
 
          ! Construct the samples Item.
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'samples_item'))) return
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='samples_item'))) return
 
          elementSetId = ecInstanceCreateElementSet(instancePtr)
          if (.not. ecElementSetSetType(instancePtr, elementSetId, elmSetType_samples)) return
@@ -1225,12 +1216,7 @@ module m_ec_provider
          real(hp), dimension(:), allocatable :: zws           !< z-values of vertical velocities
          real(hp), dimension(MAXLAY)         :: a             !< 
 
-         integer                             :: ilay, jlay 
-         integer                             :: col_tmp 
-         real(hp)                            :: zws_tmp
          integer                             :: vectormax, iostat
-             
-            
          !
          success = .false.
          valueptr => null()
@@ -1333,9 +1319,7 @@ module m_ec_provider
          !
          ! ===== single quantity: quant ===== (Further code in this sub independent of file type)
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not.ecQuantitySetName(instancePtr, quantityId, 'quant'))                   return 
-         if (.not.ecQuantitySetUnits(instancePtr, quantityId, ' '))                      return 
-         if (.not.ecQuantitySetVectorMax(instancePtr, quantityId, vectormax))            return 
+         if (.not.ecQuantitySet(instancePtr, quantityId, name='quant', units=' ', vectormax=vectormax))    return 
 
          elementSetId = ecInstanceCreateElementSet(instancePtr)
          if (.not.ecElementSetSetType(instancePtr, elementSetId, elmSetType_cartesian))  return
@@ -1390,15 +1374,13 @@ module m_ec_provider
          !
          real(hp), dimension(:), allocatable :: xs    !< x-coordinates of support points
          real(hp), dimension(:), allocatable :: ys    !< y-coordinates of support points
-         real(hp), dimension(:), allocatable :: zs    !< z/sigma-coordinates of support points
          integer,  dimension(:), allocatable :: mask  !< support point mask array (for polytime ElementSet)
          integer                             :: n_points !< number of support points
          integer                             :: n_signals !< Number of forcing signals created (at most n_signals==n_points, but warn if n_signals==0)
          character(len=132)                  :: rec      !< a read line
-         integer                             :: i, j     !< loop counters
+         integer                             :: i        !< loop counters
          integer                             :: istat    !< status of read operation
          integer                             :: L        !< helper index
-         character(len=4)                    :: tex      !< helper string for constructin file names
          character(len=maxFileNameLen)       :: filename !< helper string containing subprovider file name.
          character(len=maxFileNameLen)       :: plipointlbl   !< temporary name of current pli-point in bct context 
          character(len=maxFileNameLen), &
@@ -1407,19 +1389,18 @@ module m_ec_provider
          logical                             :: exists   !< helper boolian, indicating file existence
          integer                             :: id       !< dummy, catches ids which are not used
          integer                             :: k_yyyymmdd !< calculated Gregorian calender date, serving as reference date
-         integer                             :: quantityId, elementSetId, fieldId, itemId, subconverterId, connectionId, BCBlockID
-         integer                             :: wind_x, wind_y
-         integer                             :: magnitude, discharge, waterlevel, slope, crossing, maxLay
+         integer                             :: quantityId, elementSetId, fieldId, itemId, subconverterId, connectionId
+         integer                             :: discharge, waterlevel, slope, crossing, maxLay
          type(tEcItem), pointer              :: itemPT
          type(tEcItem), pointer              :: itemt3D
          type(tEcItem), pointer              :: sourceItem
          integer,  dimension(:), allocatable :: itemIDList
          integer                             :: vectormax
-          
-         logical		                        ::	is_tim, is_cmp, is_tim3d, is_qh
-         logical                             :: has_label 
-         integer                             :: lblstart, lblend                
-         type(tEcFileReader), pointer	      :: fileReaderPtr2
+
+         logical                             :: is_tim, is_cmp, is_tim3d, is_qh
+         logical                             :: has_label
+         integer                             :: lblstart
+         type(tEcFileReader), pointer        :: fileReaderPtr2
          !
 
 !        initialization         
@@ -1490,7 +1471,7 @@ module m_ec_provider
          
          ! Construct the poly_tim Item.
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'polytim_item'))) return
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='polytim_item'))) return
 
          elementSetId = ecInstanceCreateElementSet(instancePtr)
          if (.not. ecElementSetSetType(instancePtr, elementSetId, elmSetType_cartesian)) return
@@ -1662,37 +1643,30 @@ module m_ec_provider
          !
          real(hp), dimension(:), allocatable :: xs    !< x-coordinates of support points
          real(hp), dimension(:), allocatable :: ys    !< y-coordinates of support points
-         real(hp), dimension(:), allocatable :: zs    !< z/sigma-coordinates of support points
          integer,  dimension(:), allocatable :: mask  !< support point mask array (for polytime ElementSet)
          integer                             :: n_points !< number of support points
          integer                             :: n_signals !< Number of forcing signals created (at most n_signals==n_points, but warn if n_signals==0)
          character(len=132)                  :: rec      !< a read line
-         integer                             :: i, j     !< loop counters
+         integer                             :: i        !< loop counters
          integer                             :: istat    !< status of read operation
-         integer                             :: L        !< helper index
-         character(len=4)                    :: tex      !< helper string for constructin file names
-         character(len=maxFileNameLen)       :: filename !< helper string containing subprovider file name.
          character(len=maxFileNameLen)       :: plipointlbl   !< temporary name of current pli-point in bct context 
          character(len=maxFileNameLen), &
          &   dimension(:), allocatable       :: plipointlbls  !< user-specified name for all pli-point in bct context 
          character(len=maxFileNameLen)       :: polyline_name !< polyline name read from pli-file 
-         logical                             :: exists   !< helper boolian, indicating file existence
          integer                             :: id       !< dummy, catches ids which are not used
          integer                             :: k_yyyymmdd !< calculated Gregorian calender date, serving as reference date
          integer                             :: quantityId, elementSetId, fieldId, itemId, subconverterId, connectionId, BCBlockID
-         integer                             :: wind_x, wind_y
-         integer                             :: magnitude, discharge, waterlevel, slope, crossing, maxLay
+         integer                             :: discharge, waterlevel, slope, crossing, maxLay
          type(tEcItem), pointer              :: itemPT
          type(tEcItem), pointer              :: itemt3D
          type(tEcItem), pointer              :: sourceItem
          integer,  dimension(:), allocatable :: itemIDList
          integer                             :: vectormax
-         logical		                        ::	is_tim, is_cmp, is_tim3d, is_qh
-         type(tEcBCBlock), pointer	         :: bcBlockPtr
-         type(tEcFileReader), pointer	      :: fileReaderPtr2
+         logical                             :: is_tim, is_cmp, is_tim3d, is_qh
+         type(tEcBCBlock), pointer           :: bcBlockPtr
          logical :: all_points_are_corr
          logical :: has_label
-         integer :: lblstart, lblend                
+         integer :: lblstart
          !
 
 !        initialization         
@@ -1764,7 +1738,7 @@ module m_ec_provider
 
          ! Construct the poly_tim Item
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'polytim_item'))) return
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='polytim_item'))) return
 
          elementSetId = ecInstanceCreateElementSet(instancePtr)
          if (.not. ecElementSetSetType(instancePtr, elementSetId, elmSetType_cartesian)) return
@@ -2136,8 +2110,8 @@ module m_ec_provider
          !
          ! ===== quantity1: wind_speed =====
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'windspeed') .and. &
-                    ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='windspeed',      &
+                                                           units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
             success = .false.
          end if
          field0Id = ecInstanceCreateField(instancePtr)
@@ -2163,8 +2137,8 @@ module m_ec_provider
          end if
          ! ===== quantity2: wind_from_direction =====
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'winddirection') .and. &
-                    ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit2'))))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='winddirection',   &
+                                                           units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit2'))))) then
             success = .false.
          end if
          field0Id = ecInstanceCreateField(instancePtr)
@@ -2190,8 +2164,8 @@ module m_ec_provider
          end if
          ! ===== quantity3: p_drop =====
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, 'p_drop') .and. &
-                    ecQuantitySetUnits(instancePtr, quantityId, trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit3'))))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name='p_drop',    &
+                                                           units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit3'))))) then
             success = .false.
          end if
          field0Id = ecInstanceCreateField(instancePtr)
@@ -2236,7 +2210,7 @@ module m_ec_provider
           use m_ec_converter,  only: ecConverterSetType, ecConverterSetInterpolation, ecConverterSetOperand, ecConverterSetElement
           use m_ec_instance,   only: ecInstanceCreateConverter, ecInstanceCreateConnection, ecInstanceCreateItem, ecInstanceCreateField, ecInstanceCreateQuantity
           use m_ec_connection, only: ecConnectionAddTargetItem, ecConnectionAddSourceItem, ecConnectionSetConverter 
-          use m_ec_quantity,   only: ecQuantitySetName
+          use m_ec_quantity,   only: ecQuantitySet
           use m_ec_field,      only: ecFieldCreate1dArray
           use m_ec_item
 
@@ -2246,9 +2220,7 @@ module m_ec_provider
           integer, intent(in), optional :: tgtNdx         !< Optional target index, 1 is assumed as default
           integer                       :: targetItemId   !< Target item id, after temporal interpolation
           integer                       :: itemId         !< returned  target item ID, if successful, otherwise -1 
-          integer                       :: convertId 
           type(tECItem), pointer        :: sourceItemPtr => null() 
-          type(tECItem), pointer        :: targetItemPtr => null()
           character(len=:), allocatable :: quantityName
           integer                       :: arraySize
 
@@ -2281,7 +2253,7 @@ module m_ec_provider
           quantityId = ecInstanceCreateQuantity(instancePtr)
           quantityName = trim(sourceItemPtr%quantityPtr%name)
           if (.not. ecItemSetQuantity(instancePtr, targetItemId, quantityId)) return
-          if (.not. (ecQuantitySetName(instancePtr, quantityId, quantityName//'_interpolated'))) return
+          if (.not. (ecQuantitySet(instancePtr, quantityId, name=quantityName//'_interpolated'))) return
           elementSetId = sourceItemPtr%elementSetPtr%id
           if (.not. ecItemSetElementSet(instancePtr, targetItemId, elementSetId)) return
 
@@ -2320,27 +2292,26 @@ module m_ec_provider
          character(len=maxMessageLen)          :: message
          !
          integer                                                 :: ierror                !< return value of NetCDF function calls
-
          integer                                                 :: idvar
-         integer                                                 :: n_quantity            !< number of requested variables from the netcdf-file 
-         
-         integer                                                 :: idvar_coord           !< id as obtained from NetCDF
-         integer                                                 :: idvar_time            !< id as obtained from NetCDF
-         integer                                                 :: ndims, idims          !< helper variables
+         integer                                                 :: ndims                 !< number of dimensions within NetCDF or for the current variable
+         integer                                                 :: idims                 !< helper variables
          integer                                                 :: ifgd, isgd            !< helper variables
          integer,                      dimension(:), allocatable :: dimids                !< ids of a variable's dimensions
-         integer,                      dimension(:), allocatable :: dimids_tmp            !< temporary ids of a variable's dimensions (compare vars)
          integer,                      dimension(:), allocatable :: coordids              !< helper variable
-         character(len=NF90_MAX_NAME), dimension(:), allocatable :: names                 !< helper variable, containing dimension names
          integer                                                 :: i,j                   !< loop counter
          integer                                                 :: grid_mapping_id       !< id of the applied grid mapping 
          integer                                                 :: fgd_id                !< var_id for elementset X or latitude
          integer                                                 :: sgd_id                !< var_id for elementset Y or longitude
+         integer                                                 :: tgd_id                !< var_id for elementset Z or depth
          integer                                                 :: fgd_grid_type         !< helper variable for consistency check on grid_type
          integer                                                 :: sgd_grid_type         !< helper variable for consistency check on grid_type
          integer                                                 :: grid_type             !< elmSetType enum
-         integer                                                 :: fgd_size              !< number of grid points in first dimension
-         integer                                                 :: sgd_size              !< number of grid points in second dimension
+         integer                                                 :: fgd_size              !< number of grid points in first grid dimension
+         integer                                                 :: sgd_size              !< number of grid points in second grid dimension
+         integer                                                 :: tgd_size              !< number of grid points in third grid dimension
+         integer                                                 :: vptyp                 !< interpretation of the vertical coordinate
+         character(len=NF90_MAX_NAME)                            :: z_positive            !< which direction of z is positive ? 
+         character(len=NF90_MAX_NAME)                            :: z_standardname            !< which direction of z is positive ? 
          real(hp)                                                :: gnplon,gnplat         !< coordinates of shifted north pole obtained from gridmapping 
          real(hp)                                                :: gsplon,gsplat         !< coordinates of shifted south pole obtained from gridmapping 
          real(hp),                   dimension(:,:), allocatable :: fgd_data              !< coordinate data along first dimension's axis
@@ -2349,16 +2320,12 @@ module m_ec_provider
          real(hp),                   dimension(:,:), allocatable :: sgd_data              !< coordinate data along second dimension's axis
          real(hp),                   dimension(:),   allocatable :: sgd_data_1d           !< coordinate data along second dimension's axis
          real(hp),                   dimension(:),   allocatable :: sgd_data_trans        !< coordinate data along first dimension's axis transformed, rotating pole
+         real(hp),                   dimension(:),   allocatable :: tgd_data_1d           !< coordinate data along third dimension's axis
          real(hp),                   dimension(:),   allocatable :: pdiri                 !< 
-         real(hp)                                                :: fdg_miss              !< missing data value in first dimension
-         real(hp)                                                :: sdg_miss              !< missing data value in second dimension
+         real(hp)                                                :: var_miss              !< missing data value in second dimension
          character(len=NF90_MAX_NAME)                            :: grid_mapping          !< name of the applied grid mapping 
          character(len=NF90_MAX_NAME)                            :: units                 !< helper variable for variable's units
-         real(hp)                                                :: add_offset            !< helper variable
-         real(hp)                                                :: scalefactor           !< helper variable
-         real(hp)                                                :: fillvalue             !< helper variable
          character(len=NF90_MAX_NAME)                            :: coord_name            !< helper variable
-         character(len=NF90_MAX_NAME)                            :: coord_name_tmp        !< helper variable
          character(len=NF90_MAX_NAME), dimension(:), allocatable :: coord_names           !< helper variable
          character(len=NF90_MAX_NAME)                            :: name                  !< helper variable
          character(len=NF90_MAX_NAME), dimension(15)             :: ncstdnames            !< helper variable : temp. list of standard names to search for in netcdf  
@@ -2370,20 +2337,17 @@ module m_ec_provider
          integer                                                 :: itemId                !< helper variable 
          integer                                                 :: istat                 !< helper variable 
          type(tEcItem),              pointer                     :: itemPtr               !< Item containing quantity
-         integer                                                 :: t0t1                  !< t0 / t1 switch
          logical                                                 :: dummy                 !< temp
-         integer,                    dimension(:), allocatable   :: dim_sizes             !< helper variable
          character(len=20)                                       :: attstr 
          logical                                                 :: rotate_pole
-         integer                                                 :: nvar, ivar            !< number/loopvariable of varids in this netcdf file 
-         double precision                                        :: PI 
-         character(len=NF90_MAX_NAME)                            :: expected_fgd, expected_sgd
+         integer                                                 :: nvar                  !< number/loopvariable of varids in this netcdf file 
          integer                                                 :: lon_varid, lon_dimid, lat_varid, lat_dimid, tim_varid, tim_dimid
-         integer                                                 :: x_varid, x_dimid, y_varid, y_dimid
+         integer                                                 :: x_varid, x_dimid, y_varid, y_dimid, z_varid, z_dimid
 
-         integer, dimension(:), allocatable                      :: first_coordinate_dimids, second_coordinate_dimids
-         integer, dimension(:), allocatable                      :: first_coordinate_dimlen, second_coordinate_dimlen
-         
+         integer, dimension(:), allocatable                      :: first_coordinate_dimids, second_coordinate_dimids, third_coordinate_dimids
+         integer, dimension(:), allocatable                      :: first_coordinate_dimlen, second_coordinate_dimlen, third_coordinate_dimlen
+         integer                                                 :: timeint
+
          !
          success = .false.
          itemPtr => null()
@@ -2417,7 +2381,7 @@ module m_ec_provider
          select case (trim(quantityName))
          case ('rainfall') 
             ncvarnames(1) = 'rainfall' 
-            ncstdnames(1) = 'precipitation' 
+            ncstdnames(1) = 'precipitation_amount' 
          case ('windx') 
             ncvarnames(1) = 'u10'                            ! 10 meter eastward wind
             ncstdnames(1) = 'eastward_wind'
@@ -2455,18 +2419,24 @@ module m_ec_provider
             ncstdnames(3) = 'cloud_area_fraction'
             ncvarnames(4) = 'ssr'                            ! outgoing SW radiation at the top-of-the-atmosphere
             ncstdnames(4) = 'surface_net_downward_shortwave_flux'
+         case ('nudge_salinity_temperature')
+            ncvarnames(1) = 'thetao'                        ! temperature
+            ncstdnames(1) = 'sea_water_potential_temperature'
+            ncvarnames(2) = 'so'                            ! salinity
+            ncstdnames(2) = 'sea_water_salinity'
          case default                                        ! experiment: gather miscellaneous variables from an NC-file,
             ! we have faulty 
             call setECMessage("Quantity '"//trim(quantityName)//"', requested from file "//trim(fileReaderPtr%filename)//", unknown.")
          end select 
 
          ! ------------------------------------------------------------------------------------------------
-         ! Inquiry of the dimids and the varids of lon/lat/time coordinate accoriding to the CF-convetion
+         ! Inquiry of the dimids and the varids of lon/lat/time coordinate according to the CF-convention
          ! Lateron we can match the dimids to the dimids of the variable
 
          ! For now not sure yet if we need this call.
          if (.not.ecSupportNCFindCFCoordinates(fileReaderPtr%fileHandle, lon_varid, lon_dimid, lat_varid, lat_dimid,      &
                                                                            x_varid,   x_dimid,   y_varid,   y_dimid,      &
+                                                                           z_varid,   z_dimid,                            &
                                                                          tim_varid, tim_dimid)) then
             ! Exception: inquiry of id's of required coordinate variables failed 
              return
@@ -2474,27 +2444,22 @@ module m_ec_provider
 
          nvar = size(fileReaderPtr%standard_names,dim=1)
          do i = 1, count(ncstdnames>' ')
-            do ivar = 1,nvar
-               if (strcmpi(fileReaderPtr%standard_names(ivar),ncstdnames(i))) then     ! Match standard names ...
-                  idvar = ivar
-                  exit
-               endif 
+            do idvar = 1,nvar
+               if (strcmpi(fileReaderPtr%standard_names(idvar),ncstdnames(i))) exit     ! Match standard names ...
             enddo 
-            if (ivar>nvar) then                                                        ! Variable not found among standard names
-               do ivar = 1,nvar                                                        ! Find the varid 
-                  if (strcmpi(fileReaderPtr%variable_names(ivar),ncvarnames(i))) then  ! Match variable names ...
-                     fileReaderPtr%standard_names(ivar)=ncstdnames(i)                  ! overwrite the stanadardname by the one rquired
-                     idvar = ivar
-                     exit
-                  endif 
+            if (idvar>nvar) then                                                       ! Variable not found among standard names
+               ! ERROR: standard name not found in this filereader, Try the variable names
+               do idvar = 1,nvar                                                       ! Find the varid 
+                  if (strcmpi(fileReaderPtr%variable_names(idvar),ncvarnames(i))) exit ! Match variable names ...
                enddo 
-               if (ivar>nvar) then                                                     ! Variable not found among variable names either
-                  write (message,'(a)') "Variable '"//trim(ncstdnames(i))//"' not found in NetCDF file '"//trim(fileReaderPtr%filename)
-                  call setECMessage(message)
+               if (idvar>nvar) then                                                    ! Variable not found among variable names either
+                  ! ERROR: variable name not found in this filereader, TODO: handle exception 
+                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' not found in NetCDF file '"//trim(fileReaderPtr%filename))
                   return
                endif
             endif 
-            
+            fileReaderPtr%standard_names(idvar)=ncstdnames(i)                 ! overwrite the stanadardname by the one rquired
+
             ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
             if (allocated(coordids)) deallocate(coordids)                                 ! allocate space for the variable id's 
             allocate(coordids(ndims))                                                     ! .. representing the var's coordinates
@@ -2513,6 +2478,12 @@ module m_ec_provider
             ! in spherical coordinates they can be lon/lat or lat/lon
             fgd_size = fileReaderPtr%dim_length(dimids(1))                                  ! assume the spatial dimensions of the 
             sgd_size = fileReaderPtr%dim_length(dimids(2))                                  ! var are the first two
+            if (size(dimids)>3) then
+               tgd_size = fileReaderPtr%dim_length(dimids(3))                               ! var are the first two
+            else
+               tgd_size = 0                                                                 ! var are the first two
+            end if
+
             if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
                grid_type = elmSetType_cartesian
                fgd_id = x_varid
@@ -2599,7 +2570,7 @@ module m_ec_provider
                enddo
 
                ! Dimensions ID's and dimension lengths of the second coordinate variable
-               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle,coordids(1),ndims=ndims)  
+               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle,sgd_id,ndims=ndims)  
                call realloc(second_coordinate_dimids,ndims)
                call realloc(second_coordinate_dimlen,ndims)
                ierror = nf90_inquire_variable(fileReaderPtr%fileHandle,coordids(1),dimids=second_coordinate_dimids)  ! count dimensions of the first coordinate variable
@@ -2615,40 +2586,59 @@ module m_ec_provider
                   return
                   ! TODO: error message
                end if
-               !------------------------------------------------------------------------------------- TEST NEW CODE 
                
-               allocate(fgd_data(fgd_size,sgd_size), sgd_data(fgd_size,sgd_size))
-               allocate(fgd_data_1d(fgd_size*sgd_size), sgd_data_1d(fgd_size*sgd_size))
+               
+               if (ndims==2 .or. rotate_pole) then
+                  allocate(fgd_data(fgd_size,sgd_size), sgd_data(fgd_size,sgd_size))
+                  allocate(fgd_data_1d(fgd_size*sgd_size), sgd_data_1d(fgd_size*sgd_size))
+               else 
+                  allocate(fgd_data_1d(fgd_size), sgd_data_1d(sgd_size))
+                  if (grid_type==elmSetType_spheric) grid_type = elmSetType_spheric_ortho
+                  if (grid_type==elmSetType_Cartesian) grid_type = elmSetType_Cartesian_ortho
+               end if
+                  
                if (ndims==2) then 
                   ierror = nf90_get_var(fileReaderPtr%fileHandle, fgd_id, fgd_data, start=(/1,1/), count=(/fgd_size,sgd_size/))
                   ierror = nf90_get_var(fileReaderPtr%fileHandle, sgd_id, sgd_data, start=(/1,1/), count=(/fgd_size,sgd_size/))
+                  fgd_data_1d = reshape(fgd_data, (/fgd_size*sgd_size/)) ! transform fgd and sgd here if necessary 
+                  sgd_data_1d = reshape(sgd_data, (/fgd_size*sgd_size/))
                else if (ndims==1) then 
                   ierror = nf90_get_var(fileReaderPtr%fileHandle, fgd_id, fgd_data_1d(1:fgd_size), start=(/1/), count=(/fgd_size/))
                   ierror = nf90_get_var(fileReaderPtr%fileHandle, sgd_id, sgd_data_1d(1:sgd_size), start=(/1/), count=(/sgd_size/))
                   ! Make a crossproduct array  
-                  do ifgd = 1,fgd_size
-                     do isgd = 1,sgd_size
-                        sgd_data(ifgd,isgd) = sgd_data_1d(isgd)
-                        fgd_data(ifgd,isgd) = fgd_data_1d(ifgd)
-                     enddo
-                  enddo 
+                  if (rotate_pole) then
+                     do ifgd = 1,fgd_size
+                        do isgd = 1,sgd_size
+                           sgd_data(ifgd,isgd) = sgd_data_1d(isgd)
+                           fgd_data(ifgd,isgd) = fgd_data_1d(ifgd)
+                        enddo
+                     enddo 
+                     fgd_data_1d = reshape(fgd_data, (/fgd_size*sgd_size/)) ! transform fgd and sgd here if necessary 
+                     sgd_data_1d = reshape(sgd_data, (/fgd_size*sgd_size/))
+                  end if
                else
                   ! Something wrong with the coordinate dimensions 
                endif 
 
-               ! transform fgd and sgd here if necessary
-               fgd_data_1d = reshape(fgd_data, (/fgd_size*sgd_size/))
-               sgd_data_1d = reshape(sgd_data, (/fgd_size*sgd_size/))
-   
-               if (grid_type == elmSetType_cartesian) then
-                  if (.not. (ecElementSetSetType(instancePtr, elementSetId, grid_type) .and. &
-                             ecElementSetSetXArray(instancePtr, elementSetId, fgd_data_1d) .and. &
-                             ecElementSetSetYArray(instancePtr, elementSetId, sgd_data_1d) .and. &
-                             ecElementSetSetRowsCols(instancePtr, elementSetId, sgd_size, fgd_size) .and. &
-                             ecElementSetSetNumberOfCoordinates(instancePtr, elementSetId, fgd_size*sgd_size))) then
+
+               if (.not.ecElementSetSetType(instancePtr, elementSetId, grid_type)) then
+                  return
+               end if
+               if (.not.ecElementSetSetRowsColsLayers(instancePtr, elementSetId, sgd_size, fgd_size, tgd_size)) then
+                  return
+               end if
+               if (.not.ecElementSetSetNumberOfCoordinates(instancePtr, elementSetId, fgd_size*sgd_size)) then
+                  return
+               end if
+               if (.not.ecElementSetSetType(instancePtr, elementSetId, grid_type)) then
+                  return
+               end if
+               if (grid_type == elmSetType_cartesian .or. grid_type == elmSetType_cartesian_ortho) then
+                  if (.not. (ecElementSetSetXArray(instancePtr, elementSetId, fgd_data_1d) .and. &
+                             ecElementSetSetYArray(instancePtr, elementSetId, sgd_data_1d))) then
                      return
                   end if
-               else if (grid_type == elmSetType_spheric) then
+               else if (grid_type == elmSetType_spheric .or. grid_type == elmSetType_spheric_ortho) then
                   if (allocated(fgd_data_trans)) deallocate(fgd_data_trans)
                   if (allocated(sgd_data_trans)) deallocate(sgd_data_trans)
                   if (allocated(pdiri)) deallocate(pdiri)
@@ -2685,47 +2675,81 @@ module m_ec_provider
                         return
                      endif 
                   endif 
-                  if (.not.ecElementSetSetRowsCols(instancePtr, elementSetId, sgd_size, fgd_size)) then
-                     call setECMessage("Setting number of rows and columns failed for "//trim(fileReaderPtr%filename)//".")
-                     return
-                  endif 
-                  if (.not.ecElementSetSetNumberOfCoordinates(instancePtr, elementSetId, fgd_size*sgd_size)) then
-                     call setECMessage("Setting number of points failed for "//trim(fileReaderPtr%filename)//".")
-                     return
-                  endif 
                 endif
             end if
 
+            ! Dimensions ID's and dimension lengths of the second coordinate variable
+            if (tgd_size>0) then
+               tgd_id = z_varid
+               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle,tgd_id,ndims=ndims)  
+               call realloc(third_coordinate_dimids,ndims)
+               call realloc(third_coordinate_dimlen,ndims)
+               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle,coordids(1),dimids=third_coordinate_dimids)  ! count dimensions of the first coordinate variable
+               do idims=1,ndims
+                     third_coordinate_dimlen(idims)=fileReaderPtr%dim_length(idims) 
+               enddo
+               if (allocated(tgd_data_1d)) deallocate(tgd_data_1d)
+               allocate(tgd_data_1d(tgd_size))
+               ierror = nf90_get_var(fileReaderPtr%fileHandle, tgd_id, tgd_data_1d, start=(/1/), count=(/tgd_size/))
+               z_positive = ''
+               ierror = nf90_get_att(fileReaderPtr%fileHandle, tgd_id, "positive", z_positive)
+               z_standardname=fileReaderPtr%standard_names(z_varid)
+               call str_lower(z_standardname)
+               call str_lower(z_positive)
+               ! Set the vptyp of the elementset
+               select case (z_standardname)
+               case ('depth')                                                          ! absolute depth below geoid
+                  vptyp = BC_VPTYP_ZDATUM
+                  if (z_positive=='down') vptyp = BC_VPTYP_ZDATUM_DOWN
+               case ('ocean_sigma_coordinate','ocean_sigma_z_coordinate')              ! relative vertical coordinate
+                  vptyp = BC_VPTYP_PERCBED
+                  if (z_positive=='down') vptyp = BC_VPTYP_PERCSURF
+               case ('hybrid_height')
+               case default
+                  call setECMessage("Setting Z-array failed for "//trim(fileReaderPtr%filename)//".")
+                  return
+               end select
+               if (.not.ecElementSetSetProperties(instancePtr, elementSetId, vptyp=vptyp)) then
+                  return
+               end if
+               if (.not.ecElementSetSetZArray(instancePtr, elementSetId, tgd_data_1d)) then
+                  call setECMessage("Setting Z-array failed for "//trim(fileReaderPtr%filename)//".")
+                  return
+               endif 
+            end if
+            continue
+            
             ! ===================
             ! Create the Quantity
             ! ===================
             quantityId = ecInstanceCreateQuantity(instancePtr)
+            select case (quantityName)
+            case ('rainfall')
+               timeint = timeint_rainfall
+            case default
+               timeint = timeint_lin
+            end select
+            if (.not.(ecQuantitySet(instancePtr, quantityId, name=ncstdnames(i), ncid=idvar, timeint=timeint))) return
             if (.not.(ecQuantitySetUnitsFillScaleOffsetFromNcidVarid(instancePtr, quantityId, fileReaderPtr%fileHandle, idvar))) return
-            if (.not.(ecQuantitySetName(instancePtr, quantityId, ncstdnames(i)))) return
 
             ! ========================
             ! Create the source Fields 
             ! ========================
-            !  --- Determine missingDataValue ---
-            if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, fgd_id, "_FillValue", fdg_miss), "reading _FillValue", fileReaderPtr%fileName)) then
-               if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, NF90_GLOBAL, "NF90_FILL_DOUBLE", fdg_miss), "reading _FillValue", fileReaderPtr%fileName)) then
-                  fdg_miss = ec_undef_hp
-               end if
-            end if
-            if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, fgd_id, "_FillValue", sdg_miss), "reading _FillValue", fileReaderPtr%fileName)) then
-               if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, NF90_GLOBAL, "NF90_FILL_DOUBLE", sdg_miss), "reading _FillValue", fileReaderPtr%fileName)) then
-                  sdg_miss = ec_undef_hp
+            !  --- Determine ssmissingDataValue ---
+            if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, idvar, "_FillValue", var_miss), "reading _FillValue", fileReaderPtr%fileName)) then
+               if (.not. ecSupportNetcdfCheckError(nf90_get_att(fileReaderPtr%fileHandle, NF90_GLOBAL, "NF90_FILL_DOUBLE", var_miss), "reading _FillValue", fileReaderPtr%fileName)) then
+                  var_miss = ec_undef_hp
                end if
             end if
             !
             field0Id = ecInstanceCreateField(instancePtr)
-            if (.not. (ecFieldCreate1dArray(instancePtr, field0Id, fgd_size*sgd_size) .and. &
-                       ecFieldSetMissingValue(instancePtr, field0Id, fdg_miss))) then
+            if (.not. (ecFieldCreate1dArray(instancePtr, field0Id, fgd_size*sgd_size*max(tgd_size,1)) .and. &
+                       ecFieldSetMissingValue(instancePtr, field0Id, var_miss))) then
                   return
             end if
             field1Id = ecInstanceCreateField(instancePtr)
-            if (.not. (ecFieldCreate1dArray(instancePtr, field1Id, fgd_size*sgd_size) .and. &
-                       ecFieldSetMissingValue(instancePtr, field1Id, sdg_miss))) then
+            if (.not. (ecFieldCreate1dArray(instancePtr, field1Id, fgd_size*sgd_size*max(tgd_size,1)) .and. &
+                       ecFieldSetMissingValue(instancePtr, field1Id, var_miss))) then
                   return
             end if
             ! ==================
@@ -2767,14 +2791,10 @@ module m_ec_provider
          type(tEcFileReader), pointer :: fileReaderPtr !< intent(inout)
          character(maxNameLen), intent(in) :: quantityName  !< name of quantity to read
          !
-         integer                   :: i              !< loop counter
          integer                   :: ierror         !< return value of function calls
          integer                   :: iddim_netelem  !< id as obtained from NetCDF
-         integer                   :: idvar_x        !< id as obtained from NetCDF
          integer                   :: idvar_q        !< id as obtained from NetCDF
-         integer                   :: ivar           !< loopvariable of varids in this netcdf file
          integer                   :: n              !< number of values
-         integer                   :: nvar           !< number of varids in this netcdf file 
          integer                   :: quantityId     !< helper variable 
          integer                   :: elementSetId   !< helper variable 
          integer                   :: field0Id       !< helper variable 
@@ -2784,7 +2804,6 @@ module m_ec_provider
          logical                   :: local_success  !< when the return flag should not be influenced
          real(hp)                  :: dmiss          !< missing data value
          type(tEcItem), pointer    :: item
-         character(20)             :: name           !< 
          character(NF90_MAX_NAME)  :: string         !< read from NetCDF file
          character(300)            :: message
 
@@ -2816,12 +2835,29 @@ module m_ec_provider
          !
          string = ' '
          ierror     = nf90_inq_varid(fileReaderPtr%fileHandle, quantityName, idvar_q); success = ecSupportNetcdfCheckError(ierror, "inq_varid " // quantityName, fileReaderPtr%filename)
+         ! With the the quantity name interpreted as a standard name, inquire from the filereader instance the idvar_q 
+         do idvar_q=1,size(fileReaderPtr%standard_names)
+            if (strcmpi(fileReaderPtr%standard_names(idvar_q),quantityName)) exit
+         enddo 
+         if (idvar_q>size(fileReaderPtr%standard_names)) then 
+            ! ERROR: standard name not found in this filereader, Try the variable names
+            call setECMessage("No standard_name='"//trim(quantityName)//"' found in file '"//trim(fileReaderPtr%filename)//"'.")
+            do idvar_q=1,size(fileReaderPtr%variable_names)
+               if (strcmpi(fileReaderPtr%variable_names(idvar_q),quantityName)) exit
+            enddo 
+            if (idvar_q>size(fileReaderPtr%standard_names)) then 
+               ! ERROR: variable name not found in this filereader, TODO: handle exception 
+               call setECMessage("No variable_name='"//trim(quantityName)//"' found in file '"//trim(fileReaderPtr%filename)//"'.")
+               return
+            endif 
+         endif 
+
          ierror     = nf90_get_att(fileReaderPtr%fileHandle, idvar_q, 'units', string); success = ecSupportNetcdfCheckError(ierror, "inq_att " // quantityName, fileReaderPtr%filename)
          if (.not.success) return
          !
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySetName(instancePtr, quantityId, quantityName) .and. &
-                    ecQuantitySetUnits(instancePtr, quantityId, trim(string)))) then
+
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=quantityName, units=trim(string), ncid=idvar_q ))) then
             success = .false.
          endif
          field0Id = ecInstanceCreateField(instancePtr)
@@ -2877,7 +2913,7 @@ module m_ec_provider
          real(hp),            intent(in) :: k_timezone       !< Kernel's timezone.
          integer,             intent(in) :: k_timestep_unit  !< Kernel's time step unit (1=seconds, 2=minutes, 3=hours)
          real(hp), optional,  intent(in) :: dtnodal          !< Nodal factors update interval
-         real(hp) :: julianDay
+         real(hp) :: defTimeZone
          !
          success = .false.
          !
@@ -2949,12 +2985,14 @@ module m_ec_provider
                success = ecDefaultInitializeTimeFrame(fileReaderPtr)
             case (provFile_bc)
                ! Filereader was created thru a BC-instance. This instance has a timeunit (netcdf-style) property
-               if (fileReaderPtr%bc%func == BC_FUNC_TSERIES .or. fileReaderPtr%bc%func == BC_FUNC_TIM3D) then 
+               if (fileReaderPtr%bc%func == BC_FUNC_TSERIES .or. fileReaderPtr%bc%func == BC_FUNC_TIM3D) then
+                  defTimeZone = fileReaderPtr%tframe%ec_timezone
                   success = ecSupportTimestringToUnitAndRefdate(fileReaderPtr%bc%timeunit, &
-                                                                fileReaderPtr%tframe%ec_timestep_unit, fileReaderPtr%tframe%ec_refdate)
-               else 
+                                fileReaderPtr%tframe%ec_timestep_unit, fileReaderPtr%tframe%ec_refdate, &
+                                fileReaderPtr%tframe%ec_timezone, defTimeZone)
+               else
                   success = .true.
-               endif 
+               endif
             case default
                call setECMessage("ERROR: ec_provider::ecProviderInitializeTimeFrame: Unknown file type.")
          end select
@@ -2971,11 +3009,6 @@ module m_ec_provider
          character(len=maxNameLen) :: keyword    !< helper variable
          character(len=maxNameLen) :: rec        !< helper variable
          character(len=maxNameLen) :: prev_rec   !< helper variable
-         integer                   :: indx       !< helper variable
-         integer                   :: year       !< helper variable
-         integer                   :: month      !< helper variable
-         integer                   :: day        !< helper variable
-         real(hp)                  :: time_steps !< helper variable
          !
          success = .false.
          keyword = 'TIME'
@@ -3021,9 +3054,6 @@ module m_ec_provider
          logical                                 :: success       !< function status
          type(tEcFileReader), pointer            :: fileReaderPtr !< FileReader to initialize
          !
-         real(hp) :: time_steps      !< number of timesteps
-         real(hp) :: prev_time_steps !< helper variable for determining tstop
-         !
          success = .false.
          fileReaderPtr%tframe%ec_refdate = fileReaderPtr%tframe%k_refdate
          ! Obtain the total number of timesteps in this file.
@@ -3054,12 +3084,10 @@ module m_ec_provider
          integer                      :: nVariables !< number of variables in NetCDF file
          integer                      :: time_id    !< integer id of variable with standard_name "time"
          integer                      :: i          !< loop counter
-         character(len=NF90_MAX_NAME) :: name       !< name of a variable
          character(len=NF90_MAX_NAME) :: units      !< units attribute of a variable
          integer, dimension(1)        :: dimid      !< integer id of time variable's dimension variable
          integer                      :: length     !< number of time steps
          integer                      :: istat      !< status of allocation operation
-         integer                      :: tzone
          !
          success = .false.
          nVariables = 0
@@ -3377,9 +3405,9 @@ module m_ec_provider
          ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, ivar, nDims=ndim)
          dim_name=''
          name_len=0
-         ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle,dimid(1),name=dim_name,len=dim_size)
          if (ndim==1) then                     ! Is this variable a coordinate variable
              ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, ivar, dimids=dimid)
+             ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle,dimid(1),name=dim_name,len=dim_size)
              if (trim(dim_name)==trim(fileReaderPtr%variable_names(ivar))) then
                 fileReaderPtr%dim_varids(dimid(1)) = ivar      ! connects a varid to a dimid 
              end if

@@ -42,7 +42,7 @@ function varargout=landboundary(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -106,7 +106,7 @@ switch type
     case 'plain'
         Data=zeros(0,2);
 end
-if nargin==0
+if nargin<2
     [fn,fp]=uigetfile('*.ldb;*.pli;*.pliz');
     if ~ischar(fn)
         return

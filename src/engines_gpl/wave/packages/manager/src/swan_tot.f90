@@ -1,7 +1,7 @@
 subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,6 +39,7 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
    use wave_data
    use buffer
    use meteo
+   use write_swan_datafile, only: write_swan_file
    !
    implicit none
 !
@@ -205,16 +206,17 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             !
             write(*,'(a)') '  Write SWAN depth file'
             sumvars      = .true.
-            positiveonly = .false.
+            positiveonly = .true.
             extr_var1 = dom%qextnd(q_bath) == 2
             extr_var2 = dom%qextnd(q_wl)   == 2
-            call write_swan_datafile (swan_input_fields%dps         , &
-                                    & swan_input_fields%s1          , &
-                                    & swan_input_fields%mmax        , &
-                                    & swan_input_fields%nmax        , &
-                                    & swan_grids(i_swan)%covered    , &
-                                    & 'BOTNOW', extr_var1, extr_var2, &
-                                    & sumvars , positiveonly        )
+            call write_swan_file (swan_input_fields%dps         , &
+                                & swan_input_fields%s1          , &
+                                & swan_input_fields%mmax        , &
+                                & swan_input_fields%nmax        , &
+                                & swan_grids(i_swan)%covered    , &
+                                & 'BOTNOW', extr_var1, extr_var2, &
+                                & sumvars , positiveonly        , &
+                                & swan_run%depmin)
          endif
          if (dom%qextnd(q_cur)>0 .or. swan_run%swuvi) then
             !
@@ -225,13 +227,13 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             positiveonly = .false.
             extr_var1 = dom%qextnd(q_cur)  == 2
             extr_var2 = dom%qextnd(q_cur)  == 2
-            call write_swan_datafile (swan_input_fields%u1          , &
-                                    & swan_input_fields%v1          , &
-                                    & swan_input_fields%mmax        , &
-                                    & swan_input_fields%nmax        , &
-                                    & swan_grids(i_swan)%covered    , &
-                                    & 'CURNOW', extr_var1, extr_var2, &
-                                    & sumvars , positiveonly        )
+            call write_swan_file (swan_input_fields%u1          , &
+                                & swan_input_fields%v1          , &
+                                & swan_input_fields%mmax        , &
+                                & swan_input_fields%nmax        , &
+                                & swan_grids(i_swan)%covered    , &
+                                & 'CURNOW', extr_var1, extr_var2, &
+                                & sumvars , positiveonly        )
          endif
          if (dom%qextnd(q_wind)>0 .or. dom%n_meteofiles_dom > 0) then
             !
@@ -242,13 +244,13 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             positiveonly = .false.
             extr_var1 = dom%qextnd(q_wind) == 2
             extr_var2 = dom%qextnd(q_wind) == 2
-            call write_swan_datafile (swan_input_fields%windu       , &
-                                    & swan_input_fields%windv       , &
-                                    & swan_input_fields%mmax        , &
-                                    & swan_input_fields%nmax        , &
-                                    & swan_grids(i_swan)%covered    , &
-                                    & 'WNDNOW', extr_var1, extr_var2, &
-                                    & sumvars , positiveonly        )
+            call write_swan_file (swan_input_fields%windu       , &
+                                & swan_input_fields%windv       , &
+                                & swan_input_fields%mmax        , &
+                                & swan_input_fields%nmax        , &
+                                & swan_grids(i_swan)%covered    , &
+                                & 'WNDNOW', extr_var1, extr_var2, &
+                                & sumvars , positiveonly        )
          endif
          if (wavedata%mode == flow_mud_online) then
             !
@@ -260,13 +262,13 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             positiveonly = .true.
             extr_var1    = .false.
             extr_var2    = .false.
-            call write_swan_datafile (swan_input_fields%dpsmud      , &
-                                    & swan_input_fields%s1mud       , &
-                                    & swan_input_fields%mmax        , &
-                                    & swan_input_fields%nmax        , &
-                                    & swan_grids(i_swan)%covered    , &
-                                    & 'MUDNOW', extr_var1, extr_var2, &
-                                    & sumvars , positiveonly        )
+            call write_swan_file (swan_input_fields%dpsmud      , &
+                                & swan_input_fields%s1mud       , &
+                                & swan_input_fields%mmax        , &
+                                & swan_input_fields%nmax        , &
+                                & swan_grids(i_swan)%covered    , &
+                                & 'MUDNOW', extr_var1, extr_var2, &
+                                & sumvars , positiveonly        )
          endif
          if (dom%vegetation == 1) then
             !
@@ -277,13 +279,14 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             positiveonly = .false.
             extr_var1 = dom%qextnd(q_bath) == 2
             extr_var2 = dom%qextnd(q_wl)   == 2
-            call write_swan_datafile (swan_input_fields%veg         , &
-                                    & swan_input_fields%s1veg       , &
-                                    & swan_input_fields%mmax        , &
-                                    & swan_input_fields%nmax        , &
-                                    & swan_grids(i_swan)%covered    , &
-                                    & 'VEGNOW', extr_var1, extr_var2, &
-                                    & sumvars , positiveonly        )
+            call write_swan_file (swan_input_fields%veg         , &
+                                & swan_input_fields%s1veg       , &
+                                & swan_input_fields%mmax        , &
+                                & swan_input_fields%nmax        , &
+                                & swan_grids(i_swan)%covered    , &
+                                & 'VEGNOW', extr_var1, extr_var2, &
+                                & sumvars , positiveonly        , &
+                                & 0.0)
          endif
 
          write(*,'(a)') '  Deallocate input fields'
@@ -338,7 +341,8 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
                write(*,'(a,i10,a,f15.3)') '  Write WAVE map file, nest ',i_swan,' time ',wavedata%time%timmin
                DataFromPreviousTimestep = .true.
                call write_wave_map (swan_grids(i_swan), swan_output_fields, n_swan_grids, &
-                                  & wavedata, swan_run%casl, DataFromPreviousTimestep)
+                                  & wavedata, swan_run%casl, DataFromPreviousTimestep, &
+                                  & swan_run%gamma0)
                call setoutputcount(wavedata%output, wavedata%output%count + 1)
             endif
             offset = 1
@@ -368,7 +372,8 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata)
             write(*,'(a,i10,a,f15.3)') '  Write WAVE map file, nest ',i_swan,' time ',wavedata%time%timmin
             DataFromPreviousTimestep = .false.
             call write_wave_map (swan_grids(i_swan), swan_output_fields, n_swan_grids, &
-                               & wavedata, swan_run%casl, DataFromPreviousTimestep)
+                               & wavedata, swan_run%casl, DataFromPreviousTimestep, &
+                               & swan_run%gamma0)
          endif
          call dealloc_output_fields (swan_output_fields)
          !

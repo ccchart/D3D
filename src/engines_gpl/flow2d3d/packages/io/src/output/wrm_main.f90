@@ -1,9 +1,8 @@
 subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
-                  & itmapc    ,runtxt    ,trifil    ,wrifou    ,initi     , &
-                  & gdp       )
+                  & itmapc    ,runtxt    ,trifil    ,wrifou    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -53,6 +52,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     !
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
+    integer                              , pointer :: itmapl
     integer                              , pointer :: nmax
     integer                              , pointer :: nmaxus
     integer                              , pointer :: mmax
@@ -116,6 +116,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     integer(pntrsize)                    , pointer :: rbuff
     integer(pntrsize)                    , pointer :: rho
     integer(pntrsize)                    , pointer :: rich
+    integer(pntrsize)                    , pointer :: rlabda
     integer(pntrsize)                    , pointer :: rtur1
     integer(pntrsize)                    , pointer :: s1
     integer(pntrsize)                    , pointer :: sig
@@ -124,9 +125,12 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     integer(pntrsize)                    , pointer :: taubpv
     integer(pntrsize)                    , pointer :: taubsu
     integer(pntrsize)                    , pointer :: taubsv
+    integer(pntrsize)                    , pointer :: teta
     integer(pntrsize)                    , pointer :: thick
+    integer(pntrsize)                    , pointer :: tp
     integer(pntrsize)                    , pointer :: u1
     integer(pntrsize)                    , pointer :: umnldf
+    integer(pntrsize)                    , pointer :: uorb
     integer(pntrsize)                    , pointer :: v1
     integer(pntrsize)                    , pointer :: vicuv
     integer(pntrsize)                    , pointer :: vicww
@@ -195,7 +199,6 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     character(30) , dimension(10)                :: runtxt !!  Textual description of model input
     character(*)                   , intent(in)  :: trifil !  File name for FLOW NEFIS output files (tri"h/m"-"casl""labl".dat/def)
     logical                                      :: wrifou
-    integer                                      :: initi
 !
 ! Local variables
 !
@@ -239,6 +242,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
 !
     wrkb3               => gdp%gdaddress%wrkb3
     wrkb4               => gdp%gdaddress%wrkb4
+    itmapl              => gdp%gdinttim%itmapl
     nmax                => gdp%d%nmax
     nmaxus              => gdp%d%nmaxus
     mmax                => gdp%d%mmax
@@ -301,6 +305,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     rbuff               => gdp%gdr_i_ch%rbuff
     rho                 => gdp%gdr_i_ch%rho
     rich                => gdp%gdr_i_ch%rich
+    rlabda              => gdp%gdr_i_ch%rlabda
     rtur1               => gdp%gdr_i_ch%rtur1
     s1                  => gdp%gdr_i_ch%s1
     sig                 => gdp%gdr_i_ch%sig
@@ -309,9 +314,12 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
     taubpv              => gdp%gdr_i_ch%taubpv
     taubsu              => gdp%gdr_i_ch%taubsu
     taubsv              => gdp%gdr_i_ch%taubsv
+    teta                => gdp%gdr_i_ch%teta
     thick               => gdp%gdr_i_ch%thick
+    tp                  => gdp%gdr_i_ch%tp
     u1                  => gdp%gdr_i_ch%u1
     umnldf              => gdp%gdr_i_ch%umnldf
+    uorb                => gdp%gdr_i_ch%uorb
     v1                  => gdp%gdr_i_ch%v1
     vicuv               => gdp%gdr_i_ch%vicuv
     vicww               => gdp%gdr_i_ch%vicww
@@ -586,7 +594,7 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
           endif
           !
           if (lsedtot > 0) then
-             if (initi>=4 .or. gdp%gdmorpar%moroutput%cumavg .or. irequest==REQUESTTYPE_DEFINE) then
+             if (itmapc==itmapl .or. gdp%gdmorpar%moroutput%cumavg .or. irequest==REQUESTTYPE_DEFINE) then
                 call wrsedmavg(lundia    ,error     ,filename  ,itmapc    ,mmax      , &
                              & nmaxus    ,lsed      ,lsedtot   ,irequest  ,fds       , &
                              & iarrc     ,mf        ,ml        ,nf        ,nl        , &
@@ -595,22 +603,14 @@ subroutine wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
              endif
           endif
           !
-          if (roller) then
+          if (gdp%gdflwpar%flwoutput%waveqnt .or. roller .or. xbeach) then
              call wrrolm(lundia    ,error     ,filename  ,itmapc    ,nmax      , &
                        & mmax      ,nmaxus    ,r(ewave1) ,r(eroll1) ,r(qxkr)   , &
                        & r(qykr)   ,r(qxkw)   ,r(qykw)   ,r(fxw)    ,r(fyw)    , &
                        & r(wsu)    ,r(wsv)    ,r(guu)    ,r(gvv)    ,r(rbuff)  , &
-                       & r(hrms)   ,irequest  ,fds       ,iarrc     ,mf        , &
-                       & ml        ,nf        ,nl        ,gdp       )
-             if (error) goto 9999
-          endif
-          !
-          if (xbeach) then
-             call wrxbm(lundia    ,error     ,filename  ,itmapc    ,nmax      , &
-                      & mmax      ,nmaxus    ,r(fxw)    ,r(fyw)    , &
-                      & r(wsu)    ,r(wsv)    ,r(guu)    ,r(gvv)    ,r(rbuff)  , &
-                      & r(hrms)   ,irequest  ,fds       ,iarrc     ,mf        , &
-                      & ml        ,nf        ,nl        ,gdp       )
+                       & r(hrms)   ,r(tp)     ,r(teta)   ,r(rlabda) ,r(uorb)   , &
+                       & irequest  ,fds       ,iarrc     ,mf        ,ml        , &
+                       & nf        ,nl        ,roller    ,xbeach    ,gdp       )
              if (error) goto 9999
           endif
        endif

@@ -5,7 +5,7 @@ function ui_inspectstruct(cmd,Title)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -165,7 +165,8 @@ if ~ischar(cmd)
     UD.StructName=StructName;
     UD.Index=[];
     UD.H=H;
-    set(fig,'visible','on','userdata',UD);
+    set(fig,'userdata',UD)
+    set(fig,'visible','on')
     if isempty(UD.Struct)
         Str='  ';
     else
@@ -489,11 +490,11 @@ end
 
 
 function browse_tree(h,event)
-if isempty(event)
+if isstruct(event) && isfield(event,'Key')
+    key = event.Key;
+else
     % mouse
     key = get(get(h,'Parent'),'selectiontype');
-else
-    key = event.Key;
 end
 UD=get(get(h,'parent'),'userdata');
 H=UD.H;

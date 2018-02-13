@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -155,18 +155,6 @@ module m_ec_module
       module procedure ecQuantitySet
    end interface ecSetQuantity
    
-   interface ecSetQuantityName
-      module procedure ecQuantitySetName
-   end interface ecSetQuantityName
-   
-   interface ecSetQuantityUnits
-      module procedure ecQuantitySetUnits
-   end interface ecSetQuantityUnits
-
-   interface ecSetQuantityVectorMax
-      module procedure ecQuantitySetVectorMax
-   end interface ecSetQuantityVectorMax
-
    interface ecSetQuantityUnitsFillScaleOffsetFromNcidVarid
       module procedure ecQuantitySetUnitsFillScaleOffsetFromNcidVarid
    end interface ecSetQuantityUnitsFillScaleOffsetFromNcidVarid
@@ -253,7 +241,11 @@ module m_ec_module
    interface ecSetElementSetXyen
       module procedure ecElementSetSetXyen
    end interface ecSetElementSetXyen
-   
+
+   interface ecSetElementSetKbotKtop      
+      module procedure ecElementSetSetKbotKtop
+   end interface ecSetElementSetKbotKtop      
+
    ! Field
    
    interface ecSetFieldMissingValue

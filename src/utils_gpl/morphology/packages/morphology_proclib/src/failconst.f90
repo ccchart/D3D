@@ -4,7 +4,7 @@
 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,7 +39,7 @@
       
       if (increm>0) then
          write(*,'(A,A)') itemname,' must be a constant, but it isn''t. Program stops.'
-         call throwexception()
+         stop
       endif
 
       end subroutine failconst

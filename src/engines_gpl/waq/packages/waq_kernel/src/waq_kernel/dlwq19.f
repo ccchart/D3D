@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -898,7 +898,7 @@
                dq = q*conc(isys,iseg)
                rhs (isys,iseg) = rhs(isys,iseg) - dq
                if ( massbal    ) amass2(isys,    3) = amass2(isys    ,3) + dq
-               if ( ipb .gt. 0 ) dmps  (isys,ipb,3) = dmps  (isys,ipb,3) - dq
+               if ( ipb .gt. 0 ) dmps  (isys,ipb,3) = dmps  (isys,ipb,3) + dq
             enddo
             do k = 1, nowst
                if ( iseg2 .eq. iwaste(k) ) then
@@ -1305,7 +1305,7 @@
                   dq = q*dconc2(isys,iseg)
                   rhs (isys,iseg) = rhs(isys,iseg) - dq
                   if ( massbal    ) amass2(isys,    3) = amass2(isys    ,3) + dq
-                  if ( ipb .gt. 0 ) dmps  (isys,ipb,3) = dmps  (isys,ipb,3) - dq
+                  if ( ipb .gt. 0 ) dmps  (isys,ipb,3) = dmps  (isys,ipb,3) + dq
                enddo
                do k = 1, nowst
                   if ( iseg .eq. iwaste(k) ) then

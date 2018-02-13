@@ -7,7 +7,7 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                 & lstsci    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -527,6 +527,10 @@ subroutine rdtimo(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     ! during the whole simulation period instead of with a maximum of 100 warnings
     !
     call prop_get_logical(gdp%mdfile_ptr, '*', 'CflMsg' , flwoutput%cflmsg)
+    !
+    ! Flag for writing wave quantities to the trim-file
+    !
+    call prop_get_logical(gdp%mdfile_ptr, '*', 'MapWav' , flwoutput%waveqnt)
     !
     ! smax
     !

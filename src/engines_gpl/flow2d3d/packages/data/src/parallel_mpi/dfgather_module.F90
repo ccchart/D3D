@@ -5,7 +5,7 @@ module dfgather_module
 !
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2016.
+!  Copyright (C)  Stichting Deltares, 2011-2017.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -1603,7 +1603,7 @@ integer, dimension(:,:), allocatable      :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with four-argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !
@@ -1729,7 +1729,7 @@ integer, dimension(:,:,:), allocatable    :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with four-argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !
@@ -1852,7 +1852,7 @@ real(sp), dimension(:,:), allocatable  :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with four-argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !
@@ -2015,7 +2015,7 @@ real(hp), dimension(:,:), allocatable  :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with four-argument inparr(iif:iil,jjf:jjl,kf:kl,lf:ll)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !
@@ -2144,7 +2144,7 @@ real(sp), dimension(:,:,:), allocatable :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with three-argument inparr(iif:iil,jjf:jjl,kf:kl)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl,kf:kl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !
@@ -2312,7 +2312,7 @@ real(hp), dimension(:,:,:), allocatable :: inparr_slice
     jjf   = -1-gdp%d%mlb+1
     jjl   = gdp%d%mmax+2-gdp%d%mlb+1
     !
-    ! When calling dfgather_lowlevel with three-argument inparr(iif:iil,jjf:jjl,kf:kl)
+    ! When calling dfgather_lowlevel with 3rd argument inparr(iif:iil,jjf:jjl,kf:kl)
     ! this (possibly big) array is placed on the stack
     ! To avoid this, copy it to the local array inparr_slice (yes, again a copy action)
     !

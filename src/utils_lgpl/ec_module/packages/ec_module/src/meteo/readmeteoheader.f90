@@ -1,7 +1,7 @@
 function readmeteoheader(minp, meteoitem) result(success)
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -32,7 +32,7 @@ function readmeteoheader(minp, meteoitem) result(success)
 !!--pseudo code and references--------------------------------------------------
 ! NONE
 !!--declarations----------------------------------------------------------------
-    use meteo
+    use meteo_data
     use precision
     implicit none
 !

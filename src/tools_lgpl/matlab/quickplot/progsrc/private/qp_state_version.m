@@ -3,7 +3,7 @@ function State=qp_state_version(OldState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -111,7 +111,7 @@ end
 %
 State=setopt(State,'presentationtype','');
 State=setopt(State,'units','');
-State=setopt(State,'thinningmode','none');
+%State=setopt(State,'thinningmode','none');
 %State=setopt(State,'thresholds','none');
 %State=setopt(State,'thresholddistribution','linear');
 %State=setopt(State,'horizontalalignment','centre');
@@ -135,6 +135,9 @@ if strcmp(State.axestype,'Distance-Val')
 end
 if isfield(State,'marker')
     State=setopt(State,'markersize',6);
+end
+if strcmp(State.presentationtype,'values')
+    State=setopt(State,'clipnans',1);
 end
 
 

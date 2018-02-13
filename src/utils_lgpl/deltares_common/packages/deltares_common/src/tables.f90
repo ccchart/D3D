@@ -1,7 +1,7 @@
 module tables
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -179,8 +179,7 @@ subroutine org_readtable(this, filnam, refjulday, errorstring)
     error       = .false.
     errorstring = 'org_readtable: memory alloc error'
     !
-    lunbcm = newunit()
-    open (lunbcm, file = filnam, form = 'formatted', &
+    open(newunit=lunbcm, file = filnam, form = 'formatted', &
         & status = 'old', iostat = istat)
     if (istat /= 0) then
        errorstring = '*** ERROR Error while opening file '//trim(filnam)

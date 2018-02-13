@@ -43,16 +43,12 @@ contains
     type (tEcBCBlock),             intent(inout)   :: bc
     integer, optional,             intent(out)     :: iostat
 
-    integer :: netCDFId, iNetCDF
-    integer :: vectormax
-    type(tEcQuantity), pointer :: qptr
-
     success = .false.
     bc%qname = quantityName
     bc%bcname = plilabel
     bc%fname = fname                                  ! store original filename for later referece (?)
-    if (associated(bc%quantity)) then                 ! allocate quantity struct attached to the bc-block 
-       deallocate(bc%quantity)
+    if (associated(bc%quantity)) then
+       nullify(bc%quantity)
     endif
     allocate(bc%quantity)
     call str_upper(bc%qname,len(trim(bc%qname)))
@@ -105,7 +101,7 @@ contains
     integer (kind=8),       intent(in)      :: fhandle
     integer,                intent(out)     :: iostat
 
-    character*(255)     ::  rec
+    character*(1000)    ::  rec
     integer             ::  reclen
     integer             ::  commentpos
     character(len=:),   &
@@ -114,7 +110,6 @@ contains
     integer             ::  nfld
     integer             ::  nq
     logical             ::  jablock, jaheader
-    integer             ::  reallocstat
     integer             ::  lineno
     integer (kind=8)    ::  savepos
     integer             ::  iostatloc
@@ -139,7 +134,7 @@ contains
        endif
        lineno = lineno + 1
        if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
-       reclen = len_trim(rec)                                  ! deal with various comment delimiters 
+       reclen = len_trim(rec)                                  ! deal with various comment delimiters
        commentpos = index(rec(1:reclen),'//')
        if (commentpos>0) reclen = min(reclen,commentpos-1)
        commentpos = index(rec(1:reclen),' %')
@@ -154,7 +149,7 @@ contains
        if (len_trim(rec(1:reclen))>0) then                     ! skip empty lines
           if (index(rec,'[forcing]')>0) then                   ! new boundary chapter
              jaheader = .true.                                 ! switching to header mode
-             keyvaluestr = ','
+             keyvaluestr = ''
              jablock=.false.
              nfld = 0                                          ! count the number of fields in this header block
              nq = 0                                            ! count the (maximum) number of quantities in this block
@@ -241,7 +236,8 @@ contains
     character(len=*),    intent(in)  :: keyvaluestr
     character(len=*),    intent(in)  :: key
     character(len=*),    intent(in)  :: value
-    jafound = (index(keyvaluestr,','''//trim(key)//''','''//trim(value)//''',')>0)            ! like 'keyword1','value1','keyword',.....
+!   jafound = (index(keyvaluestr,','''//trim(key)//''','''//trim(value)//''',')>0)            ! like 'keyword1','value1','keyword',.....
+    jafound = (index(keyvaluestr,''''//trim(key)//''','''//trim(value)//'''')>0)            ! like 'keyword1','value1','keyword',.....
   end function jakeyvalue
 
   !> Given a character string of key-value pairs gathered from a header block,
@@ -259,9 +255,8 @@ contains
     integer                          ::     i, jv
     integer                          ::     iostat
     character(len=maxNameLen),  allocatable   ::     hdrkeys(:)     !< All keys from header
-    character(len=maxRecordLen),  allocatable ::     hdrvals(:)     !< All values from header
+    character(len=10*maxRecordLen),  allocatable ::     hdrvals(:)     !< All values from header
     integer, allocatable             ::     iv(:), il(:), perm_vpos(:)
-    character(len=maxRecordLen)      ::     dumstr
 
     integer                          ::     ipos, npos, posfs
     integer                          ::     iq, iq_sel, idim
@@ -297,7 +292,8 @@ contains
     hdrvals=''
     hdrkeys=''
     vectordefinition = ''
-    read(keyvaluestr,*,iostat=iostat) dumstr,(hdrkeys(ifld),hdrvals(ifld),ifld=1,nfld)
+
+    read(keyvaluestr,*,iostat=iostat) (hdrkeys(ifld),hdrvals(ifld),ifld=1,nfld)
     iq = 0
     iq_sel = 0
     do ifld=1,nfld
@@ -524,7 +520,7 @@ contains
     type(tEcBCBlock),           pointer                     :: bcPtr
     integer        :: n_col      !< number of columns in the file, inferred from the number of quantity blocks in the header
     integer        :: n_col_time !< position of the dedicated time-column in the line, deduced from the header
-    character(256) :: rec        !< content of a line
+    character(1000):: rec        !< content of a line
     character(30)  :: ncolstr
     integer        :: istat      !< status of read operation
     integer        :: i, j       !< loop counters
@@ -532,7 +528,6 @@ contains
     integer        :: commentpos
     integer(kind=8):: savepos    !< saved position in file, for mf_read to enabled rewinding
     real(kind=hp), dimension(1:1)  :: ec_timesteps ! to read in source time from file block
-    real(kind=hp), dimension(1:1)  :: time ! to read in source time from file block
     real(kind=hp)  :: amplitude
 
     bcPtr => fileReaderPtr%bc
@@ -542,7 +537,7 @@ contains
     select case (bcPtr%ftype)
     case (BC_FTYPE_ASCII)
        n_col = bcPtr%numcols             ! Number of quantities = columns specified in the header
-       n_col_time = bcPtr%timecolumn     ! Rank number of the colunm presumably holding the time (not necessarily the first)
+       n_col_time = bcPtr%timecolumn     ! Rank number of the column presumably holding the time (not necessarily the first)
 
        if(present(recout)) then
           recout = ''                       ! initialize return string to empty
@@ -582,7 +577,7 @@ contains
           reclen = len_trim(rec(1:reclen))                                 ! Finally remove trailing spaces
           if (index(rec,'[forcing]'         )>0 .or. &
               index(rec,'[Boundary]'        )>0 .or. &
-              index(rec,'[LateralDischarge]')>0) then ! new boundary chapter       
+              index(rec,'[LateralDischarge]')>0) then ! new boundary chapter
              select case (BCPtr%func)
              case (BC_FUNC_TSERIES, BC_FUNC_TIM3D)
                 call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%fname)//", Quantity: "//trim(bcPtr%qname))
@@ -724,7 +719,6 @@ contains
     integer,                  intent(in) :: bcBlockId  !< unique BCBlock id
     !
     integer :: istat   !< allocate() status
-    integer :: i       !< loop counter
     logical :: success !< helper variable
     !
     success = .false.
@@ -817,7 +811,7 @@ contains
     end if
     nBCBlocks = 0
 end function ecBCBlockFree1dArray
-      
+
       ! =======================================================================
 
   ! BCQuantity destructor

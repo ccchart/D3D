@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -93,6 +93,7 @@
 !
 !     write restart file in .map format
 !
+      LCHARMAP = ' '
       LCHARMAP(1:248) = LCHAR(23)(1:248)
       DO 10 I=248,1,-1
          IF ( LCHARMAP(I:I) .EQ. '.' ) THEN

@@ -2,7 +2,7 @@
      &                      mlb    , mub    , xcor   , ycor   , filnam )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -66,11 +66,11 @@
          return
       endif
 !
-      lunout = newunit()
+
 #ifdef HAVE_FC_FORM_BINARY
-      open  ( lunout , file=trim(filnam)//'cco' , form = 'binary' )
+      open  ( newunit = lunout , file=trim(filnam)//'cco' , form = 'binary' )
 #else
-      open  ( lunout , file=trim(filnam)//'cco' , form = 'unformatted', access='stream')
+      open  ( newunit = lunout , file=trim(filnam)//'cco' , form = 'unformatted', access='stream')
 #endif
       x = xcor(1,1)
       y = ycor(1,1)

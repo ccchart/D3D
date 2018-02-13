@@ -51,7 +51,7 @@ function [data,Slice] = vslice(data,v_slice,isel)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -150,6 +150,10 @@ switch v_slice
                     if multiTime
                         data.(fld) = Tmp(:,isel,:);
                     else
+                        if size(Tmp,1)==1
+                            szTmp = size(Tmp);
+                            Tmp = reshape(Tmp,szTmp([2:end 1]));
+                        end
                         data.(fld) = Tmp(isel,:);
                     end
                 end

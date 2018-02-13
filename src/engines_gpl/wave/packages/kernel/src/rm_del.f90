@@ -1,7 +1,7 @@
 subroutine rm_del( filnamin )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -52,9 +52,9 @@ subroutine rm_del( filnamin )
 !
     filnam = adjustl(filnamin)
     inquire (file = trim(filnam), exist = ex, iostat =  istat)
-    if (ex) then
+    if (istat==0 .and. ex) then
        inquire (file = trim(filnam), opened = ex, iostat =  istat)
-       if (ex) then
+       if (istat==0 .and. ex) then
           inquire (file = trim(filnam), number = luntmp, iostat =  istat)
        else
           luntmp = new_lun()

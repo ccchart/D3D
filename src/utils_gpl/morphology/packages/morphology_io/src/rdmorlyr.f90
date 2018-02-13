@@ -1,7 +1,7 @@
 module m_rdmorlyr
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -28,11 +28,11 @@ module m_rdmorlyr
 !  $Id$
 !  $HeadURL$
 !-------------------------------------------------------------------------------
-
+use m_depfil_stm
 contains
 
 subroutine rdmorlyr(lundia    ,error     ,filmor    , &
-                  & nmaxus    ,nto       ,nambnd    ,version   , &
+                  & nmaxus    ,nto       ,lfbedfrm  ,nambnd    ,version   , &
                   & lsedtot   ,namsed    ,morpar    ,morlyr    ,sedpar    , &
                   & mor_ptr   ,griddim   )
 !!--description-----------------------------------------------------------------
@@ -57,6 +57,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     integer                                         , intent(in)  :: nmaxus
     integer                                         , intent(in)  :: nto
     integer                                         , intent(in)  :: version
+    logical                                         , intent(in)  :: lfbedfrm    
     logical                                         , intent(out) :: error
     character(*)                                                  :: filmor
     character(20)             , dimension(nto)                    :: nambnd   !  Description and declaration in esm_alloc_char.f90
@@ -93,8 +94,6 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     character(MAXTABLECLENGTH), dimension(:), allocatable         :: parnames
     !
     logical                             , pointer :: exchlyr
-    !logical                             , pointer :: lfbedfrm
-    logical                                       :: lfbedfrm = .false.
     real(fp)                            , pointer :: bed
     real(fp)                            , pointer :: minmass
     real(fp)                            , pointer :: theulyr
@@ -477,8 +476,8 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
              !
              write(lundia,'(3a)') txtput1, ':', ttlfil
              !
-             call depfil(lundia    ,error     ,ttlfil    ,fmttmp    , &
-                       & thtrlyr   ,1         ,1         ,griddim   )
+             call depfil_stm(lundia    ,error     ,ttlfil    ,fmttmp    , &
+                           & thtrlyr   ,1         ,1         ,griddim   )
              if (error) then
                 errmsg = 'Unable to read transport layer thickness from ' // trim(ttlfil)
                 call write_error(errmsg, unit=lundia)
@@ -557,8 +556,8 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
                 !
                 ! read data from file
                 !
-                call depfil(lundia    ,error     ,telfil    ,fmttmp    , &
-                          & thexlyr   ,1         ,1         ,griddim   )
+                call depfil_stm(lundia    ,error     ,telfil    ,fmttmp    , &
+                              & thexlyr   ,1         ,1         ,griddim   )
                 if (error) then
                    errmsg = 'Unable to read exchange layer thickness from ' // trim(telfil)
                    call write_error(errmsg, unit=lundia)
@@ -908,8 +907,8 @@ subroutine rdinidiff(lundia    ,fildiff   ,ndiff     ,kdiff    , &
                 !
                 ! Spatially varying diffusion coefficient
                 !
-                call depfil(lundia    ,error     ,filename  ,fmttmp    , &
-                          & kdiff(ilyr,griddim%nmlb),1         ,1         ,griddim   )
+                call depfil_stm(lundia    ,error     ,filename  ,fmttmp    , &
+                              & kdiff(ilyr,griddim%nmlb),1         ,1         ,griddim   )
                 if (error) then
                    message = 'Unable to read diffusion coefficients from ' // trim(filename)
                    call write_error(message, unit=lundia)
@@ -973,6 +972,7 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
     use message_module, only: write_error, write_warning, FILE_NOT_FOUND, FILE_READ_ERROR, PREMATURE_EOF
     use sediment_basics_module, only: SEDTYP_COHESIVE
     use morphology_data_module, only: sedpar_type, morpar_type
+    use m_depfil_stm
     !
     implicit none
 !
@@ -1081,9 +1081,9 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
            if (sedpar%sedtyp(ised) /= SEDTYP_COHESIVE) cycle
            inquire (file = mflfil(ised), exist = ex)
            if (ex) then
-               call depfil(lundia    ,error     ,mflfil(ised)         , &
-                         & fmttmp    ,mfluff    ,lsed      ,ised      , &
-                         & dims      )
+               call depfil_stm(lundia    ,error     ,mflfil(ised)         , &
+                             & fmttmp    ,mfluff    ,lsed      ,ised      , &
+                             & dims      )
                if (error) return
            else
                mfluff(ised,:) = mfluni(ised)
@@ -1127,17 +1127,15 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                 ! Space varying data has been specified
                 ! Use routine that also read the depth file to read the data
                 !
-                if (prec == hp) then
-                   call depfil_double(lundia    ,error     ,flsdbd(ised) , &
-                                    & fmttmp    ,bodsed    ,lsedtot      , &
-                                    & ised      ,dims      )
-                else
-                   call depfil(lundia    ,error     ,flsdbd(ised) , &
-                             & fmttmp    ,bodsed    ,lsedtot      , &
-                             & ised      ,dims      )
-                endif
-                if (error) return
-             endif
+                call depfil_stm_double(lundia    ,error     ,flsdbd(ised) , &
+                                     & fmttmp    ,bodsed    ,lsedtot      , &
+                                     & ised      ,dims      ,message      )
+                if (error) then
+                   message = 'ERROR: RDMORLYR '//message
+                   call write_error(message, unit=lundia)
+                   return
+                endif 
+              endif
           enddo
           if (iporosity == 0) then
              do ised = 1, lsedtot
@@ -1203,8 +1201,8 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                 !
                 do ised = 1, lsedtot
                    if (bodsed(ised, nm) < 0.0) then
-                      write (message,'(a,i2,a,a,a,i0)')  &
-                          & 'Negative sediment thickness ',ised,' in file ', &
+                      write (message,'(a,i2,a,f15.2,a,a,a,i0)')  &
+                          & 'Negative sediment thickness for fraction ',ised, ': ',bodsed(ised, nm),' in file ', &
                           & trim(flsdbd(ised)),' at nm=',nm
                       call write_error(trim(message), unit=lundia)
                       error = .true.
@@ -1377,8 +1375,8 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                       !
                       ! Spatially varying thickness
                       !
-                      call depfil(lundia    ,error     ,filename  ,fmttmp    , &
-                                & thtemp    ,1         ,1         ,dims)
+                      call depfil_stm(lundia    ,error     ,filename  ,fmttmp    , &
+                                    & thtemp    ,1         ,1         ,dims)
                       if (error) then
                          write (message,'(3a,i2,2a)')  &
                              & 'Error reading thickness from ', trim(filename), &
@@ -1453,8 +1451,8 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                          ! Spatially varying fraction
                          !
                          anyfrac = .true.
-                         call depfil(lundia    ,error     ,filename  , fmttmp    , &
-                                   & rtemp(nmlb,ised)        ,1   ,1    ,dims)
+                         call depfil_stm(lundia    ,error     ,filename  , fmttmp    , &
+                                       & rtemp(nmlb,ised)        ,1   ,1    ,dims)
                          if (error) then
                             write (message,'(a,i2,3a,i2,2a)')  &
                                 & 'Error reading fraction ', ised, 'from ', &
@@ -1737,8 +1735,8 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                          ! Spatially varying thickness or mass
                          !
                          anysedbed = .true.
-                         call depfil(lundia    ,error     ,filename  , fmttmp    , &
-                                   & rtemp(nmlb,ised)     ,1   ,1    ,dims)
+                         call depfil_stm(lundia    ,error     ,filename  , fmttmp    , &
+                                       & rtemp(nmlb,ised)     ,1   ,1    ,dims)
                          if (error) then
                             write (message,'(5a,i2,2a)')  &
                                 & 'Error reading ', layertype, '  from ', trim(filename), &

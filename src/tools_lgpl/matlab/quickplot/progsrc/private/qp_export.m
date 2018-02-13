@@ -3,7 +3,7 @@ function filename=qp_export(ExpType,filenm1,DataState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -70,6 +70,9 @@ retrieve='griddata';
 AllTAtOnce=0;
 MATfile=0;
 switch expType
+    case {'csv file'}
+        AllTAtOnce=1; % code also supports AllTAtOnce=0
+        ext='csv';
     case {'csv file (time series)'}
         % assumptions: currently only time series
         AllTAtOnce=1;
@@ -77,10 +80,16 @@ switch expType
     case {'grid file','grid file (old format)'}
         % assumptions: 2D, one timestep
         ext='grd';
+    case {'netcdf3 file'}
+        ext='nc';
+    case {'netcdf4 file'}
+        ext='nc';
     case {'quickin file','morsys field file','delft3d-mor field file','box file','simona box file'}
         % assumptions: 2D, one timestep
         % morsys field file: NVal=1
         ext='dep';
+    case 'polygon file'
+        ext='pol';
     case 'tekal file'
         ext='tek';
     case 'tekal file (time series)'
@@ -284,6 +293,52 @@ for f=1:ntim
     end
 
     switch expType
+        case {'csv file'}
+            TIMEFORMAT = '%04d-%02d-%02d %02d:%02d:%02d';
+            if f==1
+                fid=fopen(filename,'wt');
+                if fid<0
+                    error(['Could not create or open: ',filename])
+                end
+            end
+            %
+            if isfield(data,'Time')
+                nTim = length(data.Time);
+                if nTim==1
+                    fprintf(fid,['time,' TIMEFORMAT '\n'],datevec(data.Time));
+                end
+            else
+                nTim = 1;
+            end
+            Format = [repmat('%s,',1,nCrd+nVal*nTim-1) '%s\n'];
+            %
+            Vars = [vars(1:nCrd) repmat(vars(nCrd+1:end),1,nTim)];
+            fprintf(fid,Format,Vars{:});
+            %
+            if nTim>1
+                Format = [repmat(',',1,nCrd-1) repmat([',' TIMEFORMAT],1,nVal*nTim) '\n'];
+                fprintf(fid,Format,datevec(data.Time)');
+            end
+            %
+            Format = [repmat('%.15g,',1,nCrd+nVal*nTim-1) '%.15g\n'];
+            Val = zeros(nCrd+nVal*nTim,numel(data.(flds{1}))/nTim);
+            for i = 1:nCrd
+                Val(i,:) = data.(crds{i})(:)';
+            end
+            if nTim>1
+                for i = 1:nVal
+                    Val(nCrd+i:nVal:end,:) = data.(flds{i})(:,:);
+                end
+            else
+                for i = 1:nVal
+                    Val(nCrd+i,:) = data.(flds{i})(:)';
+                end
+            end
+            fprintf(fid,Format,Val);
+            %
+            if f==ntim
+                fclose(fid);
+            end
         case {'csv file (time series)','tekal file (time series)'}
             NTim=max(1,length(data.Time));
             switch Props.NVal
@@ -397,6 +452,8 @@ for f=1:ntim
                 case 'grid file (old format)'
                     wlgrid('writeold',filename,G);
             end
+        case {'netcdf3 file','netcdf4 file'}
+            export_netcdf(filename,expType,data)
         case {'quickin file','morsys field file','delft3d-mor field file','box file','simona box file'}
             for fld=1:length(flds)
                 Temp=getfield(data,flds{fld});
@@ -422,10 +479,6 @@ for f=1:ntim
             end
             if isfield(data,'XDam')
                 [x,y] = thindam(data.X,data.Y,data.XDam,data.YDam);
-                expdata = [x y];
-            elseif nVar==2
-                td = ones(size(data.X));
-                [x,y] = thindam(data.X,data.Y,td,td);
                 expdata = [x y];
             else
                 expdata=zeros([size(data.X) nVar]);
@@ -495,10 +548,10 @@ for f=1:ntim
             if lastfield
                 tecplot('write',filename,xx);
             end
-        case 'arcview shape'
-           if isfield(data,'XDam')
-              Ops.presentationtype = 'thin dams';
-           end
+        case {'arcview shape','polygon file'}
+            if isfield(data,'XDam')
+                Ops.presentationtype = 'thin dams';
+            end
             switch Ops.presentationtype
                 case {'patches','patches with lines','markers','values','grid','polylines','polygons',''}
                     xy=[];
@@ -509,9 +562,9 @@ for f=1:ntim
                         else
                             bs=[1 length(vNaN)];
                         end
-                        xyc={};
+                        xy={};
                         for i=size(bs,1):-1:1
-                            xyc{i}=[data.X(bs(i,1):bs(i,2)) data.Y(bs(i,1):bs(i,2))];
+                            xy{i}=[data.X(bs(i,1):bs(i,2)) data.Y(bs(i,1):bs(i,2))];
                         end
                         vals={};
                         if isfield(data,'Val')
@@ -522,7 +575,17 @@ for f=1:ntim
                         else
                            shp_type = 'polygon';
                         end
-                        shapewrite(filename,shp_type,xyc,vals{:})
+                        switch expType
+                            case 'arcview shape'
+                                shapewrite(filename,shp_type,xy,vals{:})
+                            case 'polygon file'
+                                DATA = [];
+                                for i = length(xy):-1:1
+                                    DATA.Field(i).Name = sprintf('polygon %i',i);
+                                    DATA.Field(i).Data = xy{i};
+                                end
+                                tekal('write',filename,DATA);
+                        end
                     else
                         d=1;
                         if isfield(Props,'Geom') && strncmp(Props.Geom,'UGRID',5)
@@ -686,7 +749,23 @@ for f=1:ntim
                             %
                             [xy,cLabels,cv] = process_polygons(xy,fc,cv,Thresholds);
                             %
-                            shapewrite(filename,xy,cLabels,cv)
+                            switch expType
+                                case 'arcview shape'
+                                    shapewrite(filename,xy,cLabels,cv)
+                                case 'polygon file'
+                                    DATA = [];
+                                    for i = length(xy):-1:1
+                                        if isnan(cv(i,1))
+                                            DATA.Field(i).Name = sprintf('values smaller than %g',cv(i,2));
+                                        elseif isnan(cv(i,2))
+                                            DATA.Field(i).Name = sprintf('values larger than %g',cv(i,1));
+                                        else
+                                            DATA.Field(i).Name = sprintf('values between %g and %g',cv(i,:));
+                                        end
+                                        DATA.Field(i).Data = xy{i};
+                                    end
+                                    tekal('write',filename,DATA);
+                            end
                         case {'vector','vector (split x,y)','vector (split m,n)'}
                             hascolor = strcmp(get(hNew(end),'type'),'patch');
                             if hascolor
@@ -833,4 +912,114 @@ for f=1:ntim
             end
             save(filename,'data',saveops{:});
     end
+end
+
+function export_netcdf(filename,expType,data)
+mode = netcdf.getConstant('CLOBBER');
+switch expType
+    case 'netcdf4 file'
+        mode = bitor(mode,netcdf.getConstant('NETCDF4'));
+        mode = bitor(mode,netcdf.getConstant('CLASSIC_MODEL'));
+end
+ncid = netcdf.create(filename,mode);
+ui_message('warning','The netCDF export option is still under development.')
+try
+    for g = 1:length(data)
+        if length(data)>1
+            prefix = sprintf('DATA%i_',g);
+        else
+            prefix = '';
+        end
+        DATA = data(g);
+        %
+        if isfield(DATA,'FaceNodeConnect')
+            % save as UGRID
+            nNodes = [prefix 'nNodes'];
+            nEdges = [prefix 'nEdges'];
+            nFaces = [prefix 'nFaces'];
+            maxNodesPerFace = [prefix 'maxNodesPerFace'];
+            dim_nNodes = netcdf.defDim(ncid,nNodes,length(DATA.X));
+            dim_nFaces = netcdf.defDim(ncid,nFaces,size(DATA.FaceNodeConnect,1));
+            dim_maxNodesPerFace = netcdf.defDim(ncid,maxNodesPerFace,size(DATA.FaceNodeConnect,2));
+            if isfield(DATA,'EdgeNodeConnect')
+                dim_nEdges = netcdf.defDim(ncid,nEdges,size(DATA.EdgeNodeConnect,1));
+                dim_2 = netcdf.defDim(ncid,'TWO',2);
+            end
+            %
+            X = [prefix 'X'];
+            var_X = netcdf.defVar(ncid,X,'double',dim_nNodes);
+            if isfield(DATA,'XUnits') && strcmp(DATA.XUnits,'deg')
+                netcdf.putAtt(ncid,var_X,'standard_name','longitude')
+                netcdf.putAtt(ncid,var_X,'units','degrees_east')
+            else
+                netcdf.putAtt(ncid,var_X,'standard_name','projection_x_coordinate')
+                if isfield(DATA,'XUnits') && ~isempty(DATA.XUnits)
+                    netcdf.putAtt(ncid,var_X,'units',DATA.XUnits)
+                end
+            end
+            %
+            Y = [prefix 'Y'];
+            var_Y = netcdf.defVar(ncid,Y,'double',dim_nNodes);
+            if isfield(DATA,'YUnits') && strcmp(DATA.YUnits,'deg')
+                netcdf.putAtt(ncid,var_Y,'standard_name','latitude');
+                netcdf.putAtt(ncid,var_Y,'units','degrees_north')
+            else
+                netcdf.putAtt(ncid,var_Y,'standard_name','projection_y_coordinate')
+                if isfield(DATA,'YUnits') && ~isempty(DATA.YUnits)
+                    netcdf.putAtt(ncid,var_Y,'units',DATA.YUnits)
+                end
+            end
+            %
+            FaceNodeConnect = [prefix 'FaceNodeConnect'];
+            var_FaceNodeConnect = netcdf.defVar(ncid,FaceNodeConnect,'int',[dim_maxNodesPerFace dim_nFaces]);
+            %netcdf.defVarFill(ncid,var_FaceNodeConnect,false,-999);
+            netcdf.putAtt(ncid,var_FaceNodeConnect,'cf_role','face_node_connectivity')
+            netcdf.putAtt(ncid,var_FaceNodeConnect,'start_index',1)
+            %
+            if isfield(DATA,'EdgeNodeConnect')
+                EdgeNodeConnect = [prefix 'EdgeNodeConnect'];
+                var_EdgeNodeConnect = netcdf.defVar(ncid,EdgeNodeConnect,'int',[dim_2 dim_nEdges]);
+                %netcdf.defVarFill(ncid,var_EdgeNodeConnect,false,-999);
+                netcdf.putAtt(ncid,var_EdgeNodeConnect,'cf_role','edge_node_connectivity')
+                netcdf.putAtt(ncid,var_EdgeNodeConnect,'start_index',1)
+            end
+            %
+            Mesh = [prefix 'Mesh'];
+            var_Mesh = netcdf.defVar(ncid,Mesh,'int',[]);
+            netcdf.putAtt(ncid,var_Mesh,'cf_role','mesh_topology')
+            netcdf.putAtt(ncid,var_Mesh,'topology_dimension',2)
+            netcdf.putAtt(ncid,var_Mesh,'node_coordinates',[X ' ' Y])
+            netcdf.putAtt(ncid,var_Mesh,'face_node_connectivity',FaceNodeConnect)
+            if isfield(DATA,'EdgeNodeConnect')
+                netcdf.putAtt(ncid,var_Mesh,'edge_node_connectivity',EdgeNodeConnect)
+            end
+            netcdf.putAtt(ncid,var_Mesh,'node_dimension',nNodes)
+            if isfield(DATA,'EdgeNodeConnect')
+                netcdf.putAtt(ncid,var_Mesh,'edge_dimension',nEdges)
+            end
+            netcdf.putAtt(ncid,var_Mesh,'face_dimension',nFaces)
+            %
+            globalId = netcdf.getConstant('GLOBAL');
+            netcdf.putAtt(ncid,globalId,'Conventions','UGRID-1.0');
+            %
+            netcdf.endDef(ncid)
+            %
+            netcdf.putVar(ncid,var_X,DATA.X)
+            netcdf.putVar(ncid,var_Y,DATA.Y)
+            if isfield(DATA,'EdgeNodeConnect')
+                netcdf.putVar(ncid,var_EdgeNodeConnect,DATA.EdgeNodeConnect')
+            end
+            netcdf.putVar(ncid,var_FaceNodeConnect,DATA.FaceNodeConnect')
+        else
+            error('Exporting this data set to netCDF not yet supported')
+        end
+    end
+    netcdf.close(ncid)
+catch Exception1
+    try
+        netcdf.close(ncid)
+    catch
+        % ignore or append
+    end
+    rethrow(Exception1)
 end

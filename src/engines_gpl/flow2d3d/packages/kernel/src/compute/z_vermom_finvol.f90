@@ -7,7 +7,7 @@ subroutine z_vermom_finvol(nmmax     ,kmax      ,icx       ,icy       ,u0       
                          & dzv0      ,w1        ,p0        ,zk        ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -262,7 +262,7 @@ subroutine z_vermom_finvol(nmmax     ,kmax      ,icx       ,icy       ,u0       
                 ! Horizontal viscosity
                 !
                 viscow     =   (rxz(nm,k)-rxz(nmd,k)) / (0.5_fp*(gvv(nm)+gvv(ndm)))   &
-                           & + (ryz(nm,k)-ryz(ndm,k)) / (0.5_fp*(guu(nm)+gvv(nmd)))
+                           & + (ryz(nm,k)-ryz(ndm,k)) / (0.5_fp*(guu(nm)+guu(nmd)))
                 !                
                 ddk(nm,k)  = ddk(nm,k) + viscow
                 !

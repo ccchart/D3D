@@ -7,7 +7,7 @@ function varargout = wms(cmd, varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -76,8 +76,11 @@ switch servername
         INFO.YOrigin           = 'top';
         INFO.Servers           = {''};
     case 'openstreetmap'
-        INFO = getcap('http://129.206.228.72/cached/osm?');
-        INFO.Data.Layer(2:end) = [];
+        INFO.GetMap.URL = 'http://${s}.tile.openstreetmap.org/${z}/${x}/${y}.png';
+        INFO.GetMap.TileLevels = 19;
+        INFO.YOrigin           = 'top';
+        INFO.Servers           = {'a','b','c'};
+        INFO.GetMap.Formats = {'image/png'};
         %wms_layer='osm_auto:all'; % <-- only support this one
    	    %wms_layer='europe_wms:hs_srtm_europa';
     %case 'ahn'

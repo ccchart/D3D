@@ -37,7 +37,7 @@ function varargout=d3d_attrib(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -178,7 +178,7 @@ for tpC = types
                 Out.Profile = Profile;
                 Out.AstrSta1 = AComp1;
                 Out.AstrSta2 = AComp2;
-            case 'rigidsheet'
+            case 'rigidsheet' % or porous plate
                 fid=fopen(filename,'r');
                 [Data,N]=fscanf(fid,' %[uUvV] %i %i %i %i %i %i %f',[8 inf]);
                 erryes=~feof(fid);
@@ -303,6 +303,8 @@ for tpC = types
                         DischType{i,1}='normal discharge';
                     else
                         switch upper(char(X(1)))
+                            case 'N'
+                                DischType{i,1}='normal discharge';
                             case 'W'
                                 DischType{i,1}='walking discharge';
                             case 'P'

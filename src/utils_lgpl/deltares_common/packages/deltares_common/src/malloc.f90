@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -31,7 +31,7 @@ module m_alloc
 implicit none
 private 
 
-public realloc, reallocP, reallocCharacter, aerr
+public realloc, reallocP, aerr
 
 ! TODO: Handle nondefault kinds properly? [AvD]
 

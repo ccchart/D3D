@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -36,6 +36,8 @@
 
 #pragma once
 
+// The following definition is needed since VisualStudio2015 before including <pthread.h>:
+#define HAVE_STRUCT_TIMESPEC
 
 #if HAVE_CONFIG_H
 #   include "config.h"
@@ -53,6 +55,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "clock.h"
+#include <ctime>
 #if HAVE_CONFIG_H
 #   include <sys/wait.h>
 #   include <unistd.h>
@@ -78,6 +82,7 @@ class Log;
 #include "log.h"
 #include "stringutils.h"
 #include "xmltree.h"
+#include "bmi.h"
 
 #ifdef WIN32
 #   define DllExport   __declspec( dllexport )
@@ -113,9 +118,13 @@ enum {
    GLOBAL_PHASE_FINISH = 3  // Finish of first control block and init+update+finish of all other control blocks
    };
 
+enum {
+    MAXSTRING = 1000    // max string length in bytes
+    };
+
 
 // Store the exact name of the entry points in the dlls
-const char BmiDimrSetLogger            [] = "set_logger";
+const char BmiDimrSetLogger            [] = "set_dimr_logger";
 const char BmiInitializeEntryPoint     [] = "initialize";
 const char BmiUpdateEntryPoint         [] = "update";
 const char BmiFinalizeEntryPoint       [] = "finalize";
@@ -125,6 +134,8 @@ const char BmiGetTimeStepEntryPoint    [] = "get_time_step";
 const char BmiGetCurrentTimeEntryPoint [] = "get_current_time";
 const char BmiGetVarEntryPoint         [] = "get_var";
 const char BmiSetVarEntryPoint         [] = "set_var";
+const char BmiSetLogger				   [] = "set_logger";
+const char BmiSetLogger2			   [] = "set_logger_c_callback";
 const char BmiGetAttributeEntryPoint   [] = "get_attribute";
 
 // Define the exact api of the entry points in the dlls
@@ -134,6 +145,9 @@ const char BmiGetAttributeEntryPoint   [] = "get_attribute";
 #define CDECLOPT __cdecl
 #endif
 typedef int  (CDECLOPT *BMI_DIMR_SET_LOGGER)(Log *);
+/* logger to be set from outside so we can log messages */
+//typedef int  (CDECLOPT *BMI_SET_LOGGER)		(void(*)(int, char *));
+typedef int  (CDECLOPT *BMI_SET_LOGGER)		(Logger);
 typedef int  (CDECLOPT *BMI_INITIALIZE)     (const char *);
 typedef void (CDECLOPT *BMI_UPDATE)         (double);
 typedef void (CDECLOPT *BMI_FINALIZE)       (void);
@@ -174,11 +188,14 @@ struct dimr_component {
     BMI_GETCURRENTTIME dllGetCurrentTime; // entry point in dll
     BMI_GETVAR         dllGetVar;         // entry point in dll
     BMI_SETVAR         dllSetVar;         // entry point in dll
-	BMI_GETATTRIBUTE   dllGetAttribute;   // entry point in dll 
+    BMI_GETATTRIBUTE   dllGetAttribute;   // entry point in dll
+	BMI_SET_LOGGER	   setLogger;   // entry point in dll
     int                result;            // return value when calling an entry point in dll
-	keyValueLL      *   settings;	      // list of settings
-	keyValueLL      *   parameters;	      // list of parameters
-	int					dllSetKeyVals(keyValueLL * kv);   // pass parameters/settings to the component
+    keyValueLL      *  settings;          // list of settings
+    keyValueLL      *  parameters;        // list of parameters
+    int                dllSetKeyVals(keyValueLL * kv);   // pass parameters/settings to the component
+    Clock::Timestamp  timerStart;
+    Clock::Timestamp  timerSum;
 };
 // Array of all components
 typedef struct DIMR_COMPONENTS {
@@ -192,7 +209,8 @@ typedef struct dimr_couple_item dimr_couple_item;
 struct dimr_couple_item {
     const char * sourceName;         // as written in config.xml
     const char * targetName;         // idem
-    int          sourceProcess;
+    int          sourceProcess;      // id of Process that can deliver this item; should be exactly one
+    int          targetProcess;      // id of first Process that can accept this item; can be more than one
     double     * sourceVarPtr;       // Pointer to the related variable inside the component instance (result of getVar)
     double     * targetVarPtr;       // idem
 };
@@ -256,52 +274,54 @@ class Dimr {
         void           scanConfigFile(void);
         void           connectLibs(void);
 
-		void           printComponentVersionStrings (unsigned int);
+        void           printComponentVersionStrings (Level);
 
         void           freeLibs(void);
         void           processWaitFile(void);
-        void		   runControlBlock  (dimr_control_block *, double, int);
-        void		   runParallelInit  (dimr_control_block *);
-        void		   runParallelFinish(dimr_control_block *);
-        double *       send             (const char *, int, BMI_GETVAR, double **, int *, int, int);
-        void           receive          (const char *, int, BMI_SETVAR, BMI_GETVAR, double *, int *, int, const void *);
-
+        void           runControlBlock  (dimr_control_block *, double, int);
+        void           runParallelInit  (dimr_control_block *);
+        void           runParallelFinish(dimr_control_block *);
+        void           timersInit(void);
+        void           timerStart(dimr_component *);
+        void           timerEnd(dimr_component *);
+        void           timersFinish(void);
+        void           receive(const char *, int, BMI_SETVAR, BMI_GETVAR, double *, int *, int, int, const void *);
+        void           getAddress(const char * name, int compType, BMI_GETVAR dllGetVar, double ** sourceVarPtr, int * processes, int nProc, double * transfer);
+        double *       send(const char * name, int compType, double* sourceVarPtr, int* processes, int nProc, double* transfer);
+		
     public:
-        bool               ready;          // true means constructor succeeded and DH ready to run
-        char *             exePath;        // name of running dimr executable (argv[0])
-        char *             exeName;        // short name of executable
-        Clock *            clock;          // timing facility
-        Log *              log;            // logging facility
-        XmlTree *          config;         // top of entire XML configuration tree
-        char *             mainArgs;       // reassembled command-line arguments (argv[1...])
-        char *             slaveArg;       // command-line argument for slave mode
+        bool                 ready;          // true means constructor succeeded and DH ready to run
+        char *               exePath;        // name of running dimr executable (argv[0])
+        char *               exeName;        // short name of executable
+        Clock *              clock;          // timing facility
+        Log *                log;            // logging facility
+        XmlTree *            config;         // top of entire XML configuration tree
+        char *               mainArgs;       // reassembled command-line arguments (argv[1...])
+        char *               slaveArg;       // command-line argument for slave mode
         dimr_control_block * control;        // structure containing all information from the control block in the config.xml file
-        dimr_components    componentsList; // Array of all components
-        dimr_couplers      couplersList;   // Array of all couplers
-        bool use_mpi; // Whether MPI-mode is active for this run.
-        int my_rank;  // Rank# of current process
-        int numranks; // Total nr of MPI processes for dimr main.
-        unsigned int       logMask;
-        const char *       configfile;             // name of configuration file
-        bool          done;                   // set to true when it's time to stop
-
-
-        enum {
-            MAXSTRING = 1024    // max string length in bytes, use same value as used in the kernels
-            };
-
+        dimr_components      componentsList; // Array of all components
+        dimr_couplers        couplersList;   // Array of all couplers
+        bool                 use_mpi;        // Whether MPI-mode is active for this run.
+        int                  my_rank;        // Rank# of current process
+        int                  numranks;       // Total nr of MPI processes for dimr main.
+        Level                logLevel;
+        Level                feedbackLevel;
+        const char *         configfile;     // name of configuration file
+        bool                 done;           // set to true when it's time to stop
+        char *               redirectFile;   // Name of file to redirect stdout/stderr to
+                                             // Default: Off when started via dimr-exe, On otherwise
+		
         // String constants; initialized below, outside class definition
 
     private:
-        double transferValue;
+        double         transferValue;
 
-    private:
         // Additional destructor routine
-        void		   deleteControlBlock(dimr_control_block);
+        void           deleteControlBlock(dimr_control_block);
 
         // Additional run routines
-        void		   runStartBlock    (dimr_control_block *, double, int);
-        void		   runParallelUpdate(dimr_control_block *, double);
+        void           runStartBlock    (dimr_control_block *, double, int);
+        void           runParallelUpdate(dimr_control_block *, double);
 
 
         void           scanControl      (XmlTree *, dimr_control_block *);
@@ -314,23 +334,15 @@ class Dimr {
 
         dimr_coupler *   getCoupler     (const char *);
 
-        void           char_to_ints     (char *, int **, int *);
+        void           char_to_ints     (char *, int **, int *);		
     };
 
 
 //------------------------------------------------------------------------------
-	
+/* Logger function */
+void _log(Level, const char*);
 
 extern "C" {
-DllExport void set_logger(Log *);
-DllExport int  initialize(const char *);
-DllExport void update    (double);
-DllExport void finalize  (void);
-DllExport void get_start_time (double *);
-DllExport void get_end_time (double *);
-DllExport void get_time_step (double *);
-DllExport void get_current_time (double *);
-DllExport void get_var (const char *, void **);
-DllExport void set_var (const char *, const void *);
+DllExport void set_dimr_logger(Log *);
 DllExport void set_logger_callback(WriteCallback);
 }

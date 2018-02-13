@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -47,6 +47,7 @@ type flwoutputtype
     logical :: temperature
     logical :: veuler
     logical :: vortic              ! Vorticity and enstrophy calculation and writing to output
+	logical :: waveqnt             ! Flag for writing wave quantities to map file
     logical :: z0cur
     logical :: z0rou
 end type flwoutputtype

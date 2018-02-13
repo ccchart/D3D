@@ -57,7 +57,7 @@ function Output=vs_disp(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -249,6 +249,11 @@ else
                 Output=-1;
             end
             return
+        elseif length(jList)>1
+            if nargout==0
+                fprintf(fid,' [****] Element exists multiple times in group; selecting first one.\n');
+            end
+            jList = jList(1);
         end
     else
         if nargout==0

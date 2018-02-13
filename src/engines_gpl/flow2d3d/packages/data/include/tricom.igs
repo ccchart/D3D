@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -213,16 +213,10 @@
 !
 !  NEWLY ADDED because of splitting trisim,tricom (VT):
 !
-       integer                            :: initia          ! if < 0: iteration process of morsys
-                                                             ! else  : equal to INITI
-                                                             ! =1 initialization
-                                                             ! =2 initialization and read restart information from the communication file
-                                                             ! =3 no initialization
        integer                            :: it01            ! Description and declaration in esm_alloc_int.f90
        integer                            :: it02            ! Description and declaration in esm_alloc_int.f90
        integer                            :: itima           ! Time to start simulation (N * tscale) according to DELFT3D conventions
        integer                            :: itlen           ! Description and declaration in esm_alloc_int.f90
-       integer                            :: initi           ! Control parameter 
        integer                            :: iphisc          ! Current time counter for printing history data 
        integer                            :: itcomc          ! Current time counter for the com- munication file 
        integer                            :: itcur           ! Current time counter for the com- munication file, where starting point depend on CYCLIC 
@@ -254,5 +248,5 @@
        character(256)                     :: filmd           ! File name for MD FLOW file 
        character(256)                     :: trifil          ! File name for TRISULA NEFIS output files (tri"h/m"-"casl""labl".dat/def)
        character(5)                       :: versio          ! Version nr. of the current package
-       integer        , dimension(1500)   :: timwav          ! Array with time steps on comm. file for wave results 
+       integer , dimension(:)  , pointer  :: timwav          ! Array with time steps on comm. file for wave results 
     end type sv_tricom

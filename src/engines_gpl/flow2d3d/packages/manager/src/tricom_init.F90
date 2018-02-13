@@ -1,7 +1,7 @@
 subroutine tricom_init(olv_handle, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -170,7 +170,7 @@ subroutine tricom_init(olv_handle, gdp)
     logical                             , pointer :: dredge
     logical                             , pointer :: drogue
     logical                             , pointer :: wave
-    logical                             , pointer :: waveol
+    integer                             , pointer :: waveol
     logical                             , pointer :: threed
     logical                             , pointer :: secflo
     logical                             , pointer :: struct
@@ -359,7 +359,6 @@ subroutine tricom_init(olv_handle, gdp)
     character(23)                       , pointer :: prshis
     character(23)                       , pointer :: selhis
     character(36)                       , pointer :: tgfcmp
-    integer                             , pointer :: initia  !!  if < 0: iteration process of morsys else  : equal to INITI =1 initialization =2 initialization and read restart information from the communication file =3 no initialization
     integer                             , pointer :: it01    !  Description and declaration in esm_alloc_int.f90
     integer                             , pointer :: it02    !  Description and declaration in esm_alloc_int.f90
     integer                             , pointer :: itima   !!  Time to start simulation (N * tscale) according to DELFT3D conventions
@@ -393,10 +392,6 @@ subroutine tricom_init(olv_handle, gdp)
     real(fp)                            , pointer :: dtsec         ! DT in seconds 
     real(fp)                            , pointer :: timnow        ! Current timestep (multiples of dt)  = number of time steps since itdate, 00:00:00 hours
 !
-! Local parameters
-!
-    integer, parameter :: maxtim = 1500
-!
 ! Global variables
 !
     type(olvhandle) :: olv_handle
@@ -406,7 +401,6 @@ subroutine tricom_init(olv_handle, gdp)
     integer                                       :: icx
     integer                                       :: icy
     integer                                       :: ierror        ! Value is non-zero when an error is encountered
-    integer                                       :: initi         ! Control parameter 
     integer                                       :: iplus
     integer                                       :: istat
     integer                                       :: mmaxddb
@@ -421,7 +415,6 @@ subroutine tricom_init(olv_handle, gdp)
     integer                                       :: timrst        ! Restart time in combination with restart option from comm. file 
     integer                                       :: trilen        ! Length of trifil 
     integer        , dimension(2)                 :: ifcore        ! Time indices (cell id's) of the wave functions which are in core available 
-    integer        , dimension(maxtim)            :: timcur        ! Array with time steps on comm. file for restart option 
     integer(pntrsize)                  , external :: gtcpnt
     integer(pntrsize)                  , external :: gtipnt
     integer(pntrsize)                  , external :: gtrpnt
@@ -750,7 +743,6 @@ subroutine tricom_init(olv_handle, gdp)
     trifil              => gdp%gdtricom%trifil
     versio              => gdp%gdtricom%versio
     lrdok               => gdp%gdtricom%lrdok
-    initia              => gdp%gdtricom%initia
     iphisc              => gdp%gdtricom%iphisc
     itcomc              => gdp%gdtricom%itcomc
     itcur               => gdp%gdtricom%itcur
@@ -780,7 +772,6 @@ subroutine tricom_init(olv_handle, gdp)
     mmaxddb   = mmax + 2*gdp%d%ddbound
     nmaxddb   = nmax + 2*gdp%d%ddbound
     !
-    initi     = abs(initia)
     error     = .false.
     commrd    = .true.
     !
@@ -799,17 +790,8 @@ subroutine tricom_init(olv_handle, gdp)
     !
     call gtptrs(gdp)
     !
-    ! Test value of ITLEN in combination with INITI
-    !
-    if (itlen==0 .and. initi==3) then
-       call prterr(lundia    ,'D001'    ,' '       )
-       error = .true.
-       goto 9996
-    endif
-    !
     ! Put header on the screen
     !
-    if (initi==1 .or. initi==2) then
        txtput = 'Part IV   - Reading complete MD-file...'
        if (.not.parll .or. (parll .and. inode == master)) then
           write (lunscr, '(a)') txtput
@@ -878,7 +860,6 @@ subroutine tricom_init(olv_handle, gdp)
                  & momsol    ,method    ,dischy    ,solver    ,icreep    , &
                  & disctr    ,gdp       )
        if (error) goto 9996
-    endif
     !
     ! Check conflicting settings
     !
@@ -902,11 +883,11 @@ subroutine tricom_init(olv_handle, gdp)
                  & tscale    ,gdp       )
        if (error) goto 9996
        !
-       ! Test value COMMRD in combination with INITI
+       ! Test value COMMRD
        !
        if (.not.commrd) then
           tscale = dt*tunit
-          if (.not.waveol) then
+          if (waveol==0) then
              itlen  = itfinish + 1
           endif
        else
@@ -937,11 +918,6 @@ subroutine tricom_init(olv_handle, gdp)
     ! stand alone and no initialisation not permitted !!
     !
     itp = nint(dt*tunit/tscale)
-    if (initi == 3) then
-       call prterr(lundia    ,'D003'    ,' '       )
-       error = .true.
-       goto 9996
-    endif
     it01 = itdate
     it02 = 0
     !
@@ -1000,8 +976,6 @@ subroutine tricom_init(olv_handle, gdp)
     !
     ! Initialisation and Checking
     !
-    if (initi==1 .or. initi==2) then
-       !
        ! Put header on the screen
        !
        txtput = 'Part V    - Initialisation & checking input...'
@@ -1107,11 +1081,6 @@ subroutine tricom_init(olv_handle, gdp)
        if (culvert) then
           call rdcul(nsrc, ch(namsrc), i(mnksrc) ,r(voldis), gdp)       
        endif
-    endif
-    !
-    ! Re-define Diagnostic mode start time for INITI = 3
-    !
-    if (initi == 3) itdiag = itfinish + 1
     !
     ! Put header on the screen
     !
@@ -1127,9 +1096,19 @@ subroutine tricom_init(olv_handle, gdp)
     !
     waverd = wave .and. commrd
     if (waverd) then
-       call rdtimw(comfil    ,lundia    ,error     ,ntwav     ,timwav    , &
-                 & maxtim    ,waverd    ,nmaxus    ,mmax      ,gdp       )
+       !
+       ! Initialize NTWAV = 0 (this is the number of wave times read so far).
+       !
+       ntwav = 0
+       call rdtimw(comfil    ,lundia    ,error     ,ntwav     , &
+                 & waverd    ,nmaxus    ,mmax      ,gdp       )
        if (error) goto 9996
+       !
+       ! Don't read waves during first time step when online coupling to wave (WAVEOL=2) (or mimicking that; WAVEOL=1)
+       ! If WAVEOL=2 we probably have COMMRD=FALSE, but in case an old com-file exists we don't want the program to read it (unless we are restarting?).
+       ! If WAVEOL=1 the com-file will exist, but we shouldn't read it yet for consistency.
+       !
+       if (waveol>0) waverd = .false.
     endif
     !
     ! Wave is true and not able to read wave information from comm-file:
@@ -1138,33 +1117,12 @@ subroutine tricom_init(olv_handle, gdp)
     ! - Continue when online coupling with waves is applied
     !
     if (wave .and. .not.waverd) then
-       if (.not. (cnstwv .or. snelli) .and. .not. waveol .and. .not. xbeach) then
+       if (.not. (cnstwv .or. snelli) .and. waveol==0 .and. .not. xbeach) then
           error = .true.
           call prterr(lundia    ,'D007'    ,' '       )
           goto 9996
        else
           ! Warning about missing COM-file removed.
-       endif
-    endif
-    ! Read restart information from the communication file
-    ! NOTE: In the past the test was on INITT=2 and gave wrong results
-    !       for INITI=3 In case INITI=3 and CYCLIC=.false. the result
-    !       should be tested for a) read from comm. file or b) not read
-    !
-    if (initi /= 1) then
-       timrst = modlen(itstrt*itp, itlen)
-       !
-       ! Read the time array and corresponding water-level and
-       ! velocities, rbuff is used as work array and set smoothing
-       ! time to 0.
-       !
-       itlfsm = 0
-       if (initia > 0) then
-          call rstcom(comfil    ,lundia    ,error     ,mmax      ,nmax      , &
-                    & kmax      ,nmaxus    ,lstsci    ,lsecfl    ,lsec      , &
-                    & timrst    ,itlen     ,timcur    ,maxtim    ,r(s1)     , &
-                    & r(u1)     ,r(v1)     ,r(r1)     ,r(rbuff)  ,gdp       )
-          if (error) goto 9996
        endif
     endif
     !
@@ -1179,15 +1137,8 @@ subroutine tricom_init(olv_handle, gdp)
               & itnfli    ,itnfll    ,error     ,gdp       )
     if (error) goto 9996
     !
-    ! Write DP to comm. file for INITI=1 and ITCOMI > 0
-    ! or read  DP from comm. file for INITI=2 or 3, a comm. file is
-    ! presumed and if not this will generate an error message
-    ! Subroutines RWBOTC, CALDPS and CALDPU should not be called when
-    ! initi=3 and lsed>0: MOR has calculated dp as the averages of
-    ! dpu/dpv.
+    ! Write DP to comm. file for ITCOMI > 0
     !
-    if (initi/=3 .or. lsed==0) then
-       !
        ! Calculate DPS depending on DPSOPT
        ! NFLTYP must be set in CALDPS because it is being used by
        ! MOR-transport
@@ -1196,21 +1147,21 @@ subroutine tricom_init(olv_handle, gdp)
        icy = 1
        call caldps(nmmax     ,nfltyp    ,icx       , &
                  & icy       ,i(kcs)    ,r(dp)     ,d(dps)    ,gdp       )
-       if (waveol) then
+    if (waveol>0) then
           !
           ! In case of wave online: write DPS to comm-file instead of DP
           !
           if (prec == hp) then
-             call rwbotc_double(comfil    ,lundia    ,error     ,initi     ,itima     , &
+          call rwbotc_double(comfil    ,lundia    ,error     ,itima     , &
                               & itcomi    ,mmax      ,nmax      ,nmaxus    ,d(dps)    , &
                               & r(rbuff)  ,gdp       )
           else
-             call rwbotc(comfil    ,lundia    ,error     ,initi     ,itima     , &
+          call rwbotc(comfil    ,lundia    ,error     ,itima     , &
                        & itcomi    ,mmax      ,nmax      ,nmaxus    ,d(dps)    , &
                        & r(rbuff)  ,gdp       )
           endif
        else
-          call rwbotc(comfil    ,lundia    ,error     ,initi     ,itima     , &
+       call rwbotc(comfil    ,lundia    ,error     ,itima     , &
                     & itcomi    ,mmax      ,nmax      ,nmaxus    ,r(dp)     , &
                     & r(rbuff)  ,gdp       )
        endif
@@ -1241,7 +1192,6 @@ subroutine tricom_init(olv_handle, gdp)
           iroll = 0
        endif
        i(gtipnt('iroll', gdp)) = iroll
-    endif
     !
     ! Synchronisation point 1
     ! =======================
@@ -1274,8 +1224,6 @@ subroutine tricom_init(olv_handle, gdp)
     ! End of synchronisation point 1
     ! ==============================
     !
-    if (initi/=3 .or. lsed==0) then
-       !
        ! Calculate DPU/DPV (depth at velocity points)
        !
        call caldpu(lundia    ,mmax      ,nmaxus    ,kmax      , &
@@ -1285,7 +1233,6 @@ subroutine tricom_init(olv_handle, gdp)
                  & r(umean)  ,r(vmean)  ,r(dp)     ,r(dpu)    ,r(dpv)    , &
                  & d(dps)    ,r(dzs1)   ,r(u1)     ,r(v1)     ,r(s1)     , &
                  & r(thick)  ,gdp       )
-    endif
     !
     ! After Flowmapper has adjusted the KC[UVS] arrays, recalculate some
     ! geometric information in D3dFlow in vicinity of interfaces
@@ -1335,7 +1282,7 @@ subroutine tricom_init(olv_handle, gdp)
                  & r(msvcom) ,r(ubcom)   ,r(wlcom)   ,r(rlabda)     , &
                  & r(dircos) ,r(dirsin)  ,r(ewave1)  ,roller        ,wavcmp        , &
                  & r(ewabr1) ,r(wsbodyu) ,r(wsbodyv) ,r(wsbodyucom) ,r(wsbodyvcom) , &
-                 & gdp       )
+                 & waveol    ,gdp       )
        if (error) goto 9997
     endif
     !
@@ -1343,15 +1290,12 @@ subroutine tricom_init(olv_handle, gdp)
     !
     ! Initialize arithmetic arrays, depending on initial input as well
     ! as on previous defined input (read from comm. file or in arrays)
-    ! inchkr should not be called when initi == 3 (warm restart in MOR)
     !
-    if (initi==1 .or. initi==2) then
        call inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
                  & cyclic    ,sferic    ,grdang    ,temeqs    ,saleqs    , &
                  & lturi     ,rouflo    ,rouwav    ,ktemp     ,temint    , &
-                 & evaint    ,initia    ,gdp       )
+              & evaint    ,gdp       )
        if (error) goto 9997
-    endif
     !
     ! Initialize Delft3D-Sobek after coordinates etc have been set 
     !
@@ -1396,11 +1340,6 @@ subroutine tricom_init(olv_handle, gdp)
        write (lunscr, '(a)') txtput
     endif
     !
-    ! CMT will create dummy files for all output. Delete FLOW Nefis
-    ! files first for INITI=1 and file requested (times <> 0)
-    !
-    if (initi == 1) then
-       !
        ! The following files may be generated for "debug" purpose
        ! Remove them if they are already there from a previous run
        !
@@ -1408,7 +1347,6 @@ subroutine tricom_init(olv_handle, gdp)
        call rmdel('discharge.'//trim(gdp%runid), gdp) 
        call rmdel('averagetemp.'//trim(gdp%runid), gdp) 
        call rmdel('pdfs.'//trim(gdp%runid), gdp) 
-    endif
     !
     ! Initialise trachytope roughness time parameter for periodic calculations
     !
@@ -1478,7 +1416,7 @@ subroutine tricom_init(olv_handle, gdp)
     ! Write initial input to output files after checking output file times
     !
     call inippr(lundia    ,error     ,trifil    ,comfil    , &
-              & initi     ,selhis    ,selmap    ,tscale    ,commrd    , &
+              & selhis    ,selmap    ,tscale    ,commrd    , &
               & itlen     ,itcur     ,itimc     , &
               & it01      ,it02      ,sferic    ,grdang    , &
               & rouflo    ,nfltyp    , &
@@ -1506,7 +1444,7 @@ subroutine tricom_init(olv_handle, gdp)
     !
     ! DD code added end
     !
-    if (wave .and. waveol) then
+    if (wave .and. waveol==2) then
        !
        ! Onlinecoupling with waves
        ! Initialise communication with Waves

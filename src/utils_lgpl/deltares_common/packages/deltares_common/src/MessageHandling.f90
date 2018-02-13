@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2016.
+!  Copyright (C)  Stichting Deltares, 2011-2017.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -39,7 +39,7 @@ module MHCallBack
    end interface
 
    abstract interface
-      subroutine c_callbackiface(level, msg)
+      subroutine c_callbackiface(level, msg) bind(C)
         use iso_c_binding
         use iso_c_utils
         integer(c_int), value, intent(in) :: level !< severity
@@ -56,7 +56,7 @@ module MHCallBack
 
 
    abstract interface
-      subroutine progress_c_iface(msg, progress)
+      subroutine progress_c_iface(msg, progress) bind(C)
         use iso_c_binding
         use iso_c_utils
         character(c_char), intent(in) :: msg(MAXSTRINGLEN) !< c message null terminated
@@ -113,6 +113,7 @@ module MessageHandling
    public progress
    public stringtolevel
    
+   integer,parameter, public     :: LEVEL_ALL   = 0
    integer,parameter, public     :: LEVEL_DEBUG = 1
    integer,parameter, public     :: LEVEL_INFO  = 2
    integer,parameter, public     :: LEVEL_WARN  = 3
@@ -179,6 +180,7 @@ private
    integer,                                    public  :: thresholdLvl_log    = 0 !< Threshold level specific for the logging queue channel.
    integer,                                    public  :: thresholdLvl_file   = 0 !< Threshold level specific for the file output channel.
    integer,                                    public  :: thresholdLvl_callback   = LEVEL_WARN !< Threshold level specific for the c callback.
+   character(len=idlen),                       public  :: prefix_callback   = "kernel" !< prefix specific for the c callback.
 
    !> For the above threshold levels to become active, each channel must be separately enabled:
    integer, save                  :: lunMess             = 0       !< The file pointer to be used for the file output channel.
@@ -201,16 +203,18 @@ function stringtolevel(levelname) result(ilevel)
    ilevel = LEVEL_NONE  
 
    select case (trim(levelname))
+   case ('ALL')
+      ilevel = LEVEL_ALL
    case ('DEBUG')
-      ilevel = LEVEL_DEBUG 
+      ilevel = LEVEL_DEBUG
    case ('INFO')
-      ilevel = LEVEL_INFO  
+      ilevel = LEVEL_INFO
    case ('WARN')
-      ilevel = LEVEL_WARN  
+      ilevel = LEVEL_WARN
    case ('ERROR')
-      ilevel = LEVEL_ERROR 
+      ilevel = LEVEL_ERROR
    case ('FATAL')
-      ilevel = LEVEL_FATAL 
+      ilevel = LEVEL_FATAL
    end select
 
 end function stringtolevel
@@ -227,7 +231,7 @@ end function stringtolevel
 !! its own threshold level. Note that the threshold level is only active if the
 !! output channel has been enabled. See the respective input arguments for enabling.
 !!
-subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thresholdLevel, thresholdLevel_stdout, thresholdLevel_log, thresholdLevel_file, reset_counters, thresholdLevel_callback)
+subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thresholdLevel, thresholdLevel_stdout, thresholdLevel_log, thresholdLevel_file, reset_counters, thresholdLevel_callback, prefix_logging)
    logical, optional, intent(in)       :: write2screen           !< Enable stdout: print messages to stdout.
    logical, optional, intent(in)       :: useLog                 !< Enable logging queue: store messages in buffer.
    integer, optional, intent(in)       :: lunMessages            !< Enable file output: nonzero file pointer whereto messages can be written.
@@ -239,6 +243,7 @@ subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thres
    integer, optional, intent(in)       :: thresholdLevel_callback!< Threshold level specific for the file output channel.
    logical, optional, intent(in)       :: reset_counters         !< If present and True then reset message counters.
                                                                  !< SetMessageHandling is called more than once.
+   character(len=*), optional, intent(in) :: prefix_logging      !< prefix for logging
 
    procedure(mh_callbackiface), optional :: callback
 
@@ -254,6 +259,7 @@ subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thres
       thresholdLvl_stdout = thresholdLevel
       thresholdLvl_log    = thresholdLevel
       thresholdLvl_file   = thresholdLevel
+      thresholdLvl_callback = thresholdLevel
    end if
 
    ! .. but override the threshold level per channel, when given.
@@ -268,6 +274,9 @@ subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thres
    end if
    if (present(thresholdLevel_callback) )  then
       thresholdLvl_callback = thresholdLevel_callback
+   end if
+   if (present(prefix_logging))  then
+      prefix_callback = prefix_logging
    end if
 
    if (present(reset_counters)) then
@@ -317,6 +326,7 @@ recursive subroutine SetMessage(level, string)
   character(c_char)             :: c_string(MAXSTRINGLEN)
 
   integer :: levelact
+  character(len=charln)         :: msg !< message.
 
 
   levelact = max(1,min(max_level, level))
@@ -331,7 +341,7 @@ recursive subroutine SetMessage(level, string)
         end if
      endif
 
-     if (lunMess > 0) then
+     if (lunMess .ne. 0) then
         if (level >= thresholdLvl_file) then
            write (lunMess, '(a)') level_prefix(levelact)//trim(string)
         end if
@@ -353,7 +363,7 @@ recursive subroutine SetMessage(level, string)
         write (*, '(a)') trim(string)
      endif
 
-     if (lunMess > 0) then
+     if (lunMess .ne. 0) then
         write (lunMess, '(a)') trim(string)
      end if
 
@@ -369,7 +379,8 @@ recursive subroutine SetMessage(level, string)
   if (associated(c_logger).and. .not. alreadyInCallback) then
      if (level >= thresholdLvl_callback) then
         alreadyInCallback = .true.
-        c_string = string_to_char_array(trim(string))
+        msg = trim(prefix_callback)//': '//trim(string)
+        c_string = string_to_char_array(trim(msg))        
         call c_logger(level, c_string)
         alreadyInCallback = .false.
      endif

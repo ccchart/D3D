@@ -7,7 +7,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
                 & selhis    ,filrol    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -332,7 +332,6 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     real(fp)                              :: tlfsmo      ! Timespan for smoothing (in minutes)
     real(fp)                              :: zini        ! Initial water elevation in the model
     real(fp)       , dimension(mxkmax, 5) :: wrkini      ! Work array for initial values in RDIC
-    character(1)                          :: ctunit      ! Time scale for time parameters, currently set to 'M'(inute - fixed).
     character(1)                          :: equili      ! Equilibrium or advection and diffusion default = no equilibrium ('N') which means LSEC = 1
     character(1)                          :: sphere      ! Flag Yes / No spherical coordinates
     character(1)   , dimension(mxnto)     :: datbnd      ! Type of open boundary: -'H'(armonic/Tide) -'T'(ime series/time dependent)
@@ -632,8 +631,8 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     !
     call rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
              & citdat    ,tstart    ,tstop     ,tzone     ,itdate    , &
-             & julday    ,itstrt    ,itfinish  ,dt        ,ctunit    , &
-             & tunit     ,gdp       )
+             & julday    ,itstrt    ,itfinish  ,dt        ,tunit     , &
+             & gdp       )
     if (error) goto 9999
     !
     ! Open boundary correction
@@ -729,7 +728,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     !
     call rdproc(error     ,nrrec     ,mdfrec    ,htur2d     ,salin    , &
               & temp      ,wind      ,ktemp     ,keva       ,ivapop   , &
-              & irov      ,ctunit    ,z0v       ,sferic     ,tgfcmp   , &
+              & irov      ,z0v       ,sferic     ,tgfcmp   , &
               & temeqs    ,saleqs    ,wstcof    ,rhoa       ,secflo   , &
               & betac     ,equili    ,lsec      ,chzmin     ,rmincf   , &
               & rtcmod    ,couplemod ,nonhyd    ,mmax       ,nmax     , &

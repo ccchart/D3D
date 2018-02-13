@@ -3,7 +3,7 @@ function [DataFI,FileName,Tp,Otherargs] = grid_fopen(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -95,7 +95,7 @@ else
             try_next='wldep';
         case {'.inc'}
             try_next='fls';
-        case {'.bnd','.thd','.wr','.obs','.crs','.src','.dry'}
+        case {'.bnd','.thd','.wr','.obs','.crs','.src','.dry','.ppl','.rgs'}
             try_next='attrib';
         case '.enc'
             try_next='enclosure';

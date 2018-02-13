@@ -1,7 +1,7 @@
 function mkipnt(pntnam    ,length    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -84,16 +84,8 @@ function mkipnt(pntnam    ,length    ,gdp       )
     !
     mkipnt = getptr(pntnam(:ind - 1))
     if (mkipnt /= 0) then
-   
-       if (gdp%gdtricom%initi /= 3) then
-          call inull(ibuf(mkipnt)         ,length    )
-          mkipnt = 1
-       else
-
-       ! return the value -1 (used in Mor)
-         mkipnt = -1
-       endif   
-
+       call inull(ibuf(mkipnt)         ,length    )
+       mkipnt = 1
     
     else
        !

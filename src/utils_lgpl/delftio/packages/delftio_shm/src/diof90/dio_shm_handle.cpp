@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -162,12 +162,12 @@ DioShmHandle::DioShmHandle(
                 {
                     int sleepTime = 100;
                     DIOSYNCcSLEEP(&sleepTime);
-                    this->mmfHandle = ESM_Alloc(cId, name, 0);
+                    this->mmfHandle = ESM_Alloc(cId, name, (size_t)(0));
                 }
             }
             else
             {
-                this->mmfHandle = ESM_Alloc(cId, name, iSize);
+                this->mmfHandle = ESM_Alloc(cId, name, (size_t)(iSize));
             }
 
             if (this->mmfHandle != NULL)

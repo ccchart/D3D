@@ -14,7 +14,7 @@ function varargout = mdf(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -357,17 +357,35 @@ if isfield(MDF2,'dry')
     MDF2.dry.MN(:,3:4) = rotate(MDF2.dry.MN(:,3:4),MMAX);
 end
 %
-if isfield(MDF2,'thd')
-    MDF2.thd.MNu(:,1:2) = rotate(MDF2.thd.MNu(:,1:2),MMAX);
-    MDF2.thd.MNu(:,3:4) = rotate(MDF2.thd.MNu(:,3:4),MMAX);
-    MDF2.thd.MNv(:,1:2) = rotate(MDF2.thd.MNv(:,1:2),MMAX);
-    MDF2.thd.MNv(:,3:4) = rotate(MDF2.thd.MNv(:,3:4),MMAX);
-    TMP_MN = MDF2.thd.MNu;
-    TMP_CHAR = MDF2.thd.CHARu;
-    MDF2.thd.MNu = MDF2.thd.MNv;
-    MDF2.thd.CHARu = MDF2.thd.CHARv;
-    MDF2.thd.MNv = TMP_MN;
-    MDF2.thd.CHARv = TMP_CHAR;
+for fldc = {'thd','bar','gat','cdw','w2d','lwl','ppl','rgs'}
+    fld = fldc{1};
+    if isfield(MDF2,fld)
+        FLD = MDF2.(fld);
+        %
+        if isfield(FLD,'MNu')
+            MNu = 'MNu';
+            MNv = 'MNv';
+        else
+            MNu = 'MNKu';
+            MNv = 'MNKv';
+        end
+        FLD.(MNu)(:,1:2) = rotate(FLD.(MNu)(:,1:2),MMAX);
+        FLD.(MNu)(:,3:4) = rotate(FLD.(MNu)(:,3:4),MMAX);
+        FLD.(MNv)(:,1:2) = rotate(FLD.(MNv)(:,1:2),MMAX);
+        FLD.(MNv)(:,3:4) = rotate(FLD.(MNv)(:,3:4),MMAX);
+        TMP_MN = FLD.(MNu);
+        TMP_CHAR = FLD.CHARu;
+        FLD.(MNu) = FLD.(MNv);
+        FLD.CHARu = FLD.CHARv;
+        FLD.(MNv) = TMP_MN;
+        FLD.CHARv = TMP_CHAR;
+        %
+        MDF2.(fld) = FLD;
+    end
+end
+%
+if isfield(MDF2,'fls')
+    MDF2.fls = fldrotate('center',MDF2.fls);
 end
 %
 if isfield(MDF2,'bnd')
@@ -534,6 +552,31 @@ if isfield(MDF,'crs')
     MDF.mdf = inifile('seti',MDF.mdf,'','Filcrs',['#' filename '#']);
 end
 %
+keys = {'Filbar' 'bar' 'bar'
+    'Filgat' 'gat' 'gat'
+    'Filcdw' 'cdw' 'cdw'
+    'Fil2dw' 'w2d' '2dw'
+    'Fillwl' 'lwl' 'lwl'
+    'Filppl' 'ppl' 'ppl'
+    'Filrgs' 'rgs' 'rgs'};
+for i = 1:size(keys,1)
+    key = keys{i,1};
+    fld = keys{i,2};
+    ext = keys{i,3};
+    %
+    if isfield(MDF,fld)
+        filename = [caseid '.' ext];
+        d3d_attrib('write',fullfile(path,filename),MDF.(fld));
+        MDF.mdf = inifile('seti',MDF.mdf,'',key,['#' filename '#']);
+    end
+end
+%
+if isfield(MDF,'fls')
+    filename = [caseid '.fls'];
+    wldep('write',fullfile(path,filename),'',MDF.fls);
+    MDF.mdf = inifile('seti',MDF.mdf,'','Filfls',['#' filename '#']);
+end
+%
 filename = [caseid '.mdf'];
 inifile('write',fullfile(path,filename),MDF.mdf);
 
@@ -543,6 +586,7 @@ Val = rmhash(inifile('geti',FILE,varargin{:}));
 
 
 function MFile = masterread(filename)
+%MFile = ddbread(filename);
 master = inifile('open',filename);
 master_path = fileparts(filename);
 %
@@ -554,9 +598,35 @@ if isequal(Program,UNSPECIFIED)
         MFile.mdw = master;
         MFile = mdwread(MFile,master_path);
     elseif inifile('existsi',master,'General','fileType')
-        MFile.FileType = 'Delft3D D-Flow1D';
-        MFile.md1d = master;
-        MFile = md1dread(MFile,master_path);
+        fileType = propget(master,'General','fileType');
+        switch fileType
+            case 'modelDef'
+                MFile.FileType = 'Delft3D D-Flow1D';
+                MFile.md1d = master;
+                MFile = md1dread(MFile,master_path);
+            case '1D2D'
+                MFile.FileType = 'Delft3D Coupled Model';
+                MFile.config = master;
+                %
+                typeModel = inifile('geti',master,'Model','type');
+                nameModel = inifile('geti',master,'Model','name');
+                dirModel  = inifile('geti',master,'Model','directory');
+                mdfModel  = inifile('geti',master,'Model','modelDefinitionFile');
+                nModels = length(typeModel);
+                %
+                MFile.Domains = cell(nModels,3);
+                MFile.Domains(:,1) = typeModel;
+                MFile.Domains(:,2) = nameModel;
+                for i = 1:length(typeModel)
+                    fName = relpath(master_path,[dirModel{i} filesep mdfModel{i}]);
+                    MFile.Domains{i,3} = masterread(fName);
+                end
+                %
+                mappingFile = inifile('geti',master,'Files','mappingFile');
+                Domain.FileType = 'Delft3D 1D2D mapping';
+                Domain.mapping = inifile('open',relpath(master_path,mappingFile));
+                MFile.Domains(end+1,:) = {'1D2D','1D2Dmapping',Domain};
+        end
     elseif inifile('existsi',master,'','MNKmax')
         MFile.FileType = 'Delft3D D-Flow2D3D';
         MFile.mdf = master;
@@ -575,6 +645,30 @@ else
     end
 end
 
+
+function DDB = ddbread(filename)
+fid = fopen(filename,'r');
+DDB.DomainNames = {};
+iLine = 0;
+iBound = 0;
+while ~feof(fid)
+    iLine = iLine+1;
+    Line = fgetl(fid);
+    [Dom1,Rem] = strtok(Line);
+    [val,n] = sscanf(Rem,' %d %d %d %d %s %d %d %d %d');
+    if n<7
+        fclose(fid);
+        error('Invalid DD syntax in line %i of %s',iLine,filename)
+    end
+    Dom2 = char(val(5:end-4)');
+    Idx = val([1:4 end-3:end])';
+    iBound = iBound+1;
+    DDB.DomainNrs(iBound,1:2) = {Dom1 Dom2};
+    DDB.DomainMN(iBound,1:8)  = Idx;
+end
+fclose(fid);
+[DDB.DomainNames,dummy,DDB.DomainNrs]=unique(DDB.DomainNrs);
+DDB.DomainNrs = reshape(DDB.DomainNrs,[iBound 2]);
 
 function MF = md1dread(MF,md_path)
 ntwname = propget(MF.md1d,'Files','networkFile');
@@ -618,8 +712,11 @@ else
 end
 %
 CT=inifile('geti',MF.crsDef,'Definition','type');
-CID=inifile('geti',MF.crsDef,'Definition','id');
-CDF=inifile('geti',MF.crsLoc,'CrossSection','definition');
+if ~iscell(CT)
+    CT = {CT};
+end
+CID=inifile('getstringi',MF.crsDef,'Definition','id');
+CDF=inifile('getstringi',MF.crsLoc,'CrossSection','definition');
 [lDF,iDF]=ismember(CDF,CID);
 if ~all(lDF)
     missingDF = unique(CDF(~lDF));
@@ -651,9 +748,44 @@ function MF = mduread(MF,md_path)
 mshname = propget(MF.mdu,'geometry','NetFile');
 if ~isempty(mshname)
     mshname = relpath(md_path,mshname);
-    MF.mesh.nc_file = nc_interpret(mshname);
-    MF.mesh.nc_file.FileType = 'NetCDF';
-    Q = qpread(MF.mesh.nc_file);
+    F = nc_interpret(mshname);
+    F.FileType = 'NetCDF';
+    Q = qpread(F);
+    if ~strcmp(Q(1).Geom,'UGRID-NODE')
+        % old mesh file: modify data structures such that it behaves like a
+        % new ugrid file.
+        %
+        grdid = length(F.Dataset)+1;
+        %
+        F.Dataset(grdid).Name = 'Mesh2D';
+        F.Dataset(grdid).Attribute(1).Name = 'edge_node_connectivity';
+        F.Dataset(grdid).Attribute(1).Value = 'NetLink';
+        F.Dataset(grdid).Mesh = {'ugrid' grdid -1 'nNetNode' 'nNetLink' ''};
+        F.Dataset(grdid).X = ustrcmpi({F.Dataset.Name},'NetNode_x');
+        F.Dataset(grdid).Y = ustrcmpi({F.Dataset.Name},'NetNode_y');
+        NL = ustrcmpi({F.Dataset.Name},'NetLink');
+        F.Dataset(NL).Attribute(end+1).Name = 'start_index';
+        F.Dataset(NL).Attribute(end).Value = 1;
+        %
+        Q = [];
+        Q.Name = 'Mesh2D';
+        Q.Units = '';
+        Q.TemperatureType = 'unspecified';
+        Q.Geom = 'UGRID-NODE';
+        Q.Coords = 'xy';
+        Q.DimFlag = [0 0 6 0 0];
+        Q.DataInCell = 0;
+        Q.NVal = 0;
+        Q.SubFld = [];
+        Q.MNK = 0;
+        Q.varid = {'node_index' grdid-1};
+        Q.DimName = {[]  []  'nNetNode'  []  []};
+        Q.hasCoords = 1;
+        Q.VectorDef = 0;
+        Q.ClosedPoly = 0;
+        Q.UseGrid = 1;
+    end
+    MF.mesh.nc_file = F;
     MF.mesh.quant = Q(1);
 else
     error('Unable to locate NetFile keyword in [geometry] chapter.');
@@ -668,7 +800,7 @@ if ~isempty(grdname)
         numDomains = length(grdname);
         for idom = 1:numDomains
             grdname_loc = relpath(md_path,grdname{idom});
-            [f,p,e] = fileparts(grdname_loc);
+            [f,p] = fileparts(grdname_loc);
             MF.domain(idom).name = p;
             MF.domain(idom).grd  = wlgrid('read',grdname_loc);
         end
@@ -676,7 +808,7 @@ if ~isempty(grdname)
         % numDomains = 1;
         idom = 1;
         grdname_loc = relpath(md_path,grdname);
-        [f,p,e] = fileparts(grdname_loc);
+        [f,p] = fileparts(grdname_loc);
         MF.domain(idom).name = p;
         MF.domain(idom).grd = wlgrid('read',grdname_loc);
     end
@@ -926,6 +1058,29 @@ crsname = propget(MF.mdf,'','Filcrs','');
 if ~isempty(crsname)
     crsname = relpath(md_path,crsname);
     MF.crs = d3d_attrib('read',crsname);
+end
+%
+keys = {'Filbar' 'bar'
+    'Filgat' 'gat'
+    'Filcdw' 'cdw'
+    'Fil2dw' 'w2d'
+    'Fillwl' 'lwl'
+    'Filppl' 'ppl'
+    'Filrgs' 'rgs'};
+for i = 1:size(keys,1)
+    key = keys{i,1};
+    fld = keys{i,2};
+    fldname = propget(MF.mdf,'',key,'');
+    if ~isempty(fldname)
+        fldname = relpath(md_path,fldname);
+        MF.(fld) = d3d_attrib('read',fldname);
+    end
+end
+%
+flsname = propget(MF.mdf,'','Filfls','');
+if ~isempty(flsname)
+    flsname = relpath(md_path,flsname);
+    MF.fls = wldep('read',flsname,MF.grd);
 end
 
 

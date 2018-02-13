@@ -1,7 +1,7 @@
 function getpointer(pntnam, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -213,6 +213,7 @@ function getpointer(pntnam, gdp)
     integer(pntrsize) , pointer :: rhowat
     integer(pntrsize) , pointer :: rich
     integer(pntrsize) , pointer :: rint
+    integer(pntrsize) , pointer :: rintsm
     integer(pntrsize) , pointer :: rlabda
     integer(pntrsize) , pointer :: rmneg
     integer(pntrsize) , pointer :: rnpl
@@ -565,6 +566,7 @@ function getpointer(pntnam, gdp)
     rhowat     => gdp%gdr_i_ch%rhowat
     rich       => gdp%gdr_i_ch%rich
     rint       => gdp%gdr_i_ch%rint
+    rintsm     => gdp%gdr_i_ch%rintsm
     rlabda     => gdp%gdr_i_ch%rlabda
     rmneg      => gdp%gdr_i_ch%rmneg
     rnpl       => gdp%gdr_i_ch%rnpl
@@ -1079,6 +1081,8 @@ function getpointer(pntnam, gdp)
        returnval = rich
     case ('rint')
        returnval = rint
+    case ('rintsm')
+       returnval = rintsm
     case ('rlabda')
        returnval = rlabda
     case ('rmneg')

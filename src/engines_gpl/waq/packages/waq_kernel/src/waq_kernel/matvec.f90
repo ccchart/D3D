@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -72,7 +72,7 @@
 !           loop over non-zero entries of row(i) and multiply
 
          do j = idiag(i-1)+1 , idiag(i)
-            yvec(i) = yvec(i) + amat(j) * xvec( imat(j) )
+            if ( imat(j) > 0 ) yvec(i) = yvec(i) + amat(j) * xvec( imat(j) )
          enddo
 
 !           add diagonal element

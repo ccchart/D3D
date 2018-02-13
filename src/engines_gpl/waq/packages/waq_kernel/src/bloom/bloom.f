@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -158,7 +158,7 @@
 !  Update 28 oct 92: added DEP to argument list.
 !
       USOL = CSOL
-      CALL SETABC(XINIT,EXTB,EXTTOT,ZOOD,CSOL,DSOL,T,DEP,ID,NSET,SWBLSA)
+      CALL SETABC(XINIT,EXTB,EXTTOT,ZOOD,CSOL,DSOL,T,DEP,ID,NSET)
 !
 !   Test for (in)feasibility of the nutrient constraints in
 !   a run with a dynamic detritus computation.

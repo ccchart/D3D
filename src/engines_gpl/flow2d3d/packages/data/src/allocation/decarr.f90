@@ -2,7 +2,7 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     , &
                 & prgnm     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -69,7 +69,7 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     , &
     logical          , pointer :: dredge
     logical          , pointer :: drogue
     logical          , pointer :: wave
-    logical          , pointer :: waveol
+    integer          , pointer :: waveol
     logical          , pointer :: threed
     logical          , pointer :: secflo
     logical          , pointer :: iweflg
@@ -181,7 +181,7 @@ subroutine decarr(lunmd     ,lundia    ,error     ,runid     , &
     wind      = .false.
     snelli    = .false.
     cnstwv    = .false.
-    waveol    = .false.
+    waveol    = 0
     sbkol     = .false.
     bubble    = .false.
     nfl       = .false.

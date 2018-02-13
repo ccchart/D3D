@@ -1,7 +1,7 @@
 subroutine getfield(itim, comfil, grpnam, funam, ierr, fcom, nmaxus, mmax, kmax, lmax, l)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -84,7 +84,7 @@ subroutine getfield(itim, comfil, grpnam, funam, ierr, fcom, nmaxus, mmax, kmax,
        do m = 1, mmax
           do n = 1, nmaxus
              i = i+1
-             fcom(n, m, k, 1) = sbuff(i)
+             fcom(n, m, k, l) = sbuff(i)
           enddo
        enddo
     enddo

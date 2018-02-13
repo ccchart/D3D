@@ -1,7 +1,7 @@
 module d3d_sobek_conf
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -270,8 +270,7 @@ function DSC_Conf_Delft3D( confFile    , &
 
     if ( success .and. mapping % dumpMapping ) then
 
-        lun=DioNewLun()
-        open(lun, file=mapping % dumpFileName)
+        open(newunit=lun, file=mapping % dumpFileName)
 
         write(lun, '(2A)') 'DSC_Conf_Delft3D, conffile: ', trim(confFile)
 
@@ -386,8 +385,7 @@ function DSC_Conf_Sobek(  confFile      ,                      &
 
     if ( success .and. mapping % dumpMapping ) then
 
-        lun=DioNewLun()
-        open(lun, file=mapping % dumpFileName)
+        open(newunit=lun, file=mapping % dumpFileName)
 
         write(lun, '(2A)') 'DSC_Conf_Sobek, conffile: ', trim(confFile)
 

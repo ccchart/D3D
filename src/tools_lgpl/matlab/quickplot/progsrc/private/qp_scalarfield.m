@@ -6,7 +6,7 @@ function hNew = qp_scalarfield(Parent,hNew,presentationtype,datatype,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -63,12 +63,16 @@ switch presentationtype
         end
         
     case 'values'
-        I=~isnan(Val);
         if numel(X)==numel(Val)+1
             X = (X(1:end-1)+X(2:end))/2;
             Y = (Y(1:end-1)+Y(2:end))/2;
         end
-        hNew=gentextfld(hNew,Ops,Parent,Val(I),X(I),Y(I));
+        if Ops.clipnans
+            I=~isnan(Val);
+            hNew=gentextfld(hNew,Ops,Parent,Val(I),X(I),Y(I));
+        else
+            hNew=gentextfld(hNew,Ops,Parent,Val(:),X(:),Y(:));
+        end
         
     case 'continuous shades'
         if size(X,1)==1 || size(X,2)==1
@@ -202,7 +206,7 @@ end
 function hNew = qp_scalarfield_ugrid(Parent,hNew,presentationtype,data,Ops)
 set(Parent,'NextPlot','add')
 unknown_ValLocation = 0;
-Val = data.Val;
+Val = data.Val(:);
 
 if isfield(data,'TRI')
     FaceNodeConnect = data.TRI;
@@ -216,7 +220,26 @@ switch data.ValLocation
     case 'NODE'
         switch presentationtype
             case {'patches','patches with lines'}
-                hNew=genfaces(hNew,Ops,Parent,Val,XYZ,TRI);
+                XY = reshape([data.X data.Y],[1 length(data.X) 1 2]);
+                nNodes = sum(~isnan(FaceNodeConnect),2);
+                uNodes = unique(nNodes);
+                delete(hNew)
+                hNew = {};
+                %
+                % compute face values
+                %
+                Msk = isnan(FaceNodeConnect);
+                FaceNodeConnect(Msk) = 1;
+                Val = Val(FaceNodeConnect);
+                Val(Msk) = 0;
+                Val = sum(Val,2)./sum(~Msk,2);
+                %
+                for i = length(uNodes):-1:1
+                    I = nNodes == uNodes(i);
+                    hOld = [];
+                    hNew{i} = genfaces(hOld,Ops,Parent,Val(I),XY,FaceNodeConnect(I,1:uNodes(i)));
+                end
+                hNew = cat(2,hNew{:});
                 
             case 'values'
                 X = data.X;

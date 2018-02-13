@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -345,7 +345,7 @@
  2130 format ( /' ERROR. system name not unique')
  2140 format (      I5 , 5X , A20 )
  2150 format ( /' ERROR. End of file on unit:',I3,/' Filename = ',A )
- 2160 format ( /' ERROR reading file on unit:',I3,/' Filename = ',A )
+ 2160 format ( /' ERROR reading file on unit:',I3,' - first line invalid. Please check',/' Filename = ',A )
  2170 format ( /' ERROR encountered invalid repeat count - should start with an asterisk (*): ',A )
 
       end

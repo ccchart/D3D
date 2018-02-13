@@ -3,7 +3,7 @@ function Fcn=qp_file2function(Info)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -64,6 +64,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'Delft3D D-Wave'             'd3d_simfil'
     'Delft3D D-Flow1D'           'd3d_simfil'
     'Delft3D D-Flow2D3D'         'd3d_simfil'
+    'Delft3D Coupled Model'      'd3d_simfil'
     'Skylla'                     'skyllafil'
     'Pharos'                     'pharosfil'
     'arcgrid'                    'arcgridfil'

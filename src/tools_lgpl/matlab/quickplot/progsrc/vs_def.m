@@ -67,7 +67,7 @@ function [VSNEW,ErrMsg]=vs_def(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -483,6 +483,23 @@ end
 AllElms={VSNEW.ElmDef(:).Name};
 TotSize=0;
 NElm=length(varargin);
+uElm = unique(varargin);
+if length(uElm)<NElm
+    for i=length(uElm):-1:1
+        if length(strmatch(uElm{i},varargin,'exact'))==1
+            uElm(i) = [];
+        end
+    end
+    elmStr = sprintf('''%s'', ',uElm{:});
+    if length(uElm)>1
+        elm = 'elements';
+        occur = 'occur';
+    else
+        elm = 'element';
+        occur = 'occurs';
+    end
+    warning('The %s %s %s multiple times in the newly created cell ''%s''; the second copy will be inaccessible!',elm,elmStr(1:end-2),occur,Name)
+end
 ElmNrs=ones(1,NElm);
 for i=1:NElm
    x=strmatch(deblank(varargin{i}),AllElms,'exact');

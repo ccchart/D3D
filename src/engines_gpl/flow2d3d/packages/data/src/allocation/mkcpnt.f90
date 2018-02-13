@@ -1,7 +1,7 @@
 function mkcpnt(pntnam    ,length    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -87,14 +87,8 @@ function mkcpnt(pntnam    ,length    ,gdp       )
     
     
     if (mkcpnt /= 0) then
-       if (gdp%gdtricom%initi /= 3) then
-          call chnull(chbuf(mkcpnt)         ,length    )
-          mkcpnt = 1
-       else
-
-       ! return the value -1 (used in Mor)
-         mkcpnt = -1
-       endif   
+       call chnull(chbuf(mkcpnt)         ,length    )
+       mkcpnt = 1
 
     else
        !

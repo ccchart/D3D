@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -66,9 +66,16 @@ module m_ec_filereader_read
    public :: ecSampleReadAll
    public :: ecParseARCinfoMask
    public :: asc
+   public :: asc_map_components
    
-contains
-      
+   ! Related to astronomic components
+   integer, parameter                      :: kcmp = 1       !< 
+   integer, parameter                      :: mxkc = 234     !< 
+   integer,           dimension(16*mxkc)   :: kb_values      !< Help var.
+   character(len=8),  dimension(mxkc)      :: kb_keys = ''   !< Array with the names of all components
+
+   contains
+  
       ! =======================================================================
       
       !> Read the first line from a uni* file.
@@ -77,8 +84,13 @@ contains
          type(tEcFileReader), pointer :: fileReaderPtr !< intent(in)
          !
          integer :: istat !< status of read operation
+         character(len=128) :: message
          !
-         rewind(unit=fileReaderPtr%fileHandle)
+         rewind(unit=fileReaderPtr%fileHandle, IOMSG = message, IOSTAT = istat)
+         if (istat /= 0) then
+            call setECMessage("ERROR: ec_filereader_read::ecUniReadFirstLine: rewind failed on " // trim(fileReaderPtr%fileName) // ". Error: " // trim(message))
+            return
+         endif
          ! continue reading lines untill a data line is encountered
          do
             read(fileReaderPtr%fileHandle, '(a)', IOSTAT = istat) rec
@@ -182,7 +194,7 @@ contains
          type(tEcFileReader),    pointer       :: fileReaderPtr !< intent(in)
          real(hp),               intent(inout) :: time_steps    !< number of time steps of duration: seconds
          real(hp), dimension(:), intent(inout) :: values        !< read values
-         type(tEcItem),          pointer       :: item
+
          success = ecBCreadline(fileReaderPtr, values = values, time_steps = time_steps, eof = fileReaderPtr%end_of_data)
       end function ecBCReadBlock
 
@@ -636,18 +648,13 @@ contains
          type(tEcField), pointer                 :: fieldPtr         !< Field to update
          integer                                 :: ierror           !< return status of NetCDF method call
          integer                                 :: varid            !< NetCDF id of NetCDF variable
-         integer                                 :: ndims            !< NetCDF variable's number of dimensions
-         integer,  dimension(3)                  :: dimids           !< NetCDF variable's dimension ids
-         integer                                 :: length           !< size of a NetCDF variable's dimension
          integer                                 :: times_index      !< Index in tEcTimeFrame's times array
          real(hp)                                :: netcdf_timesteps !< seconds since k_refdate
-         integer                                 :: i, j             !< loop counters
+         integer                                 :: i, j, k          !< loop counters
          real(hp), dimension(:,:,:), allocatable :: data_block       !< 2D slice of NetCDF variable's data
          integer                                 :: istat            !< allocation status
-         real(hp)                                :: time_window      !< time window between times(i) and times(i+1)
          real(hp)                                :: dmiss_nc         !< local netcdf missing
 
-         real(hp)                                :: fillvalue             !< helper variable
          real(hp)                                :: mintime, maxtime      !< range of kernel times that can be requested from this netcdf reader
          logical                                 :: valid_field
          character(len=300) :: str
@@ -657,17 +664,7 @@ contains
          fieldPtr => null()
 
          dmiss_nc = item%quantityPtr%fillvalue
-
-         ! With the the quantity name interpreted as a standard name, inquire from the filereader instance the varid 
-         do varid=1,size(fileReaderPtr%standard_names)
-            if (strcmpi(fileReaderPtr%standard_names(varid),item%quantityPtr%name)) exit
-         enddo 
-         if (varid>size(fileReaderPtr%standard_names)) then 
-            ! ERROR: standard name not found in this filereader, TODO: handle exception 
-            call setECMessage("No standard_name='"//trim(item%quantityPtr%name)//"' found in file '"//trim(fileReaderPtr%filename)//"'.")
-            return 
-         endif 
-         
+         varid = item%quantityPtr%ncid
          times_index = ec_undef_int
 
          if (t0t1 < 0) then
@@ -697,36 +694,6 @@ contains
             return
          end if
          !
-         ! - 2 - There is no convention in dimension order, so only support scalar, (/x, y, time/) and (/latitude, longitude, time/)
-         !       TODO: This check on dimension length is not infallable. Can be replaced by check on standard_name.
-         if (item%elementSetPtr%nCoordinates > 0) then
-            ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, varid, ndims=ndims)
-            if (ndims == 3) then
-               ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, varid, dimids=dimids)
-               ! x or latitude
-               ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, dimids(1), len=length)
-               if (length /= item%elementSetPtr%n_cols) then
-                  call setECMessage("NetCDF variable with unsupported dimension ordering in "//trim(fileReaderPtr%filename)//".")
-                  return
-               end if
-               ! y or longitude
-               ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, dimids(2), len=length)
-               if (length /= item%elementSetPtr%n_rows) then
-                  call setECMessage("NetCDF variable with unsupported dimension ordering in "//trim(fileReaderPtr%filename)//".")
-                  return
-               end if
-               ! time
-               ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, dimids(3), len=length)
-               if (length /= fileReaderPtr%tframe%nr_timesteps) then
-                  call setECMessage("NetCDF variable with unsupported dimension ordering in "//trim(fileReaderPtr%filename)//".")
-                  return
-               end if
-            else
-               call setECMessage("NetCDF variable with unsupported number of dimensions in "//trim(fileReaderPtr%filename)//".")
-               return
-            end if
-         end if
-         !
          ! - 3 - Check for the presence of times, indicating the presence of further data blocks.
          if (fileReaderPtr%tframe%nr_timesteps == ec_undef_int .or. fileReaderPtr%tframe%nr_timesteps <= 0.0_hp) then
             call setECMessage("Empty NetCDF time dimension in "//trim(fileReaderPtr%filename)//".")
@@ -745,110 +712,102 @@ contains
             write(str, '(a,f10.2,a,f10.2,a,f10.2)') '   Valid range: ',mintime,' to ',maxtime
             call setECMessage(str)
             call setECMessage("Data block requested outside valid time window in "//trim(fileReaderPtr%filename)//".")
-            return
-         end if
-
-         ! - 1 - Determine the relevant time entry from the times array and its index (irrespective of the data recorded at this timelevel)
-         if (fieldPtr%timesteps == ec_undef_hp) then
-            times_index = 1
+            if (.True.) then                                       ! TODO : pass if extrapolation (constant value) is allowed here, now always allowed
+                fieldPtr%timesteps = huge(fieldPtr%timesteps)      ! set time to infinity
+            else
+                return
+            endif
          else
-            do i=1, int(fileReaderPtr%tframe%nr_timesteps)
-               ! Convert times(i) * ec_timestep_unit since ec_refdate to seconds since k_refdate.
-               netcdf_timesteps = ecSupportTimeToTimesteps(fileReaderPtr%tframe, i)
-               ! field timesteps < NetCDf timesteps => read this block
-               if (comparereal(fieldPtr%timesteps, netcdf_timesteps) == -1) then
-                  times_index = i
-                  exit
-               end if
-            end do
-         end if
-         if (times_index == ec_undef_int) then
-            call setECMessage("Data block requested outside valid time window in "//trim(fileReaderPtr%filename)//".")
-            return
-         end if
-         !
-         valid_field = .False.
-         do while (.not.valid_field)
-            ! - 3 - Read a scalar data block.
-            if (item%elementSetPtr%nCoordinates == 0) then
-               ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, fieldPtr%arr1dPtr, start=(/times_index/), count=(/1/))
-               if (ierror.ne.NF90_NOERR) then         ! handle exception
-                  call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
-                  return
-               end if
-               valid_field = (fieldPtr%arr1dPtr(1)/=dmiss_nc)
-            end if      ! reading scalar data block
+            ! - 1 - Determine the relevant time entry from the times array and its index (irrespective of the data recorded at this timelevel)
+            if (fieldPtr%timesteps == ec_undef_hp) then
+               times_index = 1
+            else
+               do i=1, int(fileReaderPtr%tframe%nr_timesteps)
+                  ! Convert times(i) * ec_timestep_unit since ec_refdate to seconds since k_refdate.
+                  netcdf_timesteps = ecSupportTimeToTimesteps(fileReaderPtr%tframe, i)
+                  ! field timesteps < NetCDf timesteps => read this block
+                  if (comparereal(fieldPtr%timesteps, netcdf_timesteps) == -1) then
+                     times_index = i
+                     exit
+                  end if
+               end do
+            end if
+            if (times_index == ec_undef_int) then
+               call setECMessage("Data block requested outside valid time window in "//trim(fileReaderPtr%filename)//".")
+               return
+            end if
             !
-            ! - 4 - Read a grid data block.
             valid_field = .False.
-            if (item%elementSetPtr%nCoordinates > 0) then
-               allocate(data_block( item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, 1 ), stat = istat)
-               ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/1, 1, times_index/), count=(/item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, 1/))
-               
-               ! copy data to source Field's 1D array, store (X1Y1, X1Y2, ..., X1Yn_rows, X2Y1, XYy2, ..., Xn_colsY1, ...)
-               if (strcmpi(item%quantityPtr%name,'rainfall') .or. strcmpi(item%quantityPtr%name,'precipitation')) then
-                  ! Data must be converted here to rainfall per day for FM.
-                  select case (item%quantityPtr%units)
-                  case ('MM')
-                     if (comparereal(1.0_hp*times_index, fileReaderPtr%tframe%nr_timesteps) == 0) then
-                        time_window = fileReaderPtr%tframe%times(times_index) - fileReaderPtr%tframe%times(times_index - 1)
-                     else
-                        time_window = fileReaderPtr%tframe%times(times_index + 1) - fileReaderPtr%tframe%times(times_index)
-                     end if
-                     if (fileReaderPtr%tframe%ec_timestep_unit == ec_second) then
-                        time_window = time_window / (60.0_hp * 60.0_hp * 24.0_hp)
-                     else if (fileReaderPtr%tframe%ec_timestep_unit == ec_minute) then
-                        time_window = time_window / (60.0_hp * 24.0_hp)
-                     else if (fileReaderPtr%tframe%ec_timestep_unit == ec_hour) then
-                        time_window = time_window / 24.0_hp
-                     else
-                        call setECMessage("Unknown time unit encountered in "//trim(fileReaderPtr%filename)//".")
-                        return
-                     end if
-                  case ('MM PER DAY','MM/DAY','MMPERDAY')
-                     time_window = 1.d0 
-                  case default
-                     call setECMessage("Unrecognized rainfall unit '"//item%quantityPtr%units//     &
-                                       "' in file "//trim(fileReaderPtr%filename)//".")
-                     return
-                  end select 
-                  if (comparereal(time_window, 0.0_hp) == 0) then
-                     call setECMessage("Empty time window leads to zero division error in "//trim(fileReaderPtr%filename)//".")
+            do while (.not.valid_field)
+               ! - 3 - Read a scalar data block.
+               if (item%elementSetPtr%nCoordinates == 0) then
+                  ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, fieldPtr%arr1dPtr, start=(/times_index/), count=(/1/))
+                  if (ierror.ne.NF90_NOERR) then         ! handle exception
+                     call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
                      return
                   end if
-                  do i=1, item%elementSetPtr%n_rows
-                     do j=1, item%elementSetPtr%n_cols
-                        if (data_block(j,i,1) == dmiss_nc) then 
-                           fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = 0d0
-                        else                     
-                           fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = data_block(j,i,1) / time_window
-                           valid_field = .True.
-                        endif
+                  valid_field = (fieldPtr%arr1dPtr(1)/=dmiss_nc)
+               end if      ! reading scalar data block
+               !
+               ! - 4 - Read a grid data block.
+               valid_field = .False.
+               if (item%elementSetPtr%nCoordinates > 0) then
+                  if (item%elementSetPtr%n_layers == 0) then                  ! 2D elementset
+                     allocate(data_block( item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, 1 ), stat = istat)
+                     ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/1, 1, times_index/), count=(/item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, 1/))
+                     
+                     ! copy data to source Field's 1D array, store (X1Y1, X1Y2, ..., X1Yn_rows, X2Y1, XYy2, ..., Xn_colsY1, ...)
+                     do i=1, item%elementSetPtr%n_rows
+                        do j=1, item%elementSetPtr%n_cols
+!                           if (data_block(j,i,1) == dmiss_nc) then 
+!                              fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = 0d0
+!                           else                     
+                              fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = data_block(j,i,1)
+                              valid_field = .True.
+!                           endif
+                        end do
                      end do
-                  end do
-               else
-                  do i=1, item%elementSetPtr%n_rows
-                     do j=1, item%elementSetPtr%n_cols
-                        if (data_block(j,i,1) == dmiss_nc) then 
-                           fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = 0d0
-                        else                     
-                           fieldPtr%arr1dPtr( (i-1)*item%elementSetPtr%n_cols + j ) = data_block(j,i,1)
-                           valid_field = .True.
-                        endif
+                  else                                                                                                                       
+                     allocate(data_block( item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, item%elementSetPtr%n_layers), stat = istat)
+                     ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/1, 1, 1, times_index/), count=(/item%elementSetPtr%n_cols, item%elementSetPtr%n_rows, item%elementSetPtr%n_layers, 1/))
+                     
+                     ! copy data to source Field's 1D array, store (X1Y1, X1Y2, ..., X1Yn_rows, X2Y1, XYy2, ..., Xn_colsY1, ...)
+                     do k=1, item%elementSetPtr%n_layers
+                        do i=1, item%elementSetPtr%n_rows
+                           do j=1, item%elementSetPtr%n_cols
+!                              if (data_block(j,i,k) == dmiss_nc) then 
+!                                 fieldPtr%arr1dPtr( (k-1)*item%elementSetPtr%n_cols*item%elementSetPtr%n_rows        &
+!                                                  + (i-1)*item%elementSetPtr%n_cols                              &
+!                                                  +  j ) = 0d0
+!                              else                     
+                                 fieldPtr%arr1dPtr( (k-1)*item%elementSetPtr%n_cols*item%elementSetPtr%n_rows        &
+                                                  + (i-1)*item%elementSetPtr%n_cols                                &
+                                                  +  j ) = data_block(j,i,k)
+                                 valid_field = .True.
+!                              endif
+                           end do
+                        end do
                      end do
-                  end do
+                  end if
                end if
-            end if                                        ! reading 2D data block
-            if (.not.valid_field) then
-               times_index = times_index+1
-            end if
-         end do         ! loop while fields invalid            
-
-         ! - 2 - Update the source Field's timesteps variable.
-         fieldPtr%timesteps = ecSupportTimeToTimesteps(fileReaderPtr%tframe, times_index)
+               if (.not.valid_field) then
+                  times_index = times_index+1
+               end if
+            end do         ! loop while fields invalid            
+   
+            ! - 2 - Update the source Field's timesteps variable.
+            fieldPtr%timesteps = ecSupportTimeToTimesteps(fileReaderPtr%tframe, times_index)
+            fieldPtr%timesndx = times_index
+         endif
 
          ! - 3 - Apply the scale factor and offset
-         fieldPtr%arr1dPtr = fieldPtr%arr1dPtr * item%quantityPtr%factor + item%quantityPtr%offset       
+         !fieldPtr%arr1dPtr = fieldPtr%arr1dPtr * item%quantityPtr%factor + item%quantityPtr%offset       
+         
+         do i=1, item%elementSetPtr%n_rows * item%elementSetPtr%n_cols * item%elementSetPtr%n_layers
+            if ( fieldPtr%arr1dPtr(i).ne.dmiss_nc ) then
+               fieldPtr%arr1dPtr(i) = fieldPtr%arr1dPtr(i) * item%quantityPtr%factor + item%quantityPtr%offset    
+            end if
+         end do
 
          ! Deallocate temporary datablock
          if (allocated(data_block)) deallocate(data_block, stat = istat)
@@ -871,16 +830,13 @@ contains
          integer,             intent(in) :: n             !< dimension of quantity to read
          !
          integer                             :: i             !< loop counter
-         integer                             :: j             !< loop counter
          integer                             :: ierror        !< return value of function calls
          integer                             :: iddim_time    !< id as obtained from NetCDF
          integer                             :: idvar_time    !< id as obtained from NetCDF
          integer                             :: idvar_q       !< id as obtained from NetCDF
          integer                             :: ntimes        !< number of times on the NetCDF file
          integer                             :: read_index    !< index of field to read
-         logical                             :: local_success !< when the return flag should not be influenced
          real(hp), dimension(:), allocatable :: times         !< time array read from NetCDF
-         character(len=maxNameLen)           :: rec           !< helper variable
          character(NF90_MAX_NAME)            :: string        !< to catch NetCDF messages
          !
          success = .false.
@@ -1060,16 +1016,12 @@ contains
          !
          integer                   :: istat     !< status of allocation operation
          character(132)            :: rec       !< content of a line
-         integer                   :: reclen    !< record length minus comment 
          integer                   :: i1        !< start index of first word
          integer                   :: i2        !< stop index of first word
          character(len=maxNameLen) :: component !< helper variable, when converting from component to period
-         real(hp)                  :: dummy_amplitude, dummy_phase
          logical                   :: eof       !< true if the end of file was reached 
-         logical                   :: is_corr   !< true if the fourier data is an astronomic/harmonic correction
          logical                   :: is_astro  !< true if an astronomical component has been parsed
 
-         real(hp)                  :: magdum, phasedum, period, ampl, shift
          integer                   :: MAXCMP = 100 
          !
          success = .true.
@@ -1241,7 +1193,6 @@ contains
          !
          ! locals
          integer               :: istat !< status of read operation
-         integer               :: indx  !< helper index variable
          character(maxNameLen) :: rec_small
          character(maxNameLen) :: keyword_small
          !
@@ -1316,7 +1267,6 @@ contains
          !
          character(len=maxNameLen) :: word
          character(len=maxNameLen) :: rec     !< content of read line
-         integer                   :: istat   !< status of read operation
          integer                   :: indx    !< helper index variable
          !
          answer = ''
@@ -1423,37 +1373,41 @@ contains
 
       ! =======================================================================
 
+      subroutine read_kompbes
+         integer                               :: ik, il, i, j
+         character(len=80), dimension(mxkc)    :: kombes !< Array with tidal components
+         call kompbs(kombes)
+         !
+         ik = -15
+         do i = 1, mxkc
+            ik = ik + 16
+            il = ik + 15
+            read (kombes(i), '(a8,10i3,3(i1,i2))') kb_keys(i), (kb_values(j), j = ik, il)
+         enddo
+      end subroutine read_kompbes
+      
       
       !> Determination of FR and V0+U.
       !! 'stripped' VERSION OF MAIN (ASCON)
       !! meteo1 : asc
-      subroutine asc(omeg, ampl, phas, component, idate, itime, ierrs)
+      subroutine asc(omeg, ampl, phas, compnr, idate, itime, ierrs)
          real(hp),         intent(out)   :: omeg      !< period [minute]
          real(hp),         intent(inout) :: ampl      !< amplitude [m]
          real(hp),         intent(inout) :: phas      !< phase [degree]
-         character(len=8), intent(in)    :: component !< component name
+         integer,          intent(in)    :: compnr    !< component number in the KompBes table
          integer,          intent(in)    :: idate     !< date integer yyyymmdd
          integer,          intent(in)    :: itime     !< time integer hhmmss
          integer,          intent(out)   :: ierrs     !< number of errors
          !
          ! local
          !
-         integer, parameter    :: kcmp = 1   !< 
-         integer, parameter    :: mxkc = 234 !< 
          integer, dimension(6) :: jdatum     !< Date and time
 
          real(hp), dimension(kcmp) :: fr  !< Amplitude factors for the referenced components
          real(hp), dimension(kcmp) :: v0u !< Astronomical arguments of the referenced components [rad]
          real(hp), dimension(kcmp) :: w   !< Angular velocity of the referenced components [rad/hr]
 
-         integer                               :: i      !< Help var.
-         integer                               :: ik     !< Help var.
-         integer                               :: il     !< Help var.
-         integer                               :: j      !< Help var.
          integer                               :: jaar   !< Present year
-         integer,           dimension(16*mxkc) :: jnaam  !< Help var.
-         character(len=8),  dimension(mxkc)    :: knaam  !< Array with the names of all components
-         character(len=80), dimension(mxkc)    :: kombes !< Array with tidal components
          real(hp)                              :: t      !< Time in hours referred to January 1, 00:00 of the year 'JAAR'
          real(hp),          dimension(15)      :: v      !< Help var. to calculate V0U()
          real(hp),          dimension(25)      :: f      !< Help var. to calculate FR()
@@ -1462,7 +1416,7 @@ contains
          !! executable statements -------------------------------------------------------
          !
          
-         if (index(component, 'A0') /= 0) then
+         if (compnr == 0) then         ! A0
             omeg = 0.0_hp
             phas = 0.0_hp
             ierrs = 0
@@ -1476,21 +1430,12 @@ contains
          jdatum(5) = itime/100 - 100*(itime/10000)
          jdatum(6) = itime - 100*(itime/100)
          
-         call kompbs(kombes)
-         !
-         ik = -15
-         do i = 1, mxkc
-            ik = ik + 16
-            il = ik + 15
-            read (kombes(i), '(a8,10i3,3(i1,i2))') knaam(i), (jnaam(j), j = ik, il)
-         enddo
-         !
          jaar = jdatum(1)
          !
          call datumi(jaar, jdatum, t)
          call hulpgr(jaar      ,t         ,v         ,f         )
-         call bewvuf(ierrs     ,kcmp      ,mxkc      ,component ,knaam     , &
-                   & jnaam     ,w         ,v0u       ,fr        ,v         , &
+         call bewvuf_by_number(ierrs     ,kcmp      ,mxkc      ,(/compnr/)  , &
+                   & kb_values ,w         ,v0u       ,fr        ,v      , &
                    & f         )
     
 !         omeg = (2.0_hp*pi*60.0_hp)/w(1) ! [minute]
@@ -1951,6 +1896,7 @@ contains
          integer  :: mp1   !< 
          integer  :: ms    !< 
          integer  :: mt    !< 
+         integer  :: ierr  !< error (1) or not (0)
          real(hp) :: dhalf !< Value for 0.5 in SIGN function
          real(hp) :: pix2  !< 
          real(hp) :: s1    !< 
@@ -1961,9 +1907,11 @@ contains
          ! loop over given components
          do ikomp = 1, kcmp
             ! loop over the elements of kompbes
+            ierr = 1
             do j = 1, mxkc
                ! test on name of present component
                if (inaam == knaam(j)) then
+                  ierr = 0
                   ! compute angular velocity
                   mt = jnaam(16*j - 15)
                   ms = jnaam(16*j - 14)
@@ -2011,16 +1959,133 @@ contains
                   endif
                   exit
                endif
-               if (j >= mxkc) then
-                  ierrs = ierrs + 1
-                  call setECMessage("unknown component '"//trim(inaam)//"' ")
-                  exit
-               endif
             enddo
+            if ( ierr /= 0 ) then
+               ierrs = ierrs + 1
+               fr(1) = 0d0
+            endif
          enddo
       end subroutine bewvuf
       
+      function asc_map_components(kcmp, inaam, knum) result (nmissing)
+         integer                                         :: nmissing
+         integer,                            intent(in)  :: kcmp        !< 
+         character(len=8), dimension(kcmp),  intent(in)  :: inaam       !< Name of the referenced components
+         integer,          dimension(kcmp),  intent(out) :: knum        !< If valid component, Kompbes number, else -1
+         integer	:: i,j
+         nmissing = 0
+         knum = -1
+         if (len_trim(kb_keys(1))==0) then
+            call read_kompbes()
+         end if
+         do i = 1, kcmp 			   	! loop over given components
+            if (trim(inaam(i))=='A0') then
+               knum(i) = 0
+            endif
+            do j = 1, mxkc 				! loop over the elements of kompbes
+               if (trim(inaam(i)) == trim(kb_keys(j))) then
+                  knum(i) = j 	      ! maps every used labelled component 
+               endif
+            enddo
+            if (knum(i)<0) then
+               nmissing = nmissing + 1
+            endif
+         enddo
+      end function asc_map_components
       ! =======================================================================
+
+      
+      subroutine bewvuf_by_number (ierrs     ,kcmp      ,mxkc      ,knum      , &
+                      & jnaam     ,w         ,v0u       ,fr        ,v         , f)
+         integer,                          intent(out) :: ierrs !<  Number of error messages
+         integer,                          intent(in)  :: kcmp  !< 
+         integer,                          intent(in)  :: mxkc  !< 
+         integer,      dimension(kcmp),    intent(in)  :: knum  !< Kompbes number of the referenced component
+         integer,      dimension(mxkc*16), intent(in)  :: jnaam !< Help var.
+         real(hp),     dimension(kcmp)                 :: w     !< Angular velocity of the referenced components
+         real(hp),     dimension(kcmp)                 :: v0u   !< Astronomical arguments of the  referenced components [rad]
+         real(hp),     dimension(kcmp)                 :: fr    !< Amplitude factors for the referenced components
+         real(hp),     dimension(15),      intent(in)  :: v     !< Help var. to calculate V0U()
+         real(hp),     dimension(25),      intent(in)  :: f     !< Help var. to calculate FR()
+         !
+         integer  :: ia1   !< 
+         integer  :: ia2   !< 
+         integer  :: iar   !< 
+         integer  :: ie1   !< 
+         integer  :: ie2   !< 
+         integer  :: iex   !< 
+         integer  :: ikomp !< 
+         integer  :: j     !< 
+         integer  :: kw    !< 
+         integer  :: kx    !< 
+         integer  :: mh    !< 
+         integer  :: mp    !< 
+         integer  :: mp1   !< 
+         integer  :: ms    !< 
+         integer  :: mt    !< 
+         real(hp) :: dhalf !< Value for 0.5 in SIGN function
+         real(hp) :: pix2  !< 
+         real(hp) :: s1    !< 
+         real(hp) :: s2    !< 
+         !
+         ierrs = 0         ! status variable to be used later. no longer needed for invalid component labels
+         pix2 = pi * 2.0_hp
+         dhalf = 0.5_hp
+         ! loop over given components
+         do ikomp = 1, kcmp
+            j = knum(ikomp)
+            if (j<0) then              ! Component number<0: component was unknown, set amplitude to zero
+               fr(1) = 0d0               
+               return
+            endif
+            ! compute angular velocity
+            mt = jnaam(16*j - 15)
+            ms = jnaam(16*j - 14)
+            mp = jnaam(16*j - 13)
+            mh = jnaam(16*j - 12)
+            mp1 = jnaam(16*j - 11)
+            w(ikomp) = mt*15.0_hp + ms*0.54901653_hp + mp*0.0046418333_hp &
+                                & + mh*0.04106864_hp + mp1*0.0000019610393_hp
+            w(ikomp) = (w(ikomp)*pix2)/360.0_hp
+            ! compute v0+u
+            v0u(ikomp) = (jnaam(16*j - 8)*pix2)/4.0_hp
+            do kw = 1, 7
+               kx = 16*j - 16 + kw
+               v0u(ikomp) = v0u(ikomp) + v(kw)*jnaam(kx)
+            enddo
+            ie1 = jnaam(16*j - 7)
+            if (ie1 /= 0) then
+               ia1 = abs(ie1)
+               s1 = real(ie1/ia1, fp)
+               v0u(ikomp) = v0u(ikomp) + s1*v(ia1)
+               ie2 = jnaam(16*j - 6)
+               if (ie2 /= 0) then
+                  ia2 = abs(ie2)
+                  s2 = real(ie2/ia2, fp)
+                  v0u(ikomp) = v0u(ikomp) + s2*v(ia2)
+               endif
+            endif
+            v0u(ikomp) = mod(v0u(ikomp), pix2) - pix2*(sign(dhalf, v0u(ikomp)) - dhalf)
+            ! compute f
+            fr(ikomp) = 1.0_hp
+            iex = jnaam(16*j - 5)
+            if (iex /= 0) then
+               iar = jnaam(16*j - 4)
+               fr(ikomp) = (f(iar))**iex
+               iex = jnaam(16*j - 3)
+               if (iex /= 0) then
+                  iar = jnaam(16*j - 2)
+                  fr(ikomp) = fr(ikomp)*(f(iar))**iex
+                  iex = jnaam(16*j - 1)
+                  if (iex /= 0) then
+                     iar = jnaam(16*j)
+                     fr(ikomp) = fr(ikomp)*(f(iar))**iex
+                  endif
+               endif
+            endif
+         enddo
+      end subroutine bewvuf_by_number      
+      
       
 !!==============================================================================
 !
@@ -2466,13 +2531,6 @@ contains
          type(tEcInstance),   pointer :: instancePtr       !< intent(in)
          type(tEcFileReader), pointer :: corFileReaderPtr  !< intent(inout)
          !
-         integer :: i            !< loop counter
-         integer :: quantityId   !< helper variable 
-         integer :: elementSetId !< helper variable 
-         integer :: field0Id     !< helper variable 
-         integer :: field1Id     !< helper variable 
-         integer :: itemId       !< helper variable 
-         !
          integer                             :: nPeriods          !< number of periods
          real(hp), dimension(:), allocatable :: periods           !< Fourier components transformed into periods
          character(len=8), dimension(:), allocatable :: components
@@ -2488,10 +2546,8 @@ contains
          real(hp), pointer                 :: cmpphase_result_T0(:)
          real(hp), pointer                 :: cmpamplitude_result_T1(:)
          real(hp), pointer                 :: cmpphase_result_T1(:)
-         
-         real(hp)                          :: omega               !< dummy variable for astro component period
 
-         integer           ::  icmp, ncmp, icor, ncor, iitem, istat  
+         integer           ::  icmp, ncmp, icor, ncor, iitem
          logical           ::  cmpfound 
          !
          success = .true.
@@ -2563,15 +2619,14 @@ contains
          type(tEcMask),      intent(out) :: mask
          type(tEcFileReader),pointer     :: fileReaderPtr
    
-         integer             :: fmask            
+         integer             :: fmask
          integer             :: iostat 
          character(len=999)  :: rec 
          logical             :: jamaskinit
-         integer             :: i, j
-         logical             :: exists
-   
-         success = .false. 
-         
+         integer             :: i
+
+         success = .false.
+
          if (.not.ecSupportOpenExistingFile(fmask, maskfilname)) then
             call setECMessage('Cannot open maskfile '//trim(maskfilname))
             return

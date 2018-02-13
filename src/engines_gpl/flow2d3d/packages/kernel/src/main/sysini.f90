@@ -2,7 +2,7 @@ subroutine sysini(error     ,runid     ,filmrs    ,prgnm     , &
                 & version_short ,filmd     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -138,9 +138,9 @@ subroutine sysini(error     ,runid     ,filmrs    ,prgnm     , &
     !
     call util_getenv('ARCH',txthlp)
     call small(txthlp,message_len)
-    if (txthlp == 'win32' .or. txthlp == 'w32') then
+    if (txthlp == 'win32' .or. txthlp == 'w32' .or. txthlp == 'x86') then
        gdp%arch = 'win32'
-    elseif (txthlp == 'win64') then
+    elseif (txthlp == 'win64' .or. txthlp == 'x64') then
        gdp%arch = 'win64'
     else
        gdp%arch = 'linux'

@@ -1,7 +1,9 @@
 import argparse
 import os
+import glob
 import sys
 import shutil
+import subprocess
 if sys.version_info<(3,0,0):
    # To avoid problems with encoding:
    # - Use codecs.open instead of open (Python 2.x only)
@@ -12,29 +14,31 @@ if sys.version_info<(3,0,0):
 else:
    from tkinter import *
 
+
 #
-# This script can be used to convert the VisualStudio solution and project files
-# to the proper version. It is only intended to be used for:
-# https://svn.oss.deltares.nl/repos/delft3d
+# This script can be used to create/convert the VisualStudio solution and project files
+# for the version you are using.
 # Adapt and use it for your own purpose.
 #
 # adri.mourits@deltares.nl
-# 12 Feb 2016
+# 15 Jun 2017
 #
 # Usage:
 # 1. Install Python on your machine https://www.python.org/downloads/
-#    In case Python does not work: check that the path to "python.exe" is added to your environment parameter "PATH"
-# 2. Execute "prepare_sln.py" (double-clicking it in your file browser will do). A window will pop-up in which you can select the
-#    VisualStudio version you are using and the Intel Fortran compiler version
+#    Version 2.7.* is most commonly used
+# 2. Execute "prepare_sln.cmd" (double-clicking it in your file browser will do). A window will pop-up in which you can select the
+#    VisualStudio version you are using and the Intel Fortran compiler version.
 #    Optional usage without pop-up window:
 #    python prepare_sln.py -vs 2013 -ifort 15
-# 3. Click the "Apply" button
-#    Solution file "delft3d_open.sln" will be created,
-#    All project files it refers to will be updated
-# 4. Open the sln file in VisualStudio and "Build Solution"
-# 5. If this script does not behave as expected: Please report the problem and help to improve this script.
+# 3. Click the "Apply" button.
+#    Solution file(s) will be created,
+#    All project files it refers to will be updated.
+# 4. Click the "Exit" button.
+# 5. Open the sln file in VisualStudio and "Build Solution"
+# 6. If this script does not behave as expected: Please report the problem and help to improve this script.
 #
 
+chooseIfort = 1
 
 vs = -999
 ifort = -999
@@ -126,6 +130,18 @@ toolsversion[2017] = "14.0"
 
 #
 #
+# frameworkversion specifies the .Net frameworknumber
+frameworkversion = {}
+frameworkversion[2010] = "4.0"
+frameworkversion[2012] = "4.5"
+frameworkversion[2013] = "4.5"
+frameworkversion[2014] = "4.5"
+frameworkversion[2015] = "4.6"
+frameworkversion[2016] = "4.6"
+frameworkversion[2017] = "4.6"
+
+#
+#
 # platformtoolset specifies the vs platformtoolset version number
 platformtoolset = {}
 platformtoolset[2010] = ""
@@ -134,7 +150,31 @@ platformtoolset[2013] = "    <PlatformToolset>v120</PlatformToolset>"
 platformtoolset[2014] = "    <PlatformToolset>v120</PlatformToolset>"
 platformtoolset[2015] = "    <PlatformToolset>v140</PlatformToolset>"
 platformtoolset[2016] = "    <PlatformToolset>v140</PlatformToolset>"
-platformtoolset[2017] = "    <PlatformToolset>v140</PlatformToolset>"
+platformtoolset[2017] = "    <PlatformToolset>v141</PlatformToolset>"
+
+#
+#
+# Since VisualStudio2015 (Update 3?), it is sometimes necessary to add the location of ucrt.lib
+# to the AdditionalLibaryDirectories of the projects linking with Fortran
+# The string "$(OSS_UCRTLIBDIR)" is added at these locations by default (it doesn't harm when
+# it is not defined), and will be replaced by this prepare_sln.py script to get the proper value vor VS2015 and up.
+# "UCRTLIBDIRVERSIONNUMBER" is a place holder that will be replaced in getUCRTVersionNumber()
+# $(UniversalCRTSdkDir) is always used in this string (and not replaced by something like c:\Program Files (x86)\Windows Kits\10\Lib\)
+ucrtlibdir = {}
+ucrtlibdir["-1"] = "$(OSS_UCRTLIBDIR)"
+ucrtlibdir["201532"] = "$(UniversalCRTSdkDir)Lib\\UCRTLIBDIRVERSIONNUMBER\\ucrt\\x86"
+ucrtlibdir["201564"] = "$(UniversalCRTSdkDir)Lib\\UCRTLIBDIRVERSIONNUMBER\\ucrt\\x64"
+ucrtlibdir["201732"] = "$(UniversalCRTSdkDir)Lib\\UCRTLIBDIRVERSIONNUMBER\\ucrt\\x86"
+ucrtlibdir["201764"] = "$(UniversalCRTSdkDir)Lib\\UCRTLIBDIRVERSIONNUMBER\\ucrt\\x64"
+
+#
+#
+# To obtain the ucrt directory:
+# Execute the matching vcvarsall.bat and in that shell, get the value of environment parameter UniversalCRTSdkDir
+# This is combined in the folowing string:
+getucrtdir = {}
+getucrtdir["2015"] = '"' + str(os.environ.get("VS140COMNTOOLS")) + "..\\..\\VC\\vcvarsall.bat" + '" amd64&&set UniversalCRTSdkDir'
+getucrtdir["2017"] = '"' + str(os.environ.get("VS140COMNTOOLS")) + "..\\..\\VC\\vcvarsall.bat" + '" amd64&&set UniversalCRTSdkDir'
 
 #
 #
@@ -148,6 +188,7 @@ def process_solution_file(sln, slntemplate):
     global libdir
     global redistdir
     global toolsversion
+    global frameworkversion
     global platformtoolset
 
     # Copy the solution template file to the solution file
@@ -159,7 +200,7 @@ def process_solution_file(sln, slntemplate):
     sln = os.path.join(topdir, sln)
 
     # source template file:
-    slntemplate = os.path.join(topdir, "scripts_lgpl", "win64", slntemplate)
+    slntemplate = os.path.join(topdir, slntemplate)
 
     shutil.copyfile(slntemplate, sln)
 
@@ -176,7 +217,7 @@ def process_solution_file(sln, slntemplate):
             # Search for project file references
             pp = line.split('"')
             for subline in pp:
-                if max(subline.find(".vfproj"), subline.find(".vcxproj"), subline.find(".vcproj")) != -1:
+                if max(subline.find(".vfproj"), subline.find(".vcxproj"), subline.find(".vcproj"), subline.find(".csproj")) != -1:
                     projectfiles.append(subline)
             # Changes to the sln file based on VS version
             startpos = line.find("Microsoft Visual Studio Solution File, Format Version")
@@ -239,7 +280,9 @@ def process_project_file(pfile):
     global libdir
     global redistdir
     global toolsversion
+    global frameworkversion
     global platformtoolset
+    global ucrtlibdir
     # Type (F/C/C#) and related flags are set based on the file extension
     ptype = "unknown"
     config_tag = "unknown"
@@ -255,7 +298,7 @@ def process_project_file(pfile):
         config_tag = "ItemDefinitionGroup Condition="
         config_val32 = "Win32"
         config_val64 = "x64"
-    elif pfile.find("vcproj") != -1:
+    elif (pfile.find("vcproj") != -1 or pfile.find("csproj") != -1):
         ptype = "csharp"
         config_tag = "PropertyGroup Condition="
         config_val32 = "x86"
@@ -282,6 +325,13 @@ def process_project_file(pfile):
                             parts[i+1] = toolsversion[vs]
                         i += 1
                     line = '"'.join(parts)
+            #
+            # FrameworkVersion
+            # Skip this change when vs=0
+            if vs != 0:
+                startpos = line.find("<TargetFrameworkVersion>")
+                if startpos != -1:
+                    line = line[:startpos+25] + frameworkversion[vs] + line[startpos+28:]
             #
             # PlatformToolSet:
             # Skip this change when vs=0
@@ -311,6 +361,8 @@ def process_project_file(pfile):
             # IFORT_COMPILER ...
             startpos = line.find("$(IFORT_COMPILER")
             if startpos != -1:
+                if ifort == -999:
+                    sys.exit("ERROR: Fortran compiler specification is being used while not defined.")
                 split_char = ";"
                 if line.find("oss-install") != -1:
                     #
@@ -355,8 +407,84 @@ def process_project_file(pfile):
                             i += 1
                     del parts[i:]
                     line = split_char.join(parts)
+            #
+            # UCRTlibdir
+            # Search string to be replaced: two options: "$(OSS_UCRTLIBDIR)" and "$(UniversalCRTSdkDir)lib\..."
+            #
+            # $(OSS_UCRTLIBDIR) => $(UniversalCRTSdkDir)lib\...
+            startpos = line.find(ucrtlibdir["-1"])
+            if startpos != -1:
+                endpos = startpos + len(ucrtlibdir["-1"])
+            else:
+                # $(UniversalCRTSdkDir)lib\... => $(OSS_UCRTLIBDIR)
+                startpos = line.find(ucrtlibdir["201532"][:21])
+                if startpos != -1:
+                    quotepos = line[startpos:].find('"')
+                    if quotepos == -1:
+                        quotepos = 999
+                    colonpos = line[startpos:].find(";")
+                    if colonpos == -1:
+                        colonpos = 999
+                    endpos = startpos + min(quotepos, colonpos)
+            # Replace by the correct string. Assumption: "UCRTLIBDIRVERSIONNUMBER" is replaced by the correct
+            # versionnumber when applicable, by executing getUCRTVersionNumber
+            if startpos != -1:
+                if vs >= 2015:
+                    key = str(vs) + str(configuration)
+                else:
+                    key = "-1"
+                line = line[:startpos] + ucrtlibdir[key] + line[endpos:]
             filouthandle.write(line)
 
+
+#
+#
+# getUCRTVersionNumber ===================================
+# Note: UniversalCRTSdkDir is resolved to find the version number on this system,
+#       $(UniversalCRTSdkDir) is not replaced in ucrtlibdir
+def getUCRTVersionNumber():
+    global vs
+    global ucrtlibdir
+    # Only for VS2015 or higher
+    if vs >= 2015:
+        # To get the ucrt directory: execute the matching getucrtdir string, 
+        # catch the stdout of that command,
+        # check whether UniversalCRTSdkDir is in that string,
+        # if so, get the value behind the '='-sign
+        sys.stdout.write("Trying to execute: " + getucrtdir[str(vs)] + " ...\n")
+        try:
+            result = subprocess.check_output(getucrtdir[str(vs)], shell=True)
+        except:
+            result = ""
+            sys.stdout.write("Execution failed; is VisualStudio " + str(vs) + " installed?\n")
+        result = result.decode('utf-8')
+        if result.find("UniversalCRTSdkDir") == -1:
+            # Fallback: it should be this:
+            sys.stdout.write("ucrtdir not found; set to default value\n")
+            ucrtdir = "c:\\Program Files (x86)\\Windows Kits\\10\\Lib\\"
+        else:
+            ucrtdir = result[19:]
+            # Remove the trailing slash and the newline-character behind it
+            lastslash = ucrtdir.rfind("\\")
+            if lastslash != -1:
+                ucrtdir = ucrtdir[:lastslash]
+            sys.stdout.write("ucrtdir found:" + ucrtdir + "\n")
+        # Search in subdir Lib for directories starting with a digit and containing at least one "."
+        searchstring = os.path.join(ucrtdir, "Lib", "[0-9]*.*")
+        versions = glob.glob(searchstring)
+        if len(versions) <= 0:
+            # Fallback: it should be this:
+            ucrtversion = "10.0.10586.0"
+            sys.stdout.write("No versions found, using default version:" + ucrtversion + "\n")
+        else:
+            # Choose the highest version number
+            versions.sort(reverse=True)
+            ucrtversion = versions[0]
+            ucrtversion = os.path.basename(ucrtversion)
+            sys.stdout.write("Versions found, using:" + ucrtversion + "\n")
+        # Inside ucrtlibdir, replace all occurences of UCRTLIBDIRVERSIONNUMBER by ucrtversion
+        for key in iter(ucrtlibdir):
+            ucrtlibdir[key] = str(ucrtlibdir[key]).replace("UCRTLIBDIRVERSIONNUMBER", ucrtversion)
 
 #
 #
@@ -385,10 +513,14 @@ def do_work():
     sys.stdout.write("Visual Studio Version : " + str(vs) + "\n")
     sys.stdout.write("Intel Fortran Version : " + str(ifort) + "\n")
 
-    process_solution_file("delft3d_open.sln", "delft3d_open_template.sln")
+    # Needed for VS2015 and higher:
+    getUCRTVersionNumber()
+
+    process_solution_file("delft3d_open.sln", os.path.join("scripts_lgpl", "win64", "delft3d_open_template.sln"))
 
     # TODO: Consider making this optional via cmdline args:
-    process_solution_file("io_netcdf.sln",    "io_netcdf_template.sln")
+    process_solution_file("io_netcdf.sln",    os.path.join("scripts_lgpl", "win64", "io_netcdf_template.sln"))
+    process_solution_file("nefis.sln",        os.path.join("scripts_lgpl", "win64", "nefis_template.sln"))
 
     # Force reading GUI parameters next run
     vs = -999
@@ -405,6 +537,7 @@ def build_gui():
     global vs_gui
     global ifort_gui
     global root
+    global chooseIfort
 
     root = Tk(className="Choose IDE and compiler")
     root.geometry("600x300")
@@ -415,25 +548,31 @@ def build_gui():
     Label(text="Visual Studio Version:", relief=RIDGE, width=20).grid(row=0, column=0)
     
     Radiobutton(root, text="VS 2017 (not tested yet)              ", variable=vs_gui, value=2017).grid(row=1, column=0, sticky=W)
-    Radiobutton(root, text="VS 2015, Update 1 + .Net Framework 4.6", variable=vs_gui, value=2015).grid(row=2, column=0, sticky=W)
+    Radiobutton(root, text="VS 2015, Update 3 + .Net Framework 4.6", variable=vs_gui, value=2015).grid(row=2, column=0, sticky=W)
     Radiobutton(root, text="VS 2013           + .Net Framework 4.5", variable=vs_gui, value=2013).grid(row=3, column=0, sticky=W)
     Radiobutton(root, text="VS 2012           + .Net Framework 4.5", variable=vs_gui, value=2012).grid(row=4, column=0, sticky=W)
     Radiobutton(root, text="VS 2010           + .Net Framework 4.0", variable=vs_gui, value=2010).grid(row=5, column=0, sticky=W)
     # default value
     vs_gui.set(2012)
     
-    Label(text="IFORT Version:", relief=RIDGE, width=20).grid(row=0, column=2)
-    Radiobutton(root, text="IFORT17: (not tested yet)                      ", variable=ifort_gui, value=17).grid(row=1, column=2, sticky=W)
-    Radiobutton(root, text="IFORT16: Intel Parallel Studio XE 2016 Update 1", variable=ifort_gui, value=16).grid(row=2, column=2, sticky=W)
-    Radiobutton(root, text="IFORT15: Intel Parallel Studio XE 2015         ", variable=ifort_gui, value=15).grid(row=3, column=2, sticky=W)
-    Radiobutton(root, text="IFORT14: Intel Visual Fortran Composer XE 2014 ", variable=ifort_gui, value=14).grid(row=4, column=2, sticky=W)
-    Radiobutton(root, text="IFORT13: Intel Visual Fortran Composer XE 2013 ", variable=ifort_gui, value=13).grid(row=5, column=2, sticky=W)
-    Radiobutton(root, text="IFORT12: Intel Visual Fortran Composer XE 2011 ", variable=ifort_gui, value=12).grid(row=6, column=2, sticky=W)
-    # default value
-    ifort_gui.set(13)
+    if chooseIfort == 1:
+        Label(text="IFORT Version:", relief=RIDGE, width=20).grid(row=0, column=2)
+        Radiobutton(root, text="IFORT17: (not tested yet)                      ", variable=ifort_gui, value=17).grid(row=1, column=2, sticky=W)
+        Radiobutton(root, text="IFORT16: Intel Parallel Studio XE 2016 Update 4", variable=ifort_gui, value=16).grid(row=2, column=2, sticky=W)
+        Radiobutton(root, text="IFORT15: Intel Parallel Studio XE 2015 Update 6", variable=ifort_gui, value=15).grid(row=3, column=2, sticky=W)
+        Radiobutton(root, text="IFORT14: Intel Visual Fortran Composer XE 2014 ", variable=ifort_gui, value=14).grid(row=4, column=2, sticky=W)
+        Radiobutton(root, text="IFORT13: Intel Visual Fortran Composer XE 2013 ", variable=ifort_gui, value=13).grid(row=5, column=2, sticky=W)
+        Radiobutton(root, text="IFORT12: Intel Visual Fortran Composer XE 2011 ", variable=ifort_gui, value=12).grid(row=6, column=2, sticky=W)
+        # default value
+        ifort_gui.set(13)
+    else:
+        ifort_gui.set(-999)
     
     Label(text=" ").grid(row=7)
-    Label(text="Choose your Visual Studio version and IFORT version and click 'Apply'").grid(row=8, column=0, columnspan=3)
+    if chooseIfort == 1:
+        Label(text="Choose your Visual Studio version and IFORT version and click 'Apply'").grid(row=8, column=0, columnspan=3)
+    else:
+        Label(text="Choose your Visual Studio version and click 'Apply'").grid(row=8, column=0, columnspan=3)
     
     b1 = Button(root, text="Apply", width=20, command=do_work).grid(row=9, column=0, sticky=W)
     b2 = Button(root, text="Exit", width=20, command=exit_button_pressed).grid(row=9, column=2, sticky=E)

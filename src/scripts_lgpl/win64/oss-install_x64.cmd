@@ -211,9 +211,13 @@ rem ================
 
     set dest_bin="!dest_main!\win64\dimr\bin"
     set dest_menu="!dest_main!\win64\menu\bin"
+    set dest_scripts="!dest_main!\win64\scripts"
+    set dest_shared="!dest_main!\win64\shared"
 
     call :makeDir !dest_bin!
     call :makeDir !dest_menu!
+    call :makeDir !dest_scripts!
+    call :makeDir !dest_shared!
     
     call :copyFile engines_gpl\dimr\bin\x64\Release\dimr.exe             !dest_bin!
     call :copyFile engines_gpl\dimr\bin\x64\Release\dimr_dll.dll         !dest_bin!
@@ -221,7 +225,26 @@ rem ================
     call :copyFile "third_party_open\pthreads\bin\x64\*.dll"             !dest_bin!
     call :copyFile "third_party_open\mpich2\x64\bin\*.exe"               !dest_bin!
     call :copyFile "third_party_open\mpich2\x64\lib\*.dll"               !dest_bin!
+
     call :copyFile engines_gpl\d_hydro\scripts\create_config_xml.tcl     !dest_menu!
+
+    call :copyFile "engines_gpl\dimr\scripts\generic\win64\*.*"     !dest_scripts!
+
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC100.CRT\*.dll"             !dest_shared!
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC110.CRT\*.dll"             !dest_shared!
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC120.CRT\*.dll"             !dest_shared!
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC140.CRT\*.dll"             !dest_shared!
+    call :copyFile "third_party_open\intel_fortran\lib\x64\*.dll"                        !dest_shared!
+    call :copyFile "third_party_open\netcdf\lib\x64\Release\ifort17\*.dll"               !dest_shared!
+    call :copyFile "third_party_open\netcdf\bin\ncdump.exe"                              !dest_shared!
+    call :copyFile "third_party_open\mpich2\x64\lib\*.dll"                               !dest_shared!
+    call :copyFile "third_party_open\mpich2\x64\bin\mpiexec.exe"                         !dest_shared!
+    call :copyFile "third_party_open\mpich2\x64\bin\smpd.exe"                            !dest_shared!
+    call :copyFile "third_party_open\expat\x64\x64\Release\*.dll"                        !dest_shared!
+    call :copyFile "third_party_open\pthreads\bin\x64\*.dll"                             !dest_shared!
+    echo This directory is automatically created by script https://svn.oss.deltares.nl/repos/delft3d/trunk/src/scripts_lgpl/win64/oss-install_x64.cmd >!dest_shared!\readme.txt
+    echo This script is executed via a post-build event of https://svn.oss.deltares.nl/repos/delft3d/trunk/src/engines_gpl/dimr/packages/dimr/dimr_exe.vcxproj >>!dest_shared!\readme.txt
+    echo Further modifications can be done via a Python script executed via "DIMR_collector" projects in TeamCity >>!dest_shared!\readme.txt
 goto :endproc
 
 
@@ -390,6 +413,15 @@ rem ======================
            set localstring="!compiler_dir!svml_dispmd.dll"
            call :copyFile !!localstring! !dest_bin!!
        )
+
+    rem
+    rem Copy all VCR libraries since we don't know what VS version was used and all versions have unique names
+    rem
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC100.CRT\msvcr100.dll"             !dest_bin!
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC110.CRT\msvcr110.dll"             !dest_bin!
+    call :copyFile "third_party_open\vcredist\x64\Microsoft.VC120.CRT\msvcr120.dll"             !dest_bin!
+    call :copyFile "third_party_open\microsoft_redist\vs2015\vcruntime140.dll"                  !dest_bin!
+
 goto :endproc
 
 
@@ -680,6 +712,21 @@ rem ===================
     rem call :makeDir !dest_bin!
 
     rem call :copyFile tools\nestwq2\packages\nestwq2\x64\Release\nestwq2.exe !dest_bin!
+goto :endproc
+
+
+
+rem =====================
+rem === INSTALL IO_NETCDF
+rem =====================
+:io_netcdf
+    echo "installing io_netcdf . . ."
+
+    set dest_bin="!dest_main!\win64\shared"
+
+    call :makeDir !dest_bin!
+
+    call :copyFile "utils_lgpl\io_netcdf\packages\io_netcdf\dll\x64\Release\io_netcdf.dll"                  !dest_bin!
 goto :endproc
 
 

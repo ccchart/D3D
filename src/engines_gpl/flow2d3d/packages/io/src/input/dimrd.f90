@@ -8,7 +8,7 @@ subroutine dimrd(lunmd     ,lundia    ,error     ,runid     ,nrver     , &
                & nfl       ,nflmod    ,lfsdu     ,lfsdus1   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -136,7 +136,7 @@ subroutine dimrd(lunmd     ,lundia    ,error     ,runid     ,nrver     , &
     logical                      :: sedim     !  Description and declaration in procs.igs
     logical                      :: temp      !  Description and declaration in procs.igs
     logical                      :: wave      !  Description and declaration in procs.igs
-    logical                      :: waveol    !  Description and declaration in procs.igs
+    integer                      :: waveol    !  Description and declaration in procs.igs
     logical                      :: wavcmp
     logical                      :: wind      !  Description and declaration in procs.igs
     logical        , intent(out) :: zmodel    !  Description and declaration in procs.igs
@@ -307,7 +307,7 @@ subroutine dimrd(lunmd     ,lundia    ,error     ,runid     ,nrver     , &
     temp    = .false.
     wavcmp  = .false.
     wave    = .false.
-    waveol  = .false.
+    waveol  = 0
     wind    = .false.
     zmodel  = .false.
     sbkol   = .false.

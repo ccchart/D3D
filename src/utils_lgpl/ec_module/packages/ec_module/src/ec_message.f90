@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -115,7 +115,7 @@ module m_ec_message
          end subroutine
       end interface
       character(len=maxMessageLen) :: retval, message 
-      integer                      :: i, i0, iostat 
+      integer                      :: i, i0
       character(len=maxMessageLen) :: messages(15)
       message = getECMessage()
       messages = ''

@@ -1,7 +1,7 @@
 module wave_data
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -115,9 +115,9 @@ subroutine initialize_wavedata(wavedata)
    !
    call util_getenv('ARCH',txthlp)
    call small(txthlp,999)
-   if (txthlp == 'win32' .or. txthlp == 'w32') then
+   if (txthlp == 'win32' .or. txthlp == 'w32' .or. txthlp == 'x86') then
       arch = 'win32'
-   elseif (txthlp == 'win64') then
+   elseif (txthlp == 'win64' .or. txthlp == 'x64') then
       arch = 'win64'
    else
       arch = 'linux'

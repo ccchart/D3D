@@ -1,12 +1,12 @@
 subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
                 & trifil    ,runid     ,prsmap    ,prshis    ,selmap    , &
-                & selhis    ,rhow      ,grdang    ,initi     ,dtsec     , &
+                & selhis    ,rhow      ,grdang    ,dtsec     , &
                 & nst       ,iphisc    ,npmap     ,itcomc    ,itimc     , &
                 & itcur     ,ntcur     ,ithisc    ,itmapc    ,itdroc    , &
                 & itrstc    ,ktemp     ,halftime  ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -134,40 +134,26 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer                              , pointer :: julday
     integer                              , pointer :: ntstep
     integer                              , pointer :: nto
-    real(fp)                             , pointer :: bed
-    real(fp)                             , pointer :: tmor
-    integer                              , pointer :: itmor
-    logical                              , pointer :: multi
     logical                              , pointer :: first
     integer                              , pointer :: nuprpg
     integer                              , pointer :: nuprln
     character(131)   , dimension(:)      , pointer :: header
     logical                              , pointer :: wind
-    logical                              , pointer :: culvert
-    logical                              , pointer :: dredge
     logical                              , pointer :: drogue
     logical                              , pointer :: wave
-    logical                              , pointer :: waveol
-    logical                              , pointer :: sedim
+    integer                              , pointer :: waveol
     logical                              , pointer :: coupleact
     logical                              , pointer :: couplemod
     logical                              , pointer :: zmodel
-    logical                              , pointer :: roller
-    logical                              , pointer :: xbeach
     integer(pntrsize)                    , pointer :: alfas
     integer(pntrsize)                    , pointer :: areau
     integer(pntrsize)                    , pointer :: areav
     integer(pntrsize)                    , pointer :: atr
-    integer(pntrsize)                    , pointer :: c
     integer(pntrsize)                    , pointer :: cfurou
     integer(pntrsize)                    , pointer :: cfvrou
-    integer(pntrsize)                    , pointer :: cvalu0
-    integer(pntrsize)                    , pointer :: cvalv0
     integer(pntrsize)                    , pointer :: ctr
     integer(pntrsize)                    , pointer :: dicuv
     integer(pntrsize)                    , pointer :: dicww
-    integer(pntrsize)                    , pointer :: dis
-    integer(pntrsize)                    , pointer :: disch
     integer(pntrsize)                    , pointer :: discum
     integer(pntrsize)                    , pointer :: dp
     integer(pntrsize)                    , pointer :: dps
@@ -215,7 +201,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer(pntrsize)                    , pointer :: rbuff
     integer(pntrsize)                    , pointer :: rho
     integer(pntrsize)                    , pointer :: rich
-    integer(pntrsize)                    , pointer :: rint
     integer(pntrsize)                    , pointer :: rlabda
     integer(pntrsize)                    , pointer :: rsed
     integer(pntrsize)                    , pointer :: rtur1
@@ -349,10 +334,11 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     integer                              , pointer :: itwqff
     integer                              , pointer :: itwqfi
     integer                              , pointer :: itwqfl
+    real(fp)                             , pointer :: zbot
+    real(fp)                             , pointer :: ztop
 !
 ! Global variables
 !
-    integer                                    :: initi
     integer                                    :: iphisc !!  Current time counter for printing history data
     integer                                    :: itcomc
     integer                                    :: itcur  !!  Current time counter for the communication file, where starting point depend on CYCLIC
@@ -487,39 +473,25 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     ipmap               => gdp%gdinttim%ipmap
     julday              => gdp%gdinttim%julday
     ntstep              => gdp%gdinttim%ntstep
-    bed                 => gdp%gdmorpar%bed
-    tmor                => gdp%gdmorpar%tmor
-    itmor               => gdp%gdmorpar%itmor
-    multi               => gdp%gdmorpar%multi
     nuprpg              => gdp%gdpostpr%nuprpg
     nuprln              => gdp%gdpostpr%nuprln
     header              => gdp%gdpostpr%header
     wind                => gdp%gdprocs%wind
-    culvert             => gdp%gdprocs%culvert
-    dredge              => gdp%gdprocs%dredge
     drogue              => gdp%gdprocs%drogue
     wave                => gdp%gdprocs%wave
     waveol              => gdp%gdprocs%waveol
-    sedim               => gdp%gdprocs%sedim
     coupleact           => gdp%gdprocs%coupleact
     couplemod           => gdp%gdprocs%couplemod
     zmodel              => gdp%gdprocs%zmodel
-    roller              => gdp%gdprocs%roller
-    xbeach              => gdp%gdprocs%xbeach
     alfas               => gdp%gdr_i_ch%alfas
     areau               => gdp%gdr_i_ch%areau
     areav               => gdp%gdr_i_ch%areav
     atr                 => gdp%gdr_i_ch%atr
-    c                   => gdp%gdr_i_ch%c
     cfurou              => gdp%gdr_i_ch%cfurou
     cfvrou              => gdp%gdr_i_ch%cfvrou
-    cvalu0              => gdp%gdr_i_ch%cvalu0
-    cvalv0              => gdp%gdr_i_ch%cvalv0
     ctr                 => gdp%gdr_i_ch%ctr
     dicuv               => gdp%gdr_i_ch%dicuv
     dicww               => gdp%gdr_i_ch%dicww
-    dis                 => gdp%gdr_i_ch%dis
-    disch               => gdp%gdr_i_ch%disch
     discum              => gdp%gdr_i_ch%discum
     dp                  => gdp%gdr_i_ch%dp
     dps                 => gdp%gdr_i_ch%dps
@@ -566,7 +538,6 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     rbuff               => gdp%gdr_i_ch%rbuff
     rho                 => gdp%gdr_i_ch%rho
     rich                => gdp%gdr_i_ch%rich
-    rint                => gdp%gdr_i_ch%rint
     rlabda              => gdp%gdr_i_ch%rlabda
     rsed                => gdp%gdr_i_ch%rsed
     rtur1               => gdp%gdr_i_ch%rtur1
@@ -701,6 +672,8 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     itwqfi              => gdp%gdwaqpar%itwqfi
     itwqfl              => gdp%gdwaqpar%itwqfl
     nto                 => gdp%d%nto
+    zbot                => gdp%gdzmodel%zbot
+    ztop                => gdp%gdzmodel%ztop
     
     !
     ! Initialisation
@@ -763,7 +736,7 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
           else
              icel = itcur
           endif
-          if(wave .and. waveol) then
+          if (wave .and. waveol>0) then
              !
              ! keep overwriting first record to avoid huge com-file
              !
@@ -823,7 +796,7 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
                 &  ltem      , lsed      , r(r1)     , r(areau)  , r(areav)  ,  &
                 &  r(taubmx) , r(dicww)  , d(dps)    , r(dp)     , r(cfurou) , r(cfvrou) , &
                 &  chez      , i(mnksrc) , ch(namsrc), nto       , ch(nambnd), i(mnbnd)  , &
-                &  zmodel    , gdp       )
+                &  zmodel    , ztop      , zbot      , gdp       )
     !
     ! Create the stream for FLOW to get the answer from WAQ
     !
@@ -1042,12 +1015,11 @@ subroutine postpr(lundia    ,lunprt    ,error     ,versio    ,comfil    , &
     if (itmapi > 0) then
        if (nst == itmapc) then
           call wrm_main(lundia    ,error     ,selmap    ,grdang    ,dtsec     , &
-                      & itmapc    ,runtxt    ,trifil    ,.false.   ,initi     , &
-                      & gdp       )
+                      & itmapc    ,runtxt    ,trifil    ,.false.   ,gdp       )
           if (error) goto 9999
        endif
 
-       if (wave .and. waveol .and. nst==itmapc) then
+       if (wave .and. waveol==2 .and. nst==itmapc) then
           !
           ! Create file TMP_write_wavm
           ! waves.exe will only write wave maps if file TMP_write_wavm exists 

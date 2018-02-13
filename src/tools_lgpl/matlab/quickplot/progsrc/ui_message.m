@@ -27,7 +27,7 @@ function H = ui_message(Cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -339,6 +339,8 @@ else
             end
             NL=length(Msg);
             set(findobj(fig,'tag','errorlist'),'string',errors,'value',length(errors)+1-(1:NL));
+        case 'getall'
+            H = errors;
     end
 end
 UD.errors=errors;

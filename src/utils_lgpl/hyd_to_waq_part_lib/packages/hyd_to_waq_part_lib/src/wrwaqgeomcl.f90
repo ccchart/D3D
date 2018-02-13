@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -50,7 +50,7 @@ contains
                              nlb      , nub   , mlb    , mub    ,          &
                              xcor     , ycor  , xz     , yz     , dep    , &
                              kcs      , kcu   , kcv    , sferic , aggre  , &
-                             isaggr   , nto   , nambnd , mnbnd)
+                             isaggrl  , nto   , nambnd , mnbnd)
 
     use netcdf
     use io_ugrid
@@ -80,14 +80,14 @@ contains
     integer        , dimension(nlb:nub,mlb:mub), intent(in) :: kcv        !! v-flowlink type (0=closed, 1=open)
     logical                                    , intent(in) :: sferic     !! sferic grid
     integer                                    , intent(in) :: aggre      !! aggregation type (0=no-aggregation, active cells only, 1=aggregation table)
-    integer        , dimension(nmax*mmax*kmax) , intent(in) :: isaggr     !! grid aggregation pointer
+    integer        , dimension(nmax*mmax)      , intent(in) :: isaggrl    !! grid aggregation pointer (only top/bottom layer, depending on zmodel)
     character(20)  , dimension(nto)            , intent(in) :: nambnd     !! names of the open boundaries
     integer        , dimension(7,nto)          , intent(in) :: mnbnd      !! indices of the open boundaries
 !
 !           Local variables
 !
     type(t_crs), target                 :: crs
-    type(t_ug_meshids)                  :: meshids               !< Set of NetCDF-ids for all mesh geometry arrays.
+    type(t_ug_mesh)                     :: meshids               !< Set of NetCDF-ids for all mesh geometry arrays.
     type(t_ug_meshgeom)                 :: meshgeom              !< Mesh geometry to be written to the NetCDF file.
     type(t_ug_meshgeom)                 :: aggregated_meshgeom   !< Mesh geometry to be written to the NetCDF file.
                                         
@@ -148,15 +148,11 @@ contains
         do n = 1, nmax
             cellindex = func(m, n, nmax)
             if (kcs(n, m) == 1) then
-                if (kcu(n  ,m-1)==0 .and. kcu(n  ,m  )==0 .and. &
-                    kcv(n-1,m  )==0 .and. kcv(n  ,m  )==0) then ! do not count active cells defined with four thin dams
-                else
-                    ! Valid cell found
-                    nr_elems = nr_elems + 1
-                    flow_vol(cellindex) = nr_elems
-                end if
+                ! Valid cell found
+                nr_elems = nr_elems + 1
+                flow_vol(cellindex) = nr_elems
             else if (kcs(n, m) == 2) then
-                flow_vol(cellindex) = isaggr(cellindex)
+                flow_vol(cellindex) = isaggrl(cellindex)
             end if
         end do
     end do        
@@ -356,7 +352,7 @@ contains
     allocate(nr_bnd_cells(nto))
     do i = 1, nto
         m_dir = max(mnbnd(1,i),mnbnd(3,i)) - min(mnbnd(1,i),mnbnd(3,i)) + 1
-        n_dir = max(mnbnd(4,i),mnbnd(4,i)) - min(mnbnd(2,i),mnbnd(2,i)) + 1
+        n_dir = max(mnbnd(2,i),mnbnd(4,i)) - min(mnbnd(2,i),mnbnd(4,i)) + 1
         nr_bnd_cells(i) = max(m_dir, n_dir)
         total_bnd_cells = total_bnd_cells + max(m_dir, n_dir)
         max_bnd_cells = max(max_bnd_cells, max(m_dir, n_dir))
@@ -466,9 +462,8 @@ contains
     !   
     ! Write the boundary file
     ! 
-    lunbnd = newunit()
-    bndfilename = 'com-' // trim(meta%modelname) // '.bnd'
-    open(lunbnd, file= trim(bndfilename))
+    bndfilename = trim(meta%modelname) // '.bnd'
+    open(newunit = lunbnd, file= trim(bndfilename))
 
     if (nto > 0) then
         write(lunbnd, '(i0.0)') nto
@@ -489,7 +484,7 @@ contains
     !===============================================================================
     !   
     ierr = 0
-    geomfilename = 'com-' // trim(meta%modelname) //'_waqgeom.nc' ! Should be equal to the name given in the hyd-file (that file is written in the routine wrwaqhyd)
+    geomfilename = trim(meta%modelname) //'_waqgeom.nc' ! Should be equal to the name given in the hyd-file (that file is written in the routine wrwaqhyd)
     !
     ! create or open the file
     !
@@ -508,7 +503,6 @@ contains
     
     meshgeom%meshName = 'mesh2d'
     meshgeom%dim = 2
-    meshgeom%crs => crs
 
     meshgeom%numNode = nr_nodes
     meshgeom%nodex => nodex 
@@ -534,21 +528,15 @@ contains
     !
     if (aggre==1) then
         allocate(iapnt(nr_elems))
-!        allocate(iapnt(nr_elems+nr_bnd_elm))
         do m = 1, mmax
             do n = 1, nmax
                 cellindex = func(m, n, nmax)
                 elm = flow_vol(cellindex)
                 if (elm > 0) then
-                    iapnt(elm) = isaggr(cellindex)
+                    iapnt(elm) = isaggrl(cellindex)
                 end if
             end do
         end do
-        ! added renumbering for boundary nodes
-!        nr_elems_aggr = maxval(isaggr(1:nmax*mmax))
-!        do elm = 1, nr_bnd_elm
-!           iapnt(nr_elems + elm) = nr_elems_aggr + elm
-!        enddo
         success = aggregate_ugrid_geometry(meshgeom, aggregated_meshgeom, edge_type, aggr_edge_type, iapnt)
         if(success) then
             meshgeom = aggregated_meshgeom
@@ -558,7 +546,7 @@ contains
     !
     ! Write mesh as UGRID
     !
-    ierr = ug_write_mesh_struct(igeomfile, meshids, meshgeom)
+    ierr = ug_write_mesh_struct(igeomfile, meshids, crs, meshgeom)
     call nc_check_err(lundia, ierr, "writing mesh", geomfilename)
     !
     ! Write edge type variable (this is an extra variable that is not part of the UGRID standard).

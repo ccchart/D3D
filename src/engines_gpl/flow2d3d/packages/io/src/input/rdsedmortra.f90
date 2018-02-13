@@ -4,7 +4,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                      & nambnd    ,lsec      ,tstart    ,tunit     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -49,6 +49,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     !
     type(globdat)             ,target        :: gdp
     integer                   , parameter    :: NPARDEF = 20
+    logical                   , pointer      :: lfbedfrm
     real(hp)                  , pointer      :: morft
     real(hp)                  , pointer      :: morft0
 !
@@ -91,6 +92,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
 !
     morft               => gdp%gdmorpar%morft
     morft0              => gdp%gdmorpar%morft0
+    lfbedfrm            => gdp%gdbedformpar%lfbedfrm
     !
     if (morft == 0.0_hp) then
         !
@@ -141,7 +143,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     ! Read data from that file
     !
     call rdmor(lundia     ,error     ,filmor    ,lsec      ,lsedtot    , &
-             & lsed       ,nmaxus     ,nto       , &
+             & lsed       ,nmaxus     ,nto      ,lfbedfrm  , &
              & nambnd     ,gdp%gdinttim%julday  ,mor_ptr   ,gdp%gdsedpar, &
              &gdp%gdmorpar,fwfacmor  ,gdp%gdmorlyr, gdp%griddim)
     if (error) goto 999
@@ -190,7 +192,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     ! Echo morphology parameters
     !
     call echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto        , &
-               & nambnd    ,gdp%gdsedpar, gdp%gdmorpar)
+               & nambnd    ,gdp%gdsedpar, gdp%gdmorpar, gdp%gdexttim%tunitstr)
     if (error) goto 999
     !
     ! Read scour and echo parameters

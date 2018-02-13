@@ -1,7 +1,7 @@
 subroutine gdp_alloc(gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -130,6 +130,7 @@ subroutine gdp_alloc(gdp)
     allocate (gdp%gdsnel)
     allocate (gdp%gdtimers)
     allocate (gdp%gdtricom)
+    allocate (gdp%gdtricom%timwav(1500))
     allocate (gdp%gdtrisol)
     allocate (gdp%gdu_ppr)
     allocate (gdp%gdupdbcc)

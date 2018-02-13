@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -111,6 +111,7 @@
 
 !        sloppy way of output
 
+      ITER = 0
       IERR = 0
       IF (FIRST) THEN
          FIRST = .FALSE.
@@ -190,7 +191,6 @@
       ENDIF
       IF ( RESID .LT. TOL ) GOTO 70
 
-      ITER = 0
 
 
 !     Main GMRES iteration loop

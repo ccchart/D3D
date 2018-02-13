@@ -3,7 +3,7 @@ function qp_prefs(UD,mfig,cmd,cmdargs)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -190,7 +190,7 @@ switch cmd
             end
         end
 
-    case 'colorbar_ratio'
+    case {'colorbar_ratio','export_max_ntimes'}
         newval = round(str2double(get(gcbo,'string')));
         qp_settings(cmd,newval);
         set(gcbo,'string',num2str(newval))

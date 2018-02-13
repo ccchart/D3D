@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -225,7 +225,11 @@ module m_ec_support
          minp = i
          ! Open the data file.
          open(minp, file = trim(filename), action = 'READ', iostat = istat)
-         if (istat == 0) success = .true.
+         if (istat == 0) then
+            success = .true.
+         else
+            call setECMessage("ERROR: ec_support::ecSupportOpenExistingFile: opening file " // trim(filename) // " failed")
+         endif
       end function ecSupportOpenExistingFile
    
       ! ==========================================================================
@@ -791,7 +795,6 @@ end subroutine ecInstanceListSourceItems
          character(len=maxFileNameLen), intent(in) :: filename    !< 
          !
          character(3000) :: message
-         integer         :: iostat
          !
          if (ierror /= nf90_noerr) then
             write (message,'(6a)') 'ERROR ', trim(description), '. NetCDF file : "', trim(filename), '". Error message:', nf90_strerror(ierror)
@@ -803,22 +806,26 @@ end subroutine ecInstanceListSourceItems
       end function ecSupportNetcdfCheckError
 
       ! =======================================================================
-      
+
       !> Extracts time unit and reference date from a standard time string.
       !! ASCII example: "TIME = 0 hours since 2006-01-01 00:00:00 +00:00"
       !! NetCDF example: "minutes since 1970-01-01 00:00:00.0 +0000"
-      function ecSupportTimestringToUnitAndRefdate(string, unit, ref_date, tzone) result(success)
+      function ecSupportTimestringToUnitAndRefdate(string, unit, ref_date, tzone, tzone_default) result(success)
          use netcdf
          use time_module
          !
-         logical                          :: success  !< function status
-         character(len=*),   intent(in)   :: string   !< units string
-         integer,  optional, intent(out)  :: unit     !< time unit enumeration
-         real(hp), optional, intent(out)  :: ref_date !< reference date formatted as Modified Julian Date
-         integer                          :: iostat
-         real(hp), optional, intent(out)  :: tzone    !< timezone
+         logical                           :: success       !< function status
+         character(len=*),   intent(inout) :: string        !< units string (at out in lowercase)
+         integer,  optional, intent(out)   :: unit          !< time unit enumeration
+         real(hp), optional, intent(out)   :: ref_date      !< reference date formatted as Modified Julian Date
+         real(hp), optional, intent(out)   :: tzone         !< time zone
+         real(hp), optional, intent(in)    :: tzone_default !< default for time zone
          !
-         integer :: i        !< helper index
+         integer :: i        !< helper index for location of 'since'
+         integer :: j        !< helper index for location of '+/-' in time zone
+         integer :: jplus    !< helper index for location of '+' in time zone
+         integer :: jmin     !< helper index for location of '-' in time zone
+         integer :: minsize  !< helper index for time zone
          integer :: temp     !< helper variable
          integer :: yyyymmdd !< reference date as Gregorian yyyymmdd
          !
@@ -840,8 +847,8 @@ end subroutine ecInstanceListSourceItems
             end if
          end if
          ! Determine the reference date.
+         i = index(string, 'since') + 6
          if (present(ref_date)) then
-            i = index(string, 'since') + 6
             if (i /= 0) then
                ! Date
                read(string(i : i+4), '(I4)') temp
@@ -869,18 +876,86 @@ end subroutine ecInstanceListSourceItems
 
          ! Determine the timezone
          if (present(tzone)) then
-            tzone = 0
-            i = index(string, '+',BACK=.True.)           ! Timezone following a '+'
-            if (i>0) then
-               read(string(i+1:i+2),*,iostat=iostat) tzone
-            end if
+             minsize = i + 18   ! +/- is to be found after date and time (note that date has '-')
+             jplus = index(string, '+', back=.true.)
+             jmin  = index(string, '-', back=.true.)
+             j     = max(jplus, jmin)
+             if (j > minsize) then
+                 if (present(tzone_default)) then
+                     success = parseTimezone(string(j:), tzone, tzone_default)
+                 else
+                     success = parseTimezone(string(j:), tzone)
+                 endif
+             else
+                 call setECMessage("WARNING: ec_support::ecSupportTimestringToUnitAndRefdate: no timezone found; assume same as Kernel.")
+                 if (present(tzone_default)) then
+                     tzone = tzone_default
+                 else
+                     tzone = 0.0_hp
+                 endif
+                 success = .true.
+             endif
+         else
+             success = .true.
          end if
          !
-         success = .true.
       end function ecSupportTimestringToUnitAndRefdate
 
       ! =======================================================================
-      
+
+      !> Extracts time zone from a standard time string.
+      !! examples: "+01:00", "+0200", "-01:00", "-0200", "+5:30"
+      function parseTimezone(string, tzone, tzone_default) result(success)
+         logical                           :: success         !< function status
+         character(len=*),   intent(in)    :: string          !< units string
+         real(hp),           intent(out)   :: tzone           !< time zone
+         real(hp), optional, intent(in)    :: tzone_default   !< default value for time zone
+
+         integer          :: ierr        !< error code
+         integer          :: jcolon      !< helper index for location of ':' in timezone
+         integer          :: jend        !< helper index
+         integer          :: posNulChar  !< position of null char; end of string if from C
+         real(hp)         :: min         !< minutes part of time zone, as double
+         real(hp)         :: hour        !< hours part of time zone, as double
+         character(len=2) :: cmin        !< minutes part of time zone, as character string
+         character(len=3) :: chour       !< hours part of time zone, as character string
+
+         if (present(tzone_default)) then
+            tzone = tzone_default
+         else
+            tzone = 0.0_hp
+         endif
+
+         jcolon = index(string, ':')
+
+         if (jcolon == 0) then
+            posNulChar = index(string, char(0))
+            if (posNulChar > 0) then
+               jend = posNulChar-1
+            else
+               jend = len_trim(string)
+            endif
+            cmin = string(jend-1:)
+            chour = string(:jend-2)
+         else
+            cmin = string(jcolon+1:)
+            chour = string(:jcolon-1)
+         end if
+
+         read(chour, *, iostat=ierr) hour
+         if (ierr == 0) read(cmin, *, iostat=ierr) min
+         if (string(1:1) == '-') then
+            tzone = hour - min / 60.0_hp
+         else
+            tzone = hour + min / 60.0_hp
+         endif
+
+         success = (ierr == 0)
+         if (.not. success) call setECMessage("ERROR: ec_support::parseTimezone: error parsing time zone " // trim(string))
+      end function parseTimezone
+
+      ! =======================================================================
+
       !> Calculate conversion factor from ec_timestep_unit to seconds
       function ecSupportTimeUnitConversionFactor(unit) result(factor)
          integer             :: factor
@@ -925,7 +1000,7 @@ end subroutine ecInstanceListSourceItems
          !
          integer :: factor_in    !< conversion factor from ec_timestep_unit to seconds    (EC-module)
          integer :: factor_out   !< conversion factor from k_timestep_unit to seconds     (Kernel)
-         integer :: factor       !< resulting conversion factor 
+         integer :: factor       !< resulting conversion factor
          !
          if (tframe%k_refdate > (-1.0d+0 + 1.0d-10)) then
             ! convert time stamp in file (*.tmp) to kernel time stamp
@@ -935,8 +1010,8 @@ end subroutine ecInstanceListSourceItems
             !
             timesteps = thistime * factor + (tframe%ec_refdate - tframe%k_refdate) * 60.0_hp*60.0_hp*24.0_hp
             !
-            ! Correct for Kernel's timzone.
-            timesteps = timesteps + tframe%k_timezone*3600.0_hp
+            ! Correct for difference in Kernel's timezone and EC's timezone.
+            timesteps = timesteps + (tframe%k_timezone - tframe%ec_timezone)*3600.0_hp
          else
             ! no kernel ref date defined, convert to modified julian day
             factor_in = ecSupportTimeUnitConversionFactor(tframe%ec_timestep_unit)
@@ -948,6 +1023,7 @@ end subroutine ecInstanceListSourceItems
       !> Find the CF-compliant longitude and latitude dimensions and associated variables
       function ecSupportNCFindCFCoordinates(ncid, lon_varid, lon_dimid, lat_varid, lat_dimid,      &
                                                     x_varid,   x_dimid,   y_varid,   y_dimid,      &
+                                                    z_varid,   z_dimid,                            &
                                                   tim_varid, tim_dimid) result(success)
       use netcdf
       logical              :: success
@@ -956,26 +1032,30 @@ end subroutine ecInstanceListSourceItems
       integer, intent(out) :: lat_varid      !< One dimensional coordinate variable recognized as latitude
       integer, intent(out) ::   x_varid      !< One dimensional coordinate variable recognized as X
       integer, intent(out) ::   y_varid      !< One dimensional coordinate variable recognized as Y
+      integer, intent(out) ::   z_varid      !< One dimensional coordinate variable recognized as Z
       integer, intent(out) :: tim_varid      !< One dimensional coordinate variable recognized as time
       integer, intent(out) :: lon_dimid      !< Longitude dimension
       integer, intent(out) :: lat_dimid      !< Latitude dimension
       integer, intent(out) ::   x_dimid      !< X dimension
       integer, intent(out) ::   y_dimid      !< Y dimension
+      integer, intent(out) ::   z_dimid      !< Z dimension
       integer, intent(out) :: tim_dimid      !< Time dimension
       integer :: ndim, nvar, ivar, nglobatts, unlimdimid, ierr
       integer :: dimids(1)
-      character(len=NF90_MAX_NAME)  :: units, axis
+      character(len=NF90_MAX_NAME)  :: units, axis, varname
 
       success = .False.
       lon_varid = -1
       lat_varid = -1
       x_varid = -1
       y_varid = -1
+      z_varid = -1
       tim_varid = -1
       lon_dimid = -1
       lat_dimid = -1
       x_dimid = -1
       y_dimid = -1
+      z_dimid = -1
       tim_dimid = -1
       ierr = nf90_inquire(ncid, ndim, nvar, nglobatts, unlimdimid)
       do ivar=1,nvar
@@ -994,13 +1074,21 @@ end subroutine ecInstanceListSourceItems
                case ('m','meters','km','kilometers')
                   axis=''
                   ierr = nf90_get_att(ncid, ivar, 'axis', axis)
-                  if (strcmpi(axis,'X')) then
+                  if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'AXIS', axis) ! support 'axis' in upper case, lower case and camel case
+                  if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'Axis', axis)
+
+                  if (ierr /= 0) then
+                      ierr = nf90_inquire_variable(ncid, ivar, name = varname)
+                      call setECmessage("attribute 'axis' not found for variable " // trim(varname))
+                  else if (strcmpi(axis,'X')) then
                      x_varid = ivar
                      x_dimid = dimids(1)
-                  end if
-                  if (strcmpi(axis,'Y')) then
+                  else if (strcmpi(axis,'Y')) then
                      y_varid = ivar
                      y_dimid = dimids(1)
+                  else if (strcmpi(axis,'Z')) then
+                     z_varid = ivar
+                     z_dimid = dimids(1)
                   end if
                case default
                   ! see if is the time dimension

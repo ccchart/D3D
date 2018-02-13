@@ -3,7 +3,7 @@ subroutine rdq2eb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                 & mnbnd     ,rtubnd    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -182,7 +182,7 @@ subroutine rdq2eb(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           goto 1100
        endif
        !
-       ! Define boundary coniditions
+       ! Define boundary conditions
        ! Loop over boundary for rows
        ! The definition of the open boundary has already been checked
        ! previously therefore the outcome of error in INCREM will

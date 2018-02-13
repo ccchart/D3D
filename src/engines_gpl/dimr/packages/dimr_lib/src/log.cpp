@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -45,135 +45,166 @@
 #   define strdup _strdup
 #endif
 
-Log::Log (
-    FILE *  output,
-    Clock * clock,
-    Mask    mask
-    ) {
+Log::Log( FILE *  output, Clock * clock, Level level, Level feedbackLevel) {
+	this->output = output;
+	this->clock = clock;
+	this->level = level;
+	this->feedbackLevel = feedbackLevel;
+	this->redirectFile = NULL;
 
-    this->output        = output;
-    this->clock         = clock;
-    this->mask          = mask;
 	this->writeCallback = NULL;
+	this->externalLogger = NULL;
 
-    if (pthread_key_create (&this->thkey, NULL) != 0)
-        throw new Exception (true, "Pthreads error in Log: Cannot create thread-specific key: %s", strerror (errno));
-    if (pthread_setspecific (this->thkey, NULL) != 0)
-        throw new Exception (true, "Pthreads error in Log constructor: Cannot set thread-specific key: %s", strerror (errno));
-    }
+	if (pthread_key_create(&this->thkey, NULL) != 0)
+		throw Exception(true, Exception::ERR_PTHREADS, "Pthreads error in Log: Cannot create thread-specific key: %s", strerror(errno));
+	if (pthread_setspecific(this->thkey, NULL) != 0)
+		throw Exception(true, Exception::ERR_PTHREADS, "Pthreads error in Log constructor: Cannot set thread-specific key: %s", strerror(errno));
+}
 
 
-Log::~Log (
-    void
-    ) {
+Log::~Log( void ) {
 	this->writeCallback = NULL;
-    // nothing to do
-    }
+	// nothing to do
+}
 
 
 //------------------------------------------------------------------------------
 
 
-Log::Mask
-Log::GetMask (
-    void
-    ) {
-
-    return this->mask;
-    }
-
-
-void
-Log::SetMask (
-    Mask mask
-    ) {
-
-    this->mask = mask;
-    this->Write (Log::MAJOR, 0, "Log mask set to 0x%08x", this->mask);
-    }
-
-
-void
-Log::RegisterThread (
-    const char * id
-    ) {
-
-    char * idCopy = strdup (id);
-    if (pthread_setspecific (this->thkey, (void *) idCopy) != 0)
-        throw new Exception (true, "Pthreads error in Log::RegisterThread: Cannot set thread-specific key: %s", strerror (errno));
-    }
-
-
-void
-Log::RenameThread (
-    const char * id
-    ) {
-
-    this->UnregisterThread ();
-    this->RegisterThread (id);
-    }
-
-
-void
-Log::UnregisterThread (
-    void
-    ) {
-
-    char * id = (char *) pthread_getspecific (this->thkey);
-    if (id == NULL)
-        throw new Exception (true, "Log thread key not set in UnregisterThread");
-
-    free (id);
-    }
-
-
-bool
-Log::Write (
-    Mask mask,
-    int rank,
-    const char *  format,
-    ...
-    ) {
-	if ((mask & this->mask) == 0)
-        return false;
-
-    const int bufsize = 256*1024;
-    char * buffer = new char [bufsize]; // really big temporary buffer, just in case
-
-    va_list arguments;
-    va_start (arguments, format);
-    int len = vsnprintf (buffer, bufsize-1, format, arguments);
-    va_end (arguments);
-    buffer[bufsize-1] = '\0';
-
-    char clock [100];
-    clock[0] = '\0';
-    this->clock->Now (clock);
-
-    char * threadID = (char *) pthread_getspecific (this->thkey);
-    if (threadID == NULL)
-        threadID = "<anonymous>";
-
-    fprintf (this->output, "Dimr [%s] #%d >> %s\n",
-                        clock,
-                        rank,
-                        buffer
-                        );
-
-    fflush (this->output);
-	if (this->writeCallback){
-		this->writeCallback(buffer);
-	}
-	delete[] buffer;
-    return true;
-    }
-
-void
-Log::SetWriteCallBack(
-WriteCallback writeCallback
-) {
-
-	this->writeCallback = writeCallback;
-	this->Write(Log::MAJOR, 0, "WriteCallBack is set");
+Level Log::GetLevel( void ) {
+	return this->level;
 }
 
+
+void Log::SetLevel( Level level ) {
+	this->level = min(max(level,ALL),FATAL);
+
+    char * levelString = new char[MAXSTRING];
+    logLevelToString(this->level, &levelString);
+	this->Write(INFO, 0, "Log level set to %s", levelString);
+    delete [] levelString;
+}
+
+
+Level Log::GetFeedbackLevel( void ) {
+	return this->feedbackLevel;
+}
+
+
+void Log::SetFeedbackLevel( Level feedbackLevel) {
+	this->feedbackLevel = min(max(feedbackLevel,ALL),FATAL);;
+
+    char * levelString = new char[MAXSTRING];
+    logLevelToString(this->feedbackLevel, &levelString);
+	this->Write(INFO, 0, "feedbackLevel set to %s", levelString);
+    delete [] levelString;
+}
+
+
+void Log::RegisterThread( const char * id ) {
+	char * idCopy = strdup(id);
+	if (pthread_setspecific(this->thkey, (void *)idCopy) != 0)
+		throw Exception(true, Exception::ERR_PTHREADS, "Pthreads error in Log::RegisterThread: Cannot set thread-specific key: %s", strerror(errno));
+}
+
+
+void Log::RenameThread( const char * id ) {
+	this->UnregisterThread();
+	this->RegisterThread(id);
+}
+
+
+void Log::UnregisterThread( void ) {
+	char * id = (char *)pthread_getspecific(this->thkey);
+	if (id == NULL)
+		throw Exception(true, Exception::ERR_PTHREADS, "Log thread key not set in UnregisterThread");
+
+	free(id);
+}
+
+
+bool Log::Write( Level level, int rank, const char *  format, ... ) {
+	const int bufsize = 256 * 1024;
+	char * buffer = new char[bufsize]; // really big temporary buffer, just in case
+
+	va_list arguments;
+	va_start(arguments, format);
+	int len = vsnprintf(buffer, bufsize - 1, format, arguments);
+	va_end(arguments);
+	buffer[bufsize - 1] = '\0';
+
+	if (this->externalLogger){
+		this->externalLogger(level, buffer);
+	}
+
+	if (this->level > level) {
+	    delete[] buffer;
+		return false;
+	}
+
+	char * clock = new char[100];
+	clock[0] = '\0';
+	this->clock->Now(clock);
+
+	char * threadID = (char *)pthread_getspecific(this->thkey);
+	if (threadID == NULL)
+		threadID = "<anonymous>";
+
+	if (redirectFile != NULL) {
+		// Append to file:
+		FILE * fp;
+		fp = fopen(redirectFile, "a");
+        fprintf (fp, "Dimr [%s] #%d >> %s\n",
+            clock,
+			rank,
+			buffer
+			);
+		fclose(fp);
+    } else {
+		// Write to stdout:
+        fprintf (this->output, "Dimr [%s] #%d >> %s\n",
+            clock,
+			rank,
+			buffer
+			);
+		fflush(this->output);
+	}
+
+	// Write to Callback (if registered)
+	// Use separate write Level
+	if (this->writeCallback && this->feedbackLevel <= level) {
+		this->writeCallback(&clock[0], buffer, level);
+	}
+
+	delete[] buffer;
+	delete[] clock;
+	return true;
+}
+
+
+void Log::SetWriteCallBack( WriteCallback writeCallback ) {
+	this->writeCallback = writeCallback;
+	this->Write(INFO, 0, "WriteCallBack is set");
+}
+
+
+void Log::SetExternalLogger( Logger logger ) {
+	this->externalLogger = logger;
+	this->Write(INFO, 0, "External logger is set");
+}
+
+
+void Log::logLevelToString( int level, char ** levelString ){
+    strcpy(*levelString, "UNKNOWN");
+    if (level <= 0) strcpy(*levelString, "ALL");
+    switch(level) {
+    case 0: { strcpy(*levelString, "ALL"); break; }
+    case 1: { strcpy(*levelString, "DEBUG"); break;}
+    case 2: { strcpy(*levelString, "INFO"); break;}
+    case 3: { strcpy(*levelString, "WARNING"); break;}
+    case 4: { strcpy(*levelString, "ERRORS"); break;}
+    case 5: { strcpy(*levelString, "FATAL"); break; }
+    case 6: { strcpy(*levelString, "NONE"); break; }
+    }
+    if (level >= 5) strcpy(*levelString, "FATAL");
+}

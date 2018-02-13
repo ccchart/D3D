@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -36,7 +36,7 @@
 
 #include "clock.h"
 #include <ctime>
-
+#include <time.h>
 
 Clock::Clock (
     void
@@ -66,7 +66,7 @@ Clock::Epoch (
 	//return ((Timestamp) OSTime->tm_sec + OSTime->tm_min * 100 + OSTime->tm_hour * 10000 + OSTime->tm_yday * 1000000);
     SYSTEMTIME tv;
     GetSystemTime(&tv);     // ToDo: Check return code for errors
-    return ((Timestamp) tv.wSecond * 1000000) + tv.wMilliseconds;
+    return (((((Timestamp) tv.wDay * 24 + (Timestamp) tv.wHour) * 60 + (Timestamp) tv.wMinute) * 60 + (Timestamp) tv.wSecond) * 1000000) + tv.wMilliseconds;
 
 #else
     struct timeval  tv;
@@ -118,11 +118,19 @@ char *
 Clock::Now (
     char *  buffer
     ) {
-
-    Timestamp time = this->Epoch ();
-    sprintf (buffer, "%d.%06d",
-                        (int) (time / 1000000),
-                        (int) (time % 1000000)
+    // Epoch is only used for the milliseconds
+    Timestamp eTime = this->Epoch ();
+	time_t ttNow = time(0);
+	tm * ptmNow;
+	ptmNow = localtime(&ttNow);
+    sprintf (buffer, "%04d-%02d-%02d %02d:%02d:%02d.%03d",
+                        1900 + ptmNow->tm_year,
+                        1 + ptmNow->tm_mon,
+                        ptmNow->tm_mday,
+                        ptmNow->tm_hour,
+                        ptmNow->tm_min,
+                        ptmNow->tm_sec,
+                        (int) (eTime % 1000000)
                         );
     return buffer;
     }

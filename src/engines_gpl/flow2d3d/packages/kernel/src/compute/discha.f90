@@ -1,11 +1,11 @@
 subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j         , &
                 & nmmaxj    ,icx       ,icy       ,namsrc    ,mnksrc    , &
                 & kfs       ,kcs       , sour     ,sink      ,volum1    , &
-                & volum0    ,r0        ,disch     ,rint      ,thick     , &
+                & volum0    ,r0        ,disch     ,rint      ,rintsm    ,thick     , &
                 & bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -72,6 +72,7 @@ subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j      
     real(fp), dimension(nsrc)                               , intent(in)  :: disch  ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci), intent(in)  :: r0     ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(lstsc, nsrc)                        , intent(in)  :: rint   ! Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(lstsc, nsrc)                        , intent(out) :: rintsm ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci)              :: sink   ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci)              :: sour   ! Description and declaration in esm_alloc_real.f90
     real(fp), dimension(kmax)                               , intent(in)  :: thick  ! Description and declaration in esm_alloc_real.f90
@@ -95,7 +96,6 @@ subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j      
     integer          :: nmin
     integer          :: offset
     real(fp)         :: concin
-    real(fp)         :: concinWrite
     character(200)   :: filename
 !
 !! executable statements -------------------------------------------------------
@@ -178,7 +178,6 @@ subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j      
                    concin = r0(nmout, kkout, lcon)
                 endif
              endif
-             concinWrite = concin
              if (mnksrc(7,isrc)==6 .and. lcon==ltem) then
                 !
                 ! Q-type power station and this is constituent 'temperature'
@@ -205,6 +204,7 @@ subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j      
           !
           ! source/sink addition at outfall
           !
+          rintsm(lcon, isrc) = concin
           if (kcs(nmout)/=-1) then
           if (disch(isrc) > 0.0_fp) then
              !

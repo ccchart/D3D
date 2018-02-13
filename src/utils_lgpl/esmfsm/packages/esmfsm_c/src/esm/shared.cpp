@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -385,7 +385,7 @@ ESM_Shared_Alloc (
     int     ci,
     int     contextid,
     char *  name,
-    int     size
+    size_t  size
     ) {
 
     // If the context is not attached to the current process, attach it

@@ -4,7 +4,7 @@ subroutine frdint(comfil    ,lundia    ,error     ,ifcore    ,mmax      , &
                 & atimw     ,btimw     ,func      ,fcom      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -99,6 +99,7 @@ subroutine frdint(comfil    ,lundia    ,error     ,ifcore    ,mmax      , &
        !
        ! Check if the first required timestep is in core.
        !
+       ierr=0
        if (ntimwa/=ifcore(1) .and. ntimwa/=ifcore(2)) then
           !
           ! Read the first timestep from file.

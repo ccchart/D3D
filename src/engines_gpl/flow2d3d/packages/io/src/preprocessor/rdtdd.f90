@@ -4,7 +4,7 @@ subroutine rdtdd(lundia    ,lunout    ,lunrd     ,error     ,fildis    , &
                & disint    ,parnam    ,parunt    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -49,7 +49,6 @@ subroutine rdtdd(lundia    ,lunout    ,lunrd     ,error     ,fildis    , &
     ! The following list of pointer parameters is used to point inside the gdp structure
     !
     integer                    , pointer :: itdate
-    real(fp)                   , pointer :: tstop
     real(fp)                   , pointer :: dt
     character*20, dimension(:) , pointer :: keywrd
     character*39, dimension(:) , pointer :: fmtdis
@@ -101,7 +100,6 @@ subroutine rdtdd(lundia    ,lunout    ,lunrd     ,error     ,fildis    , &
     fmtdis  => gdp%gdfmtdis%fmtdis
     keywrd  => gdp%gdkeywtd%keywrd
     itdate  => gdp%gdexttim%itdate
-    tstop   => gdp%gdexttim%tstop
     dt      => gdp%gdexttim%dt
     !
     quote = char(39)

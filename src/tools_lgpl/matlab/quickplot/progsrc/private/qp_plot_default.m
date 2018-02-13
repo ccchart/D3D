@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param,Parent]=qp_plot_default(hNew,Parent,Param,data,O
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -92,7 +92,19 @@ switch NVal
                     elseif strcmp(Ops.presentationtype,'edge n')
                         data.YDamVal(:) = NaN;
                     end
-                    if isfield(data,'XDamVal') && Ops.colourdams
+                    if strcmp(Ops.presentationtype,'values')
+                        xx = (data.X(:,1:end-1) + data.X(:,2:end))/2;
+                        yy = (data.Y(:,1:end-1) + data.Y(:,2:end))/2;
+                        vv = data.XDamVal(:,2:end);
+                        hNew = qp_scalarfield(Parent,[],Ops.presentationtype,'QUAD',xx,yy,[],vv,Ops);
+                        %
+                        xx = (data.X(1:end-1,:) + data.X(2:end,:))/2;
+                        yy = (data.Y(1:end-1,:) + data.Y(2:end,:))/2;
+                        vv = data.YDamVal(2:end,:);
+                        hNew2 = qp_scalarfield(Parent,[],Ops.presentationtype,'QUAD',xx,yy,[],vv,Ops);
+                        %
+                        hNew = cat(2,hNew,hNew2);
+                    elseif isfield(data,'XDamVal') && Ops.colourdams
                         hNew=thindam(data.X,data.Y,data.XDam,data.YDam,'color',data.XDamVal,data.YDamVal,'parent',Parent);
                         set(hNew,'linewidth',Ops.linewidth, ...
                             'linestyle',Ops.linestyle, ...
@@ -874,10 +886,15 @@ switch NVal
                     ZUnits = '';
                 end
                 
+                if isfield(data,'Z')
+                    Z = data.Z;
+                elseif isfield(data,'XYZ')
+                    Z = data.XYZ(:,:,:,3);
+                end
                 Qc1 = [Quant ' comp.1'];
                 Qc2 = [Quant ' comp.2'];
                 ax=Parent(1);
-                hNew(1)=line(squeeze(data.XComp),squeeze(data.Z),'parent',ax);
+                hNew(1)=line(squeeze(data.XComp),squeeze(Z),'parent',ax);
                 setaxesprops(ax,'Val-Z',{Qc1 'elevation'},{Units ZUnits});
                 if ~isempty(stn)
                     qp_title(ax,stn,'quantity',Qc1,'unit',Units,'time',TStr)
@@ -885,9 +902,9 @@ switch NVal
                 
                 ax=Parent(2);
                 if isfield(data,'YComp')
-                    hNew(2)=line(squeeze(data.YComp),squeeze(data.Z),'parent',ax);
+                    hNew(2)=line(squeeze(data.YComp),squeeze(Z),'parent',ax);
                 else
-                    hNew(2)=line(squeeze(data.ZComp),squeeze(data.Z),'parent',ax);
+                    hNew(2)=line(squeeze(data.ZComp),squeeze(Z),'parent',ax);
                 end
                 setaxesprops(ax,'Val-Z',{Qc2 'elevation'},{Units ZUnits});
                 qp_title(ax,TStr,'quantity',Qc2,'unit',Units,'time',TStr)

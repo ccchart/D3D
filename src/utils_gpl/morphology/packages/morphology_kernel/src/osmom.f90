@@ -3,7 +3,7 @@ subroutine osmom(hrms      ,depth     ,tp        ,g         ,cr        , &
                & od2b      ,od3b      ,od4b      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -117,8 +117,7 @@ subroutine osmom(hrms      ,depth     ,tp        ,g         ,cr        , &
           write (*, '(a)') "ERROR: Directory ""default"" not found"
           call throwexception()
        endif
-       utab = newunit()
-       open (utab, file = trim(pathd) // 'tabmom', status='old', action='read', iostat=ierr)
+       open (newunit = utab, file = trim(pathd) // 'tabmom', status='old', action='read', iostat=ierr)
        if (ierr /= 0) then
           write (*, '(3a)') "ERROR: File """,trim(pathd) // 'tabmom', """ not found"
           call throwexception()

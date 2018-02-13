@@ -514,6 +514,7 @@ tools_gpl/vs/packages/vs_version_number/Makefile
 tools_gpl/vs/packages/vs_version_number/src/Makefile
 utils_gpl/Makefile
 utils_gpl/morphology/Makefile
+utils_gpl/morphology/include/Makefile
 utils_gpl/morphology/packages/Makefile
 utils_gpl/morphology/packages/morphology_data/Makefile
 utils_gpl/morphology/packages/morphology_data/src/Makefile
@@ -619,6 +620,8 @@ utils_lgpl/nefis/tests/test_16/Makefile
 utils_lgpl/nefis/tests/test_17/Makefile
 utils_lgpl/nefis/tests/test_18/Makefile
 utils_lgpl/nefis/tests/test_19/Makefile
+utils_lgpl/nefis/tests/test_20/Makefile
+utils_lgpl/nefis/tests/test_21/Makefile
 utils_lgpl/ods/Makefile
 utils_lgpl/ods/packages/Makefile
 utils_lgpl/ods/packages/ods/Makefile

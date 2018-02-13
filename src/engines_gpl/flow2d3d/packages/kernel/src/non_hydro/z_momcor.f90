@@ -12,7 +12,7 @@ subroutine z_momcor(nmmax     ,kmax      ,icx       ,icy       ,s1        , &
                   & gdp )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -220,7 +220,7 @@ subroutine z_momcor(nmmax     ,kmax      ,icx       ,icy       ,s1        , &
        if (kenm/=0 .or. disch(i)>=0.0_fp) then
           if (k/=0) then
              !
-             ! The order is inportant at dry points (kfsmax=-1)
+             ! The order is important at dry points (kfsmax=-1)
              !
              if (k>kfsmax(nm)) then
                 k = kfsmax(nm)
@@ -255,7 +255,7 @@ subroutine z_momcor(nmmax     ,kmax      ,icx       ,icy       ,s1        , &
           if (kenm/=0 .or. -disch(i)>=0.0_fp) then
              if (k /= 0) then
                 !
-                ! The order is inportant at dry points (kfsmax=-1)
+                ! The order is important at dry points (kfsmax=-1)
                 !
                 if (k>kfsmax(nm)) then
                    k = kfsmax(nm)

@@ -8,7 +8,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                 & error     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -340,6 +340,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer(pntrsize)                    , pointer :: rhowat
     integer(pntrsize)                    , pointer :: rich
     integer(pntrsize)                    , pointer :: rint
+    integer(pntrsize)                    , pointer :: rintsm
     integer(pntrsize)                    , pointer :: rlabda
     integer(pntrsize)                    , pointer :: rmneg
     integer(pntrsize)                    , pointer :: rnpl
@@ -588,6 +589,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
 !
     integer                 :: icx
     integer                 :: icy
+    integer                 :: imode
     integer                 :: itype
     integer                 :: n
     integer                 :: nflrwmode
@@ -885,6 +887,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     rhowat              => gdp%gdr_i_ch%rhowat
     rich                => gdp%gdr_i_ch%rich
     rint                => gdp%gdr_i_ch%rint
+    rintsm              => gdp%gdr_i_ch%rintsm
     rlabda              => gdp%gdr_i_ch%rlabda
     rmneg               => gdp%gdr_i_ch%rmneg
     rnpl                => gdp%gdr_i_ch%rnpl
@@ -1865,7 +1868,8 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,jstart    , &
                     & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                     & i(kfs)    ,i(kcs)    ,r(sour)   ,r(sink)   ,r(volum1) ,r(volum0) , &
-                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    ,gdp       )
+                    & r(r0)     ,r(disch)  ,r(rint)   ,r(rintsm) ,r(thick)  ,bubble    , &
+                    & gdp       )
           !
           ! Addition from nearfield-farfield model
           !
@@ -2225,9 +2229,10 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        call updwaqflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,gdp       )
-       call updmassbal(.false.  ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
-                    & r(volum1),r(sbuu)   ,r(sbvv)   , &
-                    & r(gsqs)  ,r(guu)    ,r(gvv)    ,d(dps)    ,gdp       )
+       call updmassbal(2        ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
+                    & r(volum0) ,r(volum1) ,r(sbuu)   ,r(sbvv)   ,r(disch)  , &
+                    & i(mnksrc) ,r(sink)   ,r(sour)   ,r(gsqs)   ,r(guu)    , &
+                    & r(gvv)    ,d(dps)    ,r(rintsm) ,gdp       )
        call updcomflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,i(kfumin) ,i(kfvmin) ,r(qu)     , &
@@ -2934,7 +2939,8 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           call discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,jstart    , &
                     & nmmaxj    ,icx       ,icy       ,ch(namsrc),i(mnksrc) , &
                     & i(kfs)    ,i(kcs)    ,r(sour)   ,r(sink)   ,r(volum1) ,r(volum0) , &
-                    & r(r0)     ,r(disch)  ,r(rint)   ,r(thick)  ,bubble    ,gdp       )
+                    & r(r0)     ,r(disch)  ,r(rint)   ,r(rintsm) ,r(thick)  ,bubble    , &
+                    & gdp       )
           !
           ! Addition from nearfield-farfield model
           !
@@ -3301,9 +3307,15 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        call updwaqflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,gdp       )
-       call updmassbal(nst+1 == ithisc,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
-                     & r(volum1),r(sbuu)   ,r(sbvv)   , &
-                     & r(gsqs)  ,r(guu)    ,r(gvv)    ,d(dps)    ,gdp       )
+       if (nst+1 == ithisc) then
+          imode = 3 ! output needed, so update fluxes and volumes
+       else
+          imode = 2 ! no output needed, so just update fluxes
+       endif
+       call updmassbal(imode    ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
+                    & r(volum0) ,r(volum1) ,r(sbuu)   ,r(sbvv)   ,r(disch)  , &
+                    & i(mnksrc) ,r(sink)   ,r(sour)   ,r(gsqs)   ,r(guu)    , &
+                    & r(gvv)    ,d(dps)    ,r(rintsm) ,gdp       )
        call updcomflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,i(kfumin) ,i(kfvmin) ,r(qu)     , &

@@ -4,7 +4,7 @@ subroutine wapar(hrm       ,dir       ,deph      ,tp        ,fxhis     , &
                & corht     ,swdis     ,grav      ,wsbodyu   ,wsbodyv   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,10 +51,6 @@ subroutine wapar(hrm       ,dir       ,deph      ,tp        ,fxhis     , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     implicit none
-    !
-! Common variables
-    real            ::  pi, twopi, wort2, gamma
-    common /const /     pi, twopi, wort2, gamma
 !
 ! Global variables
 !

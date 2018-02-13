@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -311,29 +311,31 @@
 
       subroutine timdump ( afile )
 
-      integer(4)    i                          !   loop accross timer handles
+      integer(4)    i                         !   loop accross timer handles
+	  integer       lun
       character*(*) afile
 
-      open  ( 912, file=afile, recl=100+maxlvl*5 )
-      write ( 912, '(a,98(a ))' ) ' nr.     times     cpu time      cpu    wall clock      wc', &
+      open(newunit=lun, file=afile, recl=100+maxlvl*5 )
+      write(lun, '(a,98(a ))' ) ' nr.     times     cpu time      cpu    wall clock      wc', &
                                   '  level',('     ',i=3,maxlvl),' routine name'
-      write ( 912, '(a,98(i5))' ) '        called    in seconds      %     in seconds       %', &
+      write(lun, '(a,98(i5))' ) '        called    in seconds      %     in seconds       %', &
                                   ( i, i=2,maxlvl)
       do i = 1, nohandl
          if ( level(i) .eq. -1 ) cycle
-         call timline ( i )
+         call timline ( i, lun )
       enddo
 
-      close ( 912 )
+      close ( lun )
 
       return
       end subroutine timdump
 
 !***************
 
-      recursive subroutine timline ( ihandl )
+      recursive subroutine timline ( ihandl, lun)
 
       integer(4)    ihandl
+      integer(4)    lun
       integer(4)    i, j, k
       real   (8)    cpfact, wcfact
 
@@ -344,15 +346,16 @@
       wcfact = 100.0d00/wctime(1)
       write ( forchr(32:), '(i4,''x,f6.2,'',i4,''x,a40)'')' ) &
                                          (level(ihandl)-1)*5+2,(maxlvl-level(ihandl))*5+1
-      write ( 912, forchr ) ihandl,ntimcal(ihandl),cptime(ihandl),cptime(ihandl)*cpfact, &
+      write(lun, forchr ) ihandl,ntimcal(ihandl),cptime(ihandl),cptime(ihandl)*cpfact, &
                                           wctime(ihandl),wctime(ihandl)*wcfact,tmsubnm(ihandl)
+      
       level(ihandl) = -1
 
       do i = ihandl+1, nohandl
          if ( level(i) .eq. -1 ) cycle
          j = context(1,3,i)
          do k = 1, ncontxt(j)
-            if ( context(k,1,j) .eq. ihandl .and. context(k,2,j) .eq. i ) call timline ( i )
+            if ( context(k,1,j) .eq. ihandl .and. context(k,2,j) .eq. i ) call timline ( i, lun )
          enddo
       enddo
 

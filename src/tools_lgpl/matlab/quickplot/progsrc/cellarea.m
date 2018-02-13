@@ -11,7 +11,7 @@ function gsqs = cellarea(x,y,Unit)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -40,10 +40,13 @@ function gsqs = cellarea(x,y,Unit)
 %   $Id$
 
 if nargin>2
-    if ~isempty(strmatch(lower(Unit),{'deg','degree','degrees'},'exact'))
-        unit = 1;
-    else ~isempty(strmatch(lower(Unit),{'rad','radian','radians'},'exact'))
-        unit = 2;
+    switch lower(Unit)
+        case {'deg','degree','degrees'}
+            unit = 1;
+        case {'rad','radian','radians'}
+            unit = 2;
+        otherwise
+            error('Unkown unit specified as third argument.')
     end
 else
     unit = 0;

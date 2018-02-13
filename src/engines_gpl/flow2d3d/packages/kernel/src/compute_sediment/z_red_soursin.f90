@@ -5,7 +5,7 @@ subroutine z_red_soursin(nmmax     ,kmax      ,thick     , &
                        & kfsmin    ,kfs       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -62,7 +62,6 @@ subroutine z_red_soursin(nmmax     ,kmax      ,thick     , &
     real(fp)                         , pointer :: thresh
     real(fp)                         , pointer :: dzmax
     real(fp)                         , pointer :: bed
-    real(fp)                         , pointer :: tmor
     integer                          , pointer :: itmor
     logical                          , pointer :: bedupd
     real(fp)                         , pointer :: hdt
@@ -126,7 +125,6 @@ subroutine z_red_soursin(nmmax     ,kmax      ,thick     , &
     thresh              => gdp%gdmorpar%thresh
     dzmax               => gdp%gdmorpar%dzmax
     bed                 => gdp%gdmorpar%bed
-    tmor                => gdp%gdmorpar%tmor
     itmor               => gdp%gdmorpar%itmor
     bedupd              => gdp%gdmorpar%bedupd
     hdt                 => gdp%gdnumeco%hdt

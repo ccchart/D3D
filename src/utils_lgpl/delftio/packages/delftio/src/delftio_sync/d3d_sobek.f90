@@ -1,7 +1,7 @@
 module D3D_Sobek
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -638,15 +638,6 @@ function D3S_PutDischarges(currTimeStep, discharges) result(success)
     ! locals
 
     real, dimension(:), allocatable :: values
-
-    ! body
-!    integer ini, i
-!    data ini /0/
-!    if (ini .eq. 0) then
-!       open (204,file = 'sbk-discharges.tek')
-!       ini = 1
-!    endif
-
 
 
     success = .false.

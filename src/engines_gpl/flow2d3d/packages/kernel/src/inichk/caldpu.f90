@@ -7,7 +7,7 @@ subroutine caldpu(lundia    ,mmax      ,nmaxus    ,kmax      , &
                 & thick     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -116,7 +116,7 @@ subroutine caldpu(lundia    ,mmax      ,nmaxus    ,kmax      , &
     !   Determine UMEAN and VMEAN
     !
     !   Note: in case of parallel runs, s1, u1 and v1 are also available in halo area
-    !         (see rdic or rstcom), so no exchanging with neighbours is needed, i.e.
+    !         (see rdic), so no exchanging with neighbours is needed, i.e.
     !         redundant for points in halo area at coupling interfaces
     !
     do n = 1 - ddb, nmaxus

@@ -1,7 +1,7 @@
 subroutine tdatom(runid, filmrs, nuerr, gdp) 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -101,7 +101,7 @@ subroutine tdatom(runid, filmrs, nuerr, gdp)
     logical                         , pointer :: dredge 
     logical                         , pointer :: drogue 
     logical                         , pointer :: wave 
-    logical                         , pointer :: waveol 
+    integer                         , pointer :: waveol 
     logical                         , pointer :: threed 
     logical                         , pointer :: secflo 
     logical                         , pointer :: iweflg 
@@ -237,7 +237,6 @@ subroutine tdatom(runid, filmrs, nuerr, gdp)
     real(fp), dimension(:), pointer                     :: alpha 
     real(fp), dimension(:), pointer                     :: rtime 
     character(1)                                        :: ascon       ! 'Y' if open bnd. contains type 'A'  
-    character(1)                                        :: ctunit      ! Time scale for time parameters, currently set to 'M'(inute - fixed).  
     character(1)                                        :: eol         ! ASCII code for End-Of-Line (^J)  
     character(1)                                        :: equili      ! Equilibrium or advection and diffusion default = no equilibrium ('N') which means lsec = 1  
     character(1)                                        :: evaint      ! Interpolation option for the rainfall / evaporation  
@@ -385,7 +384,7 @@ subroutine tdatom(runid, filmrs, nuerr, gdp)
     threed      = .false. 
     wavcmp      = .false. 
     wave        = .false. 
-    waveol      = .false. 
+    waveol      = 0
     wind        = .false. 
     nfl         = .false. 
     !
@@ -520,8 +519,8 @@ subroutine tdatom(runid, filmrs, nuerr, gdp)
         ! 
         call rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , & 
                  & citdat    ,tstart    ,tstop     ,tzone     ,itdate    , & 
-                 & julday    ,itstrt    ,itfinish  ,dt        ,ctunit    , & 
-                 & tunit     ,gdp       ) 
+                 & julday    ,itstrt    ,itfinish  ,dt        ,tunit     , & 
+                 & gdp       ) 
         if (error) goto 999 
         ! 
         ! Read KTEMP (Process heat module) 
@@ -529,7 +528,7 @@ subroutine tdatom(runid, filmrs, nuerr, gdp)
         ! 
         call rdproc(error    ,nrrec     ,mdfrec    ,htur2d     ,salin    , & 
                   & temp     ,wind      ,ktemp     ,keva       ,ivapop   , & 
-                  & irov     ,ctunit    ,z0v       ,sferic     ,tgfcmp   , &
+                  & irov     ,z0v       ,sferic     ,tgfcmp   , &
                   & temeqs   ,saleqs    ,wstcof    ,rhoa       ,secflo   , & 
                   & betac    ,equili    ,lsec      ,chzmin     ,rmincf   , & 
                   & rtcmod   ,couplemod ,nonhyd    ,mmax       ,nmax     , & 

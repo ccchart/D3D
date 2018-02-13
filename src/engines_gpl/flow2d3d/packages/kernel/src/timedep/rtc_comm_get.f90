@@ -1,7 +1,7 @@
 subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,qsrcrt    ,nsrc     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -37,6 +37,7 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,qsrcrt    ,nsrc     ,gd
     use flow2d3d_timers
     use SyncRtcFlow
     use globaldata
+    use dfparall, only: parll, dfloat, dfsum
     !
     implicit none
     !
@@ -70,6 +71,8 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,qsrcrt    ,nsrc     ,gd
 !
     integer                                :: id
     integer                                :: rtcsta      ! Status from RTC: If < 0, RTC quits And Flow also must quit. 
+    logical                                :: error
+    character(80)                          :: msgstr
 !
 !! executable statements -------------------------------------------------------
 !
@@ -126,8 +129,10 @@ subroutine rtc_comm_get(cursec    ,cbuvrt    ,nsluv     ,qsrcrt    ,nsrc     ,gd
        !
        ! distribute data to all domains
        !
-       if (rtc_ndomains > 1) then
-          call rtccommunicate(tparget, 2*tnparget)
+       if (parll) then
+           call dfreduce (tparget, 2*tnparget, dfloat, dfsum, error, msgstr )
+       elseif (rtc_ndomains > 1) then
+           call dd_rtccommunicate(tparget, 2*tnparget)
        endif
        !
        ! copy data to local array

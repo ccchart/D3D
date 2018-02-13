@@ -1,7 +1,7 @@
 module properties
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -178,16 +178,15 @@ subroutine prop_inifile(filename , tree, error, japreproc)
     !
     ! Local variables
     !
-    integer               :: lu, iostat
-    logical               :: opened
+    integer               :: lu
 
-    lu = -1 
+    lu = 0
     if (present(japreproc)) then            ! If preprocessor was requested
        if (japreproc) then 
           lu = preprocINI(filename, error)  ! do preprocessing 
        endif 
     endif 
-    if (lu<0) then                          ! if lu has not been assigned a valid unit number 
+    if (lu == 0) then                          ! if lu has not been assigned a valid unit number 
        !      open existing file only       
        open(newunit=lu,file=filename,iostat=error,status='old')
        if (error/=0) then
@@ -197,6 +196,7 @@ subroutine prop_inifile(filename , tree, error, japreproc)
 
     call prop_inifile_pointer(lu, tree)
     close (lu)
+    error = 0
     return
 end subroutine prop_inifile
 !
@@ -216,8 +216,6 @@ subroutine prop_inifile_pointer(lu, tree)
     integer               :: eqpos, valend
     integer               :: k, k2, i
     integer               :: lend, lcend, num_bs
-    integer               :: iostatus
-    logical               :: filestatus
     logical               :: multiple_lines
     character(max_length) :: key
     character(max_length) :: line
@@ -411,8 +409,7 @@ subroutine prop_tekalfile(filename , tree, error)
     !
     ! Local variables
     !
-    integer               :: lu, iostat
-    logical               :: opened 
+    integer               :: lu
 
     open(newunit=lu,file=filename,iostat=error)
     if (error/=0) then
@@ -438,10 +435,8 @@ subroutine prop_tekalfile_pointer(lu, tree)
     !
     integer               :: eof
     integer               :: k
-    integer               :: iostatus
     integer, dimension(2) :: blockdims
     real   , dimension(:),allocatable :: arow
-    logical               :: filestatus
     character(max_length) :: line
     type(tree_data), pointer  :: atekalblock
     type(tree_data), pointer  :: anode
@@ -1158,7 +1153,7 @@ integer function preprocINI(infilename, error, outfilename) result (outfilenumbe
     character(50)     :: defstrings(100)       
     integer           :: ndef
     integer           :: iostat
-    logical           :: opened
+
     !
     !! executable statements -------------------------------------------------------
     !
@@ -1168,14 +1163,14 @@ integer function preprocINI(infilename, error, outfilename) result (outfilenumbe
     if (present(outfilename)) then 
        open(newunit=outfilenumber,file=trim(outfilename),iostat=iostat)
        if (iostat/=0) then
-          outfilenumber = -1
+          outfilenumber = 0
           error = iostat                          !       ERROR : Intermediate ini-file could not be written.
           return
        endif
     else 
        open (newunit=outfilenumber, status='SCRATCH', IOSTAT=iostat)
        if (iostat/=0) then 
-          outfilenumber = -1
+          outfilenumber = 0
           error = iostat
           return
        endif 
@@ -1184,7 +1179,7 @@ integer function preprocINI(infilename, error, outfilename) result (outfilenumbe
     error = parse_directives(trim(infilename), outfilenumber, defnames, defstrings, ndef, 1)
     if (error/=0) then                ! either something went wrong ...
        close(outfilenumber)           ! close the file 
-       outfilenumber = -1             ! return -1 as a filenumber 
+       outfilenumber = 0              ! return 0 as a filenumber 
     else                              ! ... or we're all clear  ....
        rewind(outfilenumber)          ! rewind the file just written and return the number to caller 
     endif 
@@ -1238,12 +1233,10 @@ recursive integer function parse_directives (infilename, outfilenumber, defnames
     character(len=50)  :: defstring 
     integer            :: writing 
     integer            :: idef 
-    integer            :: ilvl
     integer            :: infilenumber 
     integer            :: iostat
     logical            :: opened 
     logical            :: exist
-    character(len=100) :: infostr 
 
     !
     !! executable statements
@@ -1522,7 +1515,6 @@ subroutine leaf_keylength( tree, data, stop)
     logical,                          intent(inout) :: stop
 
     character(len=1), dimension(:),pointer :: data_ptr
-    character(len=max_length)              :: string
     character(len=40)                      :: type_string
     integer                                :: keylen
 

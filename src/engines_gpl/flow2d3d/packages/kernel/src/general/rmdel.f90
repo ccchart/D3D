@@ -1,7 +1,7 @@
 subroutine rmdel(filnam    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -65,10 +65,10 @@ subroutine rmdel(filnam    ,gdp       )
     lundia              => gdp%gdinout%lundia
     !
     call remove_leading_spaces(filnam    ,lfil      )
-    inquire (file = filnam(:lfil), exist = ex)
-    if (ex) then
-       inquire (file = filnam(:lfil), opened = ex)
-       if (ex) then
+    inquire (file = filnam(:lfil), exist = ex, iostat = ierr)
+    if (ierr==0 .and. ex) then
+       inquire (file = filnam(:lfil), opened = ex, iostat = ierr)
+       if (ierr==0 .and. ex) then
           inquire (file = filnam(:lfil), number = luntmp)
           ! Need to close this first. The status = 'delete' triggers an error when file was opened as readonly.
           close (luntmp, iostat = ierr)

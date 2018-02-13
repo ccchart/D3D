@@ -18,7 +18,7 @@ function varargout=d3d_waqfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -252,7 +252,7 @@ for i=[M_ N_ K_]
         elseif ~isequal(idx{i},idx{i}(1):idx{i}(end))
             error('Only scalars or ranges allowed for index %i',i)
         end
-        if (i~=K_) && ~strcmp(subtype,'plot') && ~strcmp(Props.Geom,'POLYG')
+        if (i~=K_) && ~strcmp(subtype,'plot') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID-FACE')
             if DataInCell
                 if isequal(idx{i},1)
                     idx{i}=[1 2];
@@ -353,22 +353,50 @@ switch subtype
                             y=y(getPnt,:);
                         end
                     case 'netCDF'
-                        if DataInCell
-                           [x, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.BCoordinates{1},FI.Grid.CoordDims);
-                           [y, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.BCoordinates{2},FI.Grid.CoordDims);
+                        Ans = [];
+                        if isfield(FI.Grid,'Mesh')
+                            switch FI.Grid.Mesh{1}
+                                case 'ugrid'
+                                    if isfield(FI.Grid,'Aggregation') && ~isempty(FI.Grid.Aggregation)
+                                        select = {};
+                                    else
+                                        select = {idx{M_}};
+                                    end
+                                    [Success,Ans] = qp_getdata(FI.Grid,FI.Grid.Mesh{4},'griddata',select{:});
+                                    Ans.ValLocation = Props.Geom(7:end);
+                            end
                         else
-                           [x, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.CCoordinates{1},FI.Grid.CoordDims(1));
-                           [y, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.CCoordinates{2},FI.Grid.CoordDims(1));
+                            if DataInCell
+                                [x, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.BCoordinates{1},FI.Grid.CoordDims);
+                                [y, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.BCoordinates{2},FI.Grid.CoordDims);
+                            else
+                                [x, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.CCoordinates{1},FI.Grid.CoordDims(1));
+                                [y, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.CCoordinates{2},FI.Grid.CoordDims(1));
+                            end
                         end
-                        if isfield(FI.Grid,'Aggregation') && ~isempty(FI.Grid.Aggregation)
-                            [agg, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.Aggregation,FI.Grid.AggregationDims);
-                            clip = isnan(agg);
-                            x(clip,:)=[];
-                            y(clip,:)=[];
-                            %agg(clip)=[]; % For aggregation, use agg or FI.Grid.Index
+                        if ~isempty(x)
+                            if isfield(FI.Grid,'Aggregation') && ~isempty(FI.Grid.Aggregation)
+                                [agg, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.Aggregation,FI.Grid.AggregationDims);
+                                clip = isnan(agg);
+                                x(clip,:)=[];
+                                y(clip,:)=[];
+                                %agg(clip)=[]; % For aggregation, use agg or FI.Grid.Index
+                            end
+                            x=x(idx{M_},:);
+                            y=y(idx{M_},:);
+                        elseif ~isempty(Ans)
+                            if isfield(FI.Grid,'Aggregation') && ~isempty(FI.Grid.Aggregation)
+                                [agg, errmsg] = qp_netcdf_get(FI.Grid,FI.Grid.Aggregation,FI.Grid.AggregationDims);
+                                agg = agg(:,1); % select one layer
+                                clip = isnan(agg);
+                                clippedNodes = Ans.FaceNodeConnect(clip,:);
+                                Ans.FaceNodeConnect(clip,:)=[];
+                                clippedNodes = setdiff(clippedNodes(:),Ans.FaceNodeConnect(:));
+                                Ans.X(clippedNodes) = NaN;
+                                Ans.Y(clippedNodes) = NaN;
+                                %agg(clip)=[]; % For aggregation, use agg or FI.Grid.Index
+                            end
                         end
-                        x=x(idx{M_},:);
-                        y=y(idx{M_},:);
                         XUnits = FI.Grid.Unit;
                     case 'arcgrid'
                         eidx=idx;
@@ -810,7 +838,7 @@ end
 %======================== SPECIFIC CODE =======================================
 % select active points ...
 act_from_z = 0;
-if strcmp(subtype,'map') && mapgrid && ~strcmp(Props.Geom,'TRI') && ~strcmp(Props.Geom,'POLYG')
+if strcmp(subtype,'map') && mapgrid && ~strcmp(Props.Geom,'TRI') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID-FACE')
     act=FI.Grid.Index(idx{[M_ N_]},1)~=0;
     gridact=~isnan(x(:,:,:,1));
 elseif strcmp(subtype,'plot') && ~isempty(z)
@@ -822,7 +850,7 @@ else
     gridact=1;
 end
 %========================= GENERAL CODE =======================================
-if XYRead && ~strcmp(subtype,'history')
+if XYRead && ~strcmp(subtype,'history') && ~isempty(x)
     if DimFlag(K_)
         if ~isequal(gridact,1)
             szx=[size(x) 1]; % extent szx for the case that dataset in K dir. is 1
@@ -978,6 +1006,8 @@ end
 % generate output ...
 if XYRead
     switch Props.Geom
+        case {'UGRID-FACE','UGRID-EDGE','UGRID-NODE'}
+            % Ans already filled with geometry information
         case 'POLYG'
             if size(x,2)==2 % segments
                 x(:,end+1) = NaN;
@@ -1195,7 +1225,11 @@ switch Type
                         case {'netCDF','ESRI-Shape'} % polygon bounds
                             enablegridview=0;
                             %
-                            DataProps{r,3}='POLYG';
+                            if isfield(FI.Grid,'Mesh')
+                                DataProps{r,3}='UGRID-FACE';
+                            else
+                                DataProps{r,3}='POLYG';
+                            end
                             DataProps{r,5}(M_)=6;
                             DataProps{r,5}(N_)=0;
                             DataProps{r,6}=1;

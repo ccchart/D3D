@@ -4,7 +4,7 @@ subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
                 & ssusy     ,cesus     ,vonkar    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -119,8 +119,7 @@ subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
     if (first) then
        inquire (file = 'coef.inp', exist = exist)
        if (exist) then
-          ilun = newunit()
-          open (ilun, file = 'coef.inp')
+          open (newunit=ilun, file = 'coef.inp')
           read (ilun, *) faca
           read (ilun, *) facu
           read (ilun, *) epssl

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -132,7 +132,7 @@
 !
       CONC    = MAX (0.0, PMSA(IP1) )
       ZERSED  = PMSA(IP2 )
-      VSED    = PMSA(IP3 )
+      VSED    = MAX (0.0, PMSA(IP3) )  ! Avoid inadvertent source if VSED negative (Delft3D-35562)
       TAU     = PMSA(IP4 )
       TCRSED  = PMSA(IP5 )
       DEPTH   = PMSA(IP6 )
@@ -284,7 +284,7 @@
 
             CONC    = MAX (0.0, PMSA(IP1+(IWATER-1)*IN1) )
             ZERSED  = PMSA(IP2+(IWATER-1)*IN2)
-            VSED    = PMSA(IP3+(IWATER-1)*IN3)
+            VSED    = MAX (0.0, PMSA(IP3+(IWATER-1)*IN3) )
             TAU     = PMSA(IP4+(IWATER-1)*IN4)
             TCRSED  = PMSA(IP5+(IWATER-1)*IN5)
             DEPTH   = PMSA(IP6+(IWATER-1)*IN6)

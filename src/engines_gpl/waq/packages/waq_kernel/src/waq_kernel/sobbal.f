@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -190,8 +190,11 @@
 !    J              NPROCS, FL2BAL, LUMPTR, B_AREA, B_VOLU, SEGDMP
       SAVE
       integer(4) ithandl /0/
-      if ( timon ) call timstrt ( "sobbal", ithandl )
 
+!     Skip this routine when there are no balance area's
+      IF (NDMPAR.EQ.0) RETURN
+
+      if ( timon ) call timstrt ( "sobbal", ithandl )
 !**************** INITIALIZATION **************************************
 
       IF ( INIOUT .EQ. 1 ) THEN

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -545,10 +545,11 @@
 ! Close all open LUN files
 !
       do i = 1, nlun
-          inquire (unit=lun(i), opened=unitop)
+          inquire (unit=lun(i), opened=unitop, err=950)
           if (unitop) then
               close (unit = lun(i))
           endif
+ 950      continue
       end do
 
       if ( timon ) then

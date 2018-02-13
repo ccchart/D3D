@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -147,7 +147,7 @@ ESM_Local_Alloc (
     int ci,
     int contextid,
     char * name,
-    int size
+    size_t size
     ) {
 
     if (ci == -1) {
@@ -192,7 +192,7 @@ ESM_Local_Alloc (
     //  tolerable since the number of regions is usually not more than 100's.
 
     void * addr;
-    long long nwsize = size + ESM_ALIGNMENT;
+    size_t nwsize = size + ESM_ALIGNMENT;
     if ((addr = (void *) malloc (nwsize)) == NULL) {
         SetError (thid, "Cannot allocate region (%d+%d bytes) in ESM_Alloc", size, ESM_ALIGNMENT);
         return NULL;

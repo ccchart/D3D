@@ -3,7 +3,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
                 & s1     ,timhr  ,morhr  ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -82,7 +82,6 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     real(fp)                       , pointer :: morfac
     real(fp)                       , pointer :: thresh
     real(fp)                       , pointer :: bed
-    real(fp)                       , pointer :: tmor
     integer                        , pointer :: itmor
     logical                        , pointer :: cmpupd
     real(fp)                       , pointer :: hdt
@@ -219,7 +218,6 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
     morfac              => gdp%gdmorpar%morfac
     thresh              => gdp%gdmorpar%thresh
     bed                 => gdp%gdmorpar%bed
-    tmor                => gdp%gdmorpar%tmor
     itmor               => gdp%gdmorpar%itmor
     cmpupd              => gdp%gdmorpar%cmpupd
     hdt                 => gdp%gdnumeco%hdt

@@ -1,6 +1,6 @@
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -37,7 +37,7 @@
 //------------------------------------------------------------------------------
 //---- LGPL --------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -116,7 +116,7 @@ XmlTree::XmlTree (
     char *buffer = new char[bufSize];
     while (fgets (buffer, bufSize, input) != NULL)
         if (XML_Parse (parser, buffer, strlen (buffer), 0) != XML_STATUS_OK)
-            throw new Exception (true, "XML parse error in configuration file");
+            throw Exception (true, Exception::ERR_XML_PARSING, "XML parse error in configuration file");
 
     XML_Parse (parser, buffer, 0, 1);
     XML_ParserFree (parser);
@@ -187,7 +187,7 @@ chardata (
     XmlTree ** curnode = (XmlTree **) userdata;
 
     if (len + CharDataLen >= sizeof CharDataBuffer)
-        throw new Exception (true, "XML charcter data block exceeds buffer size (%d bytes)", sizeof CharDataBuffer);
+        throw Exception (true, Exception::ERR_XML_PARSING, "XML charcter data block exceeds buffer size (%d bytes)", sizeof CharDataBuffer);
 
     memcpy (CharDataBuffer+CharDataLen, data, len);
     CharDataLen += len;
@@ -212,7 +212,7 @@ XmlTree::XmlTree (
 
     int pathlen = strlen (ppn) + strlen (name) + 2;
     if (pathlen > this->maxPathname)
-        throw new Exception ("XML pathname for node \"%s\" is too long", name);
+        throw Exception (true, Exception::ERR_XML_PARSING," XML pathname for node \"%s\" is too long", name);
 
     this->name = new char [strlen (name) + 1];
     strcpy (this->name, name);
@@ -232,8 +232,6 @@ XmlTree::init (
     this->name          = (char *) "";
     this->pathname      = (char *) "";
     this->parent        = NULL;
-    this->numAttrib     = 0;
-    this->numChildren   = 0;
     this->charData      = NULL;
     this->charDataLen   = 0;
     }
@@ -262,28 +260,21 @@ XmlTree::AddAttrib (
     const char * value
     ) {
 
-    if (this->numAttrib >= this->maxAttrib)
-        throw new Exception ("XML node %s has too many attributes", this->name);
+    this->attribNames.push_back(new char [strlen (name) + 1]);
+    this->attribValues.push_back(new char [strlen (value) + 1]);
 
-    int i = this->numAttrib++;
-    this->attribNames[i] = new char [strlen (name) + 1];
-    this->attribValues[i] = new char [strlen (value) + 1];
-
-    strcpy (this->attribNames[i], name);
-    strcpy (this->attribValues[i], value);
+    strcpy (this->attribNames.back(), name);
+    strcpy (this->attribValues.back(), value);
     }
 
 
 void
 XmlTree::AddChild (
     XmlTree * child
-    ) {
-
-    if (this->numChildren >= this->maxChildren)
-        throw new Exception ("XML node %s has too many children", this->name);
-
-    this->children [this->numChildren++] = child;
-    }
+    ) 
+   {
+    this->children.push_back( child);
+   }
 
 
 //------------------------------------------------------------------------------
@@ -325,7 +316,7 @@ XmlTree::Lookup (
         *remainder++ = '\0';
 
     XmlTree * node = NULL;
-    for (int i = 0 ; i < this->numChildren ; i++) {
+    for (int i = 0 ; i < children.size(); i++) {
         if (strcmp (path, this->children[i]->name) == 0) {
             if (remainder[0] == '\0') {
                 if (instance-- > 0) continue;
@@ -375,8 +366,8 @@ XmlTree::Lookup (
     XmlTree * node = NULL;
 	int ncount = 0;
 	kvlist = NULL;
-    for (int i = 0 ; i < this->numChildren ; i++) {
-        if (strcmp (path, this->children[i]->name) == 0) {
+    for (int i = 0 ; i < children.size(); i++) {
+        if (strcmp (path, children[i]->name) == 0) {
             if (remainder[0] == '\0') {
                 if (instance-- > 0) continue;
                 node = this->children[i];								// found a node
@@ -423,7 +414,7 @@ XmlTree::GetAttrib (
         return tree->GetAttrib (colon+1);
         }
 
-    for (int i = 0 ; i < this->numAttrib ; i++)
+    for (int i = 0 ; i < attribNames.size(); i++)
         if (strcmp (name, this->attribNames[i]) == 0)
             return this->attribValues[i];
 
@@ -556,12 +547,12 @@ XmlTree::print (
     else
         printf ("%s [ ", this->pathname);
 
-    for (int i = 0 ; i < this->numAttrib ; i++)
+    for (int i = 0 ; i < attribNames.size(); i++)
         printf ("%s=%s ", this->attribNames[i], this->attribValues[i]);
 
     printf ("]\n");
 
-    for (int i = 0 ; i < this->numChildren ; i++)
+    for (int i = 0 ; i < children.size(); i++)
         this->children[i]->print (level+1);
     }
 
@@ -609,7 +600,7 @@ XmlTree::ExpandEnvironmentVariables(
     XmlTree * node = NULL;
 	char *orgstr;
 	string instr, outstr;
-	for (int iattrib = 0; iattrib<this->numAttrib;iattrib++){
+	for (int iattrib = 0; iattrib<attribValues.size();iattrib++){
 		orgstr = this->attribValues[iattrib];
 		instr = orgstr;
         outstr = SubstEnvVar(instr)+'\0';		
@@ -626,7 +617,7 @@ XmlTree::ExpandEnvironmentVariables(
 	   outstr.copy(this->charData,outstr.length());
 	}
 
-    for (int i = 0 ; i < this->numChildren ; i++) {
+    for (int i = 0 ; i < children.size(); i++) {
        this->children[i]->ExpandEnvironmentVariables (instance);
     }
     return ;

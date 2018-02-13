@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2016.
+!!  Copyright (C)  Stichting Deltares, 2012-2017.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -84,7 +84,6 @@
 !
 !  Check whether a selective dump for periods and/or segments is requested for this period.
       IDUMP = 0
-      IGDUMP = -1
       IF (ISDUMP .EQ. 1) THEN
          IF ((ID .GE. ISDPER(1) .AND. ID .LE. ISDPER(2)) .AND.
      &       (IGDUMP .EQ. 0 .OR. IGDUMP .EQ. ISEG)) THEN

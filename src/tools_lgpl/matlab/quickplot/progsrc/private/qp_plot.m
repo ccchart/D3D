@@ -3,7 +3,7 @@ function [hNewVec,Error,FileInfo,PlotState]=qp_plot(PlotState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2016 Stichting Deltares.                                     
+%   Copyright (C) 2011-2017 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -35,28 +35,61 @@ T_=1; ST_=2; M_=3; N_=4; K_=5;
 
 hNewVec=0;
 Error=1;
-FileInfo=PlotState.FI;
 
-Domain=PlotState.Domain;
-Props=PlotState.Props;
-SubField=PlotState.SubField;
-Selected=PlotState.Selected;
-Parent=PlotState.Parent;
-hOld=PlotState.Handles;
-stats=PlotState.Stations;
-Ops=PlotState.Ops;
+if isfield(PlotState,'FI')
+    FileInfo=PlotState.FI;
+    Domain=PlotState.Domain;
+    Props=PlotState.Props;
+    SubField=PlotState.SubField;
+    Selected=PlotState.Selected;
+    Parent=PlotState.Parent;
+    hOld=PlotState.Handles;
+    stats=PlotState.Stations;
+    Ops=PlotState.Ops;
+    Ops=qp_state_version(Ops);
+    
+    DimFlag=Props.DimFlag;
+    
+    SubSelected=Selected;
+    SubSelected(~DimFlag)=[];
+    if isfield(Props,'MNK') && Props.MNK
+        Props.MNK = xyz_or_mnk(Ops,Selected,Props.MNK);
+    end
+    
+    DataInCell=0;
+    if Props.NVal<0
+        data=[];
+    else
+        if isfield(Ops,'extend2edge') && Ops.extend2edge
+            [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'griddefdata',SubField{:},SubSelected{:});
+        else
+            switch Ops.presentationtype
+                case {'patches','patches with lines','patch centred vector','polygons'}%,'edge'}
+                    [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'gridcelldata',SubField{:},SubSelected{:});
+                    DataInCell=1;
+                otherwise
+                    [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'griddata',SubField{:},SubSelected{:});
+            end
+        end
+        if isempty(data)
+            ui_message('error','Did not get any data from %s file.',FileInfo.FileType)
+            return
+        elseif ~Chk
+            ui_message('error','Error retrieving data from %s file.',FileInfo.FileType);
+            return
+        end
+    end
+else
+    data = PlotState;
+    hOld = [];
+    Parent = gca;
+end
 
 if iscell(hOld)
     hOldVec=cat(1,hOld{:});
 else
     hOldVec=hOld;
     hOld={hOld};
-end
-DimFlag=Props.DimFlag;
-
-Ops=qp_state_version(Ops);
-if isfield(Ops,'horizontalalignment') && isequal(Ops.horizontalalignment,'centre')
-    Ops.horizontalalignment='center';
 end
 
 %
@@ -135,37 +168,6 @@ for i=5:-1:1
     multiple(i) = (length(Selected{i})>1) | isequal(Selected{i},0);
 end
 
-SubSelected=Selected;
-SubSelected(~DimFlag)=[];
-FT=FileInfo.FileType;
-if isfield(Props,'MNK') && Props.MNK
-    Props.MNK = xyz_or_mnk(Ops,Selected,Props.MNK);
-end
-
-DataInCell=0;
-if Props.NVal<0
-    data=[];
-else
-    if isfield(Ops,'extend2edge') && Ops.extend2edge
-        [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'griddefdata',SubField{:},SubSelected{:});
-    else
-        switch Ops.presentationtype
-            case {'patches','patches with lines','patch centred vector','polygons'}%,'edge'}
-                [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'gridcelldata',SubField{:},SubSelected{:});
-                DataInCell=1;
-            otherwise
-                [Chk,data,FileInfo]=qp_getdata(FileInfo,Domain,Props,'griddata',SubField{:},SubSelected{:});
-        end
-    end
-    if isempty(data)
-        ui_message('error','Did not get any data from %s file.',FT)
-        return
-    elseif ~Chk
-        ui_message('error','Error retrieving data from file.');
-        return
-    end
-end
-
 if isfield(Ops,'axestimezone_shift') && ~isnan(Ops.axestimezone_shift)
     [Chk,datatimezone_shift,datatimezone_str] = qp_getdata(FileInfo,Domain,Props,'timezone');
     if isnan(datatimezone_shift)
@@ -218,9 +220,17 @@ if isfield(Ops,'units')
 end
 
 Ops.basicaxestype = Ops.axestype;
-if ~isempty(strfind(Props.Name,'level')) && ...
-        (~ischar(qp_unitconversion(Units,'m')) || ...
-        ~ischar(qp_unitconversion(Units,'')))
+try
+    length_unit = ~ischar(qp_unitconversion(Units,'m'));
+catch
+    length_unit = 0;
+end
+try
+    empty_unit = ~ischar(qp_unitconversion(Units,''));
+catch
+    empty_unit = 0;
+end
+if ~isempty(strfind(Props.Name,'level')) && (length_unit || empty_unit)
     Ops.axestype = strrep(Ops.axestype,'Z',['Z [',Units,']']);
 elseif ~isempty(strfind(Ops.axestype,'Val'))
     Ops.axestype = strrep(Ops.axestype,'Val',['Val [',Units,']']);
@@ -271,7 +281,8 @@ if NVal==0.6 || NVal==0.9
 elseif  NVal==1.9 
     if isequal(Ops.presentationtype,'edge') || ...
              isequal(Ops.presentationtype,'edge m') || ...
-              isequal(Ops.presentationtype,'edge n')
+              isequal(Ops.presentationtype,'edge n') || ...
+              isequal(Ops.presentationtype,'values')
         % 1.9 = coloured thindam or vector perpendicular to thindam
         NVal=0.5;
     else
@@ -607,7 +618,7 @@ end
 TStr='';
 if isfield(data,'Time') && length(data(1).Time)==1
     TStr = qp_time2str(data(1).Time,DimFlag(T_));
-    if ~isnan(Ops.axestimezone_shift)
+    if isfield(Ops,'axestimezone_shift') && ~isnan(Ops.axestimezone_shift)
         TStr = [TStr ' (' Ops.axestimezone_str ')'];
     end
 end
@@ -620,7 +631,11 @@ for dir = 1:3
         if ischar(fac) %distance unit not compatible with m
             % conversion not possible
         elseif fac==1
-            % conversion not needed
+            % conversion not needed, but unit may not be 'm'
+            % set unit string such that following routines work optimally
+            for d = length(data):-1:1
+                data(d).([X 'Units']) = 'm';
+            end
         elseif isfield(data,X)
             for d = length(data):-1:1
                 data(d).(X) = data(d).(X)*fac;
@@ -738,6 +753,9 @@ elseif isfield(Ops,'marker')
         'markeredgecolor',Ops.markercolour, ...
         'markerfacecolor',Ops.markerfillcolour};
 end
+if isfield(Ops,'horizontalalignment') && isequal(Ops.horizontalalignment,'centre')
+    Ops.horizontalalignment='center';
+end
 if isfield(Ops,'fontsize')
     Ops.FontParams={'color',Ops.colour, ...
         'fontunits','points', ...
@@ -827,6 +845,12 @@ if isfield(Ops,'plotcoordinate') && ~isempty(Ops.plotcoordinate)
                 diststr = 'latitude';
             else
                 diststr = 'y coordinate';
+            end
+        case 'coordinate'
+            if isfield(data,'XName')
+                diststr = data(1).XName;
+            else
+                diststr = 'coordinate';
             end
     end
 end
@@ -928,7 +952,7 @@ if isfield(Ops,'basicaxestype') && ~isempty(Ops.basicaxestype) && length(Parent)
         switch axestype{d}
             case 'Time'
                 dimension{d} = 'time';
-                if isnan(Ops.axestimezone_shift)
+                if ~isfield(Ops,'axestimezone_shift') || isnan(Ops.axestimezone_shift)
                     unit{d} = '';
                 else
                     unit{d} = Ops.axestimezone_str;

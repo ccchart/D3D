@@ -6,7 +6,7 @@ function outdata=d3d_qp(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2016 Stichting Deltares.
+%   Copyright (C) 2011-2017 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -333,7 +333,7 @@ switch cmd
             if strcmp(qp_settings('showversion','off'),'on')
                 set(mfig,'name',cat(2,'Delft3D-QUICKPLOT ',qpversion));
             end
-            if qp_settings('v6zoombehavior') && matlabversionnumber >= 7
+            if qp_settings('v6zoombehavior') && matlabversionnumber >= 7 && matlabversionnumber < 9
                 qp_prefs(UD,mfig,'v6zoomswitch','on')
             end
             if isstandalone
@@ -2054,6 +2054,13 @@ switch cmd
             trigger={};
             if ~isempty(cmdargs)
                 i=ustrcmpi(cmdargs{1},modes);
+                if i<0 && strcmp(cmd,'angleconvention')
+                    ibracket = strfind(cmdargs{1},'[');
+                    if ~isempty(ibracket)
+                        newmode = cmdargs{1}(1:ibracket(1)+1);
+                        i=ustrcmpi(newmode,modes);
+                    end
+                end
                 if i<0
                     if strcmp(cmd,'exporttype') && strcmp(cmdargs{1},'mat file')
                         %
@@ -2064,7 +2071,7 @@ switch cmd
                         if i<0
                             error('Invalid %s: %s',cmd,cmdargs{1})
                         else
-                            set(modelist,'value',i);
+                            set(modelist,'value',i)
                         end
                     elseif strcmp(cmd,'dataunits')
                         %
@@ -2074,6 +2081,20 @@ switch cmd
                         set(modelist,'value',find(strcmp('Other',modes)))
                         modelist=findobj(UOH,'tag',[cmd '=!']);
                         set(modelist,'string',cmdargs{1})
+                    elseif strcmp(cmd,'angleconvention')
+                        switch lower(cmdargs{1})
+                            case 'nautical'
+                                i=ustrcmpi('Nautical To [-',modes);
+                            case 'nautical positive'
+                                i=ustrcmpi('Nautical To [0',modes);
+                            case 'cartesian'
+                                i=ustrcmpi('Cartesian To [-',modes);
+                            case 'cartesian positive'
+                                i=ustrcmpi('Cartesian To [0',modes);
+                            otherwise
+                                error('Invalid %s: %s',cmd,cmdargs{1})
+                        end
+                        set(modelist,'value',i)
                     else
                         error('Invalid %s: %s',cmd,cmdargs{1})
                     end
@@ -2157,7 +2178,7 @@ switch cmd
             writelog(logfile,logtype,cmd,get(cb,'value'));
         end
         
-    case {'colbarhorz','climsymm','extend2edge'}
+    case {'colbarhorz','climsymm','extend2edge','clipnans'}
         % nothing do
         cb=findobj(UOH,'tag',cmd);
         if ~isempty(cmdargs)
@@ -3883,7 +3904,14 @@ switch cmd
             switch cmd
                 case 'closefigure'
                     AllObj=findall(Fig);
-                    set(AllObj,'deletefcn','');
+                    for o = 1:length(AllObj)
+                        try
+                            set(AllObj(o),'deletefcn','');
+                        catch
+                            % Some objects (e.g. AnnotationPane) don't have
+                            % a deletefcn. Skip these.
+                        end
+                    end
                     delete(Fig);
                     if ~isempty(UD) % if quickplot is not active do not activate it ...
                         d3d_qp refreshfigs
@@ -4396,7 +4424,7 @@ switch cmd
             'defaultaxescolor','boundingbox','v6zoombehavior', ...
             'organizationname','filefilterselection','colorbar_ratio', ...
             'showinactiveopt', 'defaultfigurepos','timezonehandling', ...
-            'enforcedtimezone', 'netcdf_use_fillvalue'}
+            'enforcedtimezone', 'netcdf_use_fillvalue','export_max_ntimes'}
         qp_prefs(UD,mfig,cmd,cmdargs);
 
     case {'deltaresweb','deltaresweboss'}

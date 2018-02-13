@@ -54,6 +54,7 @@ function install_all () {
     vs
     nesthd1
     nesthd2
+    shared
 
     return
 }
@@ -115,13 +116,22 @@ function dimr () {
 
     dest_bin="$dest_main/lnx64/dimr/bin"
     dest_menu="$dest_main/lnx64/menu/bin"
+    dest_scripts="$dest_main/lnx64/scripts"
 
     mkdir -p $dest_bin
     mkdir -p $dest_menu
+    mkdir -p $dest_scripts
 
     copyFile "$prefix/engines_gpl/dimr/packages/dimr/src/.libs/dimr.exe"    $dest_bin
-    copyFile "$prefix/lib/libdimr.so"                                       $dest_bin
-    copyFile "$srcdir/engines_gpl/d_hydro/scripts/create_config_xml.tcl"    $dest_menu
+    # copy libdimr.so does not work: ldd will show dependency on $srcdir/lib/libdimr.so
+    # => When build on TeamCity it may not work, when removing $srcdir/lib it may not work anymore
+    # Therefore "copy libdimr.so" is replaced by "libtool install" and "libtool finish"
+    # It might be enough to just copy libdimr.la (and libdimr.a) too?
+    libtool --mode=install install -c $srcdir/engines_gpl/dimr/packages/dimr_lib/src/libdimr.la $dest_bin/libdimr.la
+    libtool --finish $dest_bin/libdimr.la
+    copyFile "$prefix/engines_gpl/dimr/packages/dimr_lib/src/.libs/libdimr.lai"    $dest_bin
+    copyFile "$srcdir/engines_gpl/d_hydro/scripts/create_config_xml.tcl"           $dest_menu
+    copyFile "$srcdir/engines_gpl/dimr/scripts/generic/lnx64/*"                    $dest_scripts
 
     echo "Gathering libraries for dimr..."
     cp -u `$gatherScript $prefix/engines_gpl/dimr/packages/dimr/src/.libs/dimr.exe $prefix/lib/libdimr.so | eval grep -v $gatherExcludeFilter` $dest_bin
@@ -506,6 +516,33 @@ function nesthd2 () {
 
 
 
+
+
+# =======================
+# === INSTALL_SHARED ====
+# =======================
+function shared () {
+    echo "installing shared . . ."
+
+    dest_bin="$dest_main/lnx64/shared"
+
+    mkdir -p $dest_bin
+
+    # This seems to be the most complete set of shared libraries
+    copyFile "$dest_main/lnx64/flow2d3d/bin/lib*"    $dest_bin
+    # Remove the flow2d3d specific libraries
+    rm -f $dest_bin/libDelftOnline.*
+    rm -f $dest_bin/libflow2d3d.*
+    copyFile "$srcdir/third_party_open/lnxredist/*"    $dest_bin
+    echo This directory is automatically created by script https://svn.oss.deltares.nl/repos/delft3d/trunk/src/scripts_lgpl/linux/oss-install.sh >$dest_bin/readme.txt
+    echo This script is executed via "make ds-install" , install.sh  >>$dest_bin/readme.txt
+    echo Further modifications can be done via a Python script executed via "DIMR_collector" projects in TeamCity >>$dest_bin/readme.txt
+
+    return
+}
+
+
+
 # ============
 # === MAIN ===
 # ============
@@ -549,6 +586,10 @@ cd $scriptdir/../..
 srcdir=`pwd`
 
 $project
+
+# Set executable bit
+cd $dest_main/lnx64
+chmod a+x `find . -type f -exec file {} \; | grep executable | grep -v "\.svn" | cut -d ":" -f 1 | xargs`
 
 cd $srcdir
 

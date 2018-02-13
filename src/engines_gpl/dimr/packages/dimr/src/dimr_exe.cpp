@@ -1,6 +1,6 @@
 //---- GPL ---------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2016.
+// Copyright (C)  Stichting Deltares, 2011-2017.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -119,18 +119,18 @@ int main (int     argc,
         DHE->initialize(argc, argv, envp);
         if (! DHE->ready) return 1;
 
-		DHE->log->Write(Log::MAJOR, my_rank, getfullversionstring_dimr_exe());
+        DHE->log->Write(FATAL, my_rank, getfullversionstring_dimr_exe());
 
         DHE->openLibrary();
         DHE->lib_initialize();
 
-		doFinalize = true;
+        doFinalize = true;
 
-		DHE->lib_update();
-		
-		doFinalize = false;
+        DHE->lib_update();
+        
+        doFinalize = false;
 
-		DHE->lib_finalize();
+        DHE->lib_finalize();
         delete DHE;
         ireturn = 0;
     }
@@ -150,8 +150,8 @@ int main (int     argc,
         abort_parallel();
         ireturn = 1;
     }
-    catch (Exception *ex) {
-        printf ("#### ERROR: dimr ABORT: %s\n", ex->message);
+    catch (Exception & ex) {
+        printf ("#### ERROR: dimr ABORT: %s\n", ex.message);
         if (doFinalize) {
             printf("#### ERROR: dimr ABORT: Trying to finalize...\n");
             try {
@@ -196,30 +196,37 @@ void DimrExe::lib_initialize(void)
     double tStep;
     double tCurrent;
 
-    this->log->Write(Log::MINOR, my_rank, "%s.SetVar(useMPI,%d)", this->library, use_mpi);
+    // Disable redirecting stdout/stderr to file (default switched on)
+    this->log->Write(DEBUG, my_rank, "%s.SetVar(redirectFile,stdout/stderr)", this->library, use_mpi);
+    (this->dllSetVar) ("redirectFile", "stdout/stderr");
+    this->log->Write(DEBUG, my_rank, "%s.SetVar(useMPI,%d)", this->library, use_mpi);
     (this->dllSetVar) ("useMPI", &use_mpi);
-    this->log->Write (Log::MINOR, my_rank, "%s.SetVar(numRanks,%d)", this->library, numranks);
+    this->log->Write (DEBUG, my_rank, "%s.SetVar(numRanks,%d)", this->library, numranks);
     (this->dllSetVar) ("numRanks", &numranks);
-    this->log->Write (Log::MINOR, my_rank, "%s.SetVar(myRank,%d)", this->library, my_rank);
+    this->log->Write (DEBUG, my_rank, "%s.SetVar(myRank,%d)", this->library, my_rank);
     (this->dllSetVar) ("myRank", &my_rank);
-    this->log->Write (Log::MINOR, my_rank, "%s.SetVar(debugLevel,%d)", this->library, this->logMask);
-    (this->dllSetVar) ("debugLevel", &(this->logMask));
-    this->log->Write (Log::MAJOR, my_rank, "%s.Initialize(%s)", this->library, this->configfile);
-	int result = (this->dllInitialize) (this->configfile);
-	if (result != 0) {
-		// Error occurred, but apparently no exception has been thrown.
-		// Throw one now
-		this->log->Write(Log::MAJOR, my_rank, "%s.Initialize(%s) returned error value %d", this->library, this->configfile, result);
-	}
+    this->log->Write (DEBUG, my_rank, "%s.SetVar(debugLevel,%d)", this->library, this->logLevel);
+    (this->dllSetVar) ("debugLevel", &(this->logLevel));
+    (this->dllSetVar) ("feedbackLevel", &(this->logLevel));
+    this->log->Write (INFO, my_rank, "%s.Initialize(%s)", this->library, this->configfile);
+    int result = (this->dllInitialize) (this->configfile);
+    if (result != 0) 
+    {
+        // Error occurred, but apparently no exception has been thrown.
+        // Throw one now
+        this->log->Write(INFO, my_rank, "%s.Initialize(%s) returned error value %d", this->library, this->configfile, result);
+        // Re-throw the exception (so it will be handled in main)
+        throw Exception(true, (Exception::ErrorCode)result, "%s.Initialize(%s) returned error value %d", this->library, this->configfile, result);
+    }
     // Some basic tests
     (this->dllGetStartTime) (&tStart);
     (this->dllGetEndTime) (&tEnd);
     (this->dllGetTimeStep) (&tStep);
     (this->dllGetCurrentTime) (&tCurrent);
-    this->log->Write(Log::MINOR, my_rank, "DimrExe::lib_initialize:tStart  : %20.10f", tStart);
-    this->log->Write(Log::MINOR, my_rank, "DimrExe::lib_initialize:tCurrent: %20.10f", tCurrent);
-    this->log->Write(Log::MINOR, my_rank, "DimrExe::lib_initialize:tStep   : %20.10f", tStep);
-    this->log->Write(Log::MINOR, my_rank, "DimrExe::lib_initialize:tEnd    : %20.10f", tEnd);
+    this->log->Write(DEBUG, my_rank, "DimrExe::lib_initialize:tStart  : %20.10f", tStart);
+    this->log->Write(DEBUG, my_rank, "DimrExe::lib_initialize:tCurrent: %20.10f", tCurrent);
+    this->log->Write(DEBUG, my_rank, "DimrExe::lib_initialize:tStep   : %20.10f", tStep);
+    this->log->Write(DEBUG, my_rank, "DimrExe::lib_initialize:tEnd    : %20.10f", tEnd);
 }
 
 //------------------------------------------------------------------------------
@@ -263,7 +270,7 @@ void DimrExe::lib_update_test(void)
         (this->dllGetCurrentTime) (&tCur);
 
         (this->dllGetVar) ("myNameDFlowFM/observations/Upstream/water_level", (void**)(&transfer));
-        this->log->Write (Log::MAJOR, my_rank, "DimrExe::lib_update_test:waterlevel: %20.10f", *transfer);
+        this->log->Write (INFO, my_rank, "DimrExe::lib_update_test:waterlevel: %20.10f", *transfer);
         // IMPORTANT: the value that "transfer" points to must be copied into another memory location ("value")
         // Inside dllSetVar, Dimr::send might be called to obtain the pointer to the variable inside the kernel that has to be set
         // This will reset the value that "transfer" points to into the current value.
@@ -271,7 +278,7 @@ void DimrExe::lib_update_test(void)
         (this->dllSetVar) ("myNameRTC/input_ObservationPoint01_water_level", (void*)(&value));
 
         (this->dllGetVar) ("myNameRTC/output_weir_crest_level", (void**)(&transfer));
-        this->log->Write (Log::MAJOR, my_rank, "DimrExe::lib_update_test:crestlevel: %20.10f", *transfer);
+        this->log->Write (INFO, my_rank, "DimrExe::lib_update_test:crestlevel: %20.10f", *transfer);
         // IMPORTANT: the value that "transfer" points to must be copied into another memory location ("value")
         // Inside dllSetVar, Dimr::send might be called to obtain the pointer to the variable inside the kernel that has to be set
         // This will reset the value that "transfer" points to into the current value.
@@ -283,8 +290,8 @@ void DimrExe::lib_update_test(void)
 //------------------------------------------------------------------------------
 void DimrExe::lib_finalize(void)
 {
-    this->log->Write (Log::MAJOR, my_rank, "    %s.Finalize()", this->library);
-    (this->dllFinalize) ();
+   this->log->Write (INFO, my_rank, "    %s.Finalize()", this->library);
+   (this->dllFinalize) ();
 }
 
 //------------------------------------------------------------------------------
@@ -305,15 +312,15 @@ void initialize_parallel(int argc, char *  argv [])
     if (use_mpi) {
         ierr = MPI_Init(&argc, &argv);
         if (ierr != 0) {
-            throw new Exception (true, "MPI_Init returns error code \"%d\"", ierr);
+            throw Exception (true, Exception::ERR_MPI, "MPI_Init returns error code \"%d\"", ierr);
         }
         ierr = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
         if (ierr != 0) {
-            throw new Exception (true, "MPI_Comm_rank returns error code \"%d\"", ierr);
+            throw Exception (true, Exception::ERR_MPI, "MPI_Comm_rank returns error code \"%d\"", ierr);
         }
         ierr = MPI_Comm_size(MPI_COMM_WORLD, &numranks);
         if (ierr != 0) {
-            throw new Exception (true, "MPI_Comm_size returns error code \"%d\"", ierr);
+            throw Exception (true, Exception::ERR_MPI, "MPI_Comm_size returns error code \"%d\"", ierr);
         }
         printf("#%d: Running parallel with %d partitions\n", my_rank, numranks);
         fflush(stdout);
@@ -355,7 +362,7 @@ void abort_parallel()
 //  Constructor. Just create the object. Delay initialization actions in
 //  initialization method
 DimrExe::DimrExe (void) {
-	this->ready = false;
+    this->ready = false;
 }
 
 //------------------------------------------------------------------------------
@@ -383,8 +390,8 @@ void DimrExe::initialize (int     argc,
     this->slaveArg  = NULL;
     this->done      = false;
 
-    this->logMask = Log::MAJOR;  // selector of debugging/trace information
-                                        // minLog: Log::SILENT  maxLog: Log::TRACE
+    this->logLevel = WARNING;  // selector of debugging/trace information
+                                        // minLog: FATAL  maxLog: ALL
     FILE *      logFile = stdout;       // log file descriptor
 
     // Reassemble command-line arguments for later use (to spawn remote slave processes)
@@ -412,21 +419,22 @@ void DimrExe::initialize (int     argc,
     while ((c = getopt (argc, argv, (char *) "d:l:S:v?")) != -1) {
         switch (c) {
             case 'd': {
-                if (sscanf (optarg, "%i", &logMask) != 1)
-                    throw new Exception (true, "Invalid log mask (-d option)");
+                if (sscanf (optarg, "%i", &logLevel) != 1)
+                    throw Exception (true, Exception::ERR_INVALID_INPUT, "Invalid log level (-d option)");
+                else
+                    logLevel = min(max(logLevel,ALL),FATAL);
                 break;
             }
 
-			case 'v': {
-				if (sscanf("0x0000001F", "%i", &logMask) != 1)
-					throw new Exception(true, "Invalid log mask (-d option)");
-				break;
-			}
+            case 'v': {
+                logLevel=ALL;
+                break;
+            }
 
-			case 'l': {
+            case 'l': {
                 logFile = fopen (optarg, "w");
                 if (logFile == NULL)
-                    throw new Exception (true, "Cannot create log file \"%s\"", optarg);
+                    throw Exception (true, Exception::ERR_OS, "Cannot create log file \"%s\"", optarg);
 
                 break;
             }
@@ -449,19 +457,20 @@ void DimrExe::initialize (int     argc,
             }
 
             default: {
-                throw new Exception (true, "Invalid command-line argument.  Execute \"%s -?\" for command-line syntax", this->exeName);
+                throw Exception (true, Exception::ERR_INVALID_INPUT, "Invalid command-line argument.  Execute \"%s -?\" for command-line syntax", this->exeName);
             }
         }
     }
 
-    if (argc - optind != 1)
-        throw new Exception (true, "Improper usage.  Execute \"%s -?\" for command-line syntax", this->exeName);
+    if (argc - optind != 1) {
+        throw Exception (true, Exception::ERR_INVALID_INPUT,  "Improper usage.  Execute \"%s -?\" for command-line syntax", this->exeName);
+    }
 
     this->clock = new Clock ();
-    this->log = new Log (logFile, this->clock, this->logMask);
+    this->log = new Log (logFile, this->clock, this->logLevel);
     this->configfile = argv[optind];
 
-	this->ready = true;
+    this->ready = true;
 }
 
 
@@ -476,7 +485,7 @@ DimrExe::~DimrExe (void) {
     // to do:  (void) FreeLibrary(handle);
     freeLib();
 
-    this->log->Write (Log::ALWAYS, my_rank, "dimr shutting down normally");
+    this->log->Write (INFO, my_rank, "dimr shutting down normally");
 
 #if defined(HAVE_CONFIG_H)
     free (this->exeName);
@@ -504,7 +513,7 @@ void DimrExe::openLibrary (void) {
 
 #if defined (OSX)
     // Macintosh:VERY SIMILAR TO LINUX
-    throw new Exception (true, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
+    throw Exception (true, Exception::ERR_OS, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
 #endif
 #if defined (HAVE_CONFIG_H)
     char *err;
@@ -519,7 +528,7 @@ void DimrExe::openLibrary (void) {
         sprintf(this->library, "dimr_dll.dll\0");
 #endif
 
-        this->log->Write (Log::DETAIL, my_rank, "Loading dimr library \"%s\"", this->library);
+        this->log->Write (INFO, my_rank, "Loading dimr library \"%s\"", this->library);
 
 #if defined (HAVE_CONFIG_H)
         dlerror(); /* clear error code */
@@ -539,66 +548,66 @@ void DimrExe::openLibrary (void) {
 
 #if defined (HAVE_CONFIG_H)
             if ((err = dlerror()) != NULL)
-                throw new Exception (true, "Cannot load component library \"%s\". Error: %s\n", this->library, err);
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Error: %s\n", this->library, err);
 #else
             if (GetLastError() == 193)
-                throw new Exception (true, "Cannot load component library \"%s\". Return code: %d\n    Most probably a 32bit - 64bit conflict.", this->library, GetLastError());
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Return code: %d\n    Most probably a 32bit - 64bit conflict.", this->library, GetLastError());
             else
-                throw new Exception (true, "Cannot load component library \"%s\". Return code: %d", this->library, GetLastError());
+                throw Exception (true, Exception::ERR_OS, "Cannot load component library \"%s\". Return code: %d", this->library, GetLastError());
 #endif
         }
 
-		// Get entry point for set_logger
-		BMI_DIMR_SET_LOGGER set_logger_entry = (BMI_DIMR_SET_LOGGER) GETPROCADDRESS(dllhandle, BmiDimrSetLogger);
-		if (set_logger_entry == NULL) {
-			throw new Exception(true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiDimrSetLogger, this->library, GetLastError());
-		}
-		(set_logger_entry)(this->log);
+        // Get entry point for set_logger
+        BMI_DIMR_SET_LOGGER set_logger_entry = (BMI_DIMR_SET_LOGGER) GETPROCADDRESS(dllhandle, BmiDimrSetLogger);
+        if (set_logger_entry == NULL) {
+            throw Exception(true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiDimrSetLogger, this->library, GetLastError());
+        }
+        (set_logger_entry)(this->log);
 
-		// Collect BMI entry points
+        // Collect BMI entry points
         this->dllInitialize = (BMI_INITIALIZE) GETPROCADDRESS (dllhandle, BmiInitializeEntryPoint);
         if (this->dllInitialize == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiInitializeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiInitializeEntryPoint, this->library, GetLastError());
         }
 
         this->dllUpdate = (BMI_UPDATE) GETPROCADDRESS (dllhandle, BmiUpdateEntryPoint);
         if (this->dllUpdate == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiUpdateEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiUpdateEntryPoint, this->library, GetLastError());
         }
 
         this->dllFinalize = (BMI_FINALIZE) GETPROCADDRESS (dllhandle, BmiFinalizeEntryPoint);
         if (this->dllFinalize == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiFinalizeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiFinalizeEntryPoint, this->library, GetLastError());
         }
 
         this->dllGetStartTime = (BMI_GETSTARTTIME) GETPROCADDRESS (dllhandle, BmiGetStartTimeEntryPoint);
         if (this->dllGetStartTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, this->library, GetLastError());
         }
 
         this->dllGetEndTime = (BMI_GETENDTIME) GETPROCADDRESS (dllhandle, BmiGetEndTimeEntryPoint);
         if (this->dllGetEndTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetEndTimeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetEndTimeEntryPoint, this->library, GetLastError());
         }
 
         this->dllGetTimeStep = (BMI_GETTIMESTEP) GETPROCADDRESS (dllhandle, BmiGetTimeStepEntryPoint);
         if (this->dllGetStartTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetStartTimeEntryPoint, this->library, GetLastError());
         }
 
         this->dllGetCurrentTime = (BMI_GETCURRENTTIME) GETPROCADDRESS (dllhandle, BmiGetCurrentTimeEntryPoint);
         if (this->dllGetCurrentTime == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetCurrentTimeEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetCurrentTimeEntryPoint, this->library, GetLastError());
         }
 
         this->dllSetVar = (BMI_SETVAR) GETPROCADDRESS (dllhandle, BmiSetVarEntryPoint);
         if (this->dllSetVar == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetVarEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiSetVarEntryPoint, this->library, GetLastError());
         }
 
         this->dllGetVar = (BMI_GETVAR) GETPROCADDRESS (dllhandle, BmiGetVarEntryPoint);
         if (this->dllGetVar == NULL) {
-            throw new Exception (true, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetVarEntryPoint, this->library, GetLastError());
+            throw Exception (true, Exception::ERR_METHOD_NOT_IMPLEMENTED, "Cannot find function \"%s\" in library \"%s\". Return code: %d", BmiGetVarEntryPoint, this->library, GetLastError());
         }
 
 }
@@ -612,25 +621,25 @@ void DimrExe::freeLib (void) {
 
 #if defined (OSX)
     // Macintosh:VERY SIMILAR TO LINUX
-    throw new Exception (true, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
+    throw Exception (true, Exception::ERR_OS, "ABORT: %s has not be ported to Apple Mac OS/X yet", this->exeName);
 #endif
 #if defined (HAVE_CONFIG_H)
     char *err;
 #endif
 
-        this->log->Write (Log::DETAIL, my_rank, "Freeing library \"%s\"", this->library);
+        this->log->Write (ALL, my_rank, "Freeing library \"%s\"", this->library);
 #if defined (HAVE_CONFIG_H)
         dlerror(); /* clear error code */
         int ierr = dlclose(this->libHandle);
         if ((err = dlerror()) != NULL) {
-            throw new Exception (true, "Cannot free component library \"%s\". Error: %s\n",  this->library, err);
+            throw Exception (true, Exception::ERR_OS, "Cannot free component library \"%s\". Error: %s\n",  this->library, err);
         }
 #else
         DWORD ierr;
         SetLastError(0); /* clear error code */
         BOOL success = FreeLibrary(this->libHandle);
         if (success == 0 || (ierr = GetLastError()) != 0) {
-            throw new Exception (true, "Cannot free component library \"%s\". Return code: %d.", this->library, ierr);
+            throw Exception (true, Exception::ERR_OS, "Cannot free component library \"%s\". Return code: %d.", this->library, ierr);
         }
 #endif
 
@@ -642,10 +651,10 @@ void DimrExe::freeLib (void) {
 static void printAbout (char * exeName) {
     printf ("\n\
 %s \n\
-Copyright (C)  Stichting Deltares, 2011-2016. \n\
+Copyright (C)  Stichting Deltares, 2011-2017. \n\
 GNU General Public License, see <http://www.gnu.org/licenses/>. \n\n\
 sales@deltaressystems.nl \n", getfullversionstring_dimr_exe());
-	printf("%s\n\n", geturlstring_dimr_exe());
+    printf("%s\n\n", geturlstring_dimr_exe());
  }
 
 
@@ -657,12 +666,12 @@ static void printUsage (char * exeName) {
 Usage: \n\
     %s [<options>] <configurationFile> \n\
 Options: \n\
-    -d <bitmask> \n\
-        Specify debug/trace output as a bit mask in decimal or hex \n\
-        Maximum output: 0xFFFFFFFF \n\
+    -d <int> \n\
+        Specify debug/log level \n\
+        Maximum output: 0 \n\
     -v \n\
                 Verbose \n\
-        Same as \"-d 0x0000000F\", all logging levels \n\
+        Same as \"-d 0\", all logging levels \n\
     -l <filename>\n\
         Log debug/trace messages to the specified file instead of stdout \n\
     -i \n\

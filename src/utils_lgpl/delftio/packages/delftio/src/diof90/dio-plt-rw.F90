@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -2687,7 +2687,7 @@ subroutine DioPltRewind(plt)
 #else
             ! Unix keeps original content, so remove file and reopen
             close (plt % ds % outStream % lun, status='delete')
-            open (plt % ds % outStream % lun, form = plt % ds % outStream % form, &
+            open (newunit=plt % ds % outStream % lun, form = plt % ds % outStream % form, &
                      file = plt % ds % outStream % name, action='write')
             ! write(*,*) 'Deleted/Opened ', plt % ds % outStream % name
 #endif

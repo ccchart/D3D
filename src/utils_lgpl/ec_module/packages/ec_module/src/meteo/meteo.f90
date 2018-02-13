@@ -1,7 +1,7 @@
 module meteo
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2016.                                
+!  Copyright (C)  Stichting Deltares, 2011-2017.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -544,7 +544,7 @@ function meteoupdateitem(meteoitem, flow_itdate, flow_tzone, tim) result(success
    !
    if ( comparereal(real(meteoitem%field(meteoitem%it0)%time,fp), tim) == 1 ) then
       write(meteomessage,'(3a,2(g16.8,a))') 'In file ',trim(meteoitem%filename), &
-           & ': Start time of data (',meteoitem%field(meteoitem%it0)%time,') is behind start time of simulation (',tim,')'
+           & ': Start time of forcing data (',meteoitem%field(meteoitem%it0)%time,') should precede start time of simulation (',tim,')'
       success = .false.
    else
       !meteomessage = ' '
@@ -629,7 +629,6 @@ function getmeteotypes(runid, meteotypes, mtdim) result(success)
    logical                             :: newtype
    character(256)                      :: curtype
    type(tmeteo)              , pointer :: meteo     ! all meteo for one subdomain
-   type(tmeteoitem)          , pointer :: meteoitem
 !
 !! executable statements -------------------------------------------------------
 !
@@ -728,8 +727,6 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
    integer                               :: j1
    integer                               :: mv
    integer                               :: nv
-   integer                               :: iyx
-   integer                               :: iyy
    logical                               :: nodata0
    logical                               :: nodata1
    real(fp)                              :: alpha
@@ -777,7 +774,6 @@ function getmeteoval(runid, quantity, time, mfg, nfg, &
    real(hp), dimension(4)                :: u_hp
    real(hp), dimension(4)                :: v_hp
    real(hp), dimension(4)                :: w         ! weighing factors
-   real(fp), dimension(:,:)  , pointer   :: qdest
    real(hp), dimension(:,:,:), pointer   :: v1
    real(hp), dimension(:,:,:), pointer   :: v0        ! 3-dim array
    real(hp), dimension(:)    , pointer   :: u1
