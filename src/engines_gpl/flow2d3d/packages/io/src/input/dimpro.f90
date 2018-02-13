@@ -122,6 +122,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     integer                   :: uw
     logical                   :: lerror ! Flag=TRUE if an local error is encountered
     logical                   :: found
+    logical                   :: lhulp
     logical                   :: newkw  ! Flag to specify if the keyword to look for is a new keyword
     logical                   :: skipuniqueid
     character(20)             :: cdef   ! Default value for chulp 

@@ -149,7 +149,6 @@ subroutine discha(kmax      ,nsrc      ,nbub      ,lstsci    ,lstsc     ,j      
                   concin = r0(nmout, kkout, lcon)
                 endif
              endif
-             concinWrite = concin
           else
              !
              ! discharge with intake (culverts, power station)
