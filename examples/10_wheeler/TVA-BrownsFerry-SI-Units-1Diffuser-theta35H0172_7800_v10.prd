@@ -1,0 +1,252 @@
+CORMIX2 PREDICTION FILE:
+22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
+                       CORMIX MIXING ZONE EXPERT SYSTEM
+               Subsystem CORMIX2: Multiport Diffuser Discharges
+                             CORMIX Version 10.0GTR                  
+                     HYDRO2 Version 10.0.0.0 July 2016       
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+CASE DESCRIPTION
+ Site name/label:                                                          
+ Design case:                                                              
+ FILE NAME:         P:\...erry-SI-Units-1Diffuser-theta35H0172_7800_v10.prd
+ Time stamp:        09/12/2016--15:04:47    
+ 
+ENVIRONMENT PARAMETERS (metric units)
+ Unbounded section
+ HA    =      9.14  HD    =      9.14
+ UA    =      0.080 F     =      0.034 USTAR =0.5199E-02
+ UW    =      2.000 UWSTAR=0.2198E-02
+ Uniform density environment
+ STRCND=  U         RHOAM =  996.1390
+ 
+DIFFUSER DISCHARGE PARAMETERS (metric units)
+ Diffuser type:     DITYPE= unidirectional_perpendicular            
+ BANK  =  RIGHT     DISTB =   1091.44  YB1   =   1000.00  YB2   =   1182.88
+ LD    =    182.88  NOPEN = 7800       SPAC  =      0.02
+ D0    =      0.050 A0    =      0.002 H0    =      1.72  SUB0  =      7.42
+ D0INP =      0.050 CR0   =      1.000
+ Nozzle/port arrangement:   unidirectional_without_fanning          
+ GAMMA =     90.00  THETA =     35.00  SIGMA =      0.00  BETA  =     90.00
+ U0    =      2.681 Q0    =     41.060 Q0A   =0.4106E+02
+ RHO0  =  991.3420  DRHO0 =0.4797E+01  GP0   =0.4722E-01
+ C0    =0.1000E+03  CUNITS=  %                             
+ IPOLL =  1         KS    =0.0000E+00  KD    =0.0000E+00
+ 
+FLUX VARIABLES - PER UNIT DIFFUSER LENGTH (metric units)
+ q0    =0.2245E+00  m0    =0.6019E+00  j0    =0.1060E-01  SIGNJ0=      1.0
+ Associated 2-d length scales (meters)
+ lQ=B  =      0.084 lM    =     12.44  lm    =     94.05
+ lmp   =  99999.00  lbp   =  99999.00  la    =  99999.00
+ 
+FLUX VARIABLES - ENTIRE DIFFUSER (metric units)
+ Q0    =0.4106E+02  M0    =0.1101E+03  J0    =0.1939E+01
+ Associated 3-d length scales (meters)
+ LQ    =      0.04  LM    =     24.41  Lm    =    131.15  Lb    =   3787.21
+                                       Lmp   =  99999.00  Lbp   =  99999.00
+ 
+NON-DIMENSIONAL PARAMETERS
+ FR0   =     42.63  FRD0  =     55.17  R     =     33.51  PL    =    1.71
+ (slot)             (port/nozzle)
+ 
+RECOMPUTED SOURCE CONDITIONS FOR RISER GROUPS:
+ Properties of riser group with  1 ports/nozzles each:
+ U0    =      2.681 D0    =      0.050 A0    =      0.002 THETA =     35.00
+ FR0   =     42.63  FRD0  =     55.17  R     =     33.51
+ (slot)             (riser group)
+ 
+FLOW CLASSIFICATION
+ 222222222222222222222222222222222222222222
+ 2  Flow class (CORMIX2)      =    MU2    2  
+ 2  Applicable layer depth HS =     9.14  2
+ 222222222222222222222222222222222222222222
+ 
+MIXING ZONE / TOXIC DILUTION / REGION OF INTEREST PARAMETERS
+ C0    =0.1000E+03  CUNITS=  %                             
+ NTOX  =  0
+ NSTD  =  0
+ REGMZ =  0
+ XINT  =  20000.00  XMAX  =  20000.00
+ 
+X-Y-Z COORDINATE SYSTEM:
+    ORIGIN is located at the bottom and the diffuser mid-point:
+      1091.44 m  from the RIGHT bank/shore.
+    X-axis points downstream, Y-axis points to left, Z-axis points upward.
+NSTEP =  20 display intervals per module
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+BEGIN MOD201: DIFFUSER DISCHARGE MODULE                                       
+ 
+ Due to complex near-field motions:  EQUIVALENT SLOT DIFFUSER (2-D) GEOMETRY
+  
+ Profile definitions:
+   BV = Gaussian 1/e (37%) half-width, in vertical plane normal to trajectory
+   BH = top-hat half-width, in horizontal plane normal to trajectory
+   S  = hydrodynamic centerline dilution
+   C  = centerline concentration (includes reaction effects, if any)
+   Uc = Local centerline excess velocity (above ambient)
+   TT = Cumulative travel time
+ 
+       X        Y       Z        S       C       BV       BH       Uc        TT
+      0.00     0.00    1.72     1.0 0.100E+03   0.07    91.44     2.615   .00000E+00
+ 
+END OF MOD201: DIFFUSER DISCHARGE MODULE                                      
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+BEGIN MOD271: ACCELERATION ZONE OF UNIDIRECTIONAL CO-FLOWING DIFFUSER         
+ 
+ In this laterally contracting zone the diffuser plume becomes VERTICALLY FULLY 
+  MIXED over the entire layer depth (HS =    9.14m).
+   Full mixing is achieved after a plume distance of about five
+   layer depths from the diffuser.
+ 
+ Profile definitions:
+   BV = layer depth (vertically mixed)
+   BH = top-hat half-width, in horizontal plane normal to trajectory
+   S  = hydrodynamic average (bulk) dilution
+   C  = average (bulk) concentration (includes reaction effects, if any)
+   TT = Cumulative travel time
+ 
+       X        Y       Z        S       C       BV       BH        TT
+      0.00     0.00    1.72     1.0 0.100E+03   0.07    91.44 .00000E+00
+      4.57     0.00    2.01     2.7 0.373E+02   0.98    86.36 .42315E+01
+      9.14     0.00    2.29     3.4 0.296E+02   1.90    81.98 .10459E+02
+     13.72     0.00    2.58     3.9 0.256E+02   2.81    78.19 .17911E+02
+     18.29     0.00    2.86     4.4 0.229E+02   3.72    74.89 .26315E+02
+     22.86     0.00    3.15     4.8 0.210E+02   4.64    72.00 .35513E+02
+     27.43     0.00    3.43     5.1 0.196E+02   5.55    69.45 .45403E+02
+     32.00     0.00    3.72     5.4 0.184E+02   6.47    67.18 .55907E+02
+     36.58     0.00    4.00     5.8 0.174E+02   7.38    65.15 .66968E+02
+     41.15     0.00    4.29     6.0 0.166E+02   8.30    63.34 .78537E+02
+     45.72     0.00    4.57     6.3 0.158E+02   9.14    61.72 .90578E+02
+     50.29     0.00    4.57     6.6 0.152E+02   9.14    60.30 .10306E+03
+     54.86     0.00    4.57     6.8 0.147E+02   9.14    59.07 .11595E+03
+     59.44     0.00    4.57     7.1 0.142E+02   9.14    58.02 .12923E+03
+     64.01     0.00    4.57     7.3 0.137E+02   9.14    57.15 .14287E+03
+     68.58     0.00    4.57     7.5 0.133E+02   9.14    56.47 .15686E+03
+     73.15     0.00    4.57     7.7 0.130E+02   9.14    55.95 .17119E+03
+     77.72     0.00    4.57     7.9 0.126E+02   9.14    55.58 .18583E+03
+     82.30     0.00    4.57     8.1 0.123E+02   9.14    55.32 .20077E+03
+     86.87     0.00    4.57     8.3 0.120E+02   9.14    55.16 .21600E+03
+     91.44     0.00    4.57     8.5 0.117E+02   9.14    55.07 .23151E+03
+ Cumulative travel time =         231.5147 sec  (    0.06 hrs)
+   Plume centerline may exhibit slight discontinuities in transition
+     to subsequent far-field module.
+ 
+END OF MOD271: ACCELERATION ZONE OF UNIDIRECTIONAL CO-FLOWING DIFFUSER        
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+BEGIN MOD251: DIFFUSER PLUME IN CO-FLOW                                       
+ 
+ Phase 1: Vertically mixed, Phase 2: Re-stratified
+ 
+-----------------------------------------------------------------------------------------------
+ Phase 2: The flow has RESTRATIFIED at the beginning of this zone.
+ 
+ Profile definitions:
+   BV = top-hat thickness, measured vertically
+   BH = Gaussian 1/e (37%) half-width in horizontal plane normal to trajectory
+   ZU = upper plume boundary (Z-coordinate)
+   ZL = lower plume boundary (Z-coordinate)
+   S  = hydrodynamic centerline dilution
+   C  = centerline concentration (includes reaction effects, if any)
+   TT = Cumulative travel time
+ 
+       X        Y       Z        S       C       BV       BH        TT
+     91.44     0.00    9.14     8.5 0.117E+02   9.14    62.14 .23151E+03
+    336.63     0.00    9.14     9.8 0.102E+02   3.18   229.95 .39628E+04
+    581.81     0.00    9.14    11.0 0.911E+01   2.52   351.22 .81930E+04
+    827.00     0.00    9.14    12.0 0.832E+01   2.22   466.25 .12869E+05
+   1072.19     0.00    9.14    13.0 0.770E+01   2.04   579.23 .17952E+05
+   1317.38     0.00    9.14    13.9 0.721E+01   1.91   691.59 .23411E+05
+   1562.56     0.00    9.14    14.7 0.679E+01   1.81   803.95 .29222E+05
+   1807.75     0.00    9.14    15.5 0.645E+01   1.73   916.63 .35365E+05
+   2052.94     0.00    9.14    16.3 0.615E+01   1.67  1029.80 .41824E+05
+   2298.13     0.00    9.14    17.0 0.589E+01   1.61  1143.54 .48582E+05
+   2543.31     0.00    9.14    17.7 0.565E+01   1.56  1257.90 .55628E+05
+   2788.50     0.00    9.14    18.4 0.545E+01   1.52  1372.91 .62950E+05
+   3033.69     0.00    9.14    19.0 0.526E+01   1.48  1488.57 .70537E+05
+   3278.88     0.00    9.14    19.6 0.510E+01   1.45  1604.88 .78383E+05
+   3524.06     0.00    9.14    20.2 0.495E+01   1.41  1721.84 .86476E+05
+   3769.25     0.00    9.14    20.8 0.481E+01   1.38  1839.44 .94812E+05
+   4014.44     0.00    9.14    21.4 0.468E+01   1.36  1957.66 .10338E+06
+   4259.63     0.00    9.14    21.9 0.456E+01   1.33  2076.50 .11218E+06
+   4504.81     0.00    9.14    22.5 0.445E+01   1.31  2195.94 .12120E+06
+   4750.00     0.00    9.14    23.0 0.435E+01   1.29  2315.96 .13044E+06
+   4995.19     0.00    9.14    23.5 0.425E+01   1.27  2436.56 .13989E+06
+ Cumulative travel time =      139890.7188 sec  (   38.86 hrs)
+ 
+END OF MOD251: DIFFUSER PLUME IN CO-FLOW                                      
+----------------------------------------------------------------------------------------------
+** End of NEAR-FIELD REGION (NFR) **
+  
+ The initial plume WIDTH values in the next far-field module will be 
+  CORRECTED by a factor  1.40 to conserve the mass flux in the far-field!
+ 
+ In this design case, the diffuser is located CLOSE TO BANK/SHORE.
+ Some lateral boundary interaction occurs at end of the near-field.
+   This may be related to a design case with a VERY LOW AMBIENT VELOCITY.
+   The dilution values in one or more of the preceding zones may be too high. 
+ Carefully evaluate results in near-field and check degree of interaction.
+ 
+ Consider locating outfall further away from bank or shore.
+ In the next prediction module, the plume centerline will be set
+   to follow the bank/shore.
+----------------------------------------------------------------------------------------------
+BEGIN MOD241: BUOYANT AMBIENT SPREADING                                       
+ 
+ Plume is ATTACHED to RIGHT bank/shore.
+   Plume width is now determined from RIGHT bank/shore.
+ 
+ Profile definitions:
+   BV = top-hat thickness, measured vertically
+   BH = top-hat half-width, measured horizontally in y-direction
+   ZU = upper plume boundary (Z-coordinate)
+   ZL = lower plume boundary (Z-coordinate)
+   S  = hydrodynamic average (bulk) dilution
+   C  = average (bulk) concentration (includes reaction effects, if any)
+   TT = Cumulative travel time
+ 
+ Plume Stage 2 (bank attached):
+       X        Y       Z        S       C       BV       BH      ZU      ZL       TT
+   4995.19 -1091.44    9.14    23.5 0.425E+01   2.68  4499.97    9.14    6.46   .13989E+06
+   5745.43 -1091.44    9.14    24.5 0.407E+01   2.61  4824.16    9.14    6.53   .14927E+06
+   6495.67 -1091.44    9.14    25.6 0.390E+01   2.56  5130.39    9.14    6.58   .15865E+06
+   7245.91 -1091.44    9.14    26.7 0.374E+01   2.53  5421.63    9.14    6.61   .16802E+06
+   7996.15 -1091.44    9.14    27.9 0.358E+01   2.51  5700.19    9.14    6.63   .17740E+06
+   8746.39 -1091.44    9.14    29.2 0.343E+01   2.51  5967.91    9.14    6.63   .18678E+06
+   9496.63 -1091.44    9.14    30.5 0.328E+01   2.51  6226.27    9.14    6.63   .19616E+06
+  10246.87 -1091.44    9.14    31.9 0.314E+01   2.53  6476.50    9.14    6.62   .20554E+06
+  10997.11 -1091.44    9.14    33.4 0.300E+01   2.55  6719.58    9.14    6.60   .21491E+06
+  11747.35 -1091.44    9.14    34.9 0.286E+01   2.58  6956.38    9.14    6.57   .22429E+06
+  12497.59 -1091.44    9.14    36.5 0.274E+01   2.61  7187.60    9.14    6.53   .23367E+06
+  13247.83 -1091.44    9.14    38.3 0.261E+01   2.65  7413.86    9.14    6.50   .24305E+06
+  13998.07 -1091.44    9.14    40.1 0.250E+01   2.69  7635.67    9.14    6.45   .25243E+06
+  14748.31 -1091.44    9.14    41.9 0.238E+01   2.74  7853.48    9.14    6.40   .26180E+06
+  15498.55 -1091.44    9.14    43.9 0.228E+01   2.79  8067.69    9.14    6.35   .27118E+06
+  16248.79 -1091.44    9.14    46.0 0.217E+01   2.85  8278.63    9.14    6.29   .28056E+06
+  16999.04 -1091.44    9.14    48.1 0.208E+01   2.91  8486.60    9.14    6.23   .28994E+06
+  17749.28 -1091.44    9.14    50.4 0.198E+01   2.98  8691.86    9.14    6.17   .29932E+06
+  18499.52 -1091.44    9.14    52.8 0.190E+01   3.04  8894.64    9.14    6.10   .30869E+06
+  19249.76 -1091.44    9.14    55.2 0.181E+01   3.12  9095.15    9.14    6.03   .31807E+06
+  20000.00 -1091.44    9.14    57.8 0.173E+01   3.19  9293.56    9.14    5.95   .32745E+06
+ Cumulative travel time =      327450.8750 sec  (   90.96 hrs)
+
+Note:
+CORMIX is a steady state model and assumes discharge and ambient conditions do not vary
+ over time. The predicted plume cumulative travel time exceeds 48 hours at this trajectory
+ distance. Keep in mind that ambient and discharge conditions are likely to vary over 
+ large space and time scales. Predictions at such large space and time scales may be 
+ inconsistent with CORMIX modeling assumptions.
+
+Please carefully evaluate your simulation results and limit model interpretation to space
+ and time scales consistent with steady state assumptions and ambient schematization.
+ 
+ Simulation limit based on maximum specified distance =  20000.00 m.
+   This is the REGION OF INTEREST limitation.
+ 
+END OF MOD241: BUOYANT AMBIENT SPREADING                                      
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+CORMIX2: Multiport Diffuser Discharges       End of Prediction File
+22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222

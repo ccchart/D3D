@@ -1,0 +1,183 @@
+Ident  = #Delft3D-FLOW 3.59.00.47997#
+Commnt =                  
+Filcco = #test60.grd#
+Anglat =  3.4500000e+001
+Grdang =  0.0000000e+000
+Filgrd = #test60.enc#
+MNKmax = 518 118 30
+Thick  =  1.2600000e+001
+          1.0900000e+001
+          9.5000000e+000
+          8.2000000e+000
+          7.1000000e+000
+          6.2000000e+000
+          5.4000000e+000
+          4.7000000e+000
+          4.1000000e+000
+          3.5200000e+000
+          3.0600000e+000
+          2.6600000e+000
+          2.3100000e+000
+          2.0100000e+000
+          1.7500000e+000
+          1.5200000e+000
+          1.3200000e+000
+          1.1500000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+          1.0000000e+000
+Commnt =                  
+Fildep = #test60_inMeters_ref0_v2.dep#
+Commnt =                  
+Commnt =                 no. dry points: 0
+Commnt =                 no. thin dams: 74
+Filtd  = #test60.thd#
+Commnt =                  
+Itdate = #2016-03-31#
+Tunit  = #M#
+Tstart = $(FLOW_TIME_START)
+Tstop  = $(FLOW_TIME_STOP)
+Dt     = 0.2
+Tzone  = 0
+Commnt =                  
+Sub1   = # TW #
+Sub2   = #   #
+Commnt =                  
+Wnsvwp = #N#
+Filwnd = #wheeler.wnd#
+Wndint = #Y#
+Commnt =                  
+Commnt =                 restart (warm state) file
+Restid = #wheeler.rst#
+Commnt =                  
+Commnt =                 no. open boundaries: 16
+Rettis =  0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+Rettib =  0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+          0.0000000e+000
+Commnt =                  
+Ag     =  9.7970000e+000
+Rhow   =  1.0000000e+003
+Tempw  =  1.5000000e+001
+Salw   =  1.0000000e-001
+Wstres =  6.3000000e-004  0.0000000e+000  7.2300000e-003  1.0000000e+002  7.2300000e-003  1.0000000e+002
+Rhoa   =  1.2500000e+000
+Betac  =  5.0000000e-001
+Equili = #N#
+Tkemod = #K-epsilon   #
+Ktemp  = 5
+Fclou  =  0.0000000e+000
+Sarea  =  0.0000000e+000
+Secchi =  2.0000000e+000
+Stantn =  1.3000000e-003
+Dalton =  1.3000000e-003
+Filtmp = #wheeler.tem#
+Solrad = #Y#
+Temint = #Y#
+Commnt =                  
+Roumet = #M#
+Ccofu  =  2.8000000e-002
+Ccofv  =  2.8000000e-002
+Xlo    =  2.0000000e-002
+Vicouv =  1.0000000e-001
+Dicouv =  1.0000000e-001
+Htur2d = #N#
+Vicoww =  0.0000000e+000
+Dicoww =  0.0000000e+000
+Irov   = 0
+Commnt =                  
+Iter   =      2
+Dryflp = #YES#
+Dpsopt = #MAX#
+Dpuopt = #MIN#
+Dryflc =  1.0000000e-001
+Dco    = -9.9900000e+002
+Tlfsmo =  6.0000000e+001
+ThetQH =  0.0000000e+000
+Forfuv = #N#
+Forfww = #N#
+Sigcor = #N#
+Trasol = #Cyclic-method#
+Momsol = #Cyclic#
+Commnt =                  
+Commnt =                 no. discharges: 25
+Fildis = #wheeler.dis#
+Filsrc = #Dis_all_rivers_18_01_2017.src#
+Commnt =                 no. observation points: 230
+Filsta = #TVA_obs_inclAroundStats.obs#
+Commnt =                 no. drogues: 0
+Commnt =                  
+Commnt =                  
+Commnt =                 no. cross sections: 41
+Filcrs = #cross2.crs#
+Commnt =                  
+SMhydr = #YYYYY#     
+SMderv = #NNNNYN#    
+SMproc = #NYYYYYYNNN#
+PMhydr = #YYYYYY#    
+PMderv = #YYY#       
+PMproc = #YYYYYYYYYY#
+SHhydr = #YYYY#      
+SHderv = #YYYYY#     
+SHproc = #YYYYYYYYYY#
+SHflux = #YYYY#      
+PHhydr = #YYYYYY#    
+PHderv = #YYY#       
+PHproc = #YYYYYYYYYY#
+PHflux = #YYYY#      
+Flmap = $(FLOW_TIME_START) 60  $(FLOW_TIME_STOP)
+Flhis = $(FLOW_TIME_START) 10  $(FLOW_TIME_STOP)
+Flpp  = $(FLOW_TIME_START) 0  $(FLOW_TIME_STOP)
+Flrst = $(FLOW_TIME_RST)
+Commnt =                  
+Online = #N#
+AirOut = #True#
+HeaOut = #YES#
+Zmodel = #Y#
+Zbot   = -17.72
+Ztop   = 2
+SDlake = 1
+Wslake = 1
+#Flnfl  = $(FLOW_TIME_START) 30  $(FLOW_TIME_STOP)
+#Nflmod = #generic#
+#Filnfl = #COSUMOsettings.xml#
+Filgat = #wheeler-local-skimmer-normal-position.gat#
+Addtim = #Y#
+Commnt =                  

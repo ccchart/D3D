@@ -1,0 +1,16 @@
+WHLA1                T T     1    42     1    73  0.0000000e+000 Uniform          
+RR-III-h             T T     3    80     3    80  0.0000000e+000 Uniform
+RR-III-g             T T     9    81     9    81  0.0000000e+000 Uniform
+PSPT1                T T    34    91    37    91  0.0000000e+000 Uniform
+RR-III-e             T T    74    93    75    93  0.0000000e+000 Uniform
+RR-III-d             T T    69     6    69     6  0.0000000e+000 Uniform
+RR-III-c             T T   309     7   309     6  0.0000000e+000 Uniform
+RR-III-b             T T   329   115   330   115  0.0000000e+000 Uniform
+RR-III-a             T T   352   118   352   118  0.0000000e+000 Uniform
+RR-II-d              T T   375     1   375     1  0.0000000e+000 Uniform
+RR-II-c              T T   380    58   380    58  0.0000000e+000 Uniform
+RR-II-b              T T   405    43   405    43  0.0000000e+000 Uniform
+RR-II-a              T T   410    58   410    58  0.0000000e+000 Uniform
+BSBA1                T T   478    58   478    58  0.0000000e+000 Uniform
+WDVA1                T T   494    58   494    58  0.0000000e+000 Uniform
+GVDA1                T T   518    47   518    53  0.0000000e+000 Uniform   

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COSUMO>
+  <fileVersion>0.3</fileVersion>
+  <momentumRelaxation>0.5</momentumRelaxation>
+   <settings>
+      <general>
+        <subGridModel>bfsch</subGridModel>
+        <ID>Diffusor_1</ID>
+        <farFieldModel>Delft3D</farFieldModel>
+        <preProcessFcn>preProcess_bfsch_TVA_snapDir</preProcessFcn>
+        <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
+      </general>
+      <comm>
+        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
+        <FFrundir>rundir</FFrundir>
+      </comm>
+      <data>
+        <!-- Position diffusor in flow computation -->
+        <XYdiff>488622 3839912</XYdiff>
+        <!-- Position where to get ambient conditions -->
+        <XYambient>491776 3836677</XYambient>
+        <!-- Position of the intake -->
+        <XYintake>489210 3839930</XYintake>
+        <discharge>
+          <M3s>40</M3s>
+          <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+               Operator: "absolute" values or "excess" (dT,dS,d..) -->
+          <constituentsOperator>excess</constituentsOperator>
+          <constituents>11.3</constituents>
+          <!--Include momentum in sources; yes or no-->
+          <momentum>yes</momentum>
+        </discharge>
+        <!-- General BFSCH parameters -->
+        <!-- horizontal; 0 pointing to east, 90 pointing to north -->
+        <Sigma0>130</Sigma0>
+      <diffuserLength>182.88</diffuserLength>
+      <verticalPortAngle>35</verticalPortAngle>
+      <!-- BFSCH template input files - will be updated by COSUMO and copied to the rundir\COSUMO\FF2NF directory -->
+        <datConstsFile>D:\linuxshare\BFSCH_templates\bfsch_Delft3D_const.dat</datConstsFile>
+        <riverGeomFile>D:\linuxshare\BFSCH_templates\bfn_riv_geom.dat</riverGeomFile>
+        <fews>
+          <fewsNonConstFile>D:\linuxshare\fss11\BFSCH\BFSCH_nonconstant_inputs.xml</fewsNonConstFile>
+          <fewsParamFile>D:\linuxshare\fss11\BFSCH\BFSCH_parameters.xml</fewsParamFile>
+        </fews>
+      <TVAPlumeTrajectoryFile>BFN_Delft3D_Plume_Unit_%d_output.csv</TVAPlumeTrajectoryFile>
+      </data>
+  </settings>
+  <settings>
+    <general>
+      <subGridModel>bfsch</subGridModel>
+      <ID>Diffusor_2</ID>
+      <farFieldModel>Delft3D</farFieldModel>
+      <preProcessFcn>preProcess_bfsch_TVA_snapDir</preProcessFcn>
+      <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
+    </general>
+    <comm>
+        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
+        <FFrundir>rundir</FFrundir>
+    </comm>
+    <data>
+      <!-- Position diffusor in flow computation -->
+      <XYdiff>488500 3839806</XYdiff>
+      <!-- Position where to get ambient conditions -->
+        <XYambient>491776 3836677</XYambient>
+      <!-- Position of the intake -->
+      <XYintake>489210 3839930</XYintake>
+      <discharge>
+        <M3s>36</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
+        <constituents>12.3</constituents>
+        <!--Include momentum in sources; yes or no-->
+        <momentum>yes</momentum>
+      </discharge>
+        <!-- General BFSCH parameters -->
+        <!-- horizontal; 0 pointing to east, 90 pointing to north -->
+        <Sigma0>130</Sigma0>
+      <diffuserLength>182.88</diffuserLength>
+      <verticalPortAngle>35</verticalPortAngle>
+      <!-- BFSCH template input files - will be updated by COSUMO and copied to the rundir\COSUMO\FF2NF directory -->
+      <datConstsFile>D:\linuxshare\BFSCH_templates\bfsch_Delft3D_const.dat</datConstsFile>
+      <riverGeomFile>D:\linuxshare\BFSCH_templates\bfn_riv_geom.dat</riverGeomFile>
+      <fews>
+        <fewsNonConstFile>D:\linuxshare\fss11\BFSCH\BFSCH_nonconstant_inputs.xml</fewsNonConstFile>
+        <fewsParamFile>D:\linuxshare\fss11\BFSCH\BFSCH_parameters.xml</fewsParamFile>
+      </fews>
+      <TVAPlumeTrajectoryFile>BFN_Delft3D_Plume_Unit_%d_output.csv</TVAPlumeTrajectoryFile>
+    </data>
+  </settings>
+  <settings>
+    <general>
+      <subGridModel>bfsch</subGridModel>
+      <ID>Diffusor_3</ID>
+      <farFieldModel>Delft3D</farFieldModel>
+      <preProcessFcn>preProcess_bfsch_TVA_snapDir</preProcessFcn>
+      <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
+    </general>
+    <comm>
+        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
+        <FFrundir>rundir</FFrundir>
+    </comm>
+    <data>
+      <!-- Position diffusor in flow computation -->
+      <XYdiff>488730 3840005</XYdiff>
+      <!-- Position where to get ambient conditions -->
+        <XYambient>491776 3836677</XYambient>
+      <!-- Position of the intake -->
+      <XYintake>489210 3839930</XYintake>
+      <discharge>
+        <M3s>28</M3s>
+        <!-- Constituents in fixed order: Temperature, Salinity, Sediments, Tracers
+             Operator: "absolute" values or "excess" (dT,dS,d..) -->
+        <constituentsOperator>excess</constituentsOperator>
+        <constituents>11</constituents>
+        <!--Include momentum in sources; yes or no-->
+        <momentum>yes</momentum>
+      </discharge>
+      <!-- General BFSCH parameters -->
+      <!-- horizontal; 0 pointing to east, 90 pointing to north -->
+      <Sigma0>130</Sigma0>
+      <diffuserLength>182.88</diffuserLength>
+      <verticalPortAngle>35</verticalPortAngle>
+      <!-- BFSCH template input files - will be updated by COSUMO and copied to the rundir\COSUMO\FF2NF directory-->
+      <datConstsFile>D:\linuxshare\BFSCH_templates\bfsch_Delft3D_const.dat</datConstsFile>
+      <riverGeomFile>D:\linuxshare\BFSCH_templates\bfn_riv_geom.dat</riverGeomFile>
+      <fews>
+        <fewsNonConstFile>D:\linuxshare\fss11\BFSCH\BFSCH_nonconstant_inputs.xml</fewsNonConstFile>
+        <fewsParamFile>D:\linuxshare\fss11\BFSCH\BFSCH_parameters.xml</fewsParamFile>
+      </fews>
+      <TVAPlumeTrajectoryFile>BFN_Delft3D_Plume_Unit_%d_output.csv</TVAPlumeTrajectoryFile>
+    </data>
+  </settings>
+</COSUMO>
