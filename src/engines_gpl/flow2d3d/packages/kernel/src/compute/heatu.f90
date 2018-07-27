@@ -73,6 +73,8 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     real(fp)                , pointer :: timjan
     real(fp)                , pointer :: stanton
     real(fp)                , pointer :: dalton
+    real(fp)                , pointer :: mulsd
+    real(fp)                , pointer :: betasd
     real(fp)                , pointer :: qtotmx
     real(fp)                , pointer :: lambda
     real(fp)                , pointer :: rhum
@@ -190,7 +192,11 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     real(fp)      :: esvp
     real(fp)      :: ew      ! Saturation pressure of water vapour near water surface
     real(fp)      :: ewl     ! Saturation pressure of water vapour in air remote
-    real(fp)      :: extinc
+    real(fp)      :: extinc  ! Extinction coefficient light absorbed
+    real(fp)      :: extish  ! Extinction coefficient light absorbed in shallow part
+    real(fp)      :: extide  ! Extinction coefficient light absorbed in deep part 
+    real(fp)      :: explo   ! Exponential value bottom of layer
+    real(fp)      :: expup   ! Exponential value top of layer
     real(fp)      :: ffclou
     real(fp)      :: fheat
     real(fp)      :: flux
@@ -222,6 +228,7 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     real(fp)      :: qtot    ! Total heat flux 
     real(fp)      :: qtotk
     real(fp)      :: qw      ! Specific humidity of air at air temperature
+    real(fp)      :: ratio   ! coefficient in exponential relation	
     real(fp)      :: rcpa
     real(fp)      :: rdry
     real(fp)      :: rhoa0
@@ -265,6 +272,8 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     timjan      => gdp%gdheat%timjan
     stanton     => gdp%gdheat%stanton
     dalton      => gdp%gdheat%dalton
+    mulsd       => gdp%gdheat%mulsd
+    betasd      => gdp%gdheat%betasd
     qtotmx      => gdp%gdheat%qtotmx
     lambda      => gdp%gdheat%lambda
     rhum        => gdp%gdheat%rhum
@@ -308,7 +317,7 @@ subroutine heatu(ktemp     ,anglat    ,sferic    ,timhr     ,keva      , &
     struct      => gdp%gdprocs%struct
     zmodel      => gdp%gdprocs%zmodel
     flbcktemp   => gdp%gdheat%flbcktemp
-        !
+    !
     msgcount = 0
     htrsh    = 0.5_fp * dryflc
     !
@@ -1256,15 +1265,50 @@ do l=1,lstsci
                    zdown = -thick(1)*h0old
                 endif
                 !
-                extinc = 1.7_fp/secchi(nm)
-                corr  = 1.0_fp / ( (1.0_fp - exp(extinc*zbottom)) / extinc )
-                qink  = corr * qsn * (1.0_fp - exp(extinc*zdown)) / extinc
+			    ! Separation of penetration of solar radiation through a deep and shallow Secchi depth.
+                ! If BetaSD = 1, then only one (deep) contribution.
+			    !
+	            extide = 1.7_fp/secchi(nm)
+				extish = 1.7_fp/(mulsd*secchi(nm))
+			    !
+				! first deep light penetration top layer (portion betasd of flux qsn) 
+				!
+                expup = 1.0_fp
+				ratio = extide*zdown
+				if (ratio > -10.0_fp) then
+                   !
+                   ! portion betasd
+                   ! 
+				   explo = betasd*exp(ratio)
+                else
+                   explo  = 0.0_fp 
+				endif
+	    		qink = qsn*(expup-explo)
+			    !
+				! second shallow light penetration top layer (portion 1-betasd of flux qsn) 
+				!
+				ratio  = extish*zdown ! JvK extide
+				if (ratio > -10.0_fp) then
+                   !
+                   ! portion 1-betasd 
+                   !
+				   explo = (1.0-betasd)*exp(ratio)
+                else
+                   explo  = 0.0_fp 
+                endif
+                !
+                ! both portions are summed. Do not include expup (= 1) here again.	
+                !
+	    		qink  = qink+qsn*(-explo)
                 qtotk = (qink-ql) / (rhow*cp)
                 !
                 ! Reduction of solar radiation at shallow areas
                 !
+                ! FP: First, is this still correct for two separate Secchi depths? 
+                !     Second, should this be done only on qink?
+                !
                 if (h0old<secchi(nm) .and. qtotk>0.0_fp) then
-                   qtotk = qtotk * (1.0_fp - exp(extinc*zdown))
+                   qtotk = qtotk * (1.0_fp - exp(extide*zdown))
                 endif    
                 !
                 if (zmodel) then
@@ -1292,6 +1336,9 @@ do l=1,lstsci
                       msgcount = msgcount + 1
                    endif
                 endif
+			    !
+			    ! Implementation of separate (shallow and deep) Secchi depthts for the rest of the water column
+			    !
                 do k = k1, k2, kstep
                    ztop = zdown
                    if (zmodel) then
@@ -1299,7 +1346,54 @@ do l=1,lstsci
                    else
                       zdown = zdown - thick(k)*h0old
                    endif
-                   qink  = corr * qsn * (exp(extinc*ztop) - exp(extinc*zdown)) / extinc
+			       !
+				   ! first deep light penetration top layer (portion betasd of flux qsn) 
+				   !
+				   ratio  = extide*ztop
+				   if (ratio > -10.0_fp) then
+                      !
+                      ! portion betasd
+                      !
+				      expup  = betasd*exp(ratio)
+                   else
+                      expup  = 0.0_fp 
+				   endif				
+				   ratio = extide*zdown
+				   if (ratio > -10.0_fp) then
+                      !
+                      ! portion betasd
+                      !
+				      explo  = betasd*exp(ratio)
+                   else
+                      explo  = 0.0_fp 
+				   endif
+	    		   qink = qsn*(expup-explo)
+			       !
+				   ! second shallow light penetration top layer (portion 1-betasd of flux qsn) 
+				   !
+				   ratio  = extish*ztop
+				   if (ratio > -10.0_fp) then
+                      !
+                      ! portion 1-betasd at top of layer
+                      !
+				      expup  = (1.0_fp-betasd)*exp(ratio)
+                   else
+                      expup  = 0.0_fp 
+                   endif
+                   ratio  = extish*zdown
+                   if (ratio > -10.0_fp) then
+                      !
+                      ! portion 1-betasd at bottom of layer
+                      !
+				      explo  = (1.0_fp-betasd)*exp(ratio)
+                   else
+                      explo  = 0.0_fp 
+                   endif
+                   !
+                   ! both portions are summed
+                   !
+	    		   qink   = qink+qsn*(expup-explo)
+				   !
                    qtotk = qink / (rhow*cp)
                    if (zmodel) then
                       sour(nm, k, l) = sour(nm, k, l) + qtotk*gsqs(nm)

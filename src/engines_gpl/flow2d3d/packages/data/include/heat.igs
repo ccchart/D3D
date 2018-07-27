@@ -89,7 +89,8 @@ type gd_heat
     real(fp)                :: dpreci    !  Time increment of Precipitation
     real(fp)                :: train     !  Rain temperature
     real(fp)                :: dtrain    !  Time increment of the rain temperature
-!
+    real(fp)                :: mulsd     !  Multiplier for the Secchi depth to obtain the Shallow Secchi depth (range 0.01--1)
+    real(fp)                :: betasd    !  Fraction of the solar radiation that penetrates deep (range 0--1)
 ! reals
 !
 !
