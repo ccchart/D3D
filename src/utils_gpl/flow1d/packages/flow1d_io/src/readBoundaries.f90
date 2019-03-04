@@ -457,7 +457,7 @@ function getBoundaryValue(ec_target_item, timeAsMJD) result(value_from_ec)
    double precision, dimension(1) :: array_values_from_ec
    
    value_from_ec = 0.0
-   if (.not. ecItemGetValues(ec, ec_target_item, timeAsMJD, array_values_from_ec) ) then
+   if (.not. ecGetValues(ec, ec_target_item, timeAsMJD, array_values_from_ec) ) then
       ! call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
    else
       value_from_ec = array_values_from_ec(1)
