@@ -266,8 +266,8 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    bc_count = ecCollectBCBlocks(ec, boundaryConditionsFile, istat)
 
    if (bc_count /= 0 .and. istat /= 0)then ! boundaries/laterals found, but error in reading them
-      print *, 'ecCollectBCBlocks error: ', istat
       call setmessage(LEVEL_ERROR, 'Reading Boundaries: could not read boundary blocks from file '// trim(boundaryConditionsFile))
+      call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
       return
    endif
    
