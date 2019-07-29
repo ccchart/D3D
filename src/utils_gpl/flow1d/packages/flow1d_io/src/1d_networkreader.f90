@@ -254,8 +254,8 @@ module m_1d_networkreader
       if (.not.associated(meshgeom%nodey)) then
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error in meshgeom%nodey')
       endif
-      if (.not.associated(meshgeom%branchoffsets)) then
-         call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error in meshgeom%branchoffsets')
+      if (.not.associated(meshgeom%nodeoffsets)) then
+         call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error in meshgeom%nodeoffsets')
       endif
       if (.not.allocated(gpsID)) then
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error in gpsID')
@@ -274,7 +274,7 @@ module m_1d_networkreader
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error Allocating Memory for Grid Point Coordinates')
       endif
 
-      ierr = ggeo_get_xy_coordinates(meshgeom%branchidx, meshgeom%branchoffsets, meshgeom%ngeopointx, meshgeom%ngeopointy, &
+      ierr = ggeo_get_xy_coordinates(meshgeom%nodebranchidx, meshgeom%nodeoffsets, meshgeom%ngeopointx, meshgeom%ngeopointy, &
                                      meshgeom%nbranchgeometrynodes, meshgeom%nbranchlengths, 0, gpsX, gpsY)
       if (ierr .ne. 0) then
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error Getting Mesh Coordinates From UGrid Data')
@@ -288,7 +288,7 @@ module m_1d_networkreader
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error Allocating Memory for Branches')
       endif
    
-      ierr = ggeo_get_start_end_nodes_of_branches(meshgeom%branchidx, gpFirst, gpLast)
+      ierr = ggeo_get_start_end_nodes_of_branches(meshgeom%nodebranchidx, gpFirst, gpLast)
       if (ierr .ne. 0) then
          call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error Getting first and last nodes of the network branches')
       endif 
@@ -301,7 +301,7 @@ module m_1d_networkreader
          call storeBranch(network%brs, network%nds, branchids(ibran), &
                           nodeids(meshgeom%nedge_nodes(1,ibran)), nodeids(meshgeom%nedge_nodes(2,ibran)), &
                           meshgeom%nbranchorder(ibran), gridPointsCount, gpsX(gpFirst(ibran):gpLast(ibran)), &
-                          gpsY(gpFirst(ibran):gpLast(ibran)), meshgeom%branchoffsets(gpFirst(ibran):gpLast(ibran)), &
+                          gpsY(gpFirst(ibran):gpLast(ibran)), meshgeom%nodeoffsets(gpFirst(ibran):gpLast(ibran)), &
                           gpsID(gpFirst(ibran):gpLast(ibran)))       
       enddo
 
