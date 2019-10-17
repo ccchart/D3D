@@ -1726,6 +1726,7 @@ subroutine prop_get_alloc_string(tree, chapterin ,keyin, value, success)
     !
     logical                   :: ignore
     logical                   :: success_
+    logical                   :: isFirst
     integer                   :: i          ! Childnode number with node_name = key
                                             ! All following child nodes with node_name = " " are also added
     integer                   :: k
@@ -1769,6 +1770,7 @@ subroutine prop_get_alloc_string(tree, chapterin ,keyin, value, success)
      !    Work around an apparent problem with the SUN Fortran 90 compiler
      !
      call tree_get_node_by_name( thechapter, trim(key), anode, i)
+     isFirst = .true.
      if ( associated(anode) ) then
          do
             call tree_get_data_alloc_string( anode, localvaluetemp, success_ )
@@ -1793,7 +1795,12 @@ subroutine prop_get_alloc_string(tree, chapterin ,keyin, value, success)
                !
                ! Write to parameter "value"
                !
-               value = localvalue
+               if (isFirst) then
+                  value = localvalue
+                  isFirst = .false.
+               else
+                  value = value // ' ' // localvalue
+               endif
             end if ! empty(localvalue)
             !
             ! Check if the next child node has name " "
