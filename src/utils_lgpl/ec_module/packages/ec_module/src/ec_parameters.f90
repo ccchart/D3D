@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -30,17 +30,17 @@
 !! @author arjen.markus@deltares.nl
 !! @author adri.mourits@deltares.nl
 !! @author stef.hummel@deltares.nl
-!! @author edwin.bos@deltares.nl
+!! @author edwin.spee@deltares.nl
 module m_ec_parameters
    use precision
 
    implicit none
 
-   integer,  parameter :: maxNameLen           = 100
-   integer,  parameter :: maxRecordLen         = 132
+   integer,  parameter :: maxNameLen           = 256
    integer,  parameter :: maxFileNameLen       = 256
    integer,  parameter :: maxFileReaderFiles   = 3
    integer             :: maxFileUnits         = 2000   !< may be lowered if too high for current OS
+   integer,  parameter :: numberOfTargetItems  = 4
 
    integer,  parameter :: EC_MISSING_VALUE = -999
    integer,  parameter :: ec_undef_int = -987
@@ -50,6 +50,7 @@ module m_ec_parameters
    integer, parameter :: ec_second = 1
    integer, parameter :: ec_minute = 2
    integer, parameter :: ec_hour   = 3
+   integer, parameter :: ec_day    = 4 
 
    !> Enumeration for tEcElementSet role
    integer, parameter :: elmSetType_undefined             = 0
@@ -117,6 +118,7 @@ module m_ec_parameters
    integer, parameter :: interpolate_smoothing                  = 11 !< Not yet supported: only spatial, smoothing
    integer, parameter :: interpolate_intdiffusion               = 12 !< Not yet supported: only spatial, internal diffusion
    integer, parameter :: interpolate_vertprofile                = 13 !< Not yet supported: only initial vertical profiles
+   integer, parameter :: extrapolate_spacetimeSaveWeightFactors = 14 !< inter/extra-polate in space, save the space weight factors, then interpolate in time
 
    ! enumeration for time interpolation types
    integer, parameter :: timeint_lin                           = 1   !< linear
@@ -146,13 +148,8 @@ module m_ec_parameters
    !
    ! enumeration for tEcConverter types
    integer, parameter :: convType_undefined = 0
-   !integer, parameter :: convType_default   = 1
-   integer, parameter :: convType_unimagdir = 2 !< first time, then space
+   integer, parameter :: convType_unimagdir = 2
    integer, parameter :: convType_uniform = 3 !< only time
-   !integer, parameter :: convType_svwp      = 4
-   !integer, parameter :: convType_svwp_cpu  = 5
-   !integer, parameter :: convType_grib      = 6
-   !integer, parameter :: convType_ById      = 7
    integer, parameter :: convType_fourier = 8
    integer, parameter :: convType_arcinfo = 9
    integer, parameter :: convType_curvi = 10
@@ -163,7 +160,6 @@ module m_ec_parameters
    integer, parameter :: convType_qhtable = 15
    integer, parameter :: convType_sigma   = 16
    integer, parameter :: convType_samples = 17
-
 
    ! Error states, in addition to success=.true./.false. returns.
    integer, parameter :: EC_UNKNOWN_ERROR      = -1 !< Unknown error.
@@ -196,6 +192,7 @@ module m_ec_parameters
     integer, parameter :: BC_TIMEINT_LIN_EXTRAPOL  = 4   !< linear
 
     ! Vertical position type
+    integer, parameter :: BC_VPTYP_SINGLE      = 0   !< depth averaged
     integer, parameter :: BC_VPTYP_PERCBED     = 1   !< precentage from bed
     integer, parameter :: BC_VPTYP_ZDATUM      = 2   !< z above datum
     integer, parameter :: BC_VPTYP_ZDATUM_DOWN = 3   !< z below datum

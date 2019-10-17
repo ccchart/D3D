@@ -3,7 +3,7 @@ subroutine get_cur(wavetime  ,kfu       ,kfv       ,u1        ,v1         , &
                  & flowVelocityType     ,dps       ,s1)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -275,6 +275,6 @@ subroutine get_cur(wavetime  ,kfu       ,kfv       ,u1        ,v1         , &
     deallocate (dzv1 , stat=ierr)
   if (error /= 0) then
      write(*,'(2a)') '*** ERROR: Unable to read velocities from file ', trim(filnam)
-     stop
+     call wavestop(1, '*** ERROR: Unable to read velocities from file '//trim(filnam))
   endif
 end subroutine get_cur

@@ -4,7 +4,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
                 & evaint    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2017.
+!  Copyright (C)  Stichting Deltares, 2011-2019.
 !
 !  This program is free software: you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
@@ -793,7 +793,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     if (ntoq /= 0) then
        call inibcq(lundia    ,error     ,runid     ,i(itbct)  ,nto       , &
                  & ntof      ,ntoq      ,kcd       ,ch(nambnd),r(hydrbc) , &
-                 & bubble    ,gdp       )
+                 & bubble    ,kmax      ,gdp       )
        if (error) goto 9999
     endif
     !
@@ -1024,7 +1024,7 @@ subroutine inchkr(lundia    ,error     ,runid     ,timhr     ,dischy    , &
     call updmassbal(1         ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
                   & r(volum0) ,r(volum1) ,r(sbuu)   ,r(sbvv)   ,r(disch)  , &
                   & i(mnksrc) ,r(sink)   ,r(sour)   ,r(gsqs)   ,r(guu)    , &
-                  & r(gvv)    ,d(dps)    ,r(rintsm) ,gdp       )
+                  & r(gvv)    ,d(dps)    ,r(rintsm) ,0.0_fp    ,gdp       )
     !
     ! F0ISF1: copy old (1) in new arrays (0)
     ! N.B.:

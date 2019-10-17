@@ -2,7 +2,7 @@ subroutine wrh_main(lundia    ,error     ,selhis    ,grdang    ,dtsec     , &
                   & ithisc    ,runtxt    ,trifil    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -373,7 +373,7 @@ subroutine wrh_main(lundia    ,error     ,selhis    ,grdang    ,dtsec     , &
        elseif (filetype == FTYPE_NETCDF) then
           if (first .and. irequest == REQUESTTYPE_DEFINE) then              
              write(lundia,*) 'Creating new '//trim(filename)
-             ierror = nf90_create(filename, or(nf90_clobber,nf90_64bit_offset), fds); call nc_check_err(lundia, ierror, "creating file", filename)
+             ierror = nf90_create(filename, gdp%gdpostpr%nc_mode, fds); call nc_check_err(lundia, ierror, "creating file", filename)
              !
              ! global attributes
              !

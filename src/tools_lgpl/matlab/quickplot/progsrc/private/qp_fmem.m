@@ -4,7 +4,7 @@ function [FI,FileName,Tp,Otherargs]=qp_fmem(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2017 Stichting Deltares.
+%   Copyright (C) 2011-2019 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -422,6 +422,7 @@ switch cmd
                         FI = nc_interpret(FileName,Opt{:});
                         %nc_dump(FileName)
                         FI.FileName = FI.Filename;
+                        FI.Options=1;
                         Tp = try_next;
                     case 'HDF5'
                         FI = hdf5info(FileName);
@@ -437,26 +438,28 @@ switch cmd
                             else
                                 Tp=FI.FileType;
                             end
-                            FI.Data={};
-                            p=fileparts(FileName);
-                            files=dir(p);
-                            fl={'flowmap.his','minmax.his','gsedmap.his','kafhmap.his', ...
-                                'kafpmap.his','kafrmap.his','kaphmap.his','kappmap.his', ...
-                                'saltmap.his','sedtmap.his','morpmap.his','sobekwq.map', ...
-                                'calcpnt.his','reachseg.his','reachvol.his'};
-                            %'calcdim.his','delwaq.his','delwaq.map','flowanal.his', ...
-                            %'nodesvol.his','nodes_cr.his','qlat.his','qwb.his', ...
-                            %'reachdim.his','reachflw.his','reachvol.his','reach_cr.his', ...
-                            %'struc.his','strucdim.his','wqbou20.his'};
-                            for i=1:length(files)
-                                if ~isempty(strmatch(lower(files(i).name),fl,'exact'))
-                                    try
-                                        FIH=delwaq('open',fullfile(p,files(i).name));
-                                    catch
-                                        FIH=[];
-                                    end
-                                    if ~isempty(FIH)
-                                        FI.Data{end+1}=FIH;
+                            if ~isempty(FI)
+                                FI.Data={};
+                                p=fileparts(FileName);
+                                files=dir(p);
+                                fl={'flowmap.his','minmax.his','gsedmap.his','kafhmap.his', ...
+                                    'kafpmap.his','kafrmap.his','kaphmap.his','kappmap.his', ...
+                                    'saltmap.his','sedtmap.his','morpmap.his','sobekwq.map', ...
+                                    'calcpnt.his','reachseg.his','reachvol.his','delwaq.map'};
+                                %'calcdim.his','delwaq.his','flowanal.his', ...
+                                %'nodesvol.his','nodes_cr.his','qlat.his','qwb.his', ...
+                                %'reachdim.his','reachflw.his','reachvol.his','reach_cr.his', ...
+                                %'struc.his','strucdim.his','wqbou20.his'};
+                                for i=1:length(files)
+                                    if ~isempty(strmatch(lower(files(i).name),fl,'exact'))
+                                        try
+                                            FIH=delwaq('open',fullfile(p,files(i).name));
+                                        catch
+                                            FIH=[];
+                                        end
+                                        if ~isempty(FIH)
+                                            FI.Data{end+1}=FIH;
+                                        end
                                     end
                                 end
                             end
@@ -686,6 +689,13 @@ switch cmd
                     case 'adcircmesh'
                         asciicheck(ASCII,try_next)
                         FI=adcircmesh('open',FileName);
+                        if ~isempty(FI)
+                            FI.Options=0;
+                            Tp=FI.FileType;
+                        end
+                    case 'smsmesh'
+                        asciicheck(ASCII,try_next)
+                        FI=smsmesh('open',FileName);
                         if ~isempty(FI)
                             FI.Options=0;
                             Tp=FI.FileType;

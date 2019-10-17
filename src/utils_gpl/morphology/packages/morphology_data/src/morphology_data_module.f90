@@ -1,7 +1,7 @@
 module morphology_data_module
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -36,6 +36,7 @@ module morphology_data_module
 use precision
 use handles, only:handletype
 use properties, only:tree_data
+use m_tables, only:t_table
 private
 
 !
@@ -50,6 +51,10 @@ public sedpar_type
 public trapar_type
 public sedtra_type
 public fluffy_type
+public t_noderelation
+public t_nodefraction
+public t_nodereldata
+
 
 !
 ! public routines
@@ -64,7 +69,10 @@ public nullsedtra
 public allocsedtra
 public clrsedtra
 public allocfluffy
+public CHARLEN
 
+integer, parameter         :: CHARLEN = 40
+      
 integer, parameter, public :: RP_TIME  =  1
 integer, parameter, public :: RP_EFUMN =  2
 integer, parameter, public :: RP_EFVMN =  3
@@ -118,7 +126,8 @@ integer, parameter, public :: RP_D15MX = 50     ! same, d15
 integer, parameter, public :: RP_POROS = 51     ! same, porosity
 integer, parameter, public :: RP_DZDX  = 52     ! same, bottom slope x dir
 integer, parameter, public :: RP_DZDY  = 53     ! same, bottom slope y dir
-integer, parameter, public :: MAX_RP   = 53
+integer, parameter, public :: RP_DM    = 54     ! median sediment diameter
+integer, parameter, public :: MAX_RP   = 54
 !
 integer, parameter, public :: IP_NM    =  1
 integer, parameter, public :: IP_N     =  2
@@ -175,7 +184,11 @@ integer,parameter, public  :: MOR_STAT_MIN = 1
 integer,parameter, public  :: MOR_STAT_MAX = 2
 integer,parameter, public  :: MOR_STAT_MEAN= 4
 integer,parameter, public  :: MOR_STAT_STD = 8
+integer,parameter, public  :: MOR_STAT_CUM = 16
 
+integer,parameter,public   :: MOR_STAT_TIME= 1
+integer,parameter,public   :: MOR_STAT_BODS= 2
+!
 ! collection of morphology output options
 !
 type moroutputtype
@@ -189,11 +202,15 @@ type moroutputtype
                                                    "total bedload transport  ",  &
                                                    "total suspended transport"/)
     character(len=30), dimension(4) :: statunt = (/"m  ","m/s","   ","   "/)
-    integer, dimension(5,4)         :: statflg  ! 1 = waterdepth, 2 = velocity, 3 = bedload, 4 = suspload
+    !integer, dimension(5,4)         :: statflg  ! 1 = waterdepth, 2 = velocity, 3 = bedload, 4 = suspload
+    integer, dimension(6,4)         :: statflg  ! 1 = waterdepth, 2 = velocity, 3 = bedload, 4 = suspload
     integer                         :: nstatqnt ! number of quantities for morphology statistics output
+    integer                         :: weightflg ! weighting by time or dbodsd
+    real(fp), dimension(3)          :: avgintv  ! interval, start, stop for writing statistics (FM only)
     !
     logical :: aks
     logical :: cumavg
+    logical :: morstats
     logical :: dg
     logical :: dgsd
     logical :: dm
@@ -228,6 +245,7 @@ type moroutputtype
     logical :: uuuvvv
     logical :: ws
     logical :: zumod
+    logical :: rawtransports    ! output flag for transports before upwinding/bed slope effects
 end type moroutputtype
 
 !
@@ -344,7 +362,7 @@ type morpar_type
     real(fp):: pangle     !  phase lead angle acc. to Nielsen (1992) for TR2004 expression
     real(fp):: fpco       !  coefficient for phase llag effects
     real(fp):: factcr     !  calibration factor on Shields' critical shear stress   
-    real(fp):: tmor       !  time where calculation for morphological changes start (minutes relative to ITDATE,00:00:00)
+    real(fp):: tmor       !  time where calculation for morphological changes start (tunit relative to ITDATE,00:00:00)
     real(fp):: thetsd     !  global dry bank erosion factor
     real(fp):: susw       !  factor for adjusting wave-related suspended sand transport (included in bed-load)
     real(fp):: sedthr     !  minimum depth for sediment calculations
@@ -450,6 +468,37 @@ type morpar_type
     !
 end type morpar_type
 
+type t_noderelation
+   character(len=CHARLEN)                         :: Node       = ' '
+   integer                                        :: NodeIdx    = 0    !< Cell centre index 
+   character(len=CHARLEN)                         :: BranchIn   = ' '
+   integer                                        :: BranchInLn = 0    !< Link index 
+   character(len=CHARLEN)                         :: BranchOut1 = ' '
+   integer                                        :: BranchOut1Ln = 0   !< Link index 
+   character(len=CHARLEN)                         :: BranchOut2 = ' '
+   integer                                        :: BranchOut2Ln = 0   !< Link index 
+   character(len=CHARLEN)                         :: tableName  = ' '
+   character(len=CHARLEN)                         :: Method     = ' '
+   real(fp)                                       :: expQ       = -1.0_fp
+   real(fp)                                       :: expW       = -1.0_fp
+   type(t_table), pointer                         :: Table
+end type t_noderelation
+
+type t_nodefraction
+   character(20)                                   :: Name
+   character(256)                                  :: tableFile      = ' '  ! Name of Table File for Node Relations
+   integer                                         :: nNodeRelations = 0
+   type(t_noderelation), pointer, dimension(:)     :: noderelations
+end type t_nodefraction
+
+type t_nodereldata
+    integer                                     :: nFractions       = 0
+    logical                                     :: NRD_Overall
+    logical                                     :: NRD_Default      = .false.
+    character(256), dimension(:), pointer       :: flnrd            !  Files with Node Relation Data (NRD-Files)
+    type(t_nodefraction), pointer, dimension(:) :: nodefractions
+end type t_nodereldata
+
 type sedpar_type
     !
     ! doubles
@@ -470,7 +519,9 @@ type sedpar_type
     !
     ! pointers
     !
-    type(tree_data), dimension(:)   , pointer :: sedblock => null()    !  Pointer to array of data block per fraction in .sed file (version 2)
+    type(tree_data)     , dimension(:), pointer :: sedblock => null()  !  Pointer to array of data block per fraction in .sed file (version 2)
+    type(t_nodefraction), dimension(:), pointer :: nodefractions       !  Pointer to array of nodal point relations
+    !
     real(fp)      , dimension(:)    , pointer :: rhosol     !  Soil density
     !
     real(fp)      , dimension(:,:,:), pointer :: logseddia             !  Characteristic sediment diameter table using log scale [%,log(m)]
@@ -502,7 +553,7 @@ type sedpar_type
     character(20) , dimension(:)    , pointer :: namsed     !  Names of all sediment fractions
     character(256), dimension(:)    , pointer :: flsdbd     !  File name containing initial sediment mass at bed
     character(256), dimension(:)    , pointer :: flstcg     !  File name calibration factor on critical shear stress in Van Rijn (2004) uniform values
-    character(256), dimension(:)    , pointer :: flnrd      !  Files with Node Relation Data (NRD-Files) for Morphology-1D in SOBEK-Kernel
+    character(256), dimension(:)    , pointer :: flnrd      !  File names of Node Relation Data (NRD-Files) for bifurcation points in 1D morphology
     ! 
     ! logicals
     !
@@ -639,6 +690,10 @@ type sedtra_type
     real(fp)         , dimension(:,:)    , pointer :: sytot    !(nc1:nc2,lsedtot) svtot in structured Delft3D-FLOW
     real(fp)         , dimension(:,:)    , pointer :: sscx     !(nc1:nc2,lsedtot) svtot in structured Delft3D-FLOW
     real(fp)         , dimension(:,:)    , pointer :: sscy     !(nc1:nc2,lsedtot) svtot in structured Delft3D-FLOW
+    real(fp)         , dimension(:,:)    , pointer :: sbxcum   !(nc1:nc2,lsedtot) Cumulative transports in FM in zeta
+    real(fp)         , dimension(:,:)    , pointer :: sbycum   !(nc1:nc2,lsedtot) Cumulative transports in FM in zeta
+    real(fp)         , dimension(:,:)    , pointer :: ssxcum   !(nc1:nc2,lsedtot) Cumulative transports in FM in zeta
+    real(fp)         , dimension(:,:)    , pointer :: ssycum   !(nc1:nc2,lsedtot) Cumulative transports in FM in zeta    
     !
     real(fp)         , dimension(:,:)    , pointer :: srcmax   !(nc1:nc2,lsedtot)
     real(fp)         , dimension(:,:)    , pointer :: fixfac   !(nc1:nc2,lsedtot)
@@ -739,6 +794,10 @@ subroutine nullsedtra(sedtra)
     nullify(sedtra%sytot)
     nullify(sedtra%sscx)
     nullify(sedtra%sscy)
+    nullify(sedtra%sbxcum)
+    nullify(sedtra%sbycum)
+    nullify(sedtra%ssxcum)
+    nullify(sedtra%ssycum)    
     !
     nullify(sedtra%srcmax)
     nullify(sedtra%fixfac)
@@ -858,10 +917,18 @@ subroutine allocsedtra(sedtra, moroutput, kmax, lsed, lsedtot, nc1, nc2, nu1, nu
     if (istat==0) allocate(sedtra%sytot   (nc1:nc2,lsedtot), STAT = istat)
     if (ioptloc==CODE_DEFAULT) then
        if (istat==0) allocate(sedtra%sscx   (nc1:nc2,lsedtot), STAT = istat)  ! to have ss output in FM in zeta points
-       if (istat==0) allocate(sedtra%sscy   (nc1:nc2,lsedtot), STAT = istat)  ! dimensioned on sedtot on purpose!!
+       if (istat==0) allocate(sedtra%sscy   (nc1:nc2,lsedtot), STAT = istat)  ! dimensioned on sedtot on purpose, see reconstructsedtransports()
+       if (istat==0) allocate(sedtra%sbxcum (nc1:nc2,lsedtot), STAT = istat)  ! Cumulative transports in FM in zeta points
+       if (istat==0) allocate(sedtra%sbycum (nc1:nc2,lsedtot), STAT = istat)  
+       if (istat==0) allocate(sedtra%ssxcum (nc1:nc2,lsedtot), STAT = istat)  
+       if (istat==0) allocate(sedtra%ssycum (nc1:nc2,lsedtot), STAT = istat)         
     else
        if (istat==0) allocate(sedtra%sscx   (1,1), STAT = istat)           ! not used in structured Delft3D-FLOW
        if (istat==0) allocate(sedtra%sscy   (1,1), STAT = istat)           ! not used in structured Delft3D-FLOW
+       if (istat==0) allocate(sedtra%sbxcum (1,1), STAT = istat)  ! Cumulative transports in FM, compare to e_sstc
+       if (istat==0) allocate(sedtra%sbycum (1,1), STAT = istat)  
+       if (istat==0) allocate(sedtra%ssxcum (1,1), STAT = istat)  
+       if (istat==0) allocate(sedtra%ssycum (1,1), STAT = istat)       
     endif
     !
     if (istat==0) allocate(sedtra%srcmax  (nc1:nc2,lsedtot), STAT = istat)
@@ -917,7 +984,6 @@ subroutine allocsedtra(sedtra, moroutput, kmax, lsed, lsedtot, nc1, nc2, nu1, nu
     sedtra%vvv      = 0.0_fp
     sedtra%umod     = 0.0_fp
     sedtra%zumod    = 0.0_fp
-    sedtra%ust2     = 0.0_fp
     !
     sedtra%aks      = 0.0_fp
     sedtra%rca      = 0.0_fp
@@ -938,6 +1004,10 @@ subroutine allocsedtra(sedtra, moroutput, kmax, lsed, lsedtot, nc1, nc2, nu1, nu
     sedtra%sytot    = 0.0_fp
     sedtra%sscx     = 0.0_fp
     sedtra%sscy     = 0.0_fp
+    sedtra%sbxcum   = 0.0_fp
+    sedtra%sbycum   = 0.0_fp
+    sedtra%ssxcum   = 0.0_fp
+    sedtra%ssycum   = 0.0_fp    
     !
     sedtra%srcmax   = 0.0_fp
     sedtra%fixfac   = 1.0_fp
@@ -1045,8 +1115,12 @@ subroutine clrsedtra(istat, sedtra)
     if (associated(sedtra%sswy    ))   deallocate(sedtra%sswy    , STAT = istat)
     if (associated(sedtra%sxtot   ))   deallocate(sedtra%sxtot   , STAT = istat)
     if (associated(sedtra%sytot   ))   deallocate(sedtra%sytot   , STAT = istat)
-    if (associated(sedtra%sytot   ))   deallocate(sedtra%sscx    , STAT = istat)
-    if (associated(sedtra%sytot   ))   deallocate(sedtra%sscy    , STAT = istat)
+    if (associated(sedtra%sscx    ))   deallocate(sedtra%sscx    , STAT = istat)
+    if (associated(sedtra%sscy    ))   deallocate(sedtra%sscy    , STAT = istat)
+    if (associated(sedtra%sbxcum  ))   deallocate(sedtra%sbxcum  , STAT = istat)
+    if (associated(sedtra%sbycum  ))   deallocate(sedtra%sbycum  , STAT = istat)
+    if (associated(sedtra%ssxcum  ))   deallocate(sedtra%ssxcum  , STAT = istat)
+    if (associated(sedtra%ssycum  ))   deallocate(sedtra%ssycum  , STAT = istat)    
     !
     if (associated(sedtra%srcmax  ))   deallocate(sedtra%srcmax  , STAT = istat)
     if (associated(sedtra%fixfac  ))   deallocate(sedtra%fixfac  , STAT = istat)
@@ -1366,6 +1440,9 @@ subroutine nullmorpar(morpar)
     !
     morpar%moroutput%statflg(:,:) = 0
     morpar%moroutput%nstatqnt     = 0
+    morpar%moroutput%weightflg    = 1
+    morpar%moroutput%avgintv      = -999d0
+    morpar%moroutput%morstats     = .false.
     !
     morpar%moroutput%aks         = .false.
     morpar%moroutput%cumavg      = .false.
@@ -1402,7 +1479,8 @@ subroutine nullmorpar(morpar)
     morpar%moroutput%ustar       = .false.
     morpar%moroutput%uuuvvv      = .false.
     morpar%moroutput%ws           = .true.
-    morpar%moroutput%zumod       = .false.
+    morpar%moroutput%zumod        = .false.
+    morpar%moroutput%rawtransports= .false.
     !
     morpar%mornum%upwindbedload            = .true.
     morpar%mornum%laterallyaveragedbedload = .false.
@@ -1463,7 +1541,7 @@ subroutine nullmorpar(morpar)
     avaltime           = 86400.0_fp
     duneavalan         = .false.
     hswitch            = 0.1_fp
-    dzmaxdune          = 0.05_fp
+    dzmaxdune          = 100.0_fp           ! with Marlies, 20180417
     !
     ihidexp            = 1
     itmor              = 0

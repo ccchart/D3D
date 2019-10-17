@@ -7,7 +7,7 @@
 #-------------------------------------------------------------------------------
 
 include $(top_srcdir)/common.am
-noinst_LTLIBRARIES = libGridgeom.la
+noinst_LTLIBRARIES = libgridgeom.la
 
 # For source distributions: the tar.gz will contain the correct version numbers in the generated *version.F90
 # So, just before packaging the .tar.gz dist, disable version number REgeneration parts of this Makefile.am.
@@ -30,29 +30,32 @@ gridgeom_version.F90: gridgeom_version.F90.svn .FORCE
 gridgeom_version.F90:
  endif
 
-.FORCE: 
+.FORCE:
 
 .PHONY: .FORCE
 
 #-------------------------------------------------------------------------------
 #Includes
-AM_FCFLAGS += $(GRIDGEOM_CFLAGS) $(GRIDGEOM_FORTRAN_CFLAGS)
 
 FMODULES += \
     -I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src \
-    -I$(GRIDGEOMROOT)/include
+    -I$(top_builddir)/utils_lgpl/io_netcdf/packages/io_netcdf/src \
+    -I$(top_builddir)/third_party_open/kdtree2/src-f90 \
+    -I$(top_builddir)/utils_lgpl/kdtree_wrapper/packages/kdtree_wrapper/src \
+    -I$(top_builddir)/utils_lgpl/ec_module/packages/ec_module/src \
+    -I$(builddir)/../include
 
 #-------------------------------------------------------------------------------
 #Sources
-libGridgeom_la_SOURCES = \
-         gridgeom.f90 \
-         gridgeom_api.F90 \
+libgridgeom_la_SOURCES = \
          generalmodules.f90 \
-         gridoperations.F90 \
+         polygon.f90 \
          network_data.f90 \
          odugrid.F90 \
-         polygon.f90
-         
+         gridoperations.F90 \
+         gridgeom.F90 \
+         gridgeom_api.F90
+
 
 #-------------------------------------------------------------------------------
 #Libraries

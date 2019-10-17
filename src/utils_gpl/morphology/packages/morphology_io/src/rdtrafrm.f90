@@ -1,7 +1,7 @@
 module m_rdtrafrm
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -375,7 +375,7 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
     use properties
     use string_module
     use message_module
-    use system_utils, only:SHARED_LIB_EXTENSION
+    use system_utils, only:SHARED_LIB_PREFIX, SHARED_LIB_EXTENSION
     !
     implicit none
 !
@@ -492,7 +492,7 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
              call prop_get_string(tran_ptr,'TransportFormula','Name',name(l))
              !
              iform(l) = 15
-             rec(len_trim(rec)+1:) = SHARED_LIB_EXTENSION
+             write(rec,'(3a)') SHARED_LIB_PREFIX, trim(rec), SHARED_LIB_EXTENSION
              !
              ! Get handle to the DLL
              !
@@ -669,6 +669,7 @@ subroutine rdtraparfld(lundia    ,error     ,lsedtot   ,trapar    , &
     use precision
     use morphology_data_module
     use grid_dimens_module 
+    use message_module, only: write_error
     !
     implicit none
     !
@@ -693,6 +694,7 @@ subroutine rdtraparfld(lundia    ,error     ,lsedtot   ,trapar    , &
     integer           :: j
     integer           :: ll
     character(256)    :: filename
+    character(256)    :: errmsg
     character(11)     :: fmttmp
 !
 !! executable statements -------------------------------------------------------
@@ -720,8 +722,11 @@ subroutine rdtraparfld(lundia    ,error     ,lsedtot   ,trapar    , &
              filename = trapar%parfil(i,ll)
              write (lundia, '(a,a)') 'Reading: ',trim(filename)
              call depfil_stm(lundia     ,error      ,filename   ,fmttmp    , &
-                           & parfld(:,j),1          ,1          ,dims      )
-             if (error) return
+                           & parfld(:,j),1          ,1          ,dims      , errmsg)
+             if (error) then 
+                 call write_error(errmsg, unit=lundia)
+                 return
+             endif
           endif
        enddo
     enddo
@@ -1172,8 +1177,8 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        pardef(12)  = 30.0_fp
        parkeyw(13) = 'cmax'
        pardef(13)  = 0.1_fp 
-       parkeyw(15) = 'z0'
-       pardef(15)  = 0.006_fp
+       parkeyw(14) = 'z0'
+       pardef(14)  = 0.006_fp
     endif
 end subroutine traparams
 

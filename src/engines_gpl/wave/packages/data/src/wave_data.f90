@@ -1,7 +1,7 @@
 module wave_data
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -54,22 +54,24 @@ integer, parameter :: WC_WESTHUYSEN = 2
 ! Module types
 !
 type wave_time_type
-   integer  :: refdate            ! [yyyymmdd] reference date, reference time is 0:00 h
-   integer  :: timtscale          ! [tscale]   Current time of simulation since reference date (0:00h)
-   integer  :: calctimtscale      ! [tscale]   Current time of SWAN calculation since reference date (0:00h)
-                                  !            calctimtscale = timtscale                 when sr%modsim /= 3
-                                  !            calctimtscale = timtscale+sr%deltcom*60.0 when sr%modsim == 3
+   integer  :: refdate         ! [yyyymmdd] reference date, reference time is 0:00 h
+   integer  :: timtscale       ! [tscale]   Current time of simulation since reference date (0:00h)
+   integer  :: calctimtscale   ! [tscale]   Current time of SWAN calculation since reference date (0:00h)
+                               !            calctimtscale = timtscale                 when sr%modsim /= 3
+                               !            calctimtscale = timtscale+sr%deltcom*60.0 when sr%modsim == 3
    integer  :: calctimtscale_prev ! calctimtscale from "previous" time point
                                   ! Only used when sr%modsim == 3 for output at the start of the simulation
-   integer  :: calccount          ! [-]        Counts the number of calculations. Used for naming the sp2 output files
-   real     :: tscale             ! [sec]      Basic time unit: default = 60.0,
-                                  ! when running online with FLOW tscale = FLOW_time_step
-   real     :: timsec             ! [sec]      Current time of simulation since reference date (0:00h)
-   real     :: timmin             ! [min]      Current time of simulation since reference date (0:00h)
+   integer  :: calccount       ! [-]        Counts the number of calculations. Used for naming the sp2 output files
+   real     :: tscale          ! [sec]      Basic time unit: default = 60.0,
+                               ! when running online with FLOW tscale = FLOW_time_step
+   real     :: timsec          ! [sec]      Current time of simulation since reference date (0:00h)
+   real     :: timmin          ! [min]      Current time of simulation since reference date (0:00h)
 end type wave_time_type
 !
 type wave_output_type
-   integer  :: count           ! [-]        Counts the number of generated output fields
+   integer  :: count           ! [-]        Counts the number of generated output fields on the wavm file
+   integer  :: comcount        ! [-]        Counts the number of generated output fields on the NetCDF-com file
+   integer  :: ncmode          ! [3 or 4]   NetCDF creation mode: NetCDF3 (NF90_CLASSIC_MODEL) or NetCDF4 (NF90_NETCDF4)
    real     :: nexttim         ! [sec]      Next time to write to wavm-file
    real     :: timseckeephot   ! [sec]      seconds since ref date on which time the hotfile should not be deleted
    logical  :: write_wavm      ! [y/n]      True when writing to wavm file
@@ -94,22 +96,25 @@ contains
 !
 !===============================================================================
 subroutine initialize_wavedata(wavedata)
+   use netcdf_utils, only: ncu_format_to_cmode
    type(wave_data_type) :: wavedata
    character(30)        :: txthlp
 
-   wavedata%mode                    =  0
-   wavedata%time%refdate            =  0
-   wavedata%time%timtscale          =  0
-   wavedata%time%calctimtscale      =  0
+   wavedata%mode                   =  0
+   wavedata%time%refdate           =  0
+   wavedata%time%timtscale         =  0
+   wavedata%time%calctimtscale     =  0
    wavedata%time%calctimtscale_prev =  -999
-   wavedata%time%calccount          =  0
-   wavedata%time%tscale             = 60.0
-   wavedata%time%timsec             =  0.0
-   wavedata%time%timmin             =  0.0
-   wavedata%output%count            =  0
-   wavedata%output%nexttim          =  0.0
-   wavedata%output%timseckeephot    =  0.0
-   wavedata%output%write_wavm       =  .false.
+   wavedata%time%calccount         =  0
+   wavedata%time%tscale            = 60.0
+   wavedata%time%timsec            =  0.0
+   wavedata%time%timmin            =  0.0
+   wavedata%output%count           =  0
+   wavedata%output%comcount        =  0
+   wavedata%output%ncmode          =  ncu_format_to_cmode(0)
+   wavedata%output%nexttim         =  0.0
+   wavedata%output%timseckeephot   =  0.0
+   wavedata%output%write_wavm      =  .false.
    !
    ! platform definition
    !
@@ -154,7 +159,7 @@ subroutine settimtscale(wavetime, timtscale_in, modsim, deltcom)
    wavetime%timsec    = real(wavetime%timtscale) * wavetime%tscale
    wavetime%timmin    = wavetime%timsec / 60.0
    if (modsim == 3) then
-      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
       wavetime%calctimtscale_prev = wavetime%timtscale
    else
       wavetime%calctimtscale = wavetime%timtscale
@@ -184,7 +189,7 @@ subroutine settimsec(wavetime, timsec_in, modsim, deltcom)
    wavetime%timmin    = wavetime%timsec / 60.0
    wavetime%timtscale = nint(wavetime%timsec / wavetime%tscale)
    if (modsim == 3) then
-      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
       wavetime%calctimtscale_prev = wavetime%timtscale
    else
       wavetime%calctimtscale = wavetime%timtscale
@@ -203,7 +208,7 @@ subroutine settimmin(wavetime, timmin_in, modsim, deltcom)
    wavetime%timsec    = wavetime%timmin * 60.0
    wavetime%timtscale = nint(wavetime%timsec / wavetime%tscale)
    if (modsim == 3) then
-      wavetime%calctimtscale      = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
+      wavetime%calctimtscale = wavetime%timtscale + int(deltcom*60.0/wavetime%tscale)
       wavetime%calctimtscale_prev = wavetime%timtscale
    else
       wavetime%calctimtscale = wavetime%timtscale
@@ -245,7 +250,15 @@ subroutine setwrite_wavm(waveoutput, write_in)
 
    waveoutput%write_wavm = write_in
 end subroutine setwrite_wavm
+!
+!
+!===============================================================================
+subroutine set_ncmode(waveoutput, ncmode_in)
+   integer, intent(in) :: ncmode_in
+   type(wave_output_type) :: waveoutput
 
+   waveoutput%ncmode = ncmode_in
+end subroutine set_ncmode
 
 
 end module wave_data

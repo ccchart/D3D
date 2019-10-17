@@ -3,7 +3,7 @@ function fig=qp_preferences_interface
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -144,6 +144,13 @@ switch lower(TZ)
             set(handles(end),'enable','on','value',itz)
         end
 end
+VOffset = VOffset-25;
+handles(end+1)=uicontrol('style','checkbox', ...
+    'position',[HOffset+20 VOffset-2 TabWidth-Margin-20 18], ...
+    'string','Show version number in title bar', ...
+    'value',strcmp(qp_settings('showversion'),'on'), ...
+    'callback','d3d_qp update_showversion', ...
+    'parent',mfig);
 %--------------------------------------------------------------------------
 Panes(end+1,1:2)={'General' handles};
 %=============

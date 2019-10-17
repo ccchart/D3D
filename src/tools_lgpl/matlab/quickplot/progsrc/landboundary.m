@@ -42,7 +42,7 @@ function varargout=landboundary(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -234,6 +234,11 @@ for c = 1:Ncell
     else
         if ndims(data1)>2
             error('Invalid size of data array %i.',c)
+        elseif size(data1,2)==3
+            if size(data1,1)==2
+                data1 = data1';
+            else % accept third column as z coordinate
+            end
         elseif size(data1,2)~=2
             if size(data1,1)==2
                 data1 = data1';

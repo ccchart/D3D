@@ -15,7 +15,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                & cc        ,dd        ,tetau     ,aak       ,bbk       , &
                & cck       ,ddk       ,d0        ,d0k       ,bbka      , &
                & bbkc      ,wsu       ,taubpu    ,taubsu    ,vicuv     , &
-               & vnu2d     ,vicww     ,rxx       ,rxy       ,windu     , &
+               & vnu2d     ,vicww     ,rxx       ,rxy       ,windsu    , &
                & tp        ,rlabda    ,dfu       ,deltau    ,fxw       , wsbodyu  , &
                & patm      ,fcorio    ,tgfsep    ,drhodx    ,zk        , &
                & p0        ,crbc      ,idry      ,porosu    ,ubrlsu    , &
@@ -23,7 +23,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                & ustokes   ,gdp       ) 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -200,7 +200,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: tp      !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: umean   !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: vnu2d   !  Description and declaration in esm_alloc_real.f90
-    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: windu   !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: windsu  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: wsu     !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)                    :: wsbodyu !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)            :: qzk     !  Description and declaration in esm_alloc_real.f90
@@ -372,7 +372,7 @@ subroutine z_sud(j         ,nmmaxj    ,nmmax     ,kmax      ,mmax      , &
                & aak       ,bbk       ,cck       ,ddk       ,bbka      , &
                & bbkc      ,vicuv     ,vnu2d     ,vicww     ,tgfsep    , &
                & drhodx    ,wsu       ,wsbodyu   ,taubpu    ,taubsu    ,rxx       , &
-               & rxy       ,windu     ,patm      ,fcorio    ,p0        , &
+               & rxy       ,windsu    ,patm      ,fcorio    ,p0        , &
                & tp        ,rlabda    ,dfu       ,deltau    ,fxw       , &
                & ubrlsu    ,pship     ,diapl     ,rnpl      ,cfurou    , &
                & qxk       ,qyk       ,umean     ,dps       ,s0        , &

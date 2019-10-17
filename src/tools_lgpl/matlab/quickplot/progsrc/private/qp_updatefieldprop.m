@@ -3,7 +3,7 @@ function qp_updatefieldprop(UD)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -125,7 +125,14 @@ if isfield(Props,'UseGrid') && ~isempty(Props(fld).UseGrid) && Props(fld).UseGri
     % Gridview information: update grid view when shown
     %
     if strcmp(get(UD.GridView.Fig,'visible'),'on')
-        qp_gridviewhelper(UD,Info,DomainNr,Props,fld)
+        try
+            qp_gridviewhelper(UD,Info,DomainNr,Props,fld)
+        catch err
+            qp_gridview('setgrid',UD.GridView.Fig,[])
+            set(UD.GridView.Fig,'userdata',[])
+            d3d_qp hidegridview
+            rethrow(err)
+        end
     end
 else
     %
@@ -237,8 +244,18 @@ else
     %
     set(MW.T,'enable','off')
     set(MW.AllT,'enable','off','value',0)
-    set(MW.EditT,'enable','off','string','1','backgroundcolor',Inactive,'userdata',1)
-    set(MW.MaxT,'enable','on','string','1','userdata',1)
+    if DimFlag(T_)
+        if sz(T_)==1
+            set(MW.EditT,'enable','off','string','1','backgroundcolor',Inactive,'userdata',1)
+            set(MW.MaxT,'enable','on','string','1','userdata',1)
+        else
+            set(MW.EditT,'enable','off','string','-','backgroundcolor',Inactive,'userdata',1)
+            set(MW.MaxT,'enable','on','string','0','userdata',0)
+        end
+    else
+        set(MW.EditT,'enable','off','string',' ','backgroundcolor',Inactive,'userdata',1)
+        set(MW.MaxT,'enable','on','string','-','userdata',1)
+    end
     set(MW.ShowT,'enable','off')
     set(MW.TList,'enable','off','max',2,'value',[],'string','','backgroundcolor',Inactive,'userdata',0)
 end
@@ -549,6 +566,7 @@ if strcmp(get(MW.HSelType,'enable'),'on')
     set(MW.MN,'enable','on',vis{:})
     set(MW.EditMN,'enable','on','backgroundcolor',Active,vis{:})
     set(MW.MN2XY,vis{:})
+    set(MW.MNrev,vis{:})
     if ~isempty(Props) && isfield(Props,'DimFlag') && Props(fld).DimFlag(M_) && ~Props(fld).DimFlag(N_)
         set(MW.MN2M,vis{:})
     else
@@ -650,7 +668,7 @@ set(MW.S,'enable','off')
 set(MW.AllS,'enable','off','visible','off')
 set(MW.EditS,'enable','off','string','','backgroundcolor',UD.Inactive,'visible','off')
 set(MW.MaxS,'enable','off','string','-','visible','off')
-set(MW.StList,'enable','off','value',1,'string',' ','backgroundcolor',UD.Inactive)
+set(MW.StList,'enable','off','value',1,'string',' ','backgroundcolor',UD.Inactive,'visible','on')
 %
 % MNK/XYZ selection controls ...
 %

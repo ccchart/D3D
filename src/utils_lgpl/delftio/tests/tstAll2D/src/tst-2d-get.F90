@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -239,11 +239,11 @@ program test_get_dio_f90
     call write_his_long_2dget(.true., .false., 'TEST2DFSynch-res.txt')    ! get synched streams
     call write_his_long_2dget(.false., .false., 'TEST2DFSerial-res.txt')  ! get non synched streams
 
-    call DioInit('dioconfigShm.ini')
-    call write_his_long_2dget(.true., .true., 'TEST2DFAutoShm-res.txt')   ! get synched streams
-
     call DioInit('dioconfigFiles.ini')
     call write_his_long_2dget(.false., .true., 'TEST2DFAutoFiles-res.txt')! get non synched streams
+
+    call DioInit('dioconfigShm.ini')
+    call write_his_long_2dget(.true., .true., 'TEST2DFAutoShm-res.txt')   ! get synched streams
 
 end
 

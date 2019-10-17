@@ -47,7 +47,7 @@ function [varargout]=qp_getdata(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2017 Stichting Deltares.
+%   Copyright (C) 2011-2019 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -528,7 +528,7 @@ end
 %
 % Get all data needed.
 %
-[arg2 arg3]=feval(Fcn,FI,X{:});
+[arg2,arg3]=feval(Fcn,FI,X{:});
 %
 % Take average if cell data was required, but not provided.
 % The following code does not yet work for 3D slices!

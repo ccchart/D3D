@@ -23,7 +23,7 @@ function out=vardiff(var1,var2,fid,formatflag,var1name,var2name)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -61,6 +61,8 @@ if nargin>3
     switch lower(formatflag)
         case 'html'
             br='<br>\n';
+        case 'latex'
+            br='\\newline\n';
         otherwise
             br='\n';
     end
@@ -164,7 +166,7 @@ switch pflag
                if strcmp(fn1{i},fn2{i})
                   myfprintf(fid,['  %2i %s [same]' br],i,sfn1(i,:));
                else
-                  myfprintf(fid,['  %2i %s - %2i %s' br],i,sfn1(i,:),i1(r2(i)),sfn2(i,:));
+                  myfprintf(fid,['  %2i %s [%s] - %2i %s [%s]' br],i,sfn1(i,:),var1,i1(r2(i)),sfn2(i,:),var2);
                end
             end
         end

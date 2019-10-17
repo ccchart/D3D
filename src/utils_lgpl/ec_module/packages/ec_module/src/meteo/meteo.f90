@@ -1,7 +1,7 @@
 module meteo
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -178,7 +178,6 @@ function addmeteoitem(runid, inputfile, gridsferic, mmax, nmax) result(success)
     integer                      :: nxr
     integer                      :: minp
     logical                      :: meteogridsferic    ! type of meteo grid sferic (.true.) or cartesian (.false.)?
-    logical, external            :: openexistingfile_meteo
     logical, external            :: readmeteoheader
     logical, external            :: checkmeteoheader
     type(tmeteo)    , pointer    :: meteo
@@ -199,7 +198,8 @@ function addmeteoitem(runid, inputfile, gridsferic, mmax, nmax) result(success)
     !
     ! Open meteofile
     !
-    success = openexistingfile_meteo(minp, inputfile)
+    meteoitem%filetype = 0
+    success = openexistingfile_meteo(minp, inputfile, meteoitem%filetype)
     if (.not. success) return
     !
     meteoitem%filename = inputfile

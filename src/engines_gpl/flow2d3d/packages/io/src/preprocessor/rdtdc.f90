@@ -3,7 +3,7 @@ subroutine rdtdc(lundia    ,lunout    ,lunrd     ,error     ,filbcc    , &
                & nto       ,lstsc     ,nambnd    ,namcon    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,7 +51,7 @@ subroutine rdtdc(lundia    ,lunout    ,lunrd     ,error     ,filbcc    , &
     integer                    , pointer :: itdate
     real(fp)                   , pointer :: dt
     character*20, dimension(:) , pointer :: keywrd
-    character*37, dimension(:) , pointer :: fmtbcc
+    character*38, dimension(:) , pointer :: fmtbcc
 !
 ! Global variables
 !

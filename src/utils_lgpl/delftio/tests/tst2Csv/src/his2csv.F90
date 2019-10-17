@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -70,7 +70,7 @@ program his2csv
     retval = 0
 
     ! check / read arguments
-    numArgs = nargs()
+    numArgs = COMMAND_ARGUMENT_COUNT()
     args(:) = ''
     if (numArgs >= 1) call GetArg(1, args(1))
     if ( numArgs == 1 .or. &

@@ -12,7 +12,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                 & nto       ,volum0    ,volum1    ,dt        ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -808,7 +808,9 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
              !
              dbodsd(l, nm) = dbodsd(l, nm) + dsdnm
              !
-             call updwaqflxsed(nst, nm, l, trndiv, sedflx, eroflx, gdp)
+             if (.not. bedload) then
+                call updwaqflxsed(nst, nm, l, trndiv, sedflx, eroflx, gdp)
+             endif
           enddo    ! nm
        enddo       ! l
        if (bedchangemesscount > bedchangemessmax) then

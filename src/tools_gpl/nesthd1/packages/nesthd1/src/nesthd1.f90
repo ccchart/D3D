@@ -2,7 +2,7 @@
       program nesthd1
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -242,7 +242,7 @@
 !-----------------------------------------------------------------------
 
       call detang (xbnd     ,ybnd   ,angle    ,mcbsp    ,ncbsp    , &
-     &             icom2    ,mmax2  ,nmax2    ,maxbnd   ,nobnd )
+     &             mmax2    ,nmax2  ,maxbnd   ,nobnd              )
 
 !-----------------------------------------------------------------------
 !---- 9. Write weight factors/angles velocity boundary

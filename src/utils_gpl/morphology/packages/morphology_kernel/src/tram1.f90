@@ -10,7 +10,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
                 & message   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -171,6 +171,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
     rlabda    = real(realpar(RP_RLAMB),fp)
     uorb      = real(realpar(RP_UORB) ,fp)
     di50      = real(realpar(RP_D50)  ,fp)
+    dss       = real(realpar(RP_DSS)  ,fp)
     !realpar(RP_DSS) = real(dss,hp)
     dstar     = real(realpar(RP_DSTAR),fp)
     d10       = real(realpar(RP_D10MX),fp)

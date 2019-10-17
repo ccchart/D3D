@@ -4,7 +4,7 @@ subroutine inibct(lundia    ,error     ,runid     , &
                 & hydrbc    ,bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -99,10 +99,10 @@ subroutine inibct(lundia    ,error     ,runid     , &
     character(20)                            :: cntent ! String with <contence> input
     character(20)                            :: namhlp
     character(256)                           :: filnam ! Help var. for file name 
-    character(36)  , dimension(1 + 2*mxkmax) :: parnam ! Number of parameter records in time dependent direct access files for BCT 
+    character(36)  , dimension(1 + 2*kmax)   :: parnam ! Number of parameter records in time dependent direct access files for BCT 
     character(36)  , dimension(6)            :: defpar ! Default parameter 
     character(6)                             :: typtst ! Data string to test type of boundary 
-    character(5000)                          :: record ! Record for BCT file 
+    character(kmax*24*2 + 48)                :: record ! Record for BCT file 
     !
     data typtst/'ZCQRTN'/
 !

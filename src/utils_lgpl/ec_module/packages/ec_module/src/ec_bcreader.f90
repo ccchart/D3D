@@ -16,8 +16,9 @@ module m_ec_bcreader
   public   ::  ecBCBlockCreate
   public   ::  ecBCBlockFree
   public   ::  ecBCBlockFree1dArray
-  public   ::  jakeyvalue
-  public   ::  jakeyvaluelist
+  public   ::  matchblock
+  public   ::  matchkeyvalue
+  public   ::  matchkeyvaluelist
   public   ::  processhdr
   public   ::  checkhdr
   public   ::  sortndx
@@ -28,7 +29,7 @@ contains
   ! =======================================================================
 
   !> Initialize BC instance
-  function ecBCInit (instancePtr, fname, quantityName, plilabel, bc, iostat) result (success)
+  function ecBCInit (instancePtr, fname, quantityName, plilabel, bc, iostat, funtype) result (success)
     use m_ec_netcdf_timeseries
     implicit none
     !   Open a .bc file with external forcings
@@ -42,14 +43,13 @@ contains
     character(len=*),              intent(in)      :: plilabel
     type (tEcBCBlock),             intent(inout)   :: bc
     integer, optional,             intent(out)     :: iostat
+    character(len=*), optional,    intent(in)      :: funtype
 
     success = .false.
     bc%qname = quantityName
     bc%bcname = plilabel
-    bc%fname = fname                                  ! store original filename for later referece (?)
-    if (associated(bc%quantity)) then
-       nullify(bc%quantity)
-    endif
+    bc%fname = fname                                  ! store original filename for later reference (?)
+    if (associated(bc%quantity)) deallocate(bc%quantity)
     allocate(bc%quantity)
     call str_upper(bc%qname,len(trim(bc%qname)))
     call str_upper(bc%bcname,len(trim(bc%bcname)))
@@ -57,16 +57,16 @@ contains
     select case (bc%ftype)
     case (BC_FTYPE_ASCII)
        if (.not.ecSupportOpenExistingFileGnu(bc%fhandle, bc%fname)) then
+          call setECMessage("Unable to open "//trim(bc%fname))
           return
        end if
-       if (scanbc_ascii(bc, bc%fhandle, iostat)) then          ! parsing the open bc-file
-          allocate(bc%columns(bc%numcols))
-       else
+       if (.not.ecBCFilescan(bc, bc%fhandle, iostat, funtype=funtype)) then     ! parsing the open bc-file
           call mf_close(bc%fhandle)
           return                                               ! quantityName-plilabel combination not found
+       else
+          allocate(bc%columns(bc%numcols))
        endif
     case (BC_FTYPE_NETCDF)
-       ! in combination with netcdf
        if (.not.ecNetCDFscan(bc%ncptr, quantityName, plilabel, bc%ncvarndx, bc%nclocndx, bc%dimvector)) then
           return                                               ! quantityName-plilabel combination not found
        endif
@@ -94,143 +94,164 @@ contains
   ! =======================================================================
 
   !> Find quantity-pli point combination, preparing a BC-block using an ASCII-file as input
-  function scanbc_ascii(bc, fhandle, iostat) result (success)
+  function ecBCFilescan(bc, fhandle, iostat, funtype) result (success)
     implicit none
-    logical                                 :: success
-    type (tEcBCBlock),      intent(inout)   :: bc
-    integer (kind=8),       intent(in)      :: fhandle
-    integer,                intent(out)     :: iostat
+    logical                                   :: success
+    type (tEcBCBlock),          intent(inout) :: bc
+    integer (kind=8),           intent(in)    :: fhandle
+    integer,                    intent(out)   :: iostat
+    character(len=*), optional, intent(in)    :: funtype
 
-    character*(1000)    ::  rec
-    integer             ::  reclen
-    integer             ::  commentpos
-    character(len=:),   &
-         allocatable    ::  keyvaluestr                         ! all key-value pairs in one header
-    integer             ::  posfs
-    integer             ::  nfld
-    integer             ::  nq
-    logical             ::  jablock, jaheader
-    integer             ::  lineno
-    integer (kind=8)    ::  savepos
-    integer             ::  iostatloc
+    character(len=:), allocatable ::  rec
+    character(len=:), allocatable ::  keyvaluestr ! all key-value pairs in one header; allocated on assign
+    integer                       ::  posfs
+    integer                       ::  nfld
+    integer                       ::  nq
+    logical                       ::  jaheader, jafound
+    integer(kind=8)               ::  currentpos
+
+    integer (kind=8)              ::  savepos
+    type(tEcBlockList), pointer   ::  blocklistPtr
+    type(tEcBCFile), pointer      ::  bcFilePtr
+    integer                       ::  blocktype
+    integer, parameter            ::  BT_GENERAL = 0
+    integer, parameter            ::  BT_FORCING = 1
+    character(len=15)             ::  key, val
 
     success = .false.
     iostat = EC_UNKNOWN_ERROR
-    lineno = 0
     savepos = 0
 
-    do
-       if (mf_eof(fhandle)) then
-          ! print *,'End of BC FILE'                            ! reached the end of the bc-file, but combination was not found
-          iostat = EC_EOF
-          return
-       endif
-       !      read(fhandle,'(a200)', iostat=iostat) rec
-       call mf_read(fhandle,rec,savepos)
-       iostatloc = 0 ! mf_read always ok?
-       if (iostatloc /= 0) then
-          iostat = iostatloc
-          return ! beter break?
-       endif
-       lineno = lineno + 1
-       if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
-       reclen = len_trim(rec)                                  ! deal with various comment delimiters
-       commentpos = index(rec(1:reclen),'//')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),' %')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),' #')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),' *')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec(1:reclen),' !')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-
-       if (len_trim(rec(1:reclen))>0) then                     ! skip empty lines
-          if (index(rec,'[forcing]')>0) then                   ! new boundary chapter
-             jaheader = .true.                                 ! switching to header mode
-             keyvaluestr = ''
-             jablock=.false.
-             nfld = 0                                          ! count the number of fields in this header block
-             nq = 0                                            ! count the (maximum) number of quantities in this block
-          else
-             if (jaheader) then
-                posfs = index(rec(1:reclen),'=')               ! key value pair ?
-                if (posfs>0) then
-                   call replace_char(rec,9,32)                 ! replace tabs by spaces, header key-value pairs only
-                   nfld = nfld + 1                             ! count the number of lines in the header file
-                   ! Create a lengthy string of ',key,value,key,value.....'
-                   call str_upper(rec(1:posfs-1))              ! all keywords uppercase , not case sensitive
-                   if (index(rec(1:posfs-1),'QUANTITY')>0) then
-                      nq = nq + 1
+    ! TODO: Check if we have a matching position in the administration,
+    ! If so:
+    !    create a new filehandler
+    !    set the metadata correctly by process-header 
+    ! If not:
+    !    find the last read position for this file, that is: the last recorded start position of a data-block
+    !    start searching from there 
+    
+    bcFilePtr => bc%bcptr
+    blocklistPtr => bcFilePtr%blocklist
+    jafound = .false.
+    jaheader = .false.
+    currentpos = bcFilePtr%last_position
+    blocktype = bcFilePtr%last_blocktype
+    do while (associated(blocklistPtr))
+       if (matchblock(blocklistPtr%keyvaluestr,bc%bcname,bc%qname,funtype=funtype)) then
+          jafound = .true.
+          currentpos = blocklistPtr%position
+          blocktype = blocklistPtr%blocktype
+          exit
+       endif 
+       blocklistPtr => blocklistPtr%next 
+    enddo
+    
+    call mf_backspace(fhandle, currentpos)
+    if (.not.jafound) then
+       do
+          if (mf_eof(fhandle)) then                               ! forward to last position we searched in this file
+             iostat = EC_EOF
+             return
+          endif
+          call mf_read(fhandle, rec, savepos)
+          if (len(rec) == 0) cycle
+          if (index('!#%*',rec(1:1))>0) cycle
+ 
+          if (len_trim(rec)>0) then                                  ! skip empty lines
+             if (index(rec,'[')>0 .and. index(rec,']')>0) then 
+                if (strcmpi(adjustl(rec),'[general]')) then                    ! new boundary chapter
+                   blocktype = BT_GENERAL
+                else if (strcmpi(adjustl(rec),'[forcing]') .or. &
+                         strcmpi(adjustl(rec),'[boundary]')) then
+                   jaheader = .true.                                 ! switching to header mode
+                   blocktype = BT_FORCING
+                   keyvaluestr = ''
+                   nfld = 0                                          ! count the number of fields in this header block
+                   nq = 0                                            ! count the (maximum) number of quantities in this block
+                else
+                   call setECMessage("Unknown block type '"//trim(rec)//           &
+                                "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
+                   return
+                endif
+             else
+                select case (blocktype)
+                case (BT_FORCING)
+                   if (jaheader) then
+                      posfs = index(rec,'=')               ! key value pair ?
+                      if (posfs>0) then
+                         call replace_char(rec,9,32)                 ! replace tabs by spaces, header key-value pairs only
+                         nfld = nfld + 1                             ! count the number of lines in the header file
+                         ! TODO: Replace this key-value string by a linked list-base class for key-value dictionaries
+                         call str_upper(rec(1:posfs-1))              ! all keywords uppercase , not case sensitive
+                         if (index(rec(1:posfs-1),'QUANTITY')>0) then
+                            nq = nq + 1
+                         endif
+                         keyvaluestr = trim(keyvaluestr)//''''// (trim(adjustl(rec(1:posfs-1))))//''',''' //(trim(adjustl(rec(posfs+1:))))//''','
+                      else                                                    ! switch to datamode
+                         ! TODO: Store the location information somewhere to be able to return to it later 
+                         call str_upper(keyvaluestr, len_trim(keyvaluestr))   ! case insensitive format
+      
+                         allocate(blocklistPtr)                                   ! Add information for this block to the administration
+                         blocklistPtr%position = savepos
+                         blocklistPtr%blocktype = blocktype
+                         blocklistPtr%keyvaluestr = keyvaluestr
+                         blocklistPtr%next => bcFilePtr%blocklist
+                         blocklistPtr%nfld = nfld
+                         blocklistPtr%nq = nq
+                         bcFilePtr%blocklist => blocklistPtr
+                         bcFilePtr%last_position = savepos
+                         bcFilePtr%last_blocktype = blocktype
+      
+                         if (matchblock(keyvaluestr,bc%bcname,bc%qname,funtype=funtype)) then
+                            if (.not.processhdr(bc,nfld,nq,keyvaluestr)) return   ! dumb translation of bc-object metadata
+                            if (.not.checkhdr(bc)) return                         ! check on the contents of the bc-object
+                            call mf_backspace(fhandle, savepos)                   ! Rewind the first line with data
+                            success = .true.
+                            iostat = EC_NOERR
+                            return
+                         else
+                            ! location was found, but not all required meta data was present
+                            iostat = EC_METADATA_INVALID
+                         endif                                    ! Right quantity
+                         jaheader = .false.                       ! No, we are NOT reading a header
+                      endif                                       ! switch to datamode
+                   endif          ! in header mode (data lines are ignored)
+                case (BT_GENERAL)
+                   posfs = index(rec,'=')
+                   if (posfs>0) then
+                      call replace_char(rec,9,32)
+                      key = adjustl(rec(:posfs-1))
+                      val = adjustl(rec(posfs+1:))
+                      call str_upper(key)
+                      select case (key)
+                      case ('FILEVERSION')
+                         bcFilePtr%FileVersion = trim(val)
+                      case ('FILETYPE') 
+                         bcFilePtr%FileType = trim(val)
+                      end select
                    endif
+                end select
+             endif
+          endif                ! non-empty string
+       enddo                   ! read/scan loop
+    else
+       if (.not.processhdr(bc,blocklistPtr%nfld,blocklistPtr%nq,blocklistPtr%keyvaluestr)) return
+       if (.not.checkhdr(bc)) return
+       success = .true.
+       iostat = EC_NOERR
+    endif                      ! need to search or already in 'database'
+  end function ecBCFilescan
 
-                   !                  keyvaluestr = trim(keyvaluestr)//(trim(adjustl(rec(1:posfs-1))))//',' &
-                   !                                                 //(trim(adjustl(rec(posfs+1:reclen))))//','
-                   keyvaluestr = trim(keyvaluestr)//''''// (trim(adjustl(rec(1:posfs-1))))//''',''' &
-                        //(trim(adjustl(rec(posfs+1:reclen))))//''','
-                else                                                    ! switch to datamode
-                   call str_upper(keyvaluestr,len(trim(keyvaluestr)))   ! case insensitive format
-                   if (jakeyvalue(keyvaluestr,'NAME',trim(bc%bcname))) then
-                      if (jakeyvalue(keyvaluestr,'FUNCTION','ASTRONOMIC').or.jakeyvalue(keyvaluestr,'FUNCTION','ASTRONOMIC-CORRECTION')) then
-                         ! Check for harmonic or astronomic components
-                         jablock = .true.
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY','ASTRONOMIC COMPONENT')
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'AMPLITUDE')
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'PHASE')
-                      elseif (jakeyvalue(keyvaluestr,'FUNCTION','HARMONIC').or.jakeyvalue(keyvaluestr,'FUNCTION','HARMONIC-CORRECTION')) then
-                         ! Check for harmonic or harmonic components
-                         jablock = .true.
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY','HARMONIC COMPONENT')
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'AMPLITUDE')
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'PHASE')
-                      elseif (jakeyvalue(keyvaluestr,'FUNCTION','QHTABLE')) then
-                         ! Check for qh
-                         jablock = .true.
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'WATERLEVEL')
-                         jablock = jablock .and. jakeyvalue(keyvaluestr,'QUANTITY',trim(bc%qname)//' '//'DISCHARGE')
-                      elseif (jakeyvalue(keyvaluestr,'FUNCTION','T3D')) then
-                         ! Check for timeseries on sigma- or z-levels
-                         jablock = jakeyvalue(keyvaluestr,'QUANTITY',bc%qname) .or. jakeyvaluelist(keyvaluestr,'VECTOR',bc%qname)
-                      elseif (jakeyvalue(keyvaluestr,'FUNCTION','TIMESERIES')) then
-                         ! Check for timeseries
-                         jablock = jakeyvalue(keyvaluestr,'QUANTITY',bc%qname) .or. jakeyvaluelist(keyvaluestr,'VECTOR',bc%qname)
-                      endif
-                      if (jablock) then                                        ! block confirmed
-                         if (.not.processhdr(bc,nfld,nq,keyvaluestr)) return   ! dumb translation of bc-object metadata
-                         if (.not.checkhdr(bc)) return                         ! check on the contents of the bc-object
-                         call mf_backspace(fhandle, savepos)      ! Rewind the first line with data
-                         success = .true.
-                         iostat = EC_NOERR
-                         return
-                      else
-                         ! location was found, but not all required meta data was present
-                         iostat = EC_METADATA_INVALID
-                      endif                                    ! Right quantity
-                   else
-                      ! location was found, but data was missing/invalid
-                      iostat = EC_DATA_NOTFOUND
-                   endif                                       ! Right label
-                   jaheader = .false.                          ! No, we are NOT reading a header
-                   if (jablock) then                           ! Yes, we are in the bc-block of interest
-                   endif                                       ! found matching block
-                endif                                          ! switch to datamode
-             endif          ! in header mode (data lines are ignored)
-          endif             ! not a new '[forcing]' item
-       endif                ! non-empty string
-    enddo                   ! read/scan loop
-  end function scanbc_ascii
-
-  function jakeyvaluelist(keyvaluestr,key,value) result (jafound)
+  function matchkeyvaluelist(keyvaluestr,key,value) result (jafound)
     implicit none
     logical                          :: jafound
     character(len=*),    intent(in)  :: keyvaluestr
     character(len=*),    intent(in)  :: key
     character(len=*),    intent(in)  :: value
     jafound = (index(keyvaluestr,','''//trim(key)//''','''//trim(value)//':')>0)            ! like 'keyword1','value1 : one,two,three','keyword',..... etc
-  end function jakeyvaluelist
+  end function matchkeyvaluelist
 
-  function jakeyvalue(keyvaluestr,key,value) result (jafound)
+  function matchkeyvalue(keyvaluestr,key,value) result (jafound)
     implicit none
     logical                          :: jafound
     character(len=*),    intent(in)  :: keyvaluestr
@@ -238,7 +259,48 @@ contains
     character(len=*),    intent(in)  :: value
 !   jafound = (index(keyvaluestr,','''//trim(key)//''','''//trim(value)//''',')>0)            ! like 'keyword1','value1','keyword',.....
     jafound = (index(keyvaluestr,''''//trim(key)//''','''//trim(value)//'''')>0)            ! like 'keyword1','value1','keyword',.....
-  end function jakeyvalue
+  end function matchkeyvalue
+
+  function matchblock(keyvaluestr,bcname,qname,funtype) result (jafound)
+    logical                                 :: jafound
+    character(len=*), intent(in)            :: keyvaluestr
+    character(len=*), intent(in)            :: bcname
+    character(len=*), intent(in)            :: qname
+    character(len=*), intent(in), optional  :: funtype
+    jafound = .false.
+    if (present(funtype)) then
+       if (.not.matchkeyvalue(keyvaluestr,'FUNCTION',trim(funtype))) then
+          return
+       endif
+    endif
+    if (matchkeyvalue(keyvaluestr,'NAME',trim(bcname))) then
+       if (matchkeyvalue(keyvaluestr,'FUNCTION','ASTRONOMIC').or.matchkeyvalue(keyvaluestr,'FUNCTION','ASTRONOMIC-CORRECTION')) then
+          if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'AMPLITUDE')) then
+             if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'PHASE')) then
+                jafound = .true.
+             endif
+          endif
+       elseif (matchkeyvalue(keyvaluestr,'FUNCTION','HARMONIC').or.matchkeyvalue(keyvaluestr,'FUNCTION','HARMONIC-CORRECTION')) then
+          if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'AMPLITUDE')) then
+             if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'PHASE')) then
+                jafound = .true.
+             endif
+          endif
+       elseif (matchkeyvalue(keyvaluestr,'FUNCTION','QHTABLE')) then
+          if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'WATERLEVEL')) then
+             if (matchkeyvalue(keyvaluestr,'QUANTITY',trim(qname)//' '//'DISCHARGE')) then
+                jafound = .true.
+             endif
+          endif
+       else
+          if (matchkeyvalue(keyvaluestr,'QUANTITY',qname)) then
+             jafound = .true.
+          elseif (matchkeyvaluelist(keyvaluestr,'VECTOR',qname)) then
+             jafound = .true.
+          endif
+       endif
+    endif
+  end function matchblock
 
   !> Given a character string of key-value pairs gathered from a header block,
   !> extract all relevant fields (and find the block of requested quantity)
@@ -254,17 +316,18 @@ contains
     integer                          ::     ifld
     integer                          ::     i, jv
     integer                          ::     iostat
-    character(len=maxNameLen),  allocatable   ::     hdrkeys(:)     !< All keys from header
-    character(len=10*maxRecordLen),  allocatable ::     hdrvals(:)     !< All values from header
+    type(VLSType), allocatable       ::     hdrkeys(:)     !< All keys from header
+    type(VLSType), allocatable       ::     hdrvals(:)     !< All values from header
     integer, allocatable             ::     iv(:), il(:), perm_vpos(:)
 
-    integer                          ::     ipos, npos, posfs
-    integer                          ::     iq, iq_sel, idim
+    integer                          ::     ipos, npos, posfs, ipos1, ipos2
+    integer                          ::     iq, iq_sel, idim, kmax
     integer, parameter               ::     MAXDIM = 10    !< max number of vector quantities in one vector
     character(len=maxNameLen)        ::     vectorquantities(MAXDIM)
     character(len=maxNameLen)        ::     vectordefinition, vectorstr
+    real(kind=hp), pointer           ::     vp_new(:)
 
-    success = .False.
+    success = .false.
     if (allocated(hdrkeys)) then
        deallocate(hdrkeys)
     endif
@@ -289,29 +352,34 @@ contains
     iv = -1
     il = -1
     bc%quantity%col2elm = -1
-    hdrvals=''
-    hdrkeys=''
     vectordefinition = ''
 
-    read(keyvaluestr,*,iostat=iostat) (hdrkeys(ifld),hdrvals(ifld),ifld=1,nfld)
+    ipos1=1
+    do ifld = 1, nfld
+       ipos2 = index(keyvaluestr(ipos1:), "',")+1
+       hdrkeys(ifld)%s = keyvaluestr(ipos1+1:ipos1+ipos2-3)
+       ipos1 = ipos1+ipos2
+       ipos2 = index(keyvaluestr(ipos1:), "',")+1
+       hdrvals(ifld)%s = keyvaluestr(ipos1+1:ipos1+ipos2-3)
+       ipos1 = ipos1+ipos2
+    end do
+
     iq = 0
     iq_sel = 0
     do ifld=1,nfld
-       call replace_char(hdrkeys(ifld),ichar('-'),ichar(' '))
-       call replace_char(hdrkeys(ifld),ichar('_'),ichar(' '))
-       call replace_char(hdrkeys(ifld),ichar('.'),ichar(' '))
-       select case (trim(adjustl(hdrkeys(ifld))))
+       call remove_chars(hdrkeys(ifld)%s,' -_.')         ! filter out all connection characters from the keywords
+       select case (adjustl(hdrkeys(ifld)%s))
        case ('QUANTITY')
-          iq = iq + 1                                     ! count quantities, corresponds with column numbers [iq]
-          if (trim(hdrvals(ifld))==bc%qname) then         ! detected quantity of interest
+          iq = iq + 1                                    ! count quantities, corresponds with column numbers [iq]
+          if (hdrvals(ifld)%s==bc%qname) then            ! detected quantity of interest
              bc%quantity%name=bc%qname
              bc%quantity%jacolumn(iq)=.true.
              iq_sel = iq_sel + 1
              il(iq) = 1                                  ! layer this column belongs to, default 1
              iv(iq) = 1                                  ! iv is the number of the element in the vector
              bc%quantity%col2elm(iq_sel) = iq
-          else if (index(vectordefinition,'|'//trim(hdrvals(ifld))//'|')>0) then         ! quantity is part of requested vector
-             posfs = index(vectordefinition,'|'//trim(hdrvals(ifld))//'|')
+          else if (index(vectordefinition,'|'//trim(hdrvals(ifld)%s)//'|')>0) then         ! quantity is part of requested vector
+             posfs = index(vectordefinition,'|'//trim(hdrvals(ifld)%s)//'|')
              bc%quantity%jacolumn(iq)=.true.
              iq_sel = iq_sel + 1
              il(iq) = 1                                  ! layer this column belongs to, default 1
@@ -323,36 +391,37 @@ contains
              bc%quantity%jacolumn(iq)=.false.
              select case (bc%func)
              case (BC_FUNC_TSERIES, BC_FUNC_TIM3D)
-                if (trim(hdrvals(ifld))=='TIME') then    ! special check on the time field
+                if (hdrvals(ifld)%s=='TIME') then    ! special check on the time field
                    bc%timecolumn = iq
                 endif
                 case (BC_FUNC_HARMONIC, BC_FUNC_ASTRO, BC_FUNC_HARMOCORR, BC_FUNC_ASTROCORR, BC_FUNC_CMP3D)
-                   if (trim(hdrvals(ifld))=='HARMONIC COMPONENT') then          ! harmonic component
+                   if (hdrvals(ifld)%s=='HARMONIC COMPONENT') then          ! harmonic component
                       bc%astro_component_column = iq
                    endif
-                   if (trim(hdrvals(ifld))=='ASTRONOMIC COMPONENT') then        ! astronomic component label
+                   if (hdrvals(ifld)%s=='ASTRONOMIC COMPONENT') then        ! astronomic component label
                       bc%astro_component_column = iq
                    endif
-                   if (trim(hdrvals(ifld))==trim(bc%qname)//' AMPLITUDE') then  ! amplitude field for astronomic/harmonic components
+                   if (hdrvals(ifld)%s==trim(bc%qname)//' AMPLITUDE') then  ! amplitude field for astronomic/harmonic components
                       bc%astro_amplitude_column = iq
                    endif
-                   if (trim(hdrvals(ifld))==trim(bc%qname)//' PHASE') then      ! phase field for astronomic/harmonic components
+                   if (hdrvals(ifld)%s==trim(bc%qname)//' PHASE') then      ! phase field for astronomic/harmonic components
                       bc%astro_phase_column = iq
                    endif
              case (BC_FUNC_QHTABLE)
-                if (trim(hdrvals(ifld))==trim(bc%qname)//' WATERLEVEL') then ! waterlevel field for qh-boundary
+                if (hdrvals(ifld)%s==trim(bc%qname)//' WATERLEVEL') then ! waterlevel field for qh-boundary
                    bc%qh_waterlevel_column = iq
                 endif
-                if (trim(hdrvals(ifld))==trim(bc%qname)//' DISCHARGE') then  ! discharge field for qh-boundary
+                if (hdrvals(ifld)%s==trim(bc%qname)//' DISCHARGE') then  ! discharge field for qh-boundary
                    bc%qh_discharge_column = iq
                 endif
              end select
           endif
        case ('VECTOR')
-          vectorstr = trim(hdrvals(ifld))
+          vectorstr = trim(hdrvals(ifld)%s)
           posfs = index(vectorstr,':')
           if (posfs>0) then
              if (trim(vectorstr(1:posfs-1))==trim(bc%qname)) then           ! this vector defines the requested 'quantity'
+                bc%quantity%name=bc%qname
                 vectorquantities = ''
                 read (vectorstr(posfs+1:len_trim(vectorstr)),*,iostat=iostat)  (vectorquantities(idim),idim=1,MAXDIM)
                 vectordefinition = '|'
@@ -365,19 +434,22 @@ contains
           endif
        case ('UNIT')
           if (bc%quantity%jacolumn(iq)) then
-             bc%quantity%unit = trim(hdrvals(ifld))
+             bc%quantity%unit = trim(hdrvals(ifld)%s)
           endif
           if (iq==bc%timecolumn) then                     ! Is this the unit of time ?
-             bc%timeunit = trim(hdrvals(ifld))            ! store timeunit string in this bc instance
+             bc%timeunit = trim(hdrvals(ifld)%s)            ! store timeunit string in this bc instance
           endif
           if (iq == bc%astro_component_column) then
-             bc%timeunit = trim(hdrvals(ifld))            ! store period/feq unit in time unit
+             bc%timeunit = trim(hdrvals(ifld)%s)            ! store period/feq unit in time unit
           endif
        case ('FUNCTION')
           if (iq>0) cycle
-          select case (trim(adjustl(hdrvals(ifld))))
+          select case (adjustl(hdrvals(ifld)%s))
           case ('TIMESERIES')
              bc%func = BC_FUNC_TSERIES
+          case ('CONSTANT')                        ! Constant is a special version of time-series (Sobek3)
+             bc%func = BC_FUNC_CONSTANT
+             bc%timeint = timeint_bfrom            ! Time interpolation keyword is likely absent, default to a0=1 and a1=0
           case ('HARMONIC')
              bc%func = BC_FUNC_HARMONIC
           case ('ASTRONOMIC')
@@ -395,37 +467,48 @@ contains
           end select
        case ('OFFSET')
           if (iq>0) cycle
-          read(hdrvals(ifld),*) bc%quantity%offset
+          read(hdrvals(ifld)%s,*) bc%quantity%offset
        case ('FACTOR')
           if (iq>0) cycle
-          read(hdrvals(ifld),*) bc%quantity%factor
-       case ('VERTICAL POSITION')
-          read(hdrvals(ifld),*) il(iq)
+          read(hdrvals(ifld)%s,*) bc%quantity%factor
+       case ('VERTICALPOSITION','VERTPOSITIONINDEX')
+          read(hdrvals(ifld)%s,*) il(iq)
           bc%quantity%vertndx = il(iq)                          ! layer this column belongs to, default 1
-       case ('VERTICAL POSITION SPECIFICATION')
+       case ('VERTICALPOSITIONSPECIFICATION','VERTPOSITIONS')
           npos=0
-          if (len_trim(hdrvals(ifld))>0) then
-             npos = count([(verify(hdrvals(ifld)(i:i),', ')>0   &
-                  .and.verify(hdrvals(ifld)(i-1:i-1),', ')==0, i=2,len_trim(hdrvals(ifld)))]) + 1
+          if (len_trim(hdrvals(ifld)%s)>0) then
+             npos = count([(verify(hdrvals(ifld)%s(i:i),', ')>0   &
+                  .and.verify(hdrvals(ifld)%s(i-1:i-1),', ')==0, i=2,len_trim(hdrvals(ifld)%s))]) + 1
           endif
           allocate(bc%vp(npos))
           bc%numlay = npos
-          read(hdrvals(ifld),*) (bc%vp(ipos),ipos=1,npos)       ! globally store ALL vertical positions
+          read(hdrvals(ifld)%s,*) (bc%vp(ipos),ipos=1,npos)       ! globally store ALL vertical positions
           allocate(perm_vpos(npos))
           call sortndx(bc%vp,perm_vpos,npos)                    ! produce the permutation that sorts the vertical positions perm_vpos
-       case ('MISSING VALUE DEFINITION')
-          read(hdrvals(ifld),*) bc%missing
-       case ('TIME INTERPOLATION')
-          select case (trim(adjustl(hdrvals(ifld))))
+       case ('TIMEINTERPOLATION')
+          select case (adjustl(hdrvals(ifld)%s))
           case ('LINEAR')
              bc%timeint = BC_TIMEINT_LIN
+          case ('LINEAR-EXTRAPOLATE')
+             bc%timeint = BC_TIMEINT_LIN_EXTRAPOL
           case ('BLOCK-TO')
              bc%timeint = BC_TIMEINT_BTO
           case ('BLOCK-FROM')
              bc%timeint = BC_TIMEINT_BFROM
+          case default
+             call setECMessage("Unknown time interpolation '"//trim(adjustl(hdrvals(ifld)%s))//           &
+                                "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
+             return
           end select
-       case ('VERTICAL INTERPOLATION')
-          select case (trim(adjustl(hdrvals(ifld))))
+       case ('PERIODIC')
+          select case (trim(adjustl(hdrvals(ifld)%s)))
+          case ('TRUE','T','.T.','1','JA','YES')
+             bc%periodic = .True.
+          case default
+             bc%periodic = .False.
+          end select
+       case ('VERTICALINTERPOLATION','VERTINTERPOLATION')
+          select case (adjustl(hdrvals(ifld)%s))
           case ('LINEAR')
              bc%zInterpolationType = zinterpolate_linear
           case ('LOG')
@@ -434,12 +517,17 @@ contains
              bc%zInterpolationType = zinterpolate_block
           case default
              bc%zInterpolationType = zinterpolate_unknown
+             call setECMessage("Unknown vertical interpolation '"//trim(adjustl(hdrvals(ifld)%s))//           &
+                                "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
+             return
           end select
-       case ('VERTICAL POSITION TYPE')
-          IF (index(hdrvals(ifld),'PERCEN')+index(hdrvals(ifld),'BED')>0) then
-             hdrvals(ifld)='PERCBED'
+       case ('VERTICALPOSITIONTYPE','VERTPOSITIONTYPE')
+          IF (index(hdrvals(ifld)%s,'PERCEN')+index(hdrvals(ifld)%s,'BED')>0) then
+             hdrvals(ifld)%s = 'PERCBED'
           endif
-          select case (trim(adjustl(hdrvals(ifld))))
+          select case (adjustl(hdrvals(ifld)%s))
+          case ('SINGLE')
+             bc%vptyp = BC_VPTYP_SINGLE
           case ('PERCBED')
              bc%vptyp = BC_VPTYP_PERCBED
           case ('ZDATUM')
@@ -452,6 +540,10 @@ contains
              bc%vptyp = BC_VPTYP_ZBED
           case ('ZSURF')
              bc%vptyp = BC_VPTYP_ZSURF
+          case default
+             call setECMessage("Unknown vertical position type '"//trim(adjustl(hdrvals(ifld)%s))//           &
+                                "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
+             return
           end select
        end select
     enddo
@@ -472,11 +564,89 @@ contains
        endif
     enddo
 
+    if (associated(bc%vp)) then
+       kmax = size(bc%vp)
+       if (perm_vpos(1) /= 1) then
+         allocate(vp_new(kmax))
+         do iq = 1, kmax
+            vp_new(iq) = bc%vp(perm_vpos(iq))
+         enddo
+         deallocate(bc%vp)
+         bc%vp => vp_new
+       endif
+    endif
+
     deallocate(hdrkeys)
     deallocate(hdrvals)
     deallocate(iv,il)
-    success = .True.
+
+    success = .true.
+    if (bc%vptyp == BC_VPTYP_PERCBED) then
+       success = checkAndFixLayers(bc%vp, bc%quantity%name)
+    endif
   end function processhdr
+
+  !> check if all layers are in range 0.0 - 1.0
+  !! if in range 0.0 - 100.0 convert percentages into fractions
+  function checkAndFixLayers(vp, name) result(success)
+     implicit none
+     real(kind=hp),    intent(inout) :: vp(:)      !< vertical positions
+     character(len=*), intent(in)    :: name       !< quantity name, used in error messages
+     logical                         :: success    !< function result
+
+     real(kind=hp)   :: minvp                      !< lowest vertical position
+     real(kind=hp)   :: maxvp                      !< higest vertical position
+     integer         :: kmax                       !< number of layers
+     integer         :: k                          !< loop counter
+     logical, save   :: warningPrinted = .false.   !< flag to avoid printing the same warning many times
+
+     success = .true.
+
+     minvp = minval(vp)
+     maxvp = maxval(vp)
+     kmax = size(vp)
+
+     if (minvp >= 0.0d0 .and. maxvp <= 1.0d0) then
+        continue ! all layers oke
+     else if (minvp < 0.0d0 .or. maxvp > 100.0d0) then
+        ! negative or even in percentages too high
+        call printErrMessageLayers()
+        success = .false.
+     else
+        ! in range 0.0 - 100.0. probably percentages. extra check, increasing numbers?
+        do k = 2, kmax
+           if (vp(k) < vp(k-1)) then
+              success = .false.
+              exit
+           endif
+        enddo
+        if (success) then
+            if (.not. warningPrinted) then
+               call setECMessage("converting layer percentages in bc-file to fractions.")
+               warningPrinted = .true.
+            endif
+            vp = vp * 0.01_hp
+        else
+            call printErrMessageLayers()
+        endif
+     endif
+
+  contains
+
+  subroutine printErrMessageLayers()
+     character(len=8)              :: strMin   !< minvp converted to a string
+     character(len=8)              :: strMax   !< maxvp converted to a string
+     character(len=:), allocatable :: errorMessage
+
+     write(strMin,'(f8.3)') minvp
+     write(strMax,'(f8.3)') maxvp
+
+     call setECMessage("sigma positions must be in range 0.0 - 1.0")
+     errorMessage = "range for " // trim(name) // " is " // strMin // " - " // strMax // "."
+     call setECMessage(errorMessage)
+  end subroutine printErrMessageLayers
+
+  end function checkAndFixLayers
 
 
   !> Given a filled bc-object, scrutinize its content for completeness, validity and consistency
@@ -485,24 +655,14 @@ contains
     logical                                     ::      success
     type (tEcBCBlock),         intent(inout)    ::      bc
     !
-    success = .False.
+    success = .false.
     ! If function is tseries (not intended for the 3rd dimension, but numlay>1, indicating a specification of
     ! vertical position, assume that the function label is a mistake and change it into T3D
     if (bc%numlay>1 .and. bc%func==BC_FUNC_TSERIES) then
        bc%func=BC_FUNC_TIM3D
     end if
 
-    ! Check vectors
-    if (bc%func==BC_FUNC_TSERIES .or. bc%func==BC_FUNC_TIM3D) then        ! in case of timeseries-like signal  ...
-       if (bc%numcols-1/=bc%numlay*bc%quantity%vectormax) then           ! ... the number of columns minus 1 (time column) should equal ...
-          print *, 'vectormax = ', bc%quantity%vectormax
-          print *, 'numlay = ', bc%numlay
-          call setECMessage("Number of selected column mismatch.")
-          return                                                          ! ... the vectordimensionality * number of layers
-       end if
-    endif
-
-    success = .True.
+    success = .true.
   end function checkhdr
 
   !> Read the next record from a *.bc file.
@@ -513,22 +673,20 @@ contains
     type(tEcFileReader),    pointer                         :: fileReaderPtr
     real(hp), optional,                       intent(inout) :: time_steps    !< number of time steps of duration: seconds
     real(hp), dimension(:), optional,         intent(inout) :: values        !< vector of values for a BC_FUNC_TSERIES
-    character(len=*), optional,               intent(out)   :: recout        !< line prepared from input for caller
+    character(len=:), optional, allocatable,  intent(out)   :: recout        !< line prepared from input for caller
     logical, optional,                        intent(out)   :: eof           !< reading failed, but only because eof
 
     !
-    type(tEcBCBlock),           pointer                     :: bcPtr
-    integer        :: n_col      !< number of columns in the file, inferred from the number of quantity blocks in the header
-    integer        :: n_col_time !< position of the dedicated time-column in the line, deduced from the header
-    character(1000):: rec        !< content of a line
-    character(30)  :: ncolstr
-    integer        :: istat      !< status of read operation
-    integer        :: i, j       !< loop counters
-    integer        :: reclen
-    integer        :: commentpos
-    integer(kind=8):: savepos    !< saved position in file, for mf_read to enabled rewinding
+    type(tEcBCBlock), pointer      :: bcPtr
+    integer                        :: n_col      !< number of columns in the file, inferred from the number of quantity blocks in the header
+    integer                        :: n_col_time !< position of the dedicated time-column in the line, deduced from the header
+    character(len=:), allocatable  :: rec        !< content of a line
+    character(len=30)              :: ncolstr
+    integer                        :: istat      !< status of read operation
+    integer                        :: i, j       !< loop counters
+    integer(kind=8)                :: savepos    !< saved position in file, for mf_read to enabled rewinding
     real(kind=hp), dimension(1:1)  :: ec_timesteps ! to read in source time from file block
-    real(kind=hp)  :: amplitude
+    real(kind=hp)                  :: amplitude
 
     bcPtr => fileReaderPtr%bc
 
@@ -543,16 +701,15 @@ contains
           recout = ''                       ! initialize return string to empty
        endif
        rec = ''
-       reclen = len_trim(rec)
        if (present(eof)) then
           eof = .false.
        endif
-       do while(reclen==0)
+       do while(len_trim(rec)==0)
           if (mf_eof(bcPtr%fhandle)) then
              select case (BCPtr%func)
              case (BC_FUNC_TSERIES, BC_FUNC_TIM3D, BC_FUNC_CONSTANT)
                 call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%fname)//", Quantity: "//trim(bcPtr%qname))
-                call setECMessage("Datablock end (eof) has been reached.")
+                call setECMessage("Datablock end (eof) has been reached (READING BEYOND FINAL TIME).")
              end select
              if (present(eof)) then
                 eof = .true.
@@ -561,26 +718,12 @@ contains
           endif
 
           call mf_read(bcPtr%fhandle,rec,savepos)
-          reclen = len_trim(rec)
-
-          ! deal with various comment delimiters, RL: skip it if performance is affected !
-          commentpos = index(rec,'//')                                      ! Scan for various types of comments
-          if (commentpos>0) reclen = min(reclen,commentpos-1)
-          commentpos = index(rec,'%')
-          if (commentpos>0) reclen = min(reclen,commentpos-1)
-          commentpos = index(rec,'#')
-          if (commentpos>0) reclen = min(reclen,commentpos-1)
-          commentpos = index(rec,'*')
-          if (commentpos>0) reclen = min(reclen,commentpos-1)
-          commentpos = index(rec,'!')
-          if (commentpos>0) reclen = min(reclen,commentpos-1)
-          reclen = len_trim(rec(1:reclen))                                 ! Finally remove trailing spaces
-          if (index(rec,'[forcing]'         )>0 .or. &
-              index(rec,'[Boundary]'        )>0 .or. &
-              index(rec,'[LateralDischarge]')>0) then ! new boundary chapter
+          if (len(rec) == 0) cycle
+          if (rec(1:1)=='#') cycle
+          if (index(rec,'[')>0 .and. index(rec,']')>0) then ! lines with [ and ] are assumed as block headings
              select case (BCPtr%func)
              case (BC_FUNC_TSERIES, BC_FUNC_TIM3D)
-                call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%fname)//", Quantity: "//trim(bcPtr%qname))
+                call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%bcname)//", Quantity: "//trim(bcPtr%qname))
                 call setECMessage("Datablock end (new [forcing] block) has been prematurely reached.")
              end select
              if (present(eof)) then
@@ -590,16 +733,15 @@ contains
           endif
        enddo
 
-       !     read(rec(1:reclen), *, IOSTAT = istat) (values(i), i=1,n_col_time-1), time_steps, (values(i), i=n_col_time, n_col-1)
        BCPtr%columns(1:n_col)=''
-       read(rec(1:reclen), *, IOSTAT = istat) BCPtr%columns(1:n_col)
+       read(rec, *, IOSTAT = istat) BCPtr%columns(1:n_col)
        if (istat /= 0) then
           ! error handling, report column number i, field content columns(i) and record rec  ....
           ! TODO: hookup MessageHandlign and print rec and column stats here directly
           call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%fname)//", Quantity: "//trim(bcPtr%qname))
           call setECMessage("ec_bcreader::ecBCReadBlock: Read failure.")
           write (ncolstr,'(a,i0,a,i0,a)') '(expecting ',n_col,' columns)'
-          call setECMessage("   ''"//rec(1:reclen)//"'' "//trim(ncolstr))
+          call setECMessage("   ''"//trim(rec)//"'' "//trim(ncolstr))
           success = .false.
           return
        endif
@@ -609,7 +751,7 @@ contains
           if (n_col_time>0) then
              read (BCPtr%columns(n_col_time), *) ec_timesteps(1)
              ! Convert source time to kernel time:
-             time_steps = ecSupportThisTimeToTimesteps(fileReaderPtr%tframe, ec_timesteps(1))
+             time_steps = ecSupportThisTimeToMJD(fileReaderPtr%tframe, ec_timesteps(1))
           endif
           j=0
           if (count(BCPtr%quantity%col2elm>0)==0) then                ! col2elm is not used to map the read colums, added to the vector in reading order
@@ -669,7 +811,7 @@ contains
           return
        else
           BCPtr%nctimndx = BCPtr%nctimndx + 1
-          time_steps = ecSupportThisTimeToTimesteps(fileReaderPtr%tframe, ec_timesteps(1))
+          time_steps = ecSupportThisTimeToMJD(fileReaderPtr%tframe, ec_timesteps(1))
        endif
     case default
        call setECMessage("Invalid filetype set for file: "//trim(bcPtr%fname)//' (internal EC-error)')
@@ -746,10 +888,10 @@ contains
     !
     integer   :: i
 
-    success = .False.
+    success = .false.
 
     !----------------------------------------
-    success = .True.        ! RL666 : This destructor needs fixing asap, disabled for now, crashes
+    success = .true.        ! RL666 : This destructor needs fixing asap, disabled for now, crashes
     return
     !----------------------------------------
     if (associated(bcblock%ncptr)) then
@@ -777,7 +919,7 @@ contains
        endif
     enddo
 
-    success = .True.
+    success = .true.
   end function ecBCBlockFree
 
    !> Frees a 1D array of tEcFieldPtrs, after which the fieldPtr is deallocated.
@@ -819,7 +961,7 @@ end function ecBCBlockFree1dArray
     implicit none
     logical                            :: success    !< function status
     type(tEcBCQuantity), intent(inout) :: bcquantity !< intent(inout)
-    success = .False.
+    success = .false.
     if (allocated(bcquantity%jacolumn)) then
        deallocate(bcquantity%jacolumn)
     endif
@@ -835,7 +977,7 @@ end function ecBCBlockFree1dArray
     if (allocated(bcquantity%astro_phase)) then
        deallocate(bcquantity%astro_phase)
     endif
-    success = .True.
+    success = .true.
   end function ecBCQuantityFree
 
 

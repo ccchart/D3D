@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param]=qp_plot_polyl(hNew,Parent,Param,data,Ops,Props)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -49,8 +49,12 @@ NVal       = Param.NVal;
 DimFlag=Props.DimFlag;
 Thresholds=Ops.Thresholds;
 
+NeedsCell = ~strcmp(Ops.facecolour,'none') || isfield(data,'Val');
+if NVal==4 && isfield(Ops,'presentationtype') && strcmp(Ops.presentationtype,'polylines')
+    NeedsCell = 0;
+end
 if isfield(data,'XY') && iscell(data.XY)
-    if ~strcmp(Ops.facecolour,'none') || isfield(data,'Val')
+    if NeedsCell
         % no change
     else
         len = cellfun('length',data.XY);
@@ -58,7 +62,7 @@ if isfield(data,'XY') && iscell(data.XY)
         XY = NaN(tlen,2);
         offset = 0;
         for i = 1:length(data.XY)
-            XY(offset+(1:len(i)),:) = data.XY{i};
+            XY(offset+(1:len(i)),:) = data.XY{i}(:,1:2); % quick fix: just copy the first two columns if XY contains Z
             offset = offset+len(i)+1;
         end
         data.XY = XY;
@@ -68,7 +72,7 @@ else
         data.XY = [data.X data.Y];
         data = rmfield(data,{'X','Y'});
     end
-    if ~strcmp(Ops.facecolour,'none') || isfield(data,'Val')
+    if NeedsCell
         breaks = none(isnan(data.XY),2);
         % could use mat2cell below, but this would keep all the singleton NaNs
         PolyStartEnd = findseries(breaks);
@@ -96,18 +100,22 @@ else
     end
 end
 %
-if isfield(Ops,'presentationtype') && ...
-        (strcmp(Ops.presentationtype,'markers') ...
-        || strcmp(Ops.presentationtype,'values') ...
-        || strcmp(Ops.presentationtype,'labels'))
-    if iscell(data.XY)
-        XY = zeros(length(data.XY),2);
-        for i = 1:length(data.XY)
-            d = pathdistance(data.XY{i}(:,1),data.XY{i}(:,2));
-            uNode = d~=[NaN;d(1:end-1)];
-            XY(i,:) = interp1(d(uNode),data.XY{i}(uNode,1:2),d(end)/2);
-        end
-        data.XY = XY;
+if isfield(Ops,'presentationtype')
+    switch Ops.presentationtype
+        case {'markers','values','labels'}
+            if iscell(data.XY)
+                XY = zeros(length(data.XY),2);
+                for i = 1:length(data.XY)
+                    d = pathdistance(data.XY{i}(:,1),data.XY{i}(:,2));
+                    uNode = d~=[NaN;d(1:end-1)];
+                    XY(i,:) = interp1(d(uNode),data.XY{i}(uNode,1:2),d(end)/2);
+                end
+                data.XY = XY;
+            end
+        otherwise
+            if NVal==4
+                NVal=0;
+            end
     end
 end
 switch NVal
@@ -131,7 +139,7 @@ switch NVal
             set(Parent,'layer','top')
         end
         qp_title(Parent,TStr,'quantity',Quant,'unit',Units,'time',TStr)
-    case 1
+    case {1,5,6}
         switch Ops.presentationtype
             case {'values'}
                 hNew=gentextfld(hNew,Ops,Parent,data.Val,data.XY(:,1),data.XY(:,2));
@@ -163,14 +171,15 @@ end
 
 
 function hNew = plot_polygons(XY,val,Parent,Ops)
-hNewL = plot_polygons_outline(XY,val,Parent,Ops);
 if strcmp(Ops.facecolour,'none')
-    hNew = hNewL;
+    hNewP = [];
 else
-    [XY,val] = process_polygons_parts(XY,val);
-    hNewP = plot_polygons_fill(XY,val,Parent,Ops);
-    hNew = [hNewL;hNewP];
+    [XYP,valP] = process_polygons_parts(XY,val);
+    hNewP = plot_polygons_fill(XYP,valP,Parent,Ops);
 end
+hNewL = plot_polygons_outline(XY,val,Parent,Ops);
+hNew = [hNewL;hNewP];
+
 
 function hNew = plot_polygons_outline(XY,val,Parent,Ops)
 len = cellfun('length',XY);
@@ -344,6 +353,7 @@ function hNew = plot_polygons_fill(XY,V,Parent,Ops)
 hasval = ~isempty(V);
 nnodes = cellfun('size',XY,1);
 unodes = unique(nnodes);
+unodes(unodes==0)=[];
 hNew = zeros(length(unodes),1);
 for i = 1:length(unodes)
     n = unodes(i);

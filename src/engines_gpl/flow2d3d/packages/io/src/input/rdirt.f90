@@ -4,7 +4,7 @@ subroutine rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -42,6 +42,7 @@ subroutine rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
+    use time_module
     !
     use globaldata
     !
@@ -264,7 +265,7 @@ subroutine rdirt(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
           !
           ! test if iitdat is a legal date: JULDAY = 0 not allowed
           !
-          call juldat(iitdat    ,julday    )
+          julday = ymd2jul(iitdat)
           if (julday == 0) then
              error = .true.
              call prterr(lundia    ,'V007'    ,keyw      )

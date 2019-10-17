@@ -4,7 +4,7 @@ subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
                 & ssusy     ,cesus     ,vonkar    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -205,7 +205,7 @@ subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
     if (crstr) then
        call bailtr(h         ,hrms      ,t         ,theta     ,w         , &
                  & dzdx      ,dzdy      ,sbksi     ,sbeta     ,ssksi     , &
-                 & sseta     ,epssl     ,faca      ,facu      )
+                 & sseta     ,epssl     ,faca      ,facu      ,ag        )
     else
        sbksi = 0.
        sbeta = 0.

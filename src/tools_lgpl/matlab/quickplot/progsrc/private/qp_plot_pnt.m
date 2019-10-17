@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param,Parent]=qp_plot_pnt(hNew,Parent,Param,data,Ops,P
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -134,7 +134,7 @@ switch NVal
             PName = [PName ': ' stn];
         end
         qp_title(Parent,{PName,TStr},'quantity',Quant,'unit',Units,'time',TStr)
-    case 1
+    case {1,5,6}
         axestype = strtok(Ops.axestype);
         if strcmp(axestype,'Distance-Val') || strcmp(axestype,'X-Val') || strcmp(axestype,'Time-Val') || strcmp(axestype,'Time-Z')
         %if multiple(T_)
@@ -168,7 +168,8 @@ switch NVal
                     hNew=gentextfld(hNew,Ops,Parent,data.Val,X,Y);
                     
                 case 'markers'
-                    hNew=genmarkers(hNew,Ops,Parent,data.Val,X,Y);
+                    hNew = genmarkers(hNew,Ops,Parent,data.Val,X,Y);
+                    Thresholds = Ops.Thresholds;
                     
                 otherwise
                     if ~FirstFrame

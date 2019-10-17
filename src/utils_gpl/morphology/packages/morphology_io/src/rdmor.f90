@@ -1,7 +1,7 @@
 module m_rdmor
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -42,7 +42,7 @@ contains
 subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
                & lsed      ,nmaxus    ,nto       ,lfbedfrm  , &
                & nambnd    ,julday    ,mor_ptr   ,sedpar    ,morpar    , &
-               & fwfac     ,morlyr    ,griddim   )
+               & fwfac     ,morlyr    ,griddim)
 !!--description-----------------------------------------------------------------
 !
 ! Reads attribute file for 3D morphology computation
@@ -179,12 +179,13 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     integer                                                           :: nxxuser
     integer                                                           :: version
     integer                    , external                             :: newunit
-    integer                    , dimension(5)                         :: stat_flags
+    integer                    , dimension(6)                         :: stat_flags
     integer                    , dimension(:) , allocatable           :: itype
     integer                    , dimension(:) , allocatable           :: ifield
     integer                    , dimension(:) , allocatable           :: lenchr
     real(fp)                                                          :: rmissval
     real(fp)                                                          :: xxmin
+    real(fp)                   , dimension(3)                         :: tint
     real(fp)                   , dimension(:) , allocatable           :: xxprog
     real(fp)                   , dimension(:) , allocatable           :: rfield
     logical                                                           :: ex       ! Logical flag for file existence
@@ -724,6 +725,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'SourceSinkTerms'             , moroutput%sourcesink)
        call prop_get_logical(mor_ptr, 'Output', 'ReferenceHeight'             , moroutput%aks)
        call prop_get_logical(mor_ptr, 'Output', 'SettlingVelocity'            , moroutput%ws)
+       call prop_get_logical(mor_ptr, 'Output', 'RawTransportsAtZeta'         , moroutput%rawtransports)
        !
        call prop_get_logical(mor_ptr, 'Output', 'Bedslope'                    , moroutput%dzduuvv)
        call prop_get_logical(mor_ptr, 'Output', 'Taurat'                      , moroutput%taurat)
@@ -744,8 +746,27 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'BedLayerPorosity'            , moroutput%poros)
        !
        call prop_get_logical(mor_ptr, 'Output', 'AverageAtEachOutputTime'     , moroutput%cumavg)
+       !
+       call prop_get(mor_ptr,         'Output', 'MorStatsOutputInterval'      , moroutput%avgintv, 3, ex)
+       if (ex) then
+          moroutput%morstats = .true.    ! only used in FM, separate _sed.nc file
+       endif
+       if (moroutput%avgintv(2) < 0.0_fp) then
+          moroutput%avgintv(2) = 0.0_fp
+          moroutput%avgintv(3) = 0.0_fp
+       end if
+       string = ' '
+       call prop_get_string (mor_ptr, 'Output', 'MorstatsWeightFactor'         , string)
+       call str_lower(string)
+       if (index(string,'time') > 0) then
+          moroutput%weightflg = MOR_STAT_TIME
+       endif
+       if (index(string,'sedimentation') > 0) then
+          moroutput%weightflg = MOR_STAT_BODS            ! Delft3D behaviour
+       endif
        i = 1+lsedtot ! index 1           used internally for weights
-                     ! index 2,lsedtot+1 used for CumNetSedimentationFlux
+                     ! index 2,lsedtot+1 used for CumNetSedimentationFlux per fraction
+                     ! rest follows below
        do iqnt = 1, 4
            string = ' '
            select case (iqnt)
@@ -784,6 +805,11 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
                endif
                i = i+1
                stat_flags(5) = i
+           endif
+           if (index(string,'net') > 0) then
+              stat_flags(1) = stat_flags(1) + MOR_STAT_CUM
+              i = i+1
+              stat_flags(6) = i
            endif
            moroutput%statflg(:,iqnt) = stat_flags
        enddo
@@ -1267,7 +1293,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     integer                                                           :: l
     integer                                                           :: nval
     character(20)                                                     :: parname
-    character(40)                                                     :: txtput1
+    character(45)                                                     :: txtput1
     character(20)                                                     :: txtput2
     character(120)                                                    :: txtput3
     character(256)                                                    :: errmsg
@@ -1477,6 +1503,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     else
        txtput2 = '                  NO'
     endif
+    write (lundia, '(3a)') txtput3(1:82), ':', txtput2
     txtput3 = 'GLM velocities i.s.o Eulerian velocities for' //       &
              & ' bed load transport and reference concentrations'
     if (glmisoeuler) then
@@ -1932,8 +1959,9 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
             ! read data from file
             !
             call depfil_stm(lundia    ,error     ,filfluff  ,fmttmp    , &
-                          & bfluff0   ,lsed      ,1         ,griddim)
+                          & bfluff0   ,lsed      ,1         ,griddim   ,errmsg )
             if (error) then
+                call write_error(errmsg, unit=lundia)
                 errmsg = 'Unable to read burial term 1 from ' // trim(filfluff)
                 call write_error(errmsg, unit=lundia)
                 return
@@ -1979,8 +2007,9 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
             ! read data from file
             !
             call depfil_stm(lundia    ,error     ,filfluff  ,fmttmp    , &
-                          & bfluff1   ,lsed      ,1         ,griddim)
+                          & bfluff1   ,lsed      ,1         ,griddim   ,errmsg)
             if (error) then
+                call write_error(errmsg, unit=lundia)
                 errmsg = 'Unable to read burial term 2 from ' // trim(filfluff)
                 call write_error(errmsg, unit=lundia)
                 return
@@ -2029,8 +2058,9 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
             ! read data from file
             !
             call depfil_stm(lundia    ,error     ,filfluff  ,fmttmp    , &
-                          & depfac    ,lsed      ,1         ,griddim)
+                          & depfac    ,lsed      ,1         ,griddim   , errmsg)
             if (error) then
+                call write_error(errmsg, unit=lundia)
                 errmsg = 'Unable to read deposition factor from ' // trim(filfluff)
                 call write_error(errmsg, unit=lundia)
                 return
@@ -2056,10 +2086,10 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
             endif
             depfac(1,:) = depfac(1,1)
         endif
-    endif
-    do l = 2, lsed
-        depfac(l,:) = depfac(1,:)
-    enddo                                                                                                                                                             
+        do l = 2, lsed
+            depfac(l,:) = depfac(1,:)
+        enddo 
+    endif                                                                                                                                                         
 end subroutine rdflufflyr
 
 subroutine echoflufflyr(lundia    ,error    ,flufflyr)

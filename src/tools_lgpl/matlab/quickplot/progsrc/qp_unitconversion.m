@@ -40,7 +40,7 @@ function varargout=qp_unitconversion(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -312,7 +312,7 @@ end
 
 function [factor1,si1]=factor_combine(cmd,factor1,si1,factor2,si2)
 switch cmd
-    case '*'
+    case {'*','·'}
         factor1(1)=factor1(1)*factor2(2)+factor1(2)*factor2(1);
         factor1(2)=factor1(2)*factor2(2);
         si1=si1+si2;
@@ -369,7 +369,7 @@ while k<=length(unit)+1
             elseif nob<0
                 break
             end
-        case {'*','/',' '}
+        case {'*','·','/',' '}
             if nob==0
                 if unitk==' '
                     % SPACE ... The final frontier ...
@@ -418,7 +418,7 @@ function [unit,k,factor1,si1] = checkspace(unit,ki,k,TempType)
 for k2 = k+1:length(unit)
     unit = powercheck(unit,k2);
     switch unit(k2)
-        case {'*','/','(',')'}
+        case {'*','·','/','(',')'}
             k2 = k2-1;
             break
     end
@@ -524,11 +524,6 @@ if isempty(i) && length(unit)>5 && strcmpi(unit(end-4:end),' abs.') % this is mo
     i=strmatch(unit,unittable{1},'exact');
 end
 %
-MightBePlural = length(unit)>2 && unit(end)=='s'; % don't think ms is meters but milliseconds.
-if isempty(i) && MightBePlural
-    i=strmatch(unit(1:end-1),unittable{1},'exact');
-end
-%
 prefix=1;
 if isempty(i)
     [v,n,e]=sscanf(unit,'%f',2);
@@ -580,9 +575,6 @@ if isempty(i)
         end
         if prefixfound
             i=strmatch(unit,unittable{1},'exact');
-            if isempty(i) && MightBePlural
-                i=strmatch(unit(1:end-1),unittable{1},'exact');
-            end
         end
         if isempty(i)
             % no match ...

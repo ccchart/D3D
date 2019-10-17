@@ -11,7 +11,7 @@ function filtertbl = qp_filefilters(filters)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2017 Stichting Deltares.
+%   Copyright (C) 2011-2019 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -44,11 +44,12 @@ filtertbl={...
     '*.grd;*.rgf'                                          'Delft3D Grid Files'                'wlgrid'             0
     '*.mdf;*.mdu;*.md1d;*.mdw'                             'Delft3D Simulation Files'          'md*-file'           0
     '*.mesh'                                               'Mike Flexible Mesh Files'          'mikemesh'           0
-    '*.14'                                                 'Adcirc Mesh Files'                 'adcircmesh'         0
+    '*.14;*.gr3'                                           'Adcirc Mesh Files'                 'adcircmesh'         0
     '*.shy'                                                'SHYFEM Mesh Files'                 'SHYFEM mesh'        0
+    '*_grd.dat'                                            'SMS Mesh Files'                    'smsmesh'            0
     '*.mesh;*.node;*.ele;*.n;*.e'                          'EasyMesh and Triangle Mesh Files'  'nodelemesh'         0
     '*.gem'                                                'GeoSystems Mesh Files'             'geomesh'            0
-    '*.bct;*.bcc;*.bcb'                                    'Delft3D-FLOW Bound. Cond. Files'   'bct'                0
+    '*.bct;*.bcc;*.bcb;*.bc'                               'Delft3D-FLOW Bound. Cond. Files'   'bct'                0
     'bagdpt*.*'                                            'Delft3D-MOR Ascii Dredging Output' 'bagdpt'             0
     '*.am?;*.spw;*.wnd'                                    'Delft3D/SOBEK Meteo Files'         'asciiwind'          0
     'gcmplt.*;gcmtsr.*'                                    'ECOMSED Binary Files'              'ecomsed-binary'     0

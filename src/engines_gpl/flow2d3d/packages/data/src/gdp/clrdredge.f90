@@ -1,7 +1,7 @@
 subroutine clrdredge(istat, gddredge)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -77,6 +77,7 @@ subroutine clrdredge(istat, gddredge)
     if (associated(gddredge%dredge_prop)) then
        do i = 1, gddredge%nadred
           if (associated(gddredge%dredge_prop(i)%nm))             deallocate (gddredge%dredge_prop(i)%nm                  , STAT = istat)
+          if (associated(gddredge%dredge_prop(i)%nmglob))         deallocate (gddredge%dredge_prop(i)%nmglob              , STAT = istat)
           if (associated(gddredge%dredge_prop(i)%inm))            deallocate (gddredge%dredge_prop(i)%inm                 , STAT = istat)
           if (associated(gddredge%dredge_prop(i)%area))           deallocate (gddredge%dredge_prop(i)%area                , STAT = istat)
           if (associated(gddredge%dredge_prop(i)%hdune))          deallocate (gddredge%dredge_prop(i)%hdune               , STAT = istat)
@@ -96,6 +97,7 @@ subroutine clrdredge(istat, gddredge)
     if (associated(gddredge%dump_prop)) then
        do i = 1, gddredge%nadump
           if (associated(gddredge%dump_prop(i)%nm))               deallocate (gddredge%dump_prop(i)%nm                    , STAT = istat)
+          if (associated(gddredge%dump_prop(i)%nmglob))           deallocate (gddredge%dump_prop(i)%nmglob                , STAT = istat)
           if (associated(gddredge%dump_prop(i)%inm))              deallocate (gddredge%dump_prop(i)%inm                   , STAT = istat)
           if (associated(gddredge%dump_prop(i)%area))             deallocate (gddredge%dump_prop(i)%area                  , STAT = istat)
           if (associated(gddredge%dump_prop(i)%hdune))            deallocate (gddredge%dump_prop(i)%hdune                 , STAT = istat)

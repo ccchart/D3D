@@ -1,7 +1,7 @@
 module write_swan_datafile
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -71,7 +71,6 @@ subroutine write_swan_file (var1  , var2       , mmax   , nmax, covered, &
     integer                                :: j1
     integer                                :: ierr
     integer                                :: lunfil
-    integer, external                      :: new_lun
     integer                                :: sweep
     integer                                :: sweepEnd
     integer                                :: sweepStart
@@ -202,7 +201,7 @@ subroutine write_swan_file (var1  , var2       , mmax   , nmax, covered, &
                 ! then covered == -1 and the value at i,j is not changed
                 !
                 if (covered(i, j) == 0 .and. closestPoint(i, j, iindex)>0) then
-                   if (covered(closestPoint(i, j, iindex), closestPoint(i, j, jindex)) == 1) then
+                   if (covered(closestPoint(i, j, iindex), closestPoint(i, j, jindex)) > 0) then    ! multi-domain: covered can be greater than 1
                       var1(i, j) = var1(closestPoint(i, j, iindex), closestPoint(i, j, jindex))
                    endif
                 endif
@@ -218,7 +217,7 @@ subroutine write_swan_file (var1  , var2       , mmax   , nmax, covered, &
                 ! then covered == -1 and the value at i,j is not changed
                 !
                 if (covered(i, j) == 0 .and. closestPoint(i, j, iindex)>0) then
-                   if (covered(closestPoint(i, j, iindex), closestPoint(i, j, jindex)) == 1) then
+                   if (covered(closestPoint(i, j, iindex), closestPoint(i, j, jindex)) > 0) then
                       var2(i, j) = var2(closestPoint(i, j, iindex), closestPoint(i, j, jindex))
                    endif
                 endif
@@ -231,8 +230,7 @@ subroutine write_swan_file (var1  , var2       , mmax   , nmax, covered, &
     !
     ! write var1 and var2 to file for SWAN
     !
-    lunfil = new_lun()
-    open (lunfil, file = filnam, status = 'unknown')
+    open (newunit = lunfil, file = filnam, status = 'unknown')
     !
     ! Up to now, SWAN data files are produced for writing
     ! var1 and var2 (current, wind) or var1+var2 (bottom)

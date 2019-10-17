@@ -1,7 +1,7 @@
 module string_module
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -44,19 +44,32 @@ module string_module
    !
    public :: string_module_info
    public :: str_token
+   public :: str_tolower
    public :: str_lower
+   public :: str_toupper
    public :: str_upper
    public :: strcmpi
    public :: remove_leading_spaces
    public :: remove_all_spaces
+   public :: replace_multiple_spaces_by_single_spaces
    public :: find_first_word
    public :: find_first_letter
    public :: find_first_char
    public :: count_words
    public :: remove_substr
+   public :: remove_chars
    public :: replace_char
    public :: splitstr
    public :: strsplit
+   public :: char_array_to_string_by_len
+   public :: strip_quotes
+   public :: real2string, real2stringLeft
+   public :: GetLine
+
+   interface strip_quotes
+      module procedure strip_quotes1
+      module procedure strip_quotes2
+   end interface strip_quotes
 
    contains
 
@@ -182,6 +195,27 @@ module string_module
           end if
       end subroutine str_token
 
+      !> Return copy of input string with all lowercase characters changed
+      !! into uppercase.
+      !! This is the function version of subroutine str_upper()
+      function str_toupper(string) result(stringout)
+          character(len=*), intent(in) :: string !< String to be converted.
+          character(len=len(string))   :: stringout
+
+          stringout = string
+          call str_upper(stringout)
+      end function str_toupper
+
+      !> Return copy of input string with all uppercase characters changed
+      !! into lowercase.
+      !! This is the function version of subroutine str_lower()
+      function str_tolower(string) result(stringout)
+          character(len=*), intent(in) :: string !< String to be converted.
+          character(len=len(string))   :: stringout
+
+          stringout = string
+          call str_lower(stringout)
+      end function str_tolower
 
 
       ! ------------------------------------------------------------------------------
@@ -308,6 +342,62 @@ module string_module
       end subroutine remove_all_spaces
 
 
+
+      ! ------------------------------------------------------------------------------
+      !   Subroutine: replace_multiple_spaces_by_single_spaces
+      !   Purpose:    Replace multiple spaces in a string, and replace them with
+      !               a single space instead
+      !   Summary:    Scan string for multiple space characters and if they exists, 
+      !               replace them with a single space.
+      !   Arguments:
+      !   string      String to be converted
+      ! ------------------------------------------------------------------------------
+      subroutine replace_multiple_spaces_by_single_spaces(string)
+          !
+          ! Call variables
+          !
+          character(*)                       :: string
+          !
+          ! Local variables
+          !
+          integer          :: lenstr
+          integer          :: lenstrnew
+          integer          :: iold
+          integer          :: inew
+          !
+          !! executable statements ---------------------------------------------------
+          !
+          lenstr = len(string)
+          !
+          ! loop over all characters in string minus last
+          !    if it is a double space character, skip copying
+          !    single spaces are copied
+          !
+          inew = 0
+          do iold = 1, lenstr - 1
+              if(string(iold:iold + 1) /= '  ') then
+                  inew = inew + 1
+                  string(inew:inew) = string(iold:iold)
+              endif
+          enddo
+          !
+          ! last character might be defined, so copy that one
+          !
+          if(string(lenstr:lenstr) /= ' ') then
+              inew = inew + 1
+              string(inew:inew) = string(lenstr:lenstr)
+          endif
+          !
+          ! fill up the remainder of the string with spaces
+          !
+          if (inew < lenstr) then
+              lenstrnew = inew
+              do inew = lenstrnew + 1, lenstr
+                  string(inew:inew) = ' '
+              enddo
+          endif
+          return
+      end subroutine replace_multiple_spaces_by_single_spaces
 
       ! ------------------------------------------------------------------------------
       !   Subroutine: remove_leading_spaces
@@ -566,6 +656,23 @@ module string_module
             endif
          enddo
       end subroutine replace_char      
+
+      !> For each character in the given set, remove any occurrence in the subject
+      subroutine remove_chars(r,charset) 
+         character(len=*), intent(inout) :: r               !< subject on which to perform removal
+         character(len=*), intent(in)    :: charset         !< collection of characters to be removed 
+         !
+         integer :: i, j
+         !
+         j=1
+         do i=1,len_trim(r)
+            if (index(charset,r(i:i))<=0) then
+               r(j:j) = r(i:i)
+               j = j + 1
+            endif
+         enddo
+         r(j:len_trim(r)) = ' '
+      end subroutine remove_chars
         
       !> Remove substring substr from r
       subroutine remove_substr(r,substr)
@@ -602,6 +709,19 @@ module string_module
          
       end function splitstr
 
+      !> Constructs a character string from an array of single characters.
+      pure function char_array_to_string_by_len(char_array, N) result(string)
+        character(len=1), intent(in) :: char_array(:) !< Input array of single characters.
+        integer,          intent(in) :: N             !< Length up to which the array needs to be converted.
+        character(len=N)             :: string        !< The resulting string of exactly length N.
+
+        integer :: i
+        do i = 1, N
+           string(i:i) = char_array(i)
+        enddo
+      end function char_array_to_string_by_len
+
+
       subroutine get_substr_ndx(tgt,ndx0,ndx)
          implicit none
          character(len=*), intent(in)   ::  tgt
@@ -631,11 +751,13 @@ module string_module
       !> The incoming string array must be unallocated
       recursive subroutine strsplit(tgt, ndx0, pcs, npc)
          implicit none
-         integer,          intent(in)                                 ::  npc
-         character(len=*), intent(inout)                              ::  tgt
-         integer, intent(in)                                          ::  ndx0
-         character(len=*), intent(inout), dimension(:), allocatable   ::  pcs
-         integer                          ::  ndx, ndx1
+         integer,          intent(in)                                 ::  npc   !< element index
+         character(len=*), intent(in)                                 ::  tgt   !< input string
+         integer, intent(in)                                          ::  ndx0  !< start position in string tgt
+         character(len=*), intent(inout), dimension(:), allocatable   ::  pcs   !< resulting array of strings
+
+         integer                          ::  ndx, ndx1    ! position in string
+
          ndx1 = ndx0
          call get_substr_ndx(tgt,ndx1,ndx)
          if (ndx<=len_trim(tgt)) then
@@ -643,9 +765,132 @@ module string_module
          else
             allocate(pcs(npc))
          endif
-         if (tgt(ndx1:ndx1)=='"' .or. tgt(ndx1:ndx1)=="'") ndx1 = ndx1 + 1
-         if (tgt(ndx-1:ndx-1)=='"' .or. tgt(ndx:ndx)=="'") ndx = ndx - 1
-         pcs(npc) = tgt(ndx1:ndx-1)
+
+         ndx = ndx - 1
+         call strip_quotes(tgt, ndx1, ndx)
+         pcs(npc) = tgt(ndx1 : ndx)
+
       end subroutine strsplit
+
+      !> check on single or double quotes at start or end
+      !! return (new) first and last positions
+      subroutine strip_quotes1(tgt, pos1, pos2)
+         character(len=*), intent(in)    :: tgt  !< input string
+         integer         , intent(inout) :: pos1 !< first position
+         integer         , intent(inout) :: pos2 !< last position
+
+         character  ::  ch     ! help character
+
+         ch = tgt(pos1:pos1)
+         if (ch == '"' .or. ch =="'") pos1 = pos1 + 1
+
+         ch = tgt(pos2:pos2)
+         if (ch =='"' .or. ch == "'") pos2 = pos2 - 1
+
+      end subroutine strip_quotes1
+
+      !> check on single or double quotes at start or end
+      !! returns cropped string
+      subroutine strip_quotes2(tgt)
+         character(len=:), allocatable, intent(inout) :: tgt  !< input string
+
+         integer         :: pos1     ! first position
+         integer         :: pos2     ! last position
+         integer         :: pos1orig ! original first position
+         integer         :: pos2orig ! original last position
+
+         pos1 = 1
+         pos2 = len(tgt)
+         pos1orig = pos1
+         pos2orig = pos2
+
+         call strip_quotes1(tgt, pos1, pos2)
+
+         if (pos1 /= pos1orig .or. pos2 /= pos2orig) then
+            tgt = tgt(pos1:pos2)
+         endif
+
+      end subroutine strip_quotes2
+
+      !> convert a real to a string with user defined format.
+      !! if it does not fit, fall back on a more general format
+      subroutine real2string(cnumber, formatReal, valueReal)
+         character(len=*), intent(in)  :: formatReal  !< format string to be used
+         real(kind=8), intent(in)      :: valueReal   !< number to be convert
+         character(len=*), intent(out) :: cnumber     !< output string
+
+         integer :: ierr
+
+         write(cnumber, formatReal, iostat=ierr) valueReal
+         if (ierr /= 0 .or. index(cnumber, '*') > 0) then
+             write(cnumber,'(ES14.5E3)') valueReal
+         endif
+
+      end subroutine real2string
+
+      !> convert a real to a string with user defined format.
+      !! if it does not fit, fall back on a more general format
+      !! align the string to the left (to allow printing with only trim())
+      subroutine real2stringLeft(cnumber, formatReal, valueReal)
+         character(len=*), intent(in)  :: formatReal  !< format string to be used
+         real(kind=8), intent(in)      :: valueReal   !< number to be convert
+         character(len=*), intent(out) :: cnumber     !< output string
+
+         call real2string(cnumber, formatReal, valueReal)
+         cnumber = adjustl(cnumber)
+
+      end subroutine real2stringLeft
+
+      subroutine GetLine(unit, line, stat, iomsg)
+      !!
+      !> Reads a complete line (end-of-record terminated) from a file.
+      !!
+      !! @param[in]     unit              Logical unit connected for formatted input to the file.
+      !!
+      !! @param[out]    line              The line read.
+      !!
+      !! @param[out]    stat              Error code, positive on error, IOSTAT_END (which is negative) on end of file.
+      !!
+      !! @param[out]    iomsg             Error message - only defined if iostat is non-zero.
+      !!
+      !! found in: https://software.intel.com/en-us/forums/intel-visual-fortran-compiler-for-windows/topic/385790
+      !!
+      use, intrinsic :: iso_fortran_env, only: iostat_eor
+      !---------------------------------------------------------------------------
+      ! arguments
+      integer,      intent(in)               :: unit
+      character(:), intent(out), allocatable :: line
+      integer,      intent(out)              :: stat
+      character(*), intent(out), optional    :: iomsg
+      !---------------------------------------------------------------------------
+      ! Local variables
+      character(len=256) :: buffer         ! Buffer to read the line (or partial line).
+      integer            :: size           ! Number of characters read from the file.
+      logical            :: isFirstBuffer  ! flag to handle first read different from others
+      !***************************************************************************
+      isFirstBuffer = .true.
+      do
+        if (present(iomsg)) then
+            read (unit, "(A)", ADVANCE='NO', IOSTAT=stat, IOMSG=iomsg, SIZE=size)  buffer
+        else
+            read (unit, "(A)", ADVANCE='NO', IOSTAT=stat, SIZE=size)  buffer
+        endif
+        if (stat > 0) then
+            line = ''
+            exit      ! Some sort of error.
+        endif
+        if (isFirstBuffer) then
+            size = max(1, size)
+            line = buffer(:size)
+            isFirstBuffer = .false.
+        else
+            line = line // buffer(:size)
+        endif
+        if (stat < 0) then
+            if (stat == IOSTAT_EOR) stat = 0
+            exit
+        end if
+      end do
+      end subroutine GetLine
 
 end module string_module

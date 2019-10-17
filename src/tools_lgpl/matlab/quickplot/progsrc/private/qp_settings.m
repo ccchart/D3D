@@ -15,7 +15,7 @@ function valo=qp_settings(param,val)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -118,6 +118,7 @@ Set.organizationname          = 'Deltares';
 Set.filefilterselection       = '"ARC/INFO Ascii Grid Files","Delft3D Grid Files","Delft3D Output Files","Delft3D-FLOW Bound. Cond. Files","Delft3D/SOBEK Meteo Files","Delwaq Binary Files","Delwaq Time Series Input Files","NetCDF Files","Sample Files","Simona SDS Files","Sobek Networks","Tekal Data Files"';
 Set.debugging                 = 0;
 Set.showinactiveopt           = 0;
+Set.showversion               = 'off';
 Set.stopruniferror            = 1;
 Set.timezone                  = 'Ignored';
 Set.export_max_ntimes         = 10;

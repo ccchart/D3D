@@ -4,10 +4,10 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
                 & betac     ,dml       ,restid    ,icreep    ,trasol    ,forfuv    , &
                 & forfww    ,ktemp     ,keva      ,temint    ,evaint    ,lturi     , &
                 & tkemod    ,riglid    ,tstprt    ,prsmap    ,prshis    ,selmap    , &
-                & selhis    ,filrol    ,gdp       )
+                & selhis    ,filrol    ,kmax      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -122,7 +122,6 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     integer                       , pointer :: nmax
     integer                       , pointer :: mmax
     integer                       , pointer :: nmaxus
-    integer                       , pointer :: kmax
     integer                       , pointer :: nmmax
     integer                       , pointer :: lstsc
     integer                       , pointer :: lstsci
@@ -264,6 +263,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
 !
     integer                                     :: icreep  !  Description and declaration in tricom.igs
     integer                                     :: keva    !  Description and declaration in tricom.igs
+    integer                                     :: kmax    !  Description and declaration in esm_alloc_int.f90
     integer                                     :: ktemp   !  Description and declaration in tricom.igs
     integer                                     :: lturi   !  Description and declaration in tricom.igs
     integer                                     :: lundia  !  Description and declaration in inout.igs
@@ -331,7 +331,6 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     real(fp)                              :: tinciw      ! Time in UNIT's to activate the Internal Wave Energy calculation
     real(fp)                              :: tlfsmo      ! Timespan for smoothing (in minutes)
     real(fp)                              :: zini        ! Initial water elevation in the model
-    real(fp)       , dimension(mxkmax, 5) :: wrkini      ! Work array for initial values in RDIC
     character(1)                          :: equili      ! Equilibrium or advection and diffusion default = no equilibrium ('N') which means LSEC = 1
     character(1)                          :: sphere      ! Flag Yes / No spherical coordinates
     character(1)   , dimension(mxnto)     :: datbnd      ! Type of open boundary: -'H'(armonic/Tide) -'T'(ime series/time dependent)
@@ -349,7 +348,6 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     nmax                => gdp%d%nmax
     mmax                => gdp%d%mmax
     nmaxus              => gdp%d%nmaxus
-    kmax                => gdp%d%kmax
     nmmax               => gdp%d%nmmax
     lstsc               => gdp%d%lstsc
     lstsci              => gdp%d%lstsci
@@ -646,8 +644,7 @@ subroutine readmd(lunmd     ,lundia    ,lunscr    ,error     ,runid     ,runtxt 
     call rdic(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
             & runid     ,restid    ,filic     ,fmtfil    ,salin     , &
             & temp      ,const     ,secflo    ,lturi     ,lsal      , &
-            & ltem      ,lstsc     ,zini      ,wrkini    ,wrkini    , &
-            & wrkini    ,wrkini    ,wrkini    ,wrkini    ,mmax      , &
+            & ltem      ,lstsc     ,zini      ,mmax      , &
             & nmax      ,nmaxus    ,kmax      ,lstsci    ,ltur      , &
             & ch(namcon),r(s1)     ,r(u1)     ,r(v1)     ,r(r1)     , &
             & r(rtur1)  ,r(decay)  ,r(umnldf) ,r(vmnldf) ,i(kfu)    , &

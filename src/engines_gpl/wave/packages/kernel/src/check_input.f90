@@ -1,7 +1,7 @@
 subroutine check_input(sr, wavedata)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -53,7 +53,7 @@ subroutine check_input(sr, wavedata)
        if (.not.sr%swwav) then
           write(*,'(a)') '*** ERROR: Online calculation but no writing to com-file'
           write(*,'(a)') '           Is flag ''WriteCOM'' set to true?'
-          stop
+          call wavestop(1, 'Is flag ''WriteCOM'' set to true?')
        endif
     endif
 end subroutine check_input

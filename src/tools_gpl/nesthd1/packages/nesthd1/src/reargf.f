@@ -2,7 +2,7 @@
      *                   mc    , nc    , spher                 )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -29,11 +29,13 @@
 !  $Id$
 !  $HeadURL$
 !
+      real    xymiss 
       real    x( mdim  , ndim  )   , y( mdim  , ndim  )
       logical kw_keyword, kw_found , spher
 
       character*132  rec
 
+      xymiss = 0.0
       spher = .false.
 !
 10    kw_keyword = .false.

@@ -1,7 +1,7 @@
 module datagroups
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -937,7 +937,7 @@ subroutine defnewgrp_core(fds, ifile, gname, gdp, filnam, grpdim, errlog)
           !
           ! Now define the variable
           !
-          error = nf90_def_var(fds, elm_name(ie), nctype, localdim, varid)
+          error = nf90_def_var(fds, elm_name(ie), nctype, localdim, varid, deflate_level = gdp%gdpostpr%nc_deflate)
           call nc_check_err(lundia, error, 'writing '//trim(elm_name(ie)), filnam)
           deallocate(localdim)
           !

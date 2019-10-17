@@ -1,6 +1,6 @@
 //---- GPL ---------------------------------------------------------------------
 //
-// Copyright (C)  Stichting Deltares, 2011-2017.
+// Copyright (C)  Stichting Deltares, 2011-2019.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -377,14 +377,12 @@ void DimrExe::initialize (int     argc,
 
 #if defined(HAVE_CONFIG_H)
     this->exeName = strdup (basename (argv[0]));
-    const char *dirSeparator = "/";
 #else
     char * ext = new char[5];
     this->exeName = new char[MAXSTRING];
     _splitpath (argv[0], NULL, NULL, this->exeName, ext);
     StringCbCatA (this->exeName, MAXSTRING, ext);
     delete [] ext;
-    const char *dirSeparator = "\\";
 #endif
 
     this->slaveArg  = NULL;
@@ -536,7 +534,7 @@ void DimrExe::openLibrary (void) {
         this->libHandle = dllhandle;
         #define GETPROCADDRESS dlsym
         #define GetLastError dlerror
-        #define Sleep sleep
+        #define Sleep(msec) sleep((int)msec/1000)
 #else
         SetLastError(0); /* clear error code */
         HINSTANCE dllhandle = LoadLibrary (LPCSTR(this->library));
@@ -651,7 +649,7 @@ void DimrExe::freeLib (void) {
 static void printAbout (char * exeName) {
     printf ("\n\
 %s \n\
-Copyright (C)  Stichting Deltares, 2011-2017. \n\
+Copyright (C)  Stichting Deltares, 2011-2019. \n\
 GNU General Public License, see <http://www.gnu.org/licenses/>. \n\n\
 sales@deltaressystems.nl \n", getfullversionstring_dimr_exe());
     printf("%s\n\n", geturlstring_dimr_exe());

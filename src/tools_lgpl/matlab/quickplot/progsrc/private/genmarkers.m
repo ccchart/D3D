@@ -1,9 +1,9 @@
-function hNew=genmarkers(hOld,Ops,Parent,Val,X,Y,Z)
+function hNew = genmarkers(hOld,Ops,Parent,Val,X,Y,Z)
 %GENMARKERS Generic plot routine for marker plot.
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   

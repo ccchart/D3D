@@ -37,7 +37,7 @@ function varargout=d3d_attrib(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -378,8 +378,10 @@ for tpC = types
                 i=0;
                 while 1
                     Line=fgetl(fid);
-                    if (~ischar(Line) || isempty(deblank(Line)) ) && feof(fid)
+                    if ~ischar(Line)
                         break
+                    elseif isempty(deblank(Line))
+                        continue
                     end
                     i=i+1;
                     Name{i,1}=deblank(Line(1:20));

@@ -18,7 +18,7 @@ function varargout=d3d_waqfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -175,7 +175,7 @@ switch cmd
             for i=1:length(Labels)
                 Labels{i}=strrep(Labels{i},'_','\_');
             end
-            legend(Parent,hNew(end-(0:length(Labels)-1)),Labels,3);
+            legend(Parent,hNew(end-(0:length(Labels)-1)),Labels,'Location','SouthWest');
             %
             setappdata(Parent,'AxesType','Time-<blocking>')
             setappdata(Parent,'BasicAxesType','Time-<blocking>')
@@ -195,6 +195,7 @@ switch cmd
             setappdata(Parent,'AxesType','LimitingFactorsAxes')
             setappdata(getappdata(Parent,'LimitingFactorsAxes'), ...
                 'AxesType','LimitingFactorsAxes2')
+            colormap(getappdata(Parent,'LimitingFactorsAxes'),'jet')
         end
         varargout={hNew FI};
         return
@@ -252,7 +253,7 @@ for i=[M_ N_ K_]
         elseif ~isequal(idx{i},idx{i}(1):idx{i}(end))
             error('Only scalars or ranges allowed for index %i',i)
         end
-        if (i~=K_) && ~strcmp(subtype,'plot') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID-FACE')
+        if (i~=K_) && ~strcmp(subtype,'plot') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID2D-FACE')
             if DataInCell
                 if isequal(idx{i},1)
                     idx{i}=[1 2];
@@ -363,7 +364,7 @@ switch subtype
                                         select = {idx{M_}};
                                     end
                                     [Success,Ans] = qp_getdata(FI.Grid,FI.Grid.Mesh{4},'griddata',select{:});
-                                    Ans.ValLocation = Props.Geom(7:end);
+                                    Ans.ValLocation = Props.Geom(9:end);
                             end
                         else
                             if DataInCell
@@ -838,7 +839,7 @@ end
 %======================== SPECIFIC CODE =======================================
 % select active points ...
 act_from_z = 0;
-if strcmp(subtype,'map') && mapgrid && ~strcmp(Props.Geom,'TRI') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID-FACE')
+if strcmp(subtype,'map') && mapgrid && ~strcmp(Props.Geom,'TRI') && ~strcmp(Props.Geom,'POLYG') && ~strcmp(Props.Geom,'UGRID2D-FACE')
     act=FI.Grid.Index(idx{[M_ N_]},1)~=0;
     gridact=~isnan(x(:,:,:,1));
 elseif strcmp(subtype,'plot') && ~isempty(z)
@@ -1006,7 +1007,7 @@ end
 % generate output ...
 if XYRead
     switch Props.Geom
-        case {'UGRID-FACE','UGRID-EDGE','UGRID-NODE'}
+        case {'UGRID2D-FACE','UGRID2D-EDGE','UGRID2D-NODE'}
             % Ans already filled with geometry information
         case 'POLYG'
             if size(x,2)==2 % segments
@@ -1134,7 +1135,7 @@ switch Type
                 switch name
                     case 'vol'
                         Out(end).DimFlag(T_) = 5;
-                        name = 'flow volumes';
+                        name = 'water volumes';
                         units = 'm^3';
                     case 'sal'
                         Out(end).DimFlag(T_) = 5;
@@ -1177,10 +1178,18 @@ switch Type
                         name = 'chezy - direction 2';
                         units = 'm^{1/2}/s';
                         Out(end).AttPar = {2};
-                    case 'srf'
-                        name = 'surface areas';
+                    case {'srf','srfold'}
+                        if isfield(FI.Attributes.(name),'Srf')
+                            Out(end).DimFlag(K_) = 0;
+                        else
+                            Out(end).DimFlag(T_) = 5;
+                        end
+                        if strcmp(name,'srfold')
+                            name = 'surface areas (old format)';
+                        else
+                            name = 'surface areas';
+                        end
                         units = 'm^2';
-                        Out(end).DimFlag(K_) = 0;
                     case 'dps'
                         name = 'bed level';
                         units = 'm';
@@ -1226,7 +1235,7 @@ switch Type
                             enablegridview=0;
                             %
                             if isfield(FI.Grid,'Mesh')
-                                DataProps{r,3}='UGRID-FACE';
+                                DataProps{r,3}='UGRID2D-FACE';
                             else
                                 DataProps{r,3}='POLYG';
                             end
@@ -1960,8 +1969,23 @@ if isempty(x)
     try
         ErrMsg='Cannot find or open ';
         tbl=qp_settings('delwaq_procdef');
-        if isequal(tbl,'auto') || ~exist(tbl,'file')
-            tbl=cat(2,getenv('D3D_HOME'),filesep,getenv('ARCH'),filesep,'waq',filesep,'default',filesep,'proc_def.dat');
+        for WAQDIR = {'waq','dwaq'}
+            waq = WAQDIR{1};
+            if isequal(tbl,'auto') || ~exist(tbl,'file')
+                tbl=cat(2,getenv('D3D_HOME'),filesep,getenv('ARCH'),filesep,waq,filesep,'default',filesep,'proc_def.dat');
+            end
+            if ~exist(tbl,'file')
+                if isstandalone % from d3d_qp.exe on Windows (or old Linux)
+                    % two levels up to "D3D_HOME/ARCH" and then proc_def.dat should be located in waq/default
+                    tbl=cat(2,qp_basedir('exe'),filesep,'..',filesep,'..',filesep,waq,filesep,'default',filesep,'proc_def.dat');
+                elseif ispc % from d3d_qp.m on Windows (or old Linux)
+                    % one level up to "D3D_HOME/ARCH" and then proc_def.dat should be located in waq/default
+                    tbl=cat(2,qp_basedir('exe'),'..',filesep,waq,filesep,'default',filesep,'proc_def.dat');
+                else % from d3d_qp.m on (new) Linux
+                    % one level to "share" and then proc_def.dat should be located in dwaq
+                    tbl=cat(2,qp_basedir('exe'),'..',filesep,waq,filesep,'proc_def.dat');
+                end
+            end
         end
         if ~exist(tbl,'file') && ispc
             for drive = 'cdef'
@@ -2250,10 +2274,13 @@ switch cmd
                         NewFI.Attributes.(ext) = waqfil('open',[base ext],FI.NoSeg);
                     case {'.are','.flo','.poi','.len'}
                         %NewFI.Attributes.(ext) = waqfil('open',[base ext],sum(FI.NoExchMNK));
-                    case {'.srf','.dps','.chz'}
+                    case {'.srf','.dps','.chz','.srfold'}
                         NewFI.Attributes.(ext) = waqfil('open',[base ext]);
                 end
-            catch
+            catch e
+                if strcmp(e.message,'Could this be a new format srf file?')
+                    NewFI.Attributes.(ext) = waqfil('open',[base ext],FI.NoSeg);
+                end
             end
         end
         delete(H)

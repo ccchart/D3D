@@ -1,7 +1,7 @@
 subroutine writek(nammap, d, xb, yb, m, n, np)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,12 +51,10 @@ subroutine writek(nammap, d, xb, yb, m, n, np)
     integer           :: i
     integer           :: j
     integer           :: lun
-    integer, external :: new_lun
 !
 !! executable statements -------------------------------------------------------
 !
-    lun=new_lun()
-    open(lun,file=nammap)
+    open(newunit=lun,file=nammap)
     write(lun,'(a4)') 'SCAL'
     write(lun,*)np,3,n,m
     do i=1,m

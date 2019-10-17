@@ -8,7 +8,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                 & error     ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1939,7 +1939,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                        & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
                        & r(umean)  ,r(vmean)  ,r(z0urou) ,r(z0vrou) ,i(kfu)    , &
                        & i(kfv)    ,zmodel    ,i(kfsmx0) ,i(kfsmn0) ,r(dzs0)   , &
-                       & gdp       )        
+                       & lstsci    ,gdp       )        
              call timer_stop(timer_fallve, gdp)
           endif
           !
@@ -2232,7 +2232,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        call updmassbal(2        ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
                     & r(volum0) ,r(volum1) ,r(sbuu)   ,r(sbvv)   ,r(disch)  , &
                     & i(mnksrc) ,r(sink)   ,r(sour)   ,r(gsqs)   ,r(guu)    , &
-                    & r(gvv)    ,d(dps)    ,r(rintsm) ,gdp       )
+                    & r(gvv)    ,d(dps)    ,r(rintsm) ,hdt       ,gdp       )
        call updcomflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,i(kfumin) ,i(kfvmin) ,r(qu)     , &
@@ -3010,7 +3010,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                        & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
                        & r(umean)  ,r(vmean)  ,r(z0urou) ,r(z0vrou) ,i(kfu)    , &
                        & i(kfv)    ,zmodel    ,i(kfsmx0) ,i(kfsmn0) ,r(dzs0)   , &
-                       & gdp       )
+                       & lstsci    ,gdp       )
              call timer_stop(timer_fallve, gdp)
           endif
           !
@@ -3315,7 +3315,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
        call updmassbal(imode    ,r(qxk)    ,r(qyk)    ,i(kcs)    ,r(r1)     , &
                     & r(volum0) ,r(volum1) ,r(sbuu)   ,r(sbvv)   ,r(disch)  , &
                     & i(mnksrc) ,r(sink)   ,r(sour)   ,r(gsqs)   ,r(guu)    , &
-                    & r(gvv)    ,d(dps)    ,r(rintsm) ,gdp       )
+                    & r(gvv)    ,d(dps)    ,r(rintsm) ,hdt       ,gdp       )
        call updcomflx(nst       ,zmodel    ,nmmax     ,kmax      ,i(kcs)    , &
                     & i(kcu)    ,i(kcv)    ,r(qxk)    ,r(qyk)    ,r(qzk)    , &
                     & nsrc      ,r(disch)  ,i(kfumin) ,i(kfvmin) ,r(qu)     , &

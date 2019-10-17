@@ -27,7 +27,7 @@ subroutine tritra(stage     ,lundia    ,nst       ,icreep    , &
                 & hrms      ,dzs1      ,kfsmin    ,kfsmax    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -336,7 +336,8 @@ subroutine tritra(stage     ,lundia    ,nst       ,icreep    , &
                          & lstsci    ,r0        ,r1        ,qxk       ,qyk       , &
                          & dicuv     ,guv       ,gvu       ,areau     ,areav     , &
                          & kfu       ,kfv       ,kfs       ,kcs       ,timest    , &
-                         & icx       ,icy       ,lsed      ,gdp       )
+                         & icx       ,icy       ,lsed      ,s1        ,dps       , &
+                         & gdp       )
              if (roller) then
                  call rolcor(hrms      ,tp        ,theta     ,hu        ,hv         , &
                            & guu       ,gvv       ,qxk       ,qyk       ,eulerisoglm, &
@@ -519,7 +520,8 @@ subroutine tritra(stage     ,lundia    ,nst       ,icreep    , &
                          & lstsci    ,r0        ,r1        ,qxk       ,qyk       , &
                          & dicuv     ,guv       ,gvu       ,areau     ,areav     , &
                          & kfu       ,kfv       ,kfs       ,kcs       ,timest    , &
-                         & icy       ,icx       ,lsed      ,gdp       )
+                         & icy       ,icx       ,lsed      ,s1        ,dps       , &
+                         & gdp       )
              if (roller) then
                  call rolcor(hrms      ,tp        ,theta     ,hu        ,hv         , &
                            & guu       ,gvv       ,qxk       ,qyk       ,eulerisoglm, &

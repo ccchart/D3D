@@ -1,7 +1,7 @@
 subroutine rdcul(nsrc, namsrc ,mnksrc, voldis, gdp)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -36,6 +36,7 @@ subroutine rdcul(nsrc, namsrc ,mnksrc, voldis, gdp)
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
+    use system_utils, only:SHARED_LIB_PREFIX, SHARED_LIB_EXTENSION
     !
     use globaldata
     !
@@ -343,11 +344,7 @@ subroutine rdcul(nsrc, namsrc ,mnksrc, voldis, gdp)
                             call prop_get(link_ptr, '*', 'CulvertLib', rec)
                             dll_name(isrc) = rec
                             if (rec /= ' ') then
-                               if (gdp%arch == 'win32' .or. gdp%arch == 'win64') then
-                                  rec(len_trim(rec)+1:) = '.dll'
-                               else
-                                  rec(len_trim(rec)+1:) = '.so'
-                               endif
+                               write(rec,'(3a)') SHARED_LIB_PREFIX, trim(rec), SHARED_LIB_EXTENSION
                                dll_name(isrc) = rec
                                istat_ptr = 0
                                istat_ptr = open_shared_library(dll_handle(isrc), dll_name(isrc))

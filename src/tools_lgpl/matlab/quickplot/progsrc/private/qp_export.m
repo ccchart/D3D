@@ -3,7 +3,7 @@ function filename=qp_export(ExpType,filenm1,DataState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -113,7 +113,7 @@ switch expType
             end
         end
         switch Ops.presentationtype
-            case {'patches','patches with lines','grid','polylines','polygons',''}
+            case {'patches','patches with lines','grid','polylines','polygons','edges',''}
                 retrieve='gridcelldata';
             case {'markers','values'}
                 retrieve='griddata';
@@ -123,6 +123,9 @@ switch expType
     case 'sample file'
         % assumptions: one timestep
         ext='xyz';
+    case {'stl stereolithography file (ascii)','stl stereolithography file (binary)'}
+        % assumptions: one timestep
+        ext='stl';
     case {'mat file (v6)','mat file (v7)','mat file (v7.3/hdf5)'}
         % assumptions: one timestep
         MATfile=1;
@@ -204,13 +207,46 @@ for f=1:ntim
             Chk=1;
             data=[];
     end
+    
+    if strcmp(Ops.presentationtype,'vector') || ...
+            strcmp(Ops.presentationtype,'markers') || ...
+            strcmp(Ops.presentationtype,'values')
+        % data = geom2pnt(data);
+        if isfield(data,'ValLocation')
+            if strcmp(data.ValLocation,'EDGE')
+                if isfield(data,'Geom') && strcmp(data.Geom,'sQUAD')
+                    data.EdgeNodeConnect = [1:length(data.X)-1;2:length(data.X)]';
+                end
+                data.X = mean(data.X(data.EdgeNodeConnect),2);
+                data.Y = mean(data.Y(data.EdgeNodeConnect),2);
+            elseif strcmp(data.ValLocation,'FACE')
+                missing = isnan(data.FaceNodeConnect);
+                nNodes = size(missing,2)-sum(missing,2);
+                data.FaceNodeConnect(missing) = 1;
+                data.X = data.X(data.FaceNodeConnect);
+                data.X(missing) = 0;
+                data.X = sum(data.X,2)./nNodes;
+                data.Y = data.Y(data.FaceNodeConnect);
+                data.Y(missing) = 0;
+                data.Y = sum(data.Y,2)./nNodes;
+            end
+            for c = {'FaceNodeConnection','EdgeNodeConnection','ValLocation'}
+                s = c{1};
+                if isfield(data,s)
+                    data = rmfield(data,s);
+                end
+            end
+            data.Geom = 'sSEG';
+        end
+    end
+    
     if ~Chk
         filename='';
         return
     end
     componentof='';
     if ~isempty(data)
-        if ~(isfield(data,'XYZ') && ~MATfile) || ~strcmp(Ops.thinningmode,'none')
+        if ~(isfield(data,'XYZ') && ~MATfile) || (isfield(Ops,'thinningmode') && ~strcmp(Ops.thinningmode,'none'))
             data = qp_thinning(data,Ops);
         end
         %
@@ -490,6 +526,7 @@ for f=1:ntim
                 switch expType
                     case 'spline'
                         expdata=squeeze(expdata);
+                        expdata=expdata(:,1:2); % don't write data or z coordinates ro spline file
                         %
                         % the following line initially made sense when skipping
                         % over small gaps in grid lines, but it doesn't work in
@@ -499,7 +536,7 @@ for f=1:ntim
                         %expdata(any(isnan(expdata),2),:)=[];
                     case 'landboundary file'
                         expdata=squeeze(expdata);
-                        expdata(any(isnan(expdata),2),:)=999.999;
+                        expdata(any(isnan(expdata(:,1:2)),2),:)=999.999;
                     otherwise
                         expdata(isnan(expdata))=-999;
                 end
@@ -553,7 +590,7 @@ for f=1:ntim
                 Ops.presentationtype = 'thin dams';
             end
             switch Ops.presentationtype
-                case {'patches','patches with lines','markers','values','grid','polylines','polygons',''}
+                case {'patches','patches with lines','markers','values','grid','polylines','polygons','edges',''}
                     xy=[];
                     if isfield(Props,'Geom') && (strcmp(Props.Geom,'POLYL') || strcmp(Props.Geom,'POLYG'))
                         vNaN=isnan(data.X);
@@ -588,15 +625,35 @@ for f=1:ntim
                         end
                     else
                         d=1;
+                        shp_type = 'polygon';
                         if isfield(Props,'Geom') && strncmp(Props.Geom,'UGRID',5)
-                            switch Props.Geom(7:end)
-                                case 'NODE'
+                            if Props.NVal==0 && isfield(data,'FaceNodeConnect')
+                                Props.Geom='UGRID2D-FACE';
+                                data.ValLocation='FACE';
+                            end
+                            switch Ops.presentationtype
+                                case {'markers','values'}
+                                    retrieve='griddata';
                                     xy=[data(d).X data(d).Y];
                                     rm=[];
-                                case 'FACE'
-                                    xv=[data(d).X data(d).Y];
-                                    fv=data(d).FaceNodeConnect;
-                                    rm=[];
+                                otherwise
+                                    switch Props.Geom(max(strfind(Props.Geom,'-'))+1:end)
+                                        case 'NODE'
+                                            retrieve='griddata';
+                                            xy=[data(d).X data(d).Y];
+                                            rm=[];
+                                        case 'EDGE'
+                                            xv=[data(d).X data(d).Y];
+                                            fv=data(d).EdgeNodeConnect;
+                                            shp_type = 'polyline';
+                                            rm=[];
+                                        case 'FACE'
+                                            xv=[data(d).X data(d).Y];
+                                            fv=data(d).FaceNodeConnect;
+                                            rm=[];
+                                        otherwise
+                                            error('Unsupported geometry ''%s''.',Props.Geom);
+                                    end
                             end
                         elseif isfield(Props,'Tri') && Props.Tri
                             if strcmp(retrieve,'gridcelldata')
@@ -667,7 +724,7 @@ for f=1:ntim
                             %
                             % make sure that polygons are stored clockwise ...
                             %
-                            if ~any(isnan(fv(1,:))) && clockwise(data(d).X(fv(1,:)),data(d).Y(fv(1,:)))<0
+                            if strcmp(shp_type,'polygon') && ~any(isnan(fv(1,:))) && clockwise(data(d).X(fv(1,:)),data(d).Y(fv(1,:)))<0
                                 % a simple fv=fliplr(fv) only works if all
                                 % patches have the same number of corner
                                 % nodes, so no fill NaNs. To be generic we
@@ -678,7 +735,7 @@ for f=1:ntim
                                     fv(i,1:nv(i)) = fv(i,nv(i):-1:1);
                                 end
                             end
-                            shapewrite(filename,xv,fv,cv{:})
+                            shapewrite(filename,shp_type,xv,fv,cv{:})
                         else
                             shapewrite(filename,'point',xy,cv{:})
                         end
@@ -713,10 +770,15 @@ for f=1:ntim
                             UD=get(hNew0,'userdata');
                             Thresholds=UD.XInfo.Thresholds;
                             for i=1:length(xy)
-                                xy{i}=xy{i}(1:end-1,:);
-                                cv{i}=Thresholds(cv{i}(1));
+                                if ~isempty(xy{i}) && isnan(xy{i}(end,1))
+                                    xy{i}=xy{i}(1:end-1,:);
+                                end
+                                if ~isempty(cv{i})
+                                    cv{i}=Thresholds(cv{i}(1));
+                                end
                             end
                             cv=cat(1,cv{:});
+                            xy(cellfun('isempty',xy)) = [];
                             cLabels={'Value'};
                             shapewrite(filename,'polyline',xy,cLabels,cv)
                         case 'thin dams'
@@ -743,11 +805,12 @@ for f=1:ntim
                             xy=get(hNew,'vertices');
                             fc=get(hNew,'faces');
                             cv=get(hNew,'facevertexcdata');
+                            minmax = zeros(length(hNew),2);
+                            for i = 1:length(hNew)
+                                minmax(i,:) = [getappdata(hNew(i),'MinThreshold') getappdata(hNew(i),'MaxThreshold')];
+                            end
                             %
-                            UD=get(hNew0,'userdata');
-                            Thresholds=UD.XInfo.Thresholds;
-                            %
-                            [xy,cLabels,cv] = process_polygons(xy,fc,cv,Thresholds);
+                            [xy,cLabels,cv] = process_polygons(xy,fc,cv,minmax);
                             %
                             switch expType
                                 case 'arcview shape'
@@ -897,6 +960,17 @@ for f=1:ntim
             Format=[Format(2:end) '\n'];
             fprintf(fid,Format,expdata);
             fclose(fid);
+        case {'stl stereolithography file (ascii)','stl stereolithography file (binary)'}
+            xyz = squeeze(data.XYZ);
+            if size(xyz,2)==2
+                xyz  = [xyz data.Val'];
+            end
+            switch expType(strfind(expType,'('):end)
+                case '(ascii)'
+                    stl('write_ascii',filename,data.Name,data.TRI,xyz)
+                case '(binary)'
+                    stl('write',filename,data.Name,data.TRI,xyz)
+            end
         case {'mat file','mat file (v6)','mat file (v7)','mat file (v7.3/hdf5)'}
             if scalar && isfield(data,'XComp')
                 data.Name = [data.Name ', ' Ops.vectorcomponent];

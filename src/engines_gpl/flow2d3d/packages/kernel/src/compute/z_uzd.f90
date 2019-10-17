@@ -13,14 +13,14 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                & vicuv     ,vnu2d     ,vicww     ,tgfsep    ,dps       , &
                & dfu       ,deltau    ,tp        ,rlabda    ,fxw       ,wsbodyu   , &
                & drhodx    ,wsu       ,taubpu    ,taubsu    ,rxx       , &
-               & rxy       ,windu     ,patm      ,fcorio    ,p0        , &
+               & rxy       ,windsu    ,patm      ,fcorio    ,p0        , &
                & ubrlsu    ,pship     ,diapl     ,rnpl      ,cfurou    , &
                & u1        ,s0        ,dpu       ,qxk       ,qyk       , &
                & norow     ,nocol     ,irocol    ,nst       ,umean     , &
                & crbc      ,ustokes   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -191,7 +191,7 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: tp      !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: umean   !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: vnu2d   !  Description and declaration in esm_alloc_real.f90
-    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)          , intent(in) :: windu   !  Description and declaration in esm_alloc_real.f90
+    real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)          , intent(in) :: windsu  !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: wsu     !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub)                       :: wsbodyu !  Description and declaration in esm_alloc_real.f90
     real(fp)    , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)  , intent(in) :: vicww   !  Description and declaration in esm_alloc_real.f90
@@ -328,6 +328,7 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)           :: hl
     real(fp)           :: hr
     real(fp)           :: hnm
+    real(fp)           :: h0fac
     real(fp)           :: drytrsh
     real(fp)           :: hugsqs   ! HU(NM/NMD) * GSQS(NM) Depending on UMDIS the HU of point NM or NMD will be used 
     real(fp)           :: qwind
@@ -658,8 +659,20 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              !
              ! End of special measures for smooth inundation
              !
+             ! WIND FRICTION AND BOTTOM STRESS DUE TO FLOW AND WAVES
+             !
+             ! Apply factor h0fac to reduce wind force from cells with small depth
+             ! Note that the direction of windsu is opposite to what is expected
+             ! This is due to the change in sign in windtogridc.f90
+             !
+             h0fac = 1.0_fp
+             if (windsu(nm) < 0.0_fp .and.  s0(nm)+real(dps(nm),fp) < 2.0_fp*dryflc) then
+                h0fac = (s0(nm)+real(dps(nm),fp)) / (2.0_fp*dryflc)
+             elseif (windsu(nm) > 0.0_fp .and.  s0(nmu)+real(dps(nmu),fp) < 2.0_fp*dryflc) then
+                h0fac = (s0(nmu)+real(dps(nmu),fp)) / (2.0_fp*dryflc)
+             endif          
+             qwind          = h0fac*windsu(nm) / max(dzu0(nm, kkmax),drytrsh)
              cbot           = taubpu(nm)
-             qwind          = windu(nm) / max(dzu0(nm, kkmax),drytrsh)
              bdmwrp         = cbot / max(dzu0(nm, kmin),drytrsh)
              bdmwrs         = taubsu(nm) / max(dzu0(nm, kmin),drytrsh)
              bbk(nm, kmin)  = bbk(nm, kmin) + bdmwrp
@@ -925,8 +938,8 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
              numu = nm + icx + icy
              ndmu = nm + icx - icy
              numd = nm - icx + icy
-             do k = kfumn0(nm), kfumx0(nm)
-                if (kfu(nm) == 1 .and. kcs(nm) > 0 .and. kcs(nmu) > 0) then
+             if (kfu(nm) == 1 .and. kcs(nm) > 0 .and. kcs(nmu) > 0) then
+                do k = kfumn0(nm), kfumx0(nm)
                    if (kfuz0(nm, k) == 1) then
                       gksid = gvz(nm)
                       gksiu = gvz(nmu)
@@ -952,8 +965,8 @@ subroutine z_uzd(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                       buy(nm, k) = buy(nm, k) - vih/(getau*geta)*idifu
                       bdy(nm, k) = bdy(nm, k) - vih/(getad*geta)*idifd
                    endif
-                endif
-             enddo
+                enddo
+             endif
           enddo
        !
        endif

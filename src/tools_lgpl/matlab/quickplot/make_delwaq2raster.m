@@ -7,7 +7,7 @@ function make_delwaq2raster(basedir,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2017 Stichting Deltares.
+%   Copyright (C) 2011-2019 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -46,24 +46,23 @@ end
 if nargin>0
     cd(basedir);
 end
+err=[];
 try
-    err=localmake(varargin{:});
-catch
-    err=lasterr;
+    localmake(varargin{:});
+catch err
 end
 if nargin>0
     cd(curdir);
 end
 rmpath(curdir)
 if ~isempty(err)
-    error(err)
+    rethrow(err)
 end
 
 
-function err=localmake(qpversion,T)
-err='';
+function localmake(qpversion,T)
 if ~exist('progsrc','dir')
-    err='Cannot locate source'; return
+    error('Cannot locate source')
 end
 sourcedir=[pwd,filesep,'progsrc'];
 disp('Copying files ...')
@@ -74,9 +73,8 @@ else
 end
 if ~exist([pwd,filesep,exedir])
     [success,message] = mkdir(exedir);
-    if ~success,
-        err=message;
-        return
+    if ~success
+        error(message)
     end
 end
 cd(exedir);
@@ -107,7 +105,9 @@ TStr = datestr(T);
 fstrrep('delwaq2raster.m','<VERSION>',qpversion)
 fstrrep('delwaq2raster.m','<CREATIONDATE>',TStr)
 g = which('-all','gscript');
-copyfile(g{1},'.')
+if ~isempty(g)
+    copyfile(g{1},'.')
+end
 %
 mcc('-m','-a','./units.ini','-a','./grib','-v','delwaq2raster.m')
 %

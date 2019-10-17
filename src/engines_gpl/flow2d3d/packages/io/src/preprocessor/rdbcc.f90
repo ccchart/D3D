@@ -6,7 +6,7 @@ subroutine rdbcc(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
                & cab       ,zstep     ,tprofc    ,bubble    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2017.                                
+!  Copyright (C)  Stichting Deltares, 2011-2019.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -58,7 +58,7 @@ subroutine rdbcc(lunmd     ,lundia    ,error     ,nrrec     ,mdfrec    , &
     integer                    , pointer :: itdate
     real(fp)                   , pointer :: dt
     character*20, dimension(:) , pointer :: keywrd
-    character*37, dimension(:) , pointer :: fmtbcc
+    character*38, dimension(:) , pointer :: fmtbcc
 !
 ! Global variables
 !

@@ -29,7 +29,7 @@ function varargout = asciiwind(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2017 Stichting Deltares.                                     
+%   Copyright (C) 2011-2019 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -107,7 +107,7 @@ if nargin<3
     else
         error('No time selected')
     end
-elseif isequal(t,':')
+elseif strcmp(t,':')
     t = 1:length(Structure.Data);
 end
 %
