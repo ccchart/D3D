@@ -69,6 +69,7 @@ subroutine rdmeteo(gdp, ecwind)
    real(fp)                 , pointer :: tair
    real(fp)                 , pointer :: mulsd
    real(fp)                 , pointer :: betasd
+   real(fp)                 , pointer :: albedo
    real(fp), dimension(:)   , pointer :: rhumarr
    real(fp), dimension(:)   , pointer :: tairarr
    real(fp), dimension(:)   , pointer :: clouarr
@@ -138,6 +139,7 @@ subroutine rdmeteo(gdp, ecwind)
    tair          => gdp%gdheat%tair
    mulsd         => gdp%gdheat%mulsd
    betasd        => gdp%gdheat%betasd
+   albedo        => gdp%gdheat%albedo
    rhumarr       => gdp%gdheat%rhumarr
    tairarr       => gdp%gdheat%tairarr
    clouarr       => gdp%gdheat%clouarr
@@ -757,6 +759,31 @@ subroutine rdmeteo(gdp, ecwind)
           ! Use default value betasd = 1.0 (Solar radiation penetrates completely over the Secchi depth)
           !
           betasd = 1.0_fp
+      endif
+      !
+      ! Locate and read optional real 'albedo': The Albedo coefficient for reflection of solar radiation (used in heatu)
+      !
+      rdef = -999.0_fp
+      call prop_get(gdp%mdfile_ptr, '*', 'albedo', rdef)
+      if (comparereal(rdef, -999.0_fp) /= 0) then
+         albedo = rdef
+         if (comparereal(albedo, 0.0_fp) == -1 .or. comparereal(albedo, 1.0_fp) == 1) then
+            write(message,'(a,f12.3)') 'The Albedo coefficient has a value outside the region [0.0,1.0]: ', albedo
+            call prterr(lundia, 'P004', trim(message))
+            call d3stop(1, gdp)
+         else
+            write(message,'(a,f12.3)') 'The Albedo coefficient for reflection of solar radiation: ', albedo
+            call prterr(lundia, 'G051', trim(message))
+         endif
+      else
+          !
+          ! Use default value for Albedo = 0.09, or Albedo = 0.06 for temperature model 5 (Murakami)
+          !
+          if (ktemp /= 5) then
+             albedo = 0.09_fp
+          else
+             albedo = 0.06_fp
+          endif
       endif
    endif
 end subroutine rdmeteo

@@ -91,6 +91,8 @@ type gd_heat
     real(fp)                :: dtrain    !  Time increment of the rain temperature
     real(fp)                :: mulsd     !  Multiplier for the Secchi depth to obtain the Shallow Secchi depth (range 0.01--1)
     real(fp)                :: betasd    !  Fraction of the solar radiation that penetrates deep (range 0--1)
+    real(fp)                :: albedo    !  Albedo coefficient 
+
 ! reals
 !
 !
@@ -141,6 +143,16 @@ type gd_heat
     real(fp) , dimension(:) , pointer :: efree_out ! Free convection of latent heat   
     real(fp) , dimension(:) , pointer :: qmis_out  ! keva=3: mismatch between calculated and derived heat flux
     logical  , dimension(:) , pointer :: flbcktemp ! [lstsc]  flag to indicate background temperature constituents
+    real(fp) , dimension(:) , pointer :: zqeva_out  ! Evaporation heat flux, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zqco_out   ! Heat flux of forced convection, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zqbl_out   ! Nett back radation, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zqin_out   ! Nett solar radiation, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zqnet_out  ! Total nett heat flux, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zhlc_out   ! Exchange coefficient in Excess temperature model, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zhfree_out ! Free convection of sensible heat, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zefree_out ! Free convection of latent heat, in zeta-point for history file
+    real(fp) , dimension(:) , pointer :: zqmis_out  ! keva=3: mismatch between calculated and derived heat flux, in zeta-point for history file
+
 !
 ! logicals
 !
