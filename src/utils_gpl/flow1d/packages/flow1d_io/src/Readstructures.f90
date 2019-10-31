@@ -177,7 +177,7 @@ module m_readstructures
             
             pbr => network%brs%branch(branchIdx)
             
-            call lowercase(typestr, 999)
+            call str_lower(typestr)
             select case (typestr)
                
                case ('weir')
