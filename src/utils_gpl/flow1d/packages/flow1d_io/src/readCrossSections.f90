@@ -115,33 +115,34 @@ module m_readCrossSections
          if (tree_get_name(md_ptr%child_nodes(i)%node_ptr) .ne. 'crosssection') then
             cycle
          endif
-         
-         call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'branchid', branchid, success)
+          
+         call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'id', pCrs%csid, success)
          if (.not. success) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect Cross-Section input for Cross-Section on branch '//trim(branchid)// &
-               ' no BranchID was given')
+            write(msgbuf, '(i0)')
+            call SetMessage(LEVEL_ERROR, 'Incorrect CrossSection input for Cross-Section number '//trim(msgbuf)// &
+               'no ID was given')
             cycle
          endif
 
-         call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'id', pCrs%csid, success)
+         call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'branchid', branchid, success)
          if (.not. success) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect Cross-Section input for Cross-Section on branch '//trim(branchid)// &
-               ' no ID was given')
+            call SetMessage(LEVEL_ERROR, 'BranchId not found for Cross-Section with ID '//trim(pCrs%csid)// &
+               'no BranchID was given')
             cycle
          endif
-         
+        
          indx = hashsearch(network%brs%hashlist, branchid)
          pCrs%branchid = indx
          call prop_get_double(md_ptr%child_nodes(i)%node_ptr, '', 'chainage', pCrs%location, success)
          if (.not. success) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect Cross-Section input for Cross-Section on branch '//trim(branchid)// &
+            call SetMessage(LEVEL_ERROR, 'Chainage not found for Cross-Section with ID '//trim(pCrs%csid)// &
                ' no chainage was given')
             cycle
          endif
          call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'definition', defid, success)
          iref = hashsearch(network%CSDefinitions%hashlist, defid)
          if (iref < 1) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect Cross-Section input for Cross-Section on branch '//trim(branchid)// &
+            call SetMessage(LEVEL_ERROR, 'Definition not found for Cross-Section with ID '//trim(pCrs%csid)// &
                   ' no definition is given')
             cycle
          endif
