@@ -51,6 +51,8 @@
 				<Tool Name="VFFortranCompilerTool" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
+		<File RelativePath=".\src\findnm.f"/>
+		<File RelativePath=".\src\findnmf.f"/>
 		<File RelativePath=".\src\get_index.f90"/>
 		<File RelativePath=".\src\get_key.f90"/>
 		<File RelativePath=".\src\grid_search.f90">
@@ -76,6 +78,8 @@
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath=".\src\pinpok.f90"/>
+		<File RelativePath=".\src\pinpol.f"/>
+		<File RelativePath=".\src\pmov_boom.f90"/>
 		<File RelativePath=".\src\polpart.f90"/>
 		<File RelativePath=".\src\random_gen.f90">
 			<FileConfiguration Name="Release|x64">
@@ -90,5 +94,6 @@
 				<Tool Name="VFFortranCompilerTool" AdditionalIncludeDirectories="..\..\include"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" AdditionalIncludeDirectories="..\..\include"/></FileConfiguration></File>
+		<File RelativePath=".\src\wait.f90"/>
 		<File RelativePath=".\src\write_version.f90"/></Filter></Files>
 	<Globals/></VisualStudioProject>

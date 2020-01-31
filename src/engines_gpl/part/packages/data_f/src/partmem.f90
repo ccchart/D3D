@@ -43,7 +43,7 @@ module partmem
       logical                           :: alone                  ! if .false. coupled with Delwaq
       integer(ip)   :: itrakc  , itraki  , npwndn  , npwndw  , nstep  , nstept
       real   (sp)   :: defang  , hmin    , ptlay   , accrjv
-      logical       :: oil     , oil2dh  , oil3d   , ltrack  , acomp  , fout
+      logical       :: oil, ibmod     , oil2dh  , oil3d   , ltrack  , acomp  , fout
 
       integer  ( ip)           :: bufsize       ! size of rbuffr
       integer  ( ip)           :: nosub_max     ! maximum number of substances
@@ -111,7 +111,9 @@ module partmem
       integer  ( ip)           :: tydisp        ! type of dispersant application effectiveness parameter
       integer  ( ip)           :: ndisapp       ! number of dispersant applications
       integer  ( ip)           :: tyboom        ! type of boom effectiveness parameter
+      integer  ( ip)           :: tyboomt       ! type of moving boom effectiveness parameter
       integer  ( ip)           :: nboomint      ! number of boom introductions
+      integer  ( ip)           :: nboomtint    ! number of moving boom introductions
       integer  ( ip)           :: nosta         ! number of monitoring stations
       integer  ( ip)           :: iptset        ! number of plotgrids
       real     ( rp)           :: window(4)     ! plotgrid window coordinates
@@ -143,7 +145,9 @@ module partmem
       real     ( rp), pointer  :: dx     (:)    !
       real     ( rp), pointer  :: dy     (:)    !
       real     ( rp), pointer  :: flow   (:)    !
+      real     ( rp), pointer  :: flow2m (:)    !
       real     ( rp), pointer  :: flow1  (:)    !
+      real     ( rp), pointer  :: flow2  (:)    !
       integer  ( ip), pointer  :: ipntp  (:)    !
       integer  ( ip), pointer  :: nplay  (:)    !
       real     ( rp), pointer  :: vdiff  (:)    ! vertical diffusion
@@ -156,6 +160,8 @@ module partmem
 
       real     ( rp), pointer  :: temper (:)    ! temperature
       real     ( rp), pointer  :: temper1(:)    ! temperature from file
+      real     ( rp), pointer  :: vel1   (:)    ! velocity at begin (first layer only)
+      real     ( rp), pointer  :: vel2   (:)    ! velocity at end (first layer only)
       real     ( rp), pointer  :: velo   (:)    !
       real     ( rp), pointer  :: vol1   (:)    !
       real     ( rp), pointer  :: vol2   (:)    !
@@ -188,16 +194,26 @@ module partmem
       real     ( sp), pointer  :: ypoldis (:,:) ! y-coordinates of dispersant polygon
       integer  ( ip), pointer  :: nrowsdis (:)  ! length of dispersant polygon
       integer  ( ip), pointer  :: iboomset(:)   ! timing of boom introduction
+      integer  ( ip), pointer  :: iboomtset(:)  ! timing of moving boom introduction
       real     ( sp), pointer  :: efboom (:,:)  ! effectiveness parameter of boom per oil type
+      real     ( sp), pointer  :: efboomt (:,:) ! effectiveness parameter of moving boom per oil type
+      real     ( sp), pointer  :: boomdepth(:)! depth of a sedimentscreen
       real     ( sp), pointer  :: xpolboom (:,:)! x-coordinates of boom polygon
       real     ( sp), pointer  :: ypolboom (:,:)! y-coordinates of boom polygon
+      real     ( sp), pointer  :: xipolboom (:,:)! interpolated x-coordinates of moving boom polygon
+      real     ( sp), pointer  :: yipolboom (:,:)! interpolated y-coordinates of moving boom polygon
       integer  ( ip), pointer  :: nrowsboom (:) ! length of dispersant polygon
       character( 256),pointer  :: fiboom (:)    ! names of boom polygon files
+      character( 256),pointer  :: fiboomt (:)   ! names of moving boom polygon files
       character( 20), pointer  :: nmdyer (:)    ! names of the dye releases
       integer  ( ip), pointer  :: iwtime (:)    ! times per dye release
       real     ( rp), pointer  :: xwaste (:)    ! x of waste point
       real     ( rp), pointer  :: ywaste (:)    ! y of waste point
+      real     ( rp), pointer  :: xwloc  (:)    ! x of timevarying waste point
+      real     ( rp), pointer  :: ywloc  (:)    ! y of timevarying waste point
       real     ( rp), pointer  :: zwaste (:)    ! z of waste point
+      real     ( rp), pointer  :: xtime (:,:)   ! timevarying x of waste point
+      real     ( rp), pointer  :: ytime (:,:)   ! timevarying y of waste point
       integer  ( ip), pointer  :: kwaste (:)    ! layer nr of waste point
       integer  ( ip), pointer  :: ioptrad(:)    ! radius option of dye release
       real     ( rp), pointer  :: radius (:)    ! radius parameter of waste point
@@ -252,7 +268,7 @@ module partmem
       real     ( rp), pointer  :: rem    (:)    !
       real     ( rp), pointer  :: tmassc(:,:)   !
       real     ( rp), pointer  :: aconc (:,:)   !
-      character     (len=20   ) ,  pointer, dimension(:       ) :: cbuff
+      character     (len=50   ) ,  pointer, dimension(:       ) :: cbuff
       character     (len=20   ) ,  pointer, dimension(:       ) :: subsud
       integer       (sp       ) ,  pointer, dimension(:       ) :: floil
       integer       (sp       ) ,  pointer, dimension(:       ) :: ihplot
@@ -318,6 +334,9 @@ module partmem
       real          (sp       ) ,  pointer, dimension(:,:     ) :: concp
       real          (sp       ) ,  pointer, dimension(:,:     ) :: flres
 
+      real          (rp       ) , pointer                       :: v_swim(:)    ! horizontal swim velocity (m/s)
+      real          (rp       ) , pointer                       :: d_swim(:)    ! horizontal swim direction (degree)
+
 end module partmem
 
 module spec_feat_par
@@ -326,6 +345,14 @@ module spec_feat_par
 
       use precision_part      ! single and double precision
 
+!     drag and dispersion via radius and angle
+      logical                                                   :: dragvar
+      logical                                                   :: disp_dir
+      real     (sp)                                             :: dragmean
+      real     (sp)                                             :: dragsigma
+      real     (sp)                                             :: disp_xdir
+      real     (sp)                                             :: disp_ydir
+      
 !     vertical bounce
       logical                                                   :: vertical_bounce
 
@@ -333,6 +360,46 @@ module spec_feat_par
       logical                                                   :: write_restart_file
       integer  (ip)                                             :: max_restart_age
 
+!     moving discharges
+      logical                                                   :: moving_discharge
+      integer                                                   :: nrtimcdis
+      
+!     (moving) booms
+      logical                                                   :: boom
+      integer                                                   :: nbooms
+      logical                                                   :: moving_boom
+      integer                                                   :: ntbooms
+
+!     sediment screend
+      logical                                                   :: sedscreen
+      logical                                                   :: nboomdepth
+      integer                                                   :: nsedscreen
+
+
+!     boom process parameters
+      logical                                                   :: boom_proc
+      logical                                                   :: boom_stick
+      logical                                                   :: boom_extract
+      integer                                                   :: nr_boomextract
+      integer                                                   :: nr_extract
+      real     (sp) ,  pointer, dimension(:,:)                  :: extract_sect
+      real     (sp) ,  pointer, dimension(:,:)                  :: polangle
+      real     (sp)                                             :: minheigth
+      real     (sp)                                             :: maxheigth
+      real     (sp)                                             :: boom_vlim
+      real     (sp)                                             :: boom_vmax
+      real     (sp)                                             :: minangle
+      real     (sp)                                             :: bstick_prob
+      real     (sp)                                             :: extract_prob
+
+!     dispersants
+      logical                                                   :: dispersants
+      
+!     visocity function with temperature
+      logical                                                   :: visc_temp
+      real     (sp)                                             :: visc_t0
+      real     (sp)                                             :: visc_t1
+      
 !     plastics parameters
       integer   (sp)            ,  pointer, dimension(:       ) :: plparset
       real      (sp)            ,  pointer, dimension(:       ) :: pldensity

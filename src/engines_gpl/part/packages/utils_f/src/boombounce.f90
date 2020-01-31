@@ -22,7 +22,8 @@
 !!  rights reserved.
 
       subroutine boombounce( xold, yold, xnew, ynew, nboom, xboom, &
-                                    yboom, xcatch, ycatch, catch, xbounce, ybounce, bounce, leftside)
+                                    yboom, xcatch, ycatch, catch, xbounce, ybounce, bounce, &
+                                    xcrossboom,ycrossboom, npolbounce )
 !
 !     Does a boom catch a particle in it's path from xold, yold to xnew, ynew?
 !     And if it does, does it bounce without crossing another part of the boom?

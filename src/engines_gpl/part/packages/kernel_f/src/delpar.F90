@@ -369,6 +369,7 @@
       use openfl_mod
       use delete_file_mod            ! explicit interface
       use oildsp_mod                 ! explicit interface
+      use part03_mod                 ! explicit interface
       use part09_mod                 ! explicit interface
       use part10_mod                 ! explicit interface
       use grid_search_mod            ! explicit interface
@@ -378,6 +379,7 @@
       use part18_mod                 ! explicit interface
       use part21_mod                 ! explicit interface
       use parths_mod                 ! explicit interface
+      use partini_mod
       use partur_mod                 ! explicit interface
       use partwq_mod                 ! explicit interface
       use grid_search_mod            ! explicit interface
@@ -385,6 +387,9 @@
       use writrk_mod                 ! explicit interface
       use partmem
       use alloc_mod
+      use larvae_mod
+      use ibm_mod
+
       !use normal_mod
       
 #ifdef HAVE_CONFIG_H
@@ -400,10 +405,11 @@
 
       integer(ip)         :: itime   , lunpr
       integer(ip)         :: nosubud , noth
-      integer(ip)         :: ilp, isp, iext, nores, noras
+      integer(ip)         :: ilp, isp, ids, ide, iext, nores, noras, nosubs_idp
       real(sp)            :: dtstep
       logical             :: update
       character(len=*)    :: ifnam
+      integer             :: iniday  ! day number for initial condition
 
       real     ( dp)              :: rseed = 0.5d0
       real     ( sp)              :: rnorm
@@ -467,10 +473,10 @@
       call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
                     noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
                     vdiff    , area     , flow     , vol1     , vol2     ,    &
-                    flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
+                    flow1    , flow2m   , vdiff1   , update   , cellpntp , flowpntp ,    &
                     tau      , tau1     , caltau   , salin    , salin1   ,    &
                     temper   , temper1  , nfiles   , lun      , fname    ,    &
-                    ftype    , rhowatc)
+                    ftype    , flow2    , rhowatc)
 
 !     Read the whole input file ! Data is put in the partmem module !
 
@@ -508,6 +514,7 @@
       accrjv = 1.0e-9_sp
       ltrack = notrak  /=  0
       oil    = modtyp == 4
+      ibmod  = modtyp == 7
       oil2dh = oil .and. layt == 1
       oil3d  = oil .and. layt  > 1
 
@@ -566,7 +573,8 @@
       call part03 ( lgrid   , volumep , flow    , dx      , dy      ,    &
                     nmaxp   , mmaxp   , mnmaxk  , lgrid2  , velo    ,    &
                     layt    , area    , depth   , dpsp    , locdep  ,    &
-                    zlevel  , tcktot  , ltrack)
+                    zlevel  , tcktot  , ltrack  , flow2m  , lgrid3  ,    &
+                    vol1    , vol2    , vel1    , vel2    )
 
 !      write particle tracks (initial state)
 
@@ -594,34 +602,54 @@
       endif
       write(*,'(a//)') '  Ready'
 
-!     set initial conditions of particles (only oil module)
+!     set initial conditions of particles (only oil module), with substi(1) only one substance for initial condition?
+      iniday = 0
 
       if ( ini_opt .eq. 1 .and. oil ) then
          call inipart( lgrid   , lgrid2  , nmaxp   , mmaxp   , xb      ,    &
-                       yb      , nopart  , nosubs  , substi  , ini_file,    &
+                       yb      , nopart  , nosubs  , substi(1)  , ini_file, &
                        xpol    , ypol    , npolmax , wpart   , xpart   ,    &
                        ypart   , zpart   , npart   , mpart   , kpart   ,    &
                        iptime  , npmax   , nrowsmax, lunpr   )
       elseif ( ini_opt .eq. 2 .and. oil ) then
           call inipart_asc( lgrid   , lgrid2  , nmaxp   , mmaxp   , xb  ,    &
-                       yb      , nopart  , nosubs  , substi  , ini_file,    &
+                       yb      , nopart  , nosubs  , substi(1)  , ini_file,  &
                        xpol    , ypol    , wpart   , xpart   , conc2 ,       &
                        ypart   , zpart   , npart   , mpart   , kpart   ,    &
                        iptime  , npmax   , nrowsmax, lunpr   )
       endif
       if ( idp_file .ne. ' ' ) then
          if (modtyp .ne. 6) then
-            write ( lunpr, * ) ' Opening initial particles file:', idp_file(1:len_trim(idp_file))
-            call openfl ( 50, idp_file, ftype(2), 0 )
-            read ( 50 ) ilp, nopart, nosubs
-            do ilp = 1, nopart
-               read( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1:nosubs,ilp), iptime(ilp)
-            enddo
-            close ( 50 )
+! JVB larvae code: Is this also for the new part? fmk 13 feb 2017
+         iniday = 0
+           if ( noconsp .ge. 8 .and. ibmod) iniday = nint(const(8))
+!!jvb  if ( idp_file .ne. ' ' ) then
+!!        open ( 50, file=idp_file, form='binary' )
+!!        read ( 50 ) ilp, nopart, ilp
+!!        do ilp = 1, nopart
+!!           read( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1,ilp)
+!!        enddo
+!!jvb  endif
+!
+! JVB larve code end
+!            write ( lunpr, * ) ' Opening initial particles file:', idp_file(1:len_trim(idp_file))
+!            call openfl ( 50, idp_file, ftype(2), 0 )
+!            read ( 50 ) ilp, nopart, nosubs
+!            do ilp = 1, nopart
+!               read( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1:nosubs,ilp), iptime(ilp)
+!            enddo
+!            close ( 50 )
          else
             write ( lunpr, * ) ' Opening initial particles file:', idp_file(1:len_trim(idp_file))
             call openfl ( 50, idp_file, ftype(2), 0 )
-            read ( 50 ) ilp, nopart, nosubs
+            read ( 50 ) ilp, nopart, nosubs_idp
+            if (nosubs_idp.ne.nosubs) then
+               write ( lunpr, * ) ' Error: number of substances in the ini-file   : ',nosubs_idp
+               write ( lunpr, * ) '        number of substances in the model setup: ',nosubs
+               write ( *    , * ) ' Error: number of substances in the ini-file   : ',nosubs_idp
+               write ( *    , * ) '        number of substances in the model setup: ',nosubs
+               call stop_exit(1)
+            endif
             do ilp = 1, nopart
                read( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1:nosubs,ilp), &
                           spart(1:nosubs,ilp), iptime(ilp)
@@ -669,6 +697,18 @@
 
       do itime = itstrtp, itstopp, idelt
 
+         if ( ibmod .and. idp_file .ne. ' ' .and. itime .eq. iniday*86400 ) then ! release at day iniday - specific for IBM module (modtyp=7) FMK 13-2-2017
+!            call partini( nopart, nosubs, idp_file, wpart  , xpart , &
+!                          ypart , zpart , npart   , mpart  , kpart , &
+!                          iptime, lunpr )
+            call partini( lgrid, lgrid2, nmaxp, mmaxp, xb    , yb    , &
+                          nopart, nosubs, idp_file, wpart  , xpart , &
+                          ypart , zpart , npart   , mpart  , kpart , &
+                          iptime, lunpr )
+
+         endif
+
+
 !        Echo actual time to screen
 
          write ( *, 1020) itime  /86400, mod(itime  , 86400)/3600, mod(itime  , 3600)/60, mod(itime  , 60),  &
@@ -689,10 +729,10 @@
          call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
                        noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
                        vdiff    , area     , flow     , vol1     , vol2     ,    &
-                       flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
+                       flow1    , flow2m   , vdiff1   , update   , cellpntp , flowpntp ,    &
                        tau      , tau1     , caltau   , salin    , salin1   ,    &
                        temper   , temper1  , nfiles   , lun      , fname    ,    &
-                       ftype    , rhowatc)
+                       ftype    , flow2    , rhowatc)
 
 !        Part12 makes .map files, binary and Nefis versions
 
@@ -745,15 +785,16 @@
 
          call part03 ( lgrid    , volumep  , flow     , dx       , dy       ,    &
                        nmaxp    , mmaxp    , mnmaxk   , lgrid2   , velo     ,    &
-                       layt     , area     , depth    , dpsp     ,               &
-                       locdep   , zlevel   , tcktot   , ltrack)
+                       layt     , area     , depth    , dpsp     , locdep   ,    &
+                       zlevel   , tcktot   , ltrack   , flow2m   , lgrid3   ,    &
+                       vol1     , vol2     , vel1     , vel2     )
 
 !        This section does water quality processes
 
-         select case ( modtyp )
+        select case ( modtyp )
 
             case ( 1 )     ! = conservative tracer model
-
+!FROM IBM CODE -Larve code not needed here? We use the IBM module Modtyp = 7
             case ( 2, 5 )  ! = temperature model
                call partwq ( lgrid    , nmaxp    , concp    , volumep  , area     ,    &
                              npart    , mpart    , wpart    , radius   , nodye    ,    &
@@ -779,6 +820,23 @@
                              amassd   , ioptrad  , ndisapp  , idisset  , tydisp   ,    &
                              efdisp   , xpoldis  , ypoldis  , nrowsdis , wpartini ,    &
                              iptime)
+            case ( 7 )     ! = ibm model
+               if ( mod(itime,86400) .eq. 0 ) then !jvb for output within ibm module this is a temporary hack
+                  call part11 ( lgrid    , xb       , yb       , nmaxp    , npart    ,    &
+                                mpart    , xpart    , ypart    , xa       , ya       ,    &
+                                nopart   , npwndw   , lgrid2   , kpart    , zpart    ,    &
+                                za       , locdep   , dpsp     , layt     , mmaxp    ,    &
+                                tcktot   )
+               endif
+               call ibm    ( lun(2)   , itime    , idelt    , nmaxp    , mmaxp    ,    &
+                             layt     , noseglp  , nolayp   , mnmaxk   , lgrid    ,    &
+                             lgrid2   , lgrid3   , nopart   , npwndw   , nosubs   ,    &
+                             npart    , mpart    , kpart    , xpart    , ypart    ,    &
+                             zpart    , wpart    , iptime   , wsettl   , locdep   ,    &
+                             noconsp  , const    , concp    , xa       , ya       ,    &
+                             angle    , vol1     , vol2     , volumep  ,flow     , salin1   ,    &
+                             temper1  , v_swim   , d_swim   , itstrtp  , vel1     ,    &
+                             vel2     )
 
          end select
 
@@ -808,7 +866,52 @@
 
 !      add continuous release
 
-         if ( nocont .gt. 0 )          &
+         if ( nocont .gt. 0 ) then
+!
+!  21-6-2004-added fm kleissen - moving continuous discharges
+!          
+            if (moving_discharge) then
+              do 20 ilp = 1 , nrtimcdis
+                DO 10 isp = 1, ICTMAX(ilp)-1
+                  IF ( ITIME       .GE. ICTIME(ilp,isp) ) IDS = isp
+                    ide=ids+1
+!                 IF ( ITIME+IDELT .GT. ICTIME(ID) ) IDE = ID
+   10           CONTINUE
+                IF ( IDE .LT. IDS ) IDE = IDS
+                xwaste(nodye+ilp)=xtime(ilp, ids)
+	              ywaste(nodye+ilp)=ytime(ilp, ids)
+                if ((xtime(ilp, ide)-                      &
+                  xtime(ilp, ids)).ne.0.0)then
+                  xwaste(nodye+ilp)=xtime(ilp, ids)+      &
+                                real(itime-ictime(ilp, ids))/          &
+                                real(ictime(ilp, ide)-ictime(ilp, ids))*    &
+                                    (xtime(ilp, ide)-    &
+                                     xtime(ilp, ids))   
+                endif     
+                if ((ytime(ilp, ide)-                      &
+                  ytime(ilp, ids)).ne.0.0)then
+                  ywaste(nodye+ilp)=ytime(ilp, ids)+      &
+                                real(itime-ictime(ilp, ids))/          &
+                                real(ictime(ilp, ide)-ictime(ilp, ids))*    &
+                                    (ytime(ilp, ide)-    &
+                                     ytime(ilp, ids))
+                endif
+
+20          continue
+!
+!         reset the dye discharges if they exist to world coordinates
+          if (nodye.ge.1)then
+	          do ilp=1,nodye
+	           xwaste(ilp)=xwloc(ilp)
+	           ywaste(ilp)=ywloc(ilp)
+	          enddo
+          endif
+
+          call part06 ( lun(2)   , lgrid    , lgrid2   , nmaxp    , mmaxp    ,    &
+                    xb       , yb       , nodye    , nocont   , xwaste   ,    &
+                    ywaste   , nwaste   , mwaste   )
+
+          endif
          call part14 ( itime    , idelt    , nodye    , nocont   , ictime   ,    &
                        ictmax   , nwaste   , mwaste   , xwaste   , ywaste   ,    &
                        zwaste   , aconc    , rem      , npart    , ndprt    ,    &
@@ -821,7 +924,7 @@
                        acf      , lun(2)   , kpart    , layt     , tcktot   ,    &
                        nplay    , kwaste   , nolayp   , linear   , track    ,    &
                        nmconr   , spart    , rhopart  , noconsp  , const)
-
+        endif
 !        write particle tracks
 
          if (ltrack.and.itime.eq.(itstrtp+idelt*itrakc-idelt)) then
@@ -865,9 +968,11 @@
                           wsettl   , irfac    , anfac    , lsettl   , locdep   ,    &
                           tcktot   , dpsp     )
          else
-            wsettl = 1.0  ! whole array assignment
+! jvb removed this line (commented, so execute if not modtyp=7?
+           if (modtyp.ne.7) wsettl = 1.0  ! whole array assignment
          endif
-         call partvs ( lun(2)   , itime    , nosubs   , nopart   , ivtset   ,    &
+! jvb removed call to partvs (commented, so execute if not modtyp=7?
+         if (modtyp.ne.7) call partvs ( lun(2)   , itime    , nosubs   , nopart   , ivtset   ,    &
                        ivtime   , vsfour   , vsfact   , wpart    , wsettl   ,    &
                        modtyp   , nmaxp    , mmaxp    , lgrid3   , noslay   ,    &
                        npart    , mpart    , kpart    , nosegp   , noseglp  ,    &
@@ -887,6 +992,7 @@
                        area     , angle    , nmaxp    , mnmaxk   , idelt    ,    &
                        nopart   , npart    , mpart    , xpart    , ypart    ,    &
                        zpart    , iptime   , rough    , drand    , lgrid2   ,    &
+                       lgrid3 ,                                                  &
                        wvelo    , wdir     , decays   , wpart    , pblay    ,    &
                        npwndw   , vdiff    , nosubs   , dfact    , modtyp   ,    &
                        t0buoy   , abuoy    , kpart    , mmaxp    , layt     ,    &
@@ -899,9 +1005,11 @@
                        xa0      , ya0      , xa       , ya       , npart0   ,    &
                        mpart0   , za       , locdep   , dpsp     , nolayp   ,    &
                        vrtdsp   , stickdf  , subst    , nbmax    , nconn    ,    &
-                       conn     , tau      , caltau   , nboomint , iboomset ,    &
-                       tyboom   , efboom   , xpolboom , ypolboom , nrowsboom ,    &
-                       itime)
+                       conn     , tau      , caltau   , nboomint , nboomtint,    &
+                       iboomset , iboomtset, boomdepth                      ,    &
+                       tyboom   , efboom   , tyboomt  , efboomt  , xpolboom ,    &
+                       ypolboom , xipolboom, yipolboom, nrowsboom , itime   ,    &
+                       v_swim   , d_swim   )
 
 !         print test data for checking purposes (< 100 particles)
 !          if (nopart  >=  1 .and. nopart .le. 100) then   &

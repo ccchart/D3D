@@ -70,13 +70,14 @@
       character( 32)                 cwork           ! small character workstring
       character(256)                 cbuffer         ! character buffer
       integer  ( ip)                 ibuffer         ! integer buffer
-      integer  ( ip)                 i, k            ! loop variables
+      integer  ( ip)                 i, j, k         ! loop variables
       integer  ( ip)                 ios             ! help variable io-status
       integer  ( ip)                 nodac           ! help variable nodye + nocont
       integer  ( ip)                 ifract          ! help variable oil fractions
       integer  ( ip)                 isb, jsub       ! help variables for substances
       integer  ( ip)                 ilay            ! help variable layers
       integer  ( ip)                 ln              ! help variable for lengthes of strings
+      integer  ( ip)                 nsubfr          ! help variable number of substances per oil fraction (3)
       integer  ( ip)                 nvsfour         ! number of settling harmonics
       integer  ( ip)                 lunin           ! help variable additional files
       integer  ( ip)                 id, ih, im, is  ! help variables to read times
@@ -91,6 +92,7 @@
       real     ( sp), pointer     :: ypoltmp(:)      ! temp y-coordinates polygon
       integer  ( ip)                 nrowstmp        ! temp length polygon
       integer  ( ip)                 npmargin        ! allocation margin in number of particles
+      integer  ( ip), allocatable :: ivisc(:)        ! index of const containing the viscosity
       
       character( 20)                 cplastic        ! plastic name
       real     ( sp)                 rdpldensity     ! read plastic density    
@@ -206,6 +208,8 @@
          write ( lun2, '(a)' ) '  Particle tracks written to tracking file'
       endif
       oil = modtyp .eq. 4
+      nsubfr = 1
+      if (oil) nsubfr = 3
 
 !     read numerical parameters
 
@@ -381,6 +385,9 @@
             mapsub(1) = 1            !.. substance number 1 must be temperature
          case ( 6 )
             write ( *, * ) ' You are using the probabilistic density driven settling model '
+         case ( 7 )
+            write ( *, * ) ' You are using the general Individual Based Model (IBM)'
+            pblay  = 0.0
          case default
             write(lun2 , 2015) modtyp
             nolayp = 1
@@ -488,6 +495,10 @@
             write ( lun2, 2011 ) pblay
          case ( 4 )
             write ( lun2, 2002 ) 'Oil model - dispersion and evaporation included'
+         case ( 6 )
+            write ( lun2, 2001) 'Probabilistic density driven Settling Model'
+         case ( 7 )
+            write ( lun2, 2001) 'General Individual Based Model (IBM)'
       end select
       subst2( nosubs+2 ) = 'nr of particles'
       subst2( nosubs+1 ) = 'localdepth'         !     added for 3d datasets
@@ -576,6 +587,7 @@
          enddo
       else
          call alloc ( "const", const, noconsp + 2 ) ! extra, minimum thickness oil layer and deflection angle, and two for the Fingas evaporation
+         allocate(ivisc(nfract)) ! allocation of array to remember the constant for viscocity
          i = 0
          do ifract = 1, nfract
             i = i + 1
@@ -635,6 +647,7 @@
             i = i + 1
             if ( gettoken( const(i), ierr2 ) .ne. 0 ) goto 4020
             write ( lun2, '(8x,a,es15.7)' ) 'Kinematic viscosity (cSt)                        : ', const(i)       ! 10
+            ivisc(ifract) = i  ! to remember which const contains the viscosity in case temperature dependency is used.
          enddo
          write ( lun2, '(2x,a)' ) ' Global oil parameters'
          i = i + 1
@@ -658,12 +671,28 @@
 
 ! read special features
 ! add defaults when special features are not used first
+      dragvar = .false.
       vertical_bounce = .true.
       write_restart_file = .false.
+      moving_discharge = .false.
+      moving_boom = .false.
+      boom_proc = .false.
+      boom_extract = .false.
+      boom_stick = .false.
+      bstick_prob = 0.0
+      extract_prob = 0.0
+      dispersants = .false.
+      nrtimcdis = 0
       max_restart_age = -1
       pldebug = .false.
       screens = .false.
       nrowsscreens = 0
+      visc_temp = .false.
+      visc_t0 = 20.0
+      visc_t1 = 20.0
+      sedscreen = .false.
+      disp_dir = .false.
+
 
 
       if ( gettoken( cbuffer, id, itype, ierr2 ) .ne. 0 ) then
@@ -678,6 +707,41 @@
             do while (itype .eq. 1)
                call str_lower(cbuffer, len(cbuffer))
                select case (trim(cbuffer))
+               case('visc_temp')
+                  if (gettoken (visc_t0, ierr2) .ne. 0) goto 9008
+                  if (gettoken (visc_t1, ierr2) .ne. 0) goto 9009
+                  write ( lun2, '(/a)' ) ' Found keyword "visc_temp".'
+                  write ( *   , '(/a)' ) ' Found keyword "visc_temp".'
+                  write ( *   , '(a25,1x,f5.1)') ' Reference temperature: ', visc_t0
+                  write ( *   , '(a25,1x,f6.2)') ' Actual temperature   : ', visc_t1
+                  write ( lun2, '(a25,1x,f5.1)') ' Reference temperature: ', visc_t0
+                  write ( lun2, '(a25,1x,f6.2)') ' Actual temperature   : ', visc_t1
+                  ! recalculate the viscosity using the andrade corrlation, for all fractions
+                  do ifract = 1, nfract
+                    write( *,'(a24,f5.1, a22, i3, a4, f6.1)')'  Standard viscocity at ',visc_t0,  &
+                            ' Celcius for fraction ', ifract, ' is ',const(ivisc(ifract))
+                    write( lun2,'(a24,f5.1, a22, i3,a4,f6.1)')'  Standard viscocity at ',visc_t0, &
+                            ' Celcius for fraction ', ifract, ' is ',const(ivisc(ifract))
+                  
+                    const(ivisc(ifract)) = const(ivisc(ifract))*exp(5000. *(1.0/(273.15 + visc_t1)-1.0/(273.15 + visc_t0)))
+                    write( *,'(a24,f5.1,a22, i3,a4,f6.1)')'  New viscocity at      ',visc_t1,    &
+                             ' Celcius for fraction ', ifract, ' is ',const(ivisc(ifract))
+                    write( lun2,'(a24,f5.1,a22, i3,a4,f6.1)')'  New viscocity at      ',visc_t1, &
+                                ' Celcius for fraction ', ifract, ' is ',const(ivisc(ifract))
+                  enddo
+                  
+                  visc_temp=.true.
+                
+               case ('dragvar')       
+                  if (gettoken (dragmean, ierr2) .ne. 0) goto 9008
+                  if (gettoken (dragsigma, ierr2) .ne. 0) goto 9009
+                  write ( lun2, '(/a)' ) ' Found keyword "dragvar".'
+                  write ( *   , '(/a)' ) ' Found keyword "dragvar".'
+                  write ( *   , '(a25,1x,f5.1)') ' Drag coefficient mean:  ', dragmean
+                  write ( *   , '(a24,1x,f6.2)') ' Drag coefficient stdev:', dragsigma
+                  write ( lun2, '(a25,1x,f5.1)') ' Drag coefficient mean:  ', dragmean
+                  write ( lun2, '(a24,1x,f6.2)') ' Drag coefficient stdev:', dragsigma
+                  dragvar=.true.
                case ('no_vertical_bounce')
                   write ( lun2, '(/a)' ) '  Found keyword "no_vertical_bounce": vertical bouncing is switched off.'
                   write ( *   , '(/a)' ) ' Found keyword "no_vertical_bounce": vertical bouncing is switched off.'
@@ -796,6 +860,275 @@
                      write ( *   , '(/a)' ) ' Screens polygon doesn''t contain any coordinates'
                      screens = .false.
                   endif
+               case ('moving_discharge')
+                  write ( lun2, '(/a)' ) '  Found keyword "moving_discharge", function in testphase.'
+                  write ( *   , '(/a)' ) ' Found keyword "moving_discharge", function in testphase.'
+!    read the number of moving discharges 
+                  if (gettoken(nrtimcdis, ierr2 ) .ne. 0) goto 9000
+                  moving_discharge = .true.
+               case ('sedscreen')
+                  write ( lun2, '(/a)' ) '  Found keyword "sedscreen".'
+                  write ( *   , '(/a)' ) ' Found keyword "sedscreen".'
+                 if (boom) then
+                   write (lun2,*) ' Sedscreen not allowed because boom keyword is active'
+                   write (*,*) ' Sedscreen not allowed because boom keyword is active'
+                 else
+! this section will need to be adapted for sediment screens (it needs a depth for example)
+!    read the number of booms ?can i use the same variables so excluding use of both booms and sedscreens?
+                  if (gettoken(nboomint, ierr2 ) .ne. 0) goto 9000
+                  sedscreen = .true.
+                  tyboom = 1
+!     read number of boom introductions
+                  write( *   , 3301 ) nboomint
+                  write( lun2, 3301 ) nboomint
+                  if ( nboomint .gt. 0 ) then
+!     allocate boom data arrays
+                  call alloc ( "iboomset", iboomset, nboomint )
+                  call alloc ( "efboom", efboom, nboomint, max(nosubs,nfract) )
+                  call alloc ( "fiboom", fiboom, nboomint )
+                  call alloc ( "boomdepth", boomdepth, nboomint )
+                  do i = 1 , nboomint
+!     read boom introduction timings
+                    if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6023
+                    iboomset (i) = id*86400 + ih*3600 + im*60 + is
+                    do ifract = 1, nosubs/nsubfr
+                      if ( gettoken( efboom(i, ifract), ierr2 ) .ne. 0 ) goto 6026
+                      if (tyboom .eq. 1) then
+                        if (efboom(i, ifract) .lt. 0 .or. efboom(i, ifract) .gt. 1.0) goto 6027
+                      end if
+                    end do
+                    if ( gettoken( boomdepth(i), ierr2 ) .ne. 0 ) goto 6026
+                    if ( gettoken( fiboom(i), ierr2 ) .ne. 0 ) goto 6010
+!     determine maximum no. of rows for polygones (nrowsmax)
+                    open ( 50, file=fiboom(i), status='old', iostat=ierr2 )
+                    if ( ierr2 .ne. 0 ) go to 1701
+                    call getdim_dis ( 50, fiboom(i), nrowsmax, lun2 )
+                    close (50)
+                    do ifract = 1, nosubs/nsubfr
+                      write ( lun2, 3310 ) id, ih, im, is, tyboom, ifract, efboom(i, ifract), trim(fiboom(i))
+                    end do
+                  enddo
+                  endif
+                 endif
+                  
+               case ('boom')
+                  write ( lun2, '(/a)' ) '  Found keyword "boom".'
+                  write ( *   , '(/a)' ) ' Found keyword "boom".'
+!    read the number of booms 
+                 if (sedscreen) then
+                   write (lun2,*) ' Boom not allowed because boom keyword is active'
+                   write (*,*) ' Boom not allowed because boom keyword is active'
+                 else
+                  if (gettoken(nboomint, ierr2 ) .ne. 0) goto 9000
+                  boom = .true.
+                  tyboom = 1
+!     read number of boom introductions
+                  write( *   , 3301 ) nboomint
+                  write( lun2, 3301 ) nboomint
+                  if ( nboomint .gt. 0 ) then
+!     allocate boom data arrays
+                  call alloc ( "iboomset", iboomset, nboomint )
+                  call alloc ( "efboom", efboom, nboomint, nosubs/nsubfr)
+                  call alloc ( "fiboom", fiboom, nboomint )
+                  do i = 1 , nboomint
+!     read boom introduction timings
+                    if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6023
+                    iboomset (i) = id*86400 + ih*3600 + im*60 + is
+                    do ifract = 1, nosubs/nsubfr
+                      if ( gettoken( efboom(i, ifract), ierr2 ) .ne. 0 ) goto 6026
+                      if (tyboom .eq. 1) then
+                        if (efboom(i, ifract) .lt. 0 .or. efboom(i, ifract) .gt. 1.0) goto 6027
+                      end if
+                    end do
+                    if ( gettoken( fiboom(i), ierr2 ) .ne. 0 ) goto 6010
+!     determine maximum no. of rows for polygones (nrowsmax)
+                    open ( 50, file=fiboom(i), status='old', iostat=ierr2 )
+                    if ( ierr2 .ne. 0 ) go to 1701
+                    call getdim_dis ( 50, fiboom(i), nrowsmax, lun2 )
+                    close (50)
+                    do ifract = 1, nosubs/nsubfr
+                      write ( lun2, 3310 ) id, ih, im, is, tyboom, ifract, efboom(i, ifract), trim(fiboom(i))
+                    end do
+                  enddo
+                  endif
+                 endif
+                  
+               case ('boom_proc')
+                 boom_proc=.true.
+                 if ((.not.moving_boom).and.(.not.boom)) then
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_proc", but not allowed here (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_proc", but not allowed here (testing)'
+                  boom_proc=.false.
+                 else
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_proc" (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_proc" (testing)'
+                  if (gettoken(minheigth, ierr2 ) .ne. 0) goto 9000
+                  if (gettoken(maxheigth, ierr2 ) .ne. 0) goto 9000
+                  if (gettoken(boom_vlim, ierr2 ) .ne. 0) goto 9000
+                  if (gettoken(boom_vmax, ierr2 ) .ne. 0) goto 9000
+                  if (gettoken(minangle, ierr2 ) .ne. 0) goto 9000
+                  write( lun2,3302)minheigth
+                  write( lun2,3303)maxheigth
+                  write( lun2,3304)boom_vlim
+                  write( lun2,3305)boom_vmax
+                  write( lun2,3306)minangle
+                  write( * ,3302)minheigth
+                  write( * ,3303)maxheigth
+                  write( * ,3304)boom_vlim
+                  write( * ,3305)boom_vmax
+                  write( * ,3306)minangle
+                 endif
+                 
+               case ('boom_extract')
+                 boom_extract=.true.
+                 if ((.not.moving_boom).and.(.not.boom)) then
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_extract", but not allowed here (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_extract", but not allowed here (testing)'
+                  boom_extract=.false.
+                 else
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_extract" (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_extract" (testing)'
+!  number of extraction section
+                  if (gettoken(nr_boomextract, ierr2 ) .ne. 0) goto 9000
+                  write (lun2,*)' nr_boomextract',nr_boomextract
+                  if (nr_boomextract.gt.nboomint+nboomtint) then
+                    write (lun2,*) 'ERROR: number of extraction booms greater than number of boom introductions'
+                    write (*,*) 'ERROR: number of extraction booms greater than number of boom introductions'
+                    STOP
+                  endif
+                  
+                  if (gettoken(extract_prob, ierr2 ) .ne. 0) goto 9000
+                  write( lun2,3307)extract_prob
+                  write( * ,3307)extract_prob
+                  if (extract_prob.le.1.0) extract_prob = 1.0 - (1.0-extract_prob)**(idelt/86400.)
+                  call alloc ( "extract_sect", extract_sect, nrowsmax, nboomint + nboomtint  )
+                  do j = 1, nr_boomextract
+                    if (gettoken(k, ierr2 ) .ne. 0) goto 9000
+                    write (lun2,*)' boom number', k
+                    if (gettoken(nr_extract, ierr2 ) .ne. 0) goto 9000
+                    write (lun2,*)' nr_extract',nr_extract
+                    do i = 1, nr_extract
+                      if (gettoken(extract_sect(i,k), ierr2 ) .ne. 0) goto 9000
+                      write (lun2,*)' extract_sect(i,k)',extract_sect(i,k)
+                    enddo
+                  enddo
+                  
+                  
+!                  if (gettoken(nr_extract, ierr2 ) .ne. 0) goto 9000
+                 endif
+                 
+               case ('boom_stick')
+                 boom_stick=.true.
+                 if ((.not.moving_boom).and.(.not.boom)) then
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_stick", but not allowed here (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_stick", but not allowed here (testing)'
+                  boom_stick=.false.
+                 else
+                  write ( lun2, '(/a)' ) '  Found keyword "boom_stick" (testing)'
+                  write ( *   , '(/a)' ) ' Found keyword "boom_stick" (testing)'
+                  if (gettoken(bstick_prob, ierr2 ) .ne. 0) goto 9000
+                  write( lun2,3308)bstick_prob
+                  write( * ,3308)bstick_prob
+                 endif
+                 
+               case ('moving_boom')
+                  write ( lun2, '(/a)' ) '  Found keyword "moving_boom", but in testing phase.'
+                  write ( *   , '(/a)' ) ' Found keyword "moving_boom", but in testing phase'
+!    read the number of additional timings for the given booms
+                  if (gettoken(nboomtint, ierr2 ) .ne. 0) goto 9104
+                  moving_boom = .true.
+                  tyboomt = 1
+                 if ( nboomtint .gt. 0 ) then
+                  call alloc ( "fiboomt", fiboomt, nboomtint )
+                  call alloc ( "efboomt", efboomt, nboomtint, nosubs/nsubfr)
+                  call alloc ( "iboomtset", iboomtset, nboomtint )
+                  do i = 1 , nboomtint
+!     read boom introduction timings
+                    if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6023
+                    if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6023
+                    do ifract = 1, nosubs/nsubfr
+                       if ( gettoken( efboomt(i, ifract), ierr2 ) .ne. 0 ) goto 6026
+                      if (tyboomt .eq. 1) then
+                         if (efboomt(i, ifract) .lt. 0) goto 6027
+                         if (efboomt(i, ifract) .gt. 1.0) then
+                           write(*,*) ' WARNING: Boom efficiency larger than 1, 1 assumed'
+                           write(lun2,*) ' WARNING: Boom efficiency larger than 1, 1 assumed'
+                         endif
+                         
+                      end if
+                    end do
+
+                    iboomtset (i) = id*86400 + ih*3600 + im*60 + is
+
+                    if ( gettoken( fiboomt(i), ierr2 ) .ne. 0 ) goto 6010
+!     determine maximum no. of rows for polygones (nrowsmax)
+                    open ( 50, file=fiboomt(i), status='old', iostat=ierr2 )
+                    if ( ierr2 .ne. 0 ) go to 1701
+                    call getdim_dis ( 50, fiboomt(i), nrowsmax, lun2 ) !the nrowmax needs to be the same as earlier (for the boom)
+                    close (50)
+                    do ifract = 1, nosubs/nsubfr
+                       write ( lun2, 3310 ) id, ih, im, is, tyboomt, ifract, efboomt(i, ifract), trim(fiboomt(i))
+                    end do
+
+                 enddo
+                 endif
+               case ('dispersants')
+                 ! to be included here 
+                  write ( lun2, '(/a)' ) '  Found keyword "dispersants", but in testing phase.'
+                  write ( *   , '(/a)' ) ' Found keyword "dispersants", but in testing phase.'
+!    read the number of additional timings for the given booms
+                  if (gettoken(ndisapp, ierr2 ) .ne. 0) goto 9104
+                  dispersants = .true.
+                  tydisp = 1
+!     read number of dispersant events
+!            if ( gettoken( ndisapp, ierr2 ) .ne. 0 ) goto 6002
+            write( *   , 3300 ) ndisapp
+            write( lun2, 3300 ) ndisapp
+            if ( ndisapp .gt. 0 ) then
+!     allocate dispersant data arrays
+               call alloc ( "idisset", idisset, ndisapp )
+               call alloc ( "efdisp", efdisp, ndisapp, nfract )
+               call alloc ( "fidisp", fidisp, ndisapp )
+               do i = 1 , ndisapp
+!     read dispersant events timings
+                  if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6003
+                  if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6003
+                  if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6003
+                  if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6003
+!     read dispersant parameterisation
+                  do ifract = 1, nfract
+                     if ( gettoken( efdisp(i, ifract), ierr2 ) .ne. 0 ) goto 6006
+                     if (tydisp .eq. 1) then
+                        if (efdisp(i, ifract) .lt. 0 .or. efdisp(i, ifract) .gt. 1.0) goto 6007
+                     end if
+                  end do
+!     read dispersant polygon file
+                  idisset (i) = id*86400 + ih*3600 + im*60 + is
+                  if ( gettoken( fidisp(i), ierr2 ) .ne. 0 ) goto 6010
+!     determine maximum no. of rows for polygons (nrowsmax)
+                  open ( 50, file=fidisp(i), status='old', iostat=ierr2 )
+                  if ( ierr2 .ne. 0 ) go to 1700
+                  call getdim_dis ( 50, fidisp(i), nrowsmax, lun2 )
+                  close (50)
+                  do ifract = 1, nfract
+                     write ( lun2, 3310 ) id, ih, im, is, tydisp, ifract, &
+                                          efdisp(i, ifract), trim(fidisp(i))
+                  end do
+               enddo
+            end if
+               case ('disp_dir')
+                 if ( gettoken( disp_xdir, ierr2 ) .ne. 0 ) goto 6006
+                 if ( gettoken( disp_ydir, ierr2 ) .ne. 0 ) goto 6006
+                 
+
                case default
                   write ( lun2, '(/a,a)' ) '  Unrecognised keyword: ', trim(cbuffer)
                   write ( *   , '(/a,a)' ) ' Unrecognised keyword: ', trim(cbuffer)
@@ -842,7 +1175,77 @@
          write ( lun2, 2122 )
          iddtim = 0
       endif
+! check the timers of the different cases (keywords) because now the times are known
 
+      if (boom) then
+!     check for ascending order of events, and one per timestep
+                  do i = 1 , nboomint
+                    if ( iboomset(i) .lt. itstrtp .or. iboomset(i) .gt. itstopp ) then
+                      write ( *   , 3320 )
+                      write ( lun2, 3320 )
+                      ierr = ierr + 1
+                    endif
+                    if (mod(iboomset(i) ,idelt) .ne. 0) then
+                      write ( *   , 3321 )
+                      write ( lun2, 3321 )
+                      ierr = ierr + 1
+                    endif
+                    if ( i .gt. 1 ) then
+                      if ( iboomset(i) .le. iboomset(i-1)) then
+                        write ( *   , 3322 )
+                        write ( lun2, 3322 )
+                        ierr = ierr + 1
+                      endif
+                    endif
+                  enddo
+      endif
+      if (moving_boom) then
+!     check for ascending order of events, and one per timestep
+                   do i = 1 , nboomtint ! check for all moving booms
+                   if ( iboomtset(i) .lt. itstrtp .or. iboomtset(i) .gt. itstopp ) then
+                       write ( *   , 3320 )
+                       write ( lun2, 3320 )
+                       ierr = ierr + 1
+                    endif
+                    if (mod(iboomtset(i) ,idelt) .ne. 0) then
+                       write ( *   , 3321 )
+                       write ( lun2, 3321 )
+                       ierr = ierr + 1
+                    endif
+                    if ( i .gt. 1 ) then
+                       if ( iboomtset(i) .le. iboomtset(i-1)) then
+                          write ( *   , 3322 )
+                          write ( lun2, 3322 )
+                          ierr = ierr + 1
+                       endif
+                    endif
+                    enddo
+      endif
+      if (dispersants) then
+!     check for ascending order of events, and one per timestep
+               do i = 1 , ndisapp
+                  if ( idisset(i) .lt. itstrtp .or. idisset(i) .gt. itstopp ) then
+                     write ( *   , 3320 )
+                     write ( lun2, 3320 )
+                     ierr = ierr + 1
+                  endif
+                  if (mod(idisset(i) ,idelt) .ne. 0) then
+                     write ( *   , 3321 )
+                     write ( lun2, 3321 )
+                     ierr = ierr + 1
+                  endif
+                  if ( i .gt. 1 ) then
+                     if ( idisset(i) .le. idisset(i-1)) then
+                        write ( *   , 3322 )
+                        write ( lun2, 3322 )
+                        ierr = ierr + 1
+                     endif
+                  endif
+               enddo
+     endif
+
+
+! end check timers
 !     check wind-variations
 
       if ( spawnd ) then
@@ -975,12 +1378,13 @@
 !     oil_opt = 0xx : no boom introductions
 !             = 1xx : boom introductions with direct chance per day to pass the oilboom
 !
-         ndisapp = 0
-         nboomint = 0
+!         ndisapp = 0
+!         nboomint = 0
          if ( gettoken( oil_opt, ierr2 ) .ne. 0 ) goto 6001
          ini_opt = mod(oil_opt,10)
-         tydisp = mod(int(oil_opt/10), 10)
-         tyboom = mod(int(oil_opt/100), 10)
+!         tydisp = mod(int(oil_opt/10), 10)
+! booms introduction removed since it is replace by the introduction of keyword boom earlier
+!         tyboom = mod(int(oil_opt/100), 10)
 
          if (ini_opt .eq. 1 ) then
             if ( gettoken( ini_file, ierr2 ) .ne. 0 ) goto 6012
@@ -1010,125 +1414,125 @@
 
 !     optional definition of dispersant releases and boom introductions (from v3.76)
 
-         if ( tydisp .gt. 0 ) then
-            if (tydisp .ne. 1) goto 6005
+!         if ( tydisp .gt. 0 ) then
+!            if (tydisp .ne. 1) goto 6005
 !     read number of dispersant events
-            if ( gettoken( ndisapp, ierr2 ) .ne. 0 ) goto 6002
-            write( *   , 3300 ) ndisapp
-            write( lun2, 3300 ) ndisapp
-            if ( ndisapp .gt. 0 ) then
+!            if ( gettoken( ndisapp, ierr2 ) .ne. 0 ) goto 6002
+!            write( *   , 3300 ) ndisapp
+!            write( lun2, 3300 ) ndisapp
+!            if ( ndisapp .gt. 0 ) then
 !     allocate dispersant data arrays
-               call alloc ( "idisset", idisset, ndisapp )
-               call alloc ( "efdisp", efdisp, ndisapp, nfract )
-               call alloc ( "fidisp", fidisp, ndisapp )
-               do i = 1 , ndisapp
+!               call alloc ( "idisset", idisset, ndisapp )
+!               call alloc ( "efdisp", efdisp, ndisapp, nfract )
+!               call alloc ( "fidisp", fidisp, ndisapp )
+!               do i = 1 , ndisapp
 !     read dispersant events timings
-                  if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6003
-                  if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6003
-                  if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6003
-                  if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6003
+!                  if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6003
+!                  if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6003
+!                  if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6003
+!                  if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6003
 !     read dispersant parameterisation
-                  do ifract = 1, nfract
-                     if ( gettoken( efdisp(i, ifract), ierr2 ) .ne. 0 ) goto 6006
-                     if (tydisp .eq. 1) then
-                        if (efdisp(i, ifract) .lt. 0 .or. efdisp(i, ifract) .gt. 1.0) goto 6007
-                     end if
-                  end do
+!                  do ifract = 1, nfract
+!                     if ( gettoken( efdisp(i, ifract), ierr2 ) .ne. 0 ) goto 6006
+!                     if (tydisp .eq. 1) then
+!                        if (efdisp(i, ifract) .lt. 0 .or. efdisp(i, ifract) .gt. 1.0) goto 6007
+!                     end if
+!                  end do
 !     read dispersant polygon file
-                  if ( gettoken( fidisp(i), ierr2 ) .ne. 0 ) goto 6010
+!                  if ( gettoken( fidisp(i), ierr2 ) .ne. 0 ) goto 6010
 !     determine maximum no. of rows for polygons (nrowsmax)
-                  open ( 50, file=fidisp(i), status='old', iostat=ierr2 )
-                  if ( ierr2 .ne. 0 ) go to 1700
-                  call getdim_dis ( 50, fidisp(i), nrowsmax, lun2 )
-                  close (50)
+!                  open ( 50, file=fidisp(i), status='old', iostat=ierr2 )
+!                  if ( ierr2 .ne. 0 ) go to 1700
+!                  call getdim_dis ( 50, fidisp(i), nrowsmax, lun2 )
+!                  close (50)
 
 !     check for ascending order of events, and one per timestep
-                  idisset (i) = id*86400 + ih*3600 + im*60 + is
-                  if ( idisset(i) .lt. itstrtp .or. idisset(i) .gt. itstopp ) then
-                     write ( *   , 3320 )
-                     write ( lun2, 3320 )
-                     ierr = ierr + 1
-                  endif
-                  if (mod(idisset(i) ,idelt) .ne. 0) then
-                     write ( *   , 3321 )
-                     write ( lun2, 3321 )
-                     ierr = ierr + 1
-                  endif
-                  if ( i .gt. 1 ) then
-                     if ( idisset(i) .le. idisset(i-1)) then
-                        write ( *   , 3322 )
-                        write ( lun2, 3322 )
-                        ierr = ierr + 1
-                     endif
-                  endif
-                  do ifract = 1, nfract
-                     write ( lun2, 3310 ) id, ih, im, is, tydisp, substi((ifract-1)*3+1), &
-                                          efdisp(i, ifract), trim(fidisp(i))
-                  end do
-               enddo
-            end if
-         end if
-
-         if (tyboom .gt. 0 ) then
-            if (tyboom .ne. 1) goto 6025
+!                  idisset (i) = id*86400 + ih*3600 + im*60 + is
+!                  if ( idisset(i) .lt. itstrtp .or. idisset(i) .gt. itstopp ) then
+!                     write ( *   , 3320 )
+!                     write ( lun2, 3320 )
+!                     ierr = ierr + 1
+!                  endif
+!                  if (mod(idisset(i) ,idelt) .ne. 0) then
+!                     write ( *   , 3321 )
+!                     write ( lun2, 3321 )
+!                     ierr = ierr + 1
+!                  endif
+!                  if ( i .gt. 1 ) then
+!                     if ( idisset(i) .le. idisset(i-1)) then
+!                        write ( *   , 3322 )
+!                        write ( lun2, 3322 )
+!                        ierr = ierr + 1
+!                     endif
+!                  endif
+!                  do ifract = 1, nfract
+!                     write ( lun2, 3310 ) id, ih, im, is, tydisp, substi((ifract-1)*3+1), &
+!                                          efdisp(i, ifract), trim(fidisp(i))
+!                  end do
+!               enddo
+!            end if
+!         end if
+! next section removed because of the introduction of the keyword boom instead (FMK 10-08-2015)
+!        if (tyboom .gt. 0 ) then
+!            if (tyboom .ne. 1) goto 6025
 !     read number of boom introductions
-            if ( gettoken( nboomint, ierr2 ) .ne. 0 ) goto 6022
-            write( *   , 3301 ) nboomint
-            write( lun2, 3301 ) nboomint
-            if ( nboomint .gt. 0 ) then
+!            if ( gettoken( nboomint, ierr2 ) .ne. 0 ) goto 6022
+!            write( *   , 3301 ) nboomint
+!            write( lun2, 3301 ) nboomint
+!            if ( nboomint .gt. 0 ) then
 !     allocate boom data arrays
-               call alloc ( "iboomset", iboomset, nboomint )
-               call alloc ( "efboom", efboom, nboomint, nfract )
-               call alloc ( "fiboom", fiboom, nboomint )
-               do i = 1 , nboomint
+!               call alloc ( "iboomset", iboomset, nboomint )
+!               call alloc ( "efboom", efboom, nboomint, nfract )
+!               call alloc ( "fiboom", fiboom, nboomint )
+!               do i = 1 , nboomint
 !     read boom introduction timings
-                  if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6023
-                  if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6023
-                  if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6023
-                  if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6023
-                  do ifract = 1, nfract
-                     if ( gettoken( efboom(i, ifract), ierr2 ) .ne. 0 ) goto 6026
-                     if (tyboom .eq. 1) then
-                        if (efboom(i, ifract) .lt. 0 .or. efboom(i, ifract) .gt. 1.0) goto 6027
-                     end if
-                  end do
-                  if ( gettoken( fiboom(i), ierr2 ) .ne. 0 ) goto 6010
+!                  if ( gettoken( id, ierr2 ) .ne. 0 ) goto 6023
+!                  if ( gettoken( ih, ierr2 ) .ne. 0 ) goto 6023
+!                  if ( gettoken( im, ierr2 ) .ne. 0 ) goto 6023
+!                  if ( gettoken( is, ierr2 ) .ne. 0 ) goto 6023
+!                  do ifract = 1, nfract
+!                     if ( gettoken( efboom(i, ifract), ierr2 ) .ne. 0 ) goto 6026
+!                     if (tyboom .eq. 1) then
+!                        if (efboom(i, ifract) .lt. 0 .or. efboom(i, ifract) .gt. 1.0) goto 6027
+!                     end if
+!                  end do
+!                  if ( gettoken( fiboom(i), ierr2 ) .ne. 0 ) goto 6010
 !     determine maximum no. of rows for polygones (nrowsmax)
-                  open ( 50, file=fiboom(i), status='old', iostat=ierr2 )
-                  if ( ierr2 .ne. 0 ) go to 1701
-                  call getdim_dis ( 50, fiboom(i), nrowsmax, lun2 )
-                  close (50)
+!                  open ( 50, file=fiboom(i), status='old', iostat=ierr2 )
+!                  if ( ierr2 .ne. 0 ) go to 1701
+!                  call getdim_dis ( 50, fiboom(i), nrowsmax, lun2 )
+!                  close (50)
 
 !     check for ascending order of events, and one per timestep
-                  iboomset (i) = id*86400 + ih*3600 + im*60 + is
-                  if ( iboomset(i) .lt. itstrtp .or. iboomset(i) .gt. itstopp ) then
-                     write ( *   , 3320 )
-                     write ( lun2, 3320 )
-                     ierr = ierr + 1
-                  endif
-                  if (mod(iboomset(i) ,idelt) .ne. 0) then
-                     write ( *   , 3321 )
-                     write ( lun2, 3321 )
-                     ierr = ierr + 1
-                  endif
-                  if ( i .gt. 1 ) then
-                     if ( iboomset(i) .le. iboomset(i-1)) then
-                        write ( *   , 3322 )
-                        write ( lun2, 3322 )
-                        ierr = ierr + 1
-                     endif
-                  endif
-                  do ifract = 1, nfract
-                     write ( lun2, 3310 ) id, ih, im, is, tyboom, ifract, efboom(i, ifract), trim(fiboom(i))
-                  end do
-               enddo
-            endif
-         endif
+!                  iboomset (i) = id*86400 + ih*3600 + im*60 + is
+!                  if ( iboomset(i) .lt. itstrtp .or. iboomset(i) .gt. itstopp ) then
+!                     write ( *   , 3320 )
+!                     write ( lun2, 3320 )
+!                     ierr = ierr + 1
+!                  endif
+!                  if (mod(iboomset(i) ,idelt) .ne. 0) then
+!                     write ( *   , 3321 )
+!                     write ( lun2, 3321 )
+!                     ierr = ierr + 1
+!                  endif
+!                  if ( i .gt. 1 ) then
+!                     if ( iboomset(i) .le. iboomset(i-1)) then
+!                        write ( *   , 3322 )
+!                        write ( lun2, 3322 )
+!                        ierr = ierr + 1
+!                     endif
+!                  endif
+!                  do ifract = 1, nfract
+!                     write ( lun2, 3310 ) id, ih, im, is, tyboom, ifract, efboom(i, ifract), trim(fiboom(i))
+!                  end do
+!               enddo
+!            endif
+!         endif
 
-         if ( ndisapp .gt. 0 .and. nrowsmax .gt. 0) then
+         allocate ( xpoltmp(nrowsmax) )
+         allocate ( ypoltmp(nrowsmax) )
+         if ( ndisapp .gt. 0 ) then
 !     allocate memory for the dispersant polygons, and read them into memory
-            call alloc ( "xpoltmp", xpoltmp, nrowsmax )
-            call alloc ( "ypoltmp", ypoltmp, nrowsmax )
             call alloc ( "xpoldis", xpoldis, nrowsmax, ndisapp )
             call alloc ( "ypoldis", ypoldis, nrowsmax, ndisapp )
             call alloc ( "nrowsdis", nrowsdis, ndisapp )
@@ -1143,11 +1547,20 @@
             enddo
          endif
 
+         if ( nboomint + nboomtint .gt. 0 ) then
+!     allocate memory for the boom polygons, and read them into memory
+            call alloc ( "xpolboom", xpolboom, nrowsmax, nboomint + nboomtint )
+            call alloc ( "ypolboom", ypolboom, nrowsmax, nboomint + nboomtint )
+            call alloc ( "nrowsboom", nrowsboom, nboomint + nboomtint )
+            call alloc ( "polangle" , polangle, nrowsmax-1, nboomint + nboomtint )
+            call alloc ( "boomdepth", boomdepth, nboomint + nboomtint )
+         endif
+
          if ( nboomint .gt. 0 ) then
 !     allocate memory for the boom polygons, and read them into memory
-            call alloc ( "xpolboom", xpolboom, nrowsmax, nboomint )
-            call alloc ( "ypolboom", ypolboom, nrowsmax, nboomint )
-            call alloc ( "nrowsboom", nrowsboom, nboomint )
+!            call alloc ( "xpolboom", xpolboom, nrowsmax, nboomint )
+!            call alloc ( "ypolboom", ypolboom, nrowsmax, nboomint )
+!            call alloc ( "nrowsboom", nrowsboom, nboomint )
             xpolboom = 999.999
             ypolboom = 999.999
 
@@ -1155,10 +1568,83 @@
                call polpart(fiboom(i), nrowsmax, xpoltmp, ypoltmp, nrowstmp, lun2)
                xpolboom(1:nrowstmp, i) = xpoltmp(1:nrowstmp)
                ypolboom(1:nrowstmp, i) = ypoltmp(1:nrowstmp)
+               ! the angle of the polygon (boom) segments
+               do j = 1, nrowstmp-1
+                 if ((ypolboom(j+1,i)-ypolboom(j,i))/=0.0) then
+                 polangle(j, i) = atand((xpolboom(j+1,i)-xpolboom(j,i))/(ypolboom(j+1,i)-ypolboom(j,i)))
+               else
+                 polangle(j, i) = 90.0
+               endif
+!               write(lun2,'(a10,i3,1x,f6.1,1x, 4(f9.1,1x))') "polygone: ",j, polangle(j,i), xpolboom(j+1,i), &
+!                                                     xpolboom(j,i),ypolboom(j+1,i),ypolboom(j,i)
+               
+               enddo
+               
                nrowsboom(i) = nrowstmp
             enddo
          endif
+         if ( nboomtint .gt. 0 ) then
+!     allocate memory for the moving boom polygons, and read them into memory
+            call alloc ( "xipolboom", xipolboom, nrowsmax, nboomtint )
+            call alloc ( "yipolboom", yipolboom, nrowsmax, nboomtint )
+
+            xpolboom = 999.999
+            ypolboom = 999.999
+
+            do i = 1 , nboomtint
+               call polpart(fiboomt(i), nrowsmax, xpoltmp, ypoltmp, nrowstmp, lun2)
+               xpolboom(1:nrowstmp, i) = xpoltmp(1:nrowstmp)
+               ypolboom(1:nrowstmp, i) = ypoltmp(1:nrowstmp)
+               nrowsboom(i) = nrowstmp
+            enddo
+         endif
+
+      
       endif
+! in case it is not the oil module and sedimentscreens are used then the allocate and read boom needs to be carried out.
+         if(.not.oil .and.(boom.or.sedscreen)) then
+           if ( nboomint .gt. 0 ) then
+!     allocate memory for the boom polygons, and read them into memory
+            allocate ( xpoltmp(nrowsmax) )
+            allocate ( ypoltmp(nrowsmax) )
+            call alloc ( "xpolboom", xpolboom, nrowsmax, nboomint + nboomtint )
+            call alloc ( "ypolboom", ypolboom, nrowsmax, nboomint + nboomtint )
+            call alloc ( "nrowsboom", nrowsboom, nboomint + nboomtint )
+            call alloc ( "polangle" , polangle, nrowsmax-1, nboomint + nboomtint )
+            call alloc ( "boomdepth", boomdepth, nboomint )
+            
+         endif
+
+         if ( nboomint .gt. 0 ) then
+!     allocate memory for the boom polygons, and read them into memory
+!            call alloc ( "xpolboom", xpolboom, nrowsmax, nboomint )
+!            call alloc ( "ypolboom", ypolboom, nrowsmax, nboomint )
+!            call alloc ( "nrowsboom", nrowsboom, nboomint )
+            xpolboom = 999.999
+            ypolboom = 999.999
+
+            do i = 1 , nboomint
+               call polpart(fiboom(i), nrowsmax, xpoltmp, ypoltmp, nrowstmp, lun2)
+               xpolboom(1:nrowstmp, i) = xpoltmp(1:nrowstmp)
+               ypolboom(1:nrowstmp, i) = ypoltmp(1:nrowstmp)
+               ! the angle of the polygon (boom) segments
+               do j = 1, nrowstmp-1
+                 if ((ypolboom(j+1,i)-ypolboom(j,i))/=0.0) then
+                 polangle(j, i) = atand((xpolboom(j+1,i)-xpolboom(j,i))/(ypolboom(j+1,i)-ypolboom(j,i)))
+               else
+                 polangle(j, i) = 90.0
+               endif
+!               write(lun2,'(a10,i3,1x,f6.1,1x, 4(f9.1,1x))') "polygone: ",j, polangle(j,i), xpolboom(j+1,i), &
+!                                                     xpolboom(j,i),ypolboom(j+1,i),ypolboom(j,i)
+               
+               enddo
+               
+               nrowsboom(i) = nrowstmp
+            enddo
+         endif
+         
+         endif
+         
 
 !     optionally read the name of a delpar binary initial file
 !     and/or read the number of monitoring stations
@@ -1167,6 +1653,7 @@
       idp_file = " "
       nopart_res = 0
       if ( gettoken( cbuffer, nosta, itype, ierr2 ) .ne. 0 ) goto 4031
+!      if (modtyp.ne.1)then
       if ( itype .eq. 1) then
          idp_file = cbuffer
          if ( idp_file .ne. ' ' ) then
@@ -1174,7 +1661,12 @@
             write ( lun2, * ) ' Reading number of initial particles from file:', idp_file(1:len_trim(idp_file))
             call openfl ( 50, idp_file, ftype(2), 0 )
 !           get maximum no. of initial particles (nrespart), don't combine ini_oil with this!
+            if (modtyp.eq.7) then
+              read ( 50 , * ) nopart_res, idummy
+            else
             read ( 50 ) idummy, nopart_res, idummy
+            endif
+            
             close ( 50 )
             npmax = nopart_res
          endif
@@ -1448,18 +1940,25 @@
          allocate   ( ftime ( 1, 1 ) )
          allocate   ( amassc( 1, 1, 1 ) )
       endif
+      if (moving_discharge) then
+        call alloc ( "xwloc" , xwloc,  nrtimcdis )
+        call alloc ( "ywloc" , ywloc,  nrtimcdis )
+      endif
 
       do 20 i = 1 , nocont
-
+! moving discharrge, they come before the other continuous discharge(s)
 !       name of the continuous release (version 3.30)
 
          if ( gettoken( nmconr(i), ierr2 ) .ne. 0 ) goto 4046
          write ( lun2, 2259 ) nmconr(i)
 
 !       location of the continuous release
+! if moving discharges are not active then read the coordinates, otherwise skip this line
+         if (i.gt.nrtimcdis) then
 
          if ( gettoken( xwaste(i+nodye), ierr2 ) .ne. 0 ) goto 4047
          if ( gettoken( ywaste(i+nodye), ierr2 ) .ne. 0 ) goto 4047
+         endif
          if ( .not. oil ) then
             if ( nolayp .eq. 1 ) then
                if ( gettoken( zwaste(i+nodye), ierr2 ) .ne. 0 ) goto 4047
@@ -1533,6 +2032,11 @@
          call alloc ( "ictime", ictime, nocont   , ictmax(i) )
          call alloc ( "ftime ", ftime , nocont   , ictmax(i) )
          call alloc ( "amassc", amassc, nocont   , nosubs, ictmax(i) )
+         if (moving_discharge) then 
+           call alloc ( "xtime", xtime , nrtimcdis, ictmax(i) )
+           call alloc ( "ytime", ytime , nrtimcdis, ictmax(i) )
+         endif
+
          do k = 1 , ictmax(i)
 
 !         read the breakpoint and rate of mass-release (unity of mass/sec)
@@ -1542,6 +2046,11 @@
             if ( gettoken( im, ierr2 ) .ne. 0 ) goto 4052
             if ( gettoken( is, ierr2 ) .ne. 0 ) goto 4052
             if ( gettoken( ftime(i,k), ierr2 ) .ne. 0 ) goto 4052
+            if ( i.le.nrtimcdis) then
+              if ( gettoken( xtime(i, k), ierr2 ) .ne. 0 ) goto 4052
+              if ( gettoken( ytime(i, k), ierr2 ) .ne. 0 ) goto 4052
+            endif
+            
             ictime(i,k) = id*86400 + ih*3600 + im*60 + is
             if ( k .eq. 1 .and. ictime(i,k) .ne. itstrtp ) then
                write ( lun2, 2360 )
@@ -1561,9 +2070,16 @@
          do isb = 1, nosubs
             write ( lun2, '(15x,10a)' ) substi(isb)
             do k = 1, ictmax(i)
+              if (i.le.nrtimcdis) then
+               write ( lun2, 2353 ) ictime(i,k)/86400, mod(ictime(i,k),86400)/3600,   &
+                                    mod(ictime(i,k),3600)/60, mod(ictime(i,k),60) ,   &
+                                    amassc( i, isb, k ), xtime(i, k), ytime(i, k)
+              else
                write ( lun2, 2352 ) ictime(i,k)/86400, mod(ictime(i,k),86400)/3600,   &
                                     mod(ictime(i,k),3600)/60, mod(ictime(i,k),60) ,   &
                                                               amassc( i, isb, k )
+              endif
+              
             enddo
          enddo
 
@@ -1574,6 +2090,11 @@
                write ( lun2, 2381 )
                ierr = ierr + 1
             endif
+         endif
+! only if moving discharges are active
+         if (moving_discharge.and.i.le.nrtimcdis) then
+           xwloc(i) = xtime(i, 1)
+           ywloc(i) = ytime(i, 1)
          endif
 
    20 continue
@@ -1922,6 +2443,7 @@
       if ( nrowsmax .gt. 0 ) then
          call alloc ( "xpol", xpol, nrowsmax )
          call alloc ( "ypol", ypol, nrowsmax )
+         call alloc ( "conc2", conc2, nrowsmax)
       endif
       call alloc ( "elt_names", elt_names,    8+nosub_max*noslay )
       call alloc ( "elt_types", elt_types,    8+nosub_max*noslay )
@@ -1929,6 +2451,9 @@
       call alloc ( "elt_dims ", elt_dims , 6, 8+nosub_max*noslay )
       bufsize = max(noslay*pg(1)%nmap*pg(1)%mmap,noslay*mnmax2,nosta)
       call alloc ( "rbuffr   ", rbuffr   , bufsize )
+      call alloc ( "v_swim", v_swim, npmax        )
+      call alloc ( "d_swim", d_swim, npmax        )
+      call alloc ( "ebb_flow", d_swim, npmax        )
 
       npmax = npmax - npmargin ! Deduct margin again
 
@@ -1949,6 +2474,8 @@
       t0buoy = 0.0
       apeak  = 0.0
       wsettl = 0.0
+      v_swim = 0.0
+      d_swim = 0.0
 
 !     stop when errors occured during reading
 
@@ -2039,7 +2566,7 @@
              12x,'Percentage of particles =   ',f11.0, ' %')
  2289 format(12x,'Released masses : ')
  2290 format(20x,'  Substance : ',a20,e13.4,'  kg/m3')
- 2300 format(/'  Number of continuous release stations:', i2  /       )
+ 2300 format(/'  Number of continuous release stations:', i4  /       )
  2301 format(/'  Number of user defined releases    :', i2  /         )
  2316 format( '  User defined release: ',i3,' no. of particles: ', i9,/,  &
               '  Percentage of particles =   ',f11.0, ' %'           ,/,  &
@@ -2053,6 +2580,8 @@
  2339 format(/4x,'Power for settling velocity (v=w*C**n)  : ',e15.6/  &
               4x,'Refinement factor of the plotgrid for C : ',i5    )
  2352 format( 18x,i4.2,'-',i2.2,'-',i2.2,'-',i2.2,e20.3,' kg/s')
+!                              1234567890112345678901....123456789
+ 2353 format( 18x,i4.2,'-',i2.2,'-',i2.2,'-',i2.2,e20.3,' kg/s,',1x,f11.1,1x,f11.1)
 !                              1234567890112345678901....123456789
  2373 format(10x,'time',8x,'base',4x,'amplitude',7x,'period',       &
              8x,'phase',6x,'minimum',6x,'maximum',/,          &
@@ -2079,8 +2608,16 @@
  3133 format(  '     Sticking number for substance ',i3,' = ',i3      )
  3300 format(/,'  Number of dispersant applications     :',i3 )
  3301 format(/,'  Number of boom introductions     :',i3 )
+ 3302 format('  Boom parameter, minimum wave height(m)           : ',f6.2 )
+ 3303 format('  Boom parameter, maximum wave height(m)           : ',f6.2 )
+ 3304 format('  Boom parameter, failure current speed(m/s)       : ',f6.2 )
+ 3305 format('  Boom parameter, maximum current speed for failure: ',f7.2 )
+ 3306 format('  Boom parameter, minimum boom-current angle (deg) : ',f7.1 )
+ 3307 format('  Boom parameter, boom extract probability         : ',f6.3 )
+ 3308 format('  Boom parameter, boom stick probability           : ',f6.3 )
  3310 format(5x,i4,'D-',i2.2,'H-',i2.2,'M-',i2.2,'S.', '  Type: ',i2, &
-             ' Fraction: ',a20,' Parameter: ',f10.5,'  Polygon file: ', a)
+!             ' Fraction: ',a20,' Parameter: ',f10.5,'  Polygon file: ', a)
+             ' Fraction: ',i3,' Parameter: ',f10.5,'  Polygon file: ', a)
 
 !
 !     warning formats
@@ -2353,6 +2890,8 @@
 6007  write(*,*) 'Error: parameter of dispersant application', &
        ' of type 1 must be set between 0.0 and 1.0'
       call stop_exit(1)
+6008  write(*,*) 'Error: parameter of directional dispersion coefficient'
+      call stop_exit(1)
 6010  write(*,*) 'Error: filename of dispersant application', &
        ' can not be read correctly'
       call stop_exit(1)
@@ -2391,6 +2930,12 @@
 
 9000  write(lun2,*) ' Error: reading special features '
       write(*   ,*) ' Error: reading special features '
+      call stop_exit(1)
+9008  write(lun2,*) ' Error: value of dragmean constant'
+      write(*   ,*) ' Error: value of dragmean constant'
+      call stop_exit(1)
+9009  write(lun2,*) ' Error: value of dragsigma constant'
+      write(*   ,*) ' Error: value of dragsigma constant'
       call stop_exit(1)
 9010  write(lun2,*) ' Error: value of max_restart_age constant'
       write(*   ,*) ' Error: value of max_restart_age constant'
@@ -2444,7 +2989,7 @@
       use precision_part       ! flexible size definition
       implicit none           !   force explicit typing
       integer, parameter                  :: max_len_line=200
-      integer, parameter                  :: max_len_key=20
+      integer, parameter                  :: max_len_key=50
       integer                             :: len_file, len_line
       integer                             :: lun, ios
       integer                             :: nrows, nrowsmax
@@ -2500,7 +3045,7 @@
       use precision_part       ! flexible size definition
       implicit none           !   force explicit typing
       integer, parameter                  :: max_len_line=200
-      integer, parameter                  :: max_len_key=20
+      integer, parameter                  :: max_len_key=50
       integer                             :: npart_ini,lun, ios
       integer                             :: npolmax, npart_pol
       integer                             :: nrows,irow
@@ -2596,7 +3141,7 @@ subroutine getdim_asc ( lun , asc_file , npart_ini, nrowsmax , &
       implicit none           ! force explicit typing
 
       integer, parameter                  :: max_len_line=200
-      integer, parameter                  :: max_len_key=20
+      integer, parameter                  :: max_len_key=50
       integer                             :: npart_ini,lun, ios
       integer                             :: npart_asc, npart_fact
       integer (ip)                        :: nrowsmax

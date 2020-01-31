@@ -30,6 +30,7 @@ contains
                           area   , angle  , nmax   , mnmaxk , idelt  ,      &
                           nopart , npart  , mpart  , xpart  , ypart  ,      &
                           zpart  , iptime , rough  , drand  , lgrid2 ,      &
+                          lgrid3 ,                                          &
                           wvelo  , wdir   , decays , wpart  , pblay  ,      &
                           npwndw , vdiff  , nosubs , dfact  , modtyp ,      &
                           t0buoy , abuoy  , kpart  , mmax   , layt   ,      &
@@ -42,8 +43,11 @@ contains
                           xa0    , ya0    , xa     , ya     , npart0 ,      &
                           mpart0 , za     , locdep , dps    , nolay  ,      &
                           vrtdsp , stickdf, subst  , nbmax  , nconn  ,      &
-                          conn   , tau    , caltau , nboomint , iboomset ,  &
-                          tyboom , efboom , xpolboom , ypolboom , nrowsboom , itime)
+                          conn   , tau    , caltau , nboomint , nboomtint,  &
+                          iboomset , iboomtset, boomdepth,                  &
+                          tyboom , efboom , tyboomt , efboomt, xpolboom ,   &
+                          ypolboom , xipolboom, yipolboom, nrowsboom ,      &
+                          itime  , v_swim , d_swim )
 !
 !    CALCULATES PARTICLE MOTION FROM ADVECTION, DISPERSION AND SETTLING
 !                 (per time step)
@@ -103,6 +107,7 @@ contains
 !                             ????     ???? by Jan van Beek: unofficial DD support
 !                             June     2011 by Leo Postma: support OMP parallelism
 !                             October  2011 by Leo Postma: official support Domain Decomposition
+!                             August   2015 by F.M. Kleissen: including moving oil booms
 
 !     logical unit numbers  : standard output: error messages
 !                             lun2           : error and debug messages
@@ -128,6 +133,9 @@ contains
       use precision_part        ! single/double precision
       use timers           ! performance timer
       use typos
+      use normal_mod
+      use pinpok_mod
+      use pmov_boom_mod  
       use p10cor_mod
       use grid_search_mod
       use spec_feat_par    ! special feature parameters
@@ -150,10 +158,12 @@ contains
       integer(ip), intent(in)    :: idelt               ! time step size in seconds
       integer(ip), intent(in)    :: ioptdv              ! if 0 constant vertical diffusion &
                                                         ! if 1 depth averaged algebraic model
+                                                        ! if 2 from file with constant added plus scaling plus minimum
       integer(ip), intent(in)    :: ipc                 ! if > 1 predictor corrector method used &
                                                         ! if   5 something special happens
       integer(ip), pointer    :: lgrid ( : , : )     ! grid with active grid numbers, negatives for open boundaries
       integer(ip), pointer    :: lgrid2( :, : )      ! total grid with grid numbers
+      integer(ip), pointer       :: lgrid3( :, : )         ! total active grid with grid numbers
       integer(ip), intent(in)    :: lun2                ! unit number debug in formation file
       integer(ip), pointer    :: mapsub( : )         ! index for substances, used for oil
       integer(ip), intent(in)    :: modtyp              ! 1 = tracer model              &
@@ -241,19 +251,30 @@ contains
       logical    , intent(in   ) :: caltau        ! if true, tau must be calculated
 
       integer(ip), intent(in   ) :: nboomint      ! number of boom introductions
+      integer(ip), intent(in   ) :: nboomtint     ! number of moving boom introductions
       integer(ip), pointer :: iboomset(:)         ! timing of boom introduction
+      integer(ip), pointer       :: iboomtset(:)  ! timing of moving boom introduction
       integer(ip), intent(in   ) :: tyboom        ! type of boom effectiveness parameter
+      integer(ip), intent(in   ) :: tyboomt       ! type of moving boom effectiveness parameter
+      real     ( sp), pointer  :: boomdepth (:)   ! depth of screen of boom
       real     ( sp), pointer  :: efboom (:,:)  ! effectiveness parameter of boom per oil type
-      real     ( sp), pointer  :: xpolboom (:,:)! x-coordinates of boom polygon
-      real     ( sp), pointer  :: ypolboom (:,:)! y-coordinates of boom polygon
+      real     ( sp), pointer  :: efboomt (:,:)   ! effectiveness parameter of moving boom per oil type
+      real     ( sp), pointer  :: xpolboom (:,:)  ! x-coordinates of boom polygon
+      real     ( sp), pointer  :: ypolboom (:,:)  ! y-coordinates of boom polygon
+      real     ( sp), pointer  :: xipolboom (:,:)  ! interpolated x-coordinates of moving boom polygon
+      real     ( sp), pointer  :: yipolboom (:,:)  ! interpolated y-coordinates of moving boom polygon
       integer  ( ip), pointer  :: nrowsboom (:)  ! length of boom polygon
 
       integer(ip), intent(in   ) :: itime
+
+      real   (sp), pointer :: v_swim( : )         ! horizontal swimming velocity m/s
+      real   (sp), pointer :: d_swim( : )         ! horizontal swimming direction (degree)
 
 !**   local parameters
 
 
       integer(ip)   :: icounz                  ! count the number of vertical bounces
+      integer(ip)   :: ic                      ! segment number of active grid lgrid3
       integer(ip)   :: icvis                   ! strange construct to avoid endless operation, cyclic counter
       integer(ip)   :: icvist                  ! strange construct to avoid endless operation, total counter
       integer(ip)   :: idep                    ! layer offset in the hydrodynamic arrays
@@ -263,6 +284,7 @@ contains
       integer(ip)   :: idz                     ! boolean z direction of transport -1, 0, +1
       integer(ip)   :: ierror                  ! needed to call part07
       integer(ip)   :: ifract                  ! loop counter for nfract
+      integer(ip)   :: inside                  ! to indicate whether a particle is within a polygon
       integer(ip)   :: ipart                   ! loop counter particle loop
       integer(ip)   :: ipcgo                   ! unclear helpvariable
       integer(ip)   :: isub                    ! loop counter nosubs
@@ -280,6 +302,8 @@ contains
       integer(ip)   :: n2                      ! one back from n0 in second index
       integer(ip)   :: ninact                  ! summation counter inactive particles
       integer(ip)   :: np                      ! nr of this particle
+      integer(ip)   :: npolbounce              ! poygon row number for bouncing particles
+      integer(ip)   :: npolinside              ! poygon row number for particles moved due to moving boom
       integer(ip)   :: nstpar                  ! summation counter sticking particles
       integer(ip)   :: nopart_sed              ! no. of particles settled into bed layer (per time step)
       integer(ip)   :: nopart_ero              ! no. of particles eroded from bed layer (per time step)
@@ -290,6 +314,7 @@ contains
       logical       :: oilmod                  ! = modtyp .eq. 4
       logical       :: threed                  ! = layt .gt. 1
       logical       :: twolay                  ! = modtyp .eq. 2
+      logical       :: extract                 ! extract particle or not
       real(dp)      :: a                       ! tsja
       real(sp)      :: codef                   ! cosine of deflection angle
       real(sp)      :: dxx                     ! delta x with deflected oil
@@ -327,6 +352,9 @@ contains
       real(sp)      :: dxp                     ! dx at location of the particle
       real(sp)      :: dyp                     ! dy at location of the particle
       real(sp)      :: f1                      ! helpvariable rough / depth
+      real(sp)      :: h0wav                   ! wave height, as calculated
+      real(sp)      :: rnorm                   ! normal distributed random number
+      real(sp)      :: rnorm1                   ! normal distributed random number
       real(sp)      :: pstick                  ! used in fraction computation with oil
       real(sp)      :: ptlay                   ! relative fraction of top layer in twolayer system is 1.0 - pblay
       real(sp)      :: rtim                    ! timestep size that can be set minimum of x, y and z
@@ -337,6 +365,8 @@ contains
       real(sp)      :: sangl                   ! angle of the computational element
       real(sp)      :: sq6                     ! = sqrt(6.0)
       real(sp)      :: t0                      ! helpvariable with initial time step buoyant spreading
+      real(sp)      :: tdis1                   !helpvariable for lognormal distribution
+      real(sp)      :: tdis2                   !helpvariable for lognormal distribution
       real(sp)      :: tp                      ! real value of iptime(ipart)
       real(sp)      :: trp                     ! horizontal random walk
       real(sp)      :: twopi                   ! 2 * pi
@@ -367,9 +397,11 @@ contains
       real(sp)      :: vz0                     ! particle velocity in z dir. 0
       real(sp)      :: vz1                     ! particle velocity in z dir. 1
       real(sp)      :: vznew                   ! particle velocity in z dir. corrected
+      real(sp)      :: vzs                     ! vertical velocity due to settling
       real(sp)      :: wdirr                   ! is wind direction in radians
       real(sp)      :: wstick                  ! used in fraction computation with oil
       real(sp)      :: wsum                    ! used to sum the weights of a particle
+      real(sp)      :: wrem (10)               ! used removed mass of a particle (maximum of 10 fractions)
       real(sp)      :: xnew                    ! new x value
       real(sp)      :: xp                      ! x of the particle
       real(sp)      :: xpold                   ! old x of the particle needed for the correction routine
@@ -395,7 +427,13 @@ contains
       logical       :: booms                   ! indicator for the precence of booms
       logical       :: boomseffective          ! indicator for effective precence of booms per particle
       integer(ip)   :: iboomint                ! counter for boom introductions
+      integer(ip)   :: iboomtint               ! counter for moving boom introductions
+      integer(ip)   :: iboomtot                ! counter for booms plus moving boom introductions
       real(rp)      :: pboomcatch(100)         ! chance for boom to catch particle
+      real(sp)      :: xtmp                    !temporary x coordinate of moving boom
+      real(sp)      :: xtmp1                   !temporary x coordinate of moving boom
+      real(sp)      :: ytmp                    !temporary y coordinate of moving boom
+      real(sp)      :: ytmp1                   !temporary y coordinate of moving boom
 
       real(rp)      :: xaold                   ! old real world x-coordinate
       real(rp)      :: yaold                   ! old real world y-coordinate
@@ -408,6 +446,19 @@ contains
       logical       :: bouncefirsttry
       real(sp)      :: xabounce
       real(sp)      :: yabounce
+      real(sp)      :: sdir                    ! swimming direction
+      real(sp)      :: displacement            ! swimming displacement
+      real(sp)      :: dx_swim                 ! dx swimming displacement
+      real(sp)      :: dy_swim                 ! dy swimming displacement
+      real(sp)      :: xpolb(5,25)            ! polygon showing x new and old moving boom
+      real(sp)      :: ypolb(5,25)            ! polygon showing y new and old moving boomF$OMP
+      real(sp)      :: xcrossboom(2)          ! x coordinates of points on boom being crossed by a particle
+      real(sp)      :: ycrossboom(2)          ! y coordinates of points on boom being crossed by a particle
+      real(sp)      :: curangle
+      real(sp)      :: boomangle
+      real(sp)      :: diffangle
+      real(sp)      :: eff_angle
+      integer(ip)   :: irow
 
       integer(ip)   :: nboomtry
       integer(ip)   :: nscreenstry
@@ -420,6 +471,7 @@ contains
 
 !**   data assigments
 
+      logical  :: debug  =  .false.
       real(sp) :: cd     =  1.3e-03
       real(sp) :: grav   =  9.81
       real(sp) :: rhoair =  1.25
@@ -439,6 +491,7 @@ contains
 !     Set initial booms flag and booms introduction counter
          booms = .false.
          iboomint = 0
+         iboomtint = 0
          sq6    = sqrt( 6.0 )
          twopi  = 8.0 * atan(1.0)
          defang = defang * twopi / 360.0    !  deflection angle oil modelling
@@ -452,6 +505,14 @@ contains
          dspmax = 0.0
          dsprms = 0.0
          nrms   = 0.0
+         wrem=0.0
+
+         if (.not.sedscreen) then
+           do irow = 1,nboomint+iboomtint
+             boomdepth(irow) = 100000.0
+           enddo
+         endif
+           
          if ( lbott ) then
             write ( lun2, '(6x,a)' ) &
                 'Bottom sticking due to diffusion is included '
@@ -485,20 +546,101 @@ contains
          if (iboomset(iboomint + 1) .eq. itime) then
             booms = .true.
             iboomint = iboomint + 1
-            write( lun2, '(a,i4)' ) ' Booms introduction # ', iboomint
+           if(booms) write( lun2, '(a,i4)' ) ' Booms introduction # ', iboomint
+           if(sedscreen) write( lun2, '(a,i4)' ) ' Sediment screen introduction # ', iboomint
             if (tyboom .eq. 1) then
-               pboomcatch(1:nfract) = 1 - ((1- efboom(iboomint,1:nfract))  * idelt / 86400.0)
+               pboomcatch(1:nfract) = 1 - ((1- min(1.0,efboom(iboomint,1:nfract)))  ** (real(idelt) / 86400.0)) !should this not be just linear ?
+!               pboomcatch(1:nfract) = 1 - ((1- min(1.0,efboom(iboomint,1:nfract)))  * (real(idelt) / 86400.0)) !should this not be just linear ?
             else
 !              no other function implemented yet!
             endif
          end if
       end if
 
+      !     Check for (update of) moving boom introductions at present only one moving boom is allowed
+      ! for the interpolation of the positions we need to read two timers the first one when the time equals itime, but also the second.
+      if (iboomtint .lt. nboomtint) then
+        
+         if (iboomtset(iboomtint + 1) .eq. itime) then
+            booms = .true.
+            iboomtint = iboomtint +1
+            write( lun2, '(a,i4)' ) ' Moving booms introduction # ', iboomtint
+            if (tyboomt .eq. 1) then
+               pboomcatch(1:nfract) = 1 - ((1- Min(1.0,efboomt(iboomtint,1:nfract)))  ** (real(idelt) / 86400.0)) !linear
+            else
+!              no other function implemented yet!
+            endif
+         end if
+! interpolate the boom coordinates and generate a polygon needed to "catch" particles. De polygoon moet dan bestaan uit de coordinaten van de
+! oorpronkelijke cooridaat en in omgekeerde volgorde die van de nieuwe lijn.
+        if(booms.or.sedscreen) then  !also for sediment screens, for sedscreens we need to account for the depth and not just surface
+          ! store previous coordinates, for moving booms only
+          do irow=2, nrowsboom(iboomtint)
+            xpolb(1,irow-1)=xipolboom(irow-1, iboomtint)   ! from previous timestep:this is the polygon per set of two coordinates so in total (n-1) polygons
+            ypolb(1,irow-1)=yipolboom(irow-1, iboomtint)
+            xpolb(2,irow-1)=xipolboom(irow, iboomtint)   ! this is the polygon per set of two coordinates so in total (n-1) polygons
+            ypolb(2,irow-1)=yipolboom(irow, iboomtint)
+          enddo
+          
+          do irow = 1, nrowsboom(iboomtint)
+          xtmp = xpolboom(irow, iboomtint)  !original coordinates (not the coordinates of the previous timestep)
+          ytmp = ypolboom(irow, iboomtint)
+          if (iboomtint.lt.nboomtint)then   !coordinates of the next time stamp in the file
+            xtmp1 = xpolboom(irow, iboomtint+1)
+            ytmp1 = ypolboom(irow, iboomtint+1)
+          else   ! beyond the last time stamp, no further movement
+            xtmp1 = xpolboom(irow, iboomtint)
+            ytmp1 = ypolboom(irow, iboomtint)
+          endif
+          if (itime.eq.iboomtset(iboomtint))then  
+            xipolboom(irow, iboomtint) = xtmp
+            yipolboom(irow, iboomtint) = ytmp
+!            write(lun2,*) ' moving boom (X,Y) coordinates:', itime, xipolboom(irow, iboomtint)
+          if (irow.gt.1) then
+            xpolb(1,irow-1)=xipolboom(irow-1, iboomtint)   ! from previous timestep:this is the polygon per set of two coordinates so in total (n-1) polygons
+            ypolb(1,irow-1)=yipolboom(irow-1, iboomtint)
+            xpolb(2,irow-1)=xipolboom(irow, iboomtint)   ! this is the polygon per set of two coordinates so in total (n-1) polygons
+            ypolb(2,irow-1)=yipolboom(irow, iboomtint)
+          endif
+          else
+            xipolboom(irow, iboomtint) = xtmp + 1.01*(xtmp1 - xtmp)/(iboomtset(iboomtint+1) - &
+            iboomtset(iboomtint))*(itime - iboomtset(iboomtint))
+            yipolboom(irow, iboomtint) = ytmp + 1.01*(ytmp1 - ytmp)/(iboomtset(iboomtint+1) - &
+            iboomtset(iboomtint))*(itime - iboomtset(iboomtint))
+!            write(lun2,*) ' interpolated moving boom (X,Y) coordinates:', itime,xipolboom(irow, iboomtint)
+          endif
+          enddo
+          do irow = 1, nrowsboom(iboomtint)-1
+            xpolb(4,irow) = xipolboom(irow, iboomtint)
+            ypolb(4,irow) = yipolboom(irow, iboomtint)
+            xpolb(3,irow) = xipolboom(irow+1, iboomtint)
+            ypolb(3,irow) = yipolboom(irow+1, iboomtint)
+            xpolb(5,irow) = xpolb(1,irow)
+            ypolb(5,irow) = ypolb(1,irow)
+          enddo
+          
+!          do irow = 1, nrowsboom(iboomtint)-1
+!            write(lun2,'(10(a16,f20.2, 2x, f20.2))')' polygon boom: ',xpolb(1,irow), ypolb(1,irow)
+!            write(lun2,'(10(a16,f20.2, 2x, f20.2))')' polygon boom: ',xpolb(2,irow), ypolb(2,irow)
+!            write(lun2,'(10(a16,f20.2, 2x, f20.2))')' polygon boom: ',xpolb(3,irow), ypolb(3,irow)
+!            write(lun2,'(10(a16,f20.2, 2x, f20.2))')' polygon boom: ',xpolb(4,irow), ypolb(4,irow)
+!            write(lun2,'(10(a16,f20.2, 2x, f20.2))')' polygon boom: ',xpolb(5,irow), ypolb(5,irow)
+!          enddo
+          
+        endif
+      elseif (booms.and.(nboomtint.gt.0))then  !no more moving booms because we reached the last time of the boom specs.
+        do irow = 1, nrowsboom(iboomtint)
+          xipolboom(irow, iboomtint) = xpolboom(irow, iboomtint)
+          yipolboom(irow, iboomtint) = ypolboom(irow, iboomtint)
+          write(lun2,*) ' no longer moving: moving boom end (X,Y) coordinates:', itime, xipolboom(irow, iboomtint)
+        enddo
+      end if
+
 !**   to avoid repeated calculations
 
       c2g     = grav / chezy / chezy
-      uscrit  = sqrt( taucs / rhow )
-      uecrit  = sqrt( tauce / rhow )
+      uscrit  = sqrt( max(0.0,taucs) / rhow )
+      uecrit  = sqrt( max(0.0,tauce) / rhow )
       do isub = 1, nosubs
          dfact(isub) = exp( -decays(isub) * idelt / 86400.0 )
          write(lun2,'(a,a,14x,a,es15.7,a,es15.7,a)')  &
@@ -506,7 +648,7 @@ contains
             ' [coeff = ',decays(isub),']'
       enddo
 
-!**   store 'old' particles positions
+!**   store 'old' particles positions, these are also the location with which to check with moving boom
 
       if ( threed .and. oilmod .and. coriol ) then
          do ipart = 1, nopart
@@ -529,22 +671,25 @@ contains
 !$OMP PARALLEL DO PRIVATE ( np, mp, kp, kpp, n0, a, n03d, xp, yp, zp, tp,          &
 !$OMP                       itdelt, ddfac, dran1, abuac, deltt, dred, kd, icvis,   &
 !$OMP                       icvist, ivisit, lstick, wsum, isub, jsub, ifract,      &
-!$OMP                       pstick, wstick, ldispo, trp, t0, dax, day,             &
+!$OMP                       inside,pstick, wstick, ldispo, trp, t0, dax, day,      &
 !$OMP                       n1, n2, dxp, dyp, depth1, idep, vol, vy0, vy1,         &
 !$OMP                       vx0, vx1, vvx, vvy, vx, vy, vxr, vyr, ubstar, ubstar_b,&
-!$OMP                       vz0, vz1, disp, dvz, depthl, dvzs, dvzt, icounz,       &
+!$OMP                       vz0, vz1, disp, dvz, depthl, dvzs, dvzt, vzs, icounz,  &
 !$OMP                       znew, sangl, zp2, c1, f1, c2, c3, ipc, xnew,           &
 !$OMP                       idepm1, vvz, vz, umagp, cf, rtimx, idx, rtimy, idy,    &
 !$OMP                       rtimz, idz, rtim, rtim1, ipcgo, xpold, ypold, zpold,   &
 !$OMP                       chi0, vxnew, vynew, vznew, chi1, ynew, vxw, vyw,       &
 !$OMP                       deppar, yy, n0new, depth2, dstick, xx, n03d2, disp2,   &
 !$OMP                       pbounce, xpnew, ypnew, xrest, yrest, dxpnew,           &
-!$OMP                       dypnew, mpnew, npnew, ddshift, wdirr, uwstar, nboomtry,&
-!$OMP                       boomseffective, bouncefirsttry, xaold, yaold, xanew,   &
-!$OMP                       yanew, xacatch, yacatch, catch, xabounce, yabounce,    &
-!$OMP                       bounce, screensfirsttry, nscreenstry, leftside),       &
+!$OMP                       dypnew, mpnew, npnew, ddshift, wdirr, uwstar,          &
+!$OMP                       nboomtry, boomseffective, bouncefirsttry, xaold, yaold, xanew, yanew,  &
+!$OMP                       xacatch, yacatch, catch, xabounce, yabounce, bounce ,  &
+!$OMP                       sdir, displacement, dx_swim, dy_swim ,                 &
+!$OMP                       xcrossboom, ycrossboom, ic, h0wav, curangle, boomangle,&
+!$OMP                       diffangle, eff_angle, npolbounce,extract,              &
+!$OMP                       irow, iboomtot, screensfirsttry, nscreenstry, leftside) , &
 !$OMP           REDUCTION ( +   : ninact, nstpar, nopart_ero, nopart_sed,          &
-!$OMP                             nrms  , dsprms ) ,                               &
+!$OMP                             nrms  , dsprms, wrem ) ,                               &
 !$OMP           REDUCTION ( MIN : dspmin ) , REDUCTION ( MAX : dspmax ),           &
 !$OMP           SCHEDULE  ( DYNAMIC, max((nopart-npwndw)/100,1)           )
 
@@ -579,7 +724,8 @@ contains
          itdelt = idelt
          ddfac  = 2.0
          dran1  = drand(1)
-         abuac  = abuoy(ipart)
+         abuac  = 0.0
+         if ( twolay ) abuac  = abuoy(ipart)
          if ( tp .lt. 0.0 ) then           !   adaptations because of smooth loading
             tp     = 0.0
             itdelt = idelt + iptime(ipart)
@@ -668,12 +814,18 @@ contains
 
          if ( ldiffh ) then
             trp = dran1 * tp ** drand(2)
+            if (twolay ) then
             t0  = t0buoy(ipart)
-            if ( twolay .and. t0 .gt. 0.0 .and. kp .eq. 1 ) then
+              if ( t0 .gt. 0.0 .and. kp .eq. 1 ) then
                trp = max( trp , abuac * (tp+t0)**(-0.125) )     ! bouyancy spreading parameter
             endif
-            dax = sq6 * trp * (rnd(rseed) - 0.5)
-            day = sq6 * trp * (rnd(rseed) - 0.5)
+            endif
+            dax = sq6 * trp * (rnd(rseed) - 0.5) ! This should be changd into a distance and angle rather than x and y direction
+            day = sq6 * trp * (rnd(rseed) - 0.5) ! if we want to make dispersion dependent on direction of wind/current
+            if (disp_dir) then
+              dax = sq6 * disp_xdir * (rnd(rseed) - 0.5) ! only for hor/ver oriented grid (for the moment)
+              day = sq6 * disp_ydir * (rnd(rseed) - 0.5) ! 
+            endif
          else
             dax = 0.0
             day = 0.0
@@ -714,7 +866,7 @@ contains
                vyr    = vy  * dyp
                ubstar_b = sqrt(c2g*(vxr*vxr + vyr*vyr))
             else
-               ubstar_b = sqrt(tau(n0 + idep) / rhow)
+               ubstar_b = tau(n0 + idep) / rhow
             endif
          endif
 
@@ -736,9 +888,9 @@ contains
 
          if ( kpp .eq. layt ) then
             if ( caltau ) then
-               ubstar = sqrt(c2g*(vxr*vxr + vyr*vyr))  ! ubstar this is requiered for disersion
+            ubstar = sqrt(c2g*(vxr*vxr + vyr*vyr))  ! ubstar this is requiered for dispersion
             else
-               ubstar = sqrt(tau(n03d) / rhow)
+               ubstar = tau(n03d) / rhow
             endif
             ubstar_b   = ubstar                     ! ubstar_bot is required for sedimentation and erosion
          else
@@ -802,9 +954,13 @@ contains
             dvz         = 2.0 * sq6 * sqrt( disp*itdelt ) *   &
                              ( rnd(rseed)-0.5 ) / depthl / dred
          endif
-         dvzs = wsettl(ipart)*itdelt/depthl          !  settling
-         dvzt = dvzs + dvz                           !  vertical diffusion
-
+        if (modtyp.ne.7) then
+          dvzs = wsettl(ipart)*itdelt/depthl          !  settling      ?? what is the effect of this?? jvb: no bouncing for settling particles
+          dvzt = dvzs + dvz                           !  vertical diffusion
+        else
+          dvzt = dvz                                  !  vertical diffusion
+        endif
+        
 !**      oil: if floating, no vertical dispersion and no settling...
 
          if ( oilmod .and. .not. ldispo ) then
@@ -844,7 +1000,12 @@ contains
                   n03d2 = n03d + nmax*mmax
                   if ( ioptdv .eq. 2 ) then
                      disp2 = max( cdisp + alpha*vdiff(n03d2) , dminim )
-                     pbounce = sqrt( disp2/disp )
+                     if (disp.eq.0.0) then
+                       pbounce = 0.0
+                     else
+                       pbounce = sqrt( disp2/disp )
+                     endif
+                     
                      if ( disp2 .lt. disp ) then
                         if ( rnd(rseed) .lt. 1.0 - pbounce ) then
                            znew = 2.0 - znew
@@ -890,7 +1051,11 @@ contains
                   n03d2 = n03d - nmax*mmax
                   if ( ioptdv .eq. 2 ) then
                      disp2 = max( cdisp + alpha*vdiff(n03d2) , dminim )
+                     if (disp.eq.0.0) then
+                       pbounce = 0.0
+                     else
                      pbounce = sqrt( disp2/disp )
+                     endif
                      if ( disp2 .lt. disp ) then
                         if ( rnd(rseed) .lt. 1.0 - pbounce ) then
                            znew = - znew
@@ -927,12 +1092,13 @@ contains
          nrms   = nrms   + 1.0
 
 !         debugging code
-!         vrtdsp(1,ipart) = disp
-!         vrtdsp(2,ipart) = dvz  * depthl
-!         vrtdsp(3,ipart) = dvzs * depthl
-!         vrtdsp(4,ipart) = dvzt * depthl
-!         vrtdsp(5,ipart) = depthl
-!         vrtdsp(6,ipart) = depth1
+         if ( debug ) vrtdsp(1,ipart) = disp
+         if ( debug ) vrtdsp(2,ipart) = dvz  * depthl
+         if ( debug ) vrtdsp(3,ipart) = 0.0                    ! jvb moved to advection  = dvzs * depthl
+         if ( debug ) vrtdsp(4,ipart) = dvzt * depthl
+         if ( debug ) vrtdsp(5,ipart) = depthl
+         if ( debug ) vrtdsp(6,ipart) = depth1
+         if ( debug ) vrtdsp(7,ipart) = n0
 !         vrtdsp(7,ipart) = n0
 !**
 !**       this is innerloop for particles crossing gridcell borders
@@ -956,6 +1122,22 @@ contains
 ! ================a d v e c t i o n=========================================
 
 !** windprofiles and logarithmic profiles
+! if winddrag is stochastic sample dragcoefficient from a distribution (for oil only)
+! this comes from http://blogs.sas.com/content/iml/2014/06/04/simulate-lognormal-data-with-specified-mean-and-variance.html
+
+         if ( oilmod .and. .not. ldispo .and. dragvar .and. dragsigma.gt.0.0) then   ! floating oil using ! 
+!           rnorm = sqrt(-2.*log(rnd(rseed)))*cos(twopi*rnd(rseed)) !normal distribution)/100.
+!           cdrag = (dragmean+dragsigma*rnorm)/100.0 !lognormal distribution
+!           do while ((cdrag.lt.(dragmean-3*dragsigma)).or.(cdrag.gt.(dragmean+3*dragsigma))) !this is to cut off 3-sigma tails of the distribution
+             rnorm = sqrt(-2.*log(rnd(rseed)))*cos(twopi*rnd(rseed)) !normal distribution)/100.
+             cdrag = max(0.0,(dragmean+dragsigma*rnorm))/100.0 !normal distribution, but cannot be less than 0.
+ !          enddo
+        endif
+!          if(iptime(ipart).eq.0)then
+!            write(lun2,*)rnorm,cdrag
+!          else
+!            stop
+!          endif
 
          if ( layt .eq. 1 ) then
 !              for 2 layers: the pos. in the top layer + thickness bottom layer
@@ -1003,6 +1185,13 @@ contains
             endif
          endif
 
+         if (modtyp.eq.7) then
+            depthl = volume(n0+idep)/area(n0)
+            vzs  = wsettl(ipart)/depthl             !  settling
+            if ( kpp .ne.    1 ) vz0  = vz0 + vzs
+            if ( kpp .ne. layt ) vz1  = vz1 + vzs
+         endif
+        
          if ( oilmod .and. .not. ldispo ) then   ! floating oil
             vz0 = 0.0
             vz1 = 0.0
@@ -1285,9 +1474,19 @@ contains
 
 !**      xnew,ynew is inclusive of diffusion (dax,day); c1 = 0.0 for 3d
 
+         if (modtyp.eq.7) then 
+            sdir         = d_swim(ipart) * twopi / 360.0
+            displacement = v_swim(ipart)*idelt
+            dx_swim      = displacement*sin(sdir+sangl)
+            dy_swim      = displacement*cos(sdir+sangl)
+         else
+            dx_swim = 0.0
+            dy_swim = 0.0
+         endif
+         
          wdirr = wdir(n0) * twopi / 360.0
-         xnew  = xp + (dax - c1 * sin(wdirr + sangl)) / dxp
-         ynew  = yp + (day - c1 * cos(wdirr + sangl)) / dyp
+         xnew  = xp + (dax - c1 * sin(wdirr + sangl) + dx_swim) / dxp
+         ynew  = yp + (day - c1 * cos(wdirr + sangl) + dy_swim) / dyp
 
 !**      floating oil
 
@@ -1319,11 +1518,26 @@ contains
 
          nboomtry = 1
          bouncefirsttry = .true.
-         if(ldispo .or. (.not.booms)) then
+         pboomcatch = 1.1
+         if((ldispo .and. .not.sedscreen) .or. (.not.booms)) then
             boomseffective = .false.
          else
+
+           if (boom_proc) then 
+            ! hier moet efficiency van boom worden aangepast aan de omstandigheden als we afhankelijkheid van wind/golven/stroomsnelheid implementeren. can this be done later?
+            ic = lgrid3(npart(ipart), mpart(ipart))
+            h0wav = 0.243*wvelo(ic)*wvelo(ic)/grav
+!            efboomt(iboomtint,1:nfract) = 1.0-min((max(h0wav-0.5,0))/5.0,1.0) ! just an arbitrary relationship with wave height
+            if (maxheigth.gt.minheigth) then
+              pboomcatch(1) = (1.0 - min((max(h0wav-minheigth,0.0))/(maxheigth-minheigth),1.0)) ** (idelt / 86400.0)!prob is given per day, scaled for the timestep
+            else
+              pboomcatch(1) = 1.1
+            endif
+            
+           endif
             a = rnd(rseed)
-            boomseffective = a .lt. pboomcatch(1) ! ifrac is not know multiple oil to one particle??
+            boomseffective =  a .lt. pboomcatch(1)
+!            if (za .lt.-boomdepth(i)) boomseffective = .false.
          end if
 
    30    if ( max( xnew-1.0, -xnew ) .lt. max( ynew-1.0, -ynew ) ) then
@@ -1495,96 +1709,112 @@ contains
             call stop_exit(1)
          endif
 
-         nscreenstry=1
-         screensfirsttry=.true.
-         if (screens) then
-!**      compute absolute x's and y's for a single particle end point
-            call part11sp ( lgrid , xcor  , ycor  , nmax   , np     , mp    ,    &
-                            xnew  , ynew  , xanew , yanew  , lgrid2 , mmax  )
-            if (iptime(ipart) .le. 0 .and. nscreenstry==1) then
-!      determine absolute location of starting point as well for new particles
-               call part11sp ( lgrid , xcor  , ycor  , nmax   , npart(ipart)     , mpart(ipart)    ,    &  !  new coordinates
-                               xpart(ipart)  , ypart(ipart)  , xaold , yaold  , lgrid2 , mmax  )
-            else
-               xaold = xa(ipart)
-               yaold = ya(ipart)
-            end if
-            call boombounce( xaold, yaold, xanew, yanew, nrowsscreens, &
-                             xpolscreens(1:nrowsscreens), ypolscreens(1:nrowsscreens), &
-                             xacatch, yacatch, catch, xabounce, yabounce, bounce, leftside )
-            if (catch) then
-               a = rnd(rseed)
-               if (leftside) then
-                  catch = a .gt. permealeft
-               else
-                  catch = a .gt. permearight
-               endif
-            end if
-            if (catch) then
-               if (bounce .and. bouncefirsttry) then
-!                 go back to relative coordinates from the original cell(!), set boomseffective to false (!?) and go back to check for checking of inactive cells etc... (30)
-!                 a new bounce may mean that the booms must be effective again... hm, more complicated than I thought... Skip for the first implementation
-                  np = npart(ipart)
-                  mp = mpart(ipart)
-                  kp = kpart(ipart)
-                  znew = zpart(ipart)
-                  call part07nm ( lgrid  , lgrid2 , nmax   , mmax   , xcor  , & ! make relative
-                                  ycor   , xabounce , yabounce, np   , &        ! coordinates
-                                  mp, xnew, ynew  , ierror )                    ! again
-                  if (ierror/=0) then
-                        mpart(ipart) = mpart0(ipart)
-                        npart(ipart) = npart0(ipart)
-                  end if
-                  screensfirsttry = .false.
-                  goto 30
-               else
-                  if (nscreenstry==1) then
-                     screensfirsttry = .true.
-!                 go back to the original location and try with dispersion only...
-                     np = npart(ipart)
-                     mp = mpart(ipart)
-                     kp = kpart(ipart)
-                     xnew = xpart(ipart)
-                     ynew = ypart(ipart)
-                     znew = zpart(ipart)
-                     !**      xnew,ynew is inclusive of diffusion (dax,day); c1 = 0.0 for 3d
-                     xnew  = xnew + (dax - c1 * sin(wdirr + sangl)) / dxp
-                     ynew  = ynew + (day - c1 * cos(wdirr + sangl)) / dyp
-                     nscreenstry = 2
-                     goto 30
-                  else
-!                 finally just put it back to the old location!
-                     np = npart(ipart)
-                     mp = mpart(ipart)
-                     kp = kpart(ipart)
-                     xnew = xpart(ipart)
-                     ynew = ypart(ipart)
-                     znew = zpart(ipart)
-                  end if
-               end if
-            end if
-         end if
+!         if (boomseffective) then
+         if (booms) then
+            
+   !**      compute absolute x's and y's for a single particle end point
 
-         if (boomseffective) then
-!**      compute absolute x's and y's for a single particle end point
             call part11sp ( lgrid , xcor  , ycor  , nmax   , np     , mp    ,    &
                             xnew  , ynew  , xanew , yanew  , lgrid2 , mmax  )
-            if (iptime(ipart) .le. 0 .and. nboomtry==1) then
+            if (iptime(ipart) .le. 0 .and. nboomtry==1) then  !fmk: can iptime be les than 0? therefore it never executes the following statment, dhy is it here?
 !      determine absolute location of starting point as well for new particles
                call part11sp ( lgrid , xcor  , ycor  , nmax   , npart(ipart)     , mpart(ipart)    ,    &  !  new coordinates
                                xpart(ipart)  , ypart(ipart)  , xaold , yaold  , lgrid2 , mmax  )
             else
                xaold = xa(ipart)
                yaold = ya(ipart)
+
             end if
-            call boombounce( xaold, yaold, xanew, yanew, nrowsboom(iboomint), &
-                             xpolboom(1:nrowsboom(iboomint), iboomint), &
-                             ypolboom(1:nrowsboom(iboomint), iboomint), &
-                             xacatch, yacatch, catch, xabounce, yabounce, bounce, leftside )
-            if (catch) then
+ !          endif !boomseffective
+            npolbounce = 0
+            npolinside = 0
+!            catch = .false.
+!            bounce = .false.
+!           in case of sedimentscreens, only check on the boom bouncing if the particle depth is smaller than screen depth 
+            if (nboomtint.gt.0.and.boomseffective) then  !in case we deal with a moving boom, we need to check whether the particle is passed by the moving boom.
+              do irow=1, nrowsboom(1)-1
+               call pinpok(xaold, yaold, 5 , xpolb(1:5,irow), ypolb(1:5,irow), inside)
+                if(inside.eq.1) then
+                  npolinside = irow
+!                  catch = .true.
+!                  bounce = .true.
+!                  write(lun2,'(a16,i8,2x,i8,2x,2f20.2)')' inside parts: ',irow,ipart, xaold, yaold
+                  ! we need to move the particle to outside the polygon, eerste twee zijn van vorige tijdstap.
+                  call pmov_boom(xaold, yaold, 5, xpolb(1:5,irow), ypolb(1:5,irow), xanew,yanew)
+                  xaold = xanew  ! moved particle locations 
+                  yaold = yanew
+                  ! make sure that the old particles that are moved are put in the grid system as well
+                  call part07nm ( lgrid  , lgrid2 , nmax   , mmax   , xcor  , & ! make relative
+                                  ycor   , xaold , yaold, np   , &        ! coordinates
+                                  mp, xnew, ynew  , ierror )                    ! again
+                     npart(ipart) = np
+                     mpart(ipart) = mp
+                     xpart(ipart) = xnew
+                     ypart(ipart) = ynew
+     
+                endif
+              enddo
+                         
+              iboomtot = nboomint + 1  ! This implies only one moving boom is allowed
+!              if (itime.ge.181500) write(lun2,*)itime, ipart
+              call boombounce( xaold, yaold, xanew, yanew, nrowsboom(iboomtot), &
+                   xipolboom(1:nrowsboom(iboomtot), iboomtot), &
+                   yipolboom(1:nrowsboom(iboomtot), iboomtot), &
+                   xacatch, yacatch, catch, xabounce, yabounce, bounce, &
+                   xcrossboom, ycrossboom, npolbounce )
+              if (npolinside.gt.0) then
+                catch =.true.
+                bounce=.true.
+                xabounce = xanew
+                yabounce = yanew   ! to ensure that the particles when moved are placed on the right location (relative) in part07m
+                endif
+ !             else
+ !                  xaold = xanew  ! moved particle locations 
+ !                  yaold = yanew
+ !              endif
+                 
+
+            else
+              call boombounce( xaold, yaold, xanew, yanew, nrowsboom(iboomint), &
+                   xpolboom(1:nrowsboom(iboomint), iboomint), &
+                   ypolboom(1:nrowsboom(iboomint), iboomint), &
+                   xacatch, yacatch, catch, xabounce, yabounce, bounce, &
+                   xcrossboom, ycrossboom, npolbounce )
+            endif
+            if (catch .and. (.not.sedscreen .or. (za(ipart) .ge. -boomdepth(iboomint+iboomtint)))) then 
+               eff_angle = 1.1
+               a = rnd(rseed)
+               if (boom_proc) then
+                ! here we can adapt the efficiency due to angle of currents with boomsegment being crossed (
+                ! here we are dealing with particles being held by the boom, so we need to let a few more through
+                ! this is only active when the boom processes have been switched on 
+                 if ((ycrossboom(2)-ycrossboom(1))/=0.0) then
+                   boomangle = atand(abs((xcrossboom(2)-xcrossboom(1))/(ycrossboom(2)-ycrossboom(1))))
+                 else
+                   boomangle = 90.0
+                 endif
+                 if (vyr/=0.0) then
+                   curangle = atand(abs(vxr/vyr))
+                 else
+                   curangle = 90.0
+                 endif
+                 diffangle =  mod(abs(boomangle - curangle),90.)
+!                write (lun2,*), "diffangle", diffangle
+
+                 if (diffangle.gt.minangle)then
+                   ! here is the dependency of the efficiency with the current speed and 'angle of attack' 
+                   ! eff_angle when 1 does not change the dependency of the waves, but when smaller will let more particles through, 
+                   ! all corrected for the timestep (in seconds)
+                   eff_angle = max(1.0-max(((sqrt(vxr*vxr+vyr*vyr)*sind(diffangle-minangle)-boom_vlim)/boom_vmax) ** (itdelt/86400.0),0.0),0.0)
+                 else
+                   eff_angle = 1.1
+                 endif
+               endif
+               if ((a .lt. eff_angle).and.boomseffective) then
                if (bounce .and. bouncefirsttry) then
 !                 go back to relative coordinates from the original cell(!), set boomseffective to false (!?) and go back to check for checking of inactive cells etc... (30)
 !                 a new bounce may mean that the booms must be effective again... hm, more complicated than I thought... Skip for the first implementation
+!                  nm   = lgrid2( n  , m   )
                   np = npart(ipart)
                   mp = mpart(ipart)
                   kp = kpart(ipart)
@@ -1597,9 +1827,53 @@ contains
                         npart(ipart) = npart0(ipart)
                   end if
                   bouncefirsttry = .false.
-                  goto 30
+				  
+                  a = rnd(rseed)
+                    !check whether boom extract is switched on and the bouncing takes place in one of the defined extraction sections
+                    
+                    if (a.lt.bstick_prob.or.boom_extract)then
+                      ! if the material hits the boom some are removed (eg cleanup), take them out of computation
+                      ! if extract keyword is swiched on then look at the lables of the polygon to determine in which 
+                      ! section of the polygon the partiles are removed, using the same probability
+                      extract = .false.
+                      if (a.lt.extract_prob) then
+                        if (boom) then
+                          do irow =1 ,  nr_extract
+                            if (extract_sect(irow,iboomint).eq.npolbounce) extract = .true.  !do the x,y coords need to be reset here?
+                          enddo
+                        elseif(moving_boom.and.((npolinside.ne.0).or.(npolbounce.ne.0))) then
+                          do irow =1 , nr_extract
+                            if (extract_sect(irow,iboomtint).eq.npolinside) extract = .true.  !do the x,y coords need to be reset here?
+                            if (extract_sect(irow,iboomtint).eq.npolbounce) extract = .true.  !do the x,y coords need to be reset here?
+                          enddo
+                        endif
+                      endif
+                      
+                     if (a.lt.bstick_prob.and.(.not.extract).and.boomseffective) then
+                       extract = .true.
+                     endif
+                     if (extract) then
+                       np=1
+                       mp=1
+                       kp=1
+                       iptime(ipart) = 0
+                       xnew = 0.0
+                       ynew = 0.0
+                       znew = 0.0
+                       do ifract =1, nfract
+                         wrem(ifract) = wrem(ifract)+wpart((ifract-1)*3+1,ipart)
+!                       write(lun2,'(a5,i10,a7,i10,a10,i3,a12, i3,a7,e10.3)')'time: ', itime, ' ipart:', ipart,'nboomtry:',nboomtry,'npolbounce:', npolbounce, 'wpart:',wpart(1,ipart)
+                         wpart((ifract-1)*3+1,ipart) = 0.0  !needs to be set to zero because the loop runs past this point several times and there is double counting of wrem otherwise?
+                       enddo
+                     endif
+                      !keep track of removed mass
+
+                  else
+                    goto 30   !
+                  endif
+				  
                else
-                  if (nboomtry==1) then
+                  if (nboomtry==1.and.boomseffective) then
                      bouncefirsttry = .true.
 !                 go back to the original location and try with dispersion and wind only...
                      np = npart(ipart)
@@ -1614,7 +1888,7 @@ contains
                      ynew  = ynew + (day - c1 * cos(wdirr + sangl)) / dyp + (cdrag*(vyw-vyr)/dyp) * itdelt
                      nboomtry = 2
                      goto 30
-                  else if (nboomtry==2) then
+                  else if (nboomtry==2.and.boomseffective) then
                      bouncefirsttry = .true.
 !                 go back to the original location and try with dispersion only...
                      np = npart(ipart)
@@ -1631,20 +1905,52 @@ contains
                      goto 30
                   else
 !                 finally just put it back to the old location!
+                     if (boomseffective) then
                      np = npart(ipart)
                      mp = mpart(ipart)
                      kp = kpart(ipart)
                      xnew = xpart(ipart)
                      ynew = ypart(ipart)
                      znew = zpart(ipart)
+                     endif
                   end if
                end if
             end if
+           end if
          end if
 
 !**      assignment of the coordinates and other properties
 
-   49    continue
+  49 continue
+!    here we can check on old locations inside the polygon? If so then move it 
+!                 but we need to known by how much - calculate distance to the line.
+!                  a = rnd(rseed)
+                    !check whether boom extract is switched on and the bouncing takes place in one of the defined extraction sections
+                    
+!                    if (catch.and.boom_extract)then
+                      ! if the material hits the boom some are removed (eg cleanup), take them out of computation
+                      ! if extract keyword is swiched on then look at the lables of the polygon to determine in which 
+                      ! section of the polygon the partiles are removed, using the same probability
+!                      extract = .false.
+!                      if (a.lt.extract_prob) then
+!                        do irow =1 , nrowsboom(iboomint)
+!                         if (extract_sect(irow,iboomint).eq.npolbounce) extract = .true.  !do the x,y coords need to be reset here?
+!                        enddo
+!                      endif
+                      
+!                     if (a.lt.bstick_prob.and.(.not.extract).and.boomseffective) then
+!                       extract = .true.
+!                     endif
+!                     if (extract) then
+!                       np=1
+!                       mp=1
+!                       kp=1
+!                       iptime(ipart) = 0
+!                       wrem = wrem+wpart(1,ipart)
+!                       write(lun2,*)'1, ipart is :', ipart,'nboomtry: ',nboomtry, 'npolbounce is:', npolbounce
+!                     endif
+                      !keep track of removed mass
+!                    endif
          npart (ipart) = np
          mpart (ipart) = mp
          kpart (ipart) = kp
@@ -1670,6 +1976,11 @@ contains
   100 continue
 !$OMP END PARALLEL DO
        timon = .true.
+      if (booms.and.(boom_extract.or.boom_stick))then
+      write(lun2,'(4x,a,i12,3(2x,es15.7))')' Mass removed at boom(s): ', itime, (wrem (ifract),ifract =1, nfract)
+      endif
+      
+        
 
       if (lsettl) then
          write(lun2,'(4x,a,i12,a,i4,a)') '  No. of particles settled into bed layer  : ', &
@@ -1727,7 +2038,7 @@ contains
                        za    , locdep, dps   , nolay , mmax  ,    &
                        tcktot)
 
-!**      rotate vector by multiplication with rotation matrix
+!**      rotate vector by multiplication with rotation matrix (FMK: no  need if the particle has been removed (extract=.true.
 
          codef = cos(-defang)
          sidef = sin(-defang)
@@ -1736,22 +2047,24 @@ contains
                npart(ipart)= abs(npart(ipart))
                mpart(ipart)= abs(mpart(ipart))
             else
-               dxx = xa(ipart)-xa0(ipart)
-               dyy = ya(ipart)-ya0(ipart)
-               xx  = xa0(ipart) + dxx * codef - dyy * sidef
-               yy  = ya0(ipart) + dxx * sidef + dyy * codef
-               call part07 ( lgrid  , lgrid2 , nmax   , mmax   , xcor  , &! make relative
+!               if (npart(ipart).ne.1) then ! FMK: when the particle has been taken (n,m,k = 1) out of the computation then do not calculate these coordinates
+                 dxx = xa(ipart)-xa0(ipart)
+                 dyy = ya(ipart)-ya0(ipart)
+                 xx  = xa0(ipart) + dxx * codef - dyy * sidef
+                 yy  = ya0(ipart) + dxx * sidef + dyy * codef
+                 call part07 ( lgrid  , lgrid2 , nmax   , mmax   , xcor  , &! make relative
                              ycor   , xx     , yy     , npart(ipart)   , &! coordinates
                              mpart(ipart), xpart(ipart), ypart(ipart)  , &! again
                              ierror )
-               if (ierror/=0) then
+                 if (ierror/=0) then
                    !
                    ! Location after adding the deflection angle correction is outside the grid,
                    ! so the deflection angle correction will not be performed
                    !
                    mpart(ipart) = mpart0(ipart)
                    npart(ipart) = npart0(ipart)
-               endif
+                 endif
+!               endif
             endif
          enddo
       endif
@@ -1780,4 +2093,5 @@ contains
 
       return
       end function
+      
 end module

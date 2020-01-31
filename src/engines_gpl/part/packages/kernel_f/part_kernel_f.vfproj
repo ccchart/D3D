@@ -58,8 +58,11 @@
 		<File RelativePath=".\src\densty.f90"/>
 		<File RelativePath=".\src\diffus.f90"/>
 		<File RelativePath=".\src\extout.f90"/>
+		<File RelativePath=".\src\ibm.f90"/>
 		<File RelativePath=".\src\inipart.f90"/>
 		<File RelativePath=".\src\inipart_asc.f90"/>
+		<File RelativePath=".\src\larvae.f90"/>
+		<File RelativePath=".\src\larvm2.f90"/>
 		<File RelativePath=".\src\mudrel.f90"/>
 		<File RelativePath=".\src\oildsp.f90">
 			<FileConfiguration Name="Debug|Win32">
@@ -90,6 +93,7 @@
 		<File RelativePath=".\src\part18.f90"/>
 		<File RelativePath=".\src\part21.f90"/>
 		<File RelativePath=".\src\partfl.f90"/>
+		<File RelativePath=".\src\partini.f90"/>
 		<File RelativePath=".\src\partur.f90"/>
 		<File RelativePath=".\src\partvs.f90">
 			<FileConfiguration Name="Release|x64">
@@ -98,6 +102,9 @@
 				<Tool Name="VFFortranCompilerTool" OpenMP="OpenMPParallelCode" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\partwq.f90"/>
 		<File RelativePath=".\src\plotgr.f90"/>
+		<File RelativePath=".\src\s_forcing.f90"/>
+		<File RelativePath=".\src\t_forcing.f90"/>
+		<File RelativePath=".\src\tidal_state.f90"/>
 		<File RelativePath=".\src\umagi.f90">
 			<FileConfiguration Name="Release|x64">
 				<Tool Name="VFFortranCompilerTool" ReentrantCode="reentrancyThreaded"/></FileConfiguration>

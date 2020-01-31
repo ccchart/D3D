@@ -20,11 +20,15 @@
 !!  All indications and logos of, and references to registered trademarks
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
+module part03_mod
+!
+contains      
 
       subroutine part03 ( lgrid  , volume , flow   , dx     , dy     ,   &
                           nmax   , mmax   , mnmaxk , lgrid2 , velo   ,   &
                           layt   , area   , depth  , dps    , locdep ,   &
-                          zlevel , tcktot , ltrack)
+                          zlevel , tcktot , ltrack , flow2m , lgrid3 ,   &
+                          vol1   , vol2   , vel1   , vel2   )
 !
 !
 !                   Deltares (former: Deltares)
@@ -84,6 +88,12 @@
       real   (rp), intent(  out) :: zlevel(nmax*mmax)
       real   (rp), intent(in   ) :: tcktot(layt)
       logical    , intent(in   ) :: ltrack
+      real   (rp), intent(in   ) :: flow2m  (*)              !< flows next time level on matrix
+      integer(ip), pointer       :: lgrid3( : , : )     ! original grid (conc array)
+      real     (sp), pointer     :: vol1   ( : )      !< first volume record
+      real     (sp), pointer     :: vol2   ( : )      !< second volume record
+      real   (sp), pointer       :: vel1  ( : )         ! velocity begin hydr step
+      real   (sp), pointer       :: vel2  ( : )         ! velocity end hydr step
 
       real (sp) ::  default = 999.999
 
@@ -99,6 +109,7 @@
       real   (rp)  vy       !    velocity in y direction
       integer(ip)  i03d , i33d, i43d
       integer(ip)  ilay
+      integer(ip)  iseg
       real   (dp)  dplay
 
       integer(4) ithndl              ! handle to time this subroutine
@@ -120,6 +131,7 @@
 !            active?
 !
              i0 = lgrid(i1, i2)
+             iseg  = lgrid3(i1,i2)
              if (i0  >  0) then
                i03d = i0 + (ilay-1)*nmax*mmax
 !
@@ -148,7 +160,42 @@
 !
                velo(i03d) = sqrt(sum / 2.0)
                depth(i0)  = depth(i0) + volume(i03d)
+               if ( ilay .eq. 1 ) then
+                  vel1(iseg) = velo(i03d)
+
+                  ! next time level
+
+                  if (vol2(iseg).gt.0) then
+                    vy = flow2m(i03d        ) / vol2(iseg) * dy(i0)
+                    vx = flow2m(i03d+ mnmaxk) / vol2(iseg) * dx(i0)
+                  else
+                    vy = 0
+                    vx = 0
+                  endif
+                  
+!
+!                 calculate sum; value >= 0
+!
+                  sum = vx**2 + vy**2
+!
+                  i3 = lgrid2(i1 - 1, i2    )
+                  i33d = i3 + (ilay-1)*nmax*mmax
+                  if (i3  >  0 .and. vol2(iseg) > 0.0) then
+                    vy  = flow2m(i33d        ) / vol2(iseg) * dy(i0)
+                    sum = sum + vy**2
+
+                  endif
+                  
+                  i4 = lgrid2(i1    , i2 - 1)
+                  i43d = i4 + (ilay-1)*nmax*mmax
+                  if (i4  >  0 .and. vol2(iseg) > 0.0) then
+                    vx  = flow2m(i43d+mnmaxk) / vol2(iseg) * dx(i0)
+                    sum = sum + vx**2
+                  endif
+                  vel2(iseg) = sqrt(sum/2.0)
+               endif
              endif
+
 !
 !            end of loop
 !
@@ -218,3 +265,4 @@
       return
 !
       end subroutine
+end module
