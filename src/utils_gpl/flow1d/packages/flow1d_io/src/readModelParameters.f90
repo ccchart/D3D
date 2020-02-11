@@ -112,7 +112,7 @@ module m_readModelParameters
          value = 0.0013
          call prop_get_double(md_ptr, 'Temperature', 'daltonNumber', value, success)
          call set_par_temperature('c_e_dalton', value)
-         value = 3930d0
+         value = 4200d0
          call prop_get_double(md_ptr, 'Temperature', 'heatCapacityWater', value, success)
          call set_par_temperature('c_p', value)
          value = 0.0013
@@ -729,7 +729,7 @@ module m_readModelParameters
       call AddOrReplaceParameter(category, 'SurfaceArea', '1.0d6', .true.)
       call AddOrReplaceParameter(category, 'AtmosphericPressure', '1.0d5', .true.)
       call AddOrReplaceParameter(category, 'DaltonNumber', '0.0013', .true.)
-      call AddOrReplaceParameter(category, 'HeatCapacityWater', '3930', .true.)
+      call AddOrReplaceParameter(category, 'HeatCapacityWater', '4200', .true.)
       call AddOrReplaceParameter(category, 'StantonNumber', '0.0013', .true.)
 
       category = 'Observations'
