@@ -1,0 +1,33 @@
+\documentclass[english]{deltares_manual}
+\title{Description PARTbranch}
+\subtitle{changes compared with the trunk version and not included in trunk version}
+\manualtype{Additional information}
+\version{1.0}
+\begin{document}
+	
+\deltarestitle
+%------------------------------------------------------------------------------
+\section{Beschrijving van script waq\_balans.py}
+
+This programme makes use of the mass balance ascii (prn) output files from delwaq.
+Two files can be used as input so that they can be compared.
+
+if substance in allsubs: this is the first main loop through the substances 
+
+\begin{description}
+	\item for ifile in range(len(infile)): the second loop through the (maximum) two input files, it was not tested if only one input file is used.
+\end{description}
+
+At the end of the ifile loop all the terms are stored in indum (for both files)
+In de structure 'results' are all output included of the two files for that substance so that this can be converted two one dataframe that can be stored as an excel file. 
+
+I can search the structure on strings or values using something like:
+test = list(filter(lambda x:'Storage' in x, results)). The names that we want to compare are stored in varname
+
+This gives all occurences and then I can do the output as I please.
+
+
+	
+
+%------------------------------------------------------------------------------
+\end{document}

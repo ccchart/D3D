@@ -1852,6 +1852,7 @@ src/engines_gpl/part/packages/utils_f/src/stop_exit.f90 -text
 src/engines_gpl/part/packages/utils_f/src/strip_inputfile.f90 -text
 src/engines_gpl/part/packages/utils_f/src/wait.f90 -text
 src/engines_gpl/part/packages/utils_f/src/write_version.f90 -text
+src/engines_gpl/part/part_updates_not_in_UM.tex -text
 src/engines_gpl/part/scripts/Makefile.am -text
 src/engines_gpl/part/scripts/run_dpart.bat -text
 src/engines_gpl/part/scripts/run_dpart.sh -text
