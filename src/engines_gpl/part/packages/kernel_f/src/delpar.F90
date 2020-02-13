@@ -478,6 +478,7 @@
                     temper   , temper1  , nfiles   , lun      , fname    ,    &
                     ftype    , flow2    , rhowatc)
 
+                    
 !     Read the whole input file ! Data is put in the partmem module !
 
       call rdpart ( lun(1)   , lun(2)   , fname(1) )
@@ -724,16 +725,6 @@
          call part15 ( lun(2)   , itime    , spawnd   , mnmax2   , nowind   ,    &
                        iwndtm   , wveloa   , wdira    , wvelo    , wdir     )
 
-!        Rdhydr reads hydrodynamic water-flow
-
-         call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
-                       noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
-                       vdiff    , area     , flow     , vol1     , vol2     ,    &
-                       flow1    , flow2m   , vdiff1   , update   , cellpntp , flowpntp ,    &
-                       tau      , tau1     , caltau   , salin    , salin1   ,    &
-                       temper   , temper1  , nfiles   , lun      , fname    ,    &
-                       ftype    , flow2    , rhowatc)
-
 !        Part12 makes .map files, binary and Nefis versions
 
          call part12 ( lun(8)   , fname(8) , lun(2)   , title    , subst2   ,    &
@@ -747,6 +738,16 @@
                        layt     , area     , nfract   , lsettl   , mstick   ,    &
                        elt_names, elt_types, elt_dims , elt_bytes, locdep   ,    &
                        nosub_max, bufsize  )
+
+!        Rdhydr reads hydrodynamic water-flow
+
+         call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
+                       noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
+                       vdiff    , area     , flow     , vol1     , vol2     ,    &
+                       flow1    , flow2m    , vdiff1   , update   , cellpntp , flowpntp ,    &
+                       tau      , tau1     , caltau   , salin    , salin1   ,    &
+                       temper   , temper1  , nfiles   , lun      , fname    ,    &
+                       ftype    , flow2    , rhowatc)
 
 !        Part13 makes 3d detail plot grids corrected for recovery rate
 
