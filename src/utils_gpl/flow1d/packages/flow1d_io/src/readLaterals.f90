@@ -77,7 +77,7 @@ module m_readLaterals
       do i = 1, numstr
          
          if (tree_get_name(md_ptr%child_nodes(i)%node_ptr) .eq. 'lateraldischarge') then
-            
+         
             ! Read Data
             
             call prop_get_string(md_ptr%child_nodes(i)%node_ptr, 'lateraldischarge', 'id', lateralID, success)
@@ -131,9 +131,8 @@ module m_readLaterals
             pLat%branch(1)       = branchIdx
             pLat%beginOffset(1)  = Chainage
             pLat%endOffset(1)    = Chainage + length
-            pLat%concentration   = 0.0d0;          
-            pLat%freshWater      = .true.
-      
+            pLat%concentration(transportPars%salt_index)   = 0.02d0;          
+            pLat%concentration(transportPars%temp_index)   = 12d0;          
          endif
       
       end do

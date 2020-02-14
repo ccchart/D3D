@@ -315,7 +315,8 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
          
          ec_bc_item = ecFindItemByQuantityLocation(ec, locationID, quantityID, isLateral = .true.)
          if (ec_bc_item < 0)then
-            call setmessage(LEVEL_ERROR, 'Could not find ' // trim(locationID) // '.' // trim(quantityID) // ' in file ' // trim(boundaryConditionsFile))
+            ! use default concentration for this constituent
+            continue
          else
             is_qh_bound = ecItemGetQHtable(ec, ec_bc_item, h_values, q_values, success)
             if (is_qh_bound) then

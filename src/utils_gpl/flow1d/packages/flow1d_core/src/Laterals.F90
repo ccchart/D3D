@@ -86,7 +86,6 @@ module m_Laterals
                                                                    !> Indicates whether lateral is a fresh water source: \n
                                                                    !! - at inflow salinity concentration will be set to 0 \n
                                                                    !! - at outflow load will be set to 0.
-      logical                                      :: freshWater
       logical                                      :: pointLateral
      
       ! calculation info
@@ -164,15 +163,13 @@ contains
       integer, intent(in)           :: iseq     !< Sequence number for grid location in lateral source
       integer, intent(in)           :: icon     !< sequence number of constituent
       double precision              :: qlat     !< Discharge of lateral source at specified location
+      double precision              :: con
       
-      if (.not. pLat%freshWater) then
-         if (qlat > 0) then
-            getLoad = qlat*pLat%concentration(icon)
-         else
-            getLoad = qlat
-         endif
+      if (qlat > 0) then
+         con = pLat%concentration(icon)
+         getLoad = qlat*pLat%concentration(icon)
       else
-         getLoad = 0
+         getLoad = qlat
       endif
    end function getLoad
    
