@@ -39,10 +39,10 @@ module c_structures
 
   type(t_network), pointer:: pnetwork => null()
 
-include 'c_structures.inc'
+! include 'c_structures.inc'
 contains
 
-include 'update_structures.inc'
+! include 'update_structures.inc'
 
 
 
@@ -90,7 +90,7 @@ include 'update_structures.inc'
 !
 !!!!!!!!!!!!!! einde nieuwe voorstel, hieronder Fedors routine:
 
-include 'get_structure_by_id.inc'
-include 'set_structure_by_id.inc'
+! include 'get_structure_by_id.inc'
+! include 'set_structure_by_id.inc'
 
 end module c_structures
