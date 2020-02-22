@@ -40,6 +40,8 @@ module ModelTypes
         double precision :: timeStep                  ! time step in seconds
         double precision :: mapOutputTimeStep         ! output timestep in seconds for grid points and reach segments
         double precision :: hisOutputTimeStep         ! output timestep in seconds for other data
+        integer          :: mapOutputFrequency        ! number of user time steps between two consecutive MAP output times
+        integer          :: hisOutputFrequency        ! number of user time steps between two consecutive HIS output times
         integer          :: startDate
         integer          :: endDate
         integer          :: startTime
