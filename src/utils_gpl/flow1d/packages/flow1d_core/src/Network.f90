@@ -37,8 +37,11 @@ module m_network
    use m_trenches
    use m_ExtraResistance
    use m_df1d_transport
-   
+
    implicit none
+
+   type(t_boundary), pointer, public :: bd1, bd2
+
 
    public realloc
    public dealloc
@@ -249,6 +252,7 @@ contains
                      bd_co%branch     = bd%branch    
                      bd_co%direction  = bd%direction 
                      bd_co%linknumber = bd%linknumber
+                     bd1 => network%boundaries%tp(typ)%bd(ibnd)
                      exit
                   endif
                enddo
@@ -276,6 +280,7 @@ contains
                      bd_co%branch     = bd%branch    
                      bd_co%direction  = bd%direction 
                      bd_co%linknumber = bd%linknumber
+                     bd2 => network%boundaries%tp(typ)%bd(ibnd)
                      exit
                   endif
                enddo
