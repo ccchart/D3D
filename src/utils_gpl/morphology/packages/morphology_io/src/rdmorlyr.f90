@@ -1,7 +1,7 @@
 module m_rdmorlyr
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -74,6 +74,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     real(fp)                 :: temp
     real(fp)                 :: thunlyr
     integer                  :: i
+    integer                  :: it
     integer                  :: istat
     integer                  :: j
     integer                  :: l
@@ -493,7 +494,9 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
                 error = .true.
                 return
              endif
-             thtrlyr(:) = thtrlyr(1)
+             do it = nmlb, nmub
+                thtrlyr(it) = thtrlyr(1)
+             enddo
              !
              write(lundia,'(2a,e20.4)') txtput1, ':', thtrlyr(1)
           endif
@@ -574,7 +577,9 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
                    error = .true.
                    return
                 endif
-                thexlyr(:) = thexlyr(1)
+                do it = nmlb, nmub
+                   thexlyr(it) = thexlyr(1)
+                enddo   
                 !
                 write(lundia,'(2a,e20.4)') txtput1, ':', thexlyr(1)
              endif

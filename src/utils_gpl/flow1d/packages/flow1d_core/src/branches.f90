@@ -2,7 +2,7 @@
 module m_branch
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -41,15 +41,10 @@ module m_branch
 
    public realloc
    public dealloc
-   public getCalcPoints
-   public getCalcPoint
-   public get2CalcPoints
-   public admin_branch
    public fill_hashtable
    public getLinkIndex
    public getGridPointNumber
-
-   public BR_EMBEDDED, BR_CONNECTED, BR_ISOLATED, BR_BOUNDARY
+   public admin_branch
    
    interface fill_hashtable
       module procedure fill_hashtable_brs
@@ -98,10 +93,8 @@ module m_branch
       integer                        :: Points(2)               !< Calculation Points at Start and End of Branch
       integer                        :: uPoints(2)              !< Velocity Points at Start and End of Branch
 
-      integer, allocatable           :: lin(:)                  !< link numbers for links in this channel, allocated and filled by admin_network
-      integer, allocatable           :: grd(:)                  !< gridpoint numbers for links in this channel, allocated and filled by admin_network
-      integer, allocatable           :: grd_buf(:)              !< dflowfm gridpoint numbers for links in this channel, allocated and filled by admin_network
-                                                                !< used to keep dflowfm grd-values
+      integer, allocatable           :: lin(:)                  !< link numbers for links in this channel
+      integer, allocatable           :: grd(:)                  !< gridpoint numbers for links in this channel
    
    end type t_branch
 
@@ -149,7 +142,6 @@ module m_branch
             if (allocated(brs%branch(i)%yu))                deallocate(brs%branch(i)%yu)
             if (allocated(brs%branch(i)%lin))               deallocate(brs%branch(i)%lin)
             if (allocated(brs%branch(i)%grd))               deallocate(brs%branch(i)%grd)
-            if (allocated(brs%branch(i)%grd_buf))           deallocate(brs%branch(i)%grd_buf)
          enddo   
          deallocate(brs%branch)
       endif
@@ -213,53 +205,6 @@ module m_branch
        endif
        
    end function getLinkIndex
-
-   !> Get calculation points just before and after structure location on a branch (used in SOBEK)
-   subroutine getCalcPoints(brs, ibranch, dist, leftcalc, rightcalc, ilink, distcalc) 
-
-       type(t_branchSet)               :: brs       !< Current branche set
-       integer, intent(in)             :: ibranch   !< Current branch
-       double precision, intent(inout) :: dist      !< Distance along current branch
-       integer, intent(out)            :: leftcalc  !< most left calculation point (i.e. lower index)
-       integer, intent(out)            :: rightcalc !< most right calculation point (i.e. upper index)
-       integer, intent(out)            :: ilink     !< linknumber of link between upper and lower
-       double precision, intent(out)   :: distcalc  !< distance of structure, at least 0.2 [m] from nodes
-
-       integer                         :: i
-       double precision                :: dist_in_b
-       type(t_branch), pointer         :: pbran
-       
-       pbran => brs%branch(ibranch)
-       
-       dist_in_b= 0.0
-       distcalc = 0.0
-       leftcalc = 0
-       rightcalc= 0
-       dist = max(0.2, min(dist, pbran%length-0.2)) !< JanM: Waarom is de afstand afgeknot en bestaat er een minSectionLength
-       do i = 1, pbran%gridPointsCount
-           if (pbran%gridPointschainages(i) > dist) then !found
-               leftcalc  = pbran%Points(1) - 1 + i - 1
-               rightcalc = pbran%Points(1) - 1 + i
-               ilink     = pbran%uPoints(1) - 1 + i - 1
-               distcalc  = dist 
-               exit
-           endif
-       enddo
-       
-       !error checks: JanM Not yet implemented
-       if (leftcalc < pbran%Points(1) .or. rightcalc > pbran%Points(2)) then
-          call setMessage(LEVEL_ERROR, "Calculation Point Out of Range in Branch: '"//trim(pbran%id)//"'")
-       endif
-
-       if (leftcalc == 0 .or. rightcalc == 0) then
-          call setMessage(LEVEL_ERROR, "No Calculation Point Found in Branch: '"//trim(pbran%id)//"'")
-       endif
-       
-       if (dist > pbran%length ) then
-          call setMessage(LEVEL_ERROR, "Structure Location Outside Branch: '"//trim(pbran%id)//"'")
-       endif
-       
-   end subroutine
    
    integer function getLinkNumber(brs, ibranch, dist)
        type(t_branchSet)               :: brs       !< Current branche set
@@ -284,49 +229,6 @@ module m_branch
        getlinknumber = -1
    end function getLinkNumber
    
-   !> Get calculation point and/or segment number closest to given distance along branch
-   integer function getCalcPoint(brs, ibranch, dist) 
-       type(t_branchSet)              :: brs           !< Current branche set
-       integer, intent(in)            :: ibranch       !< Current branch
-       double precision, intent(in)   :: dist          !< Distance along current branch
-
-      integer              :: p1, p2
-      double precision     :: weight
-      
-      call Get2Points(brs%branch(ibranch)%gridPointschainages, &
-                 brs%branch(ibranch)%gridpointsCount, dist, p1, p2, Weight)
-      p1 = brs%branch(ibranch)%Points(1) -1 + p1
-      p2 = brs%branch(ibranch)%Points(1) -1 + p2
-      if (weight > 0.5) then
-         getCalcPoint = p1
-      else
-         getCalcPoint = p2
-      endif
-   end function
-   
-   subroutine get2CalcPoints(brs, ibranch, dist, p1, p2, pointWeight, l1, l2, linkWeight) 
-      type(t_branchSet)              :: brs           !< Current branche set
-      integer, intent(in)            :: ibranch       !< Current branch
-      double precision, intent(in)   :: dist          !< Distance along current branch
-      integer, intent(out), optional :: p1            !< first gridpoint index
-      integer, intent(out), optional :: p2            !< second gridpoint index
-      double precision, intent(out)  :: pointWeight   !< weight for determining function value depending on function value in P1 and P2
-      integer, intent(out), optional :: l1            !< first u-point index
-      integer, intent(out), optional :: l2            !< second u-point index
-      double precision, intent(out)  :: linkWeight    !< weight for determining function value depending on function value in l1 and l2
-
-      call Get2Points(brs%branch(ibranch)%gridPointschainages, &
-                 brs%branch(ibranch)%gridpointsCount, dist, p1, p2, pointWeight)
-      p1 = brs%branch(ibranch)%Points(1) -1 + p1
-      p2 = brs%branch(ibranch)%Points(1) -1 + p2
-      
-      call Get2Points(brs%branch(ibranch)%uPointschainages, &
-                 brs%branch(ibranch)%upointsCount, dist, l1, l2, linkWeight)
-      l1 = brs%branch(ibranch)%uPoints(1) -1 + l1
-      l2 = brs%branch(ibranch)%uPoints(1) -1 + l2
-  
-   end subroutine
-   
    integer function getGridPointNumber(branch, chainage)
       type (t_branch)   , intent(in   ) :: branch              !< branch object
       double precision  , intent(in   ) :: chainage            !< chainage of object on branch
@@ -343,78 +245,7 @@ module m_branch
       getGridPointNumber = branch%grd(branch%gridpointscount)
       
    end function getGridPointNumber
-
-
-   subroutine Get2Points(chainages, chainageCount, chainage, p1, p2, weight)
-   
-      integer                       :: chainageCount          !< 
-      double precision              :: chainage
-      double precision, dimension(chainageCount) :: chainages
-      integer :: p1
-      integer :: p2
-      double precision :: weight
-      
-      integer        :: i
-
-      do i=2, chainageCount ! only internal points of the branch
-         ! look up calculation point and/or segment in which the grid point lies
-         if (chainages(i) > chainage) then !found
-            p1 = i-1
-            p2 = i
-            weight = (chainages(i)-chainage)/(chainages(i)-chainages(i-1))
-            if (weight < 0.0) then
-               weight = 0.0
-            elseif (weight > 1.0) then
-               weight = 1.0
-            endif
-            
-            return
-         endif
-      enddo
-      
-      p1 = chainageCount
-      p2 = chainageCount
-      weight = 0d0
-   end subroutine get2Points
-
-   subroutine admin_branch(brs, ngrid, nlink)
-   
-      type (t_branchSet), intent(inout), target :: brs
-      integer, intent(inout) :: ngrid
-      integer, intent(inout) :: nlink
-      
-      integer ibr, i
-      type(t_branch), pointer :: pbr
-      
-      do ibr= 1, brs%count
-         pbr => brs%branch(ibr)
-         if (allocated(pbr%lin)) deallocate(pbr%lin) 
-         allocate(pbr%lin(pbr%uPointsCount))
-         do i = 1, pbr%uPointsCount
-            nlink = nlink + 1
-            pbr%lin(i) = nlink
-         enddo
-         
-         !TODO: change this part in order to remove double gridpoint counting:
-         if (allocated(pbr%grd)) deallocate(pbr%grd) 
-         if (allocated(pbr%grd_buf)) deallocate(pbr%grd_buf) 
-         allocate(pbr%grd(pbr%gridPointsCount))
-         allocate(pbr%grd_buf(pbr%gridPointsCount))
-         ngrid = pbr%Points(1) - 1
-         if (pbr%FromNode%gridNumber == -1) then
-            pbr%FromNode%gridNumber = ngrid + 1
-         endif
-         do i = 1, pbr%gridPointsCount
-            ngrid = ngrid + 1
-            pbr%grd(i) = ngrid
-         enddo
-         if (pbr%ToNode%gridNumber == -1) then
-            pbr%ToNode%gridNumber = ngrid
-         endif
-      enddo
-      
-   end subroutine admin_branch
-   
+  
    subroutine fill_hashtable_brs(brs)
    
       type (t_branchSet), intent(inout), target :: brs
@@ -432,5 +263,42 @@ module m_branch
       
       call hashfill(brs%hashlist)
    end subroutine fill_hashtable_brs
+
+   !> Sets up the administration for all branches:
+   !! * from/to topology and %grd and %lin discretization points.
+   subroutine admin_branch(brs, nlink)
+   
+      type (t_branchSet), target, intent(inout) :: brs   !< Branch set from the network.
+      integer,                    intent(inout) :: nlink !< Total number of links. (Upon input, any existing links from the call site.
+                                                         !< Upon output: total number of links after administering all branches.)
+      
+      integer ibr, i, ngrid
+      type(t_branch), pointer :: pbr
+      
+      do ibr= 1, brs%count
+         pbr => brs%branch(ibr)
+         if (allocated(pbr%lin)) deallocate(pbr%lin) 
+         allocate(pbr%lin(pbr%uPointsCount))
+         do i = 1, pbr%uPointsCount
+            nlink = nlink + 1
+            pbr%lin(i) = nlink
+         enddo
+         
+         if (allocated(pbr%grd)) deallocate(pbr%grd) 
+         allocate(pbr%grd(pbr%gridPointsCount))
+         ngrid = pbr%Points(1) - 1
+         if (pbr%FromNode%gridNumber == -1) then
+            pbr%FromNode%gridNumber = ngrid + 1
+         endif
+         do i = 1, pbr%gridPointsCount
+            ngrid = ngrid + 1
+            pbr%grd(i) = ngrid
+         enddo
+         if (pbr%ToNode%gridNumber == -1) then
+            pbr%ToNode%gridNumber = ngrid
+         endif
+      enddo
+      
+   end subroutine admin_branch
    
 end module m_branch

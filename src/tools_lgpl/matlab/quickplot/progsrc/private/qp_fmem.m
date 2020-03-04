@@ -4,7 +4,7 @@ function [FI,FileName,Tp,Otherargs]=qp_fmem(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -419,6 +419,11 @@ switch cmd
                         end
                     case 'NetCDF'
                         Opt = get_matching_names(FileName,'_',-2);
+                        if ~isempty(Opt)
+                            if Opt{4}~=0 || Opt{3}~=4
+                                Opt = {};
+                            end
+                        end
                         FI = nc_interpret(FileName,Opt{:});
                         %nc_dump(FileName)
                         FI.FileName = FI.Filename;
@@ -1162,6 +1167,9 @@ else
 end
 if nDigits>0 && all(ismember(n(iOffset+(1:nDigits)),'0123456789'))
     iPOffset  = length(p)+1+iOffset;
+    if length(p)>=1 && p(end)==filesep
+        iPOffset = iPOffset-1;
+    end
     FileName1 = FileName(1:iPOffset);
     FileName2 = FileName(iPOffset+nDigits+1:end);
     %

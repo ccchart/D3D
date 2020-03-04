@@ -1,7 +1,7 @@
 module networkTypes
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -35,9 +35,7 @@ module networkTypes
    use m_CrossSections
    use m_1d_structures
    use m_spatial_data
-   use m_boundaryConditions
    use m_ObservationPoints
-   use m_laterals
    use m_storage
    
    implicit none

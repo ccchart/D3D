@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2015-2019.                                
+!  Copyright (C)  Stichting Deltares, 2015-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -86,8 +86,6 @@ select case(var_name)
     type_name = "double"
   case("wy")
     type_name = "double"
-  case("wmag")
-    type_name = "double"
   case("rain")
     type_name = "double"
   case("evap")
@@ -100,13 +98,21 @@ select case(var_name)
     type_name = "double"
   case("balat")
     type_name = "double"
+  case("n1latsg")
+    type_name = "int"
+  case("n2latsg")
+    type_name = "int"
   case("nnlat")
+    type_name = "int"
+  case("kclat")
     type_name = "int"
   case("qinext")
     type_name = "double"
   case("qinextreal")
     type_name = "double"
   case("vincum")
+    type_name = "double"
+  case("rainuni")
     type_name = "double"
   case("zbndz")
     type_name = "double"
@@ -131,6 +137,8 @@ select case(var_name)
   case("stemdiam")
     type_name = "double"
   case("stemheight")
+    type_name = "double"
+  case("Cdvegsp")
     type_name = "double"
   case("zws")
     type_name = "double"
@@ -202,8 +210,6 @@ select case(var_name)
     type_name = "int"
   case("kfs")
     type_name = "int"
-  case("kfst0")
-    type_name = "int"
   case("bare")
     type_name = "double"
   case("ba_mor")
@@ -230,6 +236,10 @@ select case(var_name)
     type_name = "double"
   case("wu_mor")
     type_name = "double"
+  case("wu1D2D")
+    type_name = "double"
+  case("hh1D2D")
+    type_name = "double"
   case("bob")
     type_name = "double"
   case("bob0")
@@ -254,6 +264,16 @@ select case(var_name)
     type_name = "int"
   case("numk")
     type_name = "int"
+  case("ndx2d")
+    type_name = "int"
+  case("ndx")
+    type_name = "int"
+  case("xz")
+    type_name = "double"
+  case("yz")
+    type_name = "double"
+  case("ba")
+    type_name = "double"
   case("zbnd1d2d1")
     type_name = "double"
   case("zbnd1d2d0")
@@ -278,20 +298,6 @@ select case(var_name)
     type_name = "double"
   case("is_dtint")
     type_name = "double"
-  case("ndx2d")
-    type_name = "int"
-  case("ndx")
-    type_name = "int"
-  case("xz")
-    type_name = "double"
-  case("yz")
-    type_name = "double"
-  case("ba")
-    type_name = "double"
-  case("md_pdffile")
-    type_name = "char"
-  case("md_blmfile")
-    type_name = "char"
   case default
     type_name = ""
 end select

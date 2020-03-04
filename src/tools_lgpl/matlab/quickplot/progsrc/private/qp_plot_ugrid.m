@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param,Parent]=qp_plot_ugrid(hNew,Parent,Param,data,Ops
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -259,23 +259,60 @@ switch NVal
                     NP = cellfun(@numel,data.EdgeGeometry.X);
                     uNP = unique(NP);
                     for i = length(uNP):-1:1
+                        if uNP(i)==1
+                            continue
+                        end
                         j = NP==uNP(i);
                         x = cat(2,data.EdgeGeometry.X{j});
                         y = cat(2,data.EdgeGeometry.Y{j});
-                        v = data.Val(j);
+                        switch data.ValLocation
+                            case 'EDGE'
+                                v = data.Val(j);
+                                v = repmat(v',uNP(i),1);
+                                edgecolor = 'flat';
+                            case 'NODE'
+                                j0 = find(j);
+                                v = zeros(size(x));
+                                for ij = length(j0):-1:1
+                                    d = pathdistance(x(:,ij),y(:,ij));
+                                    dataNodes = data.Val(data.EdgeNodeConnect(j0(ij),:));
+                                    v(:,ij) = interp1([0;d(end)],dataNodes,d);
+                                end
+                                edgecolor = 'interp';
+                        end
                         faces = repmat(numel(x)+1,fliplr(size(x))+[0 1]);
                         faces(:,1:end-1) = reshape(1:numel(x),size(x))';
-                        v = reshape(repmat(v',uNP(i),1),[numel(x) 1]);
-                        hNew(i) = patch('parent',Parent,'vertices',[x(:) y(:);NaN NaN],'faces',faces,'facevertexcdata',[v;NaN],'edgecolor','flat','facecolor','none','linewidth',Ops.linewidth,'linestyle',Ops.linestyle,'marker',Ops.marker,'markersize',Ops.markersize,'markeredgecolor',Ops.markercolour,'markerfacecolor',Ops.markerfillcolour);
+                        v = reshape(v,[numel(x) 1]);
+                        hNew(i) = patch('parent',Parent,'vertices',[x(:) y(:);NaN NaN],'faces',faces,'facevertexcdata',[v;NaN],'edgecolor',edgecolor,'facecolor','none','linewidth',Ops.linewidth,'linestyle',Ops.linestyle,'marker',Ops.marker,'markersize',Ops.markersize,'markeredgecolor',Ops.markercolour,'markerfacecolor',Ops.markerfillcolour);
                     end
                 else
                     hNew = qp_scalarfield(Parent,hNew,Ops.presentationtype,'UGRID',data,Ops);
                 end
-                if strcmp(Ops.colourbar,'none')
-                    qp_title(Parent,{PName,TStr},'quantity',Quant,'unit',Units,'time',TStr)
+                if isempty(Selected{K_})
+                    str=PName;
+                    lyr={};
                 else
-                    qp_title(Parent,{TStr},'quantity',Quant,'unit',Units,'time',TStr)
+                    lyr = qp_layer(Selected{K_});
+                    str = sprintf('%s in %s',PName,lyr);
+                    lyr = {lyr};
                 end
+                %
+                if strcmp(Ops.colourbar,'none')
+                    tit = {str};
+                else
+                    tit = lyr;
+                end
+                if ~isempty(stn)
+                    tit{end+1}=stn;
+                end
+                if ~isempty(TStr)
+                    tit{end+1}=TStr;
+                end
+                if length(tit)>2
+                    tit{1}=[tit{1} ' at ' tit{2}];
+                    tit(2)=[];
+                end
+                qp_title(Parent,tit,'quantity',Quant,'unit',Units,'time',TStr)
                 
             case {'Distance-Val','X-Val','X-Z','X-Time','Time-X'}
                 if multiple(K_)
@@ -952,9 +989,9 @@ switch NVal
                     str=PName;
                     lyr={};
                 else
-                    lyr=sprintf('layer %i',Selected{K_});
-                    str=sprintf('%s in %s',PName,lyr);
-                    lyr={lyr};
+                    lyr = qp_layer(Selected{K_});
+                    str = sprintf('%s in %s',PName,lyr);
+                    lyr = {lyr};
                 end
                 if strcmp(Ops.colourbar,'none')
                     qp_title(Parent,{str,TStr},'quantity',Quant,'unit',Units,'time',TStr)

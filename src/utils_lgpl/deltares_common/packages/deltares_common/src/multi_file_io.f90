@@ -9,6 +9,7 @@
         
       public :: mf_open                 ! open existing file, obtain file handle  
       public :: mf_read                 ! read from file by file handle 
+      public :: mf_getpos               ! get the position IN the file to fseek to later
       public :: mf_backspace            ! fortran's backspace 
       public :: mf_rewind               !           rewind file 
       public :: mf_close                ! close a file handle 
@@ -91,6 +92,7 @@
         character(len=maxRecLength) :: rec
 
         rec = ' '
+        savepos = 0                                     ! OUT-argument, but should be initialized
         if (present(savepos)) then 
            res = CUTIL_MF_READ(fptr,rec,savepos)        ! pass the starting position of read back to the caller
         else
@@ -115,6 +117,14 @@
         strout=rec(1:strlen)
         end subroutine mf_read
 
+        subroutine mf_getpos(fptr,savepos)
+        implicit none 
+        integer(kind=8),            intent(in)       ::  fptr    
+        integer(kind=8),            intent(out)      ::  savepos
+        integer :: res 
+        integer :: CUTIL_MF_GETPOS
+        res = CUTIL_MF_GETPOS(fptr,savepos)
+        end subroutine mf_getpos
 
         subroutine mf_close(fptr)
         implicit none 

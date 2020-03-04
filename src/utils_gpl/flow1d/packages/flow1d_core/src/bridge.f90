@@ -1,7 +1,7 @@
 module m_Bridge
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -41,6 +41,8 @@ module m_Bridge
    type, public :: t_bridge
       double precision              :: bedLevel             !< bedlevel of the standard bridge
       double precision              :: bedLevel_actual      !< used bedlevel of the bridge
+      double precision              :: flowArea             !< flow area as defined in the cross section of the standard bridge
+      double precision              :: flowArea_actual      !< used flow area of the bridge
       double precision              :: pillarwidth          !< pillar width
       double precision              :: formfactor          
       integer                       :: allowedflowdir       !< 0 all directions
@@ -213,10 +215,19 @@ contains
 
          ! Initialize = bridge%pcross
          depth = smax - crestLevel
-         call GetCSParsFlow(bridge%pcross, depth, wArea, wPerimiter, wWidth)     
+         call GetCSParsFlow(bridge%pcross, depth, wArea, wPerimiter, wWidth)   
+         bridge%flowArea = wArea
+         
+         ! in case the flow area is limited by the upstream flow area, the hydraulic radius
+         ! is still based on the cross section of the bridge
+         hydrRadius = wArea / wPerimiter
+         
+         ! Limit the flow area to the upstream flow area
+         wArea = min(wArea, wetup)
+         bridge%flowArea_actual = wArea
+         
 
          ! Friction Loss
-         hydrRadius = wArea / wPerimiter
          chezyBridge = getchezy(bridge%pcross%frictionTypePos(1), bridge%pcross%frictionValuePos(1), warea/wPerimiter, depth, 1d0)
          frictLoss = 2.0d0 * gravity * bridge%length / (chezyBridge * chezyBridge * hydrRadius)
 

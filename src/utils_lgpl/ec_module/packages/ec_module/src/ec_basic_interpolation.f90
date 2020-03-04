@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2018.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -124,6 +124,7 @@
    private
 
    public   ::  bilin_interp
+   public   ::  nearest_neighbour
    public   ::  TRIINTfast
    public   ::  AVERAGING2
    public   ::  dlaun
@@ -1088,7 +1089,7 @@
    B2  = getdy(x(1),y(1),xp  ,yp , jsferic)   ! YP   - Y(1)
 
    DET  =   A11 * A22 - A12 * A21
-   IF (ABS(DET)  <  1E-12) THEN    ! Jan Mooiman 07-01-2015
+   IF (ABS(DET)  <  1E-12) THEN
       RETURN
    ENDIF
 
@@ -1197,6 +1198,47 @@
       end if
 
    end subroutine linear3D
+
+   !---------------------------------------------------------------------------!
+   !   nearest_neighbour
+   !---------------------------------------------------------------------------!
+
+   !> return the index of the nearest neighbouring source point for each of the target grid points
+   subroutine nearest_neighbour(Nc, xc, yc, kc, Mn, dmiss, XS, YS, MSAM, jsferic, jasfer3D)
+   implicit none
+
+   integer,                      intent(in   ) :: Nc       !< number of points to be interpolated
+   real(kind=hp), dimension(Nc), intent(in   ) :: xc, yc   !< point coordinates of target grid points
+   integer,       pointer      , intent(in   ) :: kc(:)    !< Target mask array-pointer, whether or not (1/0) target points should be included. Pass null() when no masking is wanted.
+   integer,       dimension(Nc), intent(  out) :: Mn       !< source index for each target point
+   real(kind=hp),                intent(in   ) :: dmiss    !< Missing value inside xc, yx (if any).
+   real(kind=hp),                intent(in   ) :: XS(:), YS(:) !< point coordinates of source data points
+   integer,                      intent(in   ) :: MSAM     !< Number of points in source data point set.
+   integer,                      intent(in   ) :: jsferic  !< Whether or not (1/0) input coordinates are spherical or not.
+   integer,                      intent(in   ) :: jasfer3D !< Whether or not 3D distance calculation must be done, across the globe surface.
+   integer :: k,m
+   real(kind=hp) :: dist, mindist
+
+   Mn = -1
+   do k=1,Nc ! Target points
+      if (associated(kc)) then
+         if (KC(K) == 0) then
+            cycle
+         end if
+      end if
+
+      mindist = Huge(1.d0)
+      do m=1,MSAM ! Source points
+         dist = dbdistance(xc(k),yc(k),xs(m),ys(m),jsferic,jasfer3D,dmiss)
+         if (dist<mindist) then
+            mindist = dist
+            Mn(k) = m
+         end if
+      end do
+   end do
+   end subroutine nearest_neighbour
+
+
 
    !---------------------------------------------------------------------------!
    !   bilin_interp

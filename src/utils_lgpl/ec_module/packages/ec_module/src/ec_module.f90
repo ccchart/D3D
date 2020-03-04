@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -261,6 +261,10 @@ module m_ec_module
    interface ecSetItemProperty
       module procedure ecItemSetProperty
    end interface ecSetItemProperty
+
+   interface ecCopyItemProperty
+      module procedure ecItemCopyProperty
+   end interface ecCopyItemProperty
    
    interface ecSetItemRole
       module procedure ecItemSetRole
@@ -307,6 +311,10 @@ module m_ec_module
    interface ecSetConverterOperand
       module procedure ecConverterSetOperand
    end interface ecSetConverterOperand
+
+   interface ecSetConverterInputPointer
+      module procedure ecConverterSetInputPointer
+   end interface ecSetConverterInputPointer
 
    interface ecSetConverterMask
       module procedure ecConverterSetMask
@@ -730,7 +738,9 @@ module m_ec_module
          convtype = convType_polytim
       case (provFile_netcdf)
          convtype = convType_netcdf
-         case default
+      case (provFile_qhtable)
+         convtype = convType_qhtable
+      case default
          convtype = convType_undefined
       end select
       end function ec_filetype_to_conv_type

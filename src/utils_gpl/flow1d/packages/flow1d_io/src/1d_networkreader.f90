@@ -1,7 +1,7 @@
 module m_1d_networkreader
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -30,7 +30,6 @@ module m_1d_networkreader
 !-------------------------------------------------------------------------------
    
    use MessageHandling
-   use modelGlobalData
    use properties
    use m_hash_search
    use m_hash_list
@@ -260,7 +259,7 @@ module m_1d_networkreader
 
    ! Fill the array storing the mesh1d node ids for each network node.
    if(nodesOnBranchVertices==0) then
-      allocate(idMeshNodesInNetworkNodes(meshgeom%numnode))
+      allocate(idMeshNodesInNetworkNodes(meshgeom%nnodes))
       idMeshNodesInNetworkNodes = ' '
       do ibran = 1, meshgeom%nbranches
          firstNode = gpFirst(ibran)
@@ -636,7 +635,6 @@ module m_1d_networkreader
       pbr%ToNode                       => nds%node(iendNode)
       pbr%ToNode%numberOfConnections   = pbr%toNode%numberOfConnections + 1
       pbr%orderNumber                  = orderNumber
-      pbr%brType                       = BR_ISOLATED
       pbr%nextBranch                   = -1
       pbr%nodeIndex(1)                 = ibegNode
       pbr%nodeIndex(2)                 = iendNode
@@ -695,7 +693,6 @@ module m_1d_networkreader
       pbr%toNode%x          = gpX(gridPointsCount)
       pbr%toNode%y          = gpY(gridPointsCount)
       pbr%iTrench           = 0
-      pbr%brtype            = BR_ISOLATED
          
       do j = 1, gridPointsCount-1
          pbr%Xu(j) = 0.5d0 * (pbr%Xs(j) + pbr%Xs(j + 1))
@@ -713,7 +710,7 @@ module m_1d_networkreader
          if (node%nodeType == nt_NotSet) then
             ! probably end node (until proved otherwise
             node%nodeType = nt_endNode
-            node%gridNumber = gridIndex
+         node%gridNumber = gridIndex
          elseif (node%nodeType == nt_endNode) then
             ! Already one branch connected, so not an endNode
             node%nodeType = nt_LinkNode
@@ -822,7 +819,6 @@ module m_1d_networkreader
       pbr%ToNode                       => nds%node(iendNode)
       pbr%ToNode%numberOfConnections   = pbr%toNode%numberOfConnections + 1
       pbr%orderNumber                  = orderNumber
-      pbr%brType                       = BR_ISOLATED
       pbr%nextBranch                   = -1
       pbr%nodeIndex(1)                 = ibegNode
       pbr%nodeIndex(2)                 = iendNode
@@ -869,7 +865,6 @@ module m_1d_networkreader
       pbr%toNode%x          = gpX(gridPointsCount)
       pbr%toNode%y          = gpY(gridPointsCount)
       pbr%iTrench           = 0
-      pbr%brtype            = BR_ISOLATED
          
       do j = 1, gridPointsCount-1
          pbr%Xu(j) = 0.5d0 * (pbr%Xs(j) + pbr%Xs(j + 1))
@@ -887,7 +882,7 @@ module m_1d_networkreader
          if (node%nodeType == nt_NotSet) then
             ! probably end node (until proved otherwise
             node%nodeType = nt_endNode
-            node%gridNumber = gridIndex
+         node%gridNumber = gridIndex
          elseif (node%nodeType == nt_endNode) then
             ! Already one branch connected, so not an endNode
             node%nodeType = nt_LinkNode
@@ -1035,7 +1030,6 @@ module m_1d_networkreader
          read(ibin) pbrn%length
          read(ibin) pbrn%orderNumber
          
-         read(ibin) pbrn%brType
          read(ibin) pbrn%iTrench
          read(ibin) pbrn%flapGate
          
@@ -1101,7 +1095,6 @@ module m_1d_networkreader
          write(ibin) pbrn%length
          write(ibin) pbrn%orderNumber
          
-         write(ibin) pbrn%brType
          write(ibin) pbrn%iTrench
          write(ibin) pbrn%flapGate
 

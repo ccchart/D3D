@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -70,6 +70,7 @@
    use unstruc_api
    use dfm_error
    use gridoperations
+   use m_commandline_option
    
    use m_partitioninfo
 #ifdef HAVE_MPI
@@ -232,14 +233,17 @@
 
     if ( md_jamake1d2dlinks .eq. 1 ) then
        ! Make 1D2D links for already loaded net file.
-       imake1d2dtype = I1D2DTP_1TON_EMB
-       ierr = make1D2Dinternalnetlinks()
+       imake1d2dtype = I1D2DTP_1TO1
+       ierr = make1D2Dinternalnetlinks() ! TODO: replace this by call to make1D2Dconnections, but check FILEMENU in batchmode.
        if (ierr /= DFM_NOERR) then
           write (msgbuf, '(a,a,a,i0,a)') 'Error, failed to create 1D2D links for file ''', trim(md_netfile), '''. Error code: ', ierr, '.'
           call warn_flush()
           goto 1234
        end if
-       call unc_write_net(md_netfile, janetcell = 1, janetbnd = 0, jaidomain = 0, iconventions = UNC_CONV_UGRID)
+       if (len_trim(iarg_outfile) == 0) then
+          iarg_outfile = md_netfile ! Overwrite existing file.
+       end if
+       call unc_write_net(iarg_outfile, janetcell = 1, janetbnd = 0, jaidomain = 0, iconventions = UNC_CONV_UGRID)
        goto 1234
     end if
 

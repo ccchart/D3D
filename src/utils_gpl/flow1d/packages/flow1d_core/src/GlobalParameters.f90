@@ -1,7 +1,7 @@
 module m_GlobalParameters
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -46,7 +46,6 @@ module m_GlobalParameters
    logical                          :: fillCulvertsWithGL            = .false.
    logical                          :: doReadCache                   = .false.
    logical                          :: doWriteCache                  = .false.
-   logical                          :: updateTabulatedProfiles       = .false.
    double precision                 :: thresholdDry                  = 0.001d0
    double precision                 :: thresholdFlood                = 0.01d0
    double precision                 :: factorFloodingDividedByDrying = 10.0d0

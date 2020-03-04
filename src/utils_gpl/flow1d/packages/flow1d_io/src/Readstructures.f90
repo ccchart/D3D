@@ -1,7 +1,7 @@
 module m_readstructures
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -109,7 +109,7 @@ module m_readstructures
       endif
       ! Fill indirection tables and set indices for compoundss
       if (network%sts%currentFileVersion >= 2) then
-         call finishReading(network%sts, network%cmps)
+         call finishReading(network%sts, network%cmps, network%crs)
       else
          ! fill the hashtable for searching on Id's
          call fill_hashtable(network%sts)
@@ -133,7 +133,7 @@ module m_readstructures
       integer                                                :: istat
       integer                                                :: numstr
       integer                                                :: i, j
-      character(len=IdLen)                                   :: str_buf
+      character(len=:), allocatable                          :: str_buf
 
       character(len=IdLen)                                   :: typestr
       character(len=IdLen)                                   :: st_id
@@ -210,7 +210,7 @@ module m_readstructures
       endif
 
       do i = 1, numstr
-         
+         success = .true.
          if (strcmpi(tree_get_name(md_ptr%child_nodes(i)%node_ptr), 'Structure')) then
             
             if (network%sts%count+1 > network%sts%Size) then
@@ -220,8 +220,8 @@ module m_readstructures
             ! Read Common Structure Data
             
             ! TODO: UNST-2799: temporary check on polylinefile to prevent stopping on old (1.00) structure files. They will be read by dflowfm kernel itself.
-            call prop_get(md_ptr%child_nodes(i)%node_ptr, '', 'polylinefile', str_buf, success1)
-            if (success1 .and. major == 1) then
+            call prop_get_alloc_string(md_ptr%child_nodes(i)%node_ptr, '', 'polylinefile', str_buf, success1)
+            if (success1) then
                write (msgbuf, '(a,i0,a)') 'Detected structure #', i, ' from '''//trim(structureFile)//''' as an old v1.00 structure. Will be read later by main program.'
                call dbg_flush()
                cycle
@@ -340,7 +340,7 @@ module m_readstructures
       
       type(t_compoundSet),                intent(inout) :: cmps         !< compound data set
       type(tree_data), pointer,           intent(in   ) :: md_ptr       !< ini tree pointer with user input.
-      logical,                            intent(inout) :: success 
+      logical,                            intent(  out) :: success 
 
       type(t_compound), pointer           :: pcompound
       integer                             :: i
@@ -351,6 +351,7 @@ module m_readstructures
          call realloc(cmps)
       endif
 
+      success = .true.
       pcompound => cmps%compound(cmps%count+1)
       call prop_get(md_ptr, '', 'id', st_id, success1)
       if (.not. success1) then
@@ -388,11 +389,13 @@ module m_readstructures
    
    !> At the end of the reading of all structure files, fill the indices arrays for the different
    !! structure types. And find the integer indices for all compound structures
-   subroutine finishReading(sts, cmps)
+   subroutine finishReading(sts, cmps, crs)
       type(t_structureSet),               intent(inout) :: sts    !< structure data set
       type(t_compoundSet),                intent(inout) :: cmps   !< compound data set
+      type(t_CrossSectionSet),            intent(inout) :: crs    !< cross section set
    
       integer :: i
+      integer :: icross
       integer :: istru
       integer :: nweir
       integer :: nculvert
@@ -448,6 +451,12 @@ module m_readstructures
          case (ST_CULVERT)
             nculvert = nculvert + 1
             sts%culvertIndices(nculvert) = istru
+
+            ! Extra step for culvert: re-pointer to the cross section (as the network%crs may have been reallocted during reading).
+            icross = sts%struct(istru)%culvert%crosssectionnr
+            if (icross > 0) then
+               sts%struct(istru)%culvert%pcross => crs%cross(icross)
+            end if
          case (ST_ORIFICE)
             norifice = norifice + 1
             sts%orificeIndices(norifice) = istru
@@ -461,6 +470,12 @@ module m_readstructures
          case (ST_BRIDGE)
             nbridge = nbridge + 1
             sts%bridgeIndices(nbridge) = istru
+
+            ! Extra step for bridge: re-pointer to the cross section (as the network%crs may have been reallocted during reading).
+            icross = sts%struct(istru)%bridge%crosssectionnr
+            if (icross > 0) then
+               sts%struct(istru)%bridge%pcross => crs%cross(icross)
+            end if
          case (ST_GENERAL_ST)
             ngenstru = ngenstru + 1
             sts%generalStructureIndices(ngenstru) = istru
@@ -482,9 +497,9 @@ module m_readstructures
                msgbuf = 'Error in compound '''//trim(cmps%compound(istru)%id)//''' structure element with id '''//trim(ids(i))//&
                         ''' was not found in the structure list'
                call err_flush()
+            else
+               sts%struct(indices(i))%compound = 1 ! mark the structure that belongs to a compound structure
             endif
-            sts%struct(indices(i))%compound = 1 ! mark the structure that belongs to a compound structure
-            
          enddo
          
       enddo
@@ -1443,7 +1458,6 @@ module m_readstructures
       
       allocate(generalst)
 
-      generalst%velheight = .true.
       generalst%ws = 1d10
       call prop_get_double(md_ptr, '', 'crestWidth', generalst%ws)
 
@@ -1451,8 +1465,11 @@ module m_readstructures
       success = success .and. check_input_result(success1, st_id, 'crestLevel')
 
       generalst%mugf_pos = 1d0
-      if (success) call prop_get_double(md_ptr, '', 'corrCoeff',  generalst%mugf_pos)
+      if (success) call prop_get_double(md_ptr, '', 'corrCoeff',  generalst%cgf_pos)
 
+      generalst%velheight = .true.
+      call prop_get(md_ptr, '', 'useVelocityHeight',  generalst%velheight)
+      
       ! all levels are set to -1d-10. In the time loop these parameters will be set to the bed level.
       generalst%zu1                = -1d10
       generalst%zu2                = -1d10
@@ -1463,20 +1480,20 @@ module m_readstructures
       generalst%wd1                = generalst%ws
       generalst%wd2                = generalst%ws
       generalst%gateLowerEdgeLevel = 1d10
-      generalst%cgf_pos            = 1d0
-      generalst%cgd_pos            = 1d0
-      generalst%cwf_pos            = 1d0
-      generalst%cwd_pos            = 1d0
-      generalst%cgf_neg            = 1d0
-      generalst%cgd_neg            = 1d0
-      generalst%cwf_neg            = 1d0
-      generalst%cwd_neg            = 1d0
-      generalst%mugf_neg           = generalst%mugf_pos
+      generalst%cgf_pos            = generalst%cgf_pos
+      generalst%cgd_pos            = generalst%cgf_pos
+      generalst%cwf_pos            = generalst%cgf_pos
+      generalst%cwd_pos            = generalst%cgf_pos
+      generalst%cgf_neg            = generalst%cgf_pos
+      generalst%cgd_neg            = generalst%cgf_pos
+      generalst%cwf_neg            = generalst%cgf_pos
+      generalst%cwd_neg            = generalst%cgf_pos
+      generalst%mugf_neg           = 1d0
+      generalst%mugf_pos           = 1d0
       generalst%extraresistance    = 0d0
       generalst%gatedoorheight     = 1d10
       generalst%gateopeningwidth   = generalst%ws
       generalst%crestlength        = 0d0
-      generalst%velheight          = .true.
       generalst%openingDirection   = GEN_SYMMETRIC
 
    end subroutine readWeirAsGenStru
@@ -1498,13 +1515,11 @@ module m_readstructures
       success = .true.
       allocate(generalst)
 
-      generalst%velheight = .true.
-      
       call get_value_or_addto_forcinglist(md_ptr, 'crestLevel', generalst%zs, st_id, ST_GENERAL_ST, forcinglist, success1)
       success = success .and. check_input_result(success1, st_id, 'crestLevel')
 
       generalst%mugf_pos = 1d0
-      call prop_get_double(md_ptr, '', 'corrCoeff',  generalst%mugf_pos)
+      call prop_get_double(md_ptr, '', 'corrCoeff',  generalst%cgf_pos)
 
       generalst%ws = 1d10
       call prop_get_double(md_ptr, '', 'crestWidth',  generalst%ws)
@@ -1512,6 +1527,9 @@ module m_readstructures
       call get_value_or_addto_forcinglist(md_ptr, 'gateLowerEdgeLevel', generalst%gateLowerEdgeLevel, st_id, ST_GENERAL_ST, &
                                                        forcinglist, success1)
       success = success .and. check_input_result(success1, st_id, 'gateLowerEdgeLevel')
+
+      generalst%velheight = .true.
+      call prop_get(md_ptr, '', 'useVelocityHeight',  generalst%velheight)
 
       ! Set default/standard values for orifice
       ! all levels are set to -1d-10. In the time loop these parameters will be set to the bed level.
@@ -1523,20 +1541,20 @@ module m_readstructures
       generalst%wu2                = generalst%ws
       generalst%wd1                = generalst%ws
       generalst%wd2                = generalst%ws
-      generalst%cgf_pos            = 1d0
-      generalst%cgd_pos            = 1d0
-      generalst%cwf_pos            = 1d0
-      generalst%cwd_pos            = 1d0
-      generalst%cgf_neg            = 1d0
-      generalst%cgd_neg            = 1d0
-      generalst%cwf_neg            = 1d0
-      generalst%cwd_neg            = 1d0
-      generalst%mugf_neg           = generalst%mugf_pos
+      generalst%cgf_pos            = generalst%cgf_pos
+      generalst%cgd_pos            = generalst%cgf_pos
+      generalst%cwf_pos            = generalst%cgf_pos
+      generalst%cwd_pos            = generalst%cgf_pos
+      generalst%cgf_neg            = generalst%cgf_pos
+      generalst%cgd_neg            = generalst%cgf_pos
+      generalst%cwf_neg            = generalst%cgf_pos
+      generalst%cwd_neg            = generalst%cgf_pos
+      generalst%mugf_neg           = 1d0
+      generalst%mugf_pos           = 1d0
       generalst%extraresistance    = 0d0
       generalst%gatedoorheight     = 1d10
       generalst%gateopeningwidth   = 0d0
       generalst%crestlength        = 0d0
-      generalst%velheight          = .true.
       generalst%openingDirection   = GEN_SYMMETRIC ! TODO: once 2D structures are being read by this reader, also support fromleft and fromright
 
    end subroutine readOrificeAsGenStru
@@ -1578,8 +1596,6 @@ module m_readstructures
 
       success = .true.
       allocate(generalst)
-
-      generalst%velheight = .true.
 
       generalst%wu1                = 10d0
       call prop_get_double(md_ptr, '', 'upstream1Width', generalst%wu1, success1)
@@ -1642,6 +1658,9 @@ module m_readstructures
       generalst%extraresistance    = 0d0
       call prop_get_double(md_ptr, '', 'extraResistance', generalst%extraresistance)
       
+      generalst%velheight = .true.
+      call prop_get(md_ptr, '', 'useVelocityHeight',  generalst%velheight)
+
    end subroutine readGeneralStructure
 
 

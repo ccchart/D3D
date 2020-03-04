@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -31,7 +31,7 @@
 ! $HeadURL$
 
 module m_oned_functions
-
+   use m_missing, only: dmiss
    implicit none
    private
 
@@ -42,6 +42,15 @@ module m_oned_functions
    public gridpoint2cross
    public computePump_all_links
    public convert_cross_to_prof
+   public set_ground_level_for_1d_nodes
+   public set_max_volume_for_1d_nodes
+   public updateFreeboard
+   public updateTimeWetOnGround
+   public updateDepthOnGround
+   public updateVolOnGround
+   public updateTotalInflow1d2d
+   public updateTotalInflowLat
+   public updateS1Gradient
 
    type, public :: t_gridp2cs
       integer :: num_cross_sections
@@ -145,18 +154,20 @@ module m_oned_functions
       nbr = network%brs%count
       do ibr = 1, nbr
          pbr => network%brs%branch(ibr)
+         call realloc(pbr%lin, pbr%uPointsCount)
+         call realloc(pbr%grd, pbr%gridPointsCount)
          lin => pbr%lin
          grd => pbr%grd
          L = lin(1)
-         k1  =  ln(1,L)
+         k1  =  iabs(ln(1,L))
          pbr%FromNode%gridNumber = k1
          upointscount = pbr%uPointsCount
          do i = 1, uPointsCount
             L = lin(i)
-            k1 = ln(1,L)
+            k1 = iabs(ln(1,L))
             grd(i) = k1
          enddo
-         k2 = ln(2,lin(upointscount))
+         k2 = ln(2,iabs(lin(upointscount)))
          pbr%tonode%gridnumber = k2
          grd(upointscount+1) = k2
       enddo
@@ -588,7 +599,7 @@ module m_oned_functions
          ! Note 2: do not account for pumping direction here, that is done in prepareComputePump.
          dir = sign(1, L) ! only includes flow link w.r.t. structure spatial orientation.
          L = iabs(L)
-         if ( dir > 0) then         
+         if ( dir > 0) then
             k1 = ln(1,L)
             k2 = ln(2,L)
          else
@@ -754,4 +765,276 @@ module m_oned_functions
    !call restorepol()
    
    end subroutine convert_cross_to_prof
+   
+   !> Set groundLevel and groundStoarge arrays for 1d nodes.
+   !! Ground level should not be confused with bed level.
+   !! It is defined as:
+   !! * street level for storage nodes that have no storage table (and storageType is either reservoir or closed),
+   !! * the highest nearby cross section level ("embankment") for other nodes,
+   !! * dmiss, i.e. not applicable, if no cross section is defined at the node.
+   subroutine set_ground_level_for_1d_nodes(network)
+   use m_flowgeom, only: groundLevel, groundStorage, ndxi, ndx2d
+   use m_Storage
+   use m_CrossSections
+   use m_network
+   implicit none
+   type(t_network), intent(inout), target :: network
+   type(t_storage), pointer               :: pSto
+   type(t_administration_1d), pointer     :: adm
+   integer                                :: i, cc1, cc2
+
+   groundlevel(:) = dmiss
+   groundStorage(:) = 0
+   adm => network%adm
+
+   ! set for all 1D nodes, the ground level equals to the highest cross section "embankment" value
+   do i = 1, ndxi-ndx2d
+      cc1 = adm%gpnt2cross(i)%c1
+      cc2 = adm%gpnt2cross(i)%c2
+      if (cc1 > 0 .and. cc2 > 0) then ! if there are defined cross sections
+         groundLevel(i) = getHighest1dLevel(network%crs%cross(cc1), network%crs%cross(cc2), adm%gpnt2cross(i)%f)
+         ! Note that for closed cross sections, the 'ground level' contains now the pipe roof level. This is intentional: for computing freeboard inside pipes.
+         if (network%crs%cross(cc1)%closed .and. network%crs%cross(cc2)%closed) then
+            groundStorage(i) = 0
+         else
+            groundStorage(i) = 1
+         end if
+      else
+         continue ! dmiss + 0 defaults.
+      end if
+   end do
+
+   ! set for storage nodes that have prescribed street level, i.e. storageType is reservoir or closed
+   do i = 1, network%storS%Count
+      pSto => network%storS%stor(i)
+      if (pSto%useStreetStorage .and. (.not. pSto%useTable)) then
+         groundLevel(pSto%gridPoint) = pSto%streetArea%x(1)
+         if (pSto%storageType == nt_Closed) then
+            groundStorage(i) = 0
+         else
+            groundStorage(i) = 1
+         end if
+      end if
+   end do
+
+   end subroutine set_ground_level_for_1d_nodes
+   
+   !> Set maximal volume for 1d nodes, later used for computation of volOnGround(:).
+   subroutine set_max_volume_for_1d_nodes()
+   use m_flowgeom, only: groundLevel, volMaxUnderground, ndx, ndxi, ndx2d
+   use m_flow,     only: s1, vol1, a1, vol1_f, a1m
+   use m_alloc
+   implicit none
+   double precision, allocatable :: s1_tmp(:), vol1_tmp(:), a1_tmp(:), vol1_ftmp(:), a1m_tmp(:)
+   integer                       :: ndx1d
+
+   ndx1d = ndxi-ndx2d
+   if (ndx1d == 0) then
+      return
+   end if
+
+   ! 1. copy current s1, vol1, vol1_f, a1 and a1m to a temporary array
+   allocate(s1_tmp(ndx))
+   s1_tmp = s1
+   
+   allocate(vol1_tmp(ndx))
+   vol1_tmp = vol1
+   
+   allocate(vol1_ftmp(ndx))
+   vol1_ftmp = vol1_f
+   
+   allocate(a1_tmp(ndx))
+   a1_tmp = a1
+   
+   allocate(a1m_tmp(ndx))
+   a1m_tmp = a1
+
+   ! 2. set s1 to be the ground level
+   s1(ndx2d+1:ndxi) = groundLevel(1:ndx1d)
+   vol1   = 0d0
+   vol1_f = 0d0
+   a1     = 0d0
+   a1m    = 0d0
+   
+
+   ! 3. compute the maximal volume
+   call vol12d(0)
+   volMaxUnderground(1:ndx1d) = vol1(ndx2d+1:ndxi)
+
+   ! 4. set s1, vol1, vol1_f, a1, a1m back
+   s1     = s1_tmp
+   vol1   = vol1_tmp
+   vol1_f = vol1_ftmp
+   a1     = a1_tmp
+   a1m    = a1m_tmp
+
+   end subroutine set_max_volume_for_1d_nodes
+
+
+   !> Update freeboard for each 1d node.
+   !! Freeboard is the vertical distance between the ground level, i.e., not bed level, and the water surface.
+   !! It can be negative value if the water level is above the ground level
+   !! It has minimal value 0d0 if it has storageType "closed", or if the relevant cross sections are closed.
+   !! If the relevant cross sections are closed, freeboard is the vertical distance between the highest nearby cross section level ("embankment") and the water level.
+   subroutine updateFreeboard(network)
+   use m_flow, only: freeboard, s1
+   use m_flowgeom, only: ndxi, ndx2d, groundLevel, groundStorage
+   use m_network
+   implicit none
+   type(t_network), intent(inout), target :: network
+   integer :: i, ii
+
+   freeboard = dmiss
+   do i = ndx2d+1, ndxi
+      ii = i- ndx2d
+      if (groundLevel(ii) .ne. dmiss) then ! if ground level is applicable
+         if (groundStorage(ii) == 1) then ! also storage above ground: allow negative freeboard.
+            freeboard(i) = groundLevel(ii) - s1(i)
+         else
+            freeboard(i) = max(0d0, groundLevel(ii) - s1(i))
+         end if
+      end if
+   end do
+
+   end subroutine updateFreeboard
+
+
+   !> Compute the cumulative time when water is above ground level.
+   subroutine updateTimeWetOnGround(dts)
+   use m_flowparameters, only: epshs
+   use m_flowtimes, only: time_wetground
+   use m_flow, only: s1
+   use m_flowgeom,only: ndxi, ndx2d, groundLevel, groundStorage
+   implicit none
+   double precision, intent(in) :: dts !< computational time step
+   integer                      :: i, ii
+   
+   do i = ndx2d+1, ndxi
+      ii = i - ndx2d
+      if (groundLevel(ii) .ne. dmiss .and. groundStorage(ii) == 1 .and. s1(i) - groundLevel(ii) >= epshs) then
+         time_wetground(i) = time_wetground(i) + dts
+      end if
+   end do 
+
+   end subroutine updateTimeWetOnGround
+
+
+   !> Update waterdepth above ground level for each 1d node.
+   !! This is the vertical distance between the water surface and the ground level, i.e. waterLevel minus groundLevel.
+   !! It has minimal value 0d0.
+   !! It equals dmiss if the ground level is not applicable: node has storageType closed, or if the relevant cross sections are closed, or no cross section is defined.
+   subroutine updateDepthOnGround(network)
+   use m_flow, only: hsOnGround, s1
+   use m_network
+   use m_flowgeom, only: ndxi, ndx2d, groundLevel, groundStorage
+   implicit none
+   type(t_network), intent(inout), target :: network !< 1D network from flow1d.
+
+   integer                                :: i, ii
+
+   hsOnGround = dmiss
+   do i = ndx2d+1, ndxi
+      ii = i-ndx2d
+      if (groundLevel(ii) .ne. dmiss .and. groundStorage(ii) == 1) then ! if groundLevel is applicable
+         hsOnGround(i) = max(0d0, s1(i) - groundLevel(ii))
+      end if
+   end do
+
+   end subroutine updateDepthOnGround
+
+
+   !> Update volume above ground level for each 1d node.
+   !! It has minimal value 0d0
+   !! It equals to dmiss if the node has storageType closed, or if the relevant cross sections are closed, or no cross section is defined.
+   subroutine updateVolOnGround(network)
+   use m_flow,     only: vol1, volOnGround
+   use m_flowgeom, only: volMaxUnderground, ndxi, ndx2d, groundLevel, groundStorage
+   use m_network
+   implicit none
+   type(t_network), intent(inout), target :: network
+   integer:: i, ii
+
+   volOnGround = dmiss
+   do i = ndx2d+1, ndxi
+      ii = i-ndx2d
+      if (groundLevel(ii) .ne. dmiss .and. groundStorage(ii) == 1) then ! if groundLevel is applicable
+         volOnGround(i) = max(0d0, vol1(i) - volMaxUnderground(ii))
+      end if
+   end do
+
+   end subroutine updateVolOnGround
+
+
+   !> Update total net inflow through all connected 1d2d links for each 1d node with given computational time step.
+   !! Value in vTot1d2d is cumulative in time since TStart.
+   subroutine updateTotalInflow1d2d(dts)
+   use m_flow, only: vTot1d2d, qCur1d2d, q1
+   use m_flowgeom, only: ndx2d, lnx1d, kcu, ln
+   implicit none
+   double precision, intent(in) :: dts ! current computational time step
+
+   integer          :: Lf, n
+   double precision :: flowdir
+
+   qCur1d2d = 0d0
+   ! Don't reset vTot1d2d
+   do Lf = 1, lnx1d
+      if (kcu(Lf) == 3 .or. kcu(Lf) == 4 .or. kcu(Lf) == 5 .or. kcu(Lf) == 7) then
+         n = ln(1, Lf)
+         if (n < ndx2d) then
+            n = ln(2, Lf)
+            flowdir = 1d0  ! Flow link orientation *towards* 1D n
+         else
+            flowdir = -1d0 ! Flow link orientation *away from* 1D n
+         end if
+         ! n is now a 1d node
+         qCur1d2d(n) = qCur1d2d(n) + flowdir*q1(Lf)
+         vTot1d2d(n) = vTot1d2d(n) + flowdir*q1(Lf)*dts
+      end if
+   end do
+
+   end subroutine updateTotalInflow1d2d
+
+   
+   !> Update total net inflow of all laterals for each 1d node with given computational time step.
+   subroutine updateTotalInflowLat(dts)
+   use m_flow, only: vTotLat, qCurLat
+   use m_flowgeom, only: ndx2d, ndxi
+   use m_wind, only: qqlat
+   implicit none
+   double precision, intent(in) :: dts ! current computational time step
+   integer                      :: n
+
+   qCurLat = 0d0
+   ! Don't reset vTotLat
+   if (allocated(qqlat)) then
+      do n = ndx2d+1, ndxi ! all 1d nodes
+         qCurLat(n) = qCurLat(n) + qqlat(n)
+         vTotLat(n) = vTotLat(n) + qqlat(n)*dts
+      end do
+   else
+      return
+   end if
+
+   end subroutine updateTotalInflowLat
+   
+   !> Update water level gradient on 1D flow links.
+   !! Preparation for map output.
+   subroutine updateS1Gradient()
+   use m_flow, only: s1Gradient, s1, hu, epshu
+   use m_flowgeom, only: lnx1d, ln, dx
+   implicit none
+   integer :: k1, k2, L
+   
+   s1Gradient = dmiss
+   do L=1,lnx1d
+      if (hu(L) > epshu) then
+         k1 = ln(1,L)
+         k2 = ln(2,L)
+         s1Gradient(L) = (s1(k1) - s1(k2)) / dx(L)
+      end if
+   end do
+   
+   end subroutine updateS1Gradient
+
 end module m_oned_functions

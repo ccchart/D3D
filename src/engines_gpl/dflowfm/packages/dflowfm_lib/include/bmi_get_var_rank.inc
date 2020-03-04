@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2015-2019.                                
+!  Copyright (C)  Stichting Deltares, 2015-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -86,8 +86,6 @@
      rank = 1
   case("wy")
      rank = 1
-  case("wmag")
-     rank = 1
   case("rain")
      rank = 1
   case("evap")
@@ -100,7 +98,13 @@
      rank = 1
   case("balat")
      rank = 1
+  case("n1latsg")
+     rank = 1
+  case("n2latsg")
+     rank = 1
   case("nnlat")
+     rank = 1
+  case("kclat")
      rank = 1
   case("qinext")
      rank = 1
@@ -108,6 +112,8 @@
      rank = 1
   case("vincum")
      rank = 1
+  case("rainuni")
+     rank = 0
   case("zbndz")
      rank = 1
   case("zbndu")
@@ -131,6 +137,8 @@
   case("stemdiam")
      rank = 1
   case("stemheight")
+     rank = 1
+  case("Cdvegsp")
      rank = 1
   case("zws")
      rank = 1
@@ -202,8 +210,6 @@
      rank = 0
   case("kfs")
      rank = 1
-  case("kfst0")
-     rank = 1
   case("bare")
      rank = 1
   case("ba_mor")
@@ -230,6 +236,10 @@
      rank = 1
   case("wu_mor")
      rank = 1
+  case("wu1D2D")
+     rank = 1
+  case("hh1D2D")
+     rank = 1
   case("bob")
      rank = 2
   case("bob0")
@@ -254,6 +264,16 @@
      rank = 2
   case("numk")
      rank = 0
+  case("ndx2d")
+     rank = 0
+  case("ndx")
+     rank = 0
+  case("xz")
+     rank = 1
+  case("yz")
+     rank = 1
+  case("ba")
+     rank = 1
   case("zbnd1d2d1")
      rank = 1
   case("zbnd1d2d0")
@@ -277,20 +297,6 @@
   case("is_maxvalsnd")
      rank = 2
   case("is_dtint")
-     rank = 0
-  case("ndx2d")
-     rank = 0
-  case("ndx")
-     rank = 0
-  case("xz")
-     rank = 1
-  case("yz")
-     rank = 1
-  case("ba")
-     rank = 1
-  case("md_pdffile")
-     rank = 0
-  case("md_blmfile")
      rank = 0
   case default
      rank = 0

@@ -18,7 +18,7 @@ function varargout=netcdffil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -465,6 +465,10 @@ if XYRead || XYneeded
                     end
                     % branch_id
                     [eBrNr, status] = qp_netcdf_get(FI,FI.Dataset(i_eBrNr));
+                    if any(eBrNr<0)
+                        ui_message('warning','Invalid %s data: negative branch ids encountered. Ignoring this data.',FI.Dataset(i_eBrNr).Name)
+                        eBrNr = [];
+                    end
                     break
                 end
                 si = strmatch('start_index',{FI.Dataset(i_eBrNr).Attribute.Name});
@@ -482,6 +486,7 @@ if XYRead || XYneeded
                 % networknode(i) = N if mesh node i coincides with network node N
                 % networknode(i) = -1 if mesh node i does not coincide with a network node
                 networknode = -ones(size(Ans.X));
+                networknode(Ans.Y==0 | Ans.Y==BrL(Ans.X)) = 1;
                 %
                 % reconstruct mesh_edge branch affinity
                 eBrNr = Ans.X(e2n);
@@ -505,8 +510,10 @@ if XYRead || XYneeded
                     %
                     if 1
                         % if one branch, select that one.
+                        1
                     else
                         % if multiple branches, select one and give warning.
+                        2
                     end
                 end
                 eBrNr = eBrNr(:,1);
@@ -837,6 +844,10 @@ if XYRead || XYneeded
                 end
             end
             FormulaTerms = reshape(FormulaTerms,2,length(FormulaTerms)/2)';
+            FTerror = sprintf('Empty attribute ''formula_terms'' on vertical coordinate variable ''%s''.',CoordInfo.Name);
+        else
+            FormulaTerms = cell(0,2);
+            FTerror = sprintf('Missing attribute ''formula_terms'' on vertical coordinate variable ''%s''.',CoordInfo.Name);
         end
         %
         j=strmatch('positive',Attribs,'exact');
@@ -868,6 +879,7 @@ if XYRead || XYneeded
                 end
                 switch standard_name
                     case 'atmosphere_ln_pressure_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [p0  , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [lev , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         zUnitVar = FormulaTerms{1,2}; % p0
@@ -879,6 +891,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'atmosphere_sigma_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [sigma  , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [ps     , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [ptop   , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -893,6 +906,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'atmosphere_hybrid_sigma_pressure_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         if isequal(FormulaTerms{1,1},'a:')
                             [a      , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                             [b      , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
@@ -924,6 +938,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'atmosphere_hybrid_height_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [a     , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [b     , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [orog  , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -938,6 +953,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'atmosphere_sleve_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [a       , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [b1      , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [b2      , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -955,6 +971,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_sigma_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [sigma  , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [eta    , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [depth  , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -975,6 +992,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_s_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [s      , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [eta    , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [depth  , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -993,6 +1011,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_s_coordinate_g1'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [s      , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [C      , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [eta    , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -1010,6 +1029,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_s_coordinate_g2'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [s      , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [C      , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [eta    , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -1027,6 +1047,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_sigma_z_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [sigma  , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [eta    , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [depth  , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -1049,6 +1070,7 @@ if XYRead || XYneeded
                             end
                         end
                     case 'ocean_double_sigma_coordinate'
+                        if isempty(FormulaTerms), error(FTerror), end
                         [sigma  , status] = qp_netcdf_get(FI,FormulaTerms{1,2},Props.DimName,idx,getOptions{:});
                         [depth  , status] = qp_netcdf_get(FI,FormulaTerms{2,2},Props.DimName,idx,getOptions{:});
                         [z1     , status] = qp_netcdf_get(FI,FormulaTerms{3,2},Props.DimName,idx,getOptions{:});
@@ -1471,7 +1493,11 @@ else
             switch Info.Mesh{1}
                 case 'ugrid'
                     tpd = Info.Mesh{2};
-                    Insert.Geom = sprintf('UGRID%iD',tpd);
+                    if tpd<0
+                        Insert.Geom = 'UGRID-CONTACT';
+                    else
+                        Insert.Geom = sprintf('UGRID%iD',tpd);
+                    end
                 otherwise
                     Insert.Geom = upper(Info.Mesh{1});
             end
@@ -1916,7 +1942,11 @@ if iscell(Props.varid)
             sz(3) = FI.Dimension(dimNodes).Length;
         case 'node_index'
             Info = FI.Dataset(Props.varid{2}+1);
-            sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{5})).Length;
+            if Info.Mesh{2}<0
+                sz(3) = 123;
+            else
+                sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{5})).Length;
+            end
         case 'edge_index'
             Info = FI.Dataset(Props.varid{2}+1);
             sz(3) = FI.Dimension(strcmp({FI.Dimension.Name},Info.Mesh{6})).Length;
@@ -1942,7 +1972,8 @@ end
 % -----------------------------------------------------------------------------
 function Domains=domains(FI)
 if FI.NumDomains > 1
-    Domains = multiline(sprintf('partition %4.4d-',0:FI.NumDomains-1),'-','cell');
+    format = sprintf('%%%d.%dd-',FI.DomainCount.Digits,FI.DomainCount.Digits);
+    Domains = multiline(sprintf(['partition ' format],FI.DomainCount.Offset+(0:FI.NumDomains-1)),'-','cell');
     Domains{end} = 'all partitions';
 else
     Domains = {};
@@ -2074,10 +2105,17 @@ else
     cUnit = {};
 end
 uBrNr = unique(eBrNr);
+doublePoints = false(size(uBrNr));
 for i = 1:length(uBrNr)
     bN = uBrNr(i);
     bX = BrX{bN};
     bY = BrY{bN};
+    Mask = diff(bX)==0 & diff(bY)==0;
+    if any(Mask)
+        doublePoints(i) = true;
+        bX(Mask)=[];
+        bY(Mask)=[];
+    end
     bS = pathdistance(bX,bY,cUnit{:});
     %
     for j = find(BrNr==bN)'
@@ -2129,6 +2167,13 @@ for i = 1:length(uBrNr)
             EdgeY{j} = [bY(I);y];
             % first node on other branch ...
         end
+    end
+end
+if any(doublePoints)
+    if sum(doublePoints)==1
+        ui_message('warning','Double geometry points encountered on branch: %i',find(doublePoints))
+    else
+        ui_message('warning','Double geometry points encountered on branches: %s',vec2str(find(doublePoints),'nobrackets'))
     end
 end
 % -----------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 module m_readStorageNodes
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -267,7 +267,7 @@ module m_readStorageNodes
                call prop_get_string(node_ptr, '', 'interpolate', sInterpolate, success1)
                if (.not. success1) then
                   sInterpolate = 'linear'
-                  write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(storgNodesFile), ''': [', trim(blockname), ']. Field ''interpolate'' is missing. Use default value storageType = linear.'
+                  write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(storgNodesFile), ''': [', trim(blockname), ']. Field ''interpolate'' is missing. Use default value interpolate = linear.'
                   call warn_flush()
                end if
                if ((.not. strcmpi(sInterpolate, 'linear')) .and. (.not. strcmpi(sInterpolate, 'block'))) then
@@ -315,9 +315,14 @@ module m_readStorageNodes
             call setTable(pSto%storageArea, interpol, storageLevels, storageAreas, numLevels)
             if (.not. useTable1) then
                pSto%storageType = storageType
+               if (storageType == nt_Closed) then
+                  network%storS%Count_closed = network%storS%Count_closed + 1
+               end if
                if (useStreetStorage) then
                   call setTable(pSto%streetArea, interpol, streetLevel, streetStorageArea, numLevels)
                end if
+            else
+               pSto%storageType = nt_Reservoir
             end if               
          endif
       end do

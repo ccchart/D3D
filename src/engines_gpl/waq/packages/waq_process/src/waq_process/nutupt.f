@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -117,8 +117,10 @@
      &          NCRAT2 * PROD2 ) * DELT
 
 !      check if NH4+NO3 available
+!      make sure that the mass balance is closed - the sum of
+!      NH4D and NO3D must be 1.
        IF ( ((NH4 + NO3) .LE. 0.0) .OR. (XNTOT .LE. 0.0) ) THEN
-           NH4D = 0.0
+           NH4D = 1.0
            NO3D = 0.0
        ELSE
           IF ( NH4 .GT. NH4KR ) THEN

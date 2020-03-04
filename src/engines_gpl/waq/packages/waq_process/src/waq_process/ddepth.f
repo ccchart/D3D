@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -72,10 +72,11 @@
       ENDIF
 
 !***********************************************************************
-!**** Calculate DEPTH
+!**** Calculate DEPTH - minimum: 0.1 mm to avoid divisions by zero if
+!     the volume happens to be zero
 !***********************************************************************
 !
-      DEPTH = VOLUME / SURF
+      DEPTH = MAX( 0.0001, VOLUME / SURF )
 !
       PMSA (IP3 ) = DEPTH
 !

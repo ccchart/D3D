@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -1941,7 +1941,7 @@ subroutine waq_make_aggr_lnk()
     implicit none
     
     integer :: dseg, dbnd, isrc
-    integer :: L, LL, Lb, Lbb, Ltx, ip, ip1, ip2, ip3, ip4, iq
+    integer :: L, LL, Lb, Lbb, Ltx, ip, ipa, ip1, ip2, ip3, ip4, iq
     integer :: k, kk, kb, kt, ktx
     
 ! first 2D
@@ -2003,6 +2003,7 @@ subroutine waq_make_aggr_lnk()
         do L=1,lnx
             call getLbotLtopmax(L,Lb,Ltx)
             ip = waqpar%iqaggr(L)
+            ipa = abs(ip)
             if (ip.eq.0) cycle
             do LL = Ltx, Lb, -1
                 waqpar%iqaggr(LL) = ip + sign((waqpar%ilaggr(Ltx - LL + 1) - 1) * waqpar%noq12,ip)
@@ -2010,24 +2011,24 @@ subroutine waq_make_aggr_lnk()
                 dseg = (waqpar%ilaggr(Ltx - LL + 1) - 1) * waqpar%nosegl
                 dbnd = (waqpar%ilaggr(Ltx - LL + 1) - 1) * (ndx - ndxi + waqpar%numsrcbnd)  ! current number of external links in FM, account for sinks sources here too!
                 if (waqpar%ifrmto(1,iq) == 0) then
-                    if (waqpar%ifrmto(1,ip) > 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ip) + dseg
-                    if (waqpar%ifrmto(1,ip) < 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ip) - dbnd
-                    if (waqpar%ifrmto(2,ip) > 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ip) + dseg
-                    if (waqpar%ifrmto(2,ip) < 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ip) - dbnd
-                    if (waqpar%ifrmto(3,ip) > 0) waqpar%ifrmto(3,iq) = waqpar%ifrmto(3,ip) + dseg
-                    if (waqpar%ifrmto(4,ip) > 0) waqpar%ifrmto(4,iq) = waqpar%ifrmto(4,ip) + dseg
+                    if (waqpar%ifrmto(1,ipa) > 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ipa) + dseg
+                    if (waqpar%ifrmto(1,ipa) < 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ipa) - dbnd
+                    if (waqpar%ifrmto(2,ipa) > 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ipa) + dseg
+                    if (waqpar%ifrmto(2,ipa) < 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ipa) - dbnd
+                    if (waqpar%ifrmto(3,ipa) > 0) waqpar%ifrmto(3,iq) = waqpar%ifrmto(3,ipa) + dseg
+                    if (waqpar%ifrmto(4,ipa) > 0) waqpar%ifrmto(4,iq) = waqpar%ifrmto(4,ipa) + dseg
                 end if
             end do
             Lbb = Ltx - waqpar%kmxnxa + 1
             if (Lbb.lt.Lb) then
 !              add extra (dummy) exchanges for boundaries below the bed to trick delwaq
                do LL = Lb-1, Lbb, -1
-                    if (waqpar%ifrmto(1,ip) < 0.or.waqpar%ifrmto(2,ip) < 0) then
+                    if (waqpar%ifrmto(1,ipa) < 0.or.waqpar%ifrmto(2,ipa) < 0) then
                         iq = ip + sign((waqpar%ilaggr(Ltx - LL + 1) - 1) * waqpar%noq12,ip)
                         dbnd = (waqpar%ilaggr(Ltx - LL + 1) - 1) * (ndx - ndxi + waqpar%numsrcbnd)  ! current number of external links in FM, account for sinks sources here too!
                         if (waqpar%ifrmto(1,iq) == 0) then
-                            if (waqpar%ifrmto(1,ip) < 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ip) - dbnd
-                            if (waqpar%ifrmto(2,ip) < 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ip) - dbnd
+                            if (waqpar%ifrmto(1,ipa) < 0) waqpar%ifrmto(1,iq) = waqpar%ifrmto(1,ipa) - dbnd
+                            if (waqpar%ifrmto(2,ipa) < 0) waqpar%ifrmto(2,iq) = waqpar%ifrmto(2,ipa) - dbnd
                         end if
                     endif
                 end do
@@ -2119,6 +2120,7 @@ subroutine waq_prepare_src()
     enddo
     call realloc (waqpar%ifrmtosrc, (/ 2,waqpar%numsrcwaq /), keepexisting=.true., fill=0 )
     call realloc (qsrcwaq, waqpar%numsrcwaq , keepexisting=.true., fill=0.0D0 )
+    call realloc (qsrcwaq0, waqpar%numsrcwaq , keepexisting=.true., fill=0.0D0 )
     nbnd = ndx - ndxi + waqpar%numsrcbnd   ! total number of boudaries
     ibnd = ndx - ndxi                      ! starting number for sink source boundaries
 
@@ -2998,71 +3000,10 @@ enddo
 end subroutine gettaus
 
 subroutine gettau(n,taucurc,czc)
-use m_flowgeom
-use m_flow
-use m_waves
-
- 
-implicit none
-integer, intent(in)   :: n               !< Flow node number
-double precision, intent(out) :: taucurc !< Bed shear stress from current or current plus wave 
-double precision, intent(out) :: czc     !< Chezy at flow node (taucurrent)
-!
-!           Local variables
-!
-integer :: LL, nn                            !< Local link counters
-double precision ::  cf, cfn, cz, frcn, ar,  wa, ust, ust2, fw    !< Local intermediate variables
-
-taucurc = 0d0
-czc = 0d0
-cfn = 0d0
-wa  = 0d0
-ust = 0d0
-
-do nn = 1,nd(n)%lnx 
-   LL = abs( nd(n)%ln(nn) )
-   frcn = frcu(LL) 
-   if (frcn > 0 .and. hu(LL) > 0) then 
-      call getcz(hu(LL), frcn, ifrcutp(LL), cz,LL)
-      cf  = ag/(cz*cz)
-      ar  = au(LL)*dx(LL)
-      wa  = wa + ar       ! area  weigthed
-      cfn = cfn + cf*ar
-      if (kmx > 0) then
-         if (jawaveswartdelwaq <= 1) then 
-            ust = ust + ustb(LL)*ar
-         else
-            ust = ust+ taubxu(LL)*ar
-         endif   
-      endif
-   endif 
-enddo
-if (wa > 0) then 
-   cfn = cfn / wa 
-   ust = ust / wa 
-endif
-if (cfn > 0) then 
-   czc = sqrt(ag/cfn)
-endif
-
-ust2 = 0d0
-if (kmx == 0) then
-    ust2 = cfn*(ucx(n)*ucx(n) + ucy(n)*ucy(n))
-else  
-    ust2 = ust*ust
-endif
-
-if (jawaveswartdelwaq == 0) then 
-   taucurc = rhomean*ust2
-else if (jawaveSwartDelwaq == 1) then 
-   if (twav(n) > 1d-2) then 
-      call Swart(Twav(n), uorb(n), z0wav, fw)
-      ust2 = ust2 + 0.5d0*fw*uorb(n)*uorb(n)       ! Swart          
-   endif
-   taucurc = rhomean*ust2          
-else if (jawaveSwartDelwaq == 2) then 
-   taucurc = ust                                   ! area averaged taubxu
-endif
-
+integer          :: n
+double precision :: taucurc,czc,ustw2
+call gettau2(n,taucurc,czc,ustw2)
 end subroutine gettau
+
+
 

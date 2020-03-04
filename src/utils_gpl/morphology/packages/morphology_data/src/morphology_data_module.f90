@@ -1,7 +1,7 @@
 module morphology_data_module
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -188,6 +188,11 @@ integer,parameter, public  :: MOR_STAT_CUM = 16
 
 integer,parameter,public   :: MOR_STAT_TIME= 1
 integer,parameter,public   :: MOR_STAT_BODS= 2
+!
+! Soulsby & Clarke skin friction options
+!
+integer,parameter,public   :: SC_MUDTHC  = 1
+integer,parameter,public   :: SC_MUDFRAC = 2
 !
 ! collection of morphology output options
 !
@@ -506,8 +511,10 @@ type sedpar_type
     real(fp) :: csoil     !  concentration at bed used in hindered settling formulation
     real(fp) :: mdcuni    !  mud content / mud fraction uniform value (non-zero only
                           !  if mud is not included simulation)
-    real(fp) :: kssilt    !  ks value for silt for Soulsby 2004 formulation
-    real(fp) :: kssand    !  ks value for sand
+    real(fp) :: kssilt    !  ks value for silt for Soulsby 2004 formulation (used below sc_cmf1)
+    real(fp) :: kssand    !  ks value for sand (used above sc_cmf2)
+    real(fp) :: sc_cmf1   !  lower critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
+    real(fp) :: sc_cmf2   !  upper critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
     real(fp) :: version   !  interpreter version
     !
     ! reals
@@ -516,6 +523,7 @@ type sedpar_type
     ! integers
     !
     integer  :: nmudfrac  !  number of simulated mud fractions
+    integer  :: sc_mudfac !  formulation used for determining bed roughness length for Soulsby & Clarke (2005): SC_MUDFRAC, or SC_MUDTHC
     !
     ! pointers
     !
@@ -656,14 +664,14 @@ type sedtra_type
     real(fp)         , dimension(:,:)    , pointer :: e_ssnc   !(nu1:nu2,lsed)    ssuuc in structured Delft3D-FLOW
     real(fp)         , dimension(:,:)    , pointer :: e_sstc   !(nu1:nu2,lsed)    ssvvc in structured Delft3D-FLOW
     !
-    real(fp)         , dimension(:,:)    , pointer :: frac     !(nc1:nc2,lsedtot) effective fraction of sediment in bed available for transport
-    real(fp)         , dimension(:)      , pointer :: mudfrac  !(nc1:nc2)         effective mud fraction in the part of the bed exposed to transport
-    real(fp)         , dimension(:)      , pointer :: sandfrac !(nc1:nc2)         effective sand fraction in the part of the bed exposed to transport (mud excluded)
-    real(fp)         , dimension(:)      , pointer :: dm       !(nc1:nc2)         arithmetic mean sediment diameter of the part of the bed exposed to transport (mud excluded)
-    real(fp)         , dimension(:)      , pointer :: dg       !(nc1:nc2)         geometric mean sediment diameter of the part of the bed exposed to transport (mud excluded)
-    real(fp)         , dimension(:)      , pointer :: dgsd     !(nc1:nc2)         geometric standard deviation of particle size mix of the part of the bed exposed to transport (mud excluded)
-    real(fp)         , dimension(:,:)    , pointer :: dxx      !(nc1:nc2,nxx)     sediment diameter corresponding to percentile xx (mud excluded)
-    real(fp)         , dimension(:,:)    , pointer :: hidexp   !(nc1:nc2,lsedtot) hiding-exposure factor correcting the shear stress (sand-gravel mixtures)
+    real(fp)         , dimension(:,:)    , pointer :: frac     !< (nc1:nc2,lsedtot) effective fraction of sediment in bed available for transport
+    real(fp)         , dimension(:)      , pointer :: mudfrac  !< (nc1:nc2)         effective mud fraction in the part of the bed exposed to transport
+    real(fp)         , dimension(:)      , pointer :: sandfrac !< (nc1:nc2)         effective sand fraction in the part of the bed exposed to transport (mud excluded)
+    real(fp)         , dimension(:)      , pointer :: dm       !< (nc1:nc2)         arithmetic mean sediment diameter of the part of the bed exposed to transport (mud excluded)
+    real(fp)         , dimension(:)      , pointer :: dg       !< (nc1:nc2)         geometric mean sediment diameter of the part of the bed exposed to transport (mud excluded)
+    real(fp)         , dimension(:)      , pointer :: dgsd     !< (nc1:nc2)         geometric standard deviation of particle size mix of the part of the bed exposed to transport (mud excluded)
+    real(fp)         , dimension(:,:)    , pointer :: dxx      !< (nc1:nc2,nxx)     sediment diameter corresponding to percentile xx (mud excluded)
+    real(fp)         , dimension(:,:)    , pointer :: hidexp   !< (nc1:nc2,lsedtot) hiding-exposure factor correcting the shear stress (sand-gravel mixtures)
     !
     real(fp)         , dimension(:)      , pointer :: uuu      !(nc1:nc2)
     real(fp)         , dimension(:)      , pointer :: vvv      !(nc1:nc2)
@@ -1152,11 +1160,24 @@ subroutine nullsedpar(sedpar)
 !
 !! executable statements -------------------------------------------------------
 !
+    sedpar%csoil    = 1.0e4_fp
     sedpar%mdcuni   = 0.0_fp
+    sedpar%kssilt   = 0.0_fp
+    sedpar%kssand   = 0.0_fp
+    sedpar%sc_cmf1  = 0.01_fp
+    sedpar%sc_cmf2  = 0.01_fp
+    sedpar%kssand   = 0.0_fp
+    sedpar%version  = 2.0_fp
+    !
     sedpar%nmudfrac = 0
+    sedpar%sc_mudfac= SC_MUDTHC
+    !
+    sedpar%anymud   = .false.
+    sedpar%bsskin   = .false.
+    !
     sedpar%flsdia   = ' '
     sedpar%flsmdc   = ' '
-    sedpar%version  = 2.0_fp
+    sedpar%flspmc   = ' '
     !
     nullify(sedpar%sedblock)
     nullify(sedpar%rhosol)

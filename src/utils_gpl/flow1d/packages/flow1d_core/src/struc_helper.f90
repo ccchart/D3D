@@ -1,7 +1,7 @@
 module m_struc_helper
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -50,21 +50,21 @@ module m_struc_helper
       !
       ! Global variables
       !
-      logical, intent(in)             :: velheight     !< Indicates whether the velocity height is taken into account or if the water level is used.
-      double precision, intent(in)    :: s1ml          !< Water level at flow link's left side.
-      double precision, intent(in)    :: s1mr          !< Water level at flow link's right side.
-      double precision, intent(in)    :: alm           !< Flow area at flow link's left side.
-      double precision, intent(in)    :: arm           !< Flow area at flow link's right side.
-      double precision, intent(in)    :: qtotal        !< Total discharge through flow link (in case of compound structures this might be larger than the
+      double precision, intent(in   ) :: s1ml          !< Water level at flow link's left side.
+      double precision, intent(in   ) :: s1mr          !< Water level at flow link's right side.
+      double precision, intent(in   ) :: alm           !< Flow area at flow link's left side.
+      double precision, intent(in   ) :: arm           !< Flow area at flow link's right side.
+      double precision, intent(in   ) :: qtotal        !< Total discharge through flow link (in case of compound structures this might be larger than the
                                                        !< discharge through the actual structure).
-      double precision, intent(in)    :: crest         !< Crest level.
-      double precision, intent(  out) :: hd            !< Downstream water level.
-      double precision, intent(  out) :: hu            !< Upstream water level.
+      logical,          intent(in   ) :: velheight     !< Indicates whether the velocity height is taken into account or if the water level is used.
       double precision, intent(  out) :: rholeft       !< Water density at flow link's  left side of structure (unimplemented).
       double precision, intent(  out) :: rhoright      !< Water density at flow link's right side of structure (unimplemented).
-      double precision, intent(  out) :: flowdir       !< Flow direction 1 positive direction, -1 negative direction.
-      double precision, intent(  out) :: ud            !< Downstream velocity.
+      double precision, intent(in   ) :: crest         !< Crest level.
+      double precision, intent(  out) :: hu            !< Upstream water level.
+      double precision, intent(  out) :: hd            !< Downstream water level.
       double precision, intent(  out) :: uu            !< Upstream velocity.
+      double precision, intent(  out) :: ud            !< Downstream velocity.
+      double precision, intent(  out) :: flowdir       !< Flow direction 1 positive direction, -1 negative direction.
       !
       !
       ! Local variables
@@ -141,7 +141,7 @@ module m_struc_helper
    end subroutine UpAndDownstreamParameters
    
    !> Calculate FU and RU
-   subroutine furu_iter(fuL, ruL, s1k2, s1k1, u1L, qL, auL, fr, cu, rhsc, dxdt, dx_struc, hu, lambda, Cz)
+   subroutine furu_iter(fuL, ruL, s1k2, s1k1, u1L, qL, auL, fr, cu, rhsc, dxdt, dx_struc, hs1w, lambda, Cz)
       !=======================================================================
       !                       Deltares
       !                One-Two Dimensional Modelling System
@@ -183,7 +183,7 @@ module m_struc_helper
       double precision, intent(in)              :: dxdt     !< dx/dt
       double precision, intent(in), optional    :: Cz       !< Chezy value, used for resistance on structure, see also ::dx_struc.
       double precision, intent(in), optional    :: lambda   !< Extra resistance.
-      double precision, intent(in), optional    :: hu       !< upstream water level.
+      double precision, intent(in), optional    :: hs1w     !< Upstream water depth (based on water level).
       double precision, intent(in), optional    :: dx_struc !< Crest length (in flow direction), used only when lambda is 0 or absent. For resistance on structure.
       !
       ! Local variables
@@ -197,9 +197,9 @@ module m_struc_helper
       !! executable statements -------------------------------------------------------
       !
       dxfrL = 0d0
-      if (present(dx_struc)) then
-         if (lambda ==0d0 .and. Cz > 0d0) then
-            dxfrl = dx_struc*gravity/(Cz*Cz*hu)
+      if (present(Cz) .and. present(lambda) .and. present(hs1w) .and. present(dx_struc)) then
+         if (lambda == 0d0 .and. Cz > 0d0 .and. hs1w > 0d0) then
+            dxfrl = dx_struc*gravity/(Cz*Cz*hs1w)
          endif
       endif
       

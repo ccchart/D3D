@@ -6,7 +6,7 @@ function outdata=d3d_qp(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -47,7 +47,7 @@ catch Ex
 end
 
 function outdata=d3d_qp_core(cmd,varargin)
-%VERSION = 2.51
+%VERSION = 2.60
 qpversionbase = 'v<VERSION>';
 qpcreationdate = '<CREATIONDATE>';
 %
@@ -975,8 +975,6 @@ switch cmd
         datafields=findobj(mfig,'tag','selectfield');
         if ~Succes
             set(datafields,'string',' ','value',1,'enable','off','backgroundcolor',Inactive,'userdata',Props);
-            set(mfig,'pointer','arrow')
-            d3d_qp updatefieldprop
         else
             Handle_Domain=findobj(mfig,'tag','selectdomain');
             DomainNr=get(Handle_Domain,'value');
@@ -989,14 +987,10 @@ switch cmd
                     'enable','off', ...
                     'backgroundcolor',Inactive, ...
                     'userdata',Props);
-                set(mfig,'pointer','arrow')
-                d3d_qp updatefieldprop
             else
                 names={Props.Name};
                 if isempty(names),
                     set(datafields,'string','<no datafields found>','value',1,'enable','off','backgroundcolor',Inactive,'userdata',Props);
-                    set(mfig,'pointer','arrow')
-                    d3d_qp updatefieldprop
                 else
                     df=1;
                     if strcmp(get(datafields,'enable'),'on')
@@ -1639,6 +1633,12 @@ switch cmd
             z=[];
         elseif ~isequal(size(z),[1 1])
             z=z(1);
+            switch getvalstr(UD.MainWin.VSelType)
+                case {'dZ below surface','dZ above bed'}
+                    z = max(0,z);
+                case 'depth percentage'
+                    z = min(max(0,z),100);
+            end
         end
         set(UD.MainWin.EditZ,'string',sprintf('%g',z),'userdata',z)
         d3d_qp updateoptions
@@ -1668,6 +1668,16 @@ switch cmd
         if Succes
             Info=File(NrInList);
             [DomainNr,Props,subf,selected,stats,Ops]=qp_interface_update_options(mfig,UD);
+            if ~strcmp(cmd,'updateoptions') && iscell(selected{K_}) && isempty(selected{K_}{2})
+                switch selected{K_}{1}
+                    case {'z'}
+                        error('No horizontal slice level Z specified!')
+                    case {'dz_below_max', 'dz_above_min'}
+                        error('No horizontal slice level dZ specified!')
+                    case 'percentage depth'
+                        error('No depth percentage for horizontal slice specified!')
+                end
+            end
             if isempty(Ops)
                 cmd='error';
             end
@@ -4239,6 +4249,10 @@ switch cmd
                 set([MW.K MW.AllK MW.EditK MW.MaxK],'visible','off')
                 set([MW.Z MW.EditZ],'visible','on')
                 set(MW.Z,'string',strtok(news))
+            case {'depth percentage'}
+                set([MW.K MW.AllK MW.EditK MW.MaxK],'visible','off')
+                set([MW.Z MW.EditZ],'visible','on')
+                set(MW.Z,'string','%')
         end
         
         d3d_qp updateoptions
@@ -4292,7 +4306,7 @@ switch cmd
         set(MW.StList,'enable','off','value',1,'string',' ','backgroundcolor',Inactive,'UserData',[],'visible','on')
         set(MW.Stat,'visible','off')
         set(MW.HSelType,'String',{'M range and N range','(M,N) point/path','(X,Y) point/path'},'value',1)
-        set(MW.VSelType,'String',{'K range','Z slice','dZ below surface','dZ above bed'},'value',1)
+        set(MW.VSelType,'String',{'K range','Z slice','dZ below surface','dZ above bed','depth percentage'},'value',1)
         set([MW.MN MW.MN2XY],'visible','off')
         set(MW.EditMN,'string','','Userdata',[],'visible','off')
         set([MW.XY MW.LoadXY MW.SaveXY],'visible','off')

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -246,7 +246,11 @@ module m_ec_connection
          !
          connectionPtr => ecSupportFindConnection(instancePtr, connectionId)
          if ( associated(connectionPtr) ) then
-            success = ecConverterUpdateWeightFactors(instancePtr, connectionPtr)
+            if ( associated(connectionPtr%sourceItemsPtr(1)%ptr%elementSetPtr ) ) then 
+               success = ecConverterUpdateWeightFactors(instancePtr, connectionPtr)
+            else
+               success = .True. 
+            end if
          end if
       end function ecConnectionSetIndexWeights
       

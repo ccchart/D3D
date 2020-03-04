@@ -1,7 +1,7 @@
 module m_rdtrafrm
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -492,7 +492,7 @@ subroutine rdtrafrm0(lundia    ,error     ,iform     ,npar      ,par       , &
              call prop_get_string(tran_ptr,'TransportFormula','Name',name(l))
              !
              iform(l) = 15
-             write(rec,'(3a)') SHARED_LIB_PREFIX, trim(rec), SHARED_LIB_EXTENSION
+             write(rec,'(3a)') SHARED_LIB_PREFIX, trim(dll_name(l)), SHARED_LIB_EXTENSION
              !
              ! Get handle to the DLL
              !
@@ -976,7 +976,7 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        pardef(7)  = -1.0_fp
     elseif (iform == -2) then
        name       = 'Van Rijn (2007): TRANSPOR2004'
-       nparopt    = 7
+       nparopt    = 8
        parkeyw(1) = 'IopSus'
        pardef(1)  = 0.0_fp
        parkeyw(2) = 'Pangle'
@@ -991,9 +991,11 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        pardef(6)  = 1.5_fp
        parkeyw(7) = 'SalMax'
        pardef(7)  = 0.0_fp
+       parkeyw(8) = 'BetaM'
+       pardef(8)  = 3.0_fp
     elseif (iform == -1) then
        name       = 'Van Rijn (1993)'
-       nparopt    = 7
+       nparopt    = 8
        parkeyw(1) = 'IopSus'
        pardef(1)  = 0.0_fp
        parkeyw(2) = 'AksFac'
@@ -1008,6 +1010,8 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        pardef(6)  = 1.0_fp
        parkeyw(7) = 'EpsPar'
        pardef(7)  = 0.0_fp ! false
+       parkeyw(8) = 'BetaM'
+       pardef(8)  = 3.0_fp
     elseif (iform == 1) then
        name       = 'Engelund-Hansen (1967)'
        nparreq    = 1

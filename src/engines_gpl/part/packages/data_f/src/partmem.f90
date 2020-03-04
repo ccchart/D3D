@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -343,5 +343,14 @@ module spec_feat_par
       real      (sp)            ,  pointer, dimension(:       ) :: plsigmasize
       real      (sp)            ,  pointer, dimension(:       ) :: plfragrate
       logical                                                   :: pldebug
+      
+!     screens
+      logical                  :: screens          ! are sceens active
+      real     ( sp)           :: permealeft       ! leftside permeability of screeens
+      real     ( sp)           :: permearight      ! rightside permeability of screeens
+      character( 256)          :: fiscreens        ! names of screens polygon files
+      integer  ( ip)           :: nrowsscreens     ! length of screen polygon
+      real     ( sp), pointer  :: xpolscreens(:)   ! x-coordinates of screen polygon
+      real     ( sp), pointer  :: ypolscreens(:)   ! y-coordinates of screen polygon
       
 end module spec_feat_par

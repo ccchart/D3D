@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -709,8 +709,6 @@ module m_ec_filereader_read
          integer, dimension(:), pointer          :: ja         ! CRS sparsity pattern, column numbers
          
          integer                                 :: n_cols, n_rows
-         
-         integer                                 :: nreadrow = 10000 ! number of rows read at once
 
          !
          success = .false.
@@ -773,7 +771,7 @@ module m_ec_filereader_read
             n_rows = item%elementSetPtr%n_rows
             issparse = 0
             
-            if ( fieldPtr%issparse.eq.1 ) then
+            if ( fieldPtr%issparse == 1 ) then
                ia => fieldPtr%ia
                ja => fieldPtr%ja
                issparse = fieldPtr%issparse
@@ -820,12 +818,16 @@ module m_ec_filereader_read
                end if
 
                if (item%elementSetPtr%nCoordinates > 0) then
-                  if ( issparse.eq.1 ) then
+                  if ( issparse == 1 ) then
                      call read_data_sparse(fileReaderPtr%fileHandle, varid, n_cols, n_rows, item%elementSetPtr%n_layers, timesndx, ia, ja, Ndatasize, fieldPtr%arr1dPtr, ierror)
                      valid_field = .true.
                   else
                      if (item%elementSetPtr%n_layers == 0) then 
-                        ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/col0, row0, timesndx/), count=(/ncol, nrow, 1/))
+                        if (item%elementSetPtr%ofType == elmSetType_samples) then
+                           ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/col0, timesndx/), count=(/ncol, 1/))
+                        else
+                           ierror = nf90_get_var(fileReaderPtr%fileHandle, varid, data_block, start=(/col0, row0, timesndx/), count=(/ncol, nrow, 1/))
+                        end if
                         ! copy data to source Field's 1D array, store (X1Y1, X1Y2, ..., X1Yn_rows, X2Y1, XYy2, ..., Xn_colsY1, ...)
                         do i=1, nrow
                            do j=1, ncol
@@ -846,6 +848,7 @@ module m_ec_filereader_read
                         end do
                      end if
                   end if
+                  if (ierror /= 0) return
                end if
                if (.not.valid_field) then
                   timesndx = timesndx+1
@@ -2063,7 +2066,7 @@ module m_ec_filereader_read
          implicit none
          
          integer,                        intent(in)    :: filehandle  !< filehandle
-         integer,                        intent(in)    :: varid       !< variable id                                                                        
+         integer,                        intent(in)    :: varid       !< variable id
          integer,                        intent(in)    :: n_cols      !< number of columns in input
          integer,                        intent(in)    :: n_rows      !< number of rows in input
          integer,                        intent(in)    :: n_layers    !< number of layers in input
@@ -2073,51 +2076,47 @@ module m_ec_filereader_read
          integer,                        intent(in)    :: Ndatasize   !< dimension of sparse data
          double precision, dimension(:), intent(inout) :: arr1d       !< CRS data
          integer,                        intent(out)   :: ierror      !< error (!=0) or not (0)
-         
+
          double precision, dimension(:), allocatable   :: data_block  ! work array for reading
-         
-         double precision                              :: t0, t1
-                                                   
+
          integer,          dimension(:), allocatable   :: mcolmin, mcolmax
          integer,          dimension(:), allocatable   :: nrowmax
-         
-         character(len=1024)                           :: msg
-         
+
          integer                                       :: Ndata
          integer                                       :: mcol, nrow
          integer                                       :: nrowmin
          integer                                       :: i, j, k
          integer                                       :: istart, iend
-         
+         integer                                       :: ndims
+         integer                                       :: ierr
          integer                                       :: Nreadrow      !< number of rows read at once
-         
+         character(len=32)                             :: standard_name
+         integer, allocatable                          :: start(:), cnt(:)
+
          ierror = 1
-         
-         call klok(t0)
-         
+
          Nreadrow = n_rows
-         
+
 !        compute number of data blocks
          Ndata = ceiling(dble(n_rows)/dble(nreadrow))
-         
-!        allocate data block         
+
+!        allocate data block
          allocate(data_block(n_cols*nreadrow))
-         
-         
+
 !        allocate data block mrowmin, mrowmax, nrowmax arrays
          allocate(mcolmin(Ndata))
          mcolmin = n_cols
          allocate(mcolmax(Ndata))
          mcolmax = 1
          allocate(nrowmax(Ndata))
-         
+
 !        get bounding box around datablock
          j = 0
          do nrowmin=1,n_rows,nreadrow
             j = j+1
-            
+
             nrowmax(j) = min(nrowmin+nreadrow-1, n_rows)
-         
+
             do nrow=nrowmin,nrowmax(j)
                istart = ia(nrow)
                iend = ia(nrow+1)-1
@@ -2127,25 +2126,37 @@ module m_ec_filereader_read
                end if
             end do
          end do
-         
+
+         ierror = nf90_inquire_variable(filehandle, varid, ndims=ndims)
+         allocate(start(ndims), cnt(ndims))
+         start = 1
+         cnt = 1
+
 !        loop over layers
          do k=1, max(n_layers,1)
-         
+
 !           loop over rows
             j = 0
             do nrowmin=1,n_rows,nreadrow
                j = j+1
-         
+
                if ( mcolmax(j).ge.mcolmin(j) ) then
-!                 read data                  
-                  if ( n_layers.eq.0 ) then
-                     ierror = nf90_get_var(filehandle, varid, data_block, start=(/mcolmin(j), nrowmin, timesndx/), count=(/mcolmax(j)-mcolmin(j)+1, nrowmax(j)-nrowmin+1, 1/))
-                  else
-                     ierror = nf90_get_var(fileHandle, varid, data_block, start=(/mcolmin(j), nrowmin, k, timesndx/), count=(/mcolmax(j)-mcolmin(j)+1, nrowmax(j)-nrowmin+1, 1, 1/))
+!                 read data
+                  start(1:2)   = (/ mcolmin(j), nrowmin /)
+                  start(ndims) = timesndx
+                  if ( n_layers /= 0 ) then
+                     start(ndims-1) = k
                   end if
-                  
-                  if ( ierror.ne.0 ) goto 1234
-               
+                  cnt(1:2) = (/mcolmax(j)-mcolmin(j)+1, nrowmax(j)-nrowmin+1 /)
+                  ierror = nf90_get_var(fileHandle, varid, data_block, start=start, count=cnt)
+
+                  if ( ierror /= 0 ) then
+                     ierr = nf90_get_att(fileHandle, varid, 'standard_name', standard_name)
+                     if (ierr /= 0) write(standard_name,*) 'varid = ', varid
+                     call setECMessage("Read error in read_data_sparse for " // trim(standard_name))
+                     goto 1234
+                  endif
+
                   do nrow=nrowmin,nrowmax(j)
                      do i=ia(nrow),ia(nrow+1)-1
                         mcol = ja(i)
@@ -2155,55 +2166,20 @@ module m_ec_filereader_read
                end if
             end do
          end do
-         
+
          ierror = 0
-         
+
  1234    continue
- 
- 
+
 !        deallocate
          if ( allocated(data_block) ) deallocate(data_block)
          if ( allocated(mcolmin)    ) deallocate(mcolmin)
          if ( allocated(mcolmax)    ) deallocate(mcolmax)
-         
-         call klok(t1)
-         
-         write(msg, "('Reading data in ', I0, ' part(s) and storing in CRS format in ', F12.5 , ' sec.')") Ndata, t1-t0
-         
-         call setECMessage(trim(msg))
- 
+         if ( allocated(start)      ) deallocate(start)
+         if ( allocated(cnt)        ) deallocate(cnt)
+
          return
       end subroutine read_data_sparse
-      
-!>    wall clock timer
-      subroutine klok(t)
-      implicit none
-      
-      double precision   :: t
-      character(len=8)   :: date
-      character(len=10)  :: time
-      character(len=5)   :: zone
-      integer            :: timing(8)
-      
-      character(len=128) :: mesg
-      
-      integer,          save :: ndays=0
-      integer,          save :: dayprev=-999 
-      
-      call date_and_time(date, time, zone, timing)
-      
-!     check for new day
-      if ( dayprev.eq.-999 ) then
-         dayprev = timing(3)    ! initialization to
-      else if ( timing(3).ne.dayprev ) then
-         ndays = ndays+1
-         dayprev = timing(3)
-      end if
-      
-      t = ndays*3600d0*24d0 + timing(5)*3600d0 + timing(6)*60d0 + timing(7) + dble(timing(8))/1000d0
-      
-      
-      end subroutine klok
 
    end module m_ec_filereader_read
 

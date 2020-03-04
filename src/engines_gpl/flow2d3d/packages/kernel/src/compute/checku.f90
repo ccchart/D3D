@@ -5,7 +5,7 @@ subroutine checku(hu        ,s1        ,dpu       ,umean     , &
                 & gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -125,7 +125,7 @@ subroutine checku(hu        ,s1        ,dpu       ,umean     , &
        !
        ! check for flooding
        !
-       if (  flood .and. kfu(nm)==0 .and. kcu(nm)==1 &
+       if (  flood .and. kfu(nm)==0 .and. (kcu(nm)==1 .or. kcu(nm)==3) &
            & .and. max(s1(nm),s1(nm+icx)) - max(-real(dps(nm),fp),-real(dps(nm+icx),fp)) >= floodtrsh) then
           if (min(hu(nm), hucres)>floodtrsh) then
             kfu(nm) = 1

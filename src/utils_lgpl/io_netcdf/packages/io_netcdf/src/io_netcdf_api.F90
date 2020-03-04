@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -489,13 +489,15 @@ end function ionc_inq_varid_by_standard_name_dll
 
 
 !> Defines a new variable in an existing IONC dataset and sets up proper meta-attributes.
+!! The variable can be defined either on a UGRID mesh, or on a UGRID network (via meshid or networkid, respectively).
 !! NOTE: File should still be in define mode.
 !! Does not write the actual data yet.
-function ionc_def_var_dll(ioncid, meshid, id_var, itype, iloctype, c_var_name, c_standard_name, c_long_name, & ! id_dims, 
-                    c_unit, dfill) result(ierr) bind(C, name="ionc_def_var")  ! , cell_method, cell_measures, crs, ifill
+function ionc_def_var_dll(ioncid, meshid, networkid, id_var, itype, iloctype, c_var_name, c_standard_name, c_long_name, & ! id_dims, 
+                    c_unit, ifill, dfill) result(ierr) bind(C, name="ionc_def_var")  ! , cell_method, cell_measures, crs
 !DEC$ ATTRIBUTES DLLEXPORT :: ionc_def_var_dll
    integer(kind=c_int),              intent(in)    :: ioncid    !< The IONC data set id.
-   integer(kind=c_int),              intent(in)    :: meshid    !< The mesh id in the specified data set.
+   integer(kind=c_int),              intent(in)    :: meshid    !< The mesh id in the specified data set (use 0 when instead a networkid is specified).
+   integer(kind=c_int),              intent(in)    :: networkid !< The network id in the specified data set (use 0 when instead a meshid is specified).
    integer(kind=c_int),              intent(  out) :: id_var        !< Created NetCDF variable id.
 !   integer, dimension(:),      intent(in)    :: id_dims       !< NetCDF dimension ids for this variable. Example: (/ id_edgedim /) for scalar data on edges, or (/ id_twodim, id_facedim /) for vector data on faces.
    integer(kind=c_int),              intent(in)    :: itype         !< The variable type expressed in one of the basic nf90_* types, e.g., nf90_double.
@@ -507,8 +509,8 @@ function ionc_def_var_dll(ioncid, meshid, id_var, itype, iloctype, c_var_name, c
 !   character(len=*),           intent(in)    :: cell_method   !< Cell method for the spatial dimension (i.e., for edge/face/volume), value should be one of 'point', 'mean', etc. (See CF) (empty string if not relevant).
 !   character(len=*),           intent(in)    :: cell_measures !< Cell measures attribute, for example: 'area: mesh2d_cellarea', etc. (See CF) (empty string if not relevant).
 !   type(t_crs),      optional, intent(in)    :: crs           !< (Optional) Add grid_mapping attribute based on this coordinate reference system for independent coordinates
-!   integer,          optional, intent(in)    :: ifill         !< (Optional) Integer fill value.
-   real(c_double),                   intent(in)    :: dfill         !< (Optional) Double precision fill value.
+   integer(kind=c_int),              intent(in)    :: ifill         !< Integer fill value (only applicable when itype==nf90_int).
+   real(kind=c_double),              intent(in)    :: dfill         !< Double precision fill value (only applicable when itype==nf90_double).
    integer(kind=c_int)                             :: ierr          !< Result status (UG_NOERR==NF90_NOERR) if successful.
 
    character(len=MAXSTRLEN) :: var_name, standard_name, long_name, unit
@@ -519,8 +521,8 @@ function ionc_def_var_dll(ioncid, meshid, id_var, itype, iloctype, c_var_name, c
    long_name     = char_array_to_string(c_long_name,     strlen(c_long_name))
    unit          = char_array_to_string(c_unit,          strlen(c_unit))
 
-   ierr = ionc_def_var(ioncid, meshid, id_var, itype, iloctype, var_name, standard_name, long_name, &
-                    unit, "", "", dfill = dfill)
+   ierr = ionc_def_var(ioncid, meshid, networkid, id_var, itype, iloctype, var_name, standard_name, long_name, &
+                    unit, "", "", ifill = ifill, dfill = dfill)
 end function ionc_def_var_dll
 
 
@@ -826,6 +828,23 @@ function ionc_put_1d_network_branchorder_dll(ioncid, networkid, c_branchorder, n
     
 end function ionc_put_1d_network_branchorder_dll
 
+!< write the branch order array, it might be temporary function
+function ionc_put_1d_network_branchtype_dll(ioncid, networkid, c_branchtype, nbranches) result(ierr) bind(C, name="ionc_put_1d_network_branchtype")
+!DEC$ ATTRIBUTES DLLEXPORT :: ionc_put_1d_network_branchtype_dll
+
+    integer, intent(in)                :: ioncid, nbranches   
+    integer, intent(in)                :: networkId
+    type(c_ptr), intent(in)            :: c_branchtype
+    integer, pointer                   :: branchtype(:)
+    integer                            :: ierr
+    
+    call c_f_pointer(c_branchtype, branchtype, (/ nbranches /))
+    
+    ierr =  ionc_put_1d_network_branchtype_ugrid(ioncid, networkid, branchtype)
+    
+end function ionc_put_1d_network_branchtype_dll
+
+
 function ionc_write_1d_network_branches_geometry_dll(ioncid, networkid, c_geopointsX, c_geopointsY, nGeometry) result(ierr) bind(C, name="ionc_write_1d_network_branches_geometry")
 !DEC$ ATTRIBUTES DLLEXPORT :: ionc_write_1d_network_branches_geometry_dll
   
@@ -986,6 +1005,22 @@ function ionc_get_1d_network_branchorder_dll(ioncid, networkid, c_branchorder, n
    ierr = ionc_get_1d_network_branchorder_ugrid(ioncid, networkid, branchorder)
 
 end function ionc_get_1d_network_branchorder_dll  
+
+!< get the branch order array, it might be temporary function
+function ionc_get_1d_network_branchtype_dll(ioncid, networkid, c_branchtype, nbranches) result(ierr) bind(C, name="ionc_get_1d_network_branchtype")
+!DEC$ ATTRIBUTES DLLEXPORT :: ionc_get_1d_network_branchtype_dll
+   
+   integer, intent(in)                :: ioncid, nbranches   
+   integer, intent(in)                :: networkid 
+   type(c_ptr), intent(inout)         :: c_branchtype
+   integer,pointer                    :: branchtype(:)
+   integer                            :: ierr
+   
+   call c_f_pointer(c_branchtype, branchtype, (/ nbranches /))
+   
+   ierr = ionc_get_1d_network_branchtype_ugrid(ioncid, networkid, branchtype)
+
+end function ionc_get_1d_network_branchtype_dll  
    
 
 function ionc_read_1d_network_branches_geometry_dll(ioncid, networkid, c_geopointsX, c_geopointsY, ngeometrypoints) result(ierr) bind(C, name="ionc_read_1d_network_branches_geometry")
@@ -1121,18 +1156,12 @@ function ionc_put_1d_mesh_discretisation_points_v2_dll(ioncid, meshid, c_branchi
 !DEC$ ATTRIBUTES DLLEXPORT :: ionc_put_1d_mesh_discretisation_points_v2_dll
   integer(kind=c_int), intent(in)     :: ioncid, meshid, nmeshpoints, startIndex  
   type(c_ptr), intent(in)             :: c_branchidx, c_offset, c_coordx, c_coordy
-  !type(t_ug_charinfo),  intent(in)    :: nodesinfo(nmeshpoints)
-  type(c_ptr), intent(in)      :: c_ids, c_longnames
-  
-  !character(len=ug_idsLen), intent(in) :: c_ids(:)
-  !character(len=ug_idsLongNamesLen), intent(in) :: c_longnames(:)
-  
+  type(c_ptr), intent(in)             :: c_ids, c_longnames    
   integer,pointer                     :: branchidx(:)
+  
   double precision,pointer            :: offset(:)
   double precision,pointer            :: coordx(:)
   double precision,pointer            :: coordy(:)
-  character(len=ug_idsLen)            :: nodeids(nmeshpoints)
-  character(len=ug_idsLongNamesLen)   :: nodelongnames(nmeshpoints)
   character(len=8)                    :: varnameids
   character(len=15)                   :: varnamelongnames
   integer                             :: ierr,i
@@ -1149,17 +1178,12 @@ function ionc_put_1d_mesh_discretisation_points_v2_dll(ioncid, meshid, c_branchi
 
   call c_f_pointer(c_ids, ids, (/ nmeshpoints /))
   call c_f_pointer(c_longnames, longnames, (/ nmeshpoints /))
-   
-  do i= 1, nmeshpoints   
-    nodeids(i) = ids(i)
-    nodelongnames(i) = longnames(i)
-  end do
-    
+      
   !these are hard-coded variable names for node ids of the network
   varnameids        = 'node_id'
-  ierr              = ionc_put_var_chars(ioncid, meshid, varnameids, nodeids)
+  ierr              = ionc_put_var_chars(ioncid, meshid, varnameids, ids)
   varnamelongnames  = 'node_long_name'
-  ierr              = ionc_put_var_chars(ioncid, meshid, varnamelongnames, nodelongnames)
+  ierr              = ionc_put_var_chars(ioncid, meshid, varnamelongnames, longnames)
   
 end function ionc_put_1d_mesh_discretisation_points_v2_dll
 
@@ -1244,8 +1268,9 @@ function ionc_get_1d_mesh_discretisation_points_v1_dll(ioncid, meshid, c_branchi
   double precision,pointer          :: offset(:)
   integer,pointer                   :: branchidx(:)
   double precision,pointer          :: coordx(:), coordy(:)
-  character(len=8)                  :: varnameids
-  character(len=15)                 :: varnamelongnames
+  integer,parameter                 :: size_of_varname = 2
+  character(len=MAXSTRLEN)          :: varnameids(size_of_varname)
+  character(len=MAXSTRLEN)          :: varnamelongnames(size_of_varname)
   integer                           :: ierr,i
   
   call c_f_pointer(c_branchidx, branchidx, (/ nmeshpoints /))
@@ -1256,20 +1281,26 @@ function ionc_get_1d_mesh_discretisation_points_v1_dll(ioncid, meshid, c_branchi
   ierr = ionc_get_1d_mesh_discretisation_points_ugrid_v1(ioncid, meshid, branchidx, offset, startIndex, coordx, coordy )
   
   !The names of the variables are hard-coded
-  varnameids        = 'node_id'
-  ierr              = ionc_get_var_chars(ioncid, meshid, varnameids, nodeids)
-  if (ierr /= IONC_NOERR) then
-     ! Backwards compatible read of Deltares-0.9 plural-names.
-     varnameids     = 'node_ids'
-     ierr           = ionc_get_var_chars(ioncid, meshid, varnameids, nodeids)
-  end if
-  varnamelongnames  = 'node_long_name'
-  ierr              = ionc_get_var_chars(ioncid, meshid, varnamelongnames, nodelongnames)
-  if (ierr /= IONC_NOERR) then
-     ! Backwards compatible read of Deltares-0.9 plural-names.
-     varnamelongnames  = 'node_long_names'
-     ierr              = ionc_get_var_chars(ioncid, meshid, varnamelongnames, nodelongnames)
-  end if
+  
+  varnameids(1) = 'node_id'
+  varnameids(2) = 'node_ids'
+  
+  do i=1,size_of_varname
+     ierr = ionc_get_var_chars(ioncid, meshid, varnameids(i), nodeids)
+     if (ierr==0) then
+          exit
+     endif
+  enddo
+  
+  varnamelongnames(1) = 'node_long_name'
+  varnamelongnames(2) = 'node_long_names'
+
+  do i=1,size_of_varname
+     ierr = ionc_get_var_chars(ioncid, meshid, varnamelongnames(i), nodelongnames)
+     if (ierr == 0) then
+          exit
+     endif
+  enddo
 
   do i=1,nmeshpoints
      nodesinfo(i)%ids       = nodeids(i) 
@@ -1285,9 +1316,10 @@ function ionc_get_1d_mesh_discretisation_points_v2_dll(ioncid, meshid, c_branchi
   type(c_ptr),  intent(inout)       :: c_ids, c_longNames
   double precision,pointer          :: offset(:)
   integer,pointer                   :: branchidx(:)
-  double precision,pointer          :: coordx(:), coordy(:)
-  character(len=8)                  :: varnameids
-  character(len=15)                 :: varnamelongnames
+  double precision,pointer          :: coordx(:), coordy(:)  
+  integer,parameter                 :: size_of_varname = 2
+  character(len=MAXSTRLEN)          :: varnameids(size_of_varname)
+  character(len=MAXSTRLEN)          :: varnamelongnames(size_of_varname)
   integer                           :: ierr,i
   character(kind=c_char, len=ug_idsLen),pointer               :: ids(:)
   character(kind=c_char, len=ug_idsLongNamesLen),pointer      :: longnames(:)
@@ -1302,12 +1334,47 @@ function ionc_get_1d_mesh_discretisation_points_v2_dll(ioncid, meshid, c_branchi
   ierr = ionc_get_1d_mesh_discretisation_points_ugrid_v1(ioncid, meshid, branchidx, offset, startIndex, coordx, coordy )
   
   !The names of the variables are hard-coded
-  varnameids        = 'node_id'
-  ierr              = ionc_get_var_chars(ioncid, meshid, varnameids, ids)
-  varnamelongnames  = 'node_long_name'
-  ierr              = ionc_get_var_chars(ioncid, meshid, varnamelongnames, longnames)
+     
+  varnameids(1) = 'node_id'
+  varnameids(2) = 'node_ids'
+  
+  do i=1,size_of_varname
+     ierr = ionc_get_var_chars(ioncid, meshid, varnameids(i), ids)
+     if (ierr==0) then
+          exit
+     endif
+  enddo
+  
+  varnamelongnames(1) = 'node_long_name'
+  varnamelongnames(2) = 'node_long_names'
+
+  do i=1,size_of_varname
+     ierr = ionc_get_var_chars(ioncid, meshid, varnamelongnames(i), longnames)
+     if (ierr == 0) then
+          exit
+     endif
+  enddo
   
 end function ionc_get_1d_mesh_discretisation_points_v2_dll
+
+function ionc_get_1d_mesh_edges_dll(ioncid, meshid, c_edgebranchidx, c_edgeoffset, nmeshedges, startIndex, c_coordx, c_coordy) result(ierr) bind(C, name="ionc_get_1d_mesh_edges")
+!DEC$ ATTRIBUTES DLLEXPORT :: ionc_get_1d_mesh_edges_dll
+  integer(kind=c_int), intent(in)     :: ioncid, meshid, nmeshedges, startIndex  
+  type(c_ptr), intent(inout)          :: c_edgebranchidx, c_edgeoffset, c_coordx, c_coordy
+  integer                             :: ierr    
+  integer,pointer                     :: edgebranchidx(:)
+  double precision,pointer            :: edgeoffset(:)
+  double precision,pointer            :: coordx(:)
+  double precision,pointer            :: coordy(:)
+  
+  call c_f_pointer(c_edgebranchidx, edgebranchidx, (/ nmeshedges /))
+  call c_f_pointer(c_edgeoffset, edgeoffset, (/ nmeshedges /))
+  call c_f_pointer(c_coordx, coordx, (/ nmeshedges /))
+  call c_f_pointer(c_coordy, coordy, (/ nmeshedges /))
+
+  ierr = ionc_get_1d_mesh_edges(ioncid, meshid, edgebranchidx, edgeoffset, startIndex, coordx, coordy) 
+  
+end function ionc_get_1d_mesh_edges_dll
 
 !
 ! mesh links
@@ -1368,8 +1435,6 @@ function ionc_put_mesh_contact_v1_dll(ioncid, contactsmesh, c_mesh1indexes, c_me
    type(c_ptr), intent(in)                                     :: c_mesh1indexes, c_mesh2indexes, c_contacttype
    type(c_ptr),  intent(in)                                    :: c_ids, c_longnames
    integer,pointer                                             :: mesh1indexes(:), mesh2indexes(:), contacttype(:)
-   character(len=ug_idsLen)                                    :: contactsids(ncontacts)
-   character(len=ug_idsLongNamesLen)                           :: contactslongnames(ncontacts)
    integer                                                     :: ierr,i
    character(kind=c_char, len=ug_idsLen),pointer               :: ids(:)
    character(kind=c_char, len=ug_idsLongNamesLen),pointer      :: longnames(:)
@@ -1380,13 +1445,8 @@ function ionc_put_mesh_contact_v1_dll(ioncid, contactsmesh, c_mesh1indexes, c_me
    
    call c_f_pointer(c_ids, ids, (/ ncontacts /))
    call c_f_pointer(c_longnames, longnames, (/ ncontacts /))
-
-   do i=1, ncontacts
-      contactsids(i) = ids(i)        
-      contactslongnames(i) = longnames(i)
-   end do
    
-   ierr = ionc_put_mesh_contact_ugrid(ioncid, contactsmesh, mesh1indexes, mesh2indexes, contactsids, contactslongnames, contacttype, startIndex) 
+   ierr = ionc_put_mesh_contact_ugrid(ioncid, contactsmesh, mesh1indexes, mesh2indexes, ids, longnames, contacttype, startIndex) 
    
 end function ionc_put_mesh_contact_v1_dll
 

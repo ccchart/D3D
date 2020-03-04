@@ -1,7 +1,7 @@
 module m_readCrossSections
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -32,7 +32,6 @@ module m_readCrossSections
    use M_newcross
    use m_CrossSections
    use MessageHandling
-   use modelGlobalData
    use properties
    use m_network
    use m_GlobalParameters
@@ -96,6 +95,7 @@ module m_readCrossSections
       character(len=Charln)          :: binfile
       logical                        :: file_exist
       integer                        :: pos, ibin
+      integer                        :: numcrs
 
 
       pos = index(CrossSectionFile, '.', back = .true.)
@@ -121,6 +121,7 @@ module m_readCrossSections
       end if
 
       success = .true.
+      numcrs = 0
       do i = 1, numstr
          if (network%crs%count+1 > network%crs%size) then
             call realloc(network%crs)
@@ -130,19 +131,22 @@ module m_readCrossSections
          
          if (.not. strcmpi(tree_get_name(md_ptr%child_nodes(i)%node_ptr), 'CrossSection')) then
             cycle
+         else
+            numcrs = numcrs + 1
          endif
          
          call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'id', pCrs%csid, success)
          if (.not. success) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect CrossSection input for CrossSection on branch '//trim(branchid)// &
-               '. No id was given.')
+            write (msgbuf, '(a,i0,a)') 'Incorrect CrossSection input for CrossSection #', numcrs, &
+               ' in '''//trim(CrossSectionFile)//'''. No id was given.'
+            call err_flush()
             cycle
          endif
 
          call prop_get_string(md_ptr%child_nodes(i)%node_ptr, '', 'branchId', branchid, success)
          if (.not. success) then
-            call SetMessage(LEVEL_ERROR, 'Incorrect CrossSection input for CrossSection on branch '//trim(branchid)// &
-               '. No branchId was given.')
+            call SetMessage(LEVEL_ERROR, 'Incorrect CrossSection input for CrossSection id '''//trim(pCrs%csid)// &
+               ''' in '''//trim(CrossSectionFile)//'''. No branchId was given.')
             cycle
          endif
          
@@ -566,8 +570,11 @@ module m_readCrossSections
             
       pCS%plains = 0.0d0
       
-      maxFlowWidth = width(numlevels)
-
+      maxFlowWidth = width(1)
+      do i = 2, numlevels
+         maxFlowWidth = max( maxFlowWidth, width(i))
+      enddo
+      
       call prop_get_double(node_ptr, '', 'mainWidth', Main, success)
       if (.not. success)  Main = maxFlowWidth
       call prop_get_double(node_ptr, '', 'fp1Width', FP1, success)

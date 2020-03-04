@@ -1,7 +1,7 @@
 module geometry_module
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -90,6 +90,8 @@ module geometry_module
    public :: circumcenter3       ! line 18851
    public :: comp_breach_point
    
+   integer, public :: ipolyfound
+
    interface clockwise
       module procedure clockwise_sp
       module procedure clockwise_hp
@@ -919,6 +921,12 @@ module geometry_module
             endif
          ENDIF
       end do   ! do ipoly=1,Npoly
+
+      if (in == 1) then ! and, even more handy: 
+         ipolyfound = ipoly 
+      else
+         ipolyfound = 0
+      endif
 
       return
       end subroutine dbpinpol_optinside_perpol

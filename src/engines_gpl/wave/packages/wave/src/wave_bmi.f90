@@ -1,7 +1,7 @@
 module bmi
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -63,6 +63,7 @@ integer(c_int) function initialize(c_mdw_file) result(c_iresult) bind(C, name="i
   !DEC$ ATTRIBUTES DLLEXPORT :: initialize
   use iso_c_binding, only: c_char
   use wave_main
+  use swan_input
   !
   ! Global
   character(kind=c_char),intent(in)    :: c_mdw_file(MAXSTRLEN)
@@ -182,6 +183,7 @@ subroutine get_start_time(t) bind(C, name="get_start_time")
   !DEC$ ATTRIBUTES DLLEXPORT :: get_start_time
   use iso_c_binding, only: c_double
   use wave_main
+  use swan_input
   !
   ! Global
   real(c_double), intent(out) :: t

@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -52,7 +52,6 @@ subroutine findexternalboundarypoints()             ! find external boundary poi
  use unstruc_messages
  use m_ship
  use properties
- use m_ec_magic_number
  use m_transport
  use m_sobekdfm
  use m_sediment
@@ -452,7 +451,6 @@ subroutine processexternalboundarypoints(qid, filename, filetype, return_time, n
  use unstruc_messages
  use m_ship
  use properties
- use m_ec_magic_number
  use m_transport
  use m_sediment, only: stm_included, stmpar, sedtot2sedsus
  use sediment_basics_module, only: SEDTYP_NONCOHESIVE_SUSPENDED, SEDTYP_COHESIVE
@@ -483,12 +481,15 @@ subroutine processexternalboundarypoints(qid, filename, filetype, return_time, n
  integer                               :: itrac, isf
  integer, external                     :: findname
  integer                               :: janew
+ character(len=:),allocatable          :: pliname
 
 ! call bndname_to_fm(qid,qidfm)
   qidfm = qid
   if (qidfm == 'waterlevelbnd'    .or. qidfm == 'neumannbnd'  .or. qidfm == 'riemannbnd' .or. qidfm == 'outflowbnd' .or. qidfm == 'qhbnd') then
 
-     call selectelset( filename, filetype, xe, ye, xyen, kce, nx, kez(nbndz+1:nx), numz, usemask=.true.) !numz=number cells found
+
+     if (allocated(pliname)) deallocate(pliname)
+     call selectelset( filename, filetype, xe, ye, xyen, kce, nx, kez(nbndz+1:nx), numz, usemask=.true., pliname=pliname) !numz=number cells found, plname=pliname
      WRITE(msgbuf,'(3a,i8,a)') trim (qid), ' ', trim( filename), numz, ' nr of open bndcells' ; call msg_flush()
      nzbnd = nzbnd + 1
 
@@ -506,12 +507,12 @@ subroutine processexternalboundarypoints(qid, filename, filetype, return_time, n
          itpbn = 7
          nqhbnd = nqhbnd + 1
          numqh  = numz
+         call realloc(qhpliname,nqhbnd)  ; qhpliname(nqhbnd) = pliname
          call realloc(L1qhbnd,nqhbnd) ; L1qhbnd(nqhbnd) = nbndz + 1
          call realloc(L2qhbnd,nqhbnd) ; L2qhbnd(nqhbnd) = nbndz + numz
-         call realloc(atqh_all,nqhbnd);  atqh_all(nqhbnd) = 0d0
-         call realloc(atqh_sum,nqhbnd);  atqh_sum(nqhbnd) = 0d0
-         call realloc(qhbndz,nqhbnd)  ;  qhbndz(nqhbnd) = 0d0
-         call realloc(magic_array,nqhbnd)  ;  magic_array(nqhbnd) = 0d0
+         call realloc(atqh_all,nqhbnd); atqh_all(nqhbnd) = 0d0
+         call realloc(atqh_sum,nqhbnd); atqh_sum(nqhbnd) = 0d0
+         call realloc(qhbndz,nqhbnd)  ; qhbndz(nqhbnd)   = 0d0
      end if    
      itpez(nbndz+1:nbndz+numz) =  itpbn
      
@@ -834,7 +835,10 @@ function addtimespacerelation_boundaries(qid, filename, filetype, method, operan
             if ( kmx.eq.0 ) then
                success = ec_addtimespacerelation(qid, bndsf(isf)%x, bndsf(isf)%y, bndsf(isf)%kd, kx, filename, filetype, method, operand, bndsf(isf)%xy2, forcingfile=forcingfile, targetindex=targetindex)
             else
-               success = ec_addtimespacerelation(qid, bndsf(isf)%x, bndsf(isf)%y, bndsf(isf)%kd, kx, filename, filetype, method, operand, bndsf(isf)%xy2, bndsf(isf)%sigma, forcingfile=forcingfile, targetindex=targetindex)
+               pzmin => bndsf(isf)%zminmax(1:nbndsf(isf))
+               pzmax => bndsf(isf)%zminmax(nbndsf(isf)+1:2*nbndsf(isf))
+               success = ec_addtimespacerelation(qid, bndsf(isf)%x, bndsf(isf)%y, bndsf(isf)%kd, kx, filename, filetype, method, operand, bndsf(isf)%xy2,    & 
+                                                 z=bndsf(isf)%sigma, forcingfile=forcingfile, pzmin=pzmin, pzmax=pzmax, targetindex=targetindex)
             end if
          else
             success = .true.
@@ -886,6 +890,7 @@ logical function initboundaryblocksforcings(filename)
  use unstruc_files, only: resolvePath
  use unstruc_model, only: ExtfileNewMajorVersion, ExtfileNewMinorVersion
  use m_missing
+ use m_ec_parameters, only: provFile_uniform
 
  implicit none
 
@@ -901,30 +906,34 @@ logical function initboundaryblocksforcings(filename)
  character(len=ini_value_len) :: property_value
  character(len=ini_value_len) :: quantity
  character(len=ini_value_len) :: locationfile        !
- character(len=ini_value_len) :: forcingfile         !
  character(len=ini_value_len) :: locationtype        !
+ character(len=ini_value_len) :: forcingfile         !
+ character(len=ini_value_len) :: forcingfiletype     !
+ character(len=ini_value_len) :: targetmaskfile      !
  integer                      :: i,j                 !
  integer                      :: num_items_in_file   !
  integer                      :: num_items_in_block
  logical                      :: retVal
+ logical                      :: invertMask
  character(len=1)             :: oper                !
  character (len=300)          :: rec
 
+ character(len=ini_value_len) :: nodeid
  character(len=ini_value_len) :: branchid
 
  character(len=ini_value_len) :: locid
  character(len=ini_value_len) :: itemtype
  character(len=256)           :: fnam
  character(len=256)           :: basedir
+ character(len=256)           :: sourcemask
  double precision             :: chainage
  double precision             :: tmpval
  integer                      :: iostat, ierr
- integer                      :: ilattype
- integer                      :: k, n
- integer                      :: file_type
+ integer                      :: ilattype, nlat
+ integer                      :: k, n, k1, nini
  integer                      :: fmmethod
  integer, dimension(1)        :: targetindex 
- integer                      :: ib
+ integer                      :: ib, ibqh
  integer                      :: maxlatsg
  integer                      :: major, minor
  integer                      :: loc_spec_type
@@ -963,11 +972,15 @@ logical function initboundaryblocksforcings(filename)
  ! Allocate lateral provider array now, just once, because otherwise realloc's in the loop would destroy target arrays in ecInstance.
  maxlatsg = tree_count_nodes_byname(bnd_ptr, 'lateral')
  if (maxlatsg > 0) then
-    call realloc(qplat, maxlatsg, keepExisting = .false.)
+    call realloc(balat, maxlatsg, keepExisting = .false., fill = 0d0)
+    call realloc(qplat, maxlatsg, keepExisting = .false., fill = 0d0)
     call realloc(lat_ids, maxlatsg, keepExisting = .false.)
+    call realloc(n1latsg, maxlatsg, keepExisting = .false., fill = 0)
+    call realloc(n2latsg, maxlatsg, keepExisting = .false., fill = 0)
  end if
 
  ib = 0
+ ibqh = 0
  do i=1,num_items_in_file
 
     node_ptr => bnd_ptr%child_nodes(i)%node_ptr
@@ -991,10 +1004,10 @@ logical function initboundaryblocksforcings(filename)
 
        call prop_get_string(node_ptr, '', 'nodeId', locationfile, retVal)
        if (retVal) then
-          file_type = node_id
+          filetype = node_id
           fmmethod  = spaceandtime
        else
-          file_type = poly_tim
+          filetype = poly_tim
           fmmethod  = weightfactors
           call prop_get_string(node_ptr, '', 'locationfile', locationfile, retVal)
        endif
@@ -1008,12 +1021,12 @@ logical function initboundaryblocksforcings(filename)
           cycle
        end if
 
-       call prop_get_string(node_ptr, '', 'forcingfile ', forcingfile , retVal)
+       call prop_get_string(node_ptr, '', 'forcingFile ', forcingfile , retVal)
        if (retVal) then
           call resolvePath(forcingfile, basedir, forcingfile)
        else
           initboundaryblocksforcings = .false.
-          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''forcingfile'' is missing.'
+          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''forcingFile'' is missing.'
           call warn_flush()
           cycle
        end if
@@ -1044,27 +1057,34 @@ logical function initboundaryblocksforcings(filename)
                    oper = '+'
                 endif
                 call register_quantity_pli_combination(quantity, locationfile)
-                if (file_type == node_id) then
+                if (filetype == node_id .or. quantity == 'qhbnd') then
                    select case(quantity)
-                   case ('waterlevelbnd', 'qhbnd')
+                   case ('waterlevelbnd')
                       targetindex = maxloc(itpenz(1:nbndz),itpenz(1:nbndz)==ib)   
+                   case ('qhbnd')
+                      ibqh = ibqh + 1
+                      targetindex = (/ibqh/)
+                      if (filetype/=node_id) then
+                          locationfile = qhpliname(ibqh)
+                      end if
                    case ('dischargebnd')
                       targetindex = maxloc(itpenu(1:nbndu),itpenu(1:nbndu)==ib)   
                    case default
                       targetindex = (/-1/)
                    end select
+
                    if (forcingfile == '-') then
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=file_type, method=fmmethod, operand=oper, &
+                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, operand=oper, &
                                                                targetindex=targetindex(1))
                    else
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=file_type, method=fmmethod, operand=oper, forcingfile = forcingfile, &
+                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, operand=oper, forcingfile = forcingfile, &
                                                                targetindex=targetindex(1))
                    endif
                 else
                    if (forcingfile == '-') then
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=file_type, method=fmmethod, operand=oper)
+                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, operand=oper)
                    else
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=file_type, method=fmmethod, operand=oper, forcingfile = forcingfile)
+                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, operand=oper, forcingfile = forcingfile)
                    endif
                 endif
                 initboundaryblocksforcings = initboundaryblocksforcings .and. retVal ! Remember any previous errors.
@@ -1121,37 +1141,46 @@ logical function initboundaryblocksforcings(filename)
        end select
 
        ! [lateral]
-       ! fileVersion >= 2: branchId+chainage       => location_specifier = BRANCH_CHAINAGE
-       !                   numcoor+xcoors+ycoors   => location_specifier = XY_POLYGON
-       ! fileVersion <= 1: LocationFile = test.pol => location_specifier = POLYGON_FILE
+       ! fileVersion >= 2: nodeId                  => location_specifier = LOCTP_NODEID
+       !                   branchId+chainage       => location_specifier = LOCTP_BRANCH_CHAINAGE
+       !                   numcoor+xcoors+ycoors   => location_specifier = LOCTP_XY_POLYGON
+       ! fileVersion <= 1: LocationFile = test.pol => location_specifier = LOCTP_POLYGON_FILE
        loc_spec_type      = imiss
+       nodeId             = ' '
        branchid           = ' '
        chainage           = dmiss
        numcoordinates     = imiss
        !
        if (major >= 2) then
-          call prop_get(node_ptr, '', 'branchId',         branchid, success)
+          call prop_get_string(node_ptr, '', 'nodeId', nodeId, success)
           if (success) then
-             call prop_get(node_ptr, '', 'chainage',         chainage, success)
-          end if
-          if (success) then
-             if (len_trim(branchid)>0 .and. chainage /= dmiss .and. chainage >= 0.0d0) then
-                loc_spec_type = BRANCHID_CHAINAGE
-             end if
+             loc_spec_type = LOCTP_NODEID
+             ilattype = ILATTP_1D
           else
-             call prop_get(node_ptr, '', 'numCoordinates',   numcoordinates, success)
-             if (success .and. numcoordinates > 0) then
-                allocate(xcoordinates(numcoordinates), stat=ierr)
-                allocate(ycoordinates(numcoordinates), stat=ierr)
-                call prop_get_doubles(node_ptr, '', 'xCoordinates',     xcoordinates, numcoordinates, success)
-                call prop_get_doubles(node_ptr, '', 'yCoordinates',     ycoordinates, numcoordinates, success)
-                if (success) then
-                   loc_spec_type = POLYGON_XY
+             call prop_get(node_ptr, '', 'branchId',         branchid, success)
+             if (success) then
+                call prop_get(node_ptr, '', 'chainage',         chainage, success)
+             end if
+             if (success) then
+                if (len_trim(branchid)>0 .and. chainage /= dmiss .and. chainage >= 0.0d0) then
+                   loc_spec_type = LOCTP_BRANCHID_CHAINAGE
+                   ilattype = ILATTP_1D
+                end if
+             else
+                call prop_get(node_ptr, '', 'numCoordinates',   numcoordinates, success)
+                if (success .and. numcoordinates > 0) then
+                   allocate(xcoordinates(numcoordinates), stat=ierr)
+                   allocate(ycoordinates(numcoordinates), stat=ierr)
+                   call prop_get_doubles(node_ptr, '', 'xCoordinates',     xcoordinates, numcoordinates, success)
+                   call prop_get_doubles(node_ptr, '', 'yCoordinates',     ycoordinates, numcoordinates, success)
+                   if (success) then
+                      loc_spec_type = LOCTP_POLYGON_XY
+                   end if
                 end if
              end if
           end if
        else ! fileVersion <= 1
-          loc_spec_type = POLYGON_FILE
+          loc_spec_type = LOCTP_POLYGON_FILE
           !
           locationfile = ''
           call prop_get(node_ptr, '', 'LocationFile', locationfile, success)
@@ -1174,8 +1203,13 @@ logical function initboundaryblocksforcings(filename)
        call prepare_lateral_mask(kclat, ilattype)
 
        numlatsg = numlatsg + 1
-       call selectelset_internal_nodes(xz, yz, kclat, ndxi, numlatsg, nnLat, &
-                                       loc_spec_type, locationfile, numcoordinates, xcoordinates, ycoordinates, branchid, chainage)
+       call realloc(nnlat, max(2*ndxi, nlatnd+ndxi), keepExisting = .true., fill = 0)
+       call selectelset_internal_nodes(xz, yz, kclat, ndxi, nnLat(nlatnd+1:), nlat, &
+                                       loc_spec_type, locationfile, numcoordinates, xcoordinates, ycoordinates, branchid, chainage, nodeId)
+       n1latsg(numlatsg) = nlatnd + 1
+       n2latsg(numlatsg) = nlatnd + nlat
+
+       nlatnd = nlatnd + nlat
 
        if (allocated(xcoordinates)) deallocate(xcoordinates, stat=ierr)
        if (allocated(ycoordinates)) deallocate(ycoordinates, stat=ierr)
@@ -1211,22 +1245,48 @@ logical function initboundaryblocksforcings(filename)
           cycle
        end if
 
-       call prop_get_string(node_ptr, '', 'locationtype', locationtype, retVal)
+       call prop_get_string(node_ptr, '', 'forcingFileType', forcingfiletype, retVal)
        if (.not. retVal) then
-          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''locationtype'' is missing.'
+          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''forcingFileType'' is missing.'
           call warn_flush()
           cycle
        end if
 
-       call prop_get_string(node_ptr, '', 'forcingfile ', forcingfile , retVal)
+       call prop_get_string(node_ptr, '', 'forcingFile', forcingfile , retVal)
        if (.not. retVal) then
-          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''forcingfile'' is missing.'
+          write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(filename), ''': [', trim(groupname), ']. Field ''forcingFile'' is missing.'
           call warn_flush()
           cycle
        else
           call resolvePath(forcingfile, basedir, forcingfile)
        end if
-       
+
+       targetmaskfile = ''
+       call prop_get_string(node_ptr, '', 'targetMaskFile', targetmaskfile, retVal)
+       invertMask = .false.
+       call prop_get_logical(node_ptr, '', 'targetMaskInvert', invertMask , retVal)
+
+       call realloc(kcsini, ndx, keepExisting=.false., fill = 0)
+       if (len_trim(targetMaskFile) > 0) then
+          ! Mask flow nodes based on inside polygon(s), or outside.
+          ! in: kcs, all flow nodes, out: kcsini: all masked flow nodes.
+          call realloc(kdum, ndx, keepExisting=.false., fill = 0)
+          call selectelset_internal_nodes(xz, yz, kcs, ndx, kdum, nini, &
+                                       LOCTP_POLYGON_FILE, targetmaskfile)
+          ! Transfer kdum(1:nini) into a 0-1 mask kcsini(1:ndx)
+          do n=1,nini
+             kcsini(kdum(n)) = 1
+          end do
+
+          if (invertMask) then
+             kcsini = ieor(kcsini, 1)
+          end if
+
+       else
+          ! 100% masking: accept all flow nodes that were already active in kcs.
+          where(kcs /= 0) kcsini = 1
+       end if
+
        select case (quantity)
           case ('rainfall','rainfall_rate')
              if (.not. allocated(rain) ) then
@@ -1245,7 +1305,25 @@ logical function initboundaryblocksforcings(filename)
              endif
              kx = 1
        end select
-       success = ec_addtimespacerelation(quantity, xz(1:ndx), yz(1:ndx), kcs, kx, locationtype, filetype=bcascii, method=spaceandtime, operand='O', forcingfile=forcingfile)
+       select case (trim(str_tolower(forcingfiletype)))
+       case ('bcascii')
+          filetype = bcascii
+          fmmethod = spaceandtime
+          ! NOTE: Currently, we only support name=global meteo in.bc files, later maybe station time series as well.
+          success = ec_addtimespacerelation(quantity, xz(1:ndx), yz(1:ndx), kcsini, kx,  'global', filetype=filetype, forcingfile=forcingfile, method=fmmethod, operand='O')
+       case ('netcdf')
+          filetype = ncgrid
+          fmmethod = weightfactors
+          success = ec_addtimespacerelation(quantity, xz(1:ndx), yz(1:ndx), kcsini, kx, forcingfile, filetype=filetype, method=fmmethod, operand='O')
+       case ('uniform')
+          filetype = provFile_uniform
+          fmmethod = spaceandtime
+          success = ec_addtimespacerelation(quantity, xz(1:ndx), yz(1:ndx), kcsini, kx, forcingfile, filetype=filetype, method=fmmethod, operand='O')
+       case default
+          write(msgbuf, '(a)') 'Unknown forcingFileType '''// trim(forcingfiletype) //' in file ''', trim(filename), ''': [', trim(groupname), ']. Ignoring this block.'
+          call warn_flush()
+          cycle
+       end select
        if (success) then
           select case (quantity)
              case ('rainfall','rainfall_rate')
@@ -1264,15 +1342,16 @@ logical function initboundaryblocksforcings(filename)
  end do
 
  if (numlatsg > 0) then
-    if (allocated (balat) ) deallocate(balat)
-    allocate ( balat(numlatsg)  , stat=ierr    )
-    call aerr('balat(numlatsg)' , ierr, numlatsg ); balat = 0d0
-    do k = 1,ndx
-       n = nnlat(k)
-       if (n > 0) then 
-          balat(n) = balat(n) + ba(k)
-       endif   
-    enddo
+    do n = 1,numlatsg
+       balat(n) = 0d0
+       do k1=n1latsg(n),n2latsg(n)
+          k = nnlat(k1)
+          ! TODO: MPI, as in old ext handling. if (jampi == 1) then
+          if (k > 0) then 
+             balat(n) = balat(n) + ba(k)
+          endif   
+       end do
+    end do
     if (allocated(kclat)) then
        deallocate(kclat)
     endif
@@ -1289,15 +1368,17 @@ end function initboundaryblocksforcings
 !> Initializes memory for laterals on flow nodes.
 subroutine ini_alloc_laterals()
    use m_wind
-   use m_flowgeom, only: ndx
+   use m_flowgeom, only: ndx2d, ndxi, ndx
    use m_alloc
    integer :: ierr
+   integer :: nlatndguess
 
    if (.not. allocated(QQlat) ) then                      ! just once
+      nlatndguess = ndx2d+2*(ndxi-ndx2d)  ! first guess: all 2D + twice all 1D, nnlat *might* be bigger.
       allocate ( QQLat(ndx) , stat=ierr) ; QQLat = 0d0
       call aerr('QQLAT(ndx)', ierr, ndx)
-      allocate ( nnLat(ndx) , stat=ierr) ; nnLat = 0  
-      call aerr('nnLat(ndx)', ierr, ndx)
+      allocate ( nnLat(nlatndguess) , stat=ierr) ; nnLat = 0
+      call aerr('nnLat(nlatndguess)', ierr, nlatndguess)
    endif
    if (.not. allocated(kcLat) ) then 
       allocate ( kcLat(ndx) , stat=ierr)                  ! only if needed  
@@ -1770,6 +1851,10 @@ function flow_initwaveforcings_runtime() result(retval)              ! This is t
  operand_l  = 'O' ! Override
  kx = 1           ! default vectormax = 1
  !
+call realloc(kcw, ndx, stat=ierr)
+call aerr('kcw(ndx)', ierr, ndx)
+kcw = 1
+
  qid_l = 'hrms'
  if (.not. allocated(hwavcom) ) then
     allocate ( hwavcom(ndx), stat=ierr)
@@ -1961,6 +2046,7 @@ integer                       :: branchIndex
 integer                       :: istat
 double precision              :: chainage
 double precision, pointer :: tgtarr(:)
+integer :: loc_spec_type
 !! if (jatimespace == 0) goto 888                      ! Just cleanup and close ext file.
 
 status = .False.
@@ -2029,9 +2115,18 @@ dambridx = -1
 ! NOTE: readStructures(network, md_structurefile) has already been called.
 do i=1,network%sts%count
    pstru => network%sts%struct(i)
-   call selectelset_internal_links( plifile, link_id, xz, yz, ln, lnx, kegen(1:numl), numgen, sortLinks = 1 , &
+
+   loc_spec_type = LOCTP_UNKNOWN
+   if (pstru%ibran > 0) then
+      loc_spec_type = LOCTP_BRANCHID_CHAINAGE
+   else if (pstru%numCoordinates > 0) then
+      loc_spec_type = LOCTP_POLYGON_XY
+   end if
+
+   call selectelset_internal_links( xz, yz, ndx, ln, lnx, kegen(1:numl), numgen, &
+                                    loc_spec_type, nump = pstru%numCoordinates, xpin = pstru%xCoordinates, ypin = pstru%yCoordinates, &
                                     branchindex = pstru%ibran, chainage = pstru%chainage, &
-                                    xpin = pstru%xCoordinates, ypin = pstru%yCoordinates, nump = pstru%numCoordinates)
+                                    sortLinks = 1)
    if (numgen > 0) then
       istat =  initialize_structure_links(pstru, numgen, kegen(1:numgen), wu)
    else
@@ -2135,7 +2230,7 @@ do i=1,nstr
    case ('gateloweredgelevel')  ! Old-style controllable gateloweredgelevel
         !else if (qid == 'gateloweredgelevel' ) then
 
-      call selectelset_internal_links( plifile, POLY_TIM, xz, yz, ln, lnx, keg(ngate+1:numl), numg )
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, keg(ngate+1:numl), numg, LOCTP_POLYLINE_FILE, plifile)
       success = .true.
       WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , numg, ' nr of gateheight links' ; call msg_flush()
 
@@ -2150,7 +2245,7 @@ do i=1,nstr
    case ('damlevel') ! Old-style controllable damlevel
       ! else if (qid == 'damlevel' ) then
 
-      call selectelset_internal_links( plifile, POLY_TIM, xz, yz, ln, lnx, ked(ncdam+1:numl), numd )
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, ked(ncdam+1:numl), numd, LOCTP_POLYLINE_FILE, plifile)
       success = .true.
       WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , numd, ' nr of dam level cells' ; call msg_flush()
 
@@ -2168,7 +2263,7 @@ do i=1,nstr
          npum = 1
          kep(npump+1) = getLinkIndex(network%brs%branch(branchIndex), chainage)
       else
-         call selectelset_internal_links( plifile, POLY_TIM, xz, yz, ln, lnx, kep(npump+1:numl), npum )
+         call selectelset_internal_links(xz, yz, ndx, ln, lnx, kep(npump+1:numl), npum, LOCTP_POLYLINE_FILE, plifile)
       endif
       
       !endif
@@ -2184,7 +2279,9 @@ do i=1,nstr
 
    case ('dambreak')
 
-      call selectelset_internal_links( plifile, POLY_TIM, xz, yz, ln, lnx, kedb(ndambreak+1:numl), ndambr, dambreakPolygons(i)%xp, dambreakPolygons(i)%yp, dambreakPolygons(i)%np, lftopol(ndambreak+1:numl), sortLinks = 1)
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, kedb(ndambreak+1:numl), ndambr, LOCTP_POLYLINE_FILE, plifile, &
+                                      xps = dambreakPolygons(i)%xp, yps = dambreakPolygons(i)%yp, nps = dambreakPolygons(i)%np, &
+                                      lftopol = lftopol(ndambreak+1:numl), sortLinks = 1)
       success = .true.
       WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , ndambr, ' nr of dambreak links' ; call msg_flush()
 
@@ -2197,7 +2294,7 @@ do i=1,nstr
 
 
    case ('gate', 'weir', 'generalstructure') !< The various generalstructure-based structures
-      call selectelset_internal_links( plifile, POLY_TIM, xz, yz, ln, lnx, kegen(ncgen+1:numl), numgen, sortLinks = 1 )
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, kegen(ncgen+1:numl), numgen, LOCTP_POLYLINE_FILE, plifile, sortLinks = 1)
       success = .true.
       WRITE(msgbuf,'(a,1x,a,i8,a)') trim(qid), trim(plifile) , numgen, ' nr of '//trim(strtype)//' cells' ; call msg_flush()
 
@@ -2836,15 +2933,22 @@ endif
 !
 ! pumps, including staged pumps
 !
-if (npump > 0) then
+if (npumpsg > 0) then
    if (allocated   (qpump)   ) deallocate( qpump)
-   if (allocated   (kpump)   ) deallocate( kpump)
 
    if (allocated   (pump_ids)   ) deallocate( pump_ids)
    allocate (pump_ids(npumpsg))
-   allocate ( qpump(npumpsg), kpump(3,npump), stat=ierr)
-   call aerr('qpump(npumpsg), kpump(3,npump)', ierr, npump*5)
-   kpump = 0d0; qpump = 0d0
+   allocate ( qpump(npumpsg), stat=ierr)
+   call aerr('qpump(npumpsg)', ierr, npumpsg*1)
+   qpump = 0d0
+end if
+
+if (npump > 0) then
+   if (allocated   (kpump)   ) deallocate( kpump)
+
+   allocate ( kpump(3,npump), stat=ierr)
+   call aerr('kpump(3,npump)', ierr, npump*3)
+   kpump = 0d0
    kx = 1
 
    do n = 1, npumpsg
@@ -3494,11 +3598,15 @@ subroutine add_bndtracer(tracnam, tracunit, itrac, janew)
       call realloc(trnames, numtracers, keepExisting=.true., fill='')
       call realloc(trunits, numtracers, keepExisting=.true., fill='')
       call realloc(wstracers, numtracers, keepExisting=.true., fill=0d0)
+      call realloc(decaytimetracers, numtracers, keepExisting=.true., fill=0d0)
       if ( transformcoef(4).ne.DMISS ) then
          wstracers(numtracers) = transformcoef(4)
-      else
-         wstracers(numtracers) = 0.0d0
       endif
+      if ( transformcoef(5).ne.DMISS ) then
+          jadecaytracers = 1
+          decaytimetracers(numtracers) = transformcoef(5)
+      endif
+
       trnames(numtracers) = trim(tracnam)
       itrac = numtracers
    end if

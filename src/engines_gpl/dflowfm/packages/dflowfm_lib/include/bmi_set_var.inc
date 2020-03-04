@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2015-2019.                                
+!  Copyright (C)  Stichting Deltares, 2015-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -115,9 +115,6 @@
   case("wy")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(wy))
      wy(:) = x_1d_double_ptr
-  case("wmag")
-     call c_f_pointer(xptr, x_1d_double_ptr, shape(wmag))
-     wmag(:) = x_1d_double_ptr
   case("rain")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(rain))
      rain(:) = x_1d_double_ptr
@@ -136,9 +133,18 @@
   case("balat")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(balat))
      balat(:) = x_1d_double_ptr
+  case("n1latsg")
+     call c_f_pointer(xptr, x_1d_int_ptr, shape(n1latsg))
+     n1latsg(:) = x_1d_int_ptr
+  case("n2latsg")
+     call c_f_pointer(xptr, x_1d_int_ptr, shape(n2latsg))
+     n2latsg(:) = x_1d_int_ptr
   case("nnlat")
      call c_f_pointer(xptr, x_1d_int_ptr, shape(nnlat))
      nnlat(:) = x_1d_int_ptr
+  case("kclat")
+     call c_f_pointer(xptr, x_1d_int_ptr, shape(kclat))
+     kclat(:) = x_1d_int_ptr
   case("qinext")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(qinext))
      qinext(:) = x_1d_double_ptr
@@ -148,6 +154,9 @@
   case("vincum")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(vincum))
      vincum(:) = x_1d_double_ptr
+  case("rainuni")
+     call c_f_pointer(xptr, x_0d_double_ptr)
+     rainuni = x_0d_double_ptr
   case("zbndz")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(zbndz))
      zbndz(:) = x_1d_double_ptr
@@ -184,6 +193,9 @@
   case("stemheight")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(stemheight))
      stemheight(:) = x_1d_double_ptr
+  case("Cdvegsp")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(Cdvegsp))
+     Cdvegsp(:) = x_1d_double_ptr
   case("zws")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(zws))
      zws(:) = x_1d_double_ptr
@@ -289,9 +301,6 @@
   case("kfs")
      call c_f_pointer(xptr, x_1d_int_ptr, shape(kfs))
      kfs(:) = x_1d_int_ptr
-  case("kfst0")
-     call c_f_pointer(xptr, x_1d_int_ptr, shape(kfst0))
-     kfst0(:) = x_1d_int_ptr
   case("bare")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(bare))
      bare(:) = x_1d_double_ptr
@@ -331,6 +340,12 @@
   case("wu_mor")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(wu_mor))
      wu_mor(:) = x_1d_double_ptr
+  case("wu1D2D")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(wu1D2D))
+     wu1D2D(:) = x_1d_double_ptr
+  case("hh1D2D")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(hh1D2D))
+     hh1D2D(:) = x_1d_double_ptr
   case("bob")
      call c_f_pointer(xptr, x_2d_double_ptr, shape(bob))
      bob(:,:) = x_2d_double_ptr
@@ -367,6 +382,21 @@
   case("numk")
      call c_f_pointer(xptr, x_0d_int_ptr)
      numk = x_0d_int_ptr
+  case("ndx2d")
+     call c_f_pointer(xptr, x_0d_int_ptr)
+     ndx2d = x_0d_int_ptr
+  case("ndx")
+     call c_f_pointer(xptr, x_0d_int_ptr)
+     ndx = x_0d_int_ptr
+  case("xz")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(xz))
+     xz(:) = x_1d_double_ptr
+  case("yz")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(yz))
+     yz(:) = x_1d_double_ptr
+  case("ba")
+     call c_f_pointer(xptr, x_1d_double_ptr, shape(ba))
+     ba(:) = x_1d_double_ptr
   case("zbnd1d2d1")
      call c_f_pointer(xptr, x_1d_double_ptr, shape(zbnd1d2d1))
      zbnd1d2d1(:) = x_1d_double_ptr
@@ -403,27 +433,4 @@
   case("is_dtint")
      call c_f_pointer(xptr, x_0d_double_ptr)
      is_dtint = x_0d_double_ptr
-  case("ndx2d")
-     call c_f_pointer(xptr, x_0d_int_ptr)
-     ndx2d = x_0d_int_ptr
-  case("ndx")
-     call c_f_pointer(xptr, x_0d_int_ptr)
-     ndx = x_0d_int_ptr
-  case("xz")
-     call c_f_pointer(xptr, x_1d_double_ptr, shape(xz))
-     xz(:) = x_1d_double_ptr
-  case("yz")
-     call c_f_pointer(xptr, x_1d_double_ptr, shape(yz))
-     yz(:) = x_1d_double_ptr
-  case("ba")
-     call c_f_pointer(xptr, x_1d_double_ptr, shape(ba))
-     ba(:) = x_1d_double_ptr
-  case("md_pdffile")
-     md_pdffile = ''
-	 call c_f_pointer(xptr, x_0d_char_ptr, [MAXSTRLEN])
-	 md_pdffile = char_array_to_string(x_0d_char_ptr, strlen(x_0d_char_ptr))
-  case("md_blmfile")
-     md_blmfile = ''
-	 call c_f_pointer(xptr, x_0d_char_ptr, [MAXSTRLEN])
-	 md_blmfile = char_array_to_string(x_0d_char_ptr, strlen(x_0d_char_ptr))
   end select

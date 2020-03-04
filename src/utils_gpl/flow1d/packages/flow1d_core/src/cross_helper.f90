@@ -1,7 +1,7 @@
 module m_cross_helper
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -92,7 +92,7 @@ contains
       integer :: ibr, ll
       
       ibr = network%adm%lin2ibr(ilink)
-      ll  = network%adm%lin2point(ilink)
+      ll  = network%adm%lin2local(ilink)
       getdeltax = network%brs%branch(ibr)%dx(ll)
    end function getdeltax
 ! =================================================================================================
@@ -124,6 +124,7 @@ contains
       if ( n <= 0) then
          ! no cross section defined on L
          conv = 45d0* flowarea_sub(1) * sqrt(flowarea_sub(1) / perim_sub(1))
+         cz = 45d0
          return
       else
          ! for YZ profiles CalcCSParsFlow computes the conveyance

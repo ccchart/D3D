@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -45,6 +45,8 @@ subroutine loadNetwork(filename, istat, jadoorladen)
     use unstruc_messages
     use m_missing
     use gridoperations
+    use m_network, only: admin_network
+    use unstruc_channel_flow, only: network
     
     implicit none
 
@@ -54,6 +56,8 @@ subroutine loadNetwork(filename, istat, jadoorladen)
     integer,      intent(in)  :: jadoorladen
     character(len=255) :: data_file_1d
 
+    integer      :: iDumk
+    integer      :: iDuml
 
     ! double precision, allocatable, save :: zkold(:)
 
@@ -83,27 +87,16 @@ subroutine loadNetwork(filename, istat, jadoorladen)
     ! New NetCDF net file
     call unc_read_net(filename, K0, L0, NUMKN, NUMLN, istat)
 
+    iDumk = 0
+    iDuml = 0
+    call admin_network(network, iDumk, iDuml)
+
     if (istat == 0) then
         NUMK = K0 + NUMKN
         NUML = L0 + NUMLN
         CALL SETNODADM (0)
     else
-        ! Retry: Original .net files (new and old format)
-        CALL OLDFIL (MINP, filename)
-        CALL REAnet (MINP, istat, jadoorladen)
-        if (istat > 0) then ! reanet yields >0 on success! [AvD]
-            istat = 0
-        else
-            istat = 1
-        endif
-        if (istat == 0) then
-            ! Autosave NetCDF form of the network just read.
-            L = index(filename, '.', back=.true.)
-            call unc_write_net(filename(1:L-1)//'_net.nc')
-            call mess(LEVEL_INFO, 'Autosaved NetCDF form of net to ', filename(1:L-1)//'_net.nc')
-        endif
-
-        call doclose(minp)
+       call qnerror('Error while loading network from '''//trim(filename)//''', please inspect the preceding diagnostic output.', ' ',  ' ')
     endif
     CALL CLOSEWORLD() ! STITCH 0-360 FOR 0-360 GLOBE MODELS
     netstat = NETSTAT_CELLS_DIRTY
@@ -112,6 +105,11 @@ end subroutine loadNetwork
 end module m_netw
 
 
+!> Toplevel setnodadm routine wraps:
+!! * original setnodadm(), for network_data administration.
+!! * update_flow1d_admin(), to remove any net links from
+!!   the flow1d::network administration, if they were also
+!!   removed from network_data in the first step.
 subroutine setnodadm(jacrosscheck_)
    use gridoperations
    use m_network
@@ -454,7 +452,7 @@ subroutine load_network_from_flow1d(filenames, found_1d_network)
 
    call read_1d_attributes(filenames, network)
    
-   call initialize_1dadmin(network, network%gridpointsCount)
+   call initialize_1dadmin(network, network%l1d)
 
    numk = 0
    numl = 0

@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -43,20 +43,20 @@ module m_petsc
 #include <petsc/finclude/petscksp.h>
 
   use petsc
-   integer                                                    :: numrows      ! number of rows in this domain
+   PetscInt                                                   :: numrows      ! number of rows in this domain
    integer                                                    :: numallrows   ! number of rows of whole system
    integer,          dimension(:), allocatable                :: rowtoelem    ! local row to local element list, dim(numrows)
 
 !  CRS matrices for PETSc/MatCreateMPIAIJWithSplitArrays
-   integer                                                    :: numdia       ! number of non-zero entries in diagonal block
+   PetscInt                                                   :: numdia       ! number of non-zero entries in diagonal block
    double precision, dimension(:), allocatable                :: adia         ! non-zero matrix entries, diagonal block
-   integer,          dimension(:), allocatable                :: idia, jdia   ! column indices and row pointers of off-diagonal block
+   PetscInt,         dimension(:), allocatable                :: idia, jdia   ! column indices and row pointers of off-diagonal block
 
    integer                                                    :: numoff       ! number of non-zero entries in off-diagonal block
-   double precision, dimension(:), allocatable                :: aoff         ! non-zero matrix entries, diagonal block
-   integer,          dimension(:), allocatable                :: ioff, joff   ! column indices and row pointers of off-diagonal block
+   PetscScalar     , dimension(:), allocatable                :: aoff         ! non-zero matrix entries, diagonal block
+   PetscInt,         dimension(:), allocatable                :: ioff, joff   ! column indices and row pointers of off-diagonal block
    
-   integer,          dimension(:), allocatable                :: joffsav      ! store of joff
+   PetscInt,         dimension(:), allocatable                :: joffsav      ! store of joff
 
    integer,          dimension(:), allocatable                :: guusidxdia   ! index in ccr or bbr array, >0: ccr, <0: bbr, diagonal block, dim(numdia)
    integer,          dimension(:), allocatable                :: guusidxoff   ! index in ccr or bbr array, >0: ccr, <0: bbr, off-diagonal block, dim(numoff)
@@ -93,6 +93,7 @@ end module m_petsc
      
       if ( icgsolver.eq.6 ) then
          call PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+         call PetscPopSignalHandler(ierr) ! Switch off signal catching in PETSC.
          call PetscLogDefaultBegin(ierr)
       end if
 #endif

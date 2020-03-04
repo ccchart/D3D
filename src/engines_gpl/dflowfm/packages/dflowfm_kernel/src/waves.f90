@@ -1,6 +1,6 @@
    !----- AGPL --------------------------------------------------------------------
    !
-   !  Copyright (C)  Stichting Deltares, 2017-2019.
+   !  Copyright (C)  Stichting Deltares, 2017-2020.
    !
    !  This file is part of Delft3D (D-Flow Flexible Mesh component).
    !
@@ -30,6 +30,32 @@
    ! $Id$
    ! $HeadURL$
 
+   subroutine alloc9basicwavearrays()  
+   use m_flow
+   use m_flowgeom
+   use m_waves 
+   implicit none
+   integer      :: ierr
+   call realloc( hwav,    ndx,  stat=ierr, keepExisting = .false., fill = hwavuni)
+   call aerr   ('hwav    (ndx)',     ierr, ndx)
+   call realloc( twav,    ndx,  stat=ierr, keepExisting = .false., fill = twavuni)
+   call aerr   ('twav    (ndx)',     ierr, ndx)
+   call realloc( phiwav,  ndx,  stat=ierr, keepExisting = .false., fill = phiwavuni)
+   call aerr   ('phiwav  (ndx)',     ierr, ndx)
+   call realloc( rlabda,  ndx,  stat=ierr, keepExisting = .false., fill = 0d0)
+   call aerr   ('rlabda  (ndx)',     ierr, ndx)
+   call realloc( uorb,    ndx,  stat=ierr, keepExisting = .false., fill = 0d0)
+   call aerr   ('uorb    (ndx)',     ierr, ndx)
+   call realloc( taus,    ndx,  stat=ierr, keepExisting = .false., fill = 0d0)     
+   call aerr   ('taus    (ndx)',     ierr, ndx)
+   call realloc( ustk,    ndx,  stat=ierr, keepExisting = .false., fill = 0d0)     
+   call aerr   ('ustk    (ndx)',     ierr, ndx)
+   call realloc( ustokes, lnkx, stat=ierr, keepExisting = .false., fill = 0d0)
+   call aerr   ('ustokes(lnkx)',     ierr, lnkx)
+   call realloc( vstokes, lnkx, stat=ierr, keepExisting = .false., fill = 0d0)
+   call aerr   ('vstokes(lnkx)',     ierr, lnkx) 
+   end subroutine alloc9basicwavearrays
+
    subroutine flow_waveinit
    use m_flow
    use m_flowgeom
@@ -55,7 +81,7 @@
    integer      :: minp0, jdla, nm, ibnd, kb, ki
 
    ierr = DFM_NOERR
-
+ 
    call realloc(uin, nbndw, stat=ierr, keepExisting = .false., fill = 0d0)
    call aerr('uin  (nbndw)', ierr, nbndw)
    call realloc(vin, nbndw, stat=ierr, keepExisting = .false., fill = 0d0)
@@ -71,8 +97,6 @@
    call aerr('cfhi_vanrijn(lnx)', ierr, lnx)
    call realloc(taubxu, lnx, stat=ierr, keepExisting = .false., fill = 0d0)   ! Always needs to be allocated, even if jawave == 0, used in gettau()
    call aerr('taubxu(lnx)', ierr, lnx)
-   call realloc(taus, ndx, stat=ierr, keepExisting = .false., fill = 0d0)     ! in subroutine gettaus for jawave <= 2 ..
-   call aerr('taus  (ndx)', ierr, ndx)
    call realloc(ktb, ndx, stat=ierr, keepExisting = .false., fill = 0d0)
    call aerr('ktb  (ndx)', ierr, ndx)
    call realloc(taux_cc, ndx, stat=ierr, keepExisting = .false., fill = 0d0)
@@ -83,10 +107,6 @@
    call aerr('ust_mag  (ndx)', ierr, ndx)
    call realloc(fwav_mag, ndx, stat=ierr, keepExisting = .false., fill = 0d0)
    call aerr('fwav_mag  (ndx)', ierr, ndx)
-   call realloc(ustokes, lnkx, stat=ierr, keepExisting = .false., fill = 0d0)
-   call aerr('ustokes(lnkx)', ierr, lnkx)
-   call realloc(vstokes, lnkx, stat=ierr, keepExisting = .false., fill = 0d0)
-   call aerr('vstokes(lnkx)', ierr, lnkx) 
    call realloc(wblt, lnx, stat=ierr, keepExisting = .false., fill = 0d0  )
    call aerr('wblt(lnx)', ierr, lnx)
 
@@ -124,19 +144,9 @@
 
    end if
    if  (jawave > 0) then
-      call realloc(rlabda, ndx, stat=ierr, keepExisting = .false., fill = 0d0)
-      call aerr('rlabda(ndx)', ierr, ndx)
-      call realloc( hwav,   ndx, stat=ierr, keepExisting = .false., fill = hwavuni)
-      call aerr   ('hwav   (ndx)', ierr, ndx)
-      call realloc( hwavcom,   ndx, stat=ierr, keepExisting = .false., fill = hwavuni)
+       call realloc( hwavcom,   ndx, stat=ierr, keepExisting = .false., fill = hwavuni)
       call aerr   ('hwavcom   (ndx)', ierr, ndx)
-      call realloc( twav,   ndx, stat=ierr, keepExisting = .false., fill = twavuni)
-      call aerr   ('twav   (ndx)', ierr, ndx)
-      call realloc( phiwav, ndx, stat=ierr, keepExisting = .false., fill = phiwavuni)
-      call aerr   ('phiwav (ndx)', ierr, ndx)
-      call realloc(uorb, ndx, stat=ierr, keepExisting = .false., fill = 0d0)
-      call aerr('uorb  (ndx)', ierr, ndx)
-   endif
+    endif
 
    if (jawave .eq. 4) then
       call realloc(ee0, (/ntheta,ndx/), stat=ierr, keepExisting = .false., fill = 0d0)
@@ -605,11 +615,12 @@
    double precision           :: dsk2, rk, astar, fw, hss, per, astarc, tauwav, taucur, tauwci, cdrag, z0, uorbu, tpu
    double precision           :: cz, frcn, uuu, vvv, umod, umodsq, cvalue, costu, sintu, abscos, uorbhs, waveps, u2dh
    double precision           :: xpar, ymxpar, lfc, cj, coeffb, coeffp, coeffq, ci,coeffa, coeffm, coeffn, yparL
-   double precision           :: hpr, wu2, b21, ai, BL1, BL2, hus, ust, ac1, ac2
+   double precision           :: hpr, wu2, b21, ai, BL1, BL2, ust, ac1, ac2
    double precision           :: ar, alfaw, wbl, rz, cf, cwall
    double precision           :: a, ks, phivr
    double precision           :: hrmsu, rlabdau, rr,umax,t1,u11,a11,raih,rmax, uon, uoff, uwbih
    double precision           :: rksru, rksmru, gamma, ksc, uratio, ka, ca
+   double precision           :: cosk1, cosk2, sink1, sink2
    integer                    :: ifrctyp
 
    double precision, external         :: tanhsafe, sinhsafe, sinhsafei
@@ -631,6 +642,8 @@
 
    do L = 1,lnx
       k1 = ln(1,L); k2 = ln(2,L)
+      ac1 = acl(L); ac2 = 1d0-ac1
+      !
       ! Use Eulerian velocities
       uuu = u1(L) - ustokes(L)
 
@@ -648,19 +661,23 @@
       cfwavhi(L)= 0.0d0
       !
       ! TO DO: Replace the following messing with angles by an inproduct, without
-      ! the expensive atan2 call
+      ! the expensive atan2 call -> requires acos call, and quadrant messing, so hardly cheaper
       !
       ! phigrid: angle between "normal direction on link" and "positive x-axis"
       phigrid = atan2(snu(L),csu(L)) * rd2dg
       ! phiwave: angle between "wave propagation direction" and "positive x-axis"
       !          Interpolate from nodes to links
-      phiwave = acl(L)*phiwav(k1) + (1.0d0-acl(L))*phiwav(k2)
+      cosk1 = cos(phiwav(k1)*dg2rd); sink1 = sin(phiwav(k1)*dg2rd)
+      cosk2 = cos(phiwav(k2)*dg2rd); sink2 = sin(phiwav(k2)*dg2rd)
+      cosk1 = ac1*cosk1+ac2*cosk2; sink1 = ac1*sink1+ac2*sink2 
+      !
+      phiwave = atan2(sink1, cosk1)*rd2dg
       ! phi: angle between "wave propagation direction" and "normal direction on link"
       phi     = phiwave - phigrid
 
       ! interpolate uorbu, tpu and wavmu from flownodes to flowlinks
-      uorbu = acl(L)*uorb(k1) + (1.0d0-acl(L))*uorb(k2)
-      tpu   = acl(L)*twav(k1)       + (1.0d0-acl(L))*twav(k2)
+      uorbu = ac1*uorb(k1) + ac2*uorb(k2)
+      tpu   = ac1*twav(k1) + ac2*twav(k2)
 
       ! get current related roughness height
       call getczz0(hu(L),dble(frcu(L)),ifrcutp(L),cz,z0)
@@ -713,7 +730,6 @@
                ! no waveps needed here: hu>0 and umod=max(umod,waveps)
                cfwavhi(L) = tauwav/ (rhomean*umod**2)*min(huvli(L),hminlwi)   ! tau = cf * rhomean * ||u|| u, and tau/(rho h) appears in (depth-averaged) momentum equation and in D3D taubpu = tau/ (rho ||u||)
             elseif (modind==9) then
-               ac1 = acl(L); ac2 = 1d0-ac1
                uorbhs   = sqrt(2.0d0)*uorbu
                hrmsu    = ac1*hwav(k1)+ac2*hwav(k2)
                rlabdau  = ac1*rlabda(k1)+ac2*rlabda(k2)

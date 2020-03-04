@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -54,6 +54,7 @@ module TREE_DATA_TYPES
       character(len=1), dimension(:), pointer         :: node_data_type => null()
       integer                                         :: node_visit     !< Zeroed upon construction, incremented upon node_data request (properties.f90: prop_get_string)
       type(TREE_DATA_PTR), dimension(:), pointer :: child_nodes
+      type(TREE_DATA),                   pointer :: bf_next_node => null() ! Breadth-first next node (same level)
    end type
 
    type TREE_DATA_PTR
@@ -212,6 +213,7 @@ subroutine tree_add_node(tree, node, ierror)
          if ( newsize .gt. 1 ) then
             children(1:newsize-1) = tree%child_nodes
             deallocate( tree%child_nodes )
+            children(newsize-1)%node_ptr%bf_next_node => node    ! chain previous node in the breadth-first sense to the new node
          endif
 
          tree%child_nodes => children
@@ -694,25 +696,16 @@ recursive subroutine tree_fold( tree, tree_handler, leaf_handler, data, stop )
 end subroutine tree_fold
 
 
-! tree_get_data_string --
-!    Return data as a simple string
-!
-! Arguments:
-!    tree        The tree or node from which to get the data
-!    string      String to be filled
-!    success     Whether successful or not
-! Result:
+!> Return data as a simple string
 !    The string is filled with the data stored in the node
 !    not associated. The routine is successful if:
 !    - there is data associated with the node/tree
 !    - the data type is "STRING"
-!    If the routine is not successful, the string is
-!    not changed.
-!
+!    If the routine is not successful, the string is not changed.
 subroutine tree_get_data_string( tree, string, success )
-   type(TREE_DATA), pointer                 :: tree
-   character(len=*), intent(out)            :: string
-   logical, intent(out)                     :: success
+   type(TREE_DATA), pointer                 :: tree    !< The tree or node from which to get the data
+   character(len=*), intent(out)            :: string  !< String to be filled
+   logical, intent(out)                     :: success !< Whether successful or not
 
    character(len=1), dimension(:), pointer  :: data_ptr
    character(len=40)                        :: data_type
@@ -726,7 +719,7 @@ subroutine tree_get_data_string( tree, string, success )
       if ( .not. associated(data_ptr) ) then
          return
       endif
-      if ( data_type /= 'STRING' ) then
+      if ( data_type(1:6) /= 'STRING' ) then
          return
       endif
 
@@ -743,10 +736,16 @@ subroutine tree_get_data_string( tree, string, success )
 
 end subroutine tree_get_data_string
 
+!> Return data as a (allocatable) string
+!    The string is filled with the data stored in the node
+!    not associated. The routine is successful if:
+!    - there is data associated with the node/tree
+!    - the data type is "STRING"
+!    If the routine is not successful, the string is not changed.
 subroutine tree_get_data_alloc_string( tree, string, success )
-   type(TREE_DATA), pointer                   :: tree
-   character(len=:), allocatable, intent(out) :: string
-   logical, intent(out)                       :: success
+   type(TREE_DATA), pointer                   :: tree    !< The tree or node from which to get the data
+   character(len=:), allocatable, intent(out) :: string  !< String to be filled
+   logical, intent(out)                       :: success !< Whether successful or not
 
    character(len=1), dimension(:), pointer  :: data_ptr
    character(len=40)                        :: data_type
@@ -760,7 +759,7 @@ subroutine tree_get_data_alloc_string( tree, string, success )
       if ( .not. associated(data_ptr) ) then
          return
       endif
-      if ( data_type /= 'STRING' ) then
+      if ( data_type(1:6) /= 'STRING' ) then
          return
       endif
 

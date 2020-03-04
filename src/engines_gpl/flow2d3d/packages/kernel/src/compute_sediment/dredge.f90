@@ -3,7 +3,7 @@ subroutine dredge(nmmax  ,lsedtot,nst    , &
                 & s1     ,timhr  ,morhr  ,gdp    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1679,6 +1679,7 @@ subroutine dredge_initialize(gdp)
        !
        do ia = 1, nadred+nasupl
           pdredge => dredge_prop(ia)
+          if (dredge_prop(ia)%itype == DREDGETYPE_NOURISHMENT) cycle
           !
           numpoints = 0.0_fp
           numpoints(                dredge_domainnr) = real(pdredge%npnt,fp)

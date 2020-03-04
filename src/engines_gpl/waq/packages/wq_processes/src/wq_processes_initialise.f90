@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -768,7 +768,7 @@
 
       nflx = 0
       totfluxsys = 0
-      do iproc = 1 , nproc
+      do iproc = 1 , procesdef%cursize
          proc => procesdef%procesprops(iproc)
          if ( proc%active ) then
             do istochi = 1, proc%no_fluxstochi

@@ -1,7 +1,7 @@
 module time_module
    !----- LGPL --------------------------------------------------------------------
    !                                                                               
-   !  Copyright (C)  Stichting Deltares, 2011-2019.                                
+   !  Copyright (C)  Stichting Deltares, 2011-2020.                                
    !                                                                               
    !  This library is free software; you can redistribute it and/or                
    !  modify it under the terms of the GNU Lesser General Public                   
@@ -198,9 +198,9 @@ module time_module
 !---------------------------------------------------------------------------------------------
 ! implements interface ymd2reduced_jul
 !---------------------------------------------------------------------------------------------
-      !> calculates reduced Julian Date base on a string 'yyyyddmm' with or without separator
+      !> calculates reduced Julian Date base on a string 'yyyyddmm' with or without separators
       function ymd2reduced_jul_string(date, reduced_jul_date) result (success)
-         character(len=*), intent(in) :: date             !< date as string 'yyyyddmm' or 'yyyy dd mm'
+         character(len=*), intent(in) :: date             !< date as string 'yyyyddmm' or 'yyyy dd mm' or 'yyyy d m'
          real(kind=hp), intent(out)   :: reduced_jul_date !< returned date as reduced modified julian
          logical                      :: success          !< function result
 
@@ -213,11 +213,11 @@ module time_module
          has_separators = (separator < '0' .or. separator > '9')
 
          if (len_trim(date) >= 10) then
-            fmt = '(i4,x,i2,x,i2)'
+            fmt = '(i4,x,i2,x,i2)'     ! yyyy*dd*mm
          else if (has_separators) then
-            fmt = '(i4,x,i1,x,i1)'
+            fmt = '(i4,x,i1,x,i1)'     ! yyyy*d*m
          else
-            fmt = '(i4,i2,i2)'
+            fmt = '(i4,i2,i2)'         ! yyyymmdd
          endif
 
          read(date, fmt, iostat=ierr) year, month, day

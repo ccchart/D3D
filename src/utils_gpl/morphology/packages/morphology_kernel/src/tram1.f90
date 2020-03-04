@@ -10,7 +10,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
                 & message   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -129,6 +129,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
     real(fp) :: avgcu
     real(fp) :: avgu
     real(fp) :: bakdif
+    real(fp) :: betam
     real(fp) :: delr
     real(fp) :: deltas
     real(fp) :: diffbt
@@ -201,6 +202,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
     rdw    = par(15)
     iopkcw = int(par(16))
     epspar = par(17)>0.0_fp
+    betam  = par(18)
     !
     sag    = sqrt(ag)
     !
@@ -211,7 +213,7 @@ subroutine tram1 (numrealpar,realpar   ,wave                 ,par       , &
                  & tauc      ,taubcw    ,taurat    ,ta        ,caks      , &
                  & dss       ,mudfrac   ,eps       ,aksfac    ,rwave     , &
                  & camax     ,rdc       ,rdw       ,iopkcw    ,iopsus    , &
-                 & vonkar    ,wave      ,tauadd    )
+                 & vonkar    ,wave      ,tauadd    ,betam     )
     realpar(RP_DSS)   = real(dss    ,hp)
     !
     ! Find bottom cell for SAND sediment calculations and store for use

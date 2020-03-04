@@ -18,7 +18,7 @@ function print_usage_info {
     echo "Options:"
     echo "-c, --corespernode <M>"
     echo "       number of cores per node, default $corespernodedefault"
-    echo "-d, --debuglevel <D>"
+    echo "-d, --debug <D>"
     echo "       0:ALL, 6:SILENT"
     echo "-h, --help"
     echo "       print this help message and exit"
@@ -216,8 +216,13 @@ else
               mpirun -np $NSLOTS $bindir/dimr $configfile $debugarg
     else
         #
-        # Parallel on Deltares cluster
-        export PATH=/opt/mpich2/1.4.1_intel14.0.3/bin:$PATH
+        if [ -z "$MPI_ROOT" ]
+        then
+           # Default: Parallel on Deltares cluster
+           export PATH=/opt/mpich2/1.4.1_intel14.0.3/bin:$PATH
+        else
+           export PATH=$MPI_ROOT/bin:$PATH
+        fi
         #
         # Create machinefile using $PE_HOSTFILE
         if [ $NNODES -eq 1 ]; then

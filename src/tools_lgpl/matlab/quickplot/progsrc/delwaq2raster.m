@@ -100,7 +100,7 @@ function delwaq2raster(ini_file)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -226,7 +226,7 @@ flw_qnt        = qpread(flw_info1);
 if isfield(flw_qnt,'varid')
     for i = length(flw_qnt):-1:1
         idm = flw_qnt(i).varid;
-        if isempty(idm) || ~ismember('nFlowElem',flw_info1.Dataset(idm(1)+1).Dimension)
+        if isempty(idm) || iscell(idm) || ~ismember('nFlowElem',flw_info1.Dataset(idm(1)+1).Dimension)
             flw_qnt(i) = [];
         end
     end

@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -1102,7 +1102,7 @@
             else
                JA = 1
             end if 
-            call setucxucyucxuucyu() ! reconstruct cell center velocities
+            call setucxucyucxuucyunew() ! reconstruct cell center velocities
          else 
             call rearst(MLAN,JA)
          endif   
@@ -3036,6 +3036,21 @@
    ELSE IF (NWHAT.EQ.42) THEN          ! wave stuff     
       EXP(1)     = 'MENU                                    '
       EXP(2)     = 'SHOW WAVEPARS YES/NO                    '
+  
+
+      if (jawave == 1 .or. jawave == 2) then 
+      OPTION(1)  = 'RMS wave height  (~ 0.7*Hsig)        (m)'
+      OPTION(2)  = 'Wave length                          (m)'
+      OPTION(3)  = 'Peak wave period                     (s)'
+      OPTION(4)  = 'Orbital velocity at bed            (m/s)'
+      OPTION(5)  = 'Ustar(w)                           (m/s)'
+      OPTION(6)  = 'Ustar(w+c)                         (m/s)'
+      OPTION(7)  = 'Taus(w+c)                         (N/m2)'
+      OPTION(8)  = 'Ustokes                            (m/s)'
+      OPTION(9)  = 'Fetchlength                          (m)'
+      OPTION(10) = 'Fetchdepth                           (m)'
+      MAXOPT     = 10
+      else
       OPTION(1)  = 'RMS wave height                      (m)'
       OPTION(2)  = 'Peak waveperiod                      (s)'
       OPTION(3)  = 'Total shear stress (c+w)          (N/m2)'
@@ -3063,18 +3078,16 @@
       OPTION(25) = 'Wind source term             (J/rad/m/s)'
       OPTION(26) = 'Wave frequency                   (rad/s)'
       OPTION(27) = 'Wave group speed            (m/s in bin)'
-      if (jawave == 1 .or. jawave == 2) then
-         OPTION(28)= 'Fetch lenght dir1                    (m)'
-      else
-         OPTION(28)= ''
-      end if
+      OPTION(28)= ''
       OPTION(29) = 'egradcg                       (J/m/s) '
       OPTION(30) = 'SwT                             (s/s) '
       OPTION(31) = 'SwE                          (J/m2/s) '
       OPTION(32) = 'horadvec                              '      
       OPTION(33) = 'horadvec2                             '
-      OPTION(34) = 'ma                                    '      
+      OPTION(34) = 'ma                                    ' 
       MAXOPT     = 34
+      endif     
+      
       NWHAT2     = NDRAW(28)
       CALL MENUV3(NWHAT2,OPTION,MAXOPT,EXP,MAXEXP)
       NDRAW(28) = NWHAT2
@@ -13247,10 +13260,10 @@ end subroutine plot_ridges
       CHARACTER TEX*8
       COMMON /COLNOW/ NCOLNOW
       IF (NCOLNOW .GE. 0) THEN
-         IF (IVAL < 100) THEN
-            WRITE(TEX,'(I2)') IVAL
-         ELSE IF (IVAL < 10000) THEN
-            WRITE(TEX,'(I4)') IVAL
+         IF (abs(IVAL) < 100) THEN
+            WRITE(TEX,'(I3)') IVAL
+         ELSE IF (abs(IVAL) < 10000) THEN
+            WRITE(TEX,'(I5)') IVAL
          ELSE
             WRITE(TEX,'(I8)') IVAL
          ENDIF
@@ -17440,6 +17453,7 @@ double precision :: value
   implicit none
   integer :: n1
   integer :: n2
+  integer :: n3 ! nr of digits behind decimal dot
   integer :: ndec
   double precision :: value
   character fmt*(*)
@@ -17455,15 +17469,21 @@ double precision :: value
 
   if (n1 .lt. 6 .and. n1 .gt. 0) then
      n2 = min(9,n1 + 3)
-     write (fmt(6:6),'(i1)') 9 - n2
+     n3 = 9 - n2
   else if (n1 .ge. -5 .and. n1 .lt. 0) then
-     write (fmt(6:6),'(i1)') 6
+     n3 = 6
   else if ( n1 .eq. 0) then
-     write (fmt(6:6),'(i1)') 6
+     n3 = 6
   else
      fmt ='(e10.3)'
+     return
   endif
-  IF (NDEC .GT. 0) write (fmt(6:6),'(i1)') NDEC ! -1
+
+  IF (NDEC .GT. 0) then
+     n3 = min(n3, NDEC) ! try ndec, but only if it fits
+  end if
+
+  write (fmt(6:6),'(i1)') n3
   return
   end
 
@@ -17617,7 +17637,7 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
    implicit none
 
    integer :: numpar, numfld, numparactual, numfldactual
-   PARAMETER  (NUMPAR = 20, NUMFLD = 2*NUMPAR)
+   PARAMETER  (NUMPAR = 22, NUMFLD = 2*NUMPAR)
    INTEGER  IX(NUMFLD),IY(NUMFLD),IS(NUMFLD),IT(NUMFLD)
    CHARACTER WRDKEY*40, OPTION(NUMPAR)*40, HELPM(NUMPAR)*60
    integer :: nlevel
@@ -17644,11 +17664,13 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
    OPTION(13) = 'Anti creep                          ( ) ' ; it(2*13) = 2
    OPTION(14) = '                                    ( ) ' ; it(2*14) = 6
    OPTION(15) = 'irov 0,1,2,3                        ( ) ' ; it(2*15) = 2
-   OPTION(16) = 'icorio, 0, 4, or 5                  ( ) ' ; it(2*16) = 2
+   OPTION(16) = 'icorio, 0, 5=org def., even=2D weigh( ) ' ; it(2*16) = 2
    OPTION(17) = 'jatidep tidal potential forcing 0/1 ( ) ' ; it(2*17) = 2
    OPTION(18) = 'EpsCG, CG solver stop criterion     ( ) ' ; it(2*18) = 6
    OPTION(19) = 'Epshu, flooding criterion           (m) ' ; it(2*19) = 6
    OPTION(20) = 'JaExplicitsinks                     ( ) ' ; it(2*20) = 2
+   OPTION(21) = 'Corioadamsbashfordfac               ( ) ' ; it(2*21) = 6
+   OPTION(22) = 'Newcorio                            ( ) ' ; it(2*22) = 2
  
  
 !   123456789012345678901234567890123456789012345678901234567890
@@ -17669,12 +17691,14 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
    HELPM (13) = '0=No, 1=Yes anticreep  only in sigma layers                 '
    HELPM (14) = 'default 1d-8                                                '
    HELPM (15) = '0=free slip, 1 =partial slip, 2=no slip, 3 =hydraul. smooth '
-   HELPM (16) = '0=no coriolois, 4=coriolis, 5 = 4 limited below 1 m         '
+   HELPM (16) = '0=no 5=default, 3,4 no weights, 5-10 Olga, 25-30 Ham        '
    HELPM (17) = '0=no tidal potential, 1=yes tidal potential                 '
    HELPM (18) = 'Guus, if max(abs(r/rk) < epscg , or Saad L2norm < epscg     '
    HELPM (19) = 'hu > epshu: link flows                                      '
    HELPM (20) = '1=expl, 0 = impl                                            '
-  
+   HELPM (21) = '>0 = Adams Bashford, standard= 0.5, only for Newcorio=1     '
+   HELPM (22) = '0=prior to 27-11-2019, 1=no normal forcing on open bnds, 12#'
+   
    
    CALL SAVEKEYS()
    NUMPARACTUAL = NUMPAR
@@ -17763,6 +17787,9 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
    CALL IFormPutDouble  (2*18 ,epscg, '(e10.5)' )
    CALL IFormPutDouble  (2*19 ,epshu, '(e10.5)' )                                             
    CALL IFORMPUTinteger (2*20 ,jaexplicitsinks  )     
+   CALL IFormputDouble  (2*21 ,Corioadamsbashfordfac,'(e10.5)')        
+   CALL IFormputinteger (2*22 ,Newcorio)        
+
 
    !  Display the form with numeric fields left justified
    !  and set the initial field to number 2
@@ -17821,6 +17848,7 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
           CALL IFormgetDouble  (2*18 ,epscg           )
           CALL IFormgetDouble  (2*19 ,epshu           )        
           CALL IFORMgeTinteger (2*20 ,jaexplicitsinks )        
+          CALL IFormgetDouble  (2*21 ,Corioadamsbashfordfac)        
 
           epshs    = 0.2d0*epshu  ! minimum waterdepth for setting cfu
           if (niadvec .ne. iadvec) then
@@ -19564,10 +19592,10 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
 
       SUBROUTINE CHANGEGRIDPARAMETERS()
       USE M_GRID
-
       USE M_GRIDSETTINGS
       use m_sferic
       use unstruc_display
+      use m_polygon
       use unstruc_version_module, only : unstruc_company, unstruc_program
       implicit none
 
@@ -19581,7 +19609,8 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
       external :: highlight_form_line
 !
       integer :: ip,ir, il, iw, ixp, iyp, ih, i, iuvfieldorg, ifexit, ifinit, key
-      integer :: nbut, imp, inp
+      integer :: nbut, imp, inp, k
+      double precision :: phi
 
       NLEVEL    = 3
       OPTION(1) = 'M-REFINEMENT FACTOR                     '
@@ -19779,6 +19808,19 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
               SPLFAC2=MAX(0d0, MIN(SPLFAC2,1d0) )
               FACMIR=MAX(0.1d0, MIN(FACMIR,10d0) )
               jsferic = max(0,min(jsferic,1)) 
+
+              if ( pil_rad < 0d0 ) then ! cre
+                 if (maxpol < mfac+1) then  
+                     call increasepol(mfac+1, 0)     
+                 endif
+                 pil_rad = abs(pil_rad)
+                 do k = 1,mfac+1
+                    phi = twopi* ( dble(k-1) / dble(mfac) )
+                    xpl(k) = pil_x + pil_rad*cos(phi)
+                    ypl(k) = pil_y + pil_rad*sin(phi)
+                 enddo
+                 npl = mfac+1 
+             endif  
           ENDIF
           CALL IWinClose(1)
           CALL IWinClose(1)
@@ -21415,6 +21457,7 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
              zn = znod(k)
              if ( zn.eq.DMISS ) cycle
              if (nodemode .eq. 2) then
+                call isocol(zn,ncol)
                 call dhtext( zn, xz(k), yz(k), bl(k) )
              else if (nodemode == 3   .or. nodemode == 3 + 3) then    ! isolines within cell
                 if (k <= ndx2d) then
@@ -21932,7 +21975,11 @@ SUBROUTINE SETCOLTABFILE(FILNAM,JASECOND)
  else if (md_IDENT(1:6) == 'drybed') then
      call drybed(time1-tstart_user)
  else if (md_IDENT(1:6) == 'wetbed') then
-     call wetbed(time1-tstart_user)
+     call wetbed(time1-tstart_user)      
+ else if (md_IDENT(1:12) == 'coriolistilt') then
+     call coriolistilt(time1-tstart_user)
+ else if (md_IDENT(1:14) == 'corioliskelvin') then
+     call corioliskelvin(time1-tstart_user)
  else if (index(md_ident,'thacker1d') > 0) then
     call thacker1d(0,xz,yz,s1,bl,ndx,time1-tstart_user)
  else if (md_IDENT == 'equator1d') then

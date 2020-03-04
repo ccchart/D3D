@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -53,7 +53,7 @@
 !
 !     Local declarations
 !
-      PARAMETER   ( NOMODU = 149)
+      PARAMETER   ( NOMODU = 154)
       CHARACTER*6   MODNAM(NOMODU)
       SAVE          MODNAM
       DATA MODNAM /
@@ -205,7 +205,12 @@
      +   'EFFBLO',
      +   'EFFAVE',
      +   'DECTRA',
-     +   'ESPACE'
+     +   'ESPACE',
+     +   'CALTEM',
+     +   'PLASTC',
+     +   'WLCWOC',
+     +   'HDISS' ,
+     +   'TMODE'
      +   /
 !
 !     Set module number

@@ -1,27 +1,27 @@
 !----- LGPL --------------------------------------------------------------------
-!                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
-!                                                                               
-!  This library is free software; you can redistribute it and/or                
-!  modify it under the terms of the GNU Lesser General Public                   
-!  License as published by the Free Software Foundation version 2.1.            
-!                                                                               
-!  This library is distributed in the hope that it will be useful,              
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU            
-!  Lesser General Public License for more details.                              
-!                                                                               
-!  You should have received a copy of the GNU Lesser General Public             
-!  License along with this library; if not, see <http://www.gnu.org/licenses/>. 
-!                                                                               
-!  contact: delft3d.support@deltares.nl                                         
-!  Stichting Deltares                                                           
-!  P.O. Box 177                                                                 
-!  2600 MH Delft, The Netherlands                                               
-!                                                                               
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
-!  are registered trademarks of Stichting Deltares, and remain the property of  
-!  Stichting Deltares. All rights reserved.                                     
+!
+!  Copyright (C)  Stichting Deltares, 2011-2020.
+!
+!  This library is free software; you can redistribute it and/or
+!  modify it under the terms of the GNU Lesser General Public
+!  License as published by the Free Software Foundation version 2.1.
+!
+!  This library is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+!  Lesser General Public License for more details.
+!
+!  You should have received a copy of the GNU Lesser General Public
+!  License along with this library; if not, see <http://www.gnu.org/licenses/>.
+!
+!  contact: delft3d.support@deltares.nl
+!  Stichting Deltares
+!  P.O. Box 177
+!  2600 MH Delft, The Netherlands
+!
+!  All indications and logos of, and references to, "Delft3D" and "Deltares"
+!  are registered trademarks of Stichting Deltares, and remain the property of
+!  Stichting Deltares. All rights reserved.
 
 !  $Id$
 !  $HeadURL$
@@ -30,27 +30,27 @@
 !! @author adri.mourits@deltares.nl
 !! @author stef.hummel@deltares.nl
 !! @author edwin.spee@deltares.nl
-!! @author edwin.bos@deltares.nl
+!! @author robert.leander@deltares.nl
 module m_ec_converter
    use m_ec_typedefs
    use m_ec_message
    use mathconsts
    use m_ec_support
    use m_ec_alloc
-   use m_ec_magic_number
    use m_ec_parameters
    use m_ec_spatial_extrapolation
    use time_class
 
    implicit none
-   
-   private 
-   
+
+   private
+
    public :: ecConverterCreate
    public :: ecConverterInitialize
    public :: ecConverterFree1dArray
    public :: ecConverterSetType
    public :: ecConverterSetOperand
+   public :: ecConverterSetInputPointer
    public :: ecConverterUpdateWeightFactors
    public :: ecConverterPerformConversions
    public :: ecConverterSetElement
@@ -58,9 +58,9 @@ module m_ec_converter
    public :: ecConverterSetMask
    public :: ecConverterGetBbox
    contains
-      
+
       ! =======================================================================
-      
+
       !> Construct a new Converter with the specified id.
       !! Failure is indicated by returning a null pointer.
       function ecConverterCreate(converterId) result(converterPtr)
@@ -83,7 +83,7 @@ module m_ec_converter
          converterPtr%interpolationType = interpolate_unknown
          converterPtr%targetIndex = ec_undef_int
       end function ecConverterCreate
-      
+
       ! =======================================================================
 
       !> Free a tEcConverter, after which it can be deallocated.
@@ -109,9 +109,9 @@ module m_ec_converter
             if (istat /= 0) success = .false.
          end if
       end function ecConverterFree
-      
+
       ! =======================================================================
-      
+
       !> Frees a 1D array of tEcConverterPtrs, after which the converterPtr is deallocated.
       function ecConverterFree1dArray(converterPtr, nConverters) result (success)
          logical                                      :: success      !< function status
@@ -143,7 +143,7 @@ module m_ec_converter
          end if
          nConverters = 0
       end function ecConverterFree1dArray
-      
+
       ! =======================================================================
       ! Set methods
       ! =======================================================================
@@ -151,12 +151,12 @@ module m_ec_converter
       !> Helper function for initializing a Converter.
       function ecConverterInitialize(instancePtr, converterId, convtype, operand, method, srcmask) result(success)
          logical                    :: success      !< function status
-         type(tEcInstance), pointer :: instancePtr  !< 
-         integer                    :: converterId  !< 
-         integer                    :: convtype     !< 
-         integer                    :: operand      !< 
-         integer                    :: method       !< 
-         type (tEcMask), optional   :: srcmask      !< 
+         type(tEcInstance), pointer :: instancePtr  !<
+         integer                    :: converterId  !<
+         integer                    :: convtype     !<
+         integer                    :: operand      !<
+         integer                    :: method       !<
+         type (tEcMask), optional   :: srcmask      !<
          !
          success              = ecConverterSetType(instancePtr, converterId, convtype)
          if (success) success = ecConverterSetOperand(instancePtr, converterId, operand)
@@ -174,6 +174,7 @@ module m_ec_converter
          type(tEcMask),             intent(in) :: srcmask     !< new type of the Converter
          !
          type(tEcConverter), pointer :: converterPtr !< Converter corresponding to converterId
+         integer                     :: istat
          !
          success = .false.
          converterPtr => null()
@@ -181,12 +182,15 @@ module m_ec_converter
          converterPtr => ecSupportFindConverter(instancePtr, converterId)
          if (associated(converterPtr)) then
             converterPtr%srcmask = srcmask
+            if (allocated(converterPtr%srcmask%msk)) deallocate (converterPtr%srcmask%msk, stat=istat)
+            allocate(converterPtr%srcmask%msk(size(srcmask%msk)), stat=istat)
+            converterPtr%srcmask%msk = srcmask%msk
             success = .true.
          else
             call setECMessage("ERROR: ec_converter::ecConverterSetMask: Cannot find a Converter with the supplied id.")
          end if
       end function ecConverterSetMask
-      
+
       ! =======================================================================
 
       !> Change the type of the Converter corresponding to converterId.
@@ -209,9 +213,9 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterSetType: Cannot find a Converter with the supplied id.")
          end if
       end function ecConverterSetType
-      
+
       ! =======================================================================
-      
+
       !> Change the operand of the Converter corresponding to converterId.
       function ecConverterSetOperand(instancePtr, converterId, operand) result(success)
          logical                               :: success     !< function status
@@ -232,9 +236,32 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterSetOperand: Cannot find a Converter with the supplied id.")
          end if
       end function ecConverterSetOperand
-      
+
       ! =======================================================================
-      
+
+      !> Change the pointer to an input argument for the converter
+      function ecConverterSetInputPointer(instancePtr, converterId, inputptr) result(success)
+         logical                               :: success     !< function status
+         type(tEcInstance), pointer            :: instancePtr !< intent(in)
+         integer,                   intent(in) :: converterId !< unique Converter id
+         real(hp), pointer                     :: inputptr    !< pointer to an input arg for the converter
+         !
+         type(tEcConverter), pointer :: converterPtr !< Converter corresponding to converterId
+         !
+         success = .false.
+         converterPtr => null()
+         !
+         converterPtr => ecSupportFindConverter(instancePtr, converterId)
+         if (associated(converterPtr)) then
+            converterPtr%inputptr => inputptr
+            success = .true.
+         else
+            call setECMessage("ERROR: ec_converter::ecConverterSetInputPointer: Cannot find a Converter with the supplied id.")
+         end if
+      end function ecConverterSetInputPointer
+
+      ! =======================================================================
+
       !> Change the interpolation type of the Converter corresponding to converterId.
       function ecConverterSetInterpolation(instancePtr, converterId, interpolationType) result(success)
          logical                               :: success           !< function status
@@ -255,9 +282,9 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterSetInterpolation: Cannot find a Converter with the supplied id.")
          end if
       end function ecConverterSetInterpolation
-      
+
       ! =======================================================================
-      
+
       !> Set the array index of the target Item's field to write to of the Converter corresponding to converterId.
       function ecConverterSetElement(instancePtr, converterId, indx) result(success)
          logical                               :: success     !< function status
@@ -278,12 +305,13 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterSetElement: Cannot find a Converter with the supplied id.")
          end if
       end function ecConverterSetElement
-      
+
       ! =======================================================================
-      
+
       !> Update the weight factors of a Converter.
       function ecConverterUpdateWeightFactors(instancePtr, connection) result (success)
       use kdtree2Factory
+      use m_ec_basic_interpolation
       use m_alloc
       implicit none
          logical                            :: success     !< function status
@@ -300,8 +328,8 @@ module m_ec_converter
          integer  :: inside, mp, np, in, jn !< return values of findnm
          real(hp) :: wf(4) !< return value of findnm
          integer  :: fmask(4) !< return value of findnm
-         real(hp) :: fsum 
-         type(tEcMask), pointer :: srcmask 
+         real(hp) :: fsum
+         type(tEcMask), pointer :: srcmask
          real(hp), dimension(:), pointer      ::  src_x, src_y
          real(hp)                             ::  tgt_x, tgt_y
          integer                              ::  nsx, nsy
@@ -313,21 +341,21 @@ module m_ec_converter
          integer                              ::  iimin, iimax, jjmin, jjmax
          type(kdtree_instance)                ::  treeinst
          real(hp)                             ::  x0, x1, y0, y1, rd
-         
+
          real(hp), dimension(4) :: xfindpoly, yfindpoly
          integer                :: imin, jmin, iii, jjj
-         
+
          integer                              :: issparse
          integer, dimension(:),   allocatable :: ia
          integer, dimension(:),   allocatable :: ja
          integer, dimension(:,:), allocatable :: imask
-         
+
          type(tEcField),          pointer     :: srcfld0, srcfld1
 
          logical hasKDTree
-         
+
          issparse = 0
-         
+
          !
          hasKDTree = .True.
 !         hasKDTree = .False.
@@ -343,7 +371,6 @@ module m_ec_converter
             success = .true.
             return
          end if
-         !
          ! Check whether there is anything to be done.
          if (connection%converterPtr%interpolationType == interpolate_spacetimeSaveWeightFactors .or. &
              connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then
@@ -359,6 +386,29 @@ module m_ec_converter
             connection%converterPtr%indexWeight => weight
          else
             weight => connection%converterPtr%indexWeight
+         end if
+         !
+         if (sourceElementSet%ofType == elmSetType_samples) then
+            n_points = targetElementSet%nCoordinates
+            do i = 1, connection%nSourceItems
+               connection%sourceItemsPtr(i)%ptr%sourceT0fieldPtr%bbox = (/1,1,sourceElementSet%n_cols,1/)
+               connection%sourceItemsPtr(i)%ptr%sourceT1fieldPtr%bbox = (/1,1,sourceElementSet%n_cols,1/)
+               if (associated(weight%indices)) deallocate(weight%indices)
+               allocate(weight%indices(1, n_points))
+               connection%converterPtr%indexWeight => weight
+               weight%indices = ec_undef_int
+               select case (instancePtr%coordsystem)
+               case (EC_COORDS_SFERIC)
+                  jsferic = 1
+               case (EC_COORDS_CARTESIAN)
+                  jsferic = 0
+               end select
+               call nearest_neighbour(n_points, targetElementSet%x, targetElementSet%y,  targetElementSet%mask, &
+                    weight%indices(1,:), ec_undef_hp, &
+                    sourceElementSet%x, sourceElementSet%y, sourceElementSet%n_cols, jsferic, 0)
+            end do
+            success = .true.
+            return
          end if
          !
          ! Calculate and update the Converter's weights.
@@ -380,43 +430,43 @@ module m_ec_converter
                iimin=n_cols
                jjmin=n_rows
                iimax=0
-               jjmax=0    
+               jjmax=0
                select case (sourceElementSet%ofType)
                   case (elmSetType_spheric_ortho, elmSetType_Cartesian_ortho)
                      src_x=>sourceElementSet%x
                      src_y=>sourceElementSet%y
                      nsx=n_cols
                      nsy=n_rows
-                     
-                     if ( connection%converterPtr%ofType.eq.convType_netcdf ) then
+
+                     if ( connection%converterPtr%ofType == convType_netcdf ) then
                         issparse = 1   ! sparse storage
                      end if
-                     
-                     if ( issparse.eq.1 ) then
+
+                     if ( issparse == 1 ) then
                         call realloc(imask,(/n_cols,n_rows/),fill=0)
                      end if
-                     
+
                      do i=1, n_points
                         tgt_x=targetElementSet%x(i)
                         tgt_y=targetElementSet%y(i)
                         np = 0
                         mp = 0
-                        if ((tgt_x-src_x(1))*(src_x(nsx)-tgt_x)>=0) then			! point is within in the range  
+                        if ((tgt_x-src_x(1))*(src_x(nsx)-tgt_x)>=0) then            ! point is within in the range
                            do mp=1, nsx-1
-                              if ((tgt_x-src_x(mp))*(src_x(mp+1)-tgt_x)>=0) exit	! find m
+                              if ((tgt_x-src_x(mp))*(src_x(mp+1)-tgt_x)>=0) exit    ! find m
                            end do
                            do np=1, nsy-1
-                              if ((tgt_y-src_y(np))*(src_y(np+1)-tgt_y)>=0) exit	! find n
+                              if ((tgt_y-src_y(np))*(src_y(np+1)-tgt_y)>=0) exit    ! find n
                            end do
                         end if
                         if ((np<=0 .or. np>=nsy) .or. (mp<=0 .or. mp>=nsx)) then    ! if one coordinate out of bounds, both indices are zero
                            np=0
                            mp=0
                         end if
-                     
+
                         if (np>0 .and. mp>0) then
-                           wx = (targetElementSet%x(i) - sourceElementSet%x(mp))/(sourceElementSet%x(mp+1) - sourceElementSet%x(mp)) 
-                           wy = (targetElementSet%y(i) - sourceElementSet%y(np))/(sourceElementSet%y(np+1) - sourceElementSet%y(np)) 
+                           wx = (targetElementSet%x(i) - sourceElementSet%x(mp))/(sourceElementSet%x(mp+1) - sourceElementSet%x(mp))
+                           wy = (targetElementSet%y(i) - sourceElementSet%y(np))/(sourceElementSet%y(np+1) - sourceElementSet%y(np))
                            weight%weightFactors(1,i) = (1.-wx)*(1-wy)                 ! 4        3
                            weight%weightFactors(2,i) = (   wx)*(1-wy)
                            weight%weightFactors(3,i) = (   wx)*(  wy)
@@ -425,14 +475,14 @@ module m_ec_converter
 
                         weight%indices(1,i) = np
                         weight%indices(2,i) = mp
-                        
+
                         if ( np>0 .and. mp>0 ) then
                            iimin=min(weight%indices(1,i),iimin)
                            jjmin=min(weight%indices(2,i),jjmin)
                            iimax=max(weight%indices(1,i)+1,iimax)
                            jjmax=max(weight%indices(2,i)+1,jjmax)
-                           
-                           if ( issparse.eq.1 ) then
+
+                           if ( issparse == 1 ) then
    !                          update mask array
                               imask(mp,  np)   = 1
                               imask(mp+1,np)   = 1
@@ -449,13 +499,13 @@ module m_ec_converter
                         !else
                         !    jsferic = 0
                         !endif
-                        jsferic = 0                             ! For now, EC-converter consistently regards all coordinates as carthesian
+                        jsferic = 0                             ! For now, EC-converter consistently regards all coordinates as cartesian
                         call build_kdtree(treeinst, n_points, targetElementSet%x, targetElementSet%y, ierr, jsferic, ec_undef_hp)
                         n_cols = sourceElementSet%n_cols
                         n_rows = sourceElementSet%n_rows
                         sy_2D(1:n_cols,1:n_rows) => sourceElementSet%y
                         sx_2D(1:n_cols,1:n_rows) => sourceElementSet%x
-                        
+
                         x0 = minval(targetElementSet%x)     ! improvised bounding box (does not work with targets around the 0-meridian)
                         x1 = maxval(targetElementSet%x)
                         y0 = minval(targetElementSet%y)
@@ -475,39 +525,35 @@ module m_ec_converter
                                  call kdtree2_n_nearest(treeinst%tree, treeinst%qv, nresult, treeinst%results)
                                  ! loop over find results with pinpok
                                  do iresult = 1, nresult
-                                    idx = treeinst%results(iresult)%idx 
+                                    idx = treeinst%results(iresult)%idx
                                     call pinpok(targetElementSet%x(idx), targetElementSet%y(idx), 5,                       &
                                        (/sx_2D(jj,ii), sx_2D(jj,ii+1), sx_2D(jj+1,ii+1), sx_2D(jj+1,ii),  sx_2D(jj,ii)/),  &
                                        (/sy_2D(jj,ii), sy_2D(jj,ii+1), sy_2D(jj+1,ii+1), sy_2D(jj+1,ii),  sy_2D(jj,ii)/),  &
-                                        inside)                        
+                                        inside)
                                     if (inside == 1) then
                                         ! [jj,ii] and [jj+1,ii] and [jj,ii+1] and [jj+1,ii+1] are used
-                                        ! Do stuff for a target point in a source cell     
-                                        weight%indices(1,idx) = ii 
-                                        weight%indices(2,idx) = jj 
+                                        ! Do stuff for a target point in a source cell
+                                        weight%indices(1,idx) = ii
+                                        weight%indices(2,idx) = jj
                                         iimin=min(ii,iimin)
                                         jjmin=min(jj,jjmin)
                                         iimax=max(ii+1,iimax)
                                         jjmax=max(jj+1,jjmax)
-                                        
-                                        if ( issparse.eq.1 ) then
-!                                          not supported yet                                        
-                                        end if
                                     end if
                                  end do
                               end if
                            end do
                         end do
                         call delete_kdtree2(treeinst)
-                        
+
                         ! RL: The sourceElementset x and y arrays span the full meteo grid and should now also be deallocated !
                         ! deallocate(sourceElementSet%x)
                         ! deallocate(sourceElementSet%y)
-                        
+
                         do i = 1, n_points
                            imin = weight%indices(1,i)
                            jmin = weight%indices(2,i)
-                           
+
                            if ( imin/=ec_undef_int .and. jmin/=ec_undef_int ) then
                               do iii=imin,imin+1
                                  do jjj=jmin,jmin+1
@@ -517,14 +563,10 @@ module m_ec_converter
                                     yfindpoly(idx) = sy_2D(jjj,iii)
                                  end do
                               end do
-                           
+
                               call findnm(targetElementSet%x(i), targetElementSet%y(i), xfindpoly, yfindpoly , &
                                               2, 2, inside, mp, np, in, jn, wf)
-                                           
-                              if ( inside.ne.1 ) then
-                                 continue
-                              end if
-                                           
+
                               weight%weightFactors(1,i) = wf(1)
                               weight%weightFactors(2,i) = wf(2)
                               weight%weightFactors(3,i) = wf(3)
@@ -539,30 +581,30 @@ module m_ec_converter
                         endif
                         j=1
                         do i=1,n_cols
-                            edge_poly_x(j) = sourceElementSet%x(i) 
-                            edge_poly_y(j) = sourceElementSet%y(i) 
+                            edge_poly_x(j) = sourceElementSet%x(i)
+                            edge_poly_y(j) = sourceElementSet%y(i)
                             j=j+1
                         enddo
                         do i=2,n_rows
-                            edge_poly_x(j) = sourceElementSet%x(i*n_cols) 
-                            edge_poly_y(j) = sourceElementSet%y(i*n_cols) 
+                            edge_poly_x(j) = sourceElementSet%x(i*n_cols)
+                            edge_poly_y(j) = sourceElementSet%y(i*n_cols)
                             j=j+1
                         enddo
                         do i=1,n_cols-1
-                            edge_poly_x(j) = sourceElementSet%x(n_rows*n_cols-i) 
-                            edge_poly_y(j) = sourceElementSet%y(n_rows*n_cols-i) 
+                            edge_poly_x(j) = sourceElementSet%x(n_rows*n_cols-i)
+                            edge_poly_y(j) = sourceElementSet%y(n_rows*n_cols-i)
                             j=j+1
                         enddo
                         do i=1,n_rows-1
-                            edge_poly_x(j) = sourceElementSet%x((n_rows-1-i)*n_cols+1) 
-                            edge_poly_y(j) = sourceElementSet%y((n_rows-1-i)*n_cols+1) 
+                            edge_poly_x(j) = sourceElementSet%x((n_rows-1-i)*n_cols+1)
+                            edge_poly_y(j) = sourceElementSet%y((n_rows-1-i)*n_cols+1)
                             j=j+1
                         enddo
                         edge_poly_x(j) = edge_poly_x(1)
                         edge_poly_y(j) = edge_poly_x(1)
-    
+
                         do i=1, n_points
-                           call pinpok(targetElementSet%x(i), targetElementSet%y(i), 2*n_cols+2*n_rows-2, edge_poly_x, edge_poly_y, inside)                        
+                           call pinpok(targetElementSet%x(i), targetElementSet%y(i), 2*n_cols+2*n_rows-2, edge_poly_x, edge_poly_y, inside)
                            if (inside == 1) then
                               call findnm(targetElementSet%x(i), targetElementSet%y(i), sourceElementSet%x, sourceElementSet%y, &
                                            n_cols, n_rows, inside, mp, np, in, jn, wf)
@@ -572,15 +614,15 @@ module m_ec_converter
                                     fmask(2) = (srcmask%msk((np   -srcmask%nmin)*srcmask%mrange+mp+1 -srcmask%mmin+1))
                                     fmask(3) = (srcmask%msk((np+1 -srcmask%nmin)*srcmask%mrange+mp+1 -srcmask%mmin+1))
                                     fmask(4) = (srcmask%msk((np+1 -srcmask%nmin)*srcmask%mrange+mp   -srcmask%mmin+1))
-                                    fsum = sum((1.d0-fmask)*wf)            ! fmask = 1 for DISCARDED corners               
-                                    if (fsum>=1.0e-03) then         
+                                    fsum = sum((1.d0-fmask)*wf)            ! fmask = 1 for DISCARDED corners
+                                    if (fsum>=1.0e-03) then
                                        wf = (wf*(1.d0-fmask))/fsum
                                     endif
-                                 endif 
-                                 weight%weightFactors(1,i) = wf(1)    
-                                 weight%weightFactors(2,i) = wf(2)    
-                                 weight%weightFactors(3,i) = wf(3)    
-                                 weight%weightFactors(4,i) = wf(4)    
+                                 endif
+                                 weight%weightFactors(1,i) = wf(1)
+                                 weight%weightFactors(2,i) = wf(2)
+                                 weight%weightFactors(3,i) = wf(3)
+                                 weight%weightFactors(4,i) = wf(4)
                                  if ( mp>0 .and. np>0 ) then
                                     iimin=min(weight%indices(1,i),iimin)
                                     jjmin=min(weight%indices(2,i),jjmin)
@@ -599,31 +641,31 @@ module m_ec_converter
                      call setECMessage("Unknown element type set for interpolation weights in NetCDF file.")
                      return
                   end select
-                  
-                  if ( issparse.eq.1 ) then
+
+                  if ( issparse == 1 ) then
 !                    make sparsity pattern, effectively disable bounding box and overwrite indices
                      call MaskToSparse(n_cols,n_rows,imask,ia,ja)
-                     
+
 !                    deallocate mask
                      if ( allocated(imask) ) deallocate(imask)
-                     
+
 !                    copy sparsity pattern to source fields and effectively disable bounding box
                      do i = 1, connection%nSourceItems
                         srcfld0 => connection%sourceItemsPtr(i)%ptr%sourceT0fieldPtr
                         srcfld1 => connection%sourceItemsPtr(i)%ptr%sourceT1fieldPtr
-                        
+
                         call SetSparsityPattern(srcfld0, n_cols, n_rows, ia, ja)
                         call SetSparsityPattern(srcfld1, n_cols, n_rows, ia, ja)
-                     end do   
-                     
+                     end do
+
 !                    overwrite indices (mcol,nrow) with sparse indices
                      call ConvertToSparseIndices(n_points, weight%indices, n_rows, ia, ja)
-                     
+
 !                    deallocate sparsity pattern
                      if ( allocated(ia) ) deallocate(ia)
                      if ( allocated(ja) ) deallocate(ja)
                   else
-                  
+
                       ! Shift indices (m and n), to run from (1,1) to (iimax-iimin+1,jjmax-jjmin+1), only for the netCDF type
                      if (connection%converterPtr%ofType == convType_netcdf) then
                         do i = 1, n_points
@@ -637,7 +679,15 @@ module m_ec_converter
                         connection%sourceItemsPtr(i)%ptr%sourceT1fieldPtr%bbox = (/jjmin,iimin,jjmax,iimax/)
                      end do
                   end if
-                  
+                  ! Final step for gridded providers: when not masked, reset indices to undefined.
+                  if (associated(targetElementSet%mask)) then
+                     do i = 1, n_points
+                        if (targetElementSet%mask(i) == 0) then
+                           weight%indices(:,i) = ec_undef_int
+                        end if
+                     end do
+                  end if
+
                success = .true.
             case(convType_polytim)
                sourceElementSet => connection%sourceItemsPtr(1)%ptr%elementSetPtr
@@ -672,7 +722,7 @@ module m_ec_converter
                success = .true.
          end select
       end function ecConverterUpdateWeightFactors
-      
+
       ! =======================================================================
 
       subroutine findnm(xl, yl, x, y, mc, nc, inside, mv, nv, in, jn, wf)
@@ -770,8 +820,8 @@ module m_ec_converter
          if (ishot == 1) return
          ishot = 1
          goto 5
-      end subroutine findnm   
-      
+      end subroutine findnm
+
       ! =======================================================================
 
       subroutine bilin5(xa, ya, x0, y0, w, ier)
@@ -889,8 +939,8 @@ module m_ec_converter
          endif
          w(1) = (1.0_hp-xi) * (1.0_hp-eta)
          w(2) =         xi  * (1.0_hp-eta)
-         w(3) =         xi  *         eta 
-         w(4) =        eta  * (1.0_hp-xi ) 
+         w(3) =         xi  *         eta
+         w(4) =        eta  * (1.0_hp-xi )
          return
 99999    continue
       end subroutine bilin5
@@ -899,7 +949,7 @@ module m_ec_converter
 
       subroutine pinpok(xl, yl, n, x, y, inside)
          ! Author: H. Kernkamp
-         double precision              , intent(in)  :: xl, yl           ! point under consideration 
+         double precision              , intent(in)  :: xl, yl           ! point under consideration
          integer                       , intent(in)  :: n
          double precision, dimension(n), intent(in)  :: x, y             ! polygon(n)
          integer                      , intent(out)  :: inside
@@ -929,20 +979,20 @@ module m_ec_converter
             y1 = y(i1)
             y2 = y(i2)
             if (xl .ge. min(x1,x2) .and. xl .le. max(x1,x2) ) then
-               if (xl .eq. x1 .and. yl .eq. y1 .or. &                     ! tussen of op lijnstuk
-                  (x1 .eq. x2 .and. &                                     ! op punt 1
+               if (xl  ==  x1 .and. yl  ==  y1 .or. &                     ! tussen of op lijnstuk
+                  (x1  ==  x2 .and. &                                     ! op punt 1
                    yl .ge. min(y1,y2) .and. yl .le. max(y1,y2) ) .or. &   ! op verticale lijn
-                  (yl .eq. y1 .and. y1 .eq. y2)  ) then                   ! op horizontale lijn    
+                  (yl  ==  y1 .and. y1  ==  y2)  ) then                   ! op horizontale lijn
                   inside = 1
                   return
                else if (x1 .ne. x2) then                                  ! scheve lijn
                   rl = ( xl - x1 )  / ( x2 - x1 )
                   rm = ( y1 - yl )  + rl * ( y2 - y1 )
-                  if (rm .eq. 0) then                                     ! op scheve lijn
+                  if (rm  ==  0) then                                     ! op scheve lijn
                      inside = 1
                      return
                   else if (rm .gt. 0d0) then                              ! onder scheve lijn
-                     if (xl .eq. x1 .or. xl .eq. x2) then
+                     if (xl  ==  x1 .or. xl  ==  x2) then
                         if (x1 .gt. xl .or. x2 .gt. xl) then
                            rechts = rechts + 1
                         endif
@@ -956,9 +1006,9 @@ module m_ec_converter
             if (mod(rechts,2) .ne. 0) inside = 1 - inside
          endif
       end subroutine pinpok
-      
+
       ! =======================================================================
-      
+
       !> Execute the Converters in the Connection sequentially.
       function ecConverterPerformConversions(connection, timesteps) result (success)
          logical                            :: success    !< function status
@@ -992,16 +1042,16 @@ module m_ec_converter
             case(convType_netcdf)
                success = ecConverterNetcdf(connection, timesteps%mjd())
             case(convType_qhtable)
-               success = ecConverterQhtable(connection, timesteps%mjd())
+               success = ecConverterQhtable(connection)
             case(convType_samples)
                success = ecConverterSamples(connection, timesteps%mjd())
             case default
                call setECMessage("ERROR: ec_converter::ecConverterPerformConversions: Unknown Converter type requested.")
          end select
       end function ecConverterPerformConversions
-      
+
       ! =======================================================================
-      
+
       !> Calculate weight factors from times.
       subroutine time_weight_factors(a0, a1, timesteps, t0, t1, extrapolated, timeint)
          !
@@ -1033,7 +1083,7 @@ module m_ec_converter
                a0 = 0.0_hp
                a1 = 1.0_hp
             endif
-            if (.not. l_extrapolated) then    
+            if (.not. l_extrapolated) then
                a0 = 1.0_hp
                a1 = 0.0_hp
                !
@@ -1043,22 +1093,22 @@ module m_ec_converter
                endif
             endif
             if (present(extrapolated)) extrapolated = l_extrapolated
-         case (timeint_bto)   
+         case (timeint_bto)
             a0 = 0.0d0
             a1 = 1.0d0
-         case (timeint_bfrom)   
+         case (timeint_bfrom)
             a0 = 1.0d0
             a1 = 0.0d0
          case (timeint_rainfall)  ! constant rainfall intensity from time-integrated amount
             a0 = 0.0d0
             a1 = 1.d0/(t1-t0)
          case default
-            ! invalid interpolation method  
+            ! invalid interpolation method
             return
          end select
 
       end subroutine time_weight_factors
-      
+
       ! =======================================================================
 
       !> Perform the configured conversion, if supported, for a uniform FileReader.
@@ -1080,15 +1130,16 @@ module m_ec_converter
          integer                             :: i, j          !< loop counters
          type(tEcField),         pointer     :: targetField   !< Converter's result goes in here
          integer                             :: maxlay        !< maximum number of layers (3D)
-         integer                             :: from, thru    !< contiguous range of indices in the target array 
+         integer                             :: from, thru    !< contiguous range of indices in the target array
          integer                             :: jmin, jmax    !< from target position jmin through target position jmax is filled
          !
+         integer, dimension(:), pointer :: targetMask
          success = .false.
          valuesT0 => null()
          valuesT1 => null()
          targetField => null()
-         
-         if(connection%converterPtr%interpolationType.eq.interpolate_passthrough)then
+
+         if(connection%converterPtr%interpolationType == interpolate_passthrough)then
             !
             ! ===== block function (no interpolation) =====
             t0 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%timesteps
@@ -1097,11 +1148,11 @@ module m_ec_converter
             valuesT0 => connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr
             valuesT1 => connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr
             n_data = connection%sourceItemsPtr(1)%ptr%quantityPtr%vectorMax
-            if (associated(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z)) then 
-               maxlay = size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z) / size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%x) 
+            if (associated(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z)) then
+               maxlay = size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z) / size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%x)
             else
-               maxlay = 1 
-            endif 
+               maxlay = 1
+            endif
             allocate(valuesT(maxlay*n_data), stat=istat)
             valuesT=ec_undef_hp
             if(timesteps.lt.t1) then
@@ -1123,25 +1174,25 @@ module m_ec_converter
             valuesT0 => connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr
             valuesT1 => connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%arr1dPtr
             n_data = connection%sourceItemsPtr(1)%ptr%quantityPtr%vectorMax
-            if (associated(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z)) then 
-               maxlay = size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z) / size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%x) 
+            if (associated(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z)) then
+               maxlay = size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%z) / size(connection%targetItemsPtr(1)%ptr%ElementSetPtr%x)
             else
-               maxlay = 1 
-            endif 
+               maxlay = 1
+            endif
             allocate(valuesT(maxlay*n_data), stat=istat)
             valuesT=ec_undef_hp
             if (.not.connection%sourceItemsPtr(1)%ptr%quantityptr%constant) then
                select case(connection%sourceItemsPtr(1)%ptr%quantityptr%timeint)
-               case (timeint_lin, timeint_lin_extrapol, timeint_rainfall)   
+               case (timeint_lin, timeint_lin_extrapol, timeint_rainfall)
                   ! linear interpolation in time
                   t0 = connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%timesteps
                   t1 = connection%sourceItemsPtr(1)%ptr%sourceT1FieldPtr%timesteps
                   call time_weight_factors(a0, a1, timesteps, t0, t1,  &
                                            timeint = connection%sourceItemsPtr(1)%ptr%quantityptr%timeint)
-               case (timeint_bto)   
+               case (timeint_bto)
                   a0 = 0.0d0
                   a1 = 1.0d0
-               case (timeint_bfrom)   
+               case (timeint_bfrom)
                   a0 = 1.0d0
                   a1 = 0.0d0
                end select
@@ -1177,21 +1228,39 @@ module m_ec_converter
                   jmin = 1
                   jmax = connection%targetItemsPtr(1)%ptr%elementSetPtr%nCoordinates
                end if
+
                select case(connection%converterPtr%operandType)
                   case(operand_replace)
                      ! Write all values to one target Item or each value to its own target Item.
                      if (connection%nTargetItems == 1) then                               ! All in one target item
                         targetField => connection%targetItemsPtr(1)%ptr%targetFieldPtr
+                        targetMask => connection%targetItemsPtr(1)%ptr%elementSetPtr%mask
                         do j=jmin, jmax
+                           if (associated(targetmask)) then
+                              if (targetmask(j) == 0) then
+                                 cycle
+                              end if
+                           end if
+
                            from = (j-1)*(maxlay*n_data)+1
-                           thru = (j  )*(maxlay*n_data) 
-                           targetField%arr1dPtr(from:thru) = valuesT
+                           thru = (j  )*(maxlay*n_data)
+                           if (allocated(connection%converterPtr%srcmask%msk)) then
+                              targetField%arr1dPtr(from:thru) = valuesT * real(connection%converterPtr%srcmask%msk(from:thru),hp)
+                           else
+                              targetField%arr1dPtr(from:thru) = valuesT
+                           endif
                         end do
                         targetField%timesteps = timesteps
-                     else if (connection%nTargetItems == maxlay*n_data) then              ! Separate target items   
+                     else if (connection%nTargetItems == maxlay*n_data) then              ! Separate target items
                         do i=1, connection%nTargetItems
                            targetField => connection%targetItemsPtr(i)%ptr%targetFieldPtr
+                           targetMask => connection%targetItemsPtr(i)%ptr%elementSetPtr%mask
                            do j=jmin, jmax
+                              if (associated(targetmask)) then
+                                 if (targetmask(j) == 0) then
+                                    cycle
+                                 end if
+                              end if
                               targetField%arr1dPtr(j) = valuesT(i)
                            end do
                            targetField%timesteps = timesteps
@@ -1208,23 +1277,36 @@ module m_ec_converter
                      targetField => connection%targetItemsPtr(1)%ptr%targetFieldPtr
                      j = connection%converterPtr%targetIndex
                      from = (j-1)*(maxlay*n_data)+1
-                     thru = (j  )*(maxlay*n_data) 
+                     thru = (j  )*(maxlay*n_data)
+                     ! NOTE: No targetMask is checked here
                      targetField%arr1dPtr(from:thru) = valuesT
                      targetField%timesteps = timesteps
                   case(operand_add) ! TODO: AvD/EB: it seems that operand_add does not support targetIndex (offset). Should we not make this available?
                      ! Add all values to one target Item or each value to its own target Item.
                      if (connection%nTargetItems == 1) then                               ! All in one target item
                         targetField => connection%targetItemsPtr(1)%ptr%targetFieldPtr
+                        targetMask => connection%targetItemsPtr(1)%ptr%elementSetPtr%mask
                         do j=1, connection%targetItemsPtr(1)%ptr%elementSetPtr%nCoordinates
+                           if (associated(targetmask)) then
+                              if (targetmask(j) == 0) then
+                                 cycle
+                              end if
+                           end if
                            from = (j-1)*(maxlay*n_data)+1
-                           thru = (j  )*(maxlay*n_data) 
+                           thru = (j  )*(maxlay*n_data)
                            targetField%arr1dPtr(from:thru) = targetField%arr1dPtr(from:thru) + valuesT
                         end do
                         targetField%timesteps = timesteps
-                     else if (connection%nTargetItems == maxlay*n_data) then              ! Separate target items   
+                     else if (connection%nTargetItems == maxlay*n_data) then              ! Separate target items
                         do i=1, connection%nTargetItems
                            targetField => connection%targetItemsPtr(i)%ptr%targetFieldPtr
+                           targetMask => connection%targetItemsPtr(i)%ptr%elementSetPtr%mask
                            do j=1, connection%targetItemsPtr(i)%ptr%elementSetPtr%nCoordinates
+                              if (associated(targetmask)) then
+                                 if (targetmask(j) == 0) then
+                                    cycle
+                                 end if
+                              end if
                               targetField%arr1dPtr(j) = targetField%arr1dPtr(j) + valuesT(i)
                            end do
                            targetField%timesteps = timesteps
@@ -1233,7 +1315,7 @@ module m_ec_converter
                         call setECMessage("ERROR: ec_converter::ecConverterUniform: Number of source Quantities does not match the number of target Items.")
                         return
                      end if
-                  case(operand_add_element) 
+                  case(operand_add_element)
                      if (connection%converterPtr%targetIndex == ec_undef_int) then
                         call setECMessage("ERROR: ec_converter::ecConverterUniform: Converter's target Field array index not set.")
                         return
@@ -1241,14 +1323,15 @@ module m_ec_converter
                      targetField => connection%targetItemsPtr(1)%ptr%targetFieldPtr
                      j = connection%converterPtr%targetIndex
                      from = (j-1)*(maxlay*n_data)+1
-                     thru = (j  )*(maxlay*n_data) 
+                     thru = (j  )*(maxlay*n_data)
+                     ! NOTE: No targetMask is checked here
                      targetField%arr1dPtr(from:thru) = targetField%arr1dPtr(from:thru) + valuesT
                      targetField%timesteps = timesteps
                   case default
                      call setECMessage("ERROR: ec_converter::ecConverterUniform: Unsupported operand type requested.")
                      return
                end select
-            case (interpolate_time, interpolate_time_extrapolation_ok) ! performs implicit space conversion from 2D to 3D, 
+            case (interpolate_time, interpolate_time_extrapolation_ok) ! performs implicit space conversion from 2D to 3D,
                ! ===== operation =====
                select case(connection%converterPtr%operandType)
                   case(operand_replace_element)
@@ -1258,7 +1341,8 @@ module m_ec_converter
                      end if
                      targetField => connection%targetItemsPtr(1)%ptr%targetFieldPtr
                      from = (connection%converterPtr%targetIndex-1)*(maxlay*n_data)+1
-                     thru =  connection%converterPtr%targetIndex   *(maxlay*n_data) 
+                     thru =  connection%converterPtr%targetIndex   *(maxlay*n_data)
+                     ! NOTE: No target mask is checked here
                      targetField%arr1dPtr(from:thru) = valuesT
 
                      ! NOTE: AvD: call site now should account for n_data in the offset already, and I changed the above line to that as well.
@@ -1278,8 +1362,8 @@ module m_ec_converter
          success = .true.
       end function ecConverterUniform
 
-      
-      
+
+
       ! =======================================================================
 
       !> Perform the configured conversion, if supported, for a uniform FileReader.
@@ -1360,9 +1444,9 @@ module m_ec_converter
          end select
          success = .true.
       end function ecConverterUniformToMagnitude
-      
+
       ! =======================================================================
-      
+
       !> Perform the configured conversion, if supported, for a unimagdir FileReader.
       !! Supports linear interpolation in time, no interpolation in space and no weights.
       !! Supports overwriting and adding-to the entire target Field array.
@@ -1439,9 +1523,9 @@ module m_ec_converter
          end select
          success = .true.
       end function ecConverterUnimagdir
-      
+
       ! =======================================================================
-      
+
       !> Execute the Converters in the Connection sequentially.
       !! meteo1 : polyint
       function ecConverterPolytim(connection, timesteps) result (success)
@@ -1453,22 +1537,22 @@ module m_ec_converter
          !
          integer  :: i, k             !< loop counters
          real(hp) :: wL, wR           !< left and right weights
-         integer  :: kL, kR           !< 
-         integer  :: maxlay_tgt       !< size of ElementSet of the TARGET in third dimension (if relevant), a.k.a kmx 
+         integer  :: kL, kR           !<
+         integer  :: maxlay_tgt       !< size of ElementSet of the TARGET in third dimension (if relevant), a.k.a kmx
          integer  :: maxlay_src       !< size of ElementSet of the SOURCE in third dimension (if relevant)
          integer  :: maxlay_srcL      !< number of layers at the LEFT interpolation support point
          integer  :: maxlay_srcR      !< number of layers at the RIGHT interpolation support point
-         integer  :: kbegin, kend, kbeginL, kendL, kbeginR, kendR, idxL1, idxR1, idxL2, idxR2 !< 
+         integer  :: kbegin, kend, kbeginL, kendL, kbeginR, kendR, idxL1, idxR1, idxL2, idxR2 !<
          logical, save :: alreadyPrinted = .false.
-         real(hp) :: wwL, wwR  !< 
-         real(hp), dimension(:), allocatable :: valL1, valL2, valR1, valR2, val !< 
-         real(hp), dimension(:), allocatable :: sigmaL, sigmaR, sigma !< 
+         real(hp) :: wwL, wwR  !<
+         real(hp), dimension(:), allocatable :: valL1, valL2, valR1, valR2, val !<
+         real(hp), dimension(:), allocatable :: sigmaL, sigmaR, sigma !<
          real(hp), dimension(:),     pointer :: zmin => null() !< vertical min
          real(hp), dimension(:),     pointer :: zmax => null() !< vertical max
 
          integer  :: idx              !< helper variable
          integer  :: vectormax
-         integer  :: from, thru       !< contiguous range of indices in the target array 
+         integer  :: from, thru       !< contiguous range of indices in the target array
          character(maxMessageLen) :: errormsg
 
          !
@@ -1485,7 +1569,7 @@ module m_ec_converter
                      return
                   end select
             case (interpolate_spacetimeSaveWeightFactors, interpolate_spacetime)
-               !! RL: Deze check kan eruit, is al bij de aanleg van de items vastgesteld 
+               !! RL: Deze check kan eruit, is al bij de aanleg van de items vastgesteld
                !if (connection%targetItemsPtr(1)%ptr%vectorMax /= connection%sourceItemsPtr(1)%ptr%vectorMax) then
                !   write(errormsg, '(a,i0,a,i0,a,i0,a,i0,a)') &
                !                   'ERROR: ec_converter::ecConverterPolytim: Vector max size in source item ', connection%sourceItemsPtr(1)%ptr%id, &
@@ -1493,9 +1577,9 @@ module m_ec_converter
                !                   ' (', vectormax, '<>', vectormax_tgt, ').'
                !   call setECMessage(errormsg)
                !   return
-               !endif  
+               !endif
 
-               vectormax = connection%sourceItemsPtr(1)%ptr%quantityPtr%vectorMax   
+               vectormax = connection%sourceItemsPtr(1)%ptr%quantityPtr%vectorMax
                if (allocated(valL1)) deallocate(valL1)
                allocate(valL1(vectormax))
                if (allocated(valL2)) deallocate(valL2)
@@ -1511,19 +1595,19 @@ module m_ec_converter
                   maxlay_tgt = size(connection%targetItemsPtr(1)%ptr%elementSetPtr%z) /   &
                                size(connection%targetItemsPtr(1)%ptr%elementSetPtr%x)
                else
-                  maxlay_tgt = 1 
+                  maxlay_tgt = 1
                end if
                if (associated(connection%targetItemsPtr(1)%ptr%elementSetPtr%z)) then
                   maxlay_tgt = size(connection%targetItemsPtr(1)%ptr%elementSetPtr%z) /   &
                                size(connection%targetItemsPtr(1)%ptr%elementSetPtr%x)
                else
-                  maxlay_tgt = 1 
+                  maxlay_tgt = 1
                end if
                if (associated(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z)) then
                   maxlay_src = size(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z) /   &
                                size(connection%sourceItemsPtr(1)%ptr%elementSetPtr%x)
                else
-                  maxlay_src = 1 
+                  maxlay_src = 1
                end if
 
                if (associated(connection%sourceItemsPtr(1)%ptr%elementSetPtr%z) .and. &     ! source has sigma
@@ -1563,51 +1647,51 @@ module m_ec_converter
                            end if
                            if (kL > 0) then
                               if (kR > 0) then
-                                 kbegin  = maxlay_tgt*(i-1)+1                        ! refers to target column 
+                                 kbegin  = maxlay_tgt*(i-1)+1                        ! refers to target column
                                  kend    = maxlay_tgt*i
 
-                                 kbeginL = maxlay_src*(kL-1)+1                       ! refers to source left column 
+                                 kbeginL = maxlay_src*(kL-1)+1                       ! refers to source left column
                                  kendL   = maxlay_src*kL
                                  sigmaL  = connection%sourceItemsPtr(1)%ptr%ElementSetPtr%z(kbeginL:kendL)
 
-                                 kbeginR = maxlay_src*(kR-1)+1                       ! refers to source right column 
+                                 kbeginR = maxlay_src*(kR-1)+1                       ! refers to source right column
                                  kendR   = maxlay_src*kR
                                  sigmaR  = connection%sourceItemsPtr(1)%ptr%ElementSetPtr%z(kbeginR:kendR)
 
                                  ! Convert Z-coordinate to absolute z wrt datum
-                                 ! For the time being, let's assume that both support points have the same 
+                                 ! For the time being, let's assume that both support points have the same
                                  ! zmin and zmax as the support points. This way interpolation from sigma->sigma
-                                 ! and z->z gives the same result. 
-                                 ! Convert target elementset 
+                                 ! and z->z gives the same result.
+                                 ! Convert target elementset
                                  if (.not.ecElementSetGetAbsZ (connection%targetItemsPtr(1)%ptr%ElementSetPtr,   &
                                                                                                   kbegin,kend,   &
                                                                                         zmin(i),zmax(i),sigma(kbegin:kend)))  return
-                                 ! Convert source elementset, first point 
+                                 ! Convert source elementset, first point
                                  if (.not.ecElementSetGetAbsZ (connection%sourceItemsPtr(1)%ptr%ElementSetPtr,   &
                                                                                                   kbeginR,kendR, &
                                                                                        zmin(i),zmax(i),sigmaR))  return
-                                 ! Convert source elementset, second point 
+                                 ! Convert source elementset, second point
                                  if (.not.ecElementSetGetAbsZ (connection%sourceItemsPtr(1)%ptr%ElementSetPtr,   &
                                                                                                   kbeginL,kendL, &
                                                                                        zmin(i),zmax(i),sigmaL))  return
                                  do maxlay_srcL=maxlay_src,1,-1
                                     if (sigmaL(maxlay_srcL)>0.5*ec_undef_hp) exit
-                                 enddo 
-                                 if (maxlay_srcL<1) then 
+                                 enddo
+                                 if (maxlay_srcL<1) then
                                     write(errormsg,'(a,i0,a,i5.5)') "ERROR: ec_converter::ecConverterPolytim: No valid sigma (layer) associated with point ", &
                                                                       kL," of polytim item ", connection%sourceItemsPtr(1)%ptr%id
                                     call setECMessage(errormsg)
                                     return
-                                 endif 
+                                 endif
                                  do maxlay_srcR=maxlay_src,1,-1
                                     if (sigmaR(maxlay_srcR)>0.5*ec_undef_hp) exit
-                                 enddo 
-                                 if (maxlay_srcR<1) then 
+                                 enddo
+                                 if (maxlay_srcR<1) then
                                     write(errormsg,'(a,i0,a,i5.5)') "ERROR: ec_converter::ecConverterPolytim: No valid sigma (layer) associated with point ", &
                                                                       kR," of polytim item ", connection%sourceItemsPtr(1)%ptr%id
                                     call setECMessage(errormsg)
                                     return
-                                 endif 
+                                 endif
                                  !
                                  do k=kbegin,kend
                                     ! RL: BUG!!! z(k) not initialised if the model is not 3D !!! TO BE FIXED !!!!!!!!!!!!!!
@@ -1618,7 +1702,7 @@ module m_ec_converter
                                     ! find vertical indices and weights for the RIGHT point
                                     call findVerticalIndexWeight(sigma(k), sigmaR, maxlay_src, maxlay_srcR, kR, wwR, idxR1, idxR2)
 
-                                    ! idx are in terms of vector for a specific pli-point and layer 
+                                    ! idx are in terms of vector for a specific pli-point and layer
                                     valL1(1:vectormax) = connection%sourceItemsPtr(1)%ptr%targetFieldPtr%arr1Dptr((idxL1-1)*vectormax+1:(idxL1)*vectormax)
                                     valL2(1:vectormax) = connection%sourceItemsPtr(1)%ptr%targetFieldPtr%arr1Dptr((idxL2-1)*vectormax+1:(idxL2)*vectormax)
                                     valR1(1:vectormax) = connection%sourceItemsPtr(1)%ptr%targetFieldPtr%arr1Dptr((idxR1-1)*vectormax+1:(idxR1)*vectormax)
@@ -1649,10 +1733,10 @@ module m_ec_converter
                                              = connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr((k-1)*vectormax+1:k*vectormax) + val(1:vectormax)
                                     end if
                                     !
-                                 end do            ! target layers 
-                              end if               ! kR > 0: right support point exists 
+                                 end do            ! target layers
+                              end if               ! kR > 0: right support point exists
                            end if                  ! kL > 0: left support point exists
-                        else                       ! no vertical coordinate assigned to this source item, i.e. 3D source 
+                        else                       ! no vertical coordinate assigned to this source item, i.e. 3D source
                            ! 2D subproviders
                            connection%targetItemsPtr(1)%ptr%targetFieldPtr%timesteps = timesteps   !!!!! ???????
                            ! Determine value
@@ -1665,7 +1749,7 @@ module m_ec_converter
                               end if
                            else if (kR > 0) then ! Just right point
                                  val(1:vectormax) = wR*connection%sourceItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr((kR-1)*vectormax+1:kR*vectormax)
-                           end if 
+                           end if
                               !
                            if( kL /= 0 .or. kR /= 0 ) then
                               ! Write value
@@ -1678,10 +1762,10 @@ module m_ec_converter
                                  else if (connection%converterPtr%operandType == operand_add) then
                                      connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(from:thru) = &
                                      connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(from:thru) + val(1:vectormax)
-                                 end if 
+                                 end if
                               enddo
                            end if            ! valid left or right point ?
-                        end if               ! vertical coordinate for this source item, i.e. is it a 3D source  ? 
+                        end if               ! vertical coordinate for this source item, i.e. is it a 3D source  ?
                     case default
                        call setECMessage("ERROR: ec_converter::ecConverterPolytim: Unsupported operand type requested.")
                        return
@@ -1694,9 +1778,9 @@ module m_ec_converter
          if (allocated(sigma)) deallocate(sigma)
          if (allocated(sigmaL)) deallocate(sigmaL)
          if (allocated(sigmaR)) deallocate(sigmaR)
-         success = .true.   
+         success = .true.
       end function ecConverterPolytim
-!     maxlaysource 
+!     maxlaysource
 
       subroutine findVerticalIndexWeight(sigmak, sigma, maxdimlay_src, maxlay_src, kLR, ww, idx1, idx2)
          real(kind=hp), intent(in) :: sigmak, sigma(:)
@@ -1731,7 +1815,7 @@ module m_ec_converter
       !! Supports linear interpolation in time and interpolation is space.
       !! Supports overwriting and adding-to the entire target Field array.
       !! Converts data from source Item i to target Item i.
-      !! unstruc : gettimespacevalue 
+      !! unstruc : gettimespacevalue
       function ecConverterCurvi(connection, timesteps) result (success)
          logical                            :: success    !< function status
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
@@ -1828,10 +1912,10 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterCurvi: Unsupported interpolation type requested.")
             return
          end select
-         success = .true.   
+         success = .true.
       end function ecConverterCurvi
-      
-   
+
+
       ! =======================================================================
       !> Perform the configured conversion, if supported, for a arcinfo FileReader.
       !! Supports linear interpolation in time, interpolation in space and no weights.
@@ -1846,22 +1930,22 @@ module m_ec_converter
          integer  :: mx                 !< n_cols (x or latitude coordinate)
          integer  :: nx                 !< n_rows (y or longitude coordinate)
          integer  :: n                  !< loop counter
-         real(hp) :: x1, y1             !< 
-         integer  :: i1, j1             !< 
-         real(hp) :: di1, dj1           !< 
+         real(hp) :: x1, y1             !<
+         integer  :: i1, j1             !<
+         real(hp) :: di1, dj1           !<
          real(hp), dimension(4) :: f    !< spatial weights
          real(hp), dimension(4) :: fmask!< spatial mask
-         real(hp) :: fsum               !< summed spatial weights*masks 
+         real(hp) :: fsum               !< summed spatial weights*masks
          real(hp), dimension(4) :: u    !< source u, v or p at timesteps=t0
          real(hp), dimension(4) :: v    !< source u, v or p at timesteps=t1
-         real(hp) :: a0, a1             !< 
-         real(hp) :: t0, t1             !< 
+         real(hp) :: a0, a1             !<
+         real(hp) :: t0, t1             !<
          real(hp) :: vv0                !< target u, v or p at timesteps=t0
          real(hp) :: vv1                !< target u, v or p at timesteps=t1
          real(hp) :: rr                 !< target u, v or p at timesteps=t
          type(tEcField), pointer :: sourceT0Field !< helper pointer
          type(tEcField), pointer :: sourceT1Field !< helper pointer
-         type(tEcMask), pointer :: srcmask 
+         type(tEcMask), pointer :: srcmask
          !
          success = .false.
          sourceT0Field => null()
@@ -1917,10 +2001,10 @@ module m_ec_converter
                   v(2) = sourceT1Field%arr1dPtr(i1+1+mx*(j1-1))
                   v(3) = sourceT1Field%arr1dPtr(i1+1+mx*j1)
                   v(4) = sourceT1Field%arr1dPtr(i1+mx*j1)
-                  
+
                   ! === deal with missing values ===
                   srcmask => connection%converterPtr%srcmask
-                  fmask = 1 
+                  fmask = 1
 
                   ! For now, the mask consists of ones and zeroes
                   if (allocated(srcmask%msk)) then
@@ -1928,10 +2012,10 @@ module m_ec_converter
                      fmask(2) = (srcmask%msk((j1   -srcmask%nmin)*srcmask%mrange+i1+1 -srcmask%mmin+1))
                      fmask(3) = (srcmask%msk((j1+1 -srcmask%nmin)*srcmask%mrange+i1+1 -srcmask%mmin+1))
                      fmask(4) = (srcmask%msk((j1+1 -srcmask%nmin)*srcmask%mrange+i1   -srcmask%mmin+1))
-                  endif 
+                  endif
 
                   fsum = sum(f*(1.d0-fmask))
-                  if (fsum>=1.0e-03) then         
+                  if (fsum>=1.0e-03) then
                      f = (f*(1.d0-fmask))/fsum
                   endif
 
@@ -1940,7 +2024,7 @@ module m_ec_converter
                   ! === linear interpolation in time ===
                   t0 = sourceT0Field%timesteps
                   t1 = sourceT1Field%timesteps
-                  call time_weight_factors(a0, a1, timesteps, t0, t1)            
+                  call time_weight_factors(a0, a1, timesteps, t0, t1)
                   rr = a0*vv0 + a1*vv1
                   select case(connection%converterPtr%operandType)
                      case(operand_replace)
@@ -1960,9 +2044,9 @@ module m_ec_converter
          end select
          success = .true.
       end function ecConverterArcinfo
-      
+
       ! =======================================================================
-      
+
       !> Perform the configured conversion, if supported, for a samples FileReader.
       !! Supports linear triangle interpolation in space, no time, no weights.
       !! meteo1 : timespaceinitialfield
@@ -2011,18 +2095,18 @@ module m_ec_converter
       end function ecConverterSamples
 
       ! =======================================================================
-      
+
       !> Perform the configured conversion, if supported, for a qhtable FileReader.
       !! No interpolation is supported. Data is constant over time.
       !! Supports overwriting an array element of the target Field's data array.
-      function ecConverterQhtable(connection, timesteps) result (success)
+      function ecConverterQhtable(connection) result (success)
          logical                            :: success    !< function status
          type(tEcConnection), intent(inout) :: connection !< access to Converter and Items
-         real(hp),            intent(in)    :: timesteps  !< convert to this number of timesteps past the kernel's reference date
+         real(hp),            pointer       :: input      !< input value to the lookup table (referenced by pointer
          !
-         integer :: i, j !< loop counters
+         integer :: j
          integer :: start_j
-         integer :: nx
+         integer :: nx, tgtndx
          !
          success = .false.
          !
@@ -2030,26 +2114,23 @@ module m_ec_converter
             case (interpolate_passthrough)
                select case(connection%converterPtr%operandType)
                   case(operand_replace_element)
-                     ! Calculate for whole magic_array, as the proper index is not known here. Polytim converter will select the correct answer. 
-                     do i=1, size(magic_array)
-                        if (magic_array(i) < connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(1)) then
-                           connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(i) = connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(1) ! waterlevel(i)
-                           cycle
-                        end if 
-                        nx = connection%sourceItemsPtr(1)%ptr%elementSetPtr%nCoordinates
-                        if (magic_array(i) > connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(nx)) then
-                           connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(i) = connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(nx) ! waterlevel(nx)
-                           cycle
-                        end if 
+                     tgtndx = connection%converterPtr%targetIndex
+                     nx = connection%sourceItemsPtr(1)%ptr%elementSetPtr%nCoordinates
+                     input => connection%converterPtr%inputptr
+                     if (input < connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(1)) then
+                        connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(tgtndx) = connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(1) ! waterlevel(i)
+                     else if (input > connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(nx)) then
+                        connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(tgtndx) = connection%sourceItemsPtr(2)%ptr%sourceT0FieldPtr%arr1dPtr(nx) ! waterlevel(nx)
+                     else
                         do j=2, nx
-                           if (magic_array(i) < connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(j)) then ! discharge(j)
+                           if (input < connection%sourceItemsPtr(1)%ptr%sourceT0FieldPtr%arr1dPtr(j)) then ! discharge(j)
                               start_j = j
                               exit
                            end if
                         end do
-                        connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(i) = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(start_j-1) * magic_array(i) &
-                                                                                    + connection%sourceItemsPtr(4)%ptr%sourceT0FieldPtr%arr1dPtr(start_j-1)
-                     end do
+                        connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(tgtndx) = connection%sourceItemsPtr(3)%ptr%sourceT0FieldPtr%arr1dPtr(start_j-1) * input &
+                                                                                         + connection%sourceItemsPtr(4)%ptr%sourceT0FieldPtr%arr1dPtr(start_j-1)
+                     endif
                   case default
                      call setECMessage("ERROR: ec_converter::ecConverterQhtable: Unsupported operand type requested.")
                      return
@@ -2058,11 +2139,11 @@ module m_ec_converter
                call setECMessage("ERROR: ec_converter::ecConverterQhtable: Unsupported interpolation type requested.")
                return
          end select
-         success = .true.   
+         success = .true.
+
       end function ecConverterQhtable
-      
       ! =======================================================================
-      
+
       !> Perform the configured conversion, if supported, for a unimagdir FileReader.
       !! No interpolation is supported. Data is generated from seed values.
       !! Supports overwriting and adding-to the target Field's single data value, as well all as overwriting only one array element.
@@ -2135,11 +2216,11 @@ module m_ec_converter
             call setECMessage("ERROR: ec_converter::ecConverterFourier: Unsupported interpolation type requested.")
             return
          end select
-         success = .true.         
+         success = .true.
       end function ecConverterFourier
-      
+
       ! =======================================================================
-      
+
       !> Cyclic interpolation of two scalars, based on periodicity of 360 (degrees)
       !! Sort data in monotonically increasing order and rotate over smallest angle
       function cyclic_interpolation(var1, var2, weight1, weight2)
@@ -2153,7 +2234,7 @@ module m_ec_converter
          real(hp)             :: maxangle
          real(hp)             :: delta
          real(hp)             :: weightfac
-    
+
          minangle  = var1
          maxangle  = var2
          weightfac = weight1
@@ -2163,21 +2244,21 @@ module m_ec_converter
             weightfac = 1.0_hp - weightfac
          end if
          delta = maxangle - minangle
-       
+
          ! Carry out the interpolation
          if (delta <= 180.0_hp) then
             cyclic_interpolation = (1.0_hp - weightfac)*delta
          else
             cyclic_interpolation = (1.0_hp - weightfac)*delta + weightfac*360.0_hp
          end if
-       
+
          ! Rotate backwards over the smallest angle
          cyclic_interpolation = cyclic_interpolation + minangle
          cyclic_interpolation = modulo(cyclic_interpolation, 360.0_hp)
       end function
-      
+
       ! =======================================================================
-      
+
       !> Execute the Converters in the Connection sequentially.
       !! meteo1: gettimespacevalue
       function ecConverterSpiderweb(connection, timesteps) result (success)
@@ -2194,7 +2275,7 @@ module m_ec_converter
          real(hp) :: yeye0
          real(hp) :: xeye1
          real(hp) :: yeye1
-         real(hp) :: xeye 
+         real(hp) :: xeye
          real(hp) :: yeye
          real(hp) :: dlat
          real(hp) :: dlon
@@ -2216,8 +2297,8 @@ module m_ec_converter
          real(hp) :: spwr4
          real(hp) :: spwd4
          real(hp) :: spwp4
-         real(hp) :: wphi 
-         real(hp) :: wrad 
+         real(hp) :: wphi
+         real(hp) :: wrad
          real(hp) :: spwrA
          real(hp) :: spwrB
          real(hp) :: spwdA
@@ -2273,7 +2354,7 @@ module m_ec_converter
                return
             end select
             do i = 1, connection%nSourceItems
-              select case (connection%sourceItemsPtr(i)%ptr%quantityPtr%name) 
+              select case (connection%sourceItemsPtr(i)%ptr%quantityPtr%name)
                  case ('windspeed')
                     swr = i
                  case ('winddirection')
@@ -2282,7 +2363,7 @@ module m_ec_converter
                     swp = i
               end select
             end do
-      
+
          !
          ! Calculate the basic spiderweb grid settings
          spwdphi = 360.0_hp / (n_cols - 1) ! 0 == 360 degrees, so -1
@@ -2314,10 +2395,10 @@ module m_ec_converter
             else
                spwphihat = 0d0
             end if
-            if (comparereal(dlon, 0d0) == 0) then     ! exceptional case of being excatly SOUTH of the eye, phi should be 180 degrees 
+            if (comparereal(dlon, 0d0) == 0) then     ! exceptional case of being excatly SOUTH of the eye, phi should be 180 degrees
                if (dlat<0) then
                   spwphihat = 180.0d0
-               endif 
+               endif
             endif
             if (dlon*spwphihat<0) then                ! relative longitude should have the same sign as phi
                spwphihat = spwphihat + 180.0_hp
@@ -2337,7 +2418,7 @@ module m_ec_converter
                   spwr1 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a0 + &
                           connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*(nf-1))*a1 ! linear time interp of magnitude
                   spwr2 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a0 + &
-                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of magnitude  
+                          connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+1+n_cols*(nf-1))*a1 ! linear time interp of magnitude
                   spwr3 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+n_cols*nf)*a0 + &
                           connection%sourceItemsPtr(swr)%ptr%sourceT1FieldPtr%arr1dPtr(mf+n_cols*nf)*a1 ! linear time interp of magnitude
                   spwr4 = connection%sourceItemsPtr(swr)%ptr%sourceT0FieldPtr%arr1dPtr(mf+1+n_cols*nf)*a0 + &
@@ -2370,7 +2451,7 @@ module m_ec_converter
                !
                wphi  = 1.0_hp - (spwphihat - (mf-1)*spwdphi)/(spwdphi)   ! weightfactor for the direction
                wrad  = 1.0_hp - (spwradhat - (nf-1)*spwdrad)/(spwdrad)   ! weightfactor for the radius
-   
+
                if ((twx>0).or.(twy>0)) then
                   spwrA = spwr1*wphi + spwr2*(1.0_hp-wphi)                  ! space interp magnitude (direction)
                   spwrB = spwr3*wphi + spwr4*(1.0_hp-wphi)                  ! space interp magnitude (direction)
@@ -2404,7 +2485,7 @@ module m_ec_converter
                      connection%targetItemsPtr(twy)%ptr%targetFieldPtr%timesteps = timesteps
                   end if
                   if (twp>0) then
-                     ! Only pressure is considered relative here, so we don't overwrite the background pressure 
+                     ! Only pressure is considered relative here, so we don't overwrite the background pressure
                      connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) =                          &
                                    connection%targetItemsPtr(twp)%ptr%targetFieldPtr%arr1dPtr(n) - pintp
                      connection%targetItemsPtr(twp)%ptr%targetFieldPtr%timesteps = timesteps
@@ -2412,19 +2493,19 @@ module m_ec_converter
                case(operand_add)
                   rcycl = connection%sourceItemsPtr(1)%ptr%elementSetPtr%radius
                   yy = spwradhat
-                  spwf = 0.d0 
+                  spwf = 0.d0
                   if (yy<rcycl) then
                      spwf   = min((1.0_hp - yy/rcycl)/spw_merge_frac,1.0_hp)
                      ! spwf is the weightfactor for the spiderweb! Differs from the Delft3D implementation
                      if (twx>0) then
                         connection%targetItemsPtr(twx)%ptr%targetFieldPtr%arr1dPtr(n) =                       &
-                              (1.0_hp-spwf) * connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n)     & 
+                              (1.0_hp-spwf) * connection%targetItemsPtr(1)%ptr%targetFieldPtr%arr1dPtr(n)     &
                             +         spwf  * uintp
                         connection%targetItemsPtr(twx)%ptr%targetFieldPtr%timesteps = timesteps
                      end if
                      if (twy>0) then
                         connection%targetItemsPtr(twy)%ptr%targetFieldPtr%arr1dPtr(n) =                       &
-                              (1.0_hp-spwf) * connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n)     & 
+                              (1.0_hp-spwf) * connection%targetItemsPtr(2)%ptr%targetFieldPtr%arr1dPtr(n)     &
                             +         spwf  * vintp
                         connection%targetItemsPtr(twy)%ptr%targetFieldPtr%timesteps = timesteps
                      end if
@@ -2441,7 +2522,7 @@ module m_ec_converter
          end do
          success = .true.
       end function ecConverterSpiderweb
-      
+
       ! =======================================================================
 
       !> Perform the configured conversion, if supported, for a NetCDF FileReader.
@@ -2465,15 +2546,15 @@ module m_ec_converter
          real(hp)                :: a1            !< weight for source t1 data
          real(hp)                :: wb            !< weight for source data below
          real(hp)                :: wt            !< weight for source data above
-         real(hp)                :: a_s, b_s      !< coefficients for a linear transformation of source vertical coordinates to elevation above datum 
-         real(hp)                :: a_t, b_t      !< coefficients for a linear transformation of target vertical coordinates to elevation above datum 
+         real(hp)                :: a_s, b_s      !< coefficients for a linear transformation of source vertical coordinates to elevation above datum
+         real(hp)                :: a_t, b_t      !< coefficients for a linear transformation of target vertical coordinates to elevation above datum
          real(hp)                :: sourceValueT0 !< source value at t0
          real(hp)                :: sourceValueT1 !< source value at t1
          type(tEcField), pointer :: targetField   !< Converter's result goes in here
-         real(hp)                :: targetMissing !< Target side missing value 
+         real(hp)                :: targetMissing !< Target side missing value
          type(tEcField), pointer :: sourceT0Field !< helper pointer
          type(tEcField), pointer :: sourceT1Field !< helper pointer
-         real(hp)                :: sourceMissing !< Source side missing value 
+         real(hp)                :: sourceMissing !< Source side missing value
          real(hp), dimension(:,:,:), pointer :: s3D_T0, s3D_T1   !< 3D representation of linearly indexed array arr1D
          real(hp), dimension(:,:),   pointer :: s2D_T0, s2D_T1   !< 2D representation of linearly indexed array arr1D
          real(hp), dimension(:),     pointer :: s1D_T0, s1D_T1   !< 1D representation of linearly indexed array arr1D
@@ -2481,9 +2562,9 @@ module m_ec_converter
          type(tEcElementSet), pointer :: sourceElementSet !< source ElementSet
          type(tEcElementSet), pointer :: targetElementSet !< target ElementSet
          type(tEcItem), pointer :: sourceItem !< source Item
-         type(tEcItem), pointer :: targetItem !< target item 
-         integer :: n_layers, n_cols, n_rows, mp, np, kp, dkp, k_inc, n_points
-         type(tEcItem), pointer  :: windxPtr ! pointer to item for windx     
+         type(tEcItem), pointer :: targetItem !< target item
+         integer :: n_layers, n_cols, n_rows, n_points, mp, np, kp, dkp, k_inc
+         type(tEcItem), pointer  :: windxPtr ! pointer to item for windx
          type(tEcItem), pointer  :: windyPtr ! pointer to item for windy
          logical :: has_x_wind, has_y_wind
          real(hp), dimension(:), pointer     :: targetValues
@@ -2491,7 +2572,7 @@ module m_ec_converter
          real(hp)                :: ztgt
          double precision        :: PI, phi, xtmp
          integer                 :: time_interpolation
-         logical, dimension(:), allocatable  :: missing 
+         logical, dimension(:), allocatable  :: missing
          real(hp), dimension(2,2,2,2) :: sourcevals
          real(hp), dimension(2,2)   :: val
          real(hp)                   :: lastvalue
@@ -2502,11 +2583,11 @@ module m_ec_converter
          type(kdtree_instance)      :: treeinst
          real(hp), dimension(:), allocatable :: x_extrapolate    ! temporary array holding targetelementset x for setting up kdtree for interpolation
          integer                    :: col0, row0, col1, row1    ! bounding box in meteo-space spanned by the target elementset
-         
+
          integer                        :: issparse
          integer, dimension(:), pointer :: ia                    ! sparsity pattern in CRS format, startpointers
          integer, dimension(:), pointer :: ja                    ! sparsity pattern in CRS format, column numbers
-         
+
          integer                        :: Ndatasize
          integer, dimension(2)          :: idx
 
@@ -2525,26 +2606,26 @@ module m_ec_converter
          has_x_wind = .False.
          has_y_wind = .False.
           do i=1, connection%nSourceItems
-            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='eastward_wind') then 
+            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='eastward_wind') then
                windxPtr => connection%SourceItemsPtr(i)%ptr
-            endif 
-            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='northward_wind') then 
+            endif
+            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='northward_wind') then
                windyPtr => connection%SourceItemsPtr(i)%ptr
-            endif 
-            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='grid_eastward_wind' .or. connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='x_wind') then 
+            endif
+            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='grid_eastward_wind' .or. connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='x_wind') then
                windxPtr => connection%SourceItemsPtr(i)%ptr
                has_x_wind = .True.
-            endif 
-            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='grid_northward_wind' .or. connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='y_wind') then 
+            endif
+            if (connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='grid_northward_wind' .or. connection%SourceItemsPtr(i)%ptr%quantityPtr%name=='y_wind') then
                windyPtr => connection%SourceItemsPtr(i)%ptr
                has_y_wind = .True.
-            endif 
-         enddo 
+            endif
+         enddo
 
-         if (has_x_wind .and. has_y_wind) then 
+         if (has_x_wind .and. has_y_wind) then
              ! This should only be performed if the standard_name for the x-component was x_wind or grid_eastward_wind (and similar for the y-component)
              ! If eastward_wind was given, this operation should formally be ommitted, according to the CF-convention
-             if (associated(windxPtr%elementsetPtr%dir)) then 
+             if (associated(windxPtr%elementsetPtr%dir)) then
                do ipt = 1,  windxPtr%elementsetPtr%ncoordinates
                   phi = windxPtr%elementsetPtr%dir(ipt)*PI/180.d0
                   xtmp = windxPtr%SourceT0fieldptr%arr1dptr(ipt)*cos(phi) + windyPtr%SourceT0fieldptr%arr1dptr(ipt)*sin(phi)
@@ -2553,9 +2634,9 @@ module m_ec_converter
                   xtmp = windxPtr%SourceT1fieldptr%arr1dptr(ipt)*cos(phi) + windyPtr%SourceT1fieldptr%arr1dptr(ipt)*sin(phi)
                   windyPtr%SourceT1fieldptr%arr1dptr(ipt) = windxPtr%SourceT1fieldptr%arr1dptr(ipt)*(-sin(phi)) + windyPtr%SourceT1fieldptr%arr1dptr(ipt)*cos(phi)
                   windxPtr%SourceT1fieldptr%arr1dptr(ipt) = xtmp
-               enddo 
-            endif    
-         endif 
+               enddo
+            endif
+         endif
          !
          ! ===== interpolation =====
          select case(connection%converterPtr%interpolationType)
@@ -2578,278 +2659,305 @@ module m_ec_converter
                   targetMissing = targetField%MISSINGVALUE
                   targetElementSet => targetItem%elementSetPtr
 
-                  col0 = sourceItem%sourceT0FieldPtr%bbox(1)
-                  row0 = sourceItem%sourceT0FieldPtr%bbox(2)
-                  col1 = sourceItem%sourceT0FieldPtr%bbox(3)
-                  row1 = sourceItem%sourceT0FieldPtr%bbox(4)
-                  
-!                 note: it is assumed that the sparsity pattern of the T1field is the same as of the T0field
-                  issparse = sourceItem%sourceT0FieldPtr%issparse
-                  ia => sourceItem%sourceT0FieldPtr%ia
-                  ja => sourceItem%sourceT0FieldPtr%ja
 
-                  n_points = targetElementSet%nCoordinates
-                  if ( issparse.eq.1 ) then
+                  if (sourceElementSet%ofType == elmSetType_samples) then
+                     ! call interpolation based on nearest neighbours
+                     n_points = targetElementSet%nCoordinates
                      n_cols = sourceElementSet%n_cols
-                     n_rows = sourceElementSet%n_rows
-                  else
-                     n_rows = row1 - row0 + 1
-                     n_cols = col1 - col0 + 1
-                  end if
-                  n_layers = sourceElementSet%n_layers
-                  t0 = sourceT0Field%timesteps
-                  t1 = sourceT1Field%timesteps
+                     n_layers = sourceElementSet%n_layers
+                     t0 = sourceT0Field%timesteps
+                     t1 = sourceT1Field%timesteps
 
-                  call time_weight_factors(a0, a1, timesteps, t0, t1, timeint=time_interpolation)
-                  
-                  if (n_layers>0 .and. associated(targetElementSet%z) .and. associated(sourceElementSet%z)) then 
-                     allocate(zsrc(n_layers))
-                     if ( issparse.eq.1 ) then
-                        Ndatasize = ia(n_rows+1)-1
-                        s2D_T0(1:Ndatasize,1:n_layers) => sourceT0Field%arr1d
-                        s2D_T1(1:Ndatasize,1:n_layers) => sourceT1Field%arr1d
-                     else
-                        s3D_T0(1:n_cols,1:n_rows,1:n_layers) => sourceT0Field%arr1d
-                        s3D_T1(1:n_cols,1:n_rows,1:n_layers) => sourceT1Field%arr1d
-                     end if
-                     do j=1, n_points
-                        kbot = targetElementSet%kbot(j)
-                        ktop = targetElementSet%ktop(j)
-                        np = indexWeight%indices(1,j)
-                        mp = indexWeight%indices(2,j)
-                        if (mp > 0 .and. np > 0) then
-                           if (connection%converterPtr%operandType==operand_replace) then
-                              targetValues(kbot:ktop) = 0.0_hp
-                           end if
-                           ! The save horizontal weigths are used. The vertical weights are recalculated because z changes.
-                           ! transformation coefficients for the z-array, target side:
-                           select case (targetElementSet%vptyp)
-                           case (BC_VPTYP_ZDATUM)
-                              a_t = 1.0_hp
-                              b_t = 0.0_hp
-                           case (BC_VPTYP_ZDATUM_DOWN)   
-                              a_t = -1.0_hp
-                              b_t = 0.0_hp
-                           case (BC_VPTYP_PERCBED)   
-                              a_t = (targetElementSet%zmax(j)-targetElementSet%zmin(j))
-                              b_t = targetElementSet%zmin(j)
-                           case (BC_VPTYP_PERCSURF)   
-                              a_t = (targetElementSet%zmin(j)-targetElementSet%zmax(j))
-                              b_t = targetElementSet%zmax(j)
-                           end select 
-
-                           ! transformation coefficients for the z-array, source side:
-                           select case (sourceElementSet%vptyp)
-                           case (BC_VPTYP_ZDATUM)
-                              a_s = 1.0_hp
-                              b_s = 0.0_hp
-                           case (BC_VPTYP_ZDATUM_DOWN)   
-                              a_s = -1.0_hp
-                              b_s = 0.0_hp
-                           end select 
-
-                           ! scale source coordinates with factors of target
-                           zsrc = (a_s*sourceElementSet%z + b_s - b_t)/a_t 
-                           
-                           ! initialize upper layer kp                           
-                           kp = 2
-                           
-                           ! dkp: increase direction of (scaled) source z-coordinate zsrc, i.e. zrsc(kp) > zsrc(kp-dkp)
-                           if (zsrc(2)-zsrc(1)>0) then
-                              dkp = 1
-                           else
-                              dkp = -1
-                           end if      ! write source vertical coordinate in terms of target system
-                           
-                           if ( issparse.eq.1 ) then
-                             idx = (/ np, mp /) ! (bottom-left, upper-left) indices
-                           end if
-                           
-                           do k = kbot, ktop
-                              ztgt = targetElementSet%z(k)
-                              
-                              ! get search direction in zsrc
-                              if (dkp*(ztgt-zsrc(kp))>0) then
-                                 k_inc = 1
-                              else 
-                                 k_inc = -1
-                              end if
-                              
-                              ! get new upper layer kp               
-                              do while ((zsrc(kp-dkp)>ztgt) .or. (zsrc(kp)<=ztgt))
-                                 kp = kp + k_inc
-                                 if (kp > n_layers .or. kp < 1) exit
-                                 if (kp-dkp > n_layers .or. kp-dkp < 1) exit
-                              enddo
-                              if (dkp>0) then
-                                 kp = min(max(kp,2),n_layers)
-                              else 
-                                 kp = min(max(kp,1),n_layers-1)
-                              end if
-                              
-                              ! fill source values
-                              if ( issparse.eq.1 ) then
-                                 do kk=0,1
-                                    do jj=0,1
-                                       do ii=0,1
-                                          sourcevals(1+ii,1+jj,1+kk,1) = s2D_T0(idx(1+jj)+ii, kp+dkp*(kk-1))
-                                          sourcevals(1+ii,1+jj,1+kk,2) = s2D_T1(idx(1+jj)+ii, kp+dkp*(kk-1))
-                                       end do
-                                    end do
-                                 end do
-                              else
-                                 do kk=0,1
-                                    do jj=0,1
-                                       do ii=0,1
-                                          sourcevals(1+ii,1+jj,1+kk,1) = s3D_T0(mp+ii, np+jj, kp+dkp*(kk-1) )
-                                          sourcevals(1+ii,1+jj,1+kk,2) = s3D_T1(mp+ii, np+jj, kp+dkp*(kk-1) )
-                                       end do
-                                    end do
-                                 end do
-                              end if
-                              
-                              call extrapolate_missing(sourcevals, sourceMissing, jamissing)
-                              
-                              if ( jamissing>0 ) then
-                                 targetValues(k) = targetMissing
-                              else
-                              
-                                 ! horizontal interpolation 
-                                 val = 0d0   ! (down-up,old-new)
-                                 do ll=1,2
-                                    do kk=1,2
-                                       val(kk,ll) = val(kk,ll) + sourcevals(1, 1, kk, ll) * indexWeight%weightFactors(1,j)    !   4      3
-                                       val(kk,ll) = val(kk,ll) + sourcevals(2, 1, kk, ll) * indexWeight%weightFactors(2,j)
-                                       val(kk,ll) = val(kk,ll) + sourcevals(2, 2, kk, ll) * indexWeight%weightFactors(3,j)
-                                       val(kk,ll) = val(kk,ll) + sourcevals(1, 2, kk, ll) * indexWeight%weightFactors(4,j)    !   1      2
-                                    end do
-                                 end do                                 
-                                 ! get weights for vertical interpolation
-                                 wb = (zsrc(kp) - ztgt)/(zsrc(kp)-zsrc(kp-dkp))
-                                 wb = min(max(wb,0.0_hp),1.0_hp)                       ! zeroth-order extrapolation beyond range of source vertical coordinates
-                                 wt = (1.0_hp - wb)
-                                 
-                                 ! interpolating between times and between vertical layers
-                                 targetValues(k) = targetValues(k) + a0*(wb*val(1,1) + wt*val(2,1)) + a1*(wb*val(1,2) + wt*val(2,2))
-                              end if
-                           end do
-                           
-                           ! fill missing values
-                           lastvalue = targetMissing
-                           do k=ktop,kbot,-1
-                              if ( targetValues(k).ne.targetMissing ) then
-                                 lastvalue = targetValues(k)
-                              else if ( lastvalue.ne.targetMissing ) then
-                                 targetValues(k) = lastvalue
-                              end if
-                           end do
-                           
-                           lastvalue = targetMissing
-                           do k=kbot,ktop
-                              if ( targetValues(k).ne.targetMissing ) then
-                                 lastvalue = targetValues(k)
-                              else if ( lastvalue.ne.targetMissing ) then
-                                 targetValues(k) = lastvalue
-                              end if
-                           end do
-                        end if
-                     end do
-                     if (allocated(zsrc)) deallocate(zsrc)
-                  else
-                     if ( issparse.eq.1 ) then
-                        Ndatasize = ia(n_rows+1)-1
-                        S1D_T0(1:Ndatasize) => sourceT0Field%arr1d
-                        S1D_T1(1:Ndatasize) => sourceT1Field%arr1d
-                     else
-                        s2D_T0(1:n_cols,1:n_rows) => sourceT0Field%arr1d
-                        s2D_T1(1:n_cols,1:n_rows) => sourceT1Field%arr1d
-                     end if
-                     
-                     if (connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then
-                        allocate(x_extrapolate(n_points))
-                        x_extrapolate = targetElementSet%x
-                     endif
-                     allocate(missing(n_points))
-                     missing = .False.
-                     do j=1, n_points
-                        np = indexWeight%indices(1,j)
-                        mp = indexWeight%indices(2,j)
-                        jamissing = 0
-                        if (mp > 0 .and. np > 0) then ! if mp and np both valid, this is an interior point of the meteo domain, else ignore
-                                                      ! check missing values for points with valid mp and np
-                        
-                           if ( issparse.eq.1 ) then
-                             idx = (/ np, mp /) ! (bottom-left, upper-left) indices
-                           end if
-                           
-                           ! fill source values
-                           kk = 0   ! 2D only
-                           if ( issparse.eq.1 ) then
-                              do jj=0,1
-                                 do ii=0,1
-                                    sourcevals(1+ii,1+jj,1+kk,1) = s1D_T0(idx(1+jj)+ii)
-                                    sourcevals(1+ii,1+jj,1+kk,2) = s1D_T1(idx(1+jj)+ii)
-                                 end do
-                              end do
-                           else
-                              do jj=0,1
-                                 do ii=0,1
-                                    sourcevals(1+ii,1+jj,1+kk,1) = s2D_T0(mp+ii, np+jj)
-                                    sourcevals(1+ii,1+jj,1+kk,2) = s2D_T1(mp+ii, np+jj)
-                                 end do
-                              end do
-                           end if
-                        
+                     call time_weight_factors(a0, a1, timesteps, t0, t1, timeint=time_interpolation)
+                     if (n_layers==0) then
+                        do j=1,n_points
                            if (connection%converterPtr%operandType==operand_replace) then ! Dit hoort in de loop beneden per target gridpunt!
                               targetValues(j) = 0.0_hp
                            end if
-                  kloop2D: do jj=0,1
-                              do ii=0,1
-                                 if ( comparereal(sourcevals(1+ii, 1+jj, 1, 1), sourceMissing)==0 .or.   &
-                                      comparereal(sourcevals(1+ii, 1+jj, 1, 2), sourceMissing)==0 ) then
-                                    jamissing = jamissing + 1
-                                    exit kloop2D
+                           mp = indexWeight%indices(1,j)
+                           if (mp>0 .and. mp<=n_cols) then
+                              targetValues(j) = targetValues(j) + a0 * sourceItem%sourceT0FieldPtr%arr1d(mp) &
+                                                                + a1 * sourceItem%sourceT1FieldPtr%arr1d(mp)
+                           end if
+                        end do
+                     else
+                        call setECMessage("ERROR: ec_converter::ecConverterNetcdf: Multiple layers sources not yet supported for meteo from stations.")
+                        return
+                     end if
+                  else
+                     col0 = sourceItem%sourceT0FieldPtr%bbox(1)
+                     row0 = sourceItem%sourceT0FieldPtr%bbox(2)
+                     col1 = sourceItem%sourceT0FieldPtr%bbox(3)
+                     row1 = sourceItem%sourceT0FieldPtr%bbox(4)
+
+   !                 note: it is assumed that the sparsity pattern of the T1field is the same as of the T0field
+                     issparse = sourceItem%sourceT0FieldPtr%issparse
+                     ia => sourceItem%sourceT0FieldPtr%ia
+                     ja => sourceItem%sourceT0FieldPtr%ja
+
+                     n_points = targetElementSet%nCoordinates
+                     if ( issparse == 1 ) then
+                        n_cols = sourceElementSet%n_cols
+                        n_rows = sourceElementSet%n_rows
+                     else
+                        n_rows = row1 - row0 + 1
+                        n_cols = col1 - col0 + 1
+                     end if
+                     n_layers = sourceElementSet%n_layers
+                     t0 = sourceT0Field%timesteps
+                     t1 = sourceT1Field%timesteps
+
+                     call time_weight_factors(a0, a1, timesteps, t0, t1, timeint=time_interpolation)
+
+                     if (n_layers>0 .and. associated(targetElementSet%z) .and. associated(sourceElementSet%z)) then
+                        allocate(zsrc(n_layers))
+                        if ( issparse == 1 ) then
+                           Ndatasize = ia(n_rows+1)-1
+                           s2D_T0(1:Ndatasize,1:n_layers) => sourceT0Field%arr1d
+                           s2D_T1(1:Ndatasize,1:n_layers) => sourceT1Field%arr1d
+                        else
+                           s3D_T0(1:n_cols,1:n_rows,1:n_layers) => sourceT0Field%arr1d
+                           s3D_T1(1:n_cols,1:n_rows,1:n_layers) => sourceT1Field%arr1d
+                        end if
+                        do j=1, n_points
+                           kbot = targetElementSet%kbot(j)
+                           ktop = targetElementSet%ktop(j)
+                           np = indexWeight%indices(1,j)
+                           mp = indexWeight%indices(2,j)
+                           if (mp > 0 .and. np > 0) then
+                              if (connection%converterPtr%operandType==operand_replace) then
+                                 targetValues(kbot:ktop) = 0.0_hp
+                              end if
+                              ! The save horizontal weigths are used. The vertical weights are recalculated because z changes.
+                              ! transformation coefficients for the z-array, target side:
+                              select case (targetElementSet%vptyp)
+                              case (BC_VPTYP_ZDATUM)
+                                 a_t = 1.0_hp
+                                 b_t = 0.0_hp
+                              case (BC_VPTYP_ZDATUM_DOWN)
+                                 a_t = -1.0_hp
+                                 b_t = 0.0_hp
+                              case (BC_VPTYP_PERCBED)
+                                 a_t = (targetElementSet%zmax(j)-targetElementSet%zmin(j))
+                                 b_t = targetElementSet%zmin(j)
+                              case (BC_VPTYP_PERCSURF)
+                                 a_t = (targetElementSet%zmin(j)-targetElementSet%zmax(j))
+                                 b_t = targetElementSet%zmax(j)
+                              end select
+
+                              ! transformation coefficients for the z-array, source side:
+                              select case (sourceElementSet%vptyp)
+                              case (BC_VPTYP_ZDATUM)
+                                 a_s = 1.0_hp
+                                 b_s = 0.0_hp
+                              case (BC_VPTYP_ZDATUM_DOWN)
+                                 a_s = -1.0_hp
+                                 b_s = 0.0_hp
+                              end select
+
+                              ! scale source coordinates with factors of target
+                              zsrc = (a_s*sourceElementSet%z + b_s - b_t)/a_t
+
+                              ! initialize upper layer kp
+                              kp = 2
+
+                              ! dkp: increase direction of (scaled) source z-coordinate zsrc, i.e. zrsc(kp) > zsrc(kp-dkp)
+                              if (zsrc(2)-zsrc(1)>0) then
+                                 dkp = 1
+                              else
+                                 dkp = -1
+                              end if      ! write source vertical coordinate in terms of target system
+
+                              if ( issparse == 1 ) then
+                                idx = (/ np, mp /) ! (bottom-left, upper-left) indices
+                              end if
+
+                              do k = kbot, ktop
+                                 ztgt = targetElementSet%z(k)
+
+                                 ! get search direction in zsrc
+                                 if (dkp*(ztgt-zsrc(kp))>0) then
+                                    k_inc = 1
+                                 else
+                                    k_inc = -1
+                                 end if
+
+                                 ! get new upper layer kp
+                                 do while ((zsrc(kp-dkp)>ztgt) .or. (zsrc(kp)<=ztgt))
+                                    kp = kp + k_inc
+                                    if (kp > n_layers .or. kp < 1) exit
+                                    if (kp-dkp > n_layers .or. kp-dkp < 1) exit
+                                 enddo
+                                 if (dkp>0) then
+                                    kp = min(max(kp,2),n_layers)
+                                 else
+                                    kp = min(max(kp,1),n_layers-1)
+                                 end if
+
+                                 ! fill source values
+                                 if ( issparse == 1 ) then
+                                    do kk=0,1
+                                       do jj=0,1
+                                          do ii=0,1
+                                             sourcevals(1+ii,1+jj,1+kk,1) = s2D_T0(idx(1+jj)+ii, kp+dkp*(kk-1))
+                                             sourcevals(1+ii,1+jj,1+kk,2) = s2D_T1(idx(1+jj)+ii, kp+dkp*(kk-1))
+                                          end do
+                                       end do
+                                    end do
+                                 else
+                                    do kk=0,1
+                                       do jj=0,1
+                                          do ii=0,1
+                                             sourcevals(1+ii,1+jj,1+kk,1) = s3D_T0(mp+ii, np+jj, kp+dkp*(kk-1) )
+                                             sourcevals(1+ii,1+jj,1+kk,2) = s3D_T1(mp+ii, np+jj, kp+dkp*(kk-1) )
+                                          end do
+                                       end do
+                                    end do
+                                 end if
+
+                                 call extrapolate_missing(sourcevals, sourceMissing, jamissing)
+
+                                 if ( jamissing>0 ) then
+                                    targetValues(k) = targetMissing
+                                 else
+
+                                    ! horizontal interpolation
+                                    val = 0d0   ! (down-up,old-new)
+                                    do ll=1,2
+                                       do kk=1,2
+                                          val(kk,ll) = val(kk,ll) + sourcevals(1, 1, kk, ll) * indexWeight%weightFactors(1,j)    !   4      3
+                                          val(kk,ll) = val(kk,ll) + sourcevals(2, 1, kk, ll) * indexWeight%weightFactors(2,j)
+                                          val(kk,ll) = val(kk,ll) + sourcevals(2, 2, kk, ll) * indexWeight%weightFactors(3,j)
+                                          val(kk,ll) = val(kk,ll) + sourcevals(1, 2, kk, ll) * indexWeight%weightFactors(4,j)    !   1      2
+                                       end do
+                                    end do
+                                    ! get weights for vertical interpolation
+                                    wb = (zsrc(kp) - ztgt)/(zsrc(kp)-zsrc(kp-dkp))
+                                    wb = min(max(wb,0.0_hp),1.0_hp)                       ! zeroth-order extrapolation beyond range of source vertical coordinates
+                                    wt = (1.0_hp - wb)
+
+                                    ! interpolating between times and between vertical layers
+                                    targetValues(k) = targetValues(k) + a0*(wb*val(1,1) + wt*val(2,1)) + a1*(wb*val(1,2) + wt*val(2,2))
                                  end if
                               end do
-                           end do kloop2D
-                           if (jamissing>0) then                                                                        ! if insufficient data for bi-linear interpolation
-                              missing(j) = .True.    ! Mark missings in the target grid in a temporary logical array  
-                              if (allocated(x_extrapolate)) x_extrapolate(j)=ec_undef_hp                                ! no-data -> unelectable for kdtree later
-                           else
-                              targetValues(j) = targetValues(j) + a0 * sourcevals(1, 1, 1, 1) * indexWeight%weightFactors(1,j)        !  4                 3
-                              targetValues(j) = targetValues(j) + a1 * sourcevals(1, 1, 1, 2) * indexWeight%weightFactors(1,j)
-                              targetValues(j) = targetValues(j) + a0 * sourcevals(2, 1, 1, 1) * indexWeight%weightFactors(2,j)
-                              targetValues(j) = targetValues(j) + a1 * sourcevals(2, 1, 1, 2) * indexWeight%weightFactors(2,j)
-                              targetValues(j) = targetValues(j) + a0 * sourcevals(2, 2, 1, 1) * indexWeight%weightFactors(3,j)
-                              targetValues(j) = targetValues(j) + a1 * sourcevals(2, 2, 1, 2) * indexWeight%weightFactors(3,j)
-                              targetValues(j) = targetValues(j) + a0 * sourcevals(1, 2, 1, 1) * indexWeight%weightFactors(4,j)
-                              targetValues(j) = targetValues(j) + a1 * sourcevals(1, 2, 1, 2) * indexWeight%weightFactors(4,j)        !  1                 2
-                              if (allocated(x_extrapolate)) x_extrapolate(j)=targetElementSet%x(j)                      ! x_extrapolate is a copy of the x with missing points marked by ec_undef_hp
-                           end if
+
+                              ! fill missing values
+                              lastvalue = targetMissing
+                              do k=ktop,kbot,-1
+                                 if ( targetValues(k).ne.targetMissing ) then
+                                    lastvalue = targetValues(k)
+                                 else if ( lastvalue.ne.targetMissing ) then
+                                    targetValues(k) = lastvalue
+                                 end if
+                              end do
+
+                              lastvalue = targetMissing
+                              do k=kbot,ktop
+                                 if ( targetValues(k).ne.targetMissing ) then
+                                    lastvalue = targetValues(k)
+                                 else if ( lastvalue.ne.targetMissing ) then
+                                    targetValues(k) = lastvalue
+                                 end if
+                              end do   ! loop over vertical
+                           end if   ! valid mp and np
+                        end do   ! loop over the target elementset
+                        if (allocated(zsrc)) deallocate(zsrc)
+                     else
+                        if ( issparse == 1 ) then
+                           Ndatasize = ia(n_rows+1)-1
+                           S1D_T0(1:Ndatasize) => sourceT0Field%arr1d
+                           S1D_T1(1:Ndatasize) => sourceT1Field%arr1d
+                        else
+                           s2D_T0(1:n_cols,1:n_rows) => sourceT0Field%arr1d
+                           s2D_T1(1:n_cols,1:n_rows) => sourceT1Field%arr1d
                         end if
-                     end do      ! points j
-                     if (connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then      ! if extrapolation permitted ... 
-                        do j=1, n_points                                                                                ! Loop over the grid for missing in the target grid  
-                           if (missing(j)) then                                                                         ! Can only be an interior point with ORIGINALLY valid mp and np
-                              if (indexWeight%substndx(j)==0) then                                                      ! if we had not yet searched for a replacement value in the target grid, do so.
-                                 if (treeinst%itreestat /= ITREE_OK) then
-!                                   jsferic = merge(1,0,targetElementSet%ofType == elmSetType_spheric)                  ! adopt the global jsferic setting of the EC-module instance
-                                    jsferic = 0                                                                         ! in EC-converter treat all coordinates as carthesian
-                                                                                                                        ! Now kdtree over target locations which do NOT yet have a value ('missing')
-                                    call build_kdtree(treeinst, n_points, x_extrapolate, targetElementSet%y, ierr, jsferic, ec_undef_hp)
+
+                        if (connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then
+                           allocate(x_extrapolate(n_points))
+                           x_extrapolate = targetElementSet%x
+                        endif
+                        allocate(missing(n_points))
+                        missing = .False.
+                        do j=1, n_points
+                           np = indexWeight%indices(1,j)
+                           mp = indexWeight%indices(2,j)
+                           jamissing = 0
+                           if (mp > 0 .and. np > 0) then ! if mp and np both valid, this is an interior point of the meteo domain, else ignore
+                                                         ! check missing values for points with valid mp and np
+
+                              if ( issparse == 1 ) then
+                                idx = (/ np, mp /) ! (bottom-left, upper-left) indices
+                              end if
+
+                              ! fill source values
+                              kk = 0   ! 2D only
+                              if ( issparse == 1 ) then
+                                 do jj=0,1
+                                    do ii=0,1
+                                       sourcevals(1+ii,1+jj,1+kk,1) = s1D_T0(idx(1+jj)+ii)
+                                       sourcevals(1+ii,1+jj,1+kk,2) = s1D_T1(idx(1+jj)+ii)
+                                    end do
+                                 end do
+                              else
+                                 do jj=0,1
+                                    do ii=0,1
+                                       sourcevals(1+ii,1+jj,1+kk,1) = s2D_T0(mp+ii, np+jj)
+                                       sourcevals(1+ii,1+jj,1+kk,2) = s2D_T1(mp+ii, np+jj)
+                                    end do
+                                 end do
+                              end if
+
+                              if (connection%converterPtr%operandType==operand_replace) then
+                                 targetValues(j) = 0.0_hp
+                              end if
+                     kloop2D: do jj=0,1
+                                 do ii=0,1
+                                    if ( comparereal(sourcevals(1+ii, 1+jj, 1, 1), sourceMissing)==0 .or.   &
+                                         comparereal(sourcevals(1+ii, 1+jj, 1, 2), sourceMissing)==0 ) then
+                                       jamissing = jamissing + 1
+                                       exit kloop2D
+                                    end if
+                                 end do
+                              end do kloop2D
+                              if (jamissing>0) then                                                                        ! if insufficient data for bi-linear interpolation
+                                 missing(j) = .True.    ! Mark missings in the target grid in a temporary logical array
+                                 if (allocated(x_extrapolate)) x_extrapolate(j)=ec_undef_hp                                ! no-data -> unelectable for kdtree later
+                              else
+                                 targetValues(j) = targetValues(j) + a0 * sourcevals(1, 1, 1, 1) * indexWeight%weightFactors(1,j)        !  4                 3
+                                 targetValues(j) = targetValues(j) + a1 * sourcevals(1, 1, 1, 2) * indexWeight%weightFactors(1,j)
+                                 targetValues(j) = targetValues(j) + a0 * sourcevals(2, 1, 1, 1) * indexWeight%weightFactors(2,j)
+                                 targetValues(j) = targetValues(j) + a1 * sourcevals(2, 1, 1, 2) * indexWeight%weightFactors(2,j)
+                                 targetValues(j) = targetValues(j) + a0 * sourcevals(2, 2, 1, 1) * indexWeight%weightFactors(3,j)
+                                 targetValues(j) = targetValues(j) + a1 * sourcevals(2, 2, 1, 2) * indexWeight%weightFactors(3,j)
+                                 targetValues(j) = targetValues(j) + a0 * sourcevals(1, 2, 1, 1) * indexWeight%weightFactors(4,j)
+                                 targetValues(j) = targetValues(j) + a1 * sourcevals(1, 2, 1, 2) * indexWeight%weightFactors(4,j)        !  1                 2
+                                 if (allocated(x_extrapolate)) x_extrapolate(j)=targetElementSet%x(j)                      ! x_extrapolate is a copy of the x with missing points marked by ec_undef_hp
+                              end if
+                           end if   ! 2D or 3D sources
+                        end do      ! points j
+                        if (connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then      ! if extrapolation permitted ...
+                           do j=1, n_points                                                                                ! Loop over the grid for missing in the target grid
+                              if (missing(j)) then                                                                         ! Can only be an interior point with ORIGINALLY valid mp and np
+                                 if (indexWeight%substndx(j)==0) then                                                      ! if we had not yet searched for a replacement value in the target grid, do so.
+                                    if (treeinst%itreestat /= ITREE_OK) then
+   !                                   jsferic = merge(1,0,targetElementSet%ofType == elmSetType_spheric)                  ! adopt the global jsferic setting of the EC-module instance
+                                       jsferic = 0                                                                         ! in EC-converter treat all coordinates as carthesian
+                                                                                                                           ! Now kdtree over target locations which do NOT yet have a value ('missing')
+                                       call build_kdtree(treeinst, n_points, x_extrapolate, targetElementSet%y, ierr, jsferic, ec_undef_hp)
+                                    endif
+                                    call make_queryvector_kdtree(treeinst, targetElementSet%x(j), targetElementSet%y(j), jsferic)
+                                    call kdtree2_n_nearest(treeinst%tree, treeinst%qv, 1, treeinst%results)                ! use the first nearest neighbour
+                                    indexWeight%substndx(j) = treeinst%results(1)%idx                                      ! store its index for for later use (in an array that is init to zero)
                                  endif
-                                 call make_queryvector_kdtree(treeinst, targetElementSet%x(j), targetElementSet%y(j), jsferic)
-                                 call kdtree2_n_nearest(treeinst%tree, treeinst%qv, 1, treeinst%results)                ! use the first nearest neighbour
-                                 indexWeight%substndx(j) = treeinst%results(1)%idx                                      ! store its index for for later use (in an array that is init to zero)
+                                 targetValues(j) = targetValues(indexWeight%substndx(j))                                   ! and copy its value as a target value for the target point with missing data.
                               endif
-                              targetValues(j) = targetValues(indexWeight%substndx(j))                                   ! and copy its value as a target value for the target point with missing data.
-                           endif
-                        end do   ! points j
-                     endif   
-                     if (allocated(missing)) deallocate(missing)
-                     if (allocated(x_extrapolate)) deallocate(x_extrapolate)
-                     call delete_kdtree2(treeinst)
-                  end if         ! 2d or 3d
+                           end do   ! points j
+                        endif
+                        if (allocated(missing)) deallocate(missing)
+                        if (allocated(x_extrapolate)) deallocate(x_extrapolate)
+                        call delete_kdtree2(treeinst)
+                     end if         ! 2d or 3d
+                  end if   ! if the elementset type was not samples
                   connection%targetItemsPtr(i)%ptr%targetFieldPtr%timesteps = timesteps
                end do   ! target items i
                if (connection%converterPtr%interpolationType == extrapolate_spacetimeSaveWeightFactors) then
@@ -2923,9 +3031,9 @@ module m_ec_converter
          end select
          success = .true.
       end function ecConverterNetcdf
-      
+
       ! =======================================================================
-      
+
       !> Selects the index of the polyline segment that intersects with line e--en
       !! with the intersection closest to point e.
       !! The search range is thus from e to en, and not a distance rdis as before.
@@ -2937,7 +3045,7 @@ module m_ec_converter
          real(hp), dimension(:), intent(in)  :: xs       !< polygon
          real(hp), dimension(:), intent(in)  :: ys
          integer,  dimension(:), intent(in)  :: kcs      !< polygon mask
-         real(hp),               intent(in)  :: xe, ye   ! 
+         real(hp),               intent(in)  :: xe, ye   !
          real(hp),               intent(in)  :: xen, yen !< in input uitstekers, on output SL and CRP
          integer,                intent(out) :: kL       !< Index of left nearest polyline point (with kcs==1!)
          real(hp),               intent(out) :: wL       !< Relative weight of left nearest polyline point.
@@ -2962,8 +3070,8 @@ module m_ec_converter
          do k = 1, ns-1
             crp = 0.0_hp
             call CROSS(xe, ye, xen, yen, xs(k), ys(k), xs(k+1), ys(k+1), JACROS,SL,SM,XCR,YCR,CRP)
-            if (SL >= 0.0_hp .and. SL <= 1.0_hp .and. SM > -DEPS .and. SM < 1.0_hp+DEPS) then ! instead of jacros==1, solves firmijn's problem  
-               DIS = DBDISTANCE(XE, YE, XCR, YCR) 
+            if (SL >= 0.0_hp .and. SL <= 1.0_hp .and. SM > -DEPS .and. SM < 1.0_hp+DEPS) then ! instead of jacros==1, solves firmijn's problem
+               DIS = DBDISTANCE(XE, YE, XCR, YCR)
                if (DIS < DISM) then ! Found a better intersection point
                   DISM = DIS
                   km   = k
@@ -3007,7 +3115,7 @@ module m_ec_converter
             wR = 1.0_hp
          end if
       end subroutine polyindexweight
-      
+
       !> Checks whether lines 1-2 and 3-4 intersect.
       !! @param[in] x1,y1,x2,y2,x3,y3,x4,y4 x- and y-coords of line endpoints.
       !! @param[out] jacros 1 if lines cross (intersect), 0 if not.
@@ -3024,7 +3132,7 @@ module m_ec_converter
          double precision, intent(in) :: x1, y1, x2, y2, x3, y3, x4, y4
          double precision :: x21, y21, x31, y31, x43, y43, xcr, ycr
          double precision                  :: dmiss    = -999d0
-     
+
    !     safety check on crp (in)
          if ( isnan(crp) ) then
             crp = 0.0_hp
@@ -3036,12 +3144,12 @@ module m_ec_converter
             jamakenondimensional = 1
             crp = 0.0_hp
          endif
-      
+
          JACROS = 0
          EPS    = 0.00001_hp
          SL     = DMISS
          SM     = DMISS
-      
+
          !call getdxdy(x1,y1,x2,y2,x21,y21) ! TODO : all is cartesian, kernel must provide it as such
          x21 = x2-x1
          y21 = y2-y1
@@ -3073,7 +3181,7 @@ module m_ec_converter
             ENDIF
             XCR = X1 + SL*(X2-X1)
             YCR = Y1 + SL*(Y2-Y1)
-            if ( jamakenondimensional.eq.1 ) then  ! make crp non-dimensional (for spline2curvi)
+            if ( jamakenondimensional == 1 ) then  ! make crp non-dimensional (for spline2curvi)
                CRP = -DET / ( sqrt(x21**2+y21**2) * sqrt(x43**2 + y43**2) + 1d-8 )
             else
                CRP = -DET
@@ -3081,7 +3189,7 @@ module m_ec_converter
          ENDIF
          RETURN
       END SUBROUTINE CROSS
-      
+
       !> distance point 1 -> 2
       real(hp) function dbdistance(x1,y1,x2,y2)
          real(hp) :: x1, y1, x2, y2
@@ -3090,7 +3198,7 @@ module m_ec_converter
          ! double precision :: getdx, getdy ! TODO : all is cartesian, kernel must provide it as such
          real(hp) :: dmiss    = -999d0
          !
-         if ( x1.eq.DMISS .or. x2.eq.DMISS .or. y1.eq.DMISS .or. y2.eq.DMISS ) then
+         if ( x1 == DMISS .or. x2 == DMISS .or. y1 == DMISS .or. y2 == DMISS ) then
             dbdistance = 0.0_hp
             return
          end if
@@ -3106,32 +3214,32 @@ module m_ec_converter
             dbdistance = sqrt(rr)
          endif
       end function dbdistance
-      
+
 !>    get field bounding box indices
       subroutine ecConverterGetBbox(instancePtr, itemID, t01, col0, col1, row0, row1, ncols, nrows, issparse, Ndatasize)
          implicit none
-         
+
          type(tEcInstance), pointer :: instancePtr  !< intent(in)
          integer,       intent(in)  :: itemId       !< unique Item id
          integer,       intent(in)  :: t01          !< field 0 (0) or 1 (other)
          integer,       intent(out) :: col0,col1,row0,row1  !< boundix box start (0) and end (1) indices
          integer,       intent(out) :: ncols, nrows
-         
+
          type(tEcItem),     pointer :: itemPtr       !< Item corresponding to itemId
          type(tEcField),    pointer :: FieldPtr
-         
+
          integer,       intent(out) :: issparse
          integer,       intent(out) :: Ndatasize
-         
+
          col0 = 0
          row0 = 0
          col1 = 0
          row1 = 0
-         
+
          itemPtr => ecSupportFindItem(instancePtr, itemId)
-         
+
          if ( associated(itemPtr) ) then
-            if ( t01.eq.0 ) then
+            if ( t01 == 0 ) then
                FieldPtr => itemPtr%sourceT0FieldPtr
             else
                FieldPtr => itemPtr%sourceT1FieldPtr
@@ -3140,76 +3248,76 @@ module m_ec_converter
             row0 = FieldPtr%bbox(2)
             col1 = FieldPtr%bbox(3)
             row1 = FieldPtr%bbox(4)
-            
+
             ncols = itemPtr%elementSetPtr%n_cols
             nrows = itemPtr%elementSetPtr%n_rows
-            
+
             issparse = FieldPtr%issparse
             Ndatasize = FieldPtr%ia(nrows+1)-1
          end if
-         
+
          return
       end subroutine ecConverterGetBbox
-      
+
       subroutine MaskToSparse(n_cols,n_rows,imask, ia, ja)
          implicit none
-         
+
          integer,                            intent(in)  :: n_cols    !< number of columns
          integer,                            intent(in)  :: n_rows    !< number of rows
          integer, dimension(n_cols,n_rows),  intent(in)  :: imask     !< active (1) or not (0)
          integer, dimension(:), allocatable, intent(out) :: ia        !< startpointers
          integer, dimension(:), allocatable, intent(out) :: ja        !< column numbers
-         
+
          integer                                         :: mp        ! column
          integer                                         :: np        ! row
          integer                                         :: i
-         
+
 !        allocate startpointer (increments)
          allocate(ia(n_rows+1))
-         
+
 !        store increments of startpointer in ia
          do np=1,n_rows
            ia(np+1) = 0
            do mp=1,n_cols
-              if ( imask(mp,np).eq.1 ) then
+              if ( imask(mp,np) == 1 ) then
                  ia(np+1) = ia(np+1) + 1
               end if
            end do
          end do
-         
+
 !        make startpointers from increments
          ia(1) = 1
          do np=1,n_rows
             ia(np+1) = ia(np) + ia(np+1)
          end do
-         
+
 !        allocate 2nd-index numbers
          allocate(ja(ia(n_rows+1)-1))
-         
+
 !        fill 2nd-index numbers
          i = 0
          do np=1,n_rows
             do mp=1,n_cols
-               if ( imask(mp,np).eq.1 ) then
+               if ( imask(mp,np) == 1 ) then
                   i = i+1
                   ja(i) = mp
                end if
             end do
          end do
-         
+
          return
       end subroutine MaskToSparse
-      
+
       subroutine SetSparsityPattern(srcfld, n_cols, n_rows, ia, ja)
          implicit none
-         
+
          type(tEcField),                       intent(inout) :: srcfld  !< source field
          integer,                              intent(in)    :: n_cols  !< number of columns
          integer,                              intent(in)    :: n_rows  !< number of rows
          integer, dimension(:),   allocatable, intent(in)    :: ia      !< sparsity pattern in CRS format, start pointers
          integer, dimension(:),   allocatable, intent(in)    :: ja      !< sparsity pattern in CRS format, column numbers
-         
-         
+
+
          if ( associated(srcfld%ia) ) deallocate(srcfld%ia)
          allocate(srcfld%ia(n_rows+1))
          srcfld%ia = ia
@@ -3217,70 +3325,72 @@ module m_ec_converter
          allocate(srcfld%ja(ia(n_rows+1)-1))
          srcfld%ja = ja
          srcfld%issparse = 1
-         
+
 !        effectively bounding box
          srcfld%bbox = (/ 1, 1, n_cols, n_rows/)
-                        
+
          return
       end subroutine SetSparsityPattern
-      
+
 !< convert (1:ncol,2:mrow) indices of lower-left source point to sparse indices of (1:lower-left,2:upper-left) source points (out),
 !<  left-right: increasing column index,
 !<  down-up: increasing row index
 !< note: input indices are (row,col), not (col,row)
       subroutine ConvertToSparseIndices(n_points, indices, n_rows, ia, ja)
          implicit none
-         
+
          integer,                        intent(in)    :: n_points  !< number of target points
          integer, dimension(2,n_points), intent(inout) :: indices   !<(mrow,ncol) indices of lower-left source point (in), sparse index of (lower-left,upper-left) source points (out)
          integer,                        intent(in)    :: n_rows    !< number of rows of source
          integer, dimension(n_rows),     intent(in)    :: ia        !< sparsity pattern in CRS format, start pointers
          integer, dimension(:),          intent(in)    :: ja        !< sparsity pattern in CRS format, column numbers
-         
-         character(len=128)                            :: mesg
-         
+
          integer                                       :: idx
-         integer                                       :: i, j
+         integer                                       :: i, j, last
          integer                                       :: irow, idownup
          integer                                       :: mcol, nrow
-         
+
          do i=1,n_points
 !           get (mcol,nrow) of lower-left source point
             mcol = indices(2,i)
             nrow = indices(1,i)
-            
+
 !           check if indices are assigned
-            if ( mcol.eq.0 .or. nrow.eq.0 ) then
+            if ( mcol == 0 .or. nrow == 0 ) then
                cycle
             end if
-            
+
 !           find sparse indeces of lower-left and upper-left source points
             idx = 0
             idownup = 0
             do idownup=1,2
                irow = nrow + idownup-1
-               
+
                idx = 0
-               do j=ia(irow),ia(irow+1)-1
-                  if ( ja(j).eq.mcol ) then
+               if (irow < size(ia)) then
+                  last = ia(irow+1)-1
+               else
+                  last = size(ja)
+               endif
+               do j=ia(irow),last
+                  if ( ja(j) == mcol ) then
                      idx = j
                      exit
                   end if
                end do
-            
+
 !              check if index is found
                if ( idx.gt.0 ) then
 !                 overwrite index
                   indices(idownup,i) = idx
                else
 !                 error
-                  write(mesg, "(I0)") i
-                  call setECMessage("ERROR: conversion to sparse indices failed for point " // trim(mesg))
+                  call setECMessage("ERROR: conversion to sparse indices failed for point ", i)
                end if
             end do
-            
+
          end do
-         
+
          return
       end subroutine ConvertToSparseIndices
 

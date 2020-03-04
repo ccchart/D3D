@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -128,10 +128,10 @@ function odu_get_xy_coordinates(branchids, branchoffsets, geopointsX, geopointsY
          deltaX(i) = cartGeopointsX(i+1) - cartGeopointsX(i)
          deltaY(i) = cartGeopointsY(i+1) - cartGeopointsY(i)
          deltaZ(i) = cartGeopointsZ(i+1) - cartGeopointsZ(i)
-         branchSegmentLengths(i)= sqrt(deltaX(i)**2+deltaY(i)**2+deltaZ(i)**2)
-         totalLength = totalLength + branchSegmentLengths(i)
+         branchSegmentLengths(i)= sqrt(deltaX(i)**2+deltaY(i)**2+deltaZ(i)**2)  ! geometric length
+         totalLength = totalLength + branchSegmentLengths(i)                    ! total geometric length 
       enddo
-      !correct for total segment length
+      !correct for total "real world" segment length
       if (totalLength > 1.0d-6) then
          afac = branchlengths(br)/totalLength
          branchSegmentLengths(startGeometryNode: endGeometryNode - 1) = branchSegmentLengths(startGeometryNode: endGeometryNode - 1) * afac
@@ -140,6 +140,7 @@ function odu_get_xy_coordinates(branchids, branchoffsets, geopointsX, geopointsY
       !calculate the increments
       do i = startGeometryNode, endGeometryNode - 1
          if (branchSegmentLengths(i) > 1.0d-6) then
+            ! xincrement, etc... now contain a ratio between the geometric increase per "real world" length
             xincrement(i)  = deltaX(i)/branchSegmentLengths(i)
             yincrement(i)  = deltaY(i)/branchSegmentLengths(i)
             zincrement(i)  = deltaZ(i)/branchSegmentLengths(i)
@@ -161,13 +162,13 @@ function odu_get_xy_coordinates(branchids, branchoffsets, geopointsX, geopointsY
          totalLength = previousLength
          do k = ind, endGeometryNode - 1
             totalLength = totalLength + branchSegmentLengths(k)
-            if (totalLength > branchoffsets(iin)) then
+            if (totalLength >= branchoffsets(iin)) then
                   previousLength = totalLength - branchSegmentLengths(k)
                   ind = k
                exit
             endif
          enddo
-         fractionbranchlength =  branchoffsets(iin) - previousLength
+         fractionbranchlength =  branchoffsets(iin) - previousLength                           ! "real world" length
          cartMeshXCoords(iin) = cartGeopointsX(ind) + fractionbranchlength * xincrement(ind)
          cartMeshYCoords(iin) = cartGeopointsY(ind) + fractionbranchlength * yincrement(ind)
          !TODO: this function should also return meshZCoords (it is relevant if coordinates are spheric) 

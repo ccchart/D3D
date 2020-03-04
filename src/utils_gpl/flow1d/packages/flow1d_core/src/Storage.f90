@@ -1,7 +1,7 @@
 module m_Storage
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -104,6 +104,7 @@ module m_Storage
       integer                                               :: growsBy = 2000
       integer                                               :: Count= 0
       integer                                               :: Count_xy = 0 ! Number of storage nodes that are defined by x-, y-coordinates
+      integer                                               :: Count_closed = 0 ! Number of storage nodes with storageType "closed"
       type(t_storage), pointer, dimension(:)                :: stor
       type(t_hashlist)                                      :: hashlist
    end type t_storageSet

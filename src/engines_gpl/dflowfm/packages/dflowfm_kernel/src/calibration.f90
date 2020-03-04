@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -282,7 +282,7 @@ subroutine read_cldfile(md_cldfile, clddata, phase)
            call mess(LEVEL_INFO,'    Number of other definitions               = ', ncldnrm )
            call mess(LEVEL_INFO,'    ____________________________________________________________')
            call mess(LEVEL_INFO,'    Total number of definitions               = ', ncld )
-           call mess(LEVEL_INFO,'*** Succesfully read calibration defintition input ')
+           call mess(LEVEL_INFO,'*** Succesfully read calibration definition input ')
        endif 
     
        close (luntmp)
@@ -836,8 +836,8 @@ subroutine f_from_table_of_x( xvals, fvals, idx_start, idx_end, fslope, fcross, 
         ! value is smaller than first value in table, 
         ! so take first value from the table 
         f = fvals(idx_start)
-    elseif (x > xvals(idx_end)) then 
-        ! value is larger than last value in table, 
+    elseif (x .ge. xvals(idx_end)) then 
+        ! value is larger than or equal to the last value in table, 
         ! so take last value from the table 
         f = fvals(idx_end)
     else

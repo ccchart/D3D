@@ -3,7 +3,7 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
                   & kcs       ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1052,7 +1052,7 @@ subroutine rddredge(xcor      ,ycor      ,xz        ,yz        ,gsqs      , &
                 pdredge%stilldredging = .false.
                 pdredge%dredgewhendry = .false.
                 pdredge%dumplimited   = .false.
-                pdredge%in1domain     = .false.
+                pdredge%in1domain     = .true.
                 pdredge%if_morfac_0   = .false.
                 pdredge%obey_cmp      = .true.
                 pdredge%triggertype   = DREDGETRIG_POINTBYPOINT

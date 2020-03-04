@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -350,8 +350,8 @@ module part14_mod
                                  lgrid   , dx      , dy      , lcircl  )
             else
 !              spread the particles over a polygon
-               call findpoly   (nmax, mmax, lgrid, lgrid2, xp, yp, nrowswaste(id), &
-                                xpolwaste(1:nrowswaste(id), id), ypolwaste(1:nrowswaste(id), id), &
+               call findpoly   (nmax, mmax, lgrid, lgrid2, xp, yp, nrowswaste(ie), &
+                                xpolwaste(1:nrowswaste(ie), ie), ypolwaste(1:nrowswaste(ie), ie), &
                                 xpart(i), ypart(i), npart(i), mpart(i))
             end if
 

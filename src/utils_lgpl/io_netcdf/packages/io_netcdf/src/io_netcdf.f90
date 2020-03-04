@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -133,6 +133,7 @@ public :: ionc_put_1d_mesh_edges
 public :: ionc_write_mesh_1d_edge_nodes
 public :: ionc_create_1d_mesh_ugrid_v1
 public :: ionc_put_network
+public :: ionc_get_1d_mesh_edges
 !links functions
 public :: ionc_def_mesh_contact_ugrid
 public :: ionc_get_contacts_count_ugrid
@@ -155,6 +156,9 @@ public :: ionc_ug_get_mesh_ids_ugrid
 !branch order
 public :: ionc_put_1d_network_branchorder_ugrid
 public :: ionc_get_1d_network_branchorder_ugrid
+!branch order
+public :: ionc_put_1d_network_branchtype_ugrid
+public :: ionc_get_1d_network_branchtype_ugrid
 !get network names
 public :: ionc_get_network_name
 !get the meshids from network ids
@@ -417,7 +421,9 @@ function ionc_close(ioncid) result(ierr)
 
    select case (datasets(ioncid)%iconvtype)
    case (IONC_CONV_UGRID)
-      deallocate(datasets(ioncid)%ug_file)
+      if (associated(datasets(ioncid)%ug_file)) then
+         deallocate(datasets(ioncid)%ug_file)
+      end if
    end select
 
    ! Successful
@@ -1230,12 +1236,14 @@ end function ionc_add_global_attributes
 
 
 !> Defines a new variable in an existing IONC dataset and sets up proper meta-attributes.
+!! The variable can be defined either on a UGRID mesh, or on a UGRID network (via meshid or networkid, respectively).
 !! NOTE: File should still be in define mode.
 !! Does not write the actual data yet.
-function ionc_def_var(ioncid, meshid, id_var, itype, iloctype, var_name, standard_name, long_name, & ! id_dims, 
+function ionc_def_var(ioncid, meshid, networkid, id_var, itype, iloctype, var_name, standard_name, long_name, & ! id_dims, 
                     unit, cell_method, cell_measures, crs, ifill, dfill) result(ierr)
    integer,                    intent(in)    :: ioncid    !< The IONC data set id.
-   integer,                    intent(in)    :: meshid    !< The mesh id in the specified data set.
+   integer,                    intent(in)    :: meshid    !< The mesh id in the specified data set (use 0 when instead a networkid is specified).
+   integer,                    intent(in)    :: networkid !< The network id in the specified data set (use 0 when instead a meshid is specified).
    integer,                    intent(  out) :: id_var        !< Created NetCDF variable id.
 !   integer, dimension(:),      intent(in)    :: id_dims       !< NetCDF dimension ids for this variable. Example: (/ id_edgedim /) for scalar data on edges, or (/ id_twodim, id_facedim /) for vector data on faces.
    integer,                    intent(in)    :: itype         !< The variable type expressed in one of the basic nf90_* types, e.g., nf90_double.
@@ -1249,26 +1257,50 @@ function ionc_def_var(ioncid, meshid, id_var, itype, iloctype, var_name, standar
    type(t_crs),      optional, intent(in)    :: crs           !< (Optional) Add grid_mapping attribute based on this coordinate reference system for independent coordinates
    integer,          optional, intent(in)    :: ifill         !< (Optional) Integer fill value.
    double precision, optional, intent(in)    :: dfill         !< (Optional) Double precision fill value.
-   integer                                :: ierr          !< Result status (UG_NOERR==NF90_NOERR) if successful.
+   integer                                   :: ierr          !< Result status (UG_NOERR==NF90_NOERR) if successful.
 
    integer :: id_dims(1)
+   character(len=256) :: meshornetname
 
    ! TODO: UNST-1548: AvD: refactor some of dflowfm's unc_def_var_map functionality into io_ugrid.
    ! For now, auto-insert some commonly used spatial dimension ids, such that caller ONLY needs to specify iloctype.
    ! NOTE: this only supports rank-1 arrays for now then.
-   if      (iloctype == UG_LOC_NODE) then
-      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_node)
-   else if (iloctype == UG_LOC_EDGE) then
-      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_edge)
-   else if (iloctype == UG_LOC_FACE) then
-      id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_face)
+   if (meshid > 0) then
+      meshornetname = datasets(ioncid)%ug_file%meshnames(meshid)
+      if      (iloctype == UG_LOC_NODE) then
+         id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_node)
+      else if (iloctype == UG_LOC_EDGE) then
+         id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_edge)
+      else if (iloctype == UG_LOC_FACE) then
+         id_dims(1) = datasets(ioncid)%ug_file%meshids(meshid)%dimids(mdim_face)
+      else
+         ! loc type error is caught in ug_def_var below
+         continue
+      end if
+   else if (networkid > 0) then
+      meshornetname = datasets(ioncid)%ug_file%networksnames(networkid)
+      if      (iloctype == UG_LOC_NODE) then
+         id_dims(1) = datasets(ioncid)%ug_file%netids(networkid)%dimids(ntdim_1dnodes)
+      else if (iloctype == UG_LOC_EDGE) then
+         id_dims(1) = datasets(ioncid)%ug_file%netids(networkid)%dimids(ntdim_1dedges)
+      else
+         ! face location does not apply to 1d networks
+         ierr = UG_INVALID_DATALOCATION
+         goto 888
+      end if
    else
-      ! loc type error is caught in ug_def_var below
-      continue
+      ! Error: No meshid, nor networkid.
+      ierr = UG_ENOTVAR
+      goto 888
    end if
 
-   ierr = ug_def_var(datasets(ioncid)%ncid, id_var, id_dims, itype, iloctype, datasets(ioncid)%ug_file%meshnames(meshid), var_name, standard_name, long_name, &
+   ierr = ug_def_var(datasets(ioncid)%ncid, id_var, id_dims, itype, iloctype, meshornetname, var_name, standard_name, long_name, &
                     unit, cell_method, cell_measures, crs, ifill, dfill)
+
+   return
+
+888 continue
+    ! Some error occurred
 end function ionc_def_var
 
 
@@ -1288,8 +1320,12 @@ function ionc_write_mesh_struct(ioncid, meshids, networkids, meshgeom, network1d
 
    allocate(nodeids(meshgeom%numnode))
    allocate(nodelongnames(meshgeom%numnode))
-   nodeids       = meshgeom%nodeids
-   nodelongnames = meshgeom%nodelongnames
+   if(associated(meshgeom%nodeids)) then
+     nodeids       = meshgeom%nodeids
+   end if
+   if(associated(meshgeom%nodelongnames)) then
+     nodelongnames = meshgeom%nodelongnames
+   endif
    
    ierr = ug_write_mesh_struct( ncid = datasets(ioncid)%ncid, meshids = meshids, networkids = networkids, crs = datasets(ioncid)%crs, meshgeom = meshgeom, nodeids=nodeids, nodelongnames=nodelongnames, network1dname = network1dname)
    
@@ -1612,6 +1648,17 @@ function ionc_put_1d_network_branchorder_ugrid(ioncid, networkid, branchorder) r
     
 end function ionc_put_1d_network_branchorder_ugrid
 
+function ionc_put_1d_network_branchtype_ugrid(ioncid, networkid, branchtype) result(ierr)
+    
+    integer, intent(in)                :: ioncid   
+    integer, intent(in)                :: networkId
+    integer, intent(in)                :: branchtype(:)
+    integer                            :: ierr
+    
+    ierr =  ug_put_1d_network_branchtype(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), branchtype)
+    
+end function ionc_put_1d_network_branchtype_ugrid
+
 function ionc_write_1d_network_branches_geometry_ugrid(ioncid, networkid, geopointsX, geopointsY) result(ierr)
 
    integer, intent(in)                :: ioncid   
@@ -1696,6 +1743,17 @@ function ionc_get_1d_network_branchorder_ugrid(ioncid, networkid, branchorder) r
    ierr = ug_get_1d_network_branchorder(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), branchorder)
 
 end function ionc_get_1d_network_branchorder_ugrid  
+
+function ionc_get_1d_network_branchtype_ugrid(ioncid, networkid, branchtype) result(ierr)
+
+   integer, intent(in)                :: ioncid   
+   integer, intent(in)                :: networkid 
+   integer,intent(out)                :: branchtype(:)
+   integer                            :: ierr
+   
+   ierr = ug_get_1d_network_branchtype(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%netids(networkid), branchtype)
+
+end function ionc_get_1d_network_branchtype_ugrid  
    
 
 function  ionc_read_1d_network_branches_geometry_ugrid(ioncid, networkid, geopointsX, geopointsY) result(ierr)
@@ -1774,6 +1832,17 @@ function ionc_put_1d_mesh_discretisation_points_ugrid_v1(ioncid, meshid, branchi
   ierr=ug_put_1d_mesh_discretisation_points_v1(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), branchidx, offset, startIndex, coordx, coordy)  
   
 end function ionc_put_1d_mesh_discretisation_points_ugrid_v1
+
+function ionc_get_1d_mesh_edges(ioncid, meshid, edgebranchidx, edgeoffset, startIndex, edgex, edgey) result(ierr) 
+
+  integer, intent(in)            :: ioncid, meshid, startIndex  
+  integer, intent(inout)         :: edgebranchidx(:)
+  double precision,intent(inout) :: edgeoffset(:), edgex(:), edgey(:) 
+  integer                        :: ierr
+    
+  ierr=ug_get_1d_mesh_edge_coordinates(datasets(ioncid)%ncid, datasets(ioncid)%ug_file%meshids(meshid), edgebranchidx, edgeoffset, startIndex, edgex, edgey)  
+  
+end function ionc_get_1d_mesh_edges
 
 function ionc_put_1d_mesh_edges(ioncid, meshid, edgebranchidx, edgeoffset, startIndex, coordx, coordy) result(ierr) 
 

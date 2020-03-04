@@ -1,7 +1,7 @@
 module m_1d_structures
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -98,6 +98,7 @@ module m_1d_structures
    public get_discharge_under_compound_struc
    public set_u0isu1_structures
    public set_u1q1_structure
+   public reset_fu_ru_for_structure_link
 
    public printData
 
@@ -880,8 +881,10 @@ end subroutine
       type(t_structure), intent(in) :: struc
       
        select case (struc%type)
-          case (ST_CULVERT)
-             get_gate_lower_edge_level_c_loc = c_loc(struc%culvert%valveOpening)
+          case (ST_ORIFICE)
+             get_gate_lower_edge_level_c_loc = c_loc(struc%orifice%openlevel)
+          case (ST_GENERAL_ST)
+             get_gate_lower_edge_level_c_loc = c_loc(struc%generalst%gateLowerEdgeLevel)
           case default
              get_gate_lower_edge_level_c_loc = C_NULL_PTR
        end select
@@ -1353,6 +1356,7 @@ end subroutine
          call compare_and_warn(level, pstru%generalst%gateopeningwidth, pstru%generalst%gateopeningwidth_actual, 'gate opening width', pstru%id)
       case(ST_BRIDGE)
          call compare_and_warn(level, pstru%bridge%bedLevel, pstru%bridge%bedLevel_actual, 'bed level', pstru%id)
+         call compare_and_warn(level, pstru%bridge%flowArea, pstru%bridge%flowArea_actual, 'flow area', pstru%id)
       case(ST_UNI_WEIR)
          call compare_and_warn(level, pstru%uniweir%crestlevel, pstru%uniweir%crestlevel_actual, 'crest level', pstru%id)
       case(ST_CULVERT)
@@ -1441,4 +1445,36 @@ end subroutine
       
    end subroutine set_u1q1_structure
 
+   !> Set fu and ru to zero, when a structure link is closed
+   subroutine reset_fu_ru_for_structure_link(L, lin2str, struct)
+      integer,                         intent(in   )  :: L           !< Link number
+      integer, dimension(:),           intent(in   )  :: lin2str     !< Indirection table from L to structure number
+      type(t_structure), dimension(:), intent(inout)  :: struct      !< Array containing structure information
+      
+      integer :: istru
+      integer :: i, L0
+      
+      if (L > size(lin2str) ) then
+         return
+      endif
+      
+      if (lin2str(L) > 0) then
+         istru = lin2str(L)
+         do i = 1, struct(istru)%numlinks
+            if (L==struct(istru)%linknumbers(i)) then
+               L0 = i
+            endif
+         enddo
+         struct(istru)%fu(L0) = 0d0
+         struct(istru)%ru(L0) = 0d0
+         struct(istru)%au(L0) = 0d0
+         if (struct(istru)%type == ST_GENERAL_ST) then
+            struct(istru)%generalst%fu(:,L0) = 0d0
+            struct(istru)%generalst%ru(:,L0) = 0d0
+            struct(istru)%generalst%au(:,L0) = 0d0
+         endif
+      endif
+      
+   end subroutine reset_fu_ru_for_structure_link
+   
 end module m_1d_structures

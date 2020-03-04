@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -555,6 +555,10 @@ endif
  else if (icgsolver == 6 ) then
 #ifdef HAVE_PETSC
     call conjugategradientPETSC(s1,ndx,nocgiter,1,ipre)       ! 1:always compute preconditioner
+    if (nocgiter == -999) then
+       ierror = 1
+       goto 1234
+    endif
 #else
     call qnerror('No PETSC solver available', ' ', ' ')
 #endif

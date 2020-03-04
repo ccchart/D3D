@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2020.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -23,6 +23,11 @@
 
       SUBROUTINE ZEROME ( NAME )
       CHARACTER*(*) NAME
+      INTEGER LUNREP
+
+      CALL GETMLU(LUNREP)
+      WRITE (LUNREP,*) ' Coefficient ',NAME,' = 0'
+      WRITE (LUNREP,*) ' Please supply value not equal to zero'
       WRITE (*,*) ' Coefficient ',NAME,' = 0'
       WRITE (*,*) ' Please supply value not equal to zero'
       CALL SRSTOP(1)

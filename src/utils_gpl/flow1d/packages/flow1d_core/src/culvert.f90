@@ -1,7 +1,7 @@
 module m_Culvert
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -324,6 +324,7 @@ contains
             
       endif
          
+      uest = sqrt(abs(cu*(smax-smin)*dxm))
       fr = abs(uest) / dxm
          
       bu = 1.0d0 / dt + fr

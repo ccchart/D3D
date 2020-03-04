@@ -1,7 +1,7 @@
 module m_General_Structure
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -82,15 +82,15 @@ module m_General_Structure
       double precision                 :: crestlength                   !< length of the crest for computing the extra resistance using bedfriction over the crest of the weir
       double precision, pointer        :: widthcenteronlink(:)          !< For each crossed flow link the the center width portion of this genstr. (sum(widthcenteronlink(1:numlink)) should equal widthcenter)
       double precision, pointer        :: gateclosedfractiononlink(:)   !< part of the link width that is closed by the gate
-      double precision, pointer        :: fu(:,:)                       !< fu(1:3,L0) contains the partial computational value for fu
-      double precision, pointer        :: ru(:,:)                       !< ru(1:3,L0) contains the partial computational value for ru
-      double precision, pointer        :: au(:,:)                       !< au(1:3,L0) contains the partial computational value for au
+      double precision, pointer        :: fu(:,:)                       !< fu(1:3,L0) contains the partial computational value for fu (under/over/between gate, respectively)
+      double precision, pointer        :: ru(:,:)                       !< ru(1:3,L0) contains the partial computational value for ru (under/over/between gate, respectively)
+      double precision, pointer        :: au(:,:)                       !< au(1:3,L0) contains the partial computational value for au (under/over/between gate, respectively)
       integer                          :: numlinks                      !< Nr of flow links that cross this generalstructure.
       logical                          :: velheight                     !< Flag indicates the use of the velocity height or not
       integer                          :: openingDirection              !< possible values GEN_SYMMETRIC, GEN_FROMLEFT, GEN_FROMRIGHT
       double precision, pointer        :: sOnCrest(:)                   !< water level on crest per link (length = numlinks)
       integer,          pointer        :: state(:,:)                    !< state(1:3,L0) contains flow state on the L0th link of the structure for General Structure, Weir and Orifice
-                                                                        !< 1: state of under gate flow, 2: state of between gate flow, 3: state of over gate flow
+                                                                        !< 1: state of under gate flow, 2: state of over gate flow, 3: state of between gate flow
                                                                         !< 0 = No Flow
                                                                         !< 1 = Free Weir Flow
                                                                         !< 2 = Drowned Weir Flow
@@ -105,7 +105,7 @@ contains
 
    !> compute FU, RU and AU for a single flow link in a general structure.
    subroutine computeGeneralStructure(genstr, direction, L0, maxWidth, bob0, fuL, ruL, auL, as1, as2, structwidth, kfuL, s1m1, s1m2, &
-                                      qtotal, Cz, dxL, dt, jarea)
+                                      qtotal, Cz, dxL, dt, SkipDimensionChecks)
       ! modules
 
       ! Global variables
@@ -128,8 +128,8 @@ contains
       double precision, intent(in)                 :: Cz            !< Chezy value.
       double precision, intent(in)                 :: dxL           !< Length of the flow link.
       double precision, intent(in)                 :: dt            !< Time step (s).
-      logical, intent(in)                          :: jarea         !< Flag indicating only the flow area is required or the full .
-      
+      logical, intent(in)                          :: SkipDimensionChecks  !< Flag indicating whether the dimensions of the structure is to be limited
+                                                                           !< by the cross sectional dimensions of the channel and correct, or not.
       !
       !
       ! Local variables
@@ -183,11 +183,17 @@ contains
       genstr%zs_actual = genstr%zs
       genstr%gateLowerEdgeLevel_actual = genstr%gateLowerEdgeLevel
       
-      crest   = max(bob0(1), bob0(2), genstr%zs)
+      if (.not. SkipDimensionChecks) then
+         crest   = max(bob0(1), bob0(2), genstr%zs)
+      else
+         crest = genstr%zs
+      endif
+      
       gle = max(crest, genstr%gateLowerEdgeLevel)
       genstr%gateLowerEdgeLevel_actual = gle
-      alm  = as1
-      arm  = as2
+      ! upstream flow area should always be larger or equal to the flow area at the crest
+      alm  = max(as1, auL)
+      arm  = max(as2, auL)
       s1ml = s1m1
       s1mr = s1m2
       dsL   = s1m2 - s1m1 
@@ -201,7 +207,9 @@ contains
       !
       ! apply orientation of the flow link to the direction dependend parameters
       
-      if (direction > 0) then
+      if (SkipDimensionChecks) then
+         bobstru = -1d5
+      else if (direction > 0) then
          bobstru(1) = bob0(1)
          bobstru(2) = bob0(2)
       else
@@ -232,7 +240,7 @@ contains
 
          call flqhgs(fu(1), ru(1), u1L, dxL, dt, structwidth, kfuL, au(1), qL, flowDir, &
                      hu, hd, uu, zs, gatefraction*wstr, gatefraction*w2, gatefraction*wsd, zb2, ds1, ds2, dg,                &
-                     rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, jarea, ds, genstr%state(1,L0))
+                     rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, ds, genstr%state(1,L0), velheight)
          genstr%sOnCrest(L0) = ds + crest     ! waterlevel on crest
          
          !calculate flow over gate
@@ -243,7 +251,7 @@ contains
 
          call flqhgs(fu(2), ru(2), u1L, dxL, dt, structwidth, kfuL, au(2), qL, flowDir, &
                      hu, hd, uu, zgate, gatefraction*wstr, gatefraction*w2, gatefraction*wsd, zb2, ds1, ds2, dg,                &
-                     rhoast, cgf, cgd, cwf, cwd, mugf, 0d0, 0d0, dx_struc, jarea, ds, genstr%state(3,L0))
+                     rhoast, cgf, cgd, cwf, cwd, mugf, 0d0, 0d0, dx_struc, ds, genstr%state(2,L0), velheight)
       endif
       
       if (gatefraction< 1d0 - gatefrac_eps) then
@@ -254,7 +262,7 @@ contains
          
          call flqhgs(fu(3), ru(3), u1L, dxL, dt, structwidth, kfuL, au(3), qL, flowDir, &
                      hu, hd, uu, zs, (1d0-gatefraction)*wstr, (1d0-gatefraction)*w2, (1d0-gatefraction)*wsd, zb2, ds1, ds2, dg,                &
-                     rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, jarea, ds, genstr%state(2,L0))
+                     rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, ds, genstr%state(3,L0), velheight)
          genstr%sOnCrest(L0) = ds + crest     ! waterlevel on crest
 
       endif
@@ -263,6 +271,9 @@ contains
       if (auL > 0d0) then
          fuL = (fu(1)*au(1) + fu(2)*au(2) + fu(3)*au(3))/auL
          ruL = (ru(1)*au(1) + ru(2)*au(2) + ru(3)*au(3))/auL
+      else
+         fuL = 0d0
+         ruL = 0d0
       endif
       genstr%fu(:,L0) = fu
       genstr%ru(:,L0) = ru
@@ -396,14 +407,13 @@ contains
    subroutine flqhgs(fuL, ruL, u1L, dxL, dt, structwidth, kfuL, auL, qL, flowDir, &
                   hu, hd, uu, zs, wstr, w2, wsd, zb2, ds1, ds2,   &
                   dg, rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc,  &
-                  jarea, ds, state)
+                  ds, state, velheight)
        use m_GlobalParameters
        implicit none
       !
       ! Global variables
       !
       integer, intent(out)            :: kfuL      !< Flag indicating whether the structure link is wet (=1) or not (=0)
-      logical, intent(in)             :: jarea     !< Flag indicating only the flow area is required 
       double precision, intent(inout) :: auL       !< flow area
       double precision, intent(inout) :: fuL       !< fu component of momentum equation
       double precision, intent(inout) :: ruL       !< Right hand side component of momentum equation
@@ -427,7 +437,7 @@ contains
       double precision, intent(in)   :: mugf       !< Vertical contraction coefficient for free gate flow.
       double precision, intent(in)   :: rhoast     !< Ratio of density right and left of structure
       double precision, intent(in)   :: flowDir    !< Flow direction (+1/-1).
-      double precision, intent(in)   :: uu         !< Upstream velocity.
+      double precision, intent(in)   :: uu         !< Upstream velocity (with velheight setting already accounted for).
       double precision, intent(in)   :: w2         !< Width at right side of structure.
       double precision, intent(in)   :: wsd        !< Width structure right or left side.
       double precision, intent(in)   :: wstr       !< Width at centre of structure.
@@ -435,6 +445,7 @@ contains
       double precision, intent(in)   :: zs         !< Bed level at centre of structure.
       integer, intent(out)           :: state      !< Flow state of the structure
       double precision, intent(in)   :: dx_struc   !< length of structure
+      logical, intent(in)            :: velheight  !< logical indicates whether the momentum equation has to be taken into account
       
       !
       !
@@ -457,7 +468,12 @@ contains
       !! executable statements -------------------------------------------------------
       !
 
-      velhght = uu*uu/(2.0D0*gravity)
+      if (velheight) then
+         velhght = uu*uu/(2.0D0*gravity)
+      else
+         velhght = 0d0
+      end if
+
       elu = hu + velhght
       hs1 = elu - zs
       !
@@ -470,32 +486,39 @@ contains
          !        Compute critical water depth at the
          !        sill, dc and water depth at the sill,ds
          !
-         dlim = hs1*(wstr/w2*2./3.*sqrt(2./3.))**(2.0/3.0)
-         hd1 = max(hd, zb2 + dlim*0.9D0)
-         !
-         dc = 2.0D0/3.0D0*hs1
-         !
-         !        Calculate ds by solving third order algebraic equation
-         !
-         call flgsd3(wsd, wstr, zs, w2, zb2, ds1, ds2, elu, hd1, rhoast, cwd, ds, &
-                   & lambda)
-         !
-          if (ds>=dc) then
-            if (dg>=ds) then
-               !
-               !              - drowned weir -
-               !
-               state = 2
-            else
-               !
-               !              - gate flow -
-               !
-               state = 3
-               !
-               !              adapt coefficients on basis of Ds & Cwd
-               !
-               call flccgs(dg, ds, cgd, cgf, cwd, mugf, cgda, cgfa, mugfa)
-            endif
+           if (.not. velheight) then
+              ds = hd-zs
+           else
+              
+              dlim = hs1*(wstr/w2*2./3.*sqrt(2./3.))**(2.0/3.0)
+              hd1 = max(hd, zb2 + dlim*0.9D0)
+              !
+              !
+              !        Calculate ds by solving third order algebraic equation
+              !
+              call flgsd3(wsd, wstr, zs, w2, zb2, ds1, ds2, elu, hd1, rhoast, cwd, ds, &
+                        & lambda)
+           endif
+              
+           dc = 2.0D0/3.0D0*hs1
+           
+          !
+           if (ds>=dc) then
+             if (dg>=ds) then
+                !
+                !              - drowned weir -
+                !
+                state = 2
+             else
+                !
+                !              - gate flow -
+                !
+                state = 3
+                !
+                !              adapt coefficients on basis of Ds & Cwd
+                !
+                call flccgs(dg, ds, cgd, cgf, cwd, mugf, cgda, cgfa, mugfa)
+             endif
          else
             !
             !           Adapt Cwf coefficient
@@ -540,8 +563,13 @@ contains
             !
             cgd2 = cgda*mugfa
             !
-            call flgsd2(wsd, wstr, zs, w2, zb2, dg, ds1, ds2, elu, hd1, rhoast,   &
-                      & cgd2, imag, ds, lambda)
+            if (velheight) then
+               call flgsd2(wsd, wstr, zs, w2, zb2, dg, ds1, ds2, elu, hd1, rhoast,   &
+                         & cgd2, imag, ds, lambda)
+            else 
+               ds = hd-zs
+               imag = .false.
+            endif
             !
             if (imag) then
                !
@@ -583,14 +611,9 @@ contains
       !       The flowe condition is known so calculate
       !       the linearization coefficients FU and RU
       !
-      if (jarea) then
-         call flgsarea(state, kfuL, auL, hu, velhght, zs, ds, dg, wstr)
-      !
-      else
-         call flgsfuru(fuL, ruL, u1L, auL, qL, dxL, dt, structwidth, kfuL, state, &
-                       flowDir, hu, hd, velhght, zs, ds, dg, dc, wstr,   &
-                       cwfa, cwd, mugfa, cgfa, cgda, dx_struc, lambda, Cz)
-      endif
+      call flgsfuru(fuL, ruL, u1L, auL, qL, dxL, dt, structwidth, kfuL, state, &
+                     flowDir, hu, hd, velhght, zs, ds, dg, dc, wstr,   &
+                     cwfa, cwd, mugfa, cgfa, cgda, dx_struc, lambda, Cz)
    end subroutine flqhgs
 
 
@@ -828,65 +851,6 @@ contains
       endif
    end subroutine flgsd2
 
-   !> FLGSAREA (FLow General Structure calculate AREA thru structure)
-   !! The area through the general structure will be determined.
-   !! The stage of the flow was already determined.
-   subroutine flgsarea(state, kfuL, auL, hu, velhght, zs, ds, dg, wstr)
-   
-      implicit none
-      !
-      ! Global variables
-      !
-      integer, intent(in)             :: state      !< Flow condition of general structure:
-                                                  !< * 0 : closed or dry
-                                                  !< * 1 : free weir flow
-                                                  !< * 2 : drowned weir flow
-                                                  !< * 3 : free gate flow
-                                                  !< * 4 : drowned gate flow
-      integer, intent(out)            :: kfuL       !< Flag indicating whether the structure link is wet (=1) or not (=0)
-      double precision, intent(inout) :: auL        !< Flow area of structue opening
-      double precision, intent(in)    :: dg         !< Gate opening height. 
-      double precision, intent(in)    :: ds         !< Water level immediately downstream the gate.
-      double precision, intent(in)    :: hu         !< Upstream water level. 
-      double precision, intent(in)    :: velhght    !< Velocity height
-      double precision, intent(in)    :: wstr       !< Width at centre of structure.
-      double precision, intent(in)    :: zs         !< Bed level at centre of structure.
-      !
-      !
-      ! Local variables
-      !
-      double precision               :: hs1
-      !
-      !
-      !! executable statements -------------------------------------------------------
-      !
-      if (state==0) then
-         !        closed or dry
-         auL = 0.0
-         kfuL = 0
-      else
-         !
-         !        Calculate upstream energy level w.r.t sill
-         !
-         hs1 = hu + velhght - zs
-         kfuL = 1
-         !
-         if (state==1) then
-            !           free weir flow
-            auL = wstr*hs1*2.0D0/3.0D0
-         elseif (state==2) then
-            !           drowned weir flow
-            auL = wstr*ds
-         elseif (state==3) then
-            !           free gate flow
-            auL = wstr*dg
-         elseif (state==4) then
-            !           drowned gate flow
-            auL = wstr*dg
-         else
-         endif
-      endif
-   end subroutine flgsarea
 
    !> FLow General Structure calculate FU and RU \n
    !!\n
@@ -946,7 +910,8 @@ contains
       double precision               :: dh
       double precision               :: dsqrt
       double precision               :: dxdt
-      double precision               :: hs1
+      double precision               :: hs1  ! Water depth based on upstream energy level
+      double precision               :: hs1w ! Water depth based on upstream water level
       double precision               :: mu
       double precision               :: rhsc
       double precision               :: ustru
@@ -971,7 +936,8 @@ contains
       !
       !     Calculate upstream energy level w.r.t sill
       !
-      hs1 = hu + velhght - zs
+      hs1  = hu + velhght - zs
+      hs1w = hu - zs
       !
       dxdt = dxL/dt
 
@@ -1017,7 +983,7 @@ contains
           su = hd
       endif
       
-      call furu_iter(fuL, ruL, su, sd, u1L, qL, auL, ustru, cu, rhsc, dxdt, dx_struc, hu, lambda, Cz)
+      call furu_iter(fuL, ruL, su, sd, u1L, qL, auL, ustru, cu, rhsc, dxdt, dx_struc, hs1w, lambda, Cz)
 
       qL = auL*u1L
    end subroutine flgsfuru
@@ -1066,14 +1032,15 @@ contains
    !! flow across the sill. \n
    !! NOTE: The implementation for gates coming in from left or right is not corrrect. 
    !! The total crest width becomes incorrect, when the gatedooropening is less than half the totalwidth.
-   subroutine update_widths(genstru, numlinks, links, wu)
+   subroutine update_widths(genstru, numlinks, links, wu, SkipDimensionChecks)
       implicit none
 
       type(t_generalStructure), intent(inout)          :: genstru      !< general structure data
       integer,                  intent(in   )          :: numlinks     !< number of links
       integer, dimension(:),    intent(in   )          :: links        !< array containing linknumbers
       double precision, dimension(:),    intent(in   ) :: wu           !< flow widths
-      
+      logical,                  intent(in   )          :: SkipDimensionChecks     !< Flag indicating if the dimension checks have to be performed
+     
       double precision :: crestwidth, totalWidth, closedWidth, closedGateWidthL, closedGateWidthR, help
       integer :: ng, L, L0, Lf
 
@@ -1089,7 +1056,12 @@ contains
          totalWidth = totalWidth + wu(Lf)
       end do
 
-      genstru%ws_actual = max(0d0, min(totalWidth, genstru%ws))
+      if (SkipDimensionChecks) then
+         genstru%ws_actual = genstru%ws
+      else
+         genstru%ws_actual = max(0d0, min(totalWidth, genstru%ws))
+      endif
+      
       genstru%gateopeningwidth_actual = max(0d0, min(genstru%ws_actual, genstru%gateopeningwidth))
 
       genstru%numlinks= numlinks

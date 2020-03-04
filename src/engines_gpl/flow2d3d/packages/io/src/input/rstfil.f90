@@ -5,7 +5,7 @@ subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
                 & dp        ,namcon    ,coninit   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -162,7 +162,8 @@ subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
           ! Check new option: it may be a reference to a TRIM file.
           ! Use restid, because flow_nefis_restart will put it's value in gdp%gdrestart%restid
           !
-          write (restid, '(2a)') trim(filpath), trim(restid)
+          write (filtmp, '(2a)') trim(filpath), trim(restid)
+          restid = filtmp
           call restart_trim_flow(lundia    ,error     ,restid    ,lturi     ,mmax      , &
                                & nmaxus    ,kmax      ,lstsci    ,ltur      , &
                                & s1        ,u1        ,v1        ,r1        ,rtur1     , &
@@ -170,7 +171,8 @@ subroutine rstfil(lundia    ,error     ,restid    ,lturi     ,mmax      , &
                                & dp        ,ex_nfs    ,namcon    ,coninit   ,gdp       )
           if (error .and. .not.ex_nfs) then
              call prterr(lundia    ,'G004'    , &
-             & trim(filtmp) // trim(datetime) // ', ' // trim(filtmp) // ' and ' // trim(restid) // '.dat/.def')
+                 & 'tri-rst.' // trim(restid) // trim(datetime) // ', tri-rst.' // trim(restid) // &
+                 & ' and ' // trim(restid) // '.dat/.def')
           endif
        endif
     endif

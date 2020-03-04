@@ -1,7 +1,7 @@
 program waves_main
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -289,7 +289,7 @@ program waves_main
          ! Update wave and wind conditions
          !
          if (timtscale >= 0) then
-            call settimtscale(wavedata%time, timtscale, swan_run%modsim, swan_run%deltcom)
+            call settimtscale(wavedata%time, timtscale, swan_run%modsim, swan_run%nonstat_interval)
             !
             ! Run n_swan nested SWAN run
             !

@@ -2,7 +2,7 @@
 module m_CrossSections
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -59,6 +59,7 @@ module m_CrossSections
    public useBranchOrders
    public write_crosssection_data
    public getYZConveyance
+   public getHighest1dLevel
    double precision, public :: default_width
 
    interface fill_hashtable
@@ -122,7 +123,7 @@ module m_CrossSections
    integer, public, parameter :: CS_RECTANGLE      =    4 !< Rectangular type cross section definition
    integer, public, parameter :: CS_TRAPEZIUM      =    5 !< Trapezium type cross section definition
    integer, public, parameter :: CS_YZ_PROF        =   10 !< YZ type cross section definition
-   integer, public, parameter :: CS_TYPE_NORMAL    =    1 !< Ordinary total area computation, with possible Preisman lock on top
+   integer, public, parameter :: CS_TYPE_NORMAL    =    1 !< Ordinary flow area computation
    integer, public, parameter :: CS_TYPE_PREISMAN  =    2 !< Ordinary total area computation, with possible Preisman lock on top
    integer, public, parameter :: CS_TYPE_PLUS      =    3 !< Total area for only the expanding part of the cross section (Nested Newton method)
    integer, public, parameter :: CS_TYPE_MIN       =    4 !< Total area for only the narrowing part of the cross section (Nested Newton method)
@@ -469,6 +470,7 @@ integer function AddTabCrossSectionDefinition(CSDefinitions , id, numLevels, lev
                                             & groundlayerUsed, groundlayer)
    ! Modules
    use m_alloc
+   use m_GlobalParameters, only : ThresholdForPreismannLock
    implicit none
 
    ! Input/output parameters
@@ -523,12 +525,12 @@ integer function AddTabCrossSectionDefinition(CSDefinitions , id, numLevels, lev
    do j = 1, numlevels
       CSDefinitions%CS(i)%height(j)  = level(j)
       CSDefinitions%CS(i)%flowWidth(j)   = flowWidth(j)
-      CSDefinitions%CS(i)%totalWidth(j) = max(totalWidth(j), flowWidth(j))
+      CSDefinitions%CS(i)%totalWidth(j) = max(ThresholdForPreismannLock, totalWidth(j), flowWidth(j))
    enddo
    if (closed) then
-      CSDefinitions%CS(i)%height(numLevels+1) = CSDefinitions%CS(i)%height(numLevels)+1d-5
-      CSDefinitions%CS(i)%flowWidth(numLevels+1) = 1d-5
-      CSDefinitions%CS(i)%totalWidth(numLevels+1) = 1d-5
+      CSDefinitions%CS(i)%height(numLevels+1) = CSDefinitions%CS(i)%height(numLevels)+1d-7
+      CSDefinitions%CS(i)%flowWidth(numLevels+1)  = 0d0
+      CSDefinitions%CS(i)%totalWidth(numLevels+1) = ThresholdForPreismannLock
    endif
    CSDefinitions%CS(i)%closed = closed
    
@@ -744,6 +746,7 @@ integer function  AddCrossSectionByVariables(crs, CSDef, branchid, chainage, ire
    !! NOTE: below is a dangerous realloc, see THREEDI-278
    !! By reallocating here, all pointers that used to point to input crs set (e.g. pcross in t_culvert),
    !! will afterwards point to undefined memory, since it was reallocated elsewhere.
+   !! Update Dec 9, 2019: this problem is fixed for structures in finishReading().
    if (crs%count > crs%size) then
       call realloc(crs)
    endif
@@ -861,6 +864,7 @@ subroutine setGroundLayerData(crossDef, thickness)
    double precision                    :: area 
    double precision                    :: perimeter
    double precision                    :: width
+   double precision                    :: maxwidth
    double precision                    :: af_sub(3), perim_sub(3)
    
    if (Thickness <= 0.0d0) then
@@ -876,7 +880,7 @@ subroutine setGroundLayerData(crossDef, thickness)
       case (CS_TABULATED)
          call GetTabSizesFromTables(thickness, crossDef, .true., area, width, perimeter, af_sub, perim_sub, CS_TYPE_NORMAL)
       case (CS_CIRCLE)
-         call CircleProfile(thickness, crossDef%diameter, area, width, perimeter, CS_TYPE_NORMAL)
+         call CircleProfile(thickness, crossDef%diameter, area, width, maxwidth, perimeter, CS_TYPE_NORMAL)
       case (CS_EGG)
          call EggProfile(thickness, crossDef%diameter, area, width, perimeter, CS_TYPE_NORMAL)
       case default
@@ -987,6 +991,7 @@ end subroutine interpolateWidths
 !! As a result the interpolation can be restricted to a branch
 subroutine useBranchOrdersCrs(crs, brs)
    ! modules
+   use messageHandling
 
    implicit none
    ! variables
@@ -1055,6 +1060,14 @@ subroutine useBranchOrdersCrs(crs, brs)
       cross = crs%cross(ics)
       crs%cross(ics) = crs%cross(minindex)
       crs%cross(minindex) = cross
+      ! Check for multiple cross sections at one location.
+      if (ics > 1) then
+         if ( (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
+            msgbuf = 'Cross section ''' // trim(crs%cross(ics-1)%csid) // ''' and ''' // trim(crs%cross(ics)%csid) // ''' are exactly at the same location.'
+            call err_flush()
+         endif
+      endif
+      
       if (orderNumber(orderNumberCount,1) /= minOrderNumber) then
          orderNumberCount = orderNumberCount + 1
          orderNumber(orderNumberCount, 1) = minOrderNumber
@@ -1200,20 +1213,21 @@ recursive subroutine findNeighbourAndAddCrossSection(brs, crs, branchid, cross, 
 end subroutine findNeighbourAndAddCrossSection
 
 !> Get the flow area, wet perimeter and flow width located on a link
-subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimeter, flowWidth, af_sub, perim_sub)
+subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimeter, flowWidth, maxFlowWidth, af_sub, perim_sub)
 
    use m_GlobalParameters
    
    implicit none
 
-   type(t_chainage2cross),intent(in)       :: line2cross     !< cross section indirection
-   type(t_CrossSection), target, intent(in) :: cross(:)      !< array containing cross section information
-   double precision, intent(in)            :: dpt            !< water depth at cross section
-   double precision, intent(out)           :: flowArea       !< flow area for given DPT
-   double precision, intent(out)           :: wetPerimeter   !< wet perimeter for given DPT
-   double precision, intent(out)           :: flowWidth      !< flow width of water surface
-   double precision, intent(out), optional :: af_sub(3)      !< flow area for main, floodplain1 and floodplain2
-   double precision, intent(out), optional :: perim_sub(3)   !< wet perimeter for main, floodplain1 and floodplain2   
+   type(t_chainage2cross),intent(in)         :: line2cross     !< cross section indirection
+   type(t_CrossSection), target, intent(in)  :: cross(:)      !< array containing cross section information
+   double precision, intent(in   )           :: dpt            !< water depth at cross section
+   double precision, intent(  out)           :: flowArea       !< flow area for given DPT
+   double precision, intent(  out)           :: wetPerimeter   !< wet perimeter for given DPT
+   double precision, intent(  out)           :: flowWidth      !< flow width of water surface
+   double precision, intent(  out), optional :: maxFlowWidth   !< maximum flow width of wet flow area
+   double precision, intent(  out), optional :: af_sub(3)      !< flow area for main, floodplain1 and floodplain2
+   double precision, intent(  out), optional :: perim_sub(3)   !< wet perimeter for main, floodplain1 and floodplain2   
 
    type (t_CrossSection), pointer        :: cross1         !< cross section
    type (t_CrossSection), pointer        :: cross2         !< cross section
@@ -1224,6 +1238,8 @@ subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimet
    double precision                      :: wetPerimeter2
    double precision                      :: flowWidth1   
    double precision                      :: flowWidth2   
+   double precision                      :: maxFlowWidth1   
+   double precision                      :: maxFlowWidth2   
    type (t_CrossSection), save           :: crossi         !< intermediate virtual crosssection     
 
    double precision                      :: af_sub_local1(3), af_sub_local2(3)      
@@ -1251,7 +1267,7 @@ subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimet
 
    if(cross1%crossIndx == cross2%crossIndx) then
       ! Same Cross-Section, no interpolation needed 
-      call GetCSParsFlowCross(cross1, dpt, flowArea, wetPerimeter, flowWidth, af_sub_local1, perim_sub_local1)
+      call GetCSParsFlowCross(cross1, dpt, flowArea, wetPerimeter, flowWidth, maxFlowWidth1, af_sub_local1, perim_sub_local1)
       if (present(af_sub)   ) af_sub    = af_sub_local1
       if (present(perim_sub)) perim_sub = perim_sub_local1
    else
@@ -1274,20 +1290,23 @@ subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimet
             crossi%groundFrictionType = cross1%groundFrictionType
             crossi%tabDef%diameter    = (1.0d0 - f) * cross1%tabDef%diameter + f * cross2%tabDef%diameter
          
-            call GetCSParsFlowCross(crossi, dpt, flowArea, wetPerimeter, flowWidth, af_sub_local1, &
+            call GetCSParsFlowCross(crossi, dpt, flowArea, wetPerimeter, flowWidth, maxFlowWidth1, af_sub_local1, &
                      perim_sub_local1)
             if (present(af_sub)   ) af_sub    = af_sub_local1
             if (present(perim_sub)) perim_sub = perim_sub_local1
             
          case default                             ! Call GetCSParsFlowCross twice and interpolate the results 
 
-            call GetCSParsFlowCross(cross1, dpt, flowArea1, wetPerimeter1, flowWidth1, af_sub_local1, &
+            call GetCSParsFlowCross(cross1, dpt, flowArea1, wetPerimeter1, flowWidth1, maxFlowWidth1, af_sub_local1, &
                      perim_sub_local1, .true.)
-            call GetCSParsFlowCross(cross2, dpt, flowArea2, wetPerimeter2, flowWidth2, af_sub_local2, &
+            call GetCSParsFlowCross(cross2, dpt, flowArea2, wetPerimeter2, flowWidth2, maxFlowWidth2, af_sub_local2, &
                      perim_sub_local2, .true.)
         
             flowArea     = (1.0d0 - f) * flowArea1     + f * flowArea2
             flowWidth    = (1.0d0 - f) * flowWidth1    + f * flowWidth2
+            if (present(maxFlowWidth)) then
+               maxFlowWidth = (1.0d0 - f) * maxFlowWidth1 + f * maxFlowWidth2
+            endif
             wetPerimeter = (1.0d0 - f) * wetPerimeter1 + f * wetPerimeter2
 
             ! compute average chezy 
@@ -1305,30 +1324,32 @@ subroutine GetCSParsFlowInterpolate(line2cross, cross, dpt, flowArea, wetPerimet
 end subroutine GetCSParsFlowInterpolate
 
 !> Get flow area, wet perimeter and flow width at cross section location
-subroutine GetCSParsFlowCross(cross, dpt, flowArea, wetPerimeter, flowWidth, af_sub, perim_sub, doSummerDike)   
+subroutine GetCSParsFlowCross(cross, dpt, flowArea, wetPerimeter, flowWidth, maxFlowWidth, af_sub, perim_sub, doSummerDike)   
 
    use m_GlobalParameters
    use precision_basics
    use m_Roughness
 
-   type (t_CrossSection), intent(in)       :: cross          !< cross section definition
-   double precision, intent(in)            :: dpt            !< water depth at cross section
-   double precision, intent(out)           :: flowArea       !< flow area for given DPT
-   double precision, intent(out)           :: wetPerimeter   !< wet perimeter for given DPT
-   double precision, intent(out)           :: flowWidth      !< flow width of water surface
-   logical,          intent(in),  optional :: doSummerDike   !< Switch to calculate Summer Dikes or not
-   double precision, intent(out), optional :: af_sub(3)      !< flow area for main, floodplain1 and floodplain2
-   double precision, intent(out), optional :: perim_sub(3)   !< wet perimeter for main, floodplain1 and floodplain2      
+   type (t_CrossSection), intent(in)          :: cross          !< cross section definition
+   double precision, intent(in   )            :: dpt            !< water depth at cross section
+   double precision, intent(  out)            :: flowArea       !< flow area for given DPT
+   double precision, intent(  out)            :: wetPerimeter   !< wet perimeter for given DPT
+   double precision, intent(  out)            :: flowWidth      !< flow width of water surface
+   double precision, intent(  out), optional  :: maxFlowWidth   !< maximum flow width of wet flow area
+   logical,          intent(in   ), optional  :: doSummerDike   !< Switch to calculate Summer Dikes or not
+   double precision, intent(  out), optional  :: af_sub(3)      !< flow area for main, floodplain1 and floodplain2
+   double precision, intent(  out), optional  :: perim_sub(3)   !< wet perimeter for main, floodplain1 and floodplain2      
 
    type(t_CSType), pointer           :: crossDef
    double precision                  :: widgr
+   double precision                  :: maxFlowWidth1
    logical                           :: getSummerDikes
    double precision                  :: af_sub_local(3)      
    double precision                  :: perim_sub_local(3)      
    logical                           :: hysteresis =.true.   ! hysteresis is a dummy variable at this location, since this variable is only used for total areas
   
    perim_sub_local = 0d0
-   if (dpt <= 0.0d0) then
+   if (dpt < 0.0d0) then
       flowArea     = 0.0
       wetPerimeter = 0.0
       flowWidth    = sl
@@ -1344,18 +1365,18 @@ subroutine GetCSParsFlowCross(cross, dpt, flowArea, wetPerimeter, flowWidth, af_
       else
          getSummerDikes = .true.
       endif
-      call TabulatedProfile(dpt, cross, .true., getSummerDikes, flowArea, flowWidth, wetPerimeter, af_sub_local, perim_sub_local, CS_TYPE_NORMAL, hysteresis)
+      call TabulatedProfile(dpt, cross, .true., getSummerDikes, flowArea, flowWidth, maxFlowWidth1, wetPerimeter, af_sub_local, perim_sub_local, CS_TYPE_NORMAL, hysteresis)
    case (CS_CIRCLE)
-      call CircleProfile(dpt, crossDef%diameter, flowArea, flowWidth, wetPerimeter, CS_TYPE_NORMAL)
+      call CircleProfile(dpt, crossDef%diameter, flowArea, flowWidth, maxFlowWidth1, wetPerimeter, CS_TYPE_NORMAL)
    case (CS_EGG)
       call EggProfile(dpt, crossDef%diameter, flowArea, flowWidth, wetPerimeter, CS_TYPE_NORMAL)
+      maxFlowWidth1 = flowWidth
    case (CS_YZ_PROF)
-      call YZProfile(dpt, cross%convtab, 0, flowArea, flowWidth, wetPerimeter)
+      call YZProfile(dpt, cross%convtab, 0, flowArea, flowWidth, maxFlowWidth1, wetPerimeter)
    case default
       call SetMessage(LEVEL_ERROR, 'INTERNAL ERROR: Unknown type of cross section')
    end select
 
-   flowWidth = max(flowWidth,sl)
    if (cross%crosstype /= CS_TABULATED ) then
       af_sub_local = 0d0
       af_sub_local(1) = flowArea
@@ -1380,6 +1401,9 @@ subroutine GetCSParsFlowCross(cross, dpt, flowArea, wetPerimeter, flowWidth, af_
    endif
    if (present(perim_sub)) then
       perim_sub = perim_sub_local
+   endif
+   if (present(maxFlowWidth)) then
+      maxFlowWidth = maxFlowWidth1
    endif
    
 end subroutine GetCSParsFlowCross
@@ -1485,10 +1509,11 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
    ! Local Variables
    type(t_CSType), pointer           :: crossDef
    double precision                  :: wetperimeter
+   double precision                  :: maxwidth        !< Maximal width for wet area
    double precision                  :: wlev            !< water level at cross section
    logical                           :: getSummerDikes
    double precision                  :: af_sub(3), perim_sub(3)
-   if (dpt <= 0.0d0) then
+   if (dpt < 0.0d0) then
       totalArea = 0.0d0
       totalWidth = sl
       return
@@ -1504,14 +1529,15 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
          else
             getSummerDikes = .true.
          endif
-         call TabulatedProfile(dpt, cross, .false., getSummerDikes, totalArea, totalWidth, wetPerimeter, af_sub, perim_sub, calculationOption, hysteresis)
+         call TabulatedProfile(dpt, cross, .false., getSummerDikes, totalArea, totalWidth, maxwidth, wetPerimeter, af_sub, perim_sub, calculationOption, hysteresis)
       case (CS_CIRCLE)
-         call CircleProfile(dpt, crossDef%diameter, totalArea, totalWidth, wetPerimeter, calculationOption)
+         call CircleProfile(dpt, crossDef%diameter, totalArea, totalWidth, maxwidth, wetPerimeter, calculationOption)
       case (CS_EGG)
          !TODO:
          call EggProfile(dpt, crossDef%diameter, totalArea, totalWidth, wetPerimeter, calculationOption)
       case (CS_YZ_PROF)
-         call YZProfile(dpt, cross%convtab, 1, totalArea, totalWidth, wetPerimeter)
+         call YZProfile(dpt, cross%convtab, 1, totalArea, totalWidth, maxwidth, wetPerimeter)
+         totalWidth= max(totalWidth, sl)
       case default
          call SetMessage(LEVEL_ERROR, 'INTERNAL ERROR: Unknown type of cross section')
       end select
@@ -1519,7 +1545,7 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
 end subroutine GetCSParsTotalCross
 
 !> Get area, width and perimeter for a tabulated profile
-subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, perimeter, af_sub, perim_sub, calculationOption, hysteresis)
+subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, maxWidth, perimeter, af_sub, perim_sub, calculationOption, hysteresis)
 
    use m_GlobalParameters
 
@@ -1530,6 +1556,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    logical, intent(in)               :: doFlow              !< True: Flow, otherwise Total
    logical, intent(in)               :: getSummerDikes      !< Use summerdike data
    double precision, intent(out)     :: width               !< Width at water surface
+   double precision, intent(out)     :: maxwidth            !< Maximal width for wet surface area
    double precision, intent(out)     :: area                !< Wet area
    double precision, intent(out)     :: perimeter           !< Wet perimeter
    double precision, intent(out)     :: af_sub(3)           !< Wet area, split up to main, floodlain1 and floodplain2
@@ -1548,11 +1575,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
 
    crossDef => cross%tabDef
 
-   if (updateTabulatedProfiles) then
-      call GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_sub, perim_sub, calculationOption)
-   else
-      call GetTabSizesFromTables(dpt, crossDef, doFlow, area, width, perimeter, af_sub, perim_sub, calculationOption)
-   endif    
+   call GetTabulatedSizes(dpt, crossDef, doFlow, area, width, maxWidth, perimeter, af_sub, perim_sub, calculationOption)
    
    if (associated(crossDef%summerdike) .and. getSummerDikes .and. calculationOption /= CS_TYPE_MIN) then
    
@@ -1582,6 +1605,8 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
       
       area  = area  + sdArea
       width = width + sdWidth
+      maxwidth = maxwidth + sdWidth
+      
       if (sdArea > 0d0) then
          do section = 3, 1, -1
             if (af_sub(section) > thresholdForSummerdike) then
@@ -1838,8 +1863,11 @@ subroutine GetTabSizesFromTables(dpt, pCSD, doFlow, area, width, perimeter, af_s
    
 end subroutine GetTabSizesFromTables
 
-!> Get area, width and perimeter from cross section definition
-subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_sub, perim_sub, calculationOption)
+!> Get area, width and perimeter from cross section definition.\n
+!! This subroutine is called for either flow or total widths and areas (see logical DOFLOW).\n
+!! For total areas the width is always larger than the Preisman slot width. Which is set in AddTabulatedCrossSection.\n
+!! For flow area calculation the Preisman slot is not used. 
+subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, maxwidth, perimeter, af_sub, perim_sub, calculationOption)
 
    use m_GlobalParameters
 
@@ -1849,6 +1877,7 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
    type (t_CSType), pointer, intent(in)         :: crossDef            !< Cross section definition
    logical, intent(in)                          :: doFlow              !< True: Flow, otherwise Total
    double precision, intent(out)                :: width               !< Width at water surface
+   double precision, intent(out)                :: maxwidth            !< maximum width for wet area
    double precision, intent(out)                :: area                !< Wet area
    double precision, intent(out)                :: perimeter           !< Wet perimeter
    double precision, intent(out)                :: af_sub(3)           !< Wet area, split up to main, floodlain1 and floodplain2
@@ -1874,8 +1903,9 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
    integer           :: ilev, isec, istart
    double precision  :: width_min
    double precision  :: area_min
-   double precision  :: widthl
-   
+   double precision  :: widthl, fullwidth
+
+   maxwidth = 0d0
    levelsCount = crossDef%levelsCount
    heights => crossDef%height
    if (doFlow) then
@@ -1918,11 +1948,21 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
          cycle
       endif
       
+      ! ISTART starts at 1 and is set to levelscount at the end of this loop.
+      ! LEVELSCOUNT is the location, where the cross section intersects with a transition from main to floodplain1 or from floodplain1 to floodplain2
+      ! this transition is always present in the table
+      !
       do ilev = istart, levelsCount-1
+         ! D1 is the level at ILEV, D2 is the level at D+1
+         ! WIDTHS(ilev) and WIDTHS(ilev+1) are the corresponding widths at D1 and D2
+         ! E1 is the width for subsection isec at D1 (since ISTART is at the start of subsection ISEC, E1 is garanteed > 0)
+         ! E2 is the width for subsection isec at D2 (since ISTART is at the start of subsection ISEC, E2 is garanteed > 0)
+         
          d1 = heights(ilev) - heights(1)
          d2 = heights(ilev + 1) - heights(1)
-         e1 = min(max(sl, widths(ilev)-widthplains(isec)), widthplains(isec+1)-widthplains(isec))
-         e2 = min(max(sl, widths(ilev + 1)-widthplains(isec)), widthplains(isec+1)-widthplains(isec))
+         e1 = min(widths(ilev)-widthplains(isec), widthplains(isec+1)-widthplains(isec))
+         maxwidth = max(maxwidth , widths(ilev))
+         e2 = min(widths(ilev + 1)-widthplains(isec), widthplains(isec+1)-widthplains(isec))
          if (dpt > d2) then
             af_sub(isec)    = af_sub(isec) + 0.5d0 * (d2 - d1) * (e1 + e2)
             perim_sub(isec) = perim_sub(isec) + 2.0d0 * dsqrt(0.25d0 * (e2 - e1)**2 + (d2 - d1)**2)
@@ -1930,8 +1970,14 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
             ! calculate decreasing area 
             area_min = area_min + (width_min + 0.5d0*max(e1-e2,0d0))*(d2-d1)
             width_min = width_min + max(e1-e2,0d0)
-         elseif (dpt > d1) then
+         elseif (dpt >= d1) then
             call trapez(dpt, d1, d2, e1, e2, areal, w_section(isec), wll)
+            if (isec==1) then
+               ! Calculate the full width (not corrected for the subsections) 
+               call trapez(dpt, d1, d2, widths(ilev), widths(ilev+1), areal, fullwidth, wll)
+               maxwidth = max(maxwidth, fullWidth)
+            endif
+            
             af_sub(isec) = af_sub(isec) + areal
             perim_sub(isec) = perim_sub(isec) + wll
             
@@ -1946,11 +1992,12 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
       enddo
    
       istart = levelsCount
-      ! Extend above table if necessary
+      ! Extend above table if necessary (for the subsections this is also the case for a local extension of a subsection.
+      ! To prevent double additions, exclude the wet perimeter. And add this part later
       dTop = heights(levelsCount) - heights(1)
       if (dpt > dTop) then
       
-         eTop = min(max(sl, widths(levelsCount)-widthplains(isec)), widthplains(isec+1)-widthplains(isec))
+         eTop = min(widths(levelsCount)-widthplains(isec), widthplains(isec+1)-widthplains(isec))
    
          af_sub(isec) = af_sub(isec) + (dpt - dTop) * eTop
          area_min = area_min + (dpt - dTop) * width_min
@@ -1971,7 +2018,7 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
          else 
             isec = 1
          endif
-         perim_sub(isec) = perim_sub(isec) + 2.0d0 * (dpt - dTop)  !hk: add only when this part is meant to carry water
+         perim_sub(isec) = perim_sub(isec) + 2.0d0 * (dpt - dTop)  ! Here we take the wet perimeter into account
       endif
    endif
 
@@ -1983,8 +2030,7 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
       width     = width     + w_section(isec)
       perimeter = perimeter + perim_sub(isec)
    enddo
-   
-
+ 
    select case (calculationOption)
    case(CS_TYPE_PLUS)
       area  = area  + area_min
@@ -1992,6 +2038,9 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
    case(CS_TYPE_MIN)
       area  = area_min
       width = width_min
+   case default
+      ! CS_TYPE_NORMAL and CS_TYPE_PREISMAN need no special treatment: Preissmann slot already handled in AddTabulatedCrossSection()
+      continue   
    end select
    
    
@@ -2288,8 +2337,14 @@ subroutine trapez(dpt, d1, d2, w1, w2, area, width, perimeter)
    
 end subroutine trapez
 
-!> Calculate area, width and perimeter for a circle type cross section 
-subroutine CircleProfile(dpt, diameter, area, width, perimeter, calculationOption)
+!> Calculate area, width and perimeter for a circle type cross section.\n
+!! CALCULATIONOPTION determines the type of calculation, possibilities are:\n
+!! * CS_TYPE_NORMAL   : the (flow) area and (flow) width is calculated. In this case the Preisman slot is not taken into account.\n
+!! * CS_TYPE_PREISMAN : The (total) area and (flow) width is calculated, including a Preisman slot at the top, the bottomwidth is also set to the Preisman slot width.
+!!   The latter is to assure A1 > 0.
+!! * CS_TYPE_PLUS     : See CS_TYPE_PREISMAN, with non-decreasing width
+!! * CS_TYPE_MIN      : non-increasing width
+subroutine CircleProfile(dpt, diameter, area, width, maxwidth, perimeter, calculationOption)
    use m_GlobalParameters
 
    implicit none
@@ -2299,6 +2354,7 @@ subroutine CircleProfile(dpt, diameter, area, width, perimeter, calculationOptio
    double precision, intent(out)       :: width              !< width at given water depth
    double precision, intent(out)       :: area               !< wet area
    double precision, intent(out)       :: perimeter          !< wet perimeter
+   double precision, intent(out)       :: maxwidth           !< Maximal width for wet surface area
    integer, intent(in)                 :: calculationOption  !< calculation option for cross section
 
 !
@@ -2354,16 +2410,20 @@ subroutine CircleProfile(dpt, diameter, area, width, perimeter, calculationOptio
       area = area 
       width = width 
    case(CS_TYPE_PREISMAN)
-      area = area    + sl*dpt
-      width = width  + sl
+      area = area    + sl*max(dpt-diameter, 0d0)
+      width = max(width, sl)
    case(CS_TYPE_PLUS)
-      area      = area_plus + dpt*sl
-      width     = width_plus + sl
+      area      = area_plus
+      width     = max(width_plus, sl)
    case(CS_TYPE_MIN)
+      area      = area    + sl*max(dpt-diameter, 0d0)
+      width = max(width, sl)
+      width_plus = max(width_plus, sl)
+      
       area      = area_plus - area
       width     = width_plus - width
    end select
-   
+   maxwidth = width_plus
    
 end subroutine CircleProfile
 
@@ -2451,7 +2511,7 @@ subroutine EggProfile(dpt, diameter, area, width, perimeter, calculationOption)
 end subroutine EggProfile
 
 !> Calculate area, width and perimeter for a circle type cross section 
-subroutine YZProfile(dpt, convtab, i012, area, width, perimeter, u1, cz, conv, frictionType, frictionValue)
+subroutine YZProfile(dpt, convtab, i012, area, width, maxwidth, perimeter, u1, cz, conv, frictionType, frictionValue)
    use m_GlobalParameters
    use m_Roughness
    implicit none
@@ -2460,6 +2520,7 @@ subroutine YZProfile(dpt, convtab, i012, area, width, perimeter, u1, cz, conv, f
    integer,          intent(in)              :: i012           !< 0: use u point, 1: use water level point 1, 2: use water level point 2
    type(t_crsu),     intent(inout)           :: convtab        !< Conveyance table
    double precision, intent(out)             :: width          !< Width at given water depth
+   double precision, intent(out)             :: maxwidth       !< Maximum width for wetted area
    double precision, intent(out)             :: area           !< Wet area
    double precision, intent(out)             :: perimeter      !< Wet perimeter
    double precision, intent(in)   , optional :: u1             !< Flow velocity
@@ -2476,7 +2537,7 @@ double precision   :: c_a, c_b !< variables related to extrapolation
 
 double precision   :: r3, ar1, ar2
 
-
+maxwidth = 0d0
 if (i012 .eq. 0) then                                ! look at u points, mom. eq.
 
    nr = convtab%nru                                    ! number of table entries
@@ -2491,6 +2552,10 @@ if (i012 .eq. 0) then                                ! look at u points, mom. eq
    enddo
    convtab%iolu = i                                    ! and store last index found
 
+   do i1 = 1, i
+      maxwidth = max(maxwidth, convtab%wf(i1))
+   enddo
+   
    i1  = i                                            ! so i1, i2 always inside table
    i2  = i+1
    hu2 = convtab%hu(i2) ; dh2 = hu2 - dpt
@@ -2504,6 +2569,7 @@ if (i012 .eq. 0) then                                ! look at u points, mom. eq
       !
       c1    = convtab%wf(i1) ; c2 = convtab%wf(i2)
       width = a1*c1 + a2*c2
+      maxwidth = max(maxwidth, width)
       !
       z1    = convtab%af(i1) ; z2 = convtab%af(i2)
       ar1   = 0.5d0*dh1*(c1 + width)                     ! area above i1
@@ -3324,6 +3390,7 @@ subroutine createTablesForTabulatedProfile(crossDef)
       double precision                      :: f              !< cross = (1-f)*cross1 + f*cross2
       double precision                      :: area 
       double precision                      :: width 
+      double precision                      :: maxwidth
       double precision                      :: perimeter 
       double precision                      :: cz1, cz2
       double precision                      :: conv1, conv2
@@ -3334,10 +3401,10 @@ subroutine createTablesForTabulatedProfile(crossDef)
       f = line2cross%f
       if(cross1%crossIndx == cross2%crossIndx) then
          ! Same Cross-Section, no interpolation needed 
-         call YZProfile(dpt, cross1%convTab, 0, area, width, perimeter, u1, cz, conv, cross1%frictionTypePos(1), cross1%frictionValuePos(1))
+         call YZProfile(dpt, cross1%convTab, 0, area, width, maxwidth, perimeter, u1, cz, conv, cross1%frictionTypePos(1), cross1%frictionValuePos(1))
       else
-         call YZProfile(dpt, cross1%convTab, 0, area, width, perimeter, u1, cz1, conv1, cross1%frictionTypePos(1), cross1%frictionValuePos(1))
-         call YZProfile(dpt, cross2%convTab, 0, area, width, perimeter, u1, cz2, conv2, cross2%frictionTypePos(1), cross2%frictionValuePos(1))
+         call YZProfile(dpt, cross1%convTab, 0, area, width, maxwidth, perimeter, u1, cz1, conv1, cross1%frictionTypePos(1), cross1%frictionValuePos(1))
+         call YZProfile(dpt, cross2%convTab, 0, area, width, maxwidth, perimeter, u1, cz2, conv2, cross2%frictionTypePos(1), cross2%frictionValuePos(1))
          cz   = (1.0d0 - f) * cz1   + f * cz2
          conv = (1.0d0 - f) * conv1 + f * conv2
       endif

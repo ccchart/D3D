@@ -3,7 +3,7 @@ function [hNew,Thresholds,Param,Parent]=qp_plot_default(hNew,Parent,Param,data,O
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -270,8 +270,9 @@ switch NVal
                         str=PName;
                         lyr={};
                     else
-                        str=sprintf('%s in layer %i',PName,Selected{K_});
-                        lyr={sprintf('layer %i',Selected{K_})};
+                        lyr = qp_layer(Selected{K_});
+                        str = sprintf('%s in %s',PName,lyr);
+                        lyr = {lyr};
                     end
                     %
                     if strcmp(Ops.colourbar,'none')
@@ -829,9 +830,9 @@ switch NVal
                     str=PName;
                     lyr={};
                 else
-                    lyr=sprintf('layer %i',Selected{K_});
-                    str=sprintf('%s in %s',PName,lyr);
-                    lyr={lyr};
+                    lyr = qp_layer(Selected{K_});
+                    str = sprintf('%s in %s',PName,lyr);
+                    lyr = {lyr};
                 end
                 if strcmp(Ops.colourbar,'none')
                     qp_title(Parent,{str,TStr},'quantity',Quant,'unit',Units,'time',TStr)

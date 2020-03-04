@@ -1,7 +1,7 @@
 module M_friction                                 !< friction parameters, (more to follow)
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -301,7 +301,7 @@ end function frictiontype_v1_to_new
             ifuncType = R_FunctionConstant
          case ('absdischarge')
             ifuncType = R_FunctionDischarge
-         case ('waterlevel ')
+         case ('waterlevel')
             ifuncType = R_FunctionLevel
          case default
             ifuncType = -1

@@ -19,7 +19,6 @@ FMODULES += \
 #Sources
 libflow1d_core_la_SOURCES = \
          nodes.f90 \
-         BoundaryConditions.f90 \
          ModelTypes.f90 \
          GlobalParameters.f90 \
          branches.f90 \
@@ -40,8 +39,6 @@ libflow1d_core_la_SOURCES = \
          bridge.f90 \
          structures.f90 \
          compound.f90 \
-         Laterals.F90 \
-         ModelGlobalData.f90 \
          ModelParameters.f90 \
          Storage.f90 \
          ObservationPoints.f90 \
@@ -55,7 +52,6 @@ libflow1d_core_la_SOURCES = \
          cf_timers.f90 \
          cross_helper.f90 \
          flow1d_core.F90 \
-         initialize_1d.F90 \
          quantity_statistics.f90 \
          temperature.f90
 

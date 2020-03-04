@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -57,6 +57,7 @@ module m_ec_item
    public :: ecItemSetType
    public :: ecItemSetQuantity
    public :: ecItemSetProperty
+   public :: ecItemCopyProperty
    public :: ecItemSetElementSet
    public :: ecItemSetSourceT0Field
    public :: ecItemSetSourceT1Field
@@ -206,6 +207,7 @@ module m_ec_item
          type(tEcInstance),      pointer                         :: instancePtr  !< intent(in)
          integer,                                  intent(in)    :: itemID       !< unique Item id
          type(c_time),                             intent(in)    :: timesteps    !< get data corresponding to this number of timesteps since k_refdate
+         character(len=1000)                                     :: message
          real(hp), dimension(:), target, optional, intent(inout) :: target_array !< kernel's data array for the requested values
          !
          integer                :: i       !< loop counter
@@ -229,7 +231,11 @@ module m_ec_item
               ! else
                   success = ecItemUpdateTargetItem(instancePtr, itemPtr, timesteps)
                   if (.not.success) then
-                     call setECMessage("Updating target failed, quantity='"//trim(itemPtr%QUANTITYPTR%NAME)//"', item=",itemId)
+                     write(message,'(a,i8,a)') "Updating target failed, quantity='" &
+                                     //trim(itemPtr%quantityPtr%name)   &
+                                     //"', item=",itemPtr%id
+                     call setECMessage(trim(message))
+                     success = .false.
                   endif 
               ! end if
                exit
@@ -406,9 +412,10 @@ module m_ec_item
                         endif
                         ! Check whether extrapolation is allowed
                         if (item%connectionsPtr(i)%ptr%converterPtr%interpolationType /= interpolate_time_extrapolation_ok) then
-                           write(message,'(a,i5.5)') "Updating source failed, quantity='" &
-                                    &       //trim(item%connectionsPtr(i)%ptr%sourceItemsPtr(j)%ptr%quantityPtr%name)   &
-                                    &       //"', item=",item%connectionsPtr(i)%ptr%sourceItemsPtr(j)%ptr%id
+                           write(message,'(a,i8,a)') "Updating source failed, quantity='" &
+                                           //trim(item%connectionsPtr(i)%ptr%sourceItemsPtr(j)%ptr%quantityPtr%name)   &
+                                           //"', item=",item%connectionsPtr(i)%ptr%sourceItemsPtr(j)%ptr%id,   &
+                                             ", location="//trim(item%connectionsPtr(i)%ptr%sourceItemsPtr(j)%ptr%elementsetPtr%name)
                            call setECMessage(trim(message))
                            success = .false.
                            exit UpdateSrc
@@ -633,6 +640,44 @@ module m_ec_item
          end if
       end function ecItemSetProperty
       
+      ! =======================================================================
+      ! Copy methods
+      ! =======================================================================
+      !> Copies known properties from one EC item to the other.
+      !!
+      !! Example use is when a parent provider's item should reflect the same
+      !! properties as its child providers item(s).
+      function ecItemCopyProperty(instancePtr, itemId_tgt, itemId_src, proplist) result(success)
+         logical                                 :: success     !< function status
+         type(tEcInstance), pointer              :: instancePtr !< intent(in)
+         integer,           intent(in)           :: itemId_src  !< unique Item id source
+         integer,           intent(in)           :: itemId_tgt  !< unique Item id target
+         character(len=*),  intent(in)           :: proplist    !< name of properties to be copied. Currently supported: "vectorMax", "quantityPtr".
+
+         type(tEcItem), pointer :: itemPtr_src                  !< Item corresponding to itemId, source side
+         type(tEcItem), pointer :: itemPtr_tgt                  !< Item corresponding to itemId, target side
+         !
+         success = .false.
+         itemPtr_src => null()
+         itemPtr_tgt => null()
+         !
+         itemPtr_src => ecSupportFindItem(instancePtr, itemId_src)
+         itemPtr_tgt => ecSupportFindItem(instancePtr, itemId_tgt)
+         if (.not.associated(itemPtr_src)) then
+            call setECMessage("ERROR: ec_item::ecItemCopyProperty: Cannot find a source Item with the supplied id.")
+         else if (.not.associated(itemPtr_tgt)) then
+            call setECMessage("ERROR: ec_item::ecItemCopyProperty: Cannot find a target Item with the supplied id.")
+         else
+            if (index(proplist,'quantityPtr')>0) then 
+               itemPtr_tgt%quantityPtr => itemPtr_src%quantityPtr
+            endif 
+            if (index(proplist,'vectorMax')>0) then 
+               itemPtr_tgt%quantityPtr%vectorMax = itemPtr_src%quantityPtr%vectorMax
+            endif 
+            success = .true.
+         end if
+      end function ecItemCopyProperty
+
       !> Change the role of the Item corresponding to itemId.
       function ecItemSetRole(instancePtr, itemId, newRole) result(success)
          logical                               :: success     !< function status

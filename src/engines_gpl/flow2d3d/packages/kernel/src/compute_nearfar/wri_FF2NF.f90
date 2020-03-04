@@ -311,7 +311,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
        ! Compute the density of the discharged water
        !
        if (lsal /= 0) then
-          sal  = const_diff(idis,2)
+          sal  = const_diff(idis,lsal)
           call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
                      & r0            ,kmax          ,lstsci        ,lsal  ,thick , &
                      & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
@@ -321,7 +321,7 @@ subroutine wri_FF2NF(nlb     ,nub      ,mlb      ,mub       ,kmax   , &
           sal = saleqs
        endif
        if (ltem /= 0) then
-          temp = const_diff(idis,1)
+          temp = const_diff(idis,ltem)
           call coupled(nlb           ,nub           ,mlb           ,mub   ,add   , &
                      & r0            ,kmax          ,lstsci        ,ltem  ,thick , &
                      & m_intake(idis),n_intake(idis),k_intake(idis),s0    ,dps   , &
