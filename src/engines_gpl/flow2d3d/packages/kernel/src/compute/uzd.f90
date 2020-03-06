@@ -20,7 +20,7 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
              & pship     ,tgfsep    ,dteu      ,ustokes   ,mom_output,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -130,6 +130,8 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp), dimension(:,:,:)   , pointer :: disnf
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
+    real(fp)                     , pointer :: momrelax
+    real(fp)                     , pointer :: nf_q_source
 !
 ! Global variables
 !
@@ -325,6 +327,9 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp)           :: termdy
     real(fp)           :: termuy
     real(fp)           :: tidegforce
+    real(fp)           :: c_labda
+    real(fp)           :: labda_max
+    real(fp)           :: growth_factor
     real(fp)           :: tsg1
     real(fp)           :: tsg2
     real(fp)           :: twothird
@@ -373,6 +378,8 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
     disnf          => gdp%gdnfl%disnf
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
+    momrelax       => gdp%gdnfl%momrelax
+    nf_q_source    => gdp%gdnfl%nf_q_source
     !
     !  INITIALIZE
     !
@@ -421,7 +428,7 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
        ff = 1.0
     endif
     !
-    !Initialise all arrays aak - cck for all (nm,k)
+    ! Initialise all arrays aak - cck for all (nm,k)
     !
     aak  = 0.0
     buux = 0.0
@@ -752,19 +759,58 @@ recursive subroutine uzd(icreep    ,dpdksi    ,s0        ,u0        , &
        !
        ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
        !
+       ! Instead of weighting the nearfield momentum with the volume added via the nearfield source,
+       ! it is choosen to use a trelax, based on the time step.
+       ! This should force the cell velocity to get the a value "growing" fast to the nearfield momentum value.
+       !
+       ! Only change ddk/bbk when disnf is positive.
+       ! If momu/v is zero (and nf_src_mom) then do change ddk/bbk: a velocity of zero is then prescribed.
+       ! The relaxation parameter trelax is computed based on the specified momentum relaxation factor labda (from input)
+       ! The computation is based on the difference between the local velocity and the prescribed velocity:
+       ! - For large difference: trelax is reduced, for slow relaxation towards the prescribed velocity
+       ! - For small difference: trelax is increased, for faster relaxation towards the prescribed velocity
+       ! The maximum trelax is based on the chosen time step, since the final coefficient before the relaxation term
+       ! for large n (so after many time steps) converges towards trelax / (1/hdt + trelax). This coefficient multiplies the prescribed velocity
+       ! In other words: to attain the prescribed velocity, this coefficient must approach 1.
+       ! For that purpose, we choose the maximum coefficient to be 0.99.
+       ! From the recurrency relation that follows when considering a 1D momentum equation, including advection,
+       ! one can derive that the maximum labda required to attain that coefficient of 0.99 is equal to:
+       !
+       ! labda_max = c_labda/((1.0_fp-c_labda)*hdt)+abs(nf_src_momv(nm,k,idis))/(gvu(nm)*(1.0_fp-c_labda))
+       !
+       ! This has therefore been implemented below. Starting from the initially provided labda (momrelax), we let labda grow towards the maximum
+       ! using a growth factor. This factor has now been chosen as 1.1 (each half time step)
+       !
+       c_labda       = 0.99_fp
+       growth_factor = 1.1_fp
+       momrelax      = momrelax*growth_factor
        do nm = 1, nmmax
-          hugsqs = hu(nm)*gsqs(nm)
           if (kfu(nm) == 1) then
+             !hugsqs = hu(nm)*gsqs(nm)
              do k = 1, kmax
                 do idis = 1, no_dis
                    if (icx == 1) then
                       !
                       ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                      ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/(thick(k)*hugsqs)
+                      !
+                      !if (disnf(nm,k,idis) > 0.0_fp) then 
+                      if (comparereal(nf_src_momv(nm,k,idis), 0.0_fp) /= 0) then
+                         labda_max = c_labda/((1.0_fp-c_labda)*hdt)+abs(nf_src_momv(nm,k,idis))/(gvu(nm)*(1.0_fp-c_labda))
+                         momrelax  = min(momrelax,labda_max)
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*momrelax
+                         bbk(nm,k) = bbk(nm,k) + momrelax
+                      endif
                    else
                       !
                       ! No bbk addition: treat the addition of momentum as the addition of a constituent
-                      ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/(thick(k)*hugsqs)
+                      !
+                      !if (disnf(nm,k,idis) > 0.0_fp) then
+                      if (comparereal(nf_src_momv(nm,k,idis), 0.0_fp) /= 0) then
+                         labda_max = c_labda/((1.0_fp-c_labda)*hdt)+abs(nf_src_momu(nm,k,idis))/(gvu(nm)*(1.0_fp-c_labda))
+                         momrelax  = min(momrelax,labda_max)
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*momrelax
+                         bbk(nm,k) = bbk(nm,k) + momrelax
+                      endif
                    endif
                 enddo
              enddo

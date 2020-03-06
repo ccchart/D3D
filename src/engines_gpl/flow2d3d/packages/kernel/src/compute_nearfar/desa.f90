@@ -7,7 +7,7 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
               & linkinf ,error   ,gdp     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -539,10 +539,25 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
                       ! This means that nf_src_momu/v has a non-regular content
                       !
-                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source * momu_tmp/&
-                                                                          & (thick_tot/(wght*thick(k)))
-                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source * momv_tmp/&
-                                                                          & (thick_tot/(wght*thick(k)))
+                      ! Since momentum sources are located at edges instead of cellls, we need to decide where to put then.
+                      ! We add the momentum source to the downstream edge, to make sure that we extract a momentum-flux from a cell that obtains
+                      ! a mass flux. This should avoid the occurrence of large vertical velocities as a reaction to large discharges in small cells.
+                      !
+                      if (momu_tmp > 0.0_fp) then
+                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu_tmp !/& ! nf_q_source * 
+                                                                         ! & (thick_tot/(wght*thick(k)))
+                      else
+                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + momu_tmp !/& ! nf_q_source * 
+                                                                         ! & (thick_tot/(wght*thick(k)))
+                      endif
+                      !
+                      if (momv_tmp > 0.0_fp) then    
+                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv_tmp !/& ! nf_q_source * 
+                                                                         ! & (thick_tot/(wght*thick(k)))
+                      else
+                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + momv_tmp !/& ! nf_q_source * 
+                                                                         ! & (thick_tot/(wght*thick(k)))
+                      endif
                    endif
                 endif
              enddo
@@ -636,15 +651,31 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       endif
                       call magdir_to_uv(alfas(n_dis(ndis_track),m_dis(ndis_track)), grdang               , &
                                       & nf_sour(src_index,IUMAG)                     , nf_sour(src_index,IUDIR), momu_tmp, momv_tmp)
-                      ! Additional momentum is treated in the same way as constituents!
+                      !
+                      ! Additional momentum is treated in the same way as constituents
                       ! Based on nf_q_source (without dis_tot)
                       ! Since nf_q_source is not available in (z_)cucnp/uzd, the multiplication is done here
                       ! This means that nf_src_momu/v has a non-regular content
                       !
-                      nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source/(nf_q_source+dis_tot) &
-                                                                        & * momu_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
-                      nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source/(nf_q_source+dis_tot) &
-                                                                        & * momv_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      ! Since momentum sources are located at edges instead of cellls, we need to decide where to put then.
+                      ! We add the momentum source to the downstream edge, to make sure that we extract a momentum-flux from a cell that obtains
+                      ! a mass flux. This should avoid the occurrence of large vertical velocities as a reaction to large discharges in small cells.
+                      !
+                      if (momu_tmp > 0.0_fp) then
+                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu_tmp !nf_q_source /(nf_q_source+dis_tot) &
+                                                                            !& * momu_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
+                      else
+                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + momu_tmp !nf_q_source /(nf_q_source+dis_tot) &
+                                                                            !& * momu_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi)) 
+                      endif
+                      !
+                      if (momv_tmp > 0.0_fp) then    
+                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv_tmp !nf_q_source /(nf_q_source+dis_tot) &
+                                                                            !& * momv_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      else
+                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + momv_tmp !nf_q_source /(nf_q_source+dis_tot) &
+                                                                            !& * momv_tmp / (thick_tot/(wght*dzs0(n,m,k)*hhi))
+                      endif
                    endif
                 endif
              enddo

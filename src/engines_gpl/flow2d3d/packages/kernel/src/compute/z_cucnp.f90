@@ -17,7 +17,7 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
                  & ustokes   ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -286,7 +286,9 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
     real(fp)           :: svvv
     real(fp)           :: thvert     ! theta coefficient for vertical advection terms
     real(fp)           :: timest
-    real(fp)           :: trelax
+    real(fp)           :: c_labda
+    real(fp)           :: labda_max
+    real(fp)           :: growth_factor
     real(fp)           :: uuu
     real(fp)           :: uweir
     real(fp)           :: vih
@@ -646,23 +648,39 @@ subroutine z_cucnp(j         ,nmmaxj    ,nmmax     ,kmax      ,icx       , &
        !
        ! Only change ddk/bbk when disnf is positive.
        ! If momu/v is zero (and nf_src_mom) then do change ddk/bbk: a velocity of zero is then prescribed.
+       ! The relaxation parameter trelax is computed based on the specified momentum relaxation factor labda (from input)
+       ! The computation is based on the difference between the local velocity and the prescribed velocity:
+       ! - For large difference: trelax is reduced, for slow relaxation towards the prescribed velocity
+       ! - For small difference: trelax is increased, for faster relaxation towards the prescribed velocity
+       ! The maximum trelax is based on the chosen time step, since the final coefficient before the relaxation term
+       ! for large n (so after many time steps) converges towards trelax / (1/hdt + trelax). This coefficient multiplies the prescribed velocity
+       ! In other words: to attain the prescribed velocity, this coefficient must approach 1.
+       ! For that purpose, we choose the maximum trelax to be 50/hdt: coeff_max = 50/51 = 0.98
        !
-       trelax = momrelax * 2.0_fp * hdt
+       c_labda       = 0.99_fp
+       growth_factor = 1.1_fp
+       momrelax      = momrelax*growth_factor
        do nm = 1, nmmax
           if (kfu(nm) == 1) then
              do k = kfumn0(nm), kfumx0(nm)
                 if (kfuz0(nm, k) == 1) then
                   do idis = 1, no_dis
                      if (icx == 1 ) then
-                         if (disnf(nm,k,idis) > 0.0_fp) then
-                           ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)/trelax  
-                           bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
-                         endif
+                        !if (disnf(nm,k,idis) > 0.0_fp) then
+                        if (comparereal(nf_src_momv(nm,k,idis), 0.0_fp) /= 0) then
+                           labda_max = c_labda/((1.0_fp-c_labda)*hdt)+abs(nf_src_momv(nm,k,idis))/(gvu(nm)*(1.0_fp-c_labda))
+                           momrelax  = min(momrelax,labda_max)
+                           ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*momrelax
+                           bbk(nm,k) = bbk(nm,k) + momrelax
+                        endif
                      else 
-                         if (disnf(nm,k,idis) > 0.0_fp) then
-                           ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)/trelax       
-                           bbk(nm,k) = bbk(nm,k) + 1.0_fp/trelax  
-                         endif
+                        !if (disnf(nm,k,idis) > 0.0_fp) then
+                        if (comparereal(nf_src_momu(nm,k,idis), 0.0_fp) /= 0) then
+                           labda_max = c_labda/((1.0-c_labda)*hdt)+abs(nf_src_momu(nm,k,idis))/(gvu(nm)*(1.0-c_labda))
+                           momrelax  = min(momrelax,labda_max)
+                           ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*momrelax
+                           bbk(nm,k) = bbk(nm,k) + momrelax  
+                        endif
                      endif
                   enddo
                 endif
