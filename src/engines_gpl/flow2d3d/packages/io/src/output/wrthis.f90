@@ -212,19 +212,29 @@ subroutine wrthis(lundia    ,error     ,filename  ,selhis    ,ithisc    , &
 !
     call getdatagroup(gdp, FILOUT_HIS, grnam1, group1)
     call getdatagroup(gdp, FILOUT_HIS, grnam3, group3)
-    celidt     => group1%celidt
-    mnstat     => gdp%gdstations%mnstat
+    celidt      => group1%celidt
+    mnstat      => gdp%gdstations%mnstat
     xystat      => gdp%gdstations%xystat
     flwoutput   => gdp%gdflwpar%flwoutput
-    namst      => gdp%gdstations%namst
-    mfg        => gdp%gdparall%mfg
-    nfg        => gdp%gdparall%nfg
-    io_fp      => gdp%gdpostpr%io_fp
-    io_prec    => gdp%gdpostpr%io_prec
-    shlay      => gdp%gdpostpr%shlay
-    temp       => gdp%gdprocs%temp
-    xystat     => gdp%gdstations%xystat
-    flwoutput  => gdp%gdflwpar%flwoutput
+    namst       => gdp%gdstations%namst
+    mfg         => gdp%gdparall%mfg
+    nfg         => gdp%gdparall%nfg
+    io_fp       => gdp%gdpostpr%io_fp
+    io_prec     => gdp%gdpostpr%io_prec
+    shlay       => gdp%gdpostpr%shlay
+    temp        => gdp%gdprocs%temp
+    xystat      => gdp%gdstations%xystat
+    flwoutput   => gdp%gdflwpar%flwoutput
+    ktemp       => gdp%gdtricom%ktemp
+    free_convec => gdp%gdheat%free_convec
+    zqeva_out   => gdp%gdheat%zqeva_out
+    zqco_out    => gdp%gdheat%zqco_out
+    zqbl_out    => gdp%gdheat%zqbl_out
+    zqin_out    => gdp%gdheat%zqin_out
+    zqnet_out   => gdp%gdheat%zqnet_out
+    zhlc_out    => gdp%gdheat%zhlc_out
+    zhfree_out  => gdp%gdheat%zhfree_out
+    zefree_out  => gdp%gdheat%zefree_out
     ktemp       => gdp%gdtricom%ktemp
     free_convec => gdp%gdheat%free_convec
     zqeva_out   => gdp%gdheat%zqeva_out

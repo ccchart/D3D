@@ -108,6 +108,7 @@ subroutine u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
     integer(pntrsize)      , pointer :: vmnldf
     integer(pntrsize)      , pointer :: vortic
     integer(pntrsize)      , pointer :: w1
+    integer(pntrsize)      , pointer :: windcd
     integer(pntrsize)      , pointer :: windu
     integer(pntrsize)      , pointer :: windv
     integer(pntrsize)      , pointer :: wphy
@@ -143,6 +144,7 @@ subroutine u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
     integer(pntrsize)      , pointer :: zwl
     integer(pntrsize)      , pointer :: zws
     integer(pntrsize)      , pointer :: zwndsp
+    integer(pntrsize)      , pointer :: zwndcd
     integer(pntrsize)      , pointer :: zwnddr
     integer(pntrsize)      , pointer :: zairp
     integer(pntrsize)      , pointer :: zprecp
@@ -351,6 +353,7 @@ subroutine u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
     vmnldf      => gdp%gdr_i_ch%vmnldf
     vortic      => gdp%gdr_i_ch%vortic
     w1          => gdp%gdr_i_ch%w1
+    windcd      => gdp%gdr_i_ch%windcd
     windu       => gdp%gdr_i_ch%windu
     windv       => gdp%gdr_i_ch%windv
     wphy        => gdp%gdr_i_ch%wphy
@@ -386,6 +389,7 @@ subroutine u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
     zwl         => gdp%gdr_i_ch%zwl
     zws         => gdp%gdr_i_ch%zws
     zwndsp      => gdp%gdr_i_ch%zwndsp
+    zwndcd      => gdp%gdr_i_ch%zwndcd
     zwnddr      => gdp%gdr_i_ch%zwnddr
     zairp       => gdp%gdr_i_ch%zairp
     zprecp      => gdp%gdr_i_ch%zprecp
@@ -486,9 +490,10 @@ subroutine u_ppr(lundia    ,lunprt    ,error     ,versio    ,prsmap    , &
                 & r(zssv)   ,r(sbuu)   ,r(sbvv)   , &
                 & r(wrka1)  ,r(wrka2)  ,r(wrka3)  ,r(wrka4)  ,r(wrka5)  , &
                 & r(hrms)   ,r(tp)     ,r(teta)   ,r(rlabda) ,r(uorb)   , &
-                & wave      ,r(zrca)   ,r(windu)  ,r(windv)  , &
+                & wave      ,r(zrca)   ,r(windu)  ,r(windv)  ,r(windcd) , &
                 & r(zwndsp) ,r(zwnddr) ,r(patm)   ,r(zairp)  ,wind      , &
-                & r(precip) ,r(evap)   ,r(zprecp) ,r(zevap)  ,gdp       )
+                & r(precip) ,r(evap)   ,r(zprecp) ,r(zevap)  ,r(zwndcd) , &
+                & gdp       )
     endif
     !
     ! HIS data (USE LUNUS1)
