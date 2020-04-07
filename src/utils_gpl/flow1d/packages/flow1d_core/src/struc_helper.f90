@@ -218,12 +218,17 @@ contains
       !
       !! executable statements -------------------------------------------------------
       !
-      bu   = dxdt + fr
-      du   = (strucalfa  * q0m / max(aum, 1.0d-4) + (1 - strucalfa) * u0m) * dxdt + rhsc
-      fum  = cu / bu
-      rum  = du / bu
-      u1m  = rum - fum * (s1m2 - s1m1)
-      
+      if (fr==0d0) then
+         fum = 0d0
+         rum = 0d0
+         u1m = 0d0
+      else
+         bu   = dxdt + fr
+         du   = (strucalfa  * q0m / max(aum, 1.0d-4) + (1 - strucalfa) * u0m) * dxdt + rhsc
+         fum  = cu / bu
+         rum  = du / bu
+         u1m  = rum - fum * (s1m2 - s1m1)
+      endif
    end subroutine furu_iter
 
 end module m_struc_helper
