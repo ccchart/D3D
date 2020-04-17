@@ -202,7 +202,7 @@ module m_temperature
       case default
          q_tot(nod) = 0d0
       end select
-      load = q_tot(nod) /( rhomean * tp%c_pw * (s1+dp) )        !TODO TEMP: navragen bij Erik: Moet hier geen rekening worden gehouden met het dwarsprofiel? formule 9.214 Delft3d UM.
+      load = q_tot(nod) /( rhomean * tp%c_pw * max(thresholdFlood,(s1+dp)) )        !TODO TEMP: navragen bij Erik: Moet hier geen rekening worden gehouden met het dwarsprofiel? formule 9.214 Delft3d UM.
    end subroutine heat_exchange
    
    double precision function get_q_t(e_t)
