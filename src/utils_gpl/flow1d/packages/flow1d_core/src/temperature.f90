@@ -259,7 +259,7 @@ end function qsun_nominal
       tempPars%sigma_stefan   = 5.67d-8
       tempPars%R_dry          = 287.05d0
       tempPars%R_vap          = 461.495d0
-      tempPars%c_pw           = 3930d0
+      tempPars%c_pw           = 4200d0
       tempPars%c_pa           = 1004d0
       tempPars%p_atm          = 1013.25
       tempPars%c_e_dalton     = 0.0013d0
