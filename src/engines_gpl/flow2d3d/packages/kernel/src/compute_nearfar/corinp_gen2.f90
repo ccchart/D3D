@@ -52,6 +52,7 @@ subroutine corinp_gen2(error, gdp)
     ! They replace the  include igd / include igp lines
     !
     integer                      , pointer :: lundia
+    integer                      , pointer :: itnfli
     integer                      , pointer :: lstsc
     integer                      , pointer :: no_dis
     integer                      , pointer :: no_amb_max
@@ -74,6 +75,7 @@ subroutine corinp_gen2(error, gdp)
     character(256),dimension(:)  , pointer :: base_path
     character(256),dimension(:,:), pointer :: basecase
     character(256)               , pointer :: filename
+    real(fp)                     , pointer :: hdt
     type(tree_data)              , pointer :: cosumofile_ptr
 !
 ! Global variables
@@ -101,6 +103,7 @@ subroutine corinp_gen2(error, gdp)
 !! executable statements -------------------------------------------------------
 !
     lundia         => gdp%gdinout%lundia
+    itnfli         => gdp%gdinttim%itnfli
     lstsc          => gdp%d%lstsc
     no_dis         => gdp%gdnfl%no_dis
     no_amb_max     => gdp%gdnfl%no_amb_max
@@ -123,6 +126,7 @@ subroutine corinp_gen2(error, gdp)
     base_path      => gdp%gdnfl%base_path
     basecase       => gdp%gdnfl%basecase
     filename       => gdp%gdnfl%infile
+    hdt            => gdp%gdnumeco%hdt
     !
     allocate(r_input(max(2,gdp%d%lstsc)), stat=istat)
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
@@ -196,8 +200,23 @@ subroutine corinp_gen2(error, gdp)
     momrelax = -999.0_fp
     call prop_get(cosumofile_ptr, 'COSUMO/momentumRelaxation', momrelax)
     if (comparereal(momrelax, 0.0_fp) == 1) then
+       !
+       ! The prescribed momentum relaxation parameter N should adhere to:
+       ! 0.5*dt < N*dt                   , i.e. N >= 0.5
+       !          N*dt < 0.5*itnfli*dt   , i.e. N <= 0.5*itnfli
+       if (momrelax < 0.5_fp) then
+           momrelax = 0.5_fp
+           write(lundia,'(a,f5.2,a)') "Message: Limited nearfield Momentum Relaxation to the minimum value of 0.5."
+       endif
+       if (momrelax > 0.5_fp*real(itnfli,fp)) then
+           momrelax = 0.5_fp*real(itnfli,fp)
+           write(lundia,'(a,f5.2,a)') "Message: Limited nearfield Momentum Relaxation to the maximum value of 0.5*(the nearfield-coupling interval ITNFLI)."
+       endif
        write(lundia,'(a,f5.2,a)') "Message: Nearfield Momentum Relaxation = 1/(", momrelax, "*dt)"
     else
+       !
+       ! No value prescribed: use the default of N = 5, i.e. Trelax = 5*dt.
+       !
        momrelax = 5.0_fp
     endif
     !

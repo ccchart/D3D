@@ -121,10 +121,8 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp), dimension(:,:)     , pointer :: mom_m_waveforce     ! wave forces in u dir
     integer                      , pointer :: no_dis
 	logical                      , pointer :: nf_src_mom
-    real(fp), dimension(:,:,:)   , pointer :: disnf
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momu
     real(fp), dimension(:,:,:)   , pointer :: nf_src_momv
-    real(fp)                     , pointer :: nf_q_source
     real(fp)                     , pointer :: momrelax
 !
 ! Global variables
@@ -289,9 +287,7 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp)                   :: svvv
     real(fp)                   :: s_crit
     real(fp)                   :: tidegforce
-    real(fp)                   :: c_labda
-    real(fp)                   :: labda_max
-    real(fp)                   :: growth_factor
+    real(fp)                   :: trelaxi
     real(fp)                   :: tsg1
     real(fp)                   :: tsg2
     real(fp)                   :: twothird
@@ -332,11 +328,9 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     veg3d          => gdp%gdprocs%veg3d
     no_dis         => gdp%gdnfl%no_dis
     nf_src_mom     => gdp%gdnfl%nf_src_mom
-    disnf          => gdp%gdnfl%disnf
     nf_src_momu    => gdp%gdnfl%nf_src_momu
     nf_src_momv    => gdp%gdnfl%nf_src_momv
     momrelax       => gdp%gdnfl%momrelax
-    nf_q_source    => gdp%gdnfl%nf_q_source
     !
     ! INITIALISATION
     !
@@ -722,43 +716,26 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
        ! DISCHARGE ADDITION OF MOMENTUM FROM NEARFIELD
        !
        ! Instead of weighting the nearfield momentum with the volume added via the nearfield source,
-       ! it is choosen to use a trelax, based on the time step.
+       ! it is chosen to use a trelax, based on the time step.
        ! This should force the cell velocity to get the a value "growing" fast to the nearfield momentum value.
        !
-       ! Only change ddk/bbk when disnf is positive.
-       ! If momu/v is zero (and nf_src_mom) then do change ddk/bbk: a velocity of zero is then prescribed.
-       ! The relaxation parameter trelax is computed based on the specified momentum relaxation factor labda (from input)
-       ! The computation is based on the difference between the local velocity and the prescribed velocity:
-       ! - For large difference: trelax is reduced, for slow relaxation towards the prescribed velocity
-       ! - For small difference: trelax is increased, for faster relaxation towards the prescribed velocity
-       ! The maximum trelax is based on the chosen time step, since the final coefficient before the relaxation term
-       ! for large n (so after many time steps) converges towards trelax / (1/hdt + trelax). This coefficient multiplies the prescribed velocity
-       ! In other words: to attain the prescribed velocity, this coefficient must approach 1.
-       ! For that purpose, we choose the maximum trelax to be 50/hdt: coeff_max = 50/51 = 0.98
+       ! Only change ddk/bbk when the momentum source in the present direction is non-negative
+       ! Inverse of the relaxation time:
        !
-       c_labda       = 0.99_fp
-       growth_factor = 1.1_fp
-       momrelax      = momrelax*growth_factor
+       trelaxi = 1.0 / (momrelax*2.0*hdt)
        do nm = 1, nmmax
           if (kfu(nm) == 1) then
-             !hugsqs = hu(nm)*gsqs(nm)
              do k = 1, kmax
                 do idis = 1, no_dis
                    if (icx == 1) then
-                      !if (disnf(nm,k,idis) > 0.0_fp) then
                       if (comparereal(nf_src_momv(nm,k,idis), 0.0_fp) /= 0) then
-                         labda_max = c_labda/((1.0_fp-c_labda)*hdt)+abs(nf_src_momv(nm,k,idis))/(gvu(nm)*(1.0_fp-c_labda))
-                         momrelax  = min(momrelax,labda_max)   
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*momrelax
-                         bbk(nm,k) = bbk(nm,k) + momrelax
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momv(nm,k,idis)*trelaxi
+                         bbk(nm,k) = bbk(nm,k) + trelaxi
                       endif
                    else
-                      !if (disnf(nm,k,idis) > 0.0_fp) then
                       if (comparereal(nf_src_momu(nm,k,idis), 0.0_fp) /= 0) then
-                         labda_max = c_labda/((1.0-c_labda)*hdt)+abs(nf_src_momu(nm,k,idis))/(gvu(nm)*(1.0-c_labda))
-                         momrelax  = min(momrelax,labda_max)
-                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*momrelax
-                         bbk(nm,k) = bbk(nm,k) + momrelax
+                         ddk(nm,k) = ddk(nm,k) + nf_src_momu(nm,k,idis)*trelaxi
+                         bbk(nm,k) = bbk(nm,k) + trelaxi
                       endif
                    endif
                 enddo
