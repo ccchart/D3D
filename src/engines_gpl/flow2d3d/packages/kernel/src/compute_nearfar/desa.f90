@@ -543,15 +543,15 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       ! a mass flux. This should avoid the occurrence of large vertical velocities as a reaction to large discharges in small cells.
                       !
                       if (momu_tmp > 0.0_fp) then
-                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source * momu_tmp * (wght*thick(k))/thick_tot
+                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu_tmp !* (wght*thick(k))/thick_tot
                       else
-                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + nf_q_source * momu_tmp * (wght*thick(k))/thick_tot
+                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + momu_tmp !* (wght*thick(k))/thick_tot
                       endif
                       !
                       if (momv_tmp > 0.0_fp) then    
-                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source * momv_tmp * (wght*thick(k))/thick_tot
+                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv_tmp !* (wght*thick(k))/thick_tot
                       else
-                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + nf_q_source * momv_tmp * (wght*thick(k))/thick_tot
+                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + momv_tmp !* (wght*thick(k))/thick_tot
                       endif
                    endif
                 endif
@@ -655,15 +655,15 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                       ! a mass flux. This should avoid the occurrence of large vertical velocities as a reaction to large discharges in small cells.
                       !
                       if (momu_tmp > 0.0_fp) then
-                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + nf_q_source * momu_tmp * (wght*dzs0(n,m,k)*hhi)/thick_tot
+                         nf_src_momu(n,m,k,idis) = nf_src_momu(n,m,k,idis) + momu_tmp !* (wght*dzs0(n,m,k)*hhi)/thick_tot
                       else
-                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + nf_q_source * momu_tmp * (wght*dzs0(n,m,k)*hhi)/thick_tot
+                         nf_src_momu(n,m-1,k,idis) = nf_src_momu(n,m-1,k,idis) + momu_tmp !* (wght*dzs0(n,m,k)*hhi)/thick_tot
                       endif
                       !
                       if (momv_tmp > 0.0_fp) then    
-                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + nf_q_source * momv_tmp * (wght*dzs0(n,m,k)*hhi)/thick_tot
+                         nf_src_momv(n,m,k,idis) = nf_src_momv(n,m,k,idis) + momv_tmp !* (wght*dzs0(n,m,k)*hhi)/thick_tot
                       else
-                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + nf_q_source * momv_tmp * (wght*dzs0(n,m,k)*hhi)/thick_tot
+                         nf_src_momv(n-1,m,k,idis) = nf_src_momv(n-1,m,k,idis) + momv_tmp !* (wght*dzs0(n,m,k)*hhi)/thick_tot
                       endif
                    endif
                 endif
