@@ -202,11 +202,11 @@ subroutine corinp_gen2(error, gdp)
     if (comparereal(momrelax, 0.0_fp) == 1) then
        !
        ! The prescribed momentum relaxation parameter N should adhere to:
-       ! 0.5*dt < N*dt                   , i.e. N >= 0.5
-       !          N*dt < 0.5*itnfli*dt   , i.e. N <= 0.5*itnfli
-       if (momrelax < 0.5_fp) then
-           momrelax = 0.5_fp
-           write(lundia,'(a,f5.2,a)') "Message: Limited nearfield Momentum Relaxation to the minimum value of 0.5."
+       ! dt < N*dt                   , i.e. N >= 1.0
+       !      N*dt < 0.5*itnfli*dt   , i.e. N <= 0.5*itnfli
+       if (momrelax < 1.0_fp) then
+           momrelax = 1.0_fp
+           write(lundia,'(a,f5.2,a)') "Message: Limited nearfield Momentum Relaxation to the minimum value of 1.0."
        endif
        if (momrelax > 0.5_fp*real(itnfli,fp)) then
            momrelax = 0.5_fp*real(itnfli,fp)
