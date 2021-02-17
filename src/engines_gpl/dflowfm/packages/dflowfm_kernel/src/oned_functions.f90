@@ -101,7 +101,7 @@ module m_oned_functions
          ! nonlinear computation is required for 1d flow
          if (nonlin1D == 0) then
             nonLin1D = 1
-         elseif (nonlin1D == 2) then
+         elseif (nonlin1D >= 2) then
             CSCalculationOption = CS_TYPE_PLUS
          endif
          
@@ -781,7 +781,7 @@ module m_oned_functions
    type(t_network), intent(inout), target :: network
    type(t_storage), pointer               :: pSto
    type(t_administration_1d), pointer     :: adm
-   integer                                :: i, cc1, cc2
+   integer                                :: i, istor, cc1, cc2
 
    groundlevel(:) = dmiss
    groundStorage(:) = 0
@@ -805,10 +805,11 @@ module m_oned_functions
    end do
 
    ! set for storage nodes that have prescribed street level, i.e. storageType is reservoir or closed
-   do i = 1, network%storS%Count
-      pSto => network%storS%stor(i)
+   do istor = 1, network%storS%Count
+      pSto => network%storS%stor(istor)
+      i = pSto%gridPoint-ndx2d
       if (pSto%useStreetStorage .and. (.not. pSto%useTable)) then
-         groundLevel(pSto%gridPoint) = pSto%streetArea%x(1)
+         groundLevel(i) = pSto%streetArea%x(1)
          if (pSto%storageType == nt_Closed) then
             groundStorage(i) = 0
          else
@@ -901,7 +902,7 @@ module m_oned_functions
 
    !> Compute the cumulative time when water is above ground level.
    subroutine updateTimeWetOnGround(dts)
-   use m_flowparameters, only: epshs
+   use m_flowparameters, only: epswetout
    use m_flowtimes, only: time_wetground
    use m_flow, only: s1
    use m_flowgeom,only: ndxi, ndx2d, groundLevel, groundStorage
@@ -911,7 +912,7 @@ module m_oned_functions
    
    do i = ndx2d+1, ndxi
       ii = i - ndx2d
-      if (groundLevel(ii) .ne. dmiss .and. groundStorage(ii) == 1 .and. s1(i) - groundLevel(ii) >= epshs) then
+      if (groundLevel(ii) .ne. dmiss .and. groundStorage(ii) == 1 .and. s1(i) - groundLevel(ii) >= epswetout) then
          time_wetground(i) = time_wetground(i) + dts
       end if
    end do 

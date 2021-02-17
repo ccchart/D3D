@@ -277,17 +277,17 @@
                !
                iref = cdef%levelscount
                do i = 2, cdef%levelscount - 1
-                  if (cdef%flowWidth(i+1)*2d0 > cdef%plains(1)) then ! or cdef%height(i)>s1(nm)
+                  if (cdef%flowWidth(i+1) > cdef%plains(1)) then ! or cdef%height(i)>s1(nm)
                      iref = i
                      exit
                   endif
                enddo
                aref = 0d0
                do i = 2, iref
-                  aref = aref + (cdef%flowWidth(i) + cdef%flowWidth(i-1))*(cdef%height(i)-cdef%height(i-1))
+                  aref = aref + (cdef%flowWidth(i) + cdef%flowWidth(i-1))*(cdef%height(i)-cdef%height(i-1))*0.5d0
                enddo
                href = cdef%height(iref)
-               w_active = cdef%flowWidth(iref)*2d0
+               w_active = cdef%flowWidth(iref)
                !
                ! use blchg as bed level change over the total cell area (can be partly dry)
                ! to compute the total volume deposited inside the cell
@@ -319,7 +319,7 @@
                   !
                   do i = iref, cdef%levelscount-1
                      da = da - aref
-                     aref = (cdef%flowWidth(i+1) + cdef%flowWidth(i))*(cdef%height(i+1)-cdef%height(i))
+                     aref = (cdef%flowWidth(i+1) + cdef%flowWidth(i))*(cdef%height(i+1)-cdef%height(i))*0.5d0
                      if (da<aref) then
                         exit
                      else
@@ -525,7 +525,7 @@
    double precision :: href_tot
    double precision :: ds
    !
-   ! upon entry blchg contains the bed level change averaged over the total cell area
+   ! Generate level change averaged over the main channel
    !
    do nm = 1, ndxi
       if (kcs(nm)==1) then ! only for 1D nodes
@@ -539,7 +539,7 @@
             if (ctype == CS_TABULATED) then
                ds = fm_get_ds(nm,j)
                !
-               ! determine the reference height href and the cross sectional area  below that level
+               ! determine the reference height href and the cross sectional area below that level
                !
                iref = cdef%levelscount
                do i = 2, cdef%levelscount - 1
@@ -550,12 +550,12 @@
                enddo
                blref = cdef%flowWidth(1)*cdef%height(1)
                do i = 2, iref
-                  blref = blref + (cdef%flowWidth(i) - cdef%flowWidth(i-1))*(cdef%height(i)+cdef%height(i-1)*0.5d0)
+                  blref = blref + (cdef%flowWidth(i) - cdef%flowWidth(i-1))*(cdef%height(i)+cdef%height(i-1))*0.5d0
                enddo
                href_tot = href_tot + blref*ds
                ba_mor_tot = ba_mor_tot + cdef%flowWidth(iref)*ds
             else
-               write(msgbuf,'(a,i5)') 'Bed level updating has not yet implemented for cross section type ',ctype
+               write(msgbuf,'(a,i5)') 'Bed level averaging for main channel is not implemented for cross section type ',ctype
                call err_flush()
             endif            
          enddo
@@ -999,7 +999,6 @@
    wave = jawave>0
    !
    ! Mass conservation; s1 is updated before entering fm_erosed
-   hs = s1 - bl
    !
    if (varyingmorfac) then
       call updmorfac(stmpar%morpar, time1/3600.0_fp, julrefdat)

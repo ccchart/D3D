@@ -1009,7 +1009,7 @@ subroutine readMDUFile(filename, istat)
     end if
 
     call prop_get_double( md_ptr, 'numerics', 'Slopedrop2D'  , Slopedrop2D)
-    call prop_get_logical( md_ptr, 'numerics', 'Slopedrop1D'  , Slopedrop1D)
+    call prop_get_logical( md_ptr, 'numerics', 'Drop1D'      , Drop1D)
     call prop_get_double( md_ptr, 'numerics', 'Drop3D'       , Drop3D)
     call prop_get_integer(md_ptr, 'numerics', 'Lincontin'    , lincontin)
     call prop_get_double (md_ptr, 'numerics', 'Chkadvd'      , chkadvd)
@@ -1629,6 +1629,7 @@ subroutine readMDUFile(filename, istat)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_nudging', jamapnudge, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_waves',jamapwav, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_DTcell',jamapdtcell, success)
+    call prop_get_double (md_ptr, 'output', 'Wrimap_wet_waterdepth_threshold', epswetout, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_time_water_on_ground', jamapTimeWetOnGround, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_freeboard', jamapFreeboard, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_waterdepth_on_ground', jamapDepthOnGround, success)
@@ -2400,7 +2401,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     call prop_set(prop_ptr, 'geometry', 'Nonlin2D', Nonlin2D, 'Non-linear 2D volumes, 1 = yes, only used if ibedlevtype=3 and Conveyance2D>=1')
     endif
     if (nonlin1D .ne. 0) then
-    call prop_set(prop_ptr, 'geometry', 'Nonlin1D', Nonlin1D, 'Non-linear 1D volumes, 1 = pipes open, 2 = pipes closed')
+    call prop_set(prop_ptr, 'geometry', 'Nonlin1D', Nonlin1D, 'Non-linear 1D volumes, 1 = Preisman slot, 2 = pipes closed (Nested Newton)')
     endif
 
     if (Slotw2D .ne. 1d-3) then
@@ -2571,12 +2572,12 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
 
     call prop_set(prop_ptr, 'numerics', 'Slopedrop2D', Slopedrop2D, 'Apply drop losses only if local bed slope > Slopedrop2D, (<=0: no drop losses)')
 
-    if (Slopedrop1D) then
+    if (Drop1D) then
        help = 1
     else
        help = 0
     endif
-    call prop_set(prop_ptr, 'numerics', 'Slopedrop1D', help, 'Apply drop losses, (==0: no drop losses)')
+    call prop_set(prop_ptr, 'numerics', 'Drop1D', help, 'Apply drop losses')
 
     if (writeall .or. Drop3D .ne. 1d0) then
        call prop_set(prop_ptr, 'numerics', 'Drop3D'   , Drop3D, 'Apply droplosses in 3D if z upwind below bob + 2/3 hu*drop3D')
@@ -3352,6 +3353,10 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
         call prop_set(prop_ptr, 'output', 'Wrimap_DTcell', jamapdtcell, 'Write time step per cell based on CFL (1: yes, 0: no)')
     endif
 
+
+    if (writeall .or. epswetout /= 0.1d0) then
+       call prop_set(prop_ptr, 'output', 'Wrimap_wet_waterdepth_threshold', epswetout, 'Waterdepth threshold above which a grid point counts as ''wet''. Used for Wrimap_time_water_on_ground.')
+    end if
 
     if (writeall .or. jamapTimeWetOnGround /= 0) then
         call prop_set(prop_ptr, 'output', 'Wrimap_time_water_on_ground', jamapTimeWetOnGround, 'Write cumulative time when water is above ground level to map file, only for 1D nodes (1: yes, 0: no)')

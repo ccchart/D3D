@@ -11,10 +11,6 @@ if sys.version_info<(3,0,0):
    # - open files with encoding='utf-8' (Both Python 2.x and 3.x)
    # - Do not use str(line) on lines read from file
    from codecs import open as open
-   from Tkinter import *
-else:
-   from tkinter import *
-
 
 #
 # This script can be used to create/convert the VisualStudio solution and project files
@@ -189,8 +185,8 @@ toolsversion[2013] = "12.0"
 toolsversion[2014] = "12.0"
 toolsversion[2015] = "14.0"
 toolsversion[2016] = "14.0"
-toolsversion[2017] = "14.0"
-toolsversion[2019] = "14.0"
+toolsversion[2017] = "15.0"
+toolsversion[2019] = "15.0"
 
 #
 #
@@ -308,8 +304,8 @@ def process_solution_file(sln, slntemplate):
                     line = "Microsoft Visual Studio Solution File, Format Version 12.00\r\n"
                 elif vs == 2019:
                     line = "Microsoft Visual Studio Solution File, Format Version 12.00\r\n"
-                # else:
-                    # leave line unchanged
+                else:
+                    pass
             startpos = line.find("# Visual Studio")
             if startpos == 0:
                 if vs == 2010:
@@ -327,9 +323,9 @@ def process_solution_file(sln, slntemplate):
                 elif vs == 2017:
                     line = "# Visual Studio 2017\r\n"
                 elif vs == 2019:
-                    line = "# Visual Studio 2019\r\n"
-                # else:
-                    # leave line unchanged
+                    line = "# Visual Studio 16\r\n"
+                else:
+                    pass
             filouthandle.write(line)
 
     # Process all project files referenced in the sln file
@@ -551,18 +547,13 @@ def getUCRTVersionNumber():
             result = ""
             sys.stdout.write("\n\n *** ERROR:Execution failed; is VisualStudio " + str(vs) + " installed?\n\n\n")
         result = result.decode('utf-8')
-        if result.find("UniversalCRTSdkDir") == -1:
+        ucrtpos = result.rfind("UniversalCRTSdkDir=")
+        if ucrtpos == -1:
             # Fallback: it should be this:
             sys.stdout.write("ucrtdir not found; set to default value\n")
-            ucrtdir = "c:\\Program Files (x86)\\Windows Kits\\10\\Lib\\"
+            ucrtdir = "c:\\Program Files (x86)\\Windows Kits\\10\\Lib"
         else:
-            ucrtdir = result[19:]
-            # result may be:
-            # ****\nbladibla\n****\nUniversalCRTSdkDir=<value>
-            # Get the value
-            ucrtpos = ucrtdir.rfind("UniversalCRTSdkDir=")
-            if ucrtpos > -1:
-                ucrtdir = ucrtdir[ucrtpos+19:]
+            ucrtdir = result[ucrtpos+19:]
             # Remove the trailing slash and the newline-character behind it
             lastslash = ucrtdir.rfind("\\")
             if lastslash != -1:
@@ -746,6 +737,10 @@ if __name__ == "__main__":
     # Both vs and ifort defined via command line arguments: do_work
     # Else: Create GUI to select them
     if vs == -999 or ifort == -999:
+        if sys.version_info<(3,0,0):
+            from Tkinter import *
+        else:
+            from tkinter import *
         build_gui()
     else:
         do_work()

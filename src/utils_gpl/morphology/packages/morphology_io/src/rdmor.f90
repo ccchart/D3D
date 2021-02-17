@@ -576,10 +576,8 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           error = .true.
           return
        elseif (ihidexp>1 .and. anymud) then
-          errmsg = 'Mud fractions included: IHidExp should be 1 in ' // trim(filmor)
-          call write_error(errmsg, unit=lundia)
-          error = .true.
-          return
+          errmsg = 'Hiding-exposure with mud is an experimental feature. Hiding-exposure does not take into account the presence of mud.'
+          call write_warning(errmsg, unit=lundia)
        endif
        select case(ihidexp)
        case(4) ! Parker, Klingeman, McLean
@@ -726,6 +724,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'ReferenceHeight'             , moroutput%aks)
        call prop_get_logical(mor_ptr, 'Output', 'SettlingVelocity'            , moroutput%ws)
        call prop_get_logical(mor_ptr, 'Output', 'RawTransportsAtZeta'         , moroutput%rawtransports)
+       call prop_get_logical(mor_ptr, 'Output', 'SedParOut'                   , moroutput%sedparout)
        !
        call prop_get_logical(mor_ptr, 'Output', 'Bedslope'                    , moroutput%dzduuvv)
        call prop_get_logical(mor_ptr, 'Output', 'Taurat'                      , moroutput%taurat)
@@ -746,6 +745,8 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'BedLayerPorosity'            , moroutput%poros)
        !
        call prop_get_logical(mor_ptr, 'Output', 'AverageAtEachOutputTime'     , moroutput%cumavg)
+       !
+       call prop_get_logical(mor_ptr, 'Output', 'MainChannelAveragedBedLevel' , moroutput%blave)
        !
        call prop_get(mor_ptr,         'Output', 'MorStatsOutputInterval'      , moroutput%avgintv, 3, ex)
        if (ex) then
