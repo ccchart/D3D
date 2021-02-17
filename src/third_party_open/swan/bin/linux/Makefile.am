@@ -9,7 +9,9 @@ include $(top_srcdir)/common.am
 #Includes
 dist_bin_SCRIPTS = \
 	swan_mpi.exe \
-	swan_omp.exe
+	swan_omp.exe \
+	swan_4120_limiter_ctheta_linux64_omp.exe \
+	swan_4120_limiter_ctheta_linux64_ser.exe
 
 install-exec-hook:
 	cp -p $(top_srcdir)/third_party_open/swan/bin/linux/libnetcdf.so.4 $(libdir)

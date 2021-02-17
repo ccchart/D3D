@@ -72,7 +72,7 @@ MACHINE_TYPE=`uname -m`
 if [ $mpirun -eq 1 ]; then
     SWANEXEC=${D3D_HOME}/bin/swan_mpi.exe
 else
-    SWANEXEC=${D3D_HOME}/bin/swan_omp.exe
+    SWANEXEC=${D3D_HOME}/bin/swan_4120_limiter_ctheta_linux64_omp.exe
   #
   # swan40.72AB and newer runs parallel using OpenMP, using the total number of cores on the machine by default
   # Two ways to force the number of parallel processes:
