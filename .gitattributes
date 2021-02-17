@@ -417,7 +417,6 @@ examples/11_wheeler_flow_wave/test61_ref0_surveyintake.dep -text
 examples/11_wheeler_flow_wave/test61_ref0_surveyintake_waves_active_3.dep -text
 examples/11_wheeler_flow_wave/test61_waves_active3_aangepast.enc -text
 examples/11_wheeler_flow_wave/test61_waves_active3_aangepast.grd -text
-examples/11_wheeler_flow_wave/tri-rst.test.rst -text
 examples/11_wheeler_flow_wave/wheeler-local-skimmer-5mdown-position.gat -text
 examples/11_wheeler_flow_wave/wheeler.bcc -text
 examples/11_wheeler_flow_wave/wheeler.bct -text
