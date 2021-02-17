@@ -1,0 +1,17 @@
+table-name           'Boundary Section : 1 '
+contents             'Uniform  '
+location             'ELK_BCT_VolCor' 
+time-function        'non-equidistant' 
+reference-time       20160331 
+time-unit            'minutes' 
+interpolation        'linear' 
+parameter            'time               '                    unit '[min]' 
+parameter            'water elevation (z)  end A'               unit '[m]' 
+parameter            'water elevation (z)  end B'               unit '[m]' 
+records-in-table 6
+2065680.0 -0.62002 -0.62002
+2065740.0 -0.61696 -0.61696
+2065800.0 -0.61696 -0.61696
+2065860.0 -0.61696 -0.61696
+2065920.0 -0.61392 -0.61392
+2065980.0 -0.61696 -0.61696

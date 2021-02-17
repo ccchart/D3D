@@ -1,0 +1,17 @@
+table-name           'Boundary Section : 1'
+contents             'Uniform   '
+location             'ELK_BCT_VolCor      '
+time-function        'non-equidistant'
+reference-time       20160331
+time-unit            'minutes'
+interpolation        'linear'
+parameter            'time                '  unit '[min]'
+parameter            'Temperature          end A uniform'       unit '[�C]'
+parameter            'Temperature          end B uniform'       unit '[�C]'
+records-in-table 6
+2065680.0 13.966 13.966
+2065740.0 13.906 13.906
+2065800.0 14.013 14.013
+2065860.0 13.937 13.937
+2065920.0 13.926 13.926
+2065980.0 13.871 13.871

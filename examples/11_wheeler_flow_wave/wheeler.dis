@@ -1,0 +1,1107 @@
+table-name          'Discharge: 1'
+contents            'regular'
+location            'GVDA1_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 2'
+contents            'regular'
+location            'GVDA1_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 3'
+contents            'regular'
+location            'GVDA1_03'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 4'
+contents            'regular'
+location            'GVDA1_04'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 5'
+contents            'regular'
+location            'GVDA1_05'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 6'
+contents            'regular'
+location            'GVDA1_06'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 7'
+contents            'regular'
+location            'GVDA1_07'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 538.311 13.966
+2065740.0 530.88 13.906
+2065800.0 537.28 14.013
+2065860.0 502.062 13.937
+2065920.0 465.598 13.926
+2065980.0 466.13 13.871
+table-name          'Discharge: 8'
+contents            'regular'
+location            'WHLA1_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 9'
+contents            'regular'
+location            'WHLA1_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 10'
+contents            'regular'
+location            'WHLA1_03'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 11'
+contents            'regular'
+location            'WHLA1_04'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 12'
+contents            'regular'
+location            'WHLA1_05'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 13'
+contents            'regular'
+location            'WHLA1_06'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 14'
+contents            'regular'
+location            'WHLA1_07'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 15'
+contents            'regular'
+location            'WHLA1_08'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 16'
+contents            'regular'
+location            'WHLA1_09'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 17'
+contents            'regular'
+location            'WHLA1_10'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 18'
+contents            'regular'
+location            'WHLA1_11'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 19'
+contents            'regular'
+location            'WHLA1_12'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 20'
+contents            'regular'
+location            'WHLA1_13'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 21'
+contents            'regular'
+location            'WHLA1_14'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 22'
+contents            'regular'
+location            'WHLA1_15'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 23'
+contents            'regular'
+location            'WHLA1_16'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 24'
+contents            'regular'
+location            'WHLA1_17'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 25'
+contents            'regular'
+location            'WHLA1_18'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 26'
+contents            'regular'
+location            'WHLA1_19'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 27'
+contents            'regular'
+location            'WHLA1_20'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 28'
+contents            'regular'
+location            'WHLA1_21'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 29'
+contents            'regular'
+location            'WHLA1_22'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 30'
+contents            'regular'
+location            'WHLA1_23'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 31'
+contents            'regular'
+location            'WHLA1_24'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 32'
+contents            'regular'
+location            'WHLA1_25'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 33'
+contents            'regular'
+location            'WHLA1_26'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 34'
+contents            'regular'
+location            'WHLA1_27'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 35'
+contents            'regular'
+location            'WHLA1_28'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 36'
+contents            'regular'
+location            'WHLA1_29'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 37'
+contents            'regular'
+location            'WHLA1_30'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 38'
+contents            'regular'
+location            'WHLA1_31'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 39'
+contents            'regular'
+location            'WHLA1_32'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 -130.358 13.966
+2065740.0 -130.396 13.906
+2065800.0 -130.504 14.013
+2065860.0 -130.436 13.937
+2065920.0 -130.397 13.926
+2065980.0 -130.479 13.871
+table-name          'Discharge: 40'
+contents            'regular'
+location            'WDVA1'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 46.154 13.111
+2065740.0 47.338 13.272
+2065800.0 48.521 13.35
+2065860.0 49.703 13.389
+2065920.0 50.877 13.411
+2065980.0 52.038 13.372
+table-name          'Discharge: 41'
+contents            'regular'
+location            'BSBA1'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 55.76 13.111
+2065740.0 55.79 13.272
+2065800.0 55.72 13.35
+2065860.0 55.547 13.389
+2065920.0 55.284 13.411
+2065980.0 54.951 13.372
+table-name          'Discharge: 42'
+contents            'regular'
+location            'PSPT1_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 61.109 13.111
+2065740.0 60.69 13.272
+2065800.0 60.189 13.35
+2065860.0 59.357 13.389
+2065920.0 59.596 13.411
+2065980.0 60.37 13.372
+table-name          'Discharge: 43'
+contents            'regular'
+location            'PSPT1_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 61.109 13.111
+2065740.0 60.69 13.272
+2065800.0 60.189 13.35
+2065860.0 59.357 13.389
+2065920.0 59.596 13.411
+2065980.0 60.37 13.372
+table-name          'Discharge: 44'
+contents            'regular'
+location            'PSPT1_03'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 61.109 13.111
+2065740.0 60.69 13.272
+2065800.0 60.189 13.35
+2065860.0 59.357 13.389
+2065920.0 59.596 13.411
+2065980.0 60.37 13.372
+table-name          'Discharge: 45'
+contents            'regular'
+location            'PSPT1_04'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 61.109 13.111
+2065740.0 60.69 13.272
+2065800.0 60.189 13.35
+2065860.0 59.357 13.389
+2065920.0 59.596 13.411
+2065980.0 60.37 13.372
+table-name          'Discharge: 46'
+contents            'regular'
+location            'RR-I-a'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 33.463 13.111
+2065740.0 32.856 13.272
+2065800.0 32.249 13.35
+2065860.0 31.642 13.389
+2065920.0 31.035 13.411
+2065980.0 30.428 13.372
+table-name          'Discharge: 47'
+contents            'regular'
+location            'RR-I-b'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 33.463 13.111
+2065740.0 32.856 13.272
+2065800.0 32.249 13.35
+2065860.0 31.642 13.389
+2065920.0 31.035 13.411
+2065980.0 30.428 13.372
+table-name          'Discharge: 48'
+contents            'regular'
+location            'RR-II-a'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 53.444 13.111
+2065740.0 52.403 13.272
+2065800.0 51.362 13.35
+2065860.0 50.321 13.389
+2065920.0 49.281 13.411
+2065980.0 48.24 13.372
+table-name          'Discharge: 49'
+contents            'regular'
+location            'RR-II-b'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 53.444 13.111
+2065740.0 52.403 13.272
+2065800.0 51.362 13.35
+2065860.0 50.321 13.389
+2065920.0 49.281 13.411
+2065980.0 48.24 13.372
+table-name          'Discharge: 50'
+contents            'regular'
+location            'RR-II-c'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 53.444 13.111
+2065740.0 52.403 13.272
+2065800.0 51.362 13.35
+2065860.0 50.321 13.389
+2065920.0 49.281 13.411
+2065980.0 48.24 13.372
+table-name          'Discharge: 51'
+contents            'regular'
+location            'RR-II-d'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 53.444 13.111
+2065740.0 52.403 13.272
+2065800.0 51.362 13.35
+2065860.0 50.321 13.389
+2065920.0 49.281 13.411
+2065980.0 48.24 13.372
+table-name          'Discharge: 52'
+contents            'regular'
+location            'RR-III-a'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 15.197 13.111
+2065740.0 15.154 13.272
+2065800.0 15.11 13.35
+2065860.0 15.066 13.389
+2065920.0 15.022 13.411
+2065980.0 14.979 13.372
+table-name          'Discharge: 53'
+contents            'regular'
+location            'RR-III-b_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 54'
+contents            'regular'
+location            'RR-III-b_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 55'
+contents            'regular'
+location            'RR-III-c_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 56'
+contents            'regular'
+location            'RR-III-c_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 57'
+contents            'regular'
+location            'RR-III-d'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 15.197 13.111
+2065740.0 15.154 13.272
+2065800.0 15.11 13.35
+2065860.0 15.066 13.389
+2065920.0 15.022 13.411
+2065980.0 14.979 13.372
+table-name          'Discharge: 58'
+contents            'regular'
+location            'RR-III-e_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 59'
+contents            'regular'
+location            'RR-III-e_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 7.599 13.111
+2065740.0 7.577 13.272
+2065800.0 7.555 13.35
+2065860.0 7.533 13.389
+2065920.0 7.511 13.411
+2065980.0 7.49 13.372
+table-name          'Discharge: 60'
+contents            'regular'
+location            'RR-III-f_01'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 3.799 13.111
+2065740.0 3.789 13.272
+2065800.0 3.778 13.35
+2065860.0 3.767 13.389
+2065920.0 3.756 13.411
+2065980.0 3.745 13.372
+table-name          'Discharge: 61'
+contents            'regular'
+location            'RR-III-f_02'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 3.799 13.111
+2065740.0 3.789 13.272
+2065800.0 3.778 13.35
+2065860.0 3.767 13.389
+2065920.0 3.756 13.411
+2065980.0 3.745 13.372
+table-name          'Discharge: 62'
+contents            'regular'
+location            'RR-III-f_03'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 3.799 13.111
+2065740.0 3.789 13.272
+2065800.0 3.778 13.35
+2065860.0 3.767 13.389
+2065920.0 3.756 13.411
+2065980.0 3.745 13.372
+table-name          'Discharge: 63'
+contents            'regular'
+location            'RR-III-f_04'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 3.799 13.111
+2065740.0 3.789 13.272
+2065800.0 3.778 13.35
+2065860.0 3.767 13.389
+2065920.0 3.756 13.411
+2065980.0 3.745 13.372
+table-name          'Discharge: 64'
+contents            'regular'
+location            'RR-III-g'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 15.197 13.111
+2065740.0 15.154 13.272
+2065800.0 15.11 13.35
+2065860.0 15.066 13.389
+2065920.0 15.022 13.411
+2065980.0 14.979 13.372
+table-name          'Discharge: 65'
+contents            'regular'
+location            'RR-III-h'
+time-function       'non-equidistant'
+reference-time       20160331
+time-unit           'minutes'
+interpolation       'linear'
+parameter           'time' unit '[min]'
+parameter           'flux/discharge rate' unit '[m3/s]'
+parameter           'Temperature' unit '[°C]'
+records-in-table 6
+2065680.0 15.197 13.111
+2065740.0 15.154 13.272
+2065800.0 15.11 13.35
+2065860.0 15.066 13.389
+2065920.0 15.022 13.411
+2065980.0 14.979 13.372
+
+                                                                 

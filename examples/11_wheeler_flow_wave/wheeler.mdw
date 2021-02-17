@@ -1,0 +1,65 @@
+[WaveFileInformation]
+   FileVersion          = 02.00                        
+[General]
+   ProjectName          = Wheeler                      
+   FlowFile             = wheeler.mdf                  
+   OnlyInputVerify      = false                        
+   SimMode              = stationary                   
+   DirConvention        = nautical                     
+   ReferenceDate        = 2016-03-31                   
+   WindSpeed            =  0.0000000e+000              
+   WindDir              =  0.0000000e+000              
+[Constants]
+   WaterLevelCorrection =  0.0000000e+000              
+   Gravity              =  9.8100004e+000              
+   WaterDensity         =  1.0250000e+003              
+   NorthDir             =  9.0000000e+001              
+   MinimumDepth         =  5.0000001e-002              
+[Processes]
+   GenModePhys          = 2                            
+   Breaking             = true                         
+   BreakAlpha           =  1.0000000e+000              
+   BreakGamma           =  7.3000002e-001              
+   Triads               = false                        
+   TriadsAlpha          =  1.0000000e-001              
+   TriadsBeta           =  2.2000000e+000              
+   BedFriction          = jonswap                      
+   BedFricCoef          =  6.7000002e-002              
+   Diffraction          = false                        
+   DiffracCoef          =  2.0000000e-001              
+   DiffracSteps         = 5                            
+   DiffracProp          = true                         
+   WindGrowth           = true                         
+   WhiteCapping         = Komen                        
+   Refraction           = true                         
+   FreqShift            = true                         
+   WaveForces           = dissipation 3d               
+[Numerics]
+   DirSpaceCDD          =  5.0000000e-001              
+   FreqSpaceCSS         =  5.0000000e-001              
+   RChHsTm01            =  2.0000000e-002              
+   RChMeanHs            =  2.0000000e-002              
+   RChMeanTm01          =  2.0000000e-002              
+   PercWet              =  9.8000000e+001              
+   MaxIter              = 15                           
+[Output]
+   TestOutputLevel      = 0                            
+   TraceCalls           = false                        
+   UseHotFile           = false                        
+   WriteCOM             = true                         
+   COMWriteInterval     =  5.0000000e+000              
+[Domain]
+   Grid                 = test61_waves_active3_aangepast.grd         
+   FlowBedLevel         = 0                            
+   FlowWaterLevel       = 2                            
+   FlowVelocity         = 0                            
+   FlowWind             = 2                            
+   BedLevel             = test61_ref0_surveyintake_waves_active_3.dep         
+   DirSpace             = circle                       
+   NDir                 = 72                           
+   StartDir             =  0.0000000e+000              
+   EndDir               =  0.0000000e+000              
+   FreqMin              =  5.0000001e-002              
+   FreqMax              =  2.5000000e+000              
+   NFreq                = 41                           
+   Output               = false                        
