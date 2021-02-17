@@ -68,6 +68,7 @@ module timespace_parameters
   !                            d) is daarmee bepalend voor de toepasbare interpolatiemethodes
   !
 
+
   ! Enumeration for location specification types (used in selectelset_internal_nodes).
   integer, parameter :: LOCTP_UNKNOWN                  = -1 !< Undefined location specification type.
   integer, parameter :: LOCTP_POLYGON_FILE             = 10 !< A polygon input file used for inside-polygon check.
@@ -6011,6 +6012,7 @@ contains
    use geometry_module, only: dbpinpol
    use gridoperations
    use unstruc_model, only: getoutputdir
+   use string_module, only: get_dirsep
    
    implicit none
    
@@ -6054,7 +6056,6 @@ contains
    double precision                :: rcel_store, percentileminmax_store
    integer                         :: iav_store, nummin_store
 
-   character(len=1), external      :: get_dirsep
    character(len=5)                :: sd
    
    success = .false. 
@@ -7974,7 +7975,11 @@ module m_meteo
          case ('cloudiness')
             sourceItemName = 'cloudfraction'
          case ('solarradiation')
-            sourceItemName = 'sw_radiation_flux'
+            if (ec_filetype == provFile_netcdf) then
+               sourceItemName = 'surface_net_downward_shortwave_flux'
+            else
+               sourceItemName = 'sw_radiation_flux'
+            end if
          case ('nudge_salinity_temperature')
             if (ec_filetype == provFile_netcdf) then
                sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'sea_water_potential_temperature')
@@ -8025,12 +8030,12 @@ module m_meteo
                         if (success) success = ecAddConnectionSourceItem(ecInstancePtr, connectionId, sourceItemId_4)
                         if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, targetItemPtr4)
                         if (success) success = ecAddItemConnection(ecInstancePtr, targetItemPtr4, connectionId)
-                     endif                     
-                  endif                     
-               endif                     
-            else                     
+                     endif
+                  endif
+               endif
+            else
                call mess(LEVEL_FATAL, 'm_meteo::ec_addtimespacerelation: Unsupported quantity specified in ext-file (connect source and target): '//trim(target_name)//'.')
-            endif                     
+            endif
             return
       end select
 
@@ -8051,7 +8056,7 @@ module m_meteo
       end if
       
       success = ecSetConnectionIndexWeights(ecInstancePtr, connectionId)
-            
+
       if ( target_name=='nudge_salinity_temperature' ) then
          call ecConverterGetBbox(ecInstancePtr, SourceItemID, 0, col0, col1, row0, row1, ncols, nrows, issparse, Ndatasize)
          relcol = dble(col1-col0+1)/dble(ncols)

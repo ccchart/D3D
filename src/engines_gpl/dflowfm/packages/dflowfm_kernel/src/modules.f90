@@ -311,8 +311,8 @@ module m_waves
  integer                                    :: jahissigwav          !< 1: sign wave height on his output; 0: hrms wave height on his output.
  integer                                    :: jamapsigwav          !< 1: sign wave height on map output; 0: hrms wave height on map output.
  integer                                    :: jauorbfromswan       !< 1: get uorb from SWAN, compare with Delft3D
-logical                                     :: extfor_wave_initialized !< is set to .true. when the "external forcing"-part that must be initialized for WAVE during running (instead of during initialization) has actually been initialized
-
+ logical                                    :: extfor_wave_initialized !< is set to .true. when the "external forcing"-part that must be initialized for WAVE during running (instead of during initialization) has actually been initialized
+ 
 contains
 
 !> Sets ALL (scalar) variables in this module to their default values.
@@ -812,6 +812,8 @@ module m_sediment
  double precision, allocatable     :: sswy_raw(:,:)
  double precision, allocatable     :: sbwx_raw(:,:)
  double precision, allocatable     :: sbwy_raw(:,:)
+ 
+ integer,          allocatable     :: kcsmor(:)
 
  !-------------------------------------------------- old sediment transport and morphology
  integer                           :: jased         !< Include sediment, 1=Krone, 2=Soulsby van Rijn 2007, 3=Bert's morphology module
@@ -1893,7 +1895,7 @@ end module m_crspath
  type(bndtype),    allocatable, target  :: bndtr(:)
  double precision, allocatable          :: wstracers(:) !< tracer fall velocity pos is downward (m/s)
  double precision, allocatable          :: decaytimetracers(:) !< tracer decaytimes (s)
- integer                                :: jadecaytracers      !< 0 = no, 1 =yes 
+ integer                                :: jadecaytracers      !< 0 = no, 1 =yes
 
  ! JRE sedfracbnds
  integer,          allocatable          :: nbndsf(:)         !< sedfrac   boundary points dimension
@@ -2405,12 +2407,12 @@ end subroutine default_turbulence
  integer                           :: jacomp = 1        !! same now for netnodes, 0 = default, 1 = use cs, sn in weighting, 2=regular scalar x,y interpolation based on banf
 
  integer                           :: icorio            !< Coriolis weigthing
- 
- integer                           :: newcorio = 0      !< 0=up to 27-11-2019 , 1 = after 
- 
+
+ integer                           :: newcorio = 0      !< 0=up to 27-11-2019 , 1 = after
+
  integer                           :: jacorioconstant=0 !< Coriolis constant in sferic models anyway if set to 1
- 
- double precision                  :: Corioadamsbashfordfac = 0d0  !< Coriolis Adams Bashford , 0d0 = explicit, 0.5 = AB 
+
+ double precision                  :: Corioadamsbashfordfac = 0d0  !< Coriolis Adams Bashford , 0d0 = explicit, 0.5 = AB
 
  double precision                  :: hhtrshcor         !< if > 0 safety for hu/hs in corio for now, ==0
 
@@ -2423,7 +2425,7 @@ end subroutine default_turbulence
 
  double precision                  :: doodsonstart, doodsonstop , doodsoneps
 
- integer                           :: jatrt             !< Trtrou = #Y# --> 1 , Trtrou = #N# --> 0  (Delf3D style input)
+ integer                           :: jatrt             !< Trtrou = #Y# --> 1 , Trtrou = #N# --> 0  (Delft3D style input)
 
  integer                           :: jacali            !< use calibration factors (0 = no, 1 = yes)
 
@@ -2471,7 +2473,7 @@ end subroutine default_turbulence
  integer                           :: jaCdwusp          !< if 1 spatially varying windstress coefficient
 
  integer                           :: jaWindspeedfac    !< if 1 spatially varying windstress coefficient
- 
+
  integer                           :: javiuplus3D = 1   !< add vertical eddy viscosity to horizontal eddy viscosity (1 = yes, 0 = no)
 
  integer                           :: jafrculin         !< use linear friction yes/no
@@ -2604,6 +2606,10 @@ end subroutine default_turbulence
  double precision                  :: epshsdif=1d-2     !< hs < epshsdif: no vertical diffusion if hs < epshsdif
  double precision                  :: s01max            !< water level threshold (m) between s0 and s1 in validation routine
  double precision                  :: u01max            !< velocity threshold (m/s) between u0 and u1 in validation routine
+ double precision                  :: umagmax           !< velocity threshold (m/s) for velocity magnitude in validation routine
+ double precision                  :: s01warn           !< warning level water level (m) between s0 in validation routine
+ double precision                  :: u01warn           !< warning level velocity (m/s) between u0 in validation routine
+ double precision                  :: umagwarn          !< warning level velocity (m/s) for velocity magnitude in validation routine
  ! See also m_flowtimes::dtminbreak
 
  ! parameters controlling flooding/drying/solving
@@ -2847,41 +2853,41 @@ subroutine default_flowparameters()
 
     icorio = 5        ! Coriolis weigthing
                       ! (Tx,Ty) = tangential unit vector at u-point
-                      ! uk      = u1 at layer k, 
-                      ! hu      = hu(2D)                                     ; huk   = hu(L)   
-                      ! hs      = hs(2D)                                     ; hsk   = zws(k) - zws(k-1)                 
-                      ! ahu     = alfa(hs) = acL(LL)*hs1 + (1-acL(LL))*hs2   ; ahuk  = alfa(hsk) 
-                      ! hus     = areaweighted( hu) at s point               ; husk  = hus(k)  
+                      ! uk      = u1 at layer k,
+                      ! hu      = hu(2D)                                     ; huk   = hu(L)
+                      ! hs      = hs(2D)                                     ; hsk   = zws(k) - zws(k-1)
+                      ! ahu     = alfa(hs) = acL(LL)*hs1 + (1-acL(LL))*hs2   ; ahuk  = alfa(hsk)
+                      ! hus     = areaweighted( hu) at s point               ; husk  = hus(k)
                       ! ahus    = areaweighted(ahu) at s point               ; ahusk = ahus(k)
                       ! .       = dotp
                       ! avolu   = alfa(vol1)                                 ; avoluk = alfa(vol1(k))
-      
+
                       ! unweighted
-                      ! 3 : vk = alfa LR (Tx, Ty) . (ucxk , ucyk)              ucxk, ucyk  =   Perotsum (uk), (== ucx,ucy), f node based, fcori     
+                      ! 3 : vk = alfa LR (Tx, Ty) . (ucxk , ucyk)              ucxk, ucyk  =   Perotsum (uk), (== ucx,ucy), f node based, fcori
                       ! 4 : vk = alfa LR (Tx, Ty) . (ucxk , ucyk)              ucxk, ucyk  =   Perotsum (uk), (== ucx,ucy), f link based, fcor
-                      
-                      ! Olga type weightings 
+
+                      ! Olga type weightings
                       ! 5 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*huk) )    / hsk Olga
-                      ! 6 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*hu)  )    / hs 
-                       
+                      ! 6 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*hu)  )    / hs
+
                       ! 7 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*ahuk) )   / ahusk
-                      ! 8 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*ahu)  )   / ahus 
-     
+                      ! 8 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*ahu)  )   / ahus
+
                       ! 9 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*avoluk) ) / volk
-                      !10 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*avolu)  ) / vol 
-     
-                 
-                      ! David type weightings 
+                      !10 : vk = alfa LR (Tx, Ty) . (ucxqk, ucyqk)             ucxqk,ucyqk = ( Perotsum (uk*avolu)  ) / vol
+
+
+                      ! David type weightings
                       !25 : vk = alfa LR (Tx, Ty) . (ucxk*hsk   , ucyk*hsk )   / huk
-                      !26 : vk = alfa LR (Tx, Ty) . (ucxk*hs    , ucyk*hs  )   / hu 
+                      !26 : vk = alfa LR (Tx, Ty) . (ucxk*hs    , ucyk*hs  )   / hu
 
-                      !27 : vk = alfa LR (Tx, Ty) . (ucxk*hsk   , ucyk*ahusk ) / ahuk 
-                      !28 : vk = alfa LR (Tx, Ty) . (ucxk*hs    , ucyk*ahus  ) / ahu 
-  
-                      !29 : vk = alfa LR (Tx, Ty) . (ucxk*vol1k , ucyk*vol1k ) / avoluk   identical to advec33 
-                      !30 : vk = alfa LR (Tx, Ty) . (ucxk*vol1  , ucyk*vol1  ) / avolu 
+                      !27 : vk = alfa LR (Tx, Ty) . (ucxk*hsk   , ucyk*ahusk ) / ahuk
+                      !28 : vk = alfa LR (Tx, Ty) . (ucxk*hs    , ucyk*ahus  ) / ahu
 
-    hhtrshcor = 0d0   ! 0=no safety on hu/hs in corio 
+                      !29 : vk = alfa LR (Tx, Ty) . (ucxk*vol1k , ucyk*vol1k ) / avoluk   identical to advec33
+                      !30 : vk = alfa LR (Tx, Ty) . (ucxk*vol1  , ucyk*vol1  ) / avolu
+
+    hhtrshcor = 0d0   ! 0=no safety on hu/hs in corio
 
     trshcorio = 1.0   ! below this depth coriolis force scaled down linearly to 0
 
@@ -2941,7 +2947,7 @@ subroutine default_flowparameters()
 
     jaCdwusp = 0
 
-    jawindspeedfac = 0 !< use windspeedfac 1/0  
+    jawindspeedfac = 0 !< use windspeedfac 1/0
 
     ihorvic  = 0      !< 0=no visc, 1=do visc
 
@@ -3049,6 +3055,7 @@ subroutine default_flowparameters()
 
     s01max     = 0d0     ! max. water level change: off
     u01max     = 0d0     ! max. velocity change: off
+    umagmax    = 0d0     ! max. velocity: off
     ! See also: m_flowtimes::dtminbreak
 
                          ! parameters controlling flooding/drying/solving
@@ -3431,7 +3438,7 @@ end module m_vegetation
  double precision, allocatable         :: squ2D (:)   !< cell center outgoing 2D flux (m3/s)
  double precision, allocatable         :: sqwave(:)   !< cell center outgoing flux, including gravity wave velocity (m3/s) (for explicit time-step)
  double precision, allocatable         :: squcor(:)    !< cell center outgoing flux with some corrections to exclude structure links (if enabled)
- double precision, allocatable         :: hus   (:)   !< hu averaged at 3D cell 
+ double precision, allocatable         :: hus   (:)   !< hu averaged at 3D cell
  double precision, allocatable         :: workx (:)   !< Work array
  double precision, allocatable         :: worky (:)   !< Work array
  double precision, allocatable         :: work0 (:,:) !< Work array
@@ -3449,7 +3456,7 @@ end module m_vegetation
  double precision, allocatable         :: vTot1d2d(:)   !< [m3] total 1d2d net inflow, cumulative volume
  double precision, allocatable         :: qCurLat(:)    !< [m3/s] total lateral net inflow, current discharge
  double precision, allocatable         :: vTotLat(:)    !< [m3] total lateral net inflow, cumulative volume
- 
+
  ! link related, dim = lnx
  double precision, allocatable         :: s1Gradient(:) !< [1] For output purposes: water level gradient on flow links
 
@@ -3979,6 +3986,7 @@ end module m_profiles
  double precision, allocatable, target :: ba_mor (:) !< [m2] morphologically active bottom area, if < 0 use table in node type {"location": "face", "shape": ["ndx"]}
  double precision, allocatable, target :: bai_mor(:) !< [m-2] inv morphologically active bottom area (m2)
  double precision, allocatable, target :: bl(:)      !< [m] bottom level (m) (positive upward) {"location": "face", "shape": ["ndx"]}
+ double precision, allocatable, target :: bl_ave(:)  !< [m] optional average bottom level in main channel required for dredging in 1D (m) (positive upward) (ndxi-ndx2d)
  double precision, allocatable     :: aif(:)         !< cell based skewness ai factor sqrt(1+(dz/dy)**2) = abed/asurface
                                                      !< so that cfu=g(Au/conveyance)**2 = g*aif*(Au/convflat)**2
                                                      !< convflat is flat-bottom conveyance
@@ -5072,13 +5080,13 @@ implicit none
    integer, parameter  :: IMISS = -999999          !< unset value
 
 !  input files from command line
-   integer, parameter                             :: lenfile  = 255     !< maximum filename length
-   integer, parameter                             :: maxnumfiles = 10   !< maximum number of files
-   integer                                        :: numfiles           !< number of files to be loaded
-   character(len=lenfile), dimension(maxnumfiles) :: inputfiles         !< files to be loaded
-   character(len=lenfile)                         :: iarg_outfile = ' ' !< Output filename for several commandline/batch-mode operations (not related to model runs).
-   integer                                        :: iarg_autostart     !< autostart/autstartstop or not set (-1)
-   integer                                        :: iarg_usecaching    !< use cache file or not or not set (-1)
+   integer, parameter                             :: lenfile  = 255         !< maximum filename length
+   integer, parameter                             :: maxnumfiles = 10       !< maximum number of files
+   integer                                        :: numfiles               !< number of files to be loaded
+   character(len=lenfile), dimension(maxnumfiles) :: inputfiles             !< files to be loaded
+   character(len=lenfile)                         :: iarg_outfile = ' '     !< Output filename for several commandline/batch-mode operations (not related to model runs).
+   integer                                        :: iarg_autostart         !< autostart/autstartstop or not set (-1)
+   integer                                        :: iarg_usecaching = -1   !< use cache file or not or not set (-1)
 
 contains
 !> read, from a string, command line option with key-value pair(s) of the form

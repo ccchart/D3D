@@ -2,6 +2,7 @@
    module gridoperations
 
    use MessageHandling, only: msgbox, mess, LEVEL_ERROR
+   use meshdata, only: t_ug_meshgeom
    implicit none
 
    !new functions
@@ -63,6 +64,11 @@
    public :: getcellcircumcenter
 
    private
+
+   ! for mapping 1d cells to the client ordering, which can be different
+   integer, allocatable :: mesh1dMapping(:)   
+   ! for mapping 2d cells to the client ordering, which can be different
+   type(t_ug_meshgeom) :: meshgeom2d
 
    contains
 
@@ -2212,6 +2218,8 @@
    KIN = 0
    DO K = 1,NUMP
       NN = netcell(K)%N
+      XH = dmiss
+      YH = dmiss
       DO N = 1,NN
          K1 = netcell(K)%NOD(N)
          XH(N) = XK(K1) ; YH(N) = YK(K1)
@@ -2789,6 +2797,7 @@
    use m_alloc
    use network_data
    use m_cell_geometry
+   use string_module, only: get_dirsep
 
    implicit none
 
@@ -2801,7 +2810,6 @@
    integer,          allocatable           :: nodroof(:), nod1D(:)
    double precision, allocatable           :: dismin(:)
    character(len=5)                        :: sd
-   character(len=1), external              :: get_dirsep
    integer                                 :: ierr
    integer                                 :: nInputPolygon
    logical                                 :: validOneDMask
@@ -2903,7 +2911,11 @@
 
    ierr = -1
    
-   call findcells(0)
+   
+  call findcells(100)        ! include folded cells
+
+   
+   
    if (present(xsStreetInletPipes)) then
       ns = size(xsStreetInletPipes)
       call INCREASESAM(ns)
@@ -3241,7 +3253,7 @@
    
    if (start_index == 0) incrementIndex = 1;
 
-   !Prepare net vars for new data and fill with values from file, increases nod, xk, yk, zk, kn if needed
+   ! Prepare net vars for new data and fill with values from file, increases nod, xk, yk, zk, kn if needed
 
    call increasenetw(numk_last + meshgeom%numnode, numl_last + meshgeom%numedge)
    XK(numk_last+1:numk_last+numk_read) = meshgeom%nodex(1:meshgeom%numnode)
@@ -3254,7 +3266,7 @@
       kn(3,  numl_last+l) = meshgeom%dim
    end do
 
-   !Increase the number of links
+   ! Increase the number of links
    if (meshgeom%numedge>0) NUML = numl_last + meshgeom%numedge
    if (meshgeom%numnode>0) NUMK = numk_last + meshgeom%numnode
    if (meshgeom%dim==1) numl1d_last = numl1d_last + meshgeom%numedge
@@ -3262,7 +3274,12 @@
    LNUMK = NUMK
    LNUML = NUML
    NUML1D = numl1d_last
-
+   
+   ! Save meshgeon 2d as used in the gui to build mappings
+   if (meshgeom%dim==2) then
+      meshgeom2d = meshgeom
+   endif
+ 
    end function ggeo_convert
 
    function ggeo_deallocate() result (ierr)
@@ -3289,7 +3306,7 @@
 
    ierr = 0
    nlinks = 0
-   do l=1,numl1d + numl
+   do l=1, numl
       if(kn(3,l).eq.linkType) then
          nlinks = nlinks + 1
       end if
@@ -3306,23 +3323,33 @@
    integer, intent(in)     :: start_index
    integer                 :: ierr, nlinks, l, nc
    integer                 :: linkType
+   integer, allocatable    :: mesh2dMapping(:)
 
    ierr     = 0
    nlinks   = 0
    
-   do l=1,numl1d + numl
+   ierr  = ggeo_map_2d_cells(meshgeom2d, mesh2dMapping)
+   if(ierr.ne.0 .or. (.not.(allocated(mesh1dMapping))).or. (.not.(allocated(mesh2dMapping)))) then
+      ierr = -1
+      return
+   endif
+   
+   do l=1, numl
       if(kn(3,l).eq.linkType) then
-         nlinks = nlinks + 1
-         nc = 0
-         call incells(xk(kn(1,l)), yk(kn(1,l)), nc)
-         if (nc < 1) then
+         if(kn(2,l)>size(mesh1dMapping)) then
             ierr = -1
             return
          endif
-         !2d cell
-         arrayfrom(nlinks) = nc          
+         nc = 0
+         call incells(xk(kn(1,l)), yk(kn(1,l)), nc)
+         if (nc < 1 .or. nc> size(mesh2dMapping)) then
+            ierr = -1
+            return
+         endif
+         nlinks = nlinks + 1
+         arrayfrom(nlinks) = mesh2dMapping(nc)
          !1dpoint
-         arrayto(nlinks)   = kn(2,l)
+         arrayto(nlinks)   = mesh1dMapping(kn(2,l))
       end if
    end do
 
@@ -3336,146 +3363,165 @@
    !< create meshgeom from array
    function ggeo_convert_1d_arrays(nodex, nodey, nodeoffset, branchlength, nodebranchidx, sourcenodeid, targetnodeid, meshgeom, startindex) result(ierr)
 
-   use meshdata
    use odugrid
    use m_alloc
 
-   double precision, intent(in)         :: nodex(:), nodey(:), nodeoffset(:), branchlength(:)
-   integer, intent(in)                  :: nodebranchidx(:), sourcenodeid(:), targetnodeid(:), startindex
-   type(t_ug_meshgeom), intent(inout)   :: meshgeom
-   integer                              :: ierr, nbranches, branch, numkUnMerged, numk, numl, st, en, stn, enn, stnumk, ennumk, k, numNetworkNodes, firstvalidarraypos, numLocalNodes
-   integer, allocatable                 :: meshnodemapping(:,:), edge_nodes(:,:), correctedNodeBranchidx(:), localNodeIndexses(:), meshnodeIndex(:), networkNodeIndex(:)
-   double precision, allocatable        :: xk(:), yk(:)
-   double precision                     :: tolerance
+   double precision, intent(in)          :: nodex(:), nodey(:), nodeoffset(:), branchlength(:)
+   integer, intent(in)                   :: nodebranchidx(:), sourcenodeid(:), targetnodeid(:), startindex
+   type(t_ug_meshgeom), intent(inout)    :: meshgeom
+   integer                               :: ierr, nbranches, branch, numMeshNodes, numk, numl, st, en, stn, enn, stnumk, ennumk, k, numNetworkNodes, numLocalNodes
+   integer, allocatable                  :: startEndBranchNodes(:,:), edge_nodes(:,:), correctedNodeBranchidx(:), localNodeIndexses(:), networkNodeIndex(:), branchids(:), meshnodeIndex(:)
+   integer                               :: shift, startInternal, endInternal
+   double precision, allocatable, target :: xk(:), yk(:)
+   double precision                      :: tolerance
 
-   !initial size
-   tolerance = epsilon(nodeoffset(1))
-   ierr         = 0
-   firstvalidarraypos = 0
-   if (startindex.eq.0) then
-      firstvalidarraypos = 1
-   endif
+   ierr            = -1
+   tolerance       = 1e-6
+   shift           = 1 - startindex
+
    nbranches       = size(sourcenodeid)
-   numkUnMerged    = size(nodebranchidx,1)
-   numNetworkNodes = max(maxval(sourcenodeid) + firstvalidarraypos, maxval(targetnodeid) + firstvalidarraypos)
-   
+   numMeshNodes    = size(nodebranchidx,1)
+   numNetworkNodes = max(maxval(sourcenodeid) + shift, maxval(targetnodeid) + shift)
+
    ! allocate enough space for temp arrays
-   allocate(xk(numkUnMerged))
-   allocate(yk(numkUnMerged))
+   allocate(xk(numMeshNodes))
+   allocate(yk(numMeshNodes))
+   allocate(branchids(numMeshNodes))
+   allocate(localNodeIndexses(numMeshNodes))
+
+   if(allocated(mesh1dMapping)) then
+      deallocate(mesh1dMapping)
+   endif
+   allocate(mesh1dMapping(numMeshNodes)); meshnodeIndex = 0
    
-   allocate(localNodeIndexses(numkUnMerged))
-   
-   allocate(meshnodeIndex(numkUnMerged)); meshnodeIndex = 0
+   allocate(meshnodeIndex(numMeshNodes)); meshnodeIndex = 0
    allocate(networkNodeIndex(numNetworkNodes)); networkNodeIndex = 0
-   
-   allocate(edge_nodes(2,numkUnMerged*3)) !rough estimate of the maximum number of edges given a certain amount of nodes
-   allocate(correctedNodeBranchidx(numkUnMerged))
-   allocate(meshnodemapping(2,nbranches)); meshnodemapping = -1
 
-   
+   allocate(edge_nodes(2,numMeshNodes*3)) !rough estimate of the maximum number of edges given a certain amount of nodes
+   allocate(correctedNodeBranchidx(numMeshNodes))
+   allocate(startEndBranchNodes(2,nbranches)); startEndBranchNodes = -1
+   allocate(meshgeom%nodebranchidx(numMeshNodes))
+
+
    !map the mesh nodes
-   correctedNodeBranchidx = nodebranchidx + firstvalidarraypos
-   ierr = odu_get_start_end_nodes_of_branches(correctedNodeBranchidx, meshnodemapping(1,:), meshnodemapping(2,:))
+   correctedNodeBranchidx = nodebranchidx + shift
+   ierr = odu_get_start_end_nodes_of_branches(correctedNodeBranchidx, startEndBranchNodes(1,:), startEndBranchNodes(2,:))
 
-   !do the merging
-   numk = 0
-   numl = 0
+   !start end of each network branch
    do branch = 1, nbranches
-      
-      st        = meshnodemapping(1,branch)
-      en        = meshnodemapping(2,branch)
-      stn       = sourcenodeid(branch) + firstvalidarraypos
-      enn       = targetnodeid(branch) + firstvalidarraypos
+
+      st        = startEndBranchNodes(1,branch)
+      en        = startEndBranchNodes(2,branch)
+      stn       = sourcenodeid(branch) + shift
+      enn       = targetnodeid(branch) + shift
+
+      ! invalid mesh points
+      if( st<=0 .or. en <= 0 .or. st> numMeshNodes .or. en > numMeshNodes) then
+         cycle
+      endif
+
+      ! invalid branch index
+      if( stn<=0 .or. enn <= 0 .or. stn> numNetworkNodes .or. enn > numNetworkNodes) then
+         cycle
+      endif
+
+      !start
+      if(nodeoffset(st)<tolerance .and. networkNodeIndex(stn)==0) then
+         networkNodeIndex(stn) = st
+      endif
+
+      !end
+      if(abs(nodeoffset(en) - branchlength(branch)) < tolerance .and. networkNodeIndex(enn)==0) then
+         networkNodeIndex(enn) = en
+      endif
+
+   enddo
+
+   !make the links
+   numl = 0
+   numk = 0
+   do branch = 1, nbranches
+
+      st = startEndBranchNodes(1,branch)
+      en = startEndBranchNodes(2,branch)
+      stn = sourcenodeid(branch) + shift
+      enn = targetnodeid(branch) + shift
       numLocalNodes = 0
-  
-      !invalid mesh points
-      if( st<=0 .or. en <= 0 .or. st> numkUnMerged .or. en > numkUnMerged) then
-        cycle
+
+      ! invalid mesh points
+      if( st<=0 .or. en <= 0 .or. st> numMeshNodes .or. en > numMeshNodes) then
+         cycle
       endif
-      
-    ! invalid branch index
-     if( stn<=0 .or. enn <= 0 .or. stn> numNetworkNodes .or. enn > numNetworkNodes) then
-        cycle
-     endif
-	 
-	 ! only one node, store x y value and connect later
-     if(st==en) then
-	    
-		if(nodeoffset(st) < tolerance .and. networkNodeIndex(stn)==0) then
-		      numk                             = numk + 1
-            networkNodeIndex(stn)            = numk  
-            xk(numk)                         = nodex(st)
-            yk(numk)                         = nodey(st)
-		endif
-		
-		if(abs(nodeoffset(en) -branchlength(branch)) < tolerance .and. networkNodeIndex(enn)==0) then
-		      numk                             = numk + 1
-            networkNodeIndex(enn)            = numk  
-            xk(numk)                         = nodex(en)
-            yk(numk)                         = nodey(en)
-		endif
-		
-      cycle
-     endif
-     
-    ! otherwise we have at least 2 nodes: the first is the start and the last at the end
-	 
-	 ! start node
-     numLocalNodes                        = numLocalNodes + 1
-     if(networkNodeIndex(stn)==0) then
-         numk                             = numk + 1
-         networkNodeIndex(stn)            = numk  
-         xk(numk)                         = nodex(st)
-         yk(numk)                         = nodey(st)
-     endif
-     localNodeIndexses(numLocalNodes)     = networkNodeIndex(stn)
-	  ! endif
 
-     !internal nodes 
-     do k = st + 1, en - 1
-       numLocalNodes                    = numLocalNodes + 1
-       if(meshnodeIndex(k)==0) then 
-          numk                          = numk + 1
-          meshnodeIndex(k)              = numk  
-          xk(numk)                      = nodex(k)
-          yk(numk)                      = nodey(k)
-       endif
-       localNodeIndexses(numLocalNodes) = meshnodeIndex(k)
-     enddo
-
-     !end node
-     numLocalNodes                    = numLocalNodes + 1
-     if(networkNodeIndex(enn)==0) then
-        numk                         = numk + 1
-        networkNodeIndex(enn)        = numk  
-        xk(numk)                     = nodex(en)
-        yk(numk)                     = nodey(en)
+      ! invalid branch index
+      if( stn<=0 .or. enn <= 0 .or. stn> numNetworkNodes .or. enn > numNetworkNodes) then
+         cycle
       endif
-     localNodeIndexses(numLocalNodes) = networkNodeIndex(enn)
 
-     !create edge node table
-     do k = 1, numLocalNodes - 1
+      ! start
+      if(networkNodeIndex(stn) > 0) then
+         if(meshnodeIndex(networkNodeIndex(stn)) ==0) then
+            numk                                 = numk + 1
+            meshnodeIndex(networkNodeIndex(stn)) = numk
+            mesh1dMapping(numk)                  = networkNodeIndex(stn)
+            xk(numk)                             = nodex(networkNodeIndex(stn))
+            yk(numk)                             = nodey(networkNodeIndex(stn))
+            branchids(numk)                      = nodebranchidx(networkNodeIndex(stn))
+         endif
+         numLocalNodes = numLocalNodes + 1
+         localNodeIndexses(numLocalNodes) = meshnodeIndex(networkNodeIndex(stn))
+      endif
+
+
+      ! in case the first node is at the start, skip it, already accounted for
+      startInternal = st
+      if(nodeoffset(st)<tolerance ) then
+         startInternal = st + 1
+      endif
+
+      ! in case the first node is at the end, skip it, already accounted for later
+      endInternal = en
+      if(abs(nodeoffset(en) - branchlength(branch)) < tolerance ) then
+         endInternal = en - 1
+      endif
+
+      !internal nodes
+      do k = startInternal, endInternal
+         numLocalNodes                    = numLocalNodes + 1
+         if(meshnodeIndex(k)==0 ) then
+            numk                          = numk + 1
+            meshnodeIndex(k)              = numk
+            mesh1dMapping(numk)           = k
+            xk(numk)                      = nodex(k)
+            yk(numk)                      = nodey(k)
+            branchids(numk)               = nodebranchidx(k)
+         endif
+         localNodeIndexses(numLocalNodes) = meshnodeIndex(k)
+      enddo
+
+      !end
+      if(networkNodeIndex(enn) > 0) then
+         if(meshnodeIndex(networkNodeIndex(enn))==0) then
+            numk                                 = numk + 1
+            meshnodeIndex(networkNodeIndex(enn)) = numk
+            mesh1dMapping(numk)                  = networkNodeIndex(enn)
+            xk(numk)                             = nodex(networkNodeIndex(enn))
+            yk(numk)                             = nodey(networkNodeIndex(enn))
+            branchids(numk)                      = nodebranchidx(networkNodeIndex(enn))
+         endif
+         numLocalNodes = numLocalNodes + 1
+         localNodeIndexses(numLocalNodes)        = meshnodeIndex(networkNodeIndex(enn))
+      endif
+
+      !create edge node table
+      do k = 1, numLocalNodes - 1
          numl = numl + 1
          edge_nodes(1,numl) = localNodeIndexses(k)
          edge_nodes(2,numl) = localNodeIndexses(k+1)
-     enddo
-      
-   enddo
-   
-   do branch = 1, nbranches
-   
-      st        = meshnodemapping(1,branch)
-      en        = meshnodemapping(2,branch)
-      stn       = sourcenodeid(branch) + firstvalidarraypos
-      enn       = targetnodeid(branch) + firstvalidarraypos
+      enddo
 
-     ! branches with only one mesh node(st == en) were not connected and branches with no mesh node (st == -1 .and. en == -1)
-     if ((st == en).or.(st == -1 .and. en == -1 ) ) then
-         numl = numl + 1
-         edge_nodes(1,numl) = networkNodeIndex(stn)
-         edge_nodes(2,numl) = networkNodeIndex(enn)
-     endif
    enddo
+
 
    ! assigned merged nodes
    meshgeom%dim     = 1
@@ -3484,21 +3530,22 @@
 
    allocate(meshgeom%nodex(numk))
    allocate(meshgeom%nodey(numk))
-   allocate(meshgeom%nodebranchidx(numkUnMerged))
    allocate(meshgeom%edge_nodes(2, numl))
 
-   meshgeom%nodebranchidx  = nodebranchidx
-   meshgeom%nodex      = xk(1:numk)
-   meshgeom%nodey      = yk(1:numk)
-   meshgeom%edge_nodes = edge_nodes(:,1:numl)
-   
+   meshgeom%nodebranchidx = branchids(1:numk)
+   meshgeom%nodex         = xk(1:numk)
+   meshgeom%nodey         = yk(1:numk)
+   meshgeom%edge_nodes    = edge_nodes(:,1:numl)
+
    !deallocate
    deallocate(xk)
    deallocate(yk)
    deallocate(localNodeIndexses)
    deallocate(edge_nodes) !rough estimate of the maximum number of edges given a certain amount of nodes
    deallocate(correctedNodeBranchidx)
-   deallocate(meshnodemapping)
+   deallocate(startEndBranchNodes)
+
+   ierr = 0
 
    end function ggeo_convert_1d_arrays
    
@@ -3925,6 +3972,91 @@
    enddo
 
    end function ggeo_make1D2DRiverLinks
+
+   function ggeo_map_2d_cells(meshgeom, mapping) result(ierr)
+
+   use network_data
+   use m_missing, only : dmiss, imiss
+   use sorting_algorithms
+
+   implicit none
+   type(t_ug_meshgeom), intent(in)             :: meshgeom
+   integer, allocatable,intent(inout)          :: mapping(:)
+   double precision, allocatable               :: sorted_faces_x_meshgeom(:,:), sorted_faces_y_meshgeom(:,:)
+   double precision, allocatable               :: sorted_faces_x_lib_state(:,:), sorted_faces_y_lib_state(:,:)
+   double precision, parameter                 :: tolerance = 1e-8
+   integer                                     :: indexses_x(meshgeom%maxnumfacenodes), indexses_y(meshgeom%maxnumfacenodes), shift
+   double precision                            :: array_x_to_sort(meshgeom%maxnumfacenodes), array_y_to_sort(meshgeom%maxnumfacenodes)
+   logical                                     :: isFound
+   integer                                     :: i,j,k, ierr
+
+   !for each face sort the x coordinates
+   ierr = -1
+   
+   if(meshgeom%numface < 1)then
+      return
+   endif
+   
+   !client 2d mesh, sort coordinate of the cells
+   shift = 1 - meshgeom%start_index
+   allocate(sorted_faces_x_meshgeom(meshgeom%maxnumfacenodes,meshgeom%numface))
+   allocate(sorted_faces_y_meshgeom(meshgeom%maxnumfacenodes,meshgeom%numface))
+   sorted_faces_x_meshgeom = dmiss
+   sorted_faces_y_meshgeom = dmiss
+   do i = 1,meshgeom%numface
+      array_x_to_sort = meshgeom%nodex(meshgeom%face_nodes(:,i) + shift)
+      array_y_to_sort = meshgeom%nodey(meshgeom%face_nodes(:,i) + shift)
+      call indexx(meshgeom%maxnumfacenodes, array_x_to_sort,indexses_x)
+      call indexx(meshgeom%maxnumfacenodes, array_y_to_sort,indexses_y)
+      do j=1,meshgeom%maxnumfacenodes
+         sorted_faces_x_meshgeom(j,i) = array_x_to_sort(indexses_x(j))
+         sorted_faces_y_meshgeom(j,i) = array_y_to_sort(indexses_y(j))
+      enddo
+   enddo
+
+   !server mesh, sort coordinate of the cells
+   allocate(sorted_faces_x_lib_state(meshgeom%maxnumfacenodes, nump))
+   allocate(sorted_faces_y_lib_state(meshgeom%maxnumfacenodes, nump))
+   sorted_faces_x_lib_state = dmiss
+   sorted_faces_y_lib_state = dmiss
+   do i = 1,nump
+      array_x_to_sort = meshgeom%nodex(1)
+      array_x_to_sort(1:netcell(i)%N) = XK(netcell(i)%NOD)
+      array_y_to_sort = meshgeom%nodey(1)
+      array_y_to_sort(1:netcell(i)%N) = YK(netcell(i)%NOD)
+      call indexx(meshgeom%maxnumfacenodes, array_x_to_sort,indexses_x)
+      call indexx(meshgeom%maxnumfacenodes, array_y_to_sort,indexses_y)
+      do j=1,meshgeom%maxnumfacenodes
+         sorted_faces_x_lib_state(j,i) = array_x_to_sort(indexses_x(j))
+         sorted_faces_y_lib_state(j,i) = array_y_to_sort(indexses_y(j))
+      enddo
+   enddo
+
+   !build the mapping2dCells. Note: O(n2) time complexity 
+   allocate(mapping(meshgeom%numface))
+   mapping = imiss
+   do i = 1,meshgeom%numface
+      do j= 1, nump
+         if(mapping(j).ne.imiss) then
+            cycle
+         endif
+         isFound = .true.
+         do k=1,meshgeom%maxnumfacenodes
+            if ((abs(sorted_faces_x_meshgeom(k,i)-sorted_faces_x_lib_state(k,j)) > tolerance).or.(abs(sorted_faces_y_meshgeom(k,i)-sorted_faces_y_lib_state(k,j))>tolerance)) then
+               isFound = .false.
+               exit
+            endif
+         enddo
+         if(isFound) then
+            mapping(j) = i
+            exit
+         endif
+      enddo
+   enddo
+   
+   ierr = 0
+
+   end function ggeo_map_2d_cells
 
 
    end module gridoperations

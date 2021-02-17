@@ -230,6 +230,10 @@ namespace gridgeom.Tests
                     Assert.That(rc_meshXCoords[i], Is.EqualTo(meshXCoords[i]));
                     Assert.That(rc_meshYCoords[i], Is.EqualTo(meshYCoords[i]));
                 }
+
+                ierr = wrapper.ggeo_deallocate();
+                Assert.That(ierr, Is.EqualTo(0));
+
             }
             finally
             {
@@ -493,6 +497,8 @@ namespace gridgeom.Tests
             meshtwod.nodey = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * twodnumnode);
             meshtwod.nodez = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * twodnumnode);
             meshtwod.edge_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshtwoddim.numedge * 2);
+            meshtwod.face_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshtwoddim.maxnumfacenodes * meshtwoddim.numface);
+            meshtwod.startIndex = startIndex;
 
             //5. get the meshgeom arrays
             bool includeArrays = true;
@@ -565,8 +571,7 @@ namespace gridgeom.Tests
                 Assert.That(rc_arrayfrom[i], Is.EqualTo(arrayfrom[i]));
                 Assert.That(rc_arrayto[i], Is.EqualTo(arrayto[i]));
             }
-            //for writing the links look io_netcdf ionc_def_mesh_contact, ionc_put_mesh_contact 
-
+            //for writing the links look io_netcdf ionc_def_mesh_contact, ionc_put_mesh_contact
             ierr = wrapperNetcdf.ionc_close(ref ioncid);
             Assert.That(ierr, Is.EqualTo(0));
 
@@ -584,6 +589,9 @@ namespace gridgeom.Tests
             //Free from and to arrays describing the links 
             Marshal.FreeCoTaskMem(c_arrayfrom);
             Marshal.FreeCoTaskMem(c_arrayto);
+
+            ierr = wrapperGridgeom.ggeo_deallocate();
+            Assert.That(ierr, Is.EqualTo(0));
         }
 
         /// <summary>
@@ -655,6 +663,8 @@ namespace gridgeom.Tests
             meshtwod.nodey = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * twodnumnode);
             meshtwod.nodez = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * twodnumnode);
             meshtwod.edge_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshtwoddim.numedge * 2);
+            meshtwod.face_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshtwoddim.maxnumfacenodes * meshtwoddim.numface);
+            meshtwod.startIndex = startIndex;
 
             //5. get the meshgeom arrays
             bool includeArrays = true;
@@ -739,6 +749,10 @@ namespace gridgeom.Tests
             //Free from and to arrays describing the links 
             Marshal.FreeCoTaskMem(c_arrayfrom);
             Marshal.FreeCoTaskMem(c_arrayto);
+
+            //Free gridgeom memory
+            ierr = wrapperGridgeom.ggeo_deallocate();
+            Assert.That(ierr, Is.EqualTo(0));
         }
 
         [Test]
@@ -797,24 +811,24 @@ namespace gridgeom.Tests
 
                 //5. declare but do not allocate meshgeom. it will be allocated by gridgeom (fortran)
                 var meshOut = new meshgeom();
-                var meshDimOut = new meshgeomdim();
+                var meshDim = new meshgeomdim();
 
                 //6. call find cells  
                 int startIndex = 1; // provide 1 based (read from netcdf), return 1 based
                 var wrapperGridgeom = new GridGeomLibWrapper();
-                ierr = wrapperGridgeom.ggeo_find_cells(ref meshDimIn, ref meshIn, ref meshDimOut, ref meshOut, ref startIndex);
+                ierr = wrapperGridgeom.ggeo_count_cells(ref meshDimIn, ref meshIn, ref meshDim);
 
-                meshOut.face_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshDimOut.numface* meshDimOut.maxnumfacenodes);
-                meshOut.facex = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * meshDimOut.numface);
-                meshOut.facey = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * meshDimOut.numface);
+                meshOut.face_nodes = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(int)) * meshDim.numface* meshDim.maxnumfacenodes);
+                meshOut.facex = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * meshDim.numface);
+                meshOut.facey = Marshal.AllocCoTaskMem(Marshal.SizeOf(typeof(double)) * meshDim.numface);
 
                 Assert.That(ierr, Is.EqualTo(0));
-                ierr = wrapperGridgeom.ggeo_find_cells(ref meshDimIn, ref meshIn, ref meshDimOut, ref meshOut, ref startIndex);
+                ierr = wrapperGridgeom.ggeo_find_cells(ref meshDim, ref meshOut);
                 Assert.That(ierr, Is.EqualTo(0));
 
                 //7. copy face_nodes to array
-                int[] face_nodes = new int[meshDimOut.maxnumfacenodes * meshDimOut.numface];
-                Marshal.Copy(meshOut.face_nodes, face_nodes, 0, meshDimOut.maxnumfacenodes * meshDimOut.numface);
+                int[] face_nodes = new int[meshDim.maxnumfacenodes * meshDim.numface];
+                Marshal.Copy(meshOut.face_nodes, face_nodes, 0, meshDim.maxnumfacenodes * meshDim.numface);
 
                 //8. deallocate memory allocated by c#
                 Marshal.FreeCoTaskMem(meshIn.nodex);
@@ -825,6 +839,11 @@ namespace gridgeom.Tests
                 Marshal.FreeCoTaskMem(meshOut.face_nodes);
                 Marshal.FreeCoTaskMem(meshOut.facex);
                 Marshal.FreeCoTaskMem(meshOut.facey);
+
+                //Free gridgeom
+                ierr = wrapperGridgeom.ggeo_deallocate();
+                Assert.That(ierr, Is.EqualTo(0));
+
             //}, stackSize);
             //th.Start();
             //th.Join();
