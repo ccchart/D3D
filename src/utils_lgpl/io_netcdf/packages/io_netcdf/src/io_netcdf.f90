@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -445,7 +445,7 @@ function ionc_get_ncid(ioncid, ncid) result(ierr)
 
    ierr = IONC_NOERR
 
-   if (ioncid > 0 .or. ioncid <= ndatasets) then
+   if (ioncid > 0 .and. ioncid <= ndatasets) then
       ncid = datasets(ioncid)%ncid
    else
       ierr = IONC_EBADID
@@ -638,7 +638,7 @@ function ionc_get_meshgeom(ioncid, meshid, networkid, meshgeom, start_index, inc
    integer,             intent(in   ) :: ioncid        !< The IONC data set id.
    integer,             intent(in   ) :: meshid        !< The mesh id in the specified data set.
    integer                            :: networkid     !< The mesh id in the specified data set.
-   type(t_ug_meshgeom), intent(out  ) :: meshgeom      !< Structure in which all mesh geometry will be stored.
+   type(t_ug_meshgeom), intent(inout) :: meshgeom      !< Structure in which all mesh geometry will be stored.
    integer                            :: ierr          !< Result status, ionc_noerr if successful.
    type(t_ug_network)                 :: netid 
    

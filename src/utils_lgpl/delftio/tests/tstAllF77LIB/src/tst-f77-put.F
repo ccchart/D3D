@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -314,8 +314,7 @@ C     Test Discription calls
 C     !   Open file for results
 
       resFileName = 'TESTF77PUTLIB-res.txt'
-      resLun = 11
-      open(resLun,file=resFileName)
+      open(newunit=resLun,file=resFileName)
 
       call getheaderf77('TestReal.his'             , resLun )
       call getheaderf77('TestRealWithRunId.his'    , resLun )

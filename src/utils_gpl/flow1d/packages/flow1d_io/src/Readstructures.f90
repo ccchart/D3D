@@ -1,7 +1,7 @@
 module m_readstructures
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2020.                                
+!  Copyright (C)  Stichting Deltares, 2017-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -59,6 +59,8 @@ module m_readstructures
    public write_structure_cache
    public readPump
    public readDambreak
+   public allowedFlowDirtoInt
+   public get_value_or_addto_forcinglist
 
    !> The file version number of the structure file format: d.dd, [config_major].[config_minor], e.g., 1.03
    !!
@@ -72,7 +74,7 @@ module m_readstructures
    
    ! Structure file current version: 1.00
    integer, parameter :: StructureFileMajorVersion = 2
-   integer, parameter :: StructureFileMinorVersion = 0
+   integer, parameter :: StructureFileMinorVersion = 1
    
    ! History structure file versions:
 
@@ -82,6 +84,7 @@ module m_readstructures
    !                    * culverts: lossCoeffCount -> numLossCoeff
    !                    * universal weir: levelsCount -> numLevels
    ! 2.00 (2019-07-22): Consistent renaming,
+   ! 2.01 (2020-10-20): Added new type=longCulvert.
    
 
    contains
@@ -264,7 +267,8 @@ module m_readstructures
                call prop_get(md_ptr%child_nodes(i)%node_ptr, '', 'numCoordinates', pstru%numCoordinates, success1)
                success = success .and. check_input_result(success1, st_id, 'numCoordinates')
                if (success) then
-                  allocate(pstru%xCoordinates(pstru%numCoordinates), pstru%yCoordinates(pstru%numCoordinates))
+                  allocate(pstru%xCoordinates(pstru%numCoordinates), pstru%yCoordinates(pstru%numCoordinates), stat = istat)
+                  write (*,*) 'readStructureFile, allocate(pstru%xCoordinates(', pstru%numCoordinates, ') and y), stat=', istat
                   
                   call prop_get(md_ptr%child_nodes(i)%node_ptr, '', 'xCoordinates', pstru%xCoordinates, &
                                 pstru%numCoordinates, success1)
@@ -310,12 +314,18 @@ module m_readstructures
                endif
             case (ST_GENERAL_ST)
                call readGeneralStructure(pstru%generalst, md_ptr%child_nodes(i)%node_ptr, st_id, network%forcinglist, success)
+            case (ST_DAMBREAK)
+               call readDambreak(pstru%dambreak, md_ptr%child_nodes(i)%node_ptr, st_id, network%forcinglist, success)
             case (ST_COMPOUND)
                ! Compound structures have been cycled above already.
                continue
             case default
-               call setmessage(LEVEL_ERROR,  'Structure type: '//trim(typestr)//' not supported, see '//trim(pstru%id))
-               success = .false.
+               if (strcmpi(typestr, 'longCulvert')) then
+                  cycle ! NOTE: UNST-4328: reading of culverts done in kernel.
+               else 
+                  call setmessage(LEVEL_ERROR,  'Structure type: '//trim(typestr)//' not supported, see '//trim(pstru%id))
+                  success = .false.
+               end if
             end select
             
             if (success) then
@@ -404,6 +414,8 @@ module m_readstructures
       integer :: ngate
       integer :: ngenstru
       integer :: nuniweir
+      integer :: ndambreak
+      integer :: npump
       integer,          dimension(:), pointer :: indices
       character(len=IdLen), dimension(:), pointer :: ids
       
@@ -424,6 +436,7 @@ module m_readstructures
       sts%numGates    = sts%countByType(ST_GATE)
       sts%numGeneralStructures = sts%countByType(ST_GENERAL_ST)
       sts%numUniWeirs = sts%countByType(ST_UNI_WEIR)
+      sts%numDambreaks = sts%countByType(ST_DAMBREAK)
       allocate(sts%weirIndices(sts%numweirs))
       allocate(sts%culvertIndices(sts%numCulverts))
       allocate(sts%pumpIndices(sts%numPumps))
@@ -432,6 +445,7 @@ module m_readstructures
       allocate(sts%bridgeIndices(sts%numBridges))
       allocate(sts%generalStructureIndices(sts%numGeneralStructures))
       allocate(sts%uniWeirIndices(sts%numUniWeirs))
+      allocate(sts%dambreakIndices(sts%numDambreaks))
 
       !set structure indices for different structure types
       nweir = 0
@@ -441,6 +455,8 @@ module m_readstructures
       nbridge = 0
       ngate = 0
       nuniweir = 0
+      ndambreak = 0
+      npump = 0
       do istru = 1, sts%Count
          select case (sts%struct(istru)%type)
          case (ST_WEIR)
@@ -482,6 +498,13 @@ module m_readstructures
          case (ST_UNI_WEIR)
             nuniweir = nuniweir + 1
             sts%uniWeirIndices(nuniweir) = istru
+         case (ST_DAMBREAK)
+            ndambreak = ndambreak + 1
+            sts%dambreakIndices(ndambreak) = istru
+         case (ST_PUMP)
+            npump = npump+1
+            sts%pumpIndices(npump) = istru
+            sts%struct(istru)%type = ST_PUMP
          end select
       enddo
       
@@ -1121,6 +1144,7 @@ module m_readstructures
             bridge%pcross             => network%crs%cross(icross)
             bridge%crosssectionnr     = icross
             if (network%crs%cross(icross)%crossType == cs_YZ_Prof) then
+               bridge%pcross%convtab1 => null()
                call CalcConveyance(network%crs%cross(icross))
             endif
 
@@ -1147,11 +1171,16 @@ module m_readstructures
    end subroutine readBridge
 
 
-   subroutine readDambreak(dambr, md_ptr, success)
+   !> Read the dambreak specific data for a dambreak structure.
+   !! The common fields for the structure (e.g. x/yCoordinates) must have been read elsewhere.
+   subroutine readDambreak(dambr, md_ptr, st_id, forcinglist, success)
+   
+      type(t_dambreak), pointer,    intent(inout) :: dambr       !< Dambreak structure to be read into.
+      type(tree_data), pointer,     intent(in   ) :: md_ptr      !< ini tree pointer with user input.
+      character(IdLen),             intent(in   ) :: st_id       !< Structure character Id.
+      type(t_forcinglist),          intent(inout) :: forcinglist !< List of all (structure) forcing parameters. (only for uniform interface now, later: to which dambreak forcing will be added if needed.)
+      logical,                      intent(  out) :: success     !< Result status, whether reading of the structure was successful.
 
-      type(t_dambreak), pointer, intent(inout) :: dambr      
-      type(tree_data), pointer, intent(in)     :: md_ptr
-      logical, intent(inout)                   :: success
       
       logical :: localsuccess
 
@@ -1190,18 +1219,23 @@ module m_readstructures
          if (.not. success) return
          
          ! optional extra fields
-         call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationX', dambr%waterLevelUpstreamLocationX, localsuccess)
-         
-         call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationY', dambr%waterLevelUpstreamLocationY, localsuccess)
+         call prop_get_string(md_ptr, 'Structure', 'waterLevelUpstreamNodeId ', dambr%waterLevelUpstreamNodeId, localsuccess)
+         if (.not. localsuccess) then
+            call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationX', dambr%waterLevelUpstreamLocationX, localsuccess)
+            call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationY', dambr%waterLevelUpstreamLocationY, localsuccess)
+         end if
 
-         call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationX', dambr%waterLevelDownstreamLocationX, localsuccess)
-         
-         call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationY', dambr%waterLevelDownstreamLocationY, localsuccess)
-         
+         call prop_get_string(md_ptr, 'Structure', 'waterLevelDownstreamNodeId ', dambr%waterLevelDownstreamNodeId, localsuccess)
+         if (.not. localsuccess) then
+            call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationX', dambr%waterLevelDownstreamLocationX, localsuccess)
+            call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationY', dambr%waterLevelDownstreamLocationY, localsuccess)
+         end if
       endif
       
       ! get the name of the tim file 
       if (dambr%algorithm == 3) then
+         ! UNST-3308: NOTE that only the .tim filename is read below. It is NOT added to the network%forcinglist.
+         !            All time-space handling of the dambreak is still done in kernel.
          call prop_get_string(md_ptr, 'Structure', 'DambreakLevelsAndWidths', dambr%levelsAndWidths, success)
          if (.not. success) return         
       endif
@@ -1211,7 +1245,7 @@ module m_readstructures
       
       call setCoefficents(dambr)
       
-   end subroutine
+   end subroutine readDambreak
 
    !> Read the pump specific data for a pump structure.
    !! The common fields for the structure (e.g. branchId) must have been read elsewhere.
@@ -1354,6 +1388,7 @@ module m_readstructures
 
    !> Either retrieve a constant value for parameter KEY, or get the filename for the time series.
    subroutine get_value_or_addto_forcinglist(md_ptr, key, value, st_id, st_type, forcinglist, success)
+      use m_forcinglist
       type(tree_data), pointer,     intent(in   ) :: md_ptr      !< ini tree pointer with user input.
       character(len=*),             intent(in   ) :: key         !< name of the item in the input file
       double precision, target,     intent(  out) :: value       !< The variable into which the read value may be stored.
@@ -1364,7 +1399,7 @@ module m_readstructures
       logical,          optional,   intent(inout) :: success     
       
       integer           :: istat   
-      character(CharLn) :: tmpstr
+      character(CharLn) :: tmpstr, structuretype
       logical           :: success1
       
       call prop_get_string(md_ptr, '', key, tmpstr, success1)
@@ -1375,8 +1410,10 @@ module m_readstructures
             if (forcinglist%Count > forcinglist%Size) then
                call realloc(forcinglist)
             end if
-            forcinglist%forcing(forcinglist%Count)%st_id      = st_id
-            forcinglist%forcing(forcinglist%Count)%st_type    = st_type
+            forcinglist%forcing(forcinglist%Count)%object_id      = st_id
+            call GetStrucType_from_int(st_type, structuretype)
+            forcinglist%forcing(forcinglist%Count)%object_type = trim(structuretype)
+            forcinglist%forcing(forcinglist%Count)%quantity_id = trim(structuretype)//'_'//trim(key)
             forcinglist%forcing(forcinglist%Count)%param_name = key
             forcinglist%forcing(forcinglist%Count)%targetptr  => value
             forcinglist%forcing(forcinglist%Count)%filename   = tmpstr
@@ -1521,7 +1558,7 @@ module m_readstructures
       success = .true.
       allocate(generalst)
 
-      call get_value_or_addto_forcinglist(md_ptr, 'crestLevel', generalst%zs, st_id, ST_GENERAL_ST, forcinglist, success1)
+      call get_value_or_addto_forcinglist(md_ptr, 'crestLevel', generalst%zs, st_id, ST_ORIFICE, forcinglist, success1)
       success = success .and. check_input_result(success1, st_id, 'crestLevel')
 
       generalst%mugf_pos = 1d0
@@ -1530,7 +1567,7 @@ module m_readstructures
       generalst%ws = 1d10
       call prop_get_double(md_ptr, '', 'crestWidth',  generalst%ws)
       
-      call get_value_or_addto_forcinglist(md_ptr, 'gateLowerEdgeLevel', generalst%gateLowerEdgeLevel, st_id, ST_GENERAL_ST, &
+      call get_value_or_addto_forcinglist(md_ptr, 'gateLowerEdgeLevel', generalst%gateLowerEdgeLevel, st_id, ST_ORIFICE, &
                                                        forcinglist, success1)
       success = success .and. check_input_result(success1, st_id, 'gateLowerEdgeLevel')
 
@@ -1540,6 +1577,32 @@ module m_readstructures
       dirString = 'both'
       call prop_get_string(md_ptr, '', 'allowedFlowDir', dirString, success1)
       generalst%allowedflowdir = allowedFlowDirToInt(dirString)
+
+      generalst%uselimitFlowPos = .false.
+      call prop_get_logical(md_ptr, ' ', 'useLimitFlowPos', generalst%uselimitFlowPos)
+      if (generalst%uselimitFlowPos) then
+         if (generalst%allowedflowdir /= 0 .and. generalst%allowedflowdir /= 1) then
+            write (msgbuf, '(a,a,a,a,a)') 'Structure ''', trim(st_id), ''': useLimitFlowPos can not be combined with allowedFlowDir=', &
+               allowedFlowDirToString(generalst%allowedflowdir), '. Ignoring limitFlowPos.'
+            call warn_flush()
+         else
+            call prop_get_double(md_ptr, ' ', 'limitFlowPos', generalst%limitFlowPos, success1)
+            success = success .and. check_input_result(success1, st_id, 'limitFlowPos')
+         end if
+      end if
+
+      generalst%uselimitFlowNeg = .false.
+      call prop_get_logical(md_ptr, ' ', 'useLimitFlowNeg', generalst%uselimitFlowNeg)
+      if (generalst%uselimitFlowNeg) then
+         if (generalst%allowedflowdir /= 0 .and. generalst%allowedflowdir /= 2) then
+            write (msgbuf, '(a,a,a,a,a)') 'Structure ''', trim(st_id), ''': useLimitFlowNeg can not be combined with allowedFlowDir=', &
+               allowedFlowDirToString(generalst%allowedflowdir), '. Ignoring limitFlowNeg.'
+            call warn_flush()
+         else
+            call prop_get_double(md_ptr, ' ', 'limitFlowNeg', generalst%limitFlowNeg, success1)
+            success = success .and. check_input_result(success1, st_id, 'limitFlowNeg')
+         end if
+      end if
 
       ! Set default/standard values for orifice
       ! all levels are set to -1d-10. In the time loop these parameters will be set to the bed level.
@@ -1629,7 +1692,7 @@ module m_readstructures
       generalst%zd2                = 0d0
       call prop_get_double(md_ptr, '', 'downstream2Level',  generalst%zd2, success1)
 
-      generalst%gateLowerEdgeLevel = 11d0
+      generalst%gateLowerEdgeLevel = 1d10
       call get_value_or_addto_forcinglist(md_ptr, 'gateLowerEdgeLevel', generalst%gateLowerEdgeLevel, st_id, ST_GENERAL_ST, forcinglist, success1)
       generalst%crestlength        = 0d0
       call prop_get_double(md_ptr, '', 'crestLength',   generalst%crestlength)
@@ -1731,8 +1794,10 @@ module m_readstructures
       
    end function  openingDirectionToInt
    
+   !> Gives the integer parameter constant for an 'allowedFlowDir' string value.
+   !! An unknown/invalid value defaults to 0 (both).
    integer function allowedFlowDirToInt(flowdirString)
-      character(len=*), intent(inout) :: flowdirString
+      character(len=*), intent(inout) :: flowdirString !< String value of the allowedFlowDir parameter.
    
       call str_lower(flowdirString)
       select case(flowdirString)
@@ -1749,7 +1814,29 @@ module m_readstructures
       end select
       
    end function  allowedFlowDirToInt
-  
+
+
+   !> Gives the string value for an 'allowedFlowDir' integer value.
+   function allowedFlowDirToString(flowDirInt)
+      integer,          intent(in   ) :: flowDirInt             !< Input integer value of the allowedFlowDir parameter.
+      character(len=:), allocatable   :: allowedFlowDirToString !< String value for the given allowedFlowDir integer value.
+
+      select case (flowDirInt)
+      case (0)
+         allowedFlowDirToString = 'both'
+      case (1)
+         allowedFlowDirToString = 'positive'
+      case (2)
+         allowedFlowDirToString = 'negative'
+      case (3)
+         allowedFlowDirToString = 'none'
+      case default
+         allowedFlowDirToString = 'invalid'
+      end select
+      
+   end function allowedFlowDirToString
+
+
    !> Read the general structure parameters for version 1.00 files
    subroutine readGeneralStructure_v100(generalst, md_ptr, success)
    

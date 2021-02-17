@@ -1,7 +1,7 @@
 subroutine merge (inputfile, workdir, runid)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -37,6 +37,7 @@ subroutine merge (inputfile, workdir, runid)
     use properties, only: prop_file ! The only is needed to avoid a clash with
                                     ! the local defined cident
     use precision
+    use mormerge_version_module
     !
     implicit none
     !
@@ -71,7 +72,6 @@ subroutine merge (inputfile, workdir, runid)
     integer                                             :: lunout
     integer                                             :: scanmode
     integer, external                                   :: createstream
-    integer, external                                   :: newunit
     integer       , dimension(:)  , allocatable         :: handles         ! data stream handles
     real(hp)                                            :: dim_real
     real(hp)                                            :: totalweight
@@ -98,7 +98,7 @@ subroutine merge (inputfile, workdir, runid)
 !
 !! executable statements -------------------------------------------------------
 !
-   call getfullversionstring_MORMERGE(version_full)
+   call get_full_versionstring_mormerge_full(version_full)
    !
    call util_getenv('ARCH',value)
    call small(value,1000)

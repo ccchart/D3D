@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -382,6 +382,9 @@ module m_ec_filereader
                case default
                   do i=1, fileReaderPtr%nItems
                      success = ecNetcdfReadNextBlock(fileReaderPtr, fileReaderPtr%items(i)%ptr, t0t1, timesndx)
+                     if (.not.success) then
+                         return
+                     end if                     
                   end do
                   if (itemPtr%sourceT1FieldPtr%timesndx < 0) then
                      t0t1 = 1
@@ -424,22 +427,23 @@ module m_ec_filereader
          integer                               :: itemId       !< unique Item id
          type(tEcInstance), pointer            :: instancePtr  !< intent(in)
          integer,                   intent(in) :: fileReaderId !< unique FileReader id
-         character(*),              intent(in) :: name         !< Quantity name which identifies the requested Item
+         character(len=*),          intent(in) :: name         !< Quantity name which identifies the requested Item
          !
          type(tEcFileReader), pointer :: fileReaderPtr !< FileReader corresponding to fileReaderId
          integer                      :: i             !< loop counter
          !
          itemId = ec_undef_int
-         fileReaderPtr => null()
          fileReaderPtr => ecSupportFindFileReader(instancePtr, fileReaderId)
          if (associated(fileReaderPtr)) then
             do i=1, fileReaderPtr%nItems
-               if (strcmpi(fileReaderPtr%items(i)%ptr%quantityPtr%name,name)) then                                               !(trim(fileReaderPtr%items(i)%ptr%quantityPtr%name) == trim(name)) then
+               if (strcmpi(fileReaderPtr%items(i)%ptr%quantityPtr%name, name)) then
                   itemId = fileReaderPtr%items(i)%ptr%id
                   exit
                end if
             end do
-         else
+         end if
+
+         if (itemId == ec_undef_int) then
             call setECMessage("ERROR: ec_filereader::ecFileReaderFindItem: Cannot find a FileReader with the supplied name: "//trim(name))
          end if
       end function ecFileReaderFindItem

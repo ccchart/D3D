@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -141,7 +141,7 @@
      j(dis_su(i),dis_it(i),dis_sc(i),i=1,dis)
 
       write ( lun , '(i10,
-     j ''# stoichiometry lines velocity arrays'')' ) vel
+     j ''; # stoichiometry lines velocity arrays'')' ) vel
       if ( vel .gt. 0 )
      jwrite ( lun , '(a10,2x,a10,2x,f10.5)' )
      j(vel_su(i),vel_it(i),vel_sc(i),i=1,vel)

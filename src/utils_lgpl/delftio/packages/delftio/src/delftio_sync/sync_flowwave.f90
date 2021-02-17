@@ -1,7 +1,7 @@
 module sync_flowwave
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -47,7 +47,7 @@ implicit none
 !
 ! Module parameters
 !
-integer, parameter :: max_num_subdoms = 50    ! max # subdomains
+integer, parameter :: max_num_subdoms = 100    ! max # subdomains
                                               ! (= #locations in DioPlt)
 !
 ! Derived Type definitions (PLT datasets)

@@ -1,7 +1,7 @@
 module m_read_roughness
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2020.                                
+!  Copyright (C)  Stichting Deltares, 2017-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -106,7 +106,7 @@ contains
       default = 60d0
       def_type = 1
       def_type = 1
-      
+      network%rgs%roughnessFileMajorVersion = RoughFileMajorVersion
       !> Check if the model definition file contains global values for roughness
       if (present(md_ptr)) then
          call prop_get_double(md_ptr, 'GlobalValues', 'roughness', default, success)
@@ -208,7 +208,57 @@ contains
          endif
       end if
 
+      call add_timeseries_to_forcinglist(rgs, network%forcinglist)
    end subroutine roughness_reader
+
+   !> scan all roughness sections for timeseries and subsequently register them in the forcinglist
+   subroutine add_timeseries_to_forcinglist(rgs, forcinglist)
+      use m_roughness
+      
+      type (t_RoughnessSet), intent(inout) :: rgs            !< Roughness set
+      type (t_forcinglist), intent(inout)  :: forcinglist    !< Forcing list
+
+      type(t_roughness), pointer          :: prgh
+      integer                             :: i, j, count
+      integer                             :: ibr
+      
+      do i = 1, rgs%count
+         prgh => rgs%rough(i)
+         if (prgh%timeSeriesIds%id_count > 0) then
+            count = prgh%timeSeriesIds%id_count 
+            rgs%timeseries_defined = .true.
+            call realloc(prgh%currentValues, count)
+            call realloc(prgh%timeDepValues, (/ count, 2 /))
+            prgh%timeDepValues = -10d0
+
+            do j = 1, count
+
+               ! Extend forcinglist by one and reallocate in case of insufficient space
+               forcinglist%Count = forcinglist%Count+1
+               if (forcinglist%Count > forcinglist%Size) then
+                  call realloc(forcinglist)
+               end if
+
+               ! For correct roughness type we need a branch index:
+               do ibr = 1, size(prgh%timeSeriesIndexes)
+                  if (prgh%timeSeriesIndexes(ibr) == j) then
+                     exit
+                  endif
+               enddo
+               forcinglist%forcing(forcinglist%Count)%object_id   = prgh%timeSeriesIds%id_list(j)
+               forcinglist%forcing(forcinglist%Count)%quantity_id = 'friction_coefficient_'//         &
+                                             trim(frictionTypeIntegerToString(prgh%rgh_type_pos(ibr)))
+               forcinglist%forcing(forcinglist%Count)%param_name  = frictionTypeIntegerToString(prgh%rgh_type_pos(ibr))
+               forcinglist%forcing(forcinglist%Count)%targetptr  => prgh%timeDepValues(j,2)
+               forcinglist%forcing(forcinglist%Count)%filename    = prgh%frictionValuesFile
+               forcinglist%forcing(forcinglist%Count)%object_type = 'friction_coefficient'
+   
+            enddo
+         endif
+
+      enddo
+
+   end subroutine add_timeseries_to_forcinglist
 
    !> Read a specific roughness file, taking the file version into account.
    subroutine read_roughnessfile(rgs, brs, spdata, inputfile, default, def_type)
@@ -293,6 +343,7 @@ contains
       type(t_roughness), pointer             :: rgh
       character(len=Idlen)                   :: frictionId
       character(len=Idlen)                   :: branchid
+      character(len=Idlen)                   :: timeseriesId
       double precision, allocatable          :: levels(:)
       double precision, allocatable          :: locations(:)
       double precision, allocatable          :: values(:)
@@ -302,6 +353,7 @@ contains
       
       character(len=Idlen)                   :: fricType
       character(len=Idlen)                   :: funcType
+      character(len=Charln)                  :: frictionValuesFileName
      
       count = 0
       if (associated(tree_ptr%child_nodes)) then
@@ -333,6 +385,10 @@ contains
             call setmessage(LEVEL_ERROR, 'frictionId not found in roughness definition file: '//trim(inputfile))
             return
          endif
+
+         frictionValuesFileName = ' '
+         call prop_get_string(tree_ptr, 'General', 'frictionValuesFile', frictionValuesFileName, success)
+
          irgh = hashsearch_or_add(rgs%hashlist, frictionId)
          if (irgh > rgs%size) then
             call realloc(rgs)
@@ -351,6 +407,12 @@ contains
             if (.not. associated(rgh%fun_type_pos))   allocate(rgh%fun_type_pos(brs%Count))
             if (.not. associated(rgh%table))          allocate(rgh%table(brs%Count))
          endif         
+   
+         if (.not. associated(rgh%timeSeriesIndexes)) then
+            allocate(rgh%timeSeriesIndexes(brs%Count))
+            rgh%timeSeriesIndexes = -1
+         endif
+
          rgh%rgh_type_pos = -1
          rgh%fun_type_pos = -1
          do i = 1, brs%count
@@ -378,7 +440,7 @@ contains
             endif
             
             rgs%rough(irgh)%useGlobalFriction = .not. branchdef
-            
+            rgs%rough(irgh)%frictionValuesFile = frictionValuesFileName
             fricType = ''
             call prop_get_string(tree_ptr%child_nodes(i)%node_ptr, '', 'frictionType', fricType, success)
             if (.not. success) then
@@ -408,12 +470,12 @@ contains
             fricType = ''
             call prop_get_string(tree_ptr%child_nodes(i)%node_ptr, '', 'frictionType', fricType, success)
             if (.not. success) then
-               call setmessage(LEVEL_ERROR, 'Missing frictionType for branchId '//trim(branchid)//' see input file: '//trim(inputfile))
+               call setmessage(LEVEL_ERROR, 'Missing frictionType for branchId '//trim(branchid)//', see input file: '//trim(inputfile))
                cycle
             end if
             call frictionTypeStringToInteger(fricType, rgh%rgh_type_pos(ibr))
             if (rgh%rgh_type_pos(ibr) < 0) then
-               call setmessage(LEVEL_ERROR, 'frictionType '''//trim(fricType)//''' invalid for branchId '//trim(branchid)//' see input file: '//trim(inputfile))
+               call setmessage(LEVEL_ERROR, 'frictionType '''//trim(fricType)//''' invalid for branchId '//trim(branchid)//', see input file: '//trim(inputfile))
                cycle
             endif
 
@@ -421,18 +483,31 @@ contains
             call prop_get_string(tree_ptr%child_nodes(i)%node_ptr, '', 'functionType', funcType, success)
             call functionTypeStringToInteger(funcType, rgh%fun_type_pos(ibr))
             if (rgh%fun_type_pos(ibr) < 0) then
-               call setmessage(LEVEL_ERROR, 'functionType '''//trim(funcType)//''' invalid for branchId '//trim(branchid)//' see input file: '//trim(inputfile))
+               call setmessage(LEVEL_ERROR, 'functionType '''//trim(funcType)//''' invalid for branchId '//trim(branchid)//', see input file: '//trim(inputfile))
                cycle
             endif
             
-            numlevels = 0
-            call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'numLevels', numlevels, success)
-            numlocations = 0
-            call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'numLocations', numlocations, success)
-            success = .true.
+            if (rgh%fun_type_pos(ibr) == R_FunctionTimeseries) then
+               call prop_get_string(tree_ptr%child_nodes(i)%node_ptr, '', 'timeSeriesId', timeseriesId, success)   
+               if (.not. success) then
+                  call setmessage(LEVEL_ERROR, 'timeSeriesId is required for functionType='//trim(funcType)//', but was not found in the input for branchId '//trim(branchid)//', see input file: '//trim(inputfile))
+                  cycle
+               endif
+               rgh%timeSeriesIndexes(ibr) = hashsearch_or_add(rgh%timeSeriesIds, timeseriesId)
+               numlevels = 0
+               maxlevels = 1
+               numlocations = 0
+               maxlocations = 1
+            else
+               numlevels = 0
+               call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'numLevels', numlevels, success)
+               numlocations = 0
+               call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'numLocations', numlocations, success)
+               success = .true.
 
-            maxlevels    = max(1, maxlevels,    numlevels)
-            maxlocations = max(1, maxlocations, numlocations)
+               maxlevels    = max(1, maxlevels,    numlevels)
+               maxlocations = max(1, maxlocations, numlocations)
+            endif
 
             call realloc(levels,    maxlevels,              keepExisting=.false.)
             call realloc(locations, maxlocations,           keepExisting=.false.)
@@ -453,7 +528,12 @@ contains
             endif
             
             if (success) then
-               call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'frictionValues', values, numlevels*numlocations, success)
+               if (rgh%fun_type_pos(ibr) == R_FunctionTimeseries) then
+                  call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'frictionValue', values, numlevels*numlocations, success)
+               else
+                  call prop_get(tree_ptr%child_nodes(i)%node_ptr, '', 'frictionValues', values, numlevels*numlocations, success)
+               endif
+               
             endif
             
             if (.not. success) then
@@ -462,7 +542,6 @@ contains
             endif
 
             call setTableMatrix(rgh%table(ibr), locations, levels, (/numlocations, numlevels/), linear=values)
-            
          endif
       enddo   
   

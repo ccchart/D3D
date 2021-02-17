@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -51,9 +51,7 @@ c     Include data structures for tables and PDF-file
       character*50 adduni
       character*255 ArgumentString
       real         actdef, versio
-      integer      lu_inp, lu_mes, status
-      data         lu_inp /14/
-      data         lu_mes /11/
+      integer      lu_inp, lu_mes, status, lunfil
       
 c     Defaults for command line arguments
 
@@ -77,7 +75,7 @@ c     Defaults for command line arguments
 
 
       itmswi = .false.
-      open ( lu_mes , file = 'waqpb_export.log' )
+      open ( newunit=lu_mes , file = 'waqpb_export.log' )
       if (newfrm) then
         write (lu_mes,'(''Using NEW format'')')
 	else
@@ -138,11 +136,11 @@ c----------------------------------------------------------------------c
 c     SET VERSION, SERIAL AND WRITE NEFIS FILE
 c----------------------------------------------------------------------c
 
-      write (11,'(''Writing NEFIS process definition file'')')
+      write (lu_mes,'(''Writing NEFIS process definition file'')')
       call makind()
-      call pdfnef(11    , serial, versio, ierror)
+      call pdfnef(lu_mes    , serial, versio, ierror)
       if ( ierror .ne. 0 ) then
-         write (11,'(''ERROR writing NEFIS file'')')
+         write (lu_mes,'(''ERROR writing NEFIS file'')')
          write (*,'(''ERROR writing NEFIS file, see report file'')')
       endif
 
@@ -152,8 +150,8 @@ c----------------------------------------------------------------------c
 
       write (*,'('' Making PROCES.ASC......'')')
       write (*,*)
-      open ( 15 , file = 'procesm.asc' )
-      write ( 15 , '(i10,50x,f8.2,2x,i10)' ) nproc,versio,serial
+      open ( newunit=lunfil , file = 'procesm.asc' )
+      write ( lunfil , '(i10,50x,f8.2,2x,i10)' ) nproc,versio,serial
 
       do 800 iproc=1,nproc
 
@@ -382,7 +380,7 @@ c             Process current row
 
 c             Lookup flux in items table
               ioutf = ioffse + flu-1
-c             write (11,*) ' flu ',flu,' ioutf ', ioutf
+c             write (lu_mes,*) ' flu ',flu,' ioutf ', ioutf
               call zoek ( outffl(ioutf), nitem, itemid, 10, iitem)
               if ( iitem .le. 0 ) stop 'unknown FLUX'
 
@@ -445,19 +443,19 @@ c         Write PDF file (formats as in HARMONIZE to allow comparison)
 
           if (newfrm) then
           call wripdn ( procid(iproc), procnm(iproc), procco(iproc),
-     j                  procfo(iproc), 15 )
+     j                  procfo(iproc), lunfil )
           else
           call wripdf ( procid(iproc), procnm(iproc), procco(iproc),
-     j                  procfo(iproc), 15 )
+     j                  procfo(iproc), lunfil )
           endif
   800 continue
-      close (15)
+      close (lunfil)
 
 c     Write all active coefficients to COEFEDIT.DAT in the Sobek-format
       call coefed(serial,itmswi)
 
   900 continue
-      close (11)
+      close (lu_mes)
 
       stop 'Normal end'
       end

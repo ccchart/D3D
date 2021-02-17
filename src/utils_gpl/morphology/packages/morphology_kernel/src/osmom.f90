@@ -3,7 +3,7 @@ subroutine osmom(hrms      ,depth     ,tp        ,g         ,cr        , &
                & od2b      ,od3b      ,od4b      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2020.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -75,7 +75,6 @@ subroutine osmom(hrms      ,depth     ,tp        ,g         ,cr        , &
     integer                        :: it0
     integer                        :: it1
     integer                        :: utab
-    integer, external              :: newunit
     logical                        :: error
     real(fp)                       :: f0
     real(fp)                       :: f1

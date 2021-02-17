@@ -1,7 +1,7 @@
 module properties
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2021.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -1657,14 +1657,15 @@ end subroutine print_initree
 ! --------------------------------------------------------------------
 !
 subroutine prop_get_string(tree, chapterin ,keyin, value, success)
+    implicit none
     !
     ! Parameters
     !
-    type(tree_data), pointer        :: tree
-    character(*),intent(in)         :: chapterin
-    character(*),intent(in)         :: keyin
-    character(*)                    :: value
-    logical, optional, intent (out) :: success
+    type(tree_data)  , pointer       :: tree        !< The property tree
+    character(*)     , intent(in)    :: chapterin   !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)     , intent(in)    :: keyin       !< Name of the key (case-insensitive)
+    character(*)     , intent(inout) :: value       !< Value of the key (not set if the key is not found, so you can set a default value)
+    logical, optional, intent(out)   :: success     !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -1716,11 +1717,11 @@ subroutine prop_get_alloc_string(tree, chapterin ,keyin, value, success)
     !
     ! Parameters
     !
-    type(tree_data), pointer        :: tree
-    character(*),intent(in)         :: chapterin
-    character(*),intent(in)         :: keyin
-    character(:), allocatable       :: value
-    logical, optional, intent (out) :: success
+    type(tree_data)          , pointer       :: tree       !< The property tree
+    character(*)             , intent(in)    :: chapterin  !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)             , intent(in)    :: keyin      !< Name of the key (case-insensitive)
+    character(:), allocatable, intent(inout) :: value      !< Value of the key (not set if the key is not found, so you can set a default value)
+    logical        , optional, intent (out)  :: success    !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -1873,35 +1874,21 @@ end subroutine node_unvisit
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_integer
-!   Author:     Arjen Markus
-!   Purpose:    Get the integer value for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to integer.
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Value of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Value is set with the first integer found behind the character "=".
-!               The following example is allowed:
-!               IntegerIn = Index 8, denoting the startpoint for searches
-! --------------------------------------------------------------------
-!
-subroutine prop_get_integer(tree  ,chapter   ,key       ,value     ,success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer        :: tree
-    integer     ,intent (inout)     :: value
-    character(*),intent (in)        :: chapter
-    character(*),intent (in)        :: key
-    logical, optional, intent (out) :: success
+!> Get the integer value for a property
+!!    Use prop_get_string to get the string value.
+!!    Convert it to integer.
+!!
+!!  Comments on this line:
+!!    Value is set with the first integer found behind the character "=".
+!!    The following example is allowed:
+!!    IntegerIn = Index 8, denoting the startpoint for searches
+subroutine prop_get_integer(tree, chapter, key, value, success)
+    implicit none
+    type(tree_data)  , pointer       :: tree    !< The property tree
+    integer          , intent(inout) :: value   !< Value of the key (not set if the key is not found, so you can set a default value)
+    character(*)     , intent(in)    :: chapter !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)     , intent(in)    :: key     !< Name of the key (case-insensitive)
+    logical, optional, intent(out)   :: success !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -1916,40 +1903,26 @@ end subroutine prop_get_integer
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_integers
-!   Author:     Adri Mourits
-!   Purpose:    Get the array of integer values for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to integers.
-!               If the string contains less integers than valuelength,
-!               only the integers found are set in value.
-!               If the string contains more integers than valuelength,
-!               only valuelength integers are set in value
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Values of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Everywhere behind the character "=".
-!               The following example is allowed:
-!               IntegersIn = (n,m): 4,5
-! --------------------------------------------------------------------
-!
-subroutine prop_get_integers(tree   ,chapter   ,key       ,value     ,valuelength, success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer  :: tree
-    integer              ,intent (in)  :: valuelength
-    integer, dimension(*),intent (out) :: value
-    character(*)         ,intent (in)  :: chapter
-    character(*)         ,intent (in)  :: key
-    logical, optional    ,intent (out) :: success
+!> Get the array of integer values for a property
+!!    Use prop_get_string to get the string value.
+!!    Convert it to integers.
+!!    If the string contains less integers than valuelength,
+!!    only the integers found are set in value.
+!!    If the string contains more integers than valuelength,
+!!    only valuelength integers are set in value
+!!
+!!  Comments on this line:
+!!    Everywhere behind the character "=".
+!!    The following example is allowed:
+!!    IntegersIn = (n,m): 4,5
+subroutine prop_get_integers(tree, chapter, key, value, valuelength, success)
+    implicit none
+    type(tree_data)      , pointer       :: tree         !< The property tree
+    integer              , intent(in)    :: valuelength  !< Size of the array value
+    integer, dimension(*), intent(inout) :: value        !< Values of the key (not set if the key is not found, so you can set a default value)
+    character(*)         , intent(in)    :: chapter      !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)         , intent(in)    :: key          !< Name of the key (case-insensitive)
+    logical, optional    , intent(out)   :: success      !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -2014,35 +1987,21 @@ end subroutine prop_get_integers
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_real
-!   Author:     Arjen Markus
-!   Purpose:    Get the real value for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to real.
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Value of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Value is set with the first real found behind the character "=".
-!               The following example is allowed:
-!               RealIn = Gravity 9.8, m/s*2
-! --------------------------------------------------------------------
-!
-subroutine prop_get_real(tree  ,chapter   ,key       ,value     ,success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer    :: tree
-    real        ,intent (inout) :: value
-    character(*),intent (in)    :: chapter
-    character(*),intent (in)    :: key
-    logical, optional, intent(out) :: success
+!> Get the real value for a property
+!!              Use prop_get_string to get the string value.
+!!              Convert it to real.
+!!
+!!  Comments on this line:
+!!              Value is set with the first real found behind the character "=".
+!!              The following example is allowed:
+!!              RealIn = Gravity 9.8, m/s*2
+subroutine prop_get_real(tree, chapter, key, value, success)
+    implicit none
+    type(tree_data)  , pointer       :: tree !< The property tree
+    real             , intent(inout) :: value !< Value of the key (not set if the key is not found, so you can set a default value)
+    character(*)     , intent(in)    :: chapter !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)     , intent(in)    :: key !< Name of the key (case-insensitive)
+    logical, optional, intent(out)   :: success !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -2057,40 +2016,26 @@ end subroutine prop_get_real
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_reals
-!   Author:     Adri Mourits
-!   Purpose:    Get the array of real values for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to reals.
-!               If the string contains less reals than valuelength,
-!               only the reals found are set in value.
-!               If the string contains more reals than valuelength,
-!               only valuelength reals are set in value
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Values of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Everywhere behind the character "=".
-!               The following example is allowed:
-!               RealsIn = (x,y): 4.5,5.9 Start point
-! --------------------------------------------------------------------
-!
-subroutine prop_get_reals(tree  ,chapter ,key ,value ,valuelength, success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer  :: tree
-    integer           , intent (in)  :: valuelength
-    real, dimension(*), intent (out) :: value
-    character(*)      , intent (in)  :: chapter
-    character(*)      , intent (in)  :: key
-    logical, optional , intent (out) :: success
+!> Get the array of real values for a property
+!!     Use prop_get_string to get the string value.
+!!     Convert it to reals.
+!!     If the string contains less reals than valuelength,
+!!     only the reals found are set in value.
+!!     If the string contains more reals than valuelength,
+!!     only valuelength reals are set in value
+!!
+!!  Comments on this line:
+!!     Everywhere behind the character "=".
+!!     The following example is allowed:
+!!     RealsIn = (x,y): 4.5,5.9 Start point
+subroutine prop_get_reals(tree, chapter, key, value, valuelength, success)
+    implicit none
+    type(tree_data)   , pointer        :: tree         !< The property tree
+    integer           , intent (in)    :: valuelength  !< Size of the array value
+    real, dimension(*), intent (inout) :: value        !< Values of the key (not set if the key is not found, so you can set a default value)
+    character(*)      , intent (in)    :: chapter      !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)      , intent (in)    :: key          !< Name of the key (case-insensitive)
+    logical, optional , intent (out)   :: success      !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -2166,35 +2111,21 @@ end subroutine prop_get_reals
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_double
-!   Author:     Arjen Markus
-!   Purpose:    Get the double-precision real value for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to a double precision real.
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Value of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Value is set with the first real found behind the character "=".
-!               The following example is allowed:
-!               RealIn = Gravity 9.8, m/s*2
-! --------------------------------------------------------------------
-!
-subroutine prop_get_double(tree  ,chapter   ,key       ,value     ,success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer      :: tree
-    real(kind=hp) ,intent (inout) :: value
-    character(*)  ,intent (in)    :: chapter
-    character(*)  ,intent (in)    :: key
-    logical, optional, intent(out) :: success
+!> Get the double-precision real value for a property
+!!    Use prop_get_string to get the string value.
+!!    Convert it to a double precision real.
+!!
+!!  Comments on this line:
+!!    Value is set with the first real found behind the character "=".
+!!    The following example is allowed:
+!!    RealIn = Gravity 9.8, m/s*2
+subroutine prop_get_double(tree, chapter, key, value, success)
+    implicit none
+    type(tree_data)  , pointer       :: tree    !< The property tree
+    real(kind=dp)    , intent(inout) :: value   !< Value of the key (not set if the key is not found, so you can set a default value)
+    character(*)     , intent(in)    :: chapter !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)     , intent(in)    :: key     !< Name of the key (case-insensitive)
+    logical, optional, intent(out)   :: success !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -2209,41 +2140,26 @@ end subroutine prop_get_double
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_doubles
-!   Author:     Adri Mourits
-!   Purpose:    Get the array of double precision real values for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to double precision reals.
-!               If the string contains less reals than valuelength,
-!               only the reals found are set in value.
-!               If the string contains more reals than valuelength,
-!               only valuelength reals are set in value
-!   Arguments:
-!   chapter      Name of the chapter (case-insensitive) or "*" to get any key
-!   key          Name of the key (case-insensitive)
-!   value        Values of the key (not set if the key is not found,
-!                so you can set a default value)
-!   valuelength  Size of the array value
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Everywhere behind the character "=".
-!               The following example is allowed:
-!               RealsIn = (x,y): 4.5,5.9 Start point
-! --------------------------------------------------------------------
-!
-subroutine prop_get_doubles(tree  ,chapter ,key ,value ,valuelength,success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer  :: tree
-    integer                    , intent (in)  :: valuelength
-    real(kind=hp), dimension(*), intent (out) :: value
-    character(*)               , intent (in)  :: chapter
-    character(*)               , intent (in)  :: key
-    logical, optional          , intent (out) :: success
+!> Get the array of double precision real values for a property
+!!    Use prop_get_string to get the string value.
+!!    Convert it to double precision reals.
+!!    If the string contains less reals than valuelength,
+!!    only the reals found are set in value.
+!!    If the string contains more reals than valuelength,
+!!    only valuelength reals are set in value
+!!
+!! Comments on this line:
+!!    Everywhere behind the character "=".
+!!    The following example is allowed:
+!!    RealsIn = (x,y): 4.5,5.9 Start point
+subroutine prop_get_doubles(tree, chapter, key, value, valuelength, success)
+    implicit none
+    type(tree_data)            , pointer       :: tree        !< The property tree
+    integer                    , intent(in)    :: valuelength !< Size of the array value
+    real(kind=dp), dimension(*), intent(inout) :: value       !< Values of the key (not set if the key is not found, so you can set a default value)
+    character(*)               , intent(in)    :: chapter     !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)               , intent(in)    :: key         !< Name of the key (case-insensitive)
+    logical, optional          , intent(out)   :: success     !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -2319,37 +2235,23 @@ end subroutine prop_get_doubles
 !
 !
 ! ====================================================================
-! --------------------------------------------------------------------
-!   Subroutine: prop_get_logical
-!   Author:     Arjen Markus
-!   Purpose:    Get the logical value for a property
-!   Context:    Used by applications
-!   Summary:
-!               Use prop_get_string to get the string value.
-!               Convert it to logical.
-!               Allowed strings to detect the value true:
-!               Y|YES|yes|Yes|T|TRUE|true|True|J|JA|Ja|ja|W|WAAR|Waar|waar
-!               Allowed strings to detect the value false:
-!               N|NO|no|No|F|FALSE|false|False|N|NEE|Nee|nee|O|ONWAAR|Onwaar|onwaar
-!   Arguments:
-!   chapter     Name of the chapter (case-insensitive) or "*" to get any key
-!   key         Name of the key (case-insensitive)
-!   value       Value of the key (not set if the key is not found,
-!               so you can set a default value)
-!   success     Whether successful or not (optional)
-!   Comments on this line:
-!               Not allowed
-! --------------------------------------------------------------------
-!
-subroutine prop_get_logical(tree  ,chapter   ,key       ,value     ,success)
-    !
-    ! Parameters
-    !
-    type(tree_data), pointer  :: tree
-    character(*),intent (in)  :: chapter
-    character(*),intent (in)  :: key
-    logical     ,intent (out) :: value
-    logical, optional, intent (out) :: success
+!> Get the logical value for a property
+!!    Use prop_get_string to get the string value.
+!!    Convert it to logical.
+!!    Allowed strings to detect the value true:
+!!    Y|YES|yes|Yes|T|TRUE|true|True|J|JA|Ja|ja|W|WAAR|Waar|waar
+!!    Allowed strings to detect the value false:
+!!    N|NO|no|No|F|FALSE|false|False|N|NEE|Nee|nee|O|ONWAAR|Onwaar|onwaar
+!!
+!!  Comments on this line:
+!!    Not allowed
+subroutine prop_get_logical(tree, chapter, key, value, success)
+    implicit none
+    type(tree_data)  , pointer       :: tree    !< The property tree
+    character(*)     , intent(in)    :: chapter !< Name of the chapter (case-insensitive) or "*" to get any key
+    character(*)     , intent(in)    :: key     !< Name of the key (case-insensitive)
+    logical          , intent(inout) :: value   !< Value of the key (not set if the key is not found, so you can set a default value)
+    logical, optional, intent(out)   :: success !< Whether successful or not (optional)
     !
     ! Local variables
     !
@@ -3098,13 +3000,13 @@ end subroutine count_occurrences
     !
     ! Parameters
     !
-    type(tree_data), pointer                          :: tree
-    character(*),intent(in)                           :: chapterin
-    character(*),intent(in)                           :: keyin
-    integer, intent(in)                               :: valuelength
-    character*(*), intent(out), dimension(:)          :: value
-    logical, intent (out)                             :: success
-    character(1), optional                            :: spChar
+    type(tree_data)            , pointer       :: tree
+    character(*)               , intent(in)    :: chapterin
+    character(*)               , intent(in)    :: keyin
+    integer                    , intent(in)    :: valuelength
+    character*(*), dimension(:), intent(inout) :: value
+    logical                    , intent(out)   :: success
+    character(1)               , optional      :: spChar
     !
     ! Local variables
     !

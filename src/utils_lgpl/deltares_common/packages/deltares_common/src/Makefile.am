@@ -45,14 +45,13 @@ libDeltaresCommon_la_SOURCES = \
 	distance.f90 \
 	time_module.f90 \
 	time_class.f90 \
-	time_module_tests.f90 \
 	handles.f90 \
 	tables.f90 \
 	table_handles.f90 \
 	m_tables.f90 \
 	nan_check_module.f90 \
-	newunit.f90 \
 	properties.f90 \
+	polygon_module.f90 \
 	scannr.f90 \
 	skipstarlines.f90 \
 	small.f90 \

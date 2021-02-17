@@ -1,3 +1,4 @@
 include $(top_srcdir)/common.am
 SUBDIRS = \
-     deltares_common
+     deltares_common \
+     ec_module
