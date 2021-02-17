@@ -401,10 +401,14 @@ examples/11_wheeler_flow_wave/Dis_all_rivers_18_01_2017.src -text
 examples/11_wheeler_flow_wave/Readme.txt -text
 examples/11_wheeler_flow_wave/TVA_obs_inclAroundStats2.obs -text
 examples/11_wheeler_flow_wave/Wheeler.bnd -text
-examples/11_wheeler_flow_wave/config_dflow2d3d.xml -text
+examples/11_wheeler_flow_wave/config_d_hydro.xml -text
 examples/11_wheeler_flow_wave/cross2.crs -text
 examples/11_wheeler_flow_wave/dioconfig.ini -text
+examples/11_wheeler_flow_wave/run.bat -text
+examples/11_wheeler_flow_wave/run.sh -text
 examples/11_wheeler_flow_wave/run_flow2d3d_COSUMO_parallel_mnt_shadow.sh -text
+examples/11_wheeler_flow_wave/run_parallel.bat -text
+examples/11_wheeler_flow_wave/run_parallel.sh -text
 examples/11_wheeler_flow_wave/temperature_ini_field.dep -text
 examples/11_wheeler_flow_wave/test61.enc -text
 examples/11_wheeler_flow_wave/test61.grd -text

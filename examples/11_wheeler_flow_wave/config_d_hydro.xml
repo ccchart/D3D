@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="iso-8859-1"?>
 <deltaresHydro xmlns="http://schemas.deltares.nl/deltaresHydro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.deltares.nl/deltaresHydro http://content.oss.deltares.nl/schemas/d_hydro-1.00.xsd">
     <documentation>
-        File created by    : Deltares, create_config_xml.tcl, Version 1.01
-        File creation date : 09 February 2021, 16:23:20
+        File created by    : Deltares, create_config_xml.tcl, Version 1.00
+        File creation date : 06 March 2013, 18:09:37
         File version       : 1.00
     </documentation>
     <control>
@@ -37,20 +37,4 @@
                 <crashOnAbort>true</crashOnAbort>
         -->
     </flow2D3D>
-    <delftOnline>
-        <enabled>true</enabled>
-        <urlFile>wheeler.url</urlFile>
-        <waitOnStart>false</waitOnStart>
-        <clientControl>true</clientControl>    <!-- client allowed to start, step, stop, terminate -->
-        <clientWrite>false</clientWrite>    <!-- client allowed to modify data -->
-        <!--
-            Options/alternatives:
-            1) Change port range:
-                <tcpPortRange start="51001" end="51099"/>
-            2) More output to screen (silent, error, info, trace. default: error):
-                <verbosity>trace</verbosity>
-            3) Force stack trace to be written (Linux only):
-                <crashOnAbort>true</crashOnAbort>
-        -->
-    </delftOnline>
 </deltaresHydro>

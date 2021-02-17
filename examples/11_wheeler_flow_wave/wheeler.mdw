@@ -35,6 +35,7 @@
    FreqShift            = true                         
    WaveForces           = dissipation 3d               
 [Numerics]
+   Scheme               = BSBT
    DirSpaceCDD          =  5.0000000e-001              
    FreqSpaceCSS         =  5.0000000e-001              
    RChHsTm01            =  2.0000000e-002              
