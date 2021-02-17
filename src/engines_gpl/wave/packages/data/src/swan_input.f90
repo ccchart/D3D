@@ -201,6 +201,7 @@ module swan_input
        integer                                 :: nscr
        integer                                 :: nttide
        integer                                 :: refjulday
+       integer                                 :: num_scheme       ! Numerical scheme 1: default (S&L for non-stat, SORDUP for stat), 2: BSBT
        integer                                 :: whitecap         ! 0: off, 1: on, 2: westhuysen
        integer                                 :: nloc
        integer                                 :: swdis
@@ -1729,16 +1730,32 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     ! Numerics
     !
-    sr%cdd     = 0.5
-    sr%css     = 0.5
-    sr%drel    = 0.02
-    sr%dh_abs  = 0.02
-    sr%dt_abs  = 0.02
-    sr%percwet = 98.0
-    sr%itermx  = 15
-    sr%gamma0  = 3.3
-    sr%alfa    = 0.0
+    sr%num_scheme = 1
+    sr%cdd        = 0.5
+    sr%css        = 0.5
+    sr%drel       = 0.02
+    sr%dh_abs     = 0.02
+    sr%dt_abs     = 0.02
+    sr%percwet    = 98.0
+    sr%itermx     = 15
+    sr%gamma0     = 3.3
+    sr%alfa       = 0.0
     !
+    parname = ''
+    call prop_get_string (mdw_ptr, 'Numerics', 'Scheme', parname)
+    call str_lower(parname, len(parname))
+    select case (parname)
+    case ('default')
+       sr%num_scheme = 1
+    case ('bsbt')
+       sr%num_scheme = 2
+       write(*,*) 'SWAN_INPUT: Numerics/Scheme = BSBT'
+    case default
+       if (parname /= '') then
+          write(*,*) 'SWAN_INPUT: unknown Numerics/Scheme: ', parname
+          goto 999
+       endif
+    end select
     call prop_get_real   (mdw_ptr, 'Numerics', 'DirSpaceCDD'    , sr%cdd)
     call prop_get_real   (mdw_ptr, 'Numerics', 'FreqSpaceCSS'   , sr%css)
     call prop_get_real   (mdw_ptr, 'Numerics', 'RChHsTm01'      , sr%drel)
@@ -4766,7 +4783,7 @@ subroutine write_swan_inp (wavedata, calccount, &
        write (luninp, '(1X,A)') line
        line       = ' '
     endif
-    if (sr%modsim == 3) then
+    if (sr%modsim==3 .or. sr%num_scheme==2) then
        write (luninp, '(1X,A)') 'PROP BSBT'
     endif
     !
