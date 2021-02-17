@@ -12206,8 +12206,12 @@ src/third_party_open/swan/bin/linux/libnetcdff.so.4.0.0 -text
 src/third_party_open/swan/bin/linux/libomp_db.so -text
 src/third_party_open/swan/bin/linux/libompstub.so -text
 src/third_party_open/swan/bin/linux/libsvml.so -text
+src/third_party_open/swan/bin/linux/swan_4120_limiter_ctheta_linux64_omp.exe -text
+src/third_party_open/swan/bin/linux/swan_4120_limiter_ctheta_linux64_ser.exe -text
 src/third_party_open/swan/bin/linux/swan_mpi.exe -text
 src/third_party_open/swan/bin/linux/swan_omp.exe -text
+src/third_party_open/swan/bin/w64_i11/swan_4120_limiter_ctheta_w64_omp.exe -text
+src/third_party_open/swan/bin/w64_i11/swan_4120_limiter_ctheta_w64_ser.exe -text
 src/third_party_open/swan/bin/w64_i11/swan_omp.exe -text
 src/third_party_open/swan/scripts/Makefile.am -text
 src/third_party_open/swan/scripts/swan.bat -text
