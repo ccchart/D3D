@@ -3,11 +3,10 @@ subroutine calseddf2004(ustarc    ,ws        ,tp        ,hrms      ,h1        , 
                       & tauwav    ,tauc      ,ltur      ,delw      ,rhowat    , &
                       & uwbih     ,aks       ,caks      ,caks_ss3d ,deltas    , &
                       & aks_ss3d  ,d50       ,salinity  ,ws0       ,psi       , &
-                      & epspar    ,eps       ,vonkar    ,salmax    ,wave      , &
-                      & epsmax    ,epsmxc    )
+                      & epspar    ,eps       ,vonkar    ,salmax    ,wave      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -79,8 +78,6 @@ subroutine calseddf2004(ustarc    ,ws        ,tp        ,hrms      ,h1        , 
     real(fp)                   , intent(in)  :: vonkar
     logical                    , intent(in)  :: epspar
     logical                    , intent(in)  :: wave
-    real(fp)                   , intent(out) :: epsmax
-    real(fp)                   , intent(out) :: epsmxc
 !
 ! Local variables
 !
@@ -93,6 +90,8 @@ subroutine calseddf2004(ustarc    ,ws        ,tp        ,hrms      ,h1        , 
     real(fp)                    :: efloc
     real(fp)                    :: epsbed
     real(fp)                    :: epscur
+    real(fp)                    :: epsmax
+    real(fp)                    :: epsmxc
     real(fp)                    :: epstot
     real(fp)                    :: epswav
     real(fp)                    :: fch2

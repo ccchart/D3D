@@ -196,17 +196,6 @@ namespace General.tests
             CallingConvention = CallingConvention.Cdecl)]
         public static extern int ggeo_deallocate_dll();
 
-
-        /// <summary>
-        /// Count the number of cells of a given mesh (defined by meshDimIn, meshIn) and returns the results in meshDimOut
-        /// </summary>
-        /// <param name="meshDimIn"> client defined dimensions</param>
-        /// <param name="meshIn"> client allocated <see cref="MeshGeometry"/> structure </param>
-        /// <param name="meshDimOut"> server defined dimension</param>
-        /// <returns></returns>
-        [DllImport(LibDetails.LIB_DLL_NAME, EntryPoint = "ggeo_count_cells", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int ggeo_count_cells_dll([In] ref meshgeomdim meshDimIn, [In] ref meshgeom meshIn, [In, Out] ref meshgeomdim meshDimOut);
-
         /// <summary>
         /// Finds the cells and related quantities
         /// </summary>
@@ -217,7 +206,7 @@ namespace General.tests
         /// <param name="startIndex"> for index based array, the start index </param>
         /// <returns></returns>
         [DllImport(LibDetails.LIB_DLL_NAME, EntryPoint = "ggeo_find_cells", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int ggeo_find_cells_dll([In] ref meshgeomdim meshDimIn, [In,Out] ref meshgeom meshInOut);
+        public static extern int ggeo_find_cells_dll([In] ref meshgeomdim meshDimIn, [In] ref meshgeom meshIn, [In,Out] ref meshgeomdim meshDimOut, [In,Out] ref meshgeom meshOut, [In] ref int startIndex);
 
 
         /// <summary>
@@ -340,15 +329,9 @@ namespace General.tests
             return ierr;
         }
 
-        public int ggeo_find_cells(ref meshgeomdim meshDimIn,  ref meshgeom meshInOut)
+        public int ggeo_find_cells(ref meshgeomdim meshDimIn,  ref meshgeom meshIn, ref meshgeomdim meshDimOut,  ref meshgeom meshOut,  ref int startIndex)
         {
-            int ierr = ggeo_find_cells_dll(ref meshDimIn, ref meshInOut);
-            return ierr;
-        }
-
-        public int ggeo_count_cells(ref meshgeomdim meshDimIn, ref meshgeom meshInOut, ref meshgeomdim meshDimOut)
-        {
-            int ierr = ggeo_count_cells_dll(ref meshDimIn, ref meshInOut, ref meshDimOut);
+            int ierr = ggeo_find_cells_dll(ref meshDimIn, ref  meshIn, ref meshDimOut, ref meshOut, ref startIndex);
             return ierr;
         }
 

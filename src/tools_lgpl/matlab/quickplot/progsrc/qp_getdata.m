@@ -502,7 +502,7 @@ DimFlag = Props.DimFlag;
 %
 v_slice=[];
 h_slice=[];
-if ~isempty(feval(Fcn,FI,X{1:2},'subfields'))
+if isfield(Props,'SubFld') && ~isempty(Props.SubFld)
     sf = 1;
 else
     sf = 0;

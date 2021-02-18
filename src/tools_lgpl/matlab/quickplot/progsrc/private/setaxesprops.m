@@ -96,25 +96,25 @@ else
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
                     setappdata(hAx,[X(i) 'tickmode'],'autodate')
                 end
-                setlabel(hAx,X(i),'time',unit{i},'time')
+                setlabel(hAx,X(i),'time',unit{i})
             case 'Lon'
                 % Longitude axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
                     setappdata(hAx,[X(i) 'tickmode'],'longitude')
                 end
-                setlabel(hAx,X(i),'longitude','deg','longitude')
+                setlabel(hAx,X(i),'longitude','deg')
             case 'Lat'
                 % Latitude axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
                     setappdata(hAx,[X(i) 'tickmode'],'latitude')
                 end
-                setlabel(hAx,X(i),'latitude','deg','latitude')
+                setlabel(hAx,X(i),'latitude','deg')
             case 'Z'
                 % Elevation axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
                     setappdata(hAx,[X(i) 'tickmode'],'auto')
                 end
-                setlabel(hAx,X(i),dimension{i},unit{i},'elevation')
+                setlabel(hAx,X(i),dimension{i},unit{i})
             case {'X','Y'}
                 % Horizontal coordinate axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
@@ -123,7 +123,7 @@ else
                 if isempty(dimension{i})
                     dimension{i} = sprintf('%s coordinate',lower(Axes{i}));
                 end
-                setlabel(hAx,X(i),dimension{i},unit{i},[lower(Axes{i}) ' coordinate'])
+                setlabel(hAx,X(i),dimension{i},unit{i})
             case {'Distance'}
                 % Distance axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
@@ -132,13 +132,13 @@ else
                 if isempty(dimension{i})
                     dimension{i} = 'distance';
                 end
-                setlabel(hAx,X(i),dimension{i},unit{i},'distance')
+                setlabel(hAx,X(i),dimension{i},unit{i})
             otherwise
                 % Variable axis
                 if isempty(getappdata(hAx,[X(i) 'tickmode']))
                     setappdata(hAx,[X(i) 'tickmode'],'auto')
                 end
-                setlabel(hAx,X(i),dimension{i},unit{i},'variable')
+                setlabel(hAx,X(i),dimension{i},unit{i})
         end
     end
 end
@@ -221,14 +221,13 @@ end
 % end
 
 
-function setlabel(ax,dir,quantity,unit,type)
+function setlabel(ax,dir,quantity,unit)
 if ~ischar(quantity)
     quantity = '';
 end
 if ~ischar(unit)
     unit = '';
 end
-setappdata(ax,[dir 'type'],type)
 setappdata(ax,[dir 'quantity'],quantity)
 setappdata(ax,[dir 'unit'],unit)
 update_label(ax,dir)
@@ -261,31 +260,25 @@ set(axlabel,'string',dimstr)
 
 
 function update_axticks(hAx,dir)
-type = getappdata(hAx,[dir 'type']);
+quantity = getappdata(hAx,[dir 'quantity']);
 unit = getappdata(hAx,[dir 'unit']);
 units = {'mm' 'm' 'km'};
-oldcase = isempty(type);
-if oldcase
-    type = getappdata(hAx,[dir 'quantity']);
-    if isempty(type)
-        return
+if ~isempty(quantity)
+    switch quantity
+        case {'longitude','latitude'}
+            tick(hAx,dir,'autoticks',quantity);
+        case {'time'}
+            tick(hAx,dir,'autoticks','autodate');
+        case {'distance','x coordinate','y coordinate'}
+            if ismember(unit,units)
+                distanceticks(hAx,dir)
+            end
+        otherwise
+            if strncmp(quantity,'distance along',14) && ...
+                    ismember(unit,units)
+                distanceticks(hAx,dir)
+            end
     end
-end
-switch type
-    case {'longitude','latitude'}
-        tick(hAx,dir,'autoticks',type);
-    case {'time'}
-        tick(hAx,dir,'autoticks','autodate');
-    case {'distance','x coordinate','y coordinate'}
-        if ismember(unit,units)
-            distanceticks(hAx,dir)
-        end
-    otherwise
-        if oldcase && ...
-                strncmp(type,'distance along',14) && ...
-                ismember(unit,units)
-            distanceticks(hAx,dir)
-        end
 end
 
 function distanceticks(ax,dir)

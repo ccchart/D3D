@@ -1,7 +1,7 @@
 module physicalconsts
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -36,16 +36,11 @@ module physicalconsts
 !!--declarations----------------------------------------------------------------
    use precision
    implicit none
-   private
    !
    ! high precision constants
    !
 
-   real(kind=hp), parameter, public :: earth_radius = 6378137_hp        !< earth radius (m)
-   real(kind=hp), parameter, public :: dtol_pole    = 0.0001_hp         !< pole tolerance in degrees
-   real(kind=hp), parameter, public :: CtoKelvin    = 273.15_hp         !< conversion offset between Celsius and Kelvin
-   real(kind=hp), parameter, public :: stf          = 5.6705085e-8_hp   !< Stefan's constant =5.6705085e-8 [W/m^2/K^4]
-                                                                        !! (see 19308-part-iv-physical-processes.pdf from ECMWF;
-                                                                        !!  it differs slightly from the value after the redefinition of SI in 2019)
-
+   real(hp), save :: earth_radius = 6378137_hp                       !< earth radius (m) 
+   real(hp), save :: dtol_pole    = 0.0001_hp                        !< pole tolerance in degrees
+         
 end module physicalconsts

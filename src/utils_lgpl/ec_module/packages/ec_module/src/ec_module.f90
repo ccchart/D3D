@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -381,7 +381,7 @@ module m_ec_module
       !>      the array of SOURCE QUANTITY NAMES to be sought in the FileReader
       function ecModuleAddTimeSpaceRelation(instancePtr, name, x, y, vectormax, filename, filetype, &
                                             method, operand, tgt_refdate, tgt_tzone, tgt_tunit, &
-                                            jsferic, missing_value, itemIDs, &
+                                            jsferic, missing_value, qnames, itemIDs, &
                                             mask, xyen, z, pzmin, pzmax, pkbot, pktop, &
                                             targetIndex, forcingfile, srcmaskfile, dtnodal) &
                                             result (success)
@@ -404,6 +404,7 @@ module m_ec_module
          real(kind=hp),                            intent(in)    :: tgt_tzone
          integer,                                  intent(in)    :: tgt_tunit
          real(kind=hp),                            intent(in)    :: missing_value
+         character(len=*), dimension(:),           intent(in)    :: qnames       !< list of quantity names 
          integer, dimension(:),                    intent(inout) :: itemIDs      !<  Connection available outside to which one can connect target items
    
          integer,  dimension(:), optional,         intent(in)    :: mask         !< Array of masking values for the target ElementSet.
@@ -592,7 +593,6 @@ module m_ec_module
             if (.not.ecSetFieldMissingValue(instancePtr, fieldId, ec_undef_hp)) return
 
             if (itemIDs(itgt) == ec_undef_int) then                ! if Target Item already exists, do NOT create a new one ... 
-               itemIDs(itgt) = ecCreateItem(instancePtr)
                if (.not.ecSetItemRole(instancePtr, itemIDs(itgt), itemType_target)) return
                if (.not.ecSetItemQuantity(instancePtr, itemIDs(itgt), quantityId)) return
             end if
@@ -609,8 +609,13 @@ module m_ec_module
          if (.not. ecSetConnectionConverter(instancePtr, connectionId, converterId)) return
 
          ! Connect the source items to the connector
-         do i=1,fileReaderPtr%nItems
-            if (.not.ecAddConnectionSourceItem(instancePtr, connectionId, fileReaderPtr%items(i)%ptr%id)) return
+         ! Loop over the given quantity names for the SOURCE side 
+         do isrc = 1, size(qnames)
+            sourceItemId = ecFindItemInFileReader(instancePtr, fileReaderId, trim(qnames(isrc)))
+            if (sourceItemId==ec_undef_int) then
+               return
+            endif
+            if (.not.ecAddConnectionSourceItem(instancePtr, connectionId, sourceItemId)) return
          enddo
 
          ! Connect the target items to the connector

@@ -2,7 +2,7 @@
 module SyncRtcFlow
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -307,7 +307,7 @@ end subroutine syncflowrtc_quit
 !
 !
 !==============================================================================
-subroutine syncflowrtc_init(error, nambar, nsluv, IdLen, nsteps, &
+subroutine syncflowrtc_init(error, nambar, nsluv, charlen, nsteps, &
                           & flagFLOWtoRTC, flagRTCtoFLOW, idate, itstart, dt)
     use precision
 ! Initialise communication between Flow and RTC
@@ -316,7 +316,7 @@ subroutine syncflowrtc_init(error, nambar, nsluv, IdLen, nsteps, &
 !
 ! Global variables
 !
-    integer                        ,intent (in)  :: IdLen
+    integer                        ,intent (in)  :: charlen
     integer                        ,intent (in)  :: idate
     integer                        ,intent (in)  :: itstart
     real(fp)                       ,intent (in)  :: dt
@@ -325,7 +325,7 @@ subroutine syncflowrtc_init(error, nambar, nsluv, IdLen, nsteps, &
     logical                        ,intent (in)  :: flagFLOWtoRTC
     logical                        ,intent (in)  :: flagRTCtoFLOW
     logical                        ,intent (out) :: error
-    character(IdLen), dimension(nsluv)         :: nambar ! WARNING: both IdLen and nsluv must be passed via parameter list for Intel 9.0
+    character(charlen), dimension(nsluv)         :: nambar ! WARNING: both charlen and nsluv must be passed via parameter list for Intel 9.0
 !
 ! Local variables
 !

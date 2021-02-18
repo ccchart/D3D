@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -112,7 +112,8 @@ subroutine read_his_long_l
 
 !   Open file for storing results
 
-    open(newunit=resLun,file='TESTHisLong-res.txt', iostat=ierr)
+    resLun = 11
+    open(resLun,file='TESTHisLong-res.txt', iostat=ierr)
 
 !   Get HIS IN data set
 

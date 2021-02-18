@@ -125,7 +125,6 @@ Set.export_max_ntimes         = 10;
 %
 Set.netcdf_use_fillvalue      = 'valid_range';
 %
-Set.delwaq_names              = 'expanded';
 Set.delwaq_procdef            = 'auto';
 %
 Set.shipma_distance_along_desired_track = 1;

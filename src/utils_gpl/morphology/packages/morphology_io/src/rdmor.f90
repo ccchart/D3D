@@ -1,7 +1,7 @@
 module m_rdmor
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -39,21 +39,20 @@ public echomor
 
 contains
 
-!> Reads attribute file for 3D morphology computation
 subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
                & lsed      ,nmaxus    ,nto       ,lfbedfrm  , &
                & nambnd    ,julday    ,mor_ptr   ,sedpar    ,morpar    , &
                & fwfac     ,morlyr    ,griddim)
+!!--description-----------------------------------------------------------------
+!
+! Reads attribute file for 3D morphology computation
+!
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
     use table_handles
     use bedcomposition_module
-    use morphology_data_module, only: moroutputtype, mornumericstype, &
-      & bedbndtype, sedpar_type, morpar_type, initmoroutput, &
-      & FLUX_LIMITER_MINMOD, FLUX_LIMITER_MC, FLUX_LIMITER_NONE, &
-      & MOR_STAT_TIME, MOR_STAT_BODS, MOR_STAT_MIN, MOR_STAT_MAX, &
-      & MOR_STAT_MEAN, MOR_STAT_STD, MOR_STAT_CUM
+    use morphology_data_module
     use grid_dimens_module, only: griddimtype
     use sediment_basics_module
     use string_module
@@ -88,7 +87,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     real(fp)                               , pointer :: sus
     real(fp)                               , pointer :: bed
     real(fp)                               , pointer :: tmor
-    real(fp)                               , pointer :: tcmp
     real(fp)                               , pointer :: thetsd
     real(fp)                               , pointer :: susw
     real(fp)                               , pointer :: sedthr
@@ -180,6 +178,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     integer                                                           :: nxxprog
     integer                                                           :: nxxuser
     integer                                                           :: version
+    integer                    , external                             :: newunit
     integer                    , dimension(6)                         :: stat_flags
     integer                    , dimension(:) , allocatable           :: itype
     integer                    , dimension(:) , allocatable           :: ifield
@@ -191,7 +190,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     real(fp)                   , dimension(:) , allocatable           :: rfield
     logical                                                           :: ex       ! Logical flag for file existence
     logical                                                           :: found
-    logical                                                           :: ldef
     character(10)                                                     :: versionstring
     character(20)                                                     :: fluxlimstring
     character(80)                                                     :: bndname
@@ -240,7 +238,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     sus                 => morpar%sus
     bed                 => morpar%bed
     tmor                => morpar%tmor
-    tcmp                => morpar%tcmp
     thetsd              => morpar%thetsd
     susw                => morpar%susw
     sedthr              => morpar%sedthr
@@ -396,19 +393,9 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        endif
        endif
        !
-       ! === start for calculating morphological changes (backward compatibility)
-       !
-       call prop_get(mor_ptr, 'Morphology', 'MorStt', tmor)
-       !
        ! === start for calculating morphological changes
        !
-       call prop_get(mor_ptr, 'Morphology', 'BedUpdStt', tmor)       
-       !
-       ! === start for calculating bed composition changes
-       !
-       tcmp = tmor  ! by default, composition update starts when morphological update starts
-       !
-       call prop_get(mor_ptr, 'Morphology', 'CmpUpdStt', tcmp)   
+       call prop_get(mor_ptr, 'Morphology', 'MorStt', tmor)
        !
        ! === threshold value for slowing erosion near a fixed layer (m)
        !
@@ -431,13 +418,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        ! flag for doing composition updates
        !
        call prop_get_logical(mor_ptr, 'Morphology', 'CmpUpd', cmpupd)
-       !
-       if (bedupd .and. tcmp>tmor) then
-          errmsg = 'When BedUpd = true, CmpUpdStt must be smaller than or equal to BedUpdStt (MorStt) in ' // trim(filmor)
-          call write_error(errmsg, unit=lundia)
-          error = .true.
-          return   
-       endif 
        !
        call prop_get_logical(mor_ptr, 'Morphology', 'NeglectEntrainment', neglectentrainment)
        !
@@ -596,8 +576,10 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
           error = .true.
           return
        elseif (ihidexp>1 .and. anymud) then
-          errmsg = 'Hiding-exposure with mud is an experimental feature. Hiding-exposure does not take into account the presence of mud.'
-          call write_warning(errmsg, unit=lundia)
+          errmsg = 'Mud fractions included: IHidExp should be 1 in ' // trim(filmor)
+          call write_error(errmsg, unit=lundia)
+          error = .true.
+          return
        endif
        select case(ihidexp)
        case(4) ! Parker, Klingeman, McLean
@@ -699,7 +681,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        !
        ! Numerical settings
        !
-       call prop_get_logical(mor_ptr, 'Numerics', 'Pure1D', mornum%pure1d)
        call prop_get_logical(mor_ptr, 'Numerics', 'UpwindBedload', mornum%upwindbedload)
        call prop_get_logical(mor_ptr, 'Numerics', 'LaterallyAveragedBedload', mornum%laterallyaveragedbedload)
        call prop_get_logical(mor_ptr, 'Numerics', 'MaximumWaterdepth', mornum%maximumwaterdepth)
@@ -713,14 +694,10 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
                mornum%fluxlim = FLUX_LIMITER_MC  
            case default 
                mornum%fluxlim = FLUX_LIMITER_NONE  
-           end select
+       end select
        !
        ! Output options
        !
-       call prop_get_logical(mor_ptr, 'Output', 'OutDefault', ldef, success = found)
-       if (found) then
-           call initmoroutput(moroutput, ldef)
-       endif
        call prop_get_logical(mor_ptr, 'Output', 'VelocAtZeta', moroutput%uuuvvv)
        call prop_get_logical(mor_ptr, 'Output', 'VelocMagAtZeta', moroutput%umod)
        call prop_get_logical(mor_ptr, 'Output', 'VelocZAtZeta', moroutput%zumod)
@@ -749,8 +726,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'ReferenceHeight'             , moroutput%aks)
        call prop_get_logical(mor_ptr, 'Output', 'SettlingVelocity'            , moroutput%ws)
        call prop_get_logical(mor_ptr, 'Output', 'RawTransportsAtZeta'         , moroutput%rawtransports)
-       call prop_get_logical(mor_ptr, 'Output', 'Seddif'                      , moroutput%seddif)
-       call prop_get_logical(mor_ptr, 'Output', 'SedParOut'                   , moroutput%sedparout)
        !
        call prop_get_logical(mor_ptr, 'Output', 'Bedslope'                    , moroutput%dzduuvv)
        call prop_get_logical(mor_ptr, 'Output', 'Taurat'                      , moroutput%taurat)
@@ -771,12 +746,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        call prop_get_logical(mor_ptr, 'Output', 'BedLayerPorosity'            , moroutput%poros)
        !
        call prop_get_logical(mor_ptr, 'Output', 'AverageAtEachOutputTime'     , moroutput%cumavg)
-       !
-       call prop_get_logical(mor_ptr, 'Output', 'MainChannelAveragedBedLevel' , moroutput%blave)
-       !
-       call prop_get_logical(mor_ptr, 'Output', 'MainChannelCellArea'         , moroutput%bamor)
-       !
-       call prop_get_logical(mor_ptr, 'Output', 'MainChannelWidthAtFlux'      , moroutput%wumor)
        !
        call prop_get(mor_ptr,         'Output', 'MorStatsOutputInterval'      , moroutput%avgintv, 3, ex)
        if (ex) then
@@ -921,7 +890,6 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
                        & sedthr    ,thetsd    ,hmaxth    ,fwfac     ,epspar    , &
                        & iopkcw    ,rdc       ,rdw       )
           endif
-          tcmp=tmor          
           cmpupd = .true.
           close (ilun)
        else
@@ -1030,11 +998,14 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
 end subroutine rdmor
 
 
-!> Reads morphology input version 0 (or no version number found)
 subroutine rdmor0(ilun      ,morfac    ,tmor      ,thresh    ,morupd    , &
                 & eqmbc     ,densin    ,aksfac    ,rwave     ,rouse     , &
                 & alfabs    ,alfabn    ,sus       ,bed       ,susw      , &
                 & bedw      ,sedthr    ,thetsd    ,hmaxth    ,fwfac     )
+!!--description-----------------------------------------------------------------
+!
+! Reads morphology input version 0 (or no version number found)
+!
 !!--declarations----------------------------------------------------------------
     use precision
     implicit none
@@ -1107,14 +1078,17 @@ subroutine rdmor0(ilun      ,morfac    ,tmor      ,thresh    ,morupd    , &
 end subroutine rdmor0
 
 
-!> Read  morphology input version 1
-!! The first line in the file must be:
-!! * version 1
 subroutine rdmor1(ilun      ,morfac    ,tmor      ,thresh    ,morupd    , &
                 & eqmbc     ,densin    ,aksfac    ,rwave     ,alfabs    , &
                 & alfabn    ,sus       ,bed       ,susw      ,bedw      , &
                 & sedthr    ,thetsd    ,hmaxth    ,fwfac     ,epspar    , &
                 & iopkcw    ,rdc       ,rdw       )
+!!--description-----------------------------------------------------------------
+!
+! Read  morphology input version 1
+! The first line in the file must be:
+! * version 1
+!
 !!--declarations----------------------------------------------------------------
     use precision
     implicit none
@@ -1205,9 +1179,12 @@ subroutine rdmor1(ilun      ,morfac    ,tmor      ,thresh    ,morupd    , &
 end subroutine rdmor1
 
 
-!> Report morphology settings to diag file
 subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                  & nambnd    ,sedpar    ,morpar    ,dtunit    )
+!!--description-----------------------------------------------------------------
+!
+! Report morphology settings to diag file
+!
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
@@ -1245,7 +1222,6 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     real(fp)                               , pointer :: sus
     real(fp)                               , pointer :: bed
     real(fp)                               , pointer :: tmor
-    real(fp)                               , pointer :: tcmp
     real(fp)                               , pointer :: thetsd
     real(fp)                               , pointer :: susw
     real(fp)                               , pointer :: sedthr
@@ -1339,7 +1315,6 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     sus                 => morpar%sus
     bed                 => morpar%bed
     tmor                => morpar%tmor
-    tcmp                => morpar%tcmp
     thetsd              => morpar%thetsd
     susw                => morpar%susw
     sedthr              => morpar%sedthr
@@ -1438,6 +1413,10 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     else
        write (lundia, '(2a,e20.4)') txtput1, ':', morfac
     endif
+    txtput1 = 'Morphological Changes Start Time ('//trim(dtunit)//')'
+    write (lundia, '(2a,e20.4)') txtput1, ':', tmor
+    txtput1 = 'Fixed Layer Erosion Threshold'
+    write (lundia, '(2a,e20.4)') txtput1, ':', thresh
     !
     txtput1 = 'Bed level updating  '
     if (bedupd) then
@@ -1446,11 +1425,6 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
        txtput2 = '            INACTIVE'
     endif
     write (lundia, '(3a)') txtput1, ':', txtput2
-    if (bedupd) then
-       txtput1 = 'Bed level updates start after ('//trim(dtunit)//')'
-       write (lundia, '(2a,e20.4)') txtput1, ':', tmor
-    endif
-    !
     txtput1 = 'Composition updating'
     if (cmpupd) then
        txtput2 = '              ACTIVE'
@@ -1458,13 +1432,6 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
        txtput2 = '            INACTIVE'
     endif
     write (lundia, '(3a)') txtput1, ':', txtput2
-    if (cmpupd) then
-       txtput1 = 'Composition updates start after ('//trim(dtunit)//')'
-       write (lundia, '(2a,e20.4)') txtput1, ':', tcmp    
-    endif
-    !
-    txtput1 = 'Fixed Layer Erosion Threshold'
-    write (lundia, '(2a,e20.4)') txtput1, ':', thresh
     txtput1 = 'Entrainment/deposition flux in mass bal.'
     if (neglectentrainment) then
        txtput2 = '           NEGLECTED'
@@ -1874,9 +1841,11 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     call echoflufflyr(lundia    ,error    ,morpar%flufflyr)
 end subroutine echomor
 
-
-!> Read fluff layer parameters from an input file
 subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,sedpar ,griddim )
+!!--description-----------------------------------------------------------------
+!
+! Read fluff layer parameters from an input file
+!
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
@@ -2123,9 +2092,11 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
     endif                                                                                                                                                         
 end subroutine rdflufflyr
 
-
-!> Report fluff layer settings to diag file
 subroutine echoflufflyr(lundia    ,error    ,flufflyr)
+!!--description-----------------------------------------------------------------
+!
+! Report fluff layer settings to diag file
+!
 !!--declarations----------------------------------------------------------------
     use precision
     use morphology_data_module

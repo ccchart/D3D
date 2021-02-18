@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -37,7 +37,7 @@ program getDatasets
     logical                       :: toScreen = .False. ! write to screen?
     logical                       :: toFile   = .True.  ! write to file?
 
-    integer, parameter            :: resLun
+    integer, parameter            :: resLun  = 11
     character(len=100), parameter :: resFile = 'TESTShmPlt2df-res.txt'
 
     ! PLT datasets and their data
@@ -78,7 +78,7 @@ program getDatasets
     logical                     :: diffVal ! result of difference check
 
 
-    open(newunit=resLun, file=resFile)
+    open(resLun, file=resFile)
 
 !
 !   Create Data to be put

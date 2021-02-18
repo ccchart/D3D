@@ -1,8 +1,8 @@
-subroutine tranb3(utot      ,d35       ,c         ,h         ,npar      , &
-                & par       ,sbot      ,ssus      )
+subroutine tranb3(utot      ,d35       ,c         ,h         ,par       , &
+                & sbot      ,ssus      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,29 +40,27 @@ subroutine tranb3(utot      ,d35       ,c         ,h         ,npar      , &
 !
 ! Call variables
 !
-    integer                  , intent(in)    :: npar
-    real(fp)                 , intent(in)    :: c
-    real(fp)                 , intent(in)    :: d35
-    real(fp)                 , intent(in)    :: h
-    real(fp), dimension(npar), intent(in)    :: par
-    real(fp)                 , intent(in)    :: utot
-    !
-    real(fp)                 , intent(out)   :: sbot
-    real(fp)                 , intent(out)   :: ssus
+    real(fp), intent(in)               :: c !  Description and declaration in esm_alloc_real.f90
+    real(fp), intent(in)               :: d35
+    real(fp), intent(in)               :: h
+    real(fp), intent(out)              :: sbot
+    real(fp), intent(out)              :: ssus
+    real(fp), intent(in)               :: utot
+    real(fp), dimension(30), intent(in) :: par
 !
 !
 ! Local variables
 !
     real(fp)                       :: a
     real(fp)                       :: acal
-    real(fp)                       :: ag                   ! gravity acceleration
+    real(fp)                       :: ag                   !        gravity acceleration
     real(fp)                       :: cc
     real(fp)                       :: ccc
     real(fp)                       :: cd
     real(fp)                       :: cf
-    real(fp)                       :: delta                ! relative density of sediment particle
+    real(fp)                       :: delta                !     relative density of sediment particle
     real(fp)                       :: dgr
-    real(fp)                       :: dp                   ! depth value at depth points
+    real(fp)                       :: dp                   !  depth value at depth points
     real(fp)                       :: f                    ! real help array
     real(fp)                       :: fwc
     real(fp)                       :: rk

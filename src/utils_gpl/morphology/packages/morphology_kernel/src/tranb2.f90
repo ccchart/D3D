@@ -1,8 +1,8 @@
 subroutine tranb2(utot      ,d50       ,d90       ,chezy     ,h         , &
-                & npar      ,par       ,hidexp    ,sbot      ,ssus      )
+                & par       ,hidexp    ,sbot      ,ssus      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -40,17 +40,16 @@ subroutine tranb2(utot      ,d50       ,d90       ,chezy     ,h         , &
 !
 ! Call variables
 !
-    integer                  , intent(in)    :: npar
-    real(fp)                 , intent(in)    :: chezy
-    real(fp)                 , intent(in)    :: d50
-    real(fp)                 , intent(in)    :: d90
-    real(fp)                 , intent(in)    :: h
-    real(fp)                 , intent(in)    :: hidexp !< hiding & exposure factor
-    real(fp), dimension(npar), intent(in)    :: par
-    real(fp)                 , intent(in)    :: utot
-    !
-    real(fp)                 , intent(out)   :: sbot
-    real(fp)                 , intent(out)   :: ssus
+    real(fp)               , intent(in)  :: chezy
+    real(fp)               , intent(in)  :: d50
+    real(fp)               , intent(in)  :: d90
+    real(fp)               , intent(in)  :: h
+    real(fp)               , intent(in)  :: hidexp ! hiding & exposure factor
+                                                   ! default value, 1.0, to be used when called from Delft3D-MOR
+    real(fp)               , intent(out) :: sbot
+    real(fp)               , intent(out) :: ssus
+    real(fp)               , intent(in)  :: utot
+    real(fp), dimension(30), intent(in)  :: par
 !
 ! Local variables
 !

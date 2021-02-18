@@ -1,7 +1,7 @@
 module m_flow1d_reader
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -61,8 +61,8 @@ module m_flow1d_reader
       use m_readObservationPoints
       use m_readStorageNodes
       use properties
-      use timers
-      
+      use cf_timers
+   
       implicit none
       
       ! Variables
@@ -180,7 +180,7 @@ module m_flow1d_reader
       use m_readObservationPoints
       use m_readStorageNodes
       use properties
-      use timers
+      use cf_timers
    
       implicit none
       
@@ -205,6 +205,7 @@ module m_flow1d_reader
       integer                         :: timerReadStructs   = 0
       integer                         :: timerReadStorgNodes= 0
       integer                         :: timerReadRoughness = 0
+      integer                         :: timerFileUnit
       character(len=255)              :: md1d_flow1d_file
 
       ! Convert c string to fortran string and read md1d file into tree
@@ -212,6 +213,7 @@ module m_flow1d_reader
       nullify(md_ptr)
       md1d_flow1d_file = filenames%onednetwork
       folder = filenames%roughnessdir
+      call timini()
       timon = .true.
       
       if (len_trim(md1d_flow1d_file) > 0) then
@@ -254,10 +256,13 @@ module m_flow1d_reader
          endif
       endif
       
+      call timini()
       timon = .true.
 
       success = .true.
      
+      call timstrt('ReadFiles', timerRead)
+
       ! Read roughnessFile file
       call timstrt('ReadRoughness', timerReadRoughness)
       call SetMessage(LEVEL_INFO, 'Reading Roughness ...')
@@ -312,10 +317,17 @@ module m_flow1d_reader
            call SetMessage(LEVEL_FATAL, 'Error reading Advanced Parameters')
         endif
         call SetMessage(LEVEL_INFO, 'Reading Advanced Parameters Done')
+     else 
+        summerDikeTransitionHeight = 0.5d0
      endif
      
       
      ! log timings
+     call timstop(timerRead)
+     open(newunit=timerFileUnit, file='read-model-timings.log')
+     call timdump(timerFileUnit)
+     close(timerFileUnit)
+     
      call tree_destroy(md_ptr)
      
      ! Stop in case of errors
@@ -350,7 +362,7 @@ module m_flow1d_reader
       use m_readObservationPoints
       use m_readStorageNodes
       use properties
-      use timers
+      use cf_timers
 
       character(len=*), intent(inout) :: nc_outputdir
       character(len=*), intent(inout) :: md_flow1d_file
@@ -388,12 +400,15 @@ module m_flow1d_reader
       integer                         :: timerReadInitial   = 0
       integer                         :: timerReadRoughness = 0
       integer                         :: timerReadBoundData = 0
+      integer                         :: timerFileUnit
       integer                         :: res 
       
+      call timini()
       timon = .true.
 
       success = .true.
       
+      call timstrt('ReadFiles', timerRead)
 
       numstr = 0
       if (associated(md_ptr%child_nodes)) then
@@ -709,6 +724,10 @@ module m_flow1d_reader
       call timstop(timerReadInitial)
 
       ! log timings
+      call timstop(timerRead)
+      open(newunit=timerFileUnit, file='read-model-timings.log')
+      call timdump(timerFileUnit)
+      close(timerFileUnit)
       
       call tree_destroy(md_ptr)
       

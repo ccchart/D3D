@@ -226,7 +226,21 @@ sswv    = 0.0_hp          ! suspended load transport, n direction due to waves i
 t_relax = -1.0_hp          ! relaxation time is zero
 !
 if (alf1 < 0.0_hp) then
-    open (newunit=lun, file = filenm, form = 'formatted', iostat = iocond, status = 'old')
+    !
+    ! Find a free file unit number ...
+    !
+    do lun=31,999
+       inquire (unit = lun, opened = opened)
+       if (.not. opened) exit
+    enddo
+    if (lun == 999) then
+       error_message = 'Unable to find a free file unit number'
+       return
+    endif
+    !
+    ! ... and use it
+    !
+    open (lun, file = filenm, form = 'formatted', iostat = iocond, status = 'old')
     if (iocond/=0) then
        error_message = 'Unable to open parameter file: ' // filenm
        return

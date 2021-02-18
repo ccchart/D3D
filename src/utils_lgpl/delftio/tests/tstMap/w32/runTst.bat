@@ -10,4 +10,4 @@ fc TESTMapLong-res.txt ..\resultsApproved\w32\TESTMapLong-res.txt
 fc TESTMapLong.map ..\resultsApproved\w32\TESTMapLong.map
 fc TESTMapLong.maa ..\resultsApproved\w32\TESTMapLong.maa
 
-exit /B 0
+exit 0

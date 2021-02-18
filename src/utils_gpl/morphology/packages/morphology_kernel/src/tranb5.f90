@@ -1,10 +1,10 @@
 subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
-                & h         ,hrms      ,tp        ,dir       ,npar      , &
-                & par       ,dzdx      ,dzdy      ,sbotx     ,sboty     , &
-                & ssusx     ,ssusy     ,cesus     ,vonkar    )
+                & h         ,hrms      ,tp        ,dir       ,par       , &
+                & dzdx      ,dzdy      ,sbotx     ,sboty     ,ssusx     , &
+                & ssusy     ,cesus     ,vonkar    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -44,30 +44,29 @@ subroutine tranb5(u         ,v         ,d50       ,d90       ,chezy     , &
 !
 ! Call variables
 !
-    integer                  , intent(in)    :: npar
-    real(fp)                                 :: cesus
-    real(fp)                 , intent(in)    :: chezy
-    real(fp)                 , intent(in)    :: d50
-    real(fp)                 , intent(in)    :: d90
-    real(fp)                 , intent(in)    :: dir
-    real(fp)                                 :: dzdx
-    real(fp)                                 :: dzdy
-    real(fp)                                 :: h
-    real(fp)                                 :: hrms
-    real(fp), dimension(npar), intent(in)    :: par
-    real(fp)                 , intent(in)    :: tp
-    real(fp)                 , intent(in)    :: u
-    real(fp)                 , intent(in)    :: v
-    real(fp)                 , intent(in)    :: vonkar
-    !
-    real(fp)                 , intent(out)   :: sbotx
-    real(fp)                 , intent(out)   :: sboty
-    real(fp)                 , intent(out)   :: ssusx
-    real(fp)                 , intent(out)   :: ssusy
+    real(fp)                             :: cesus
+    real(fp)               , intent(in)  :: chezy
+    real(fp)               , intent(in)  :: d50
+    real(fp)               , intent(in)  :: d90
+    real(fp)               , intent(in)  :: dir
+    real(fp)                             :: dzdx
+    real(fp)                             :: dzdy
+    real(fp)                             :: h
+    real(fp)               , intent(out) :: sbotx
+    real(fp)               , intent(out) :: sboty
+    real(fp)               , intent(out) :: ssusx
+    real(fp)               , intent(out) :: ssusy
+    real(fp)               , intent(in)  :: tp     !  Description and declaration in esm_alloc_real.f90
+    real(fp)               , intent(in)  :: u
+    real(fp)               , intent(in)  :: v
+    real(fp)                             :: hrms
+    real(fp), dimension(30), intent(in)  :: par
+    real(fp)               , intent(in)  :: vonkar
 !
 ! Local variables
 !
     integer                        :: ilun
+    integer, external              :: newunit
     logical, save                  :: crstr
     logical, save                  :: exist
     logical, save                  :: first

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -105,7 +105,8 @@ C     ! Data for Selection testing
 C     !   Open file for results, write DioVersion
 
       resFileName = 'TESTMany-res.txt'
-      open(newunit=resLun,file=resFileName)
+      resLun = 11
+      open(resLun,file=resFileName)
 
 C     !   Initialise expected Data
 

@@ -2,7 +2,7 @@
 module m_branch
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -193,22 +193,17 @@ module m_branch
        double precision, intent(in)    :: chainage  !< Chainage
 
        integer                         :: i
-
-       if (branch%gridPointsCount == 0) then
-          ! empty branch, could be in another domain
-          getLinkIndex = -1
-       else
-          do i = 2, branch%gridPointsCount
-              if (branch%gridPointschainages(i) >= chainage) then !found
-                 getLinkIndex = branch%lin(i-1)
-                 exit
-              endif
-          enddo
-          if (branch%gridPointschainages(branch%gridPointsCount) < chainage) then
-             getLinkIndex = branch%lin(branch%gridPointsCount-1)
-          endif
+       
+       do i = 2, branch%gridPointsCount
+           if (branch%gridPointschainages(i) >= chainage) then !found
+              getLinkIndex = branch%lin(i-1)
+              exit
+           endif
+       enddo
+       if (branch%gridPointschainages(branch%gridPointsCount) < chainage) then
+          getLinkIndex = branch%lin(branch%gridPointsCount-1)
        endif
-
+       
    end function getLinkIndex
    
    integer function getLinkNumber(brs, ibranch, dist)

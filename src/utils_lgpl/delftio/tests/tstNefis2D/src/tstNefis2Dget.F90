@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -44,7 +44,8 @@ program test_get_dio_f90
 
 !   Open file for storing results
 
-    open(newunit=resLun,file='TESTNefis2D-res.txt')
+    resLun = 11
+    open(resLun,file='TESTNefis2D-res.txt')
 
 !   Open data stream
 

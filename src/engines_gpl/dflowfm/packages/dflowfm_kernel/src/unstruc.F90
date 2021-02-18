@@ -96,7 +96,7 @@ end subroutine inctime_user_dt
 
  call flow_single_timestep(key, ierr)
 
- call updateValuesOnObservationStations()
+ call updateValuesOnObervationStations()
 
  call flow_externaloutput(time1)                     ! receive signals etc, write map, his etc
                                                      ! these two functions are explicit. therefore, they are in the usertimestep
@@ -287,6 +287,7 @@ subroutine flow_run_usertimestep(key, iresult)                   ! do computatio
 888 continue
 end subroutine flow_run_usertimestep
 
+
 !> Finalizes the current user-timestep (monitoring and I/O).
 !!
 !! Should be called directly after a flow_run_usertimestep.
@@ -295,27 +296,31 @@ subroutine flow_finalize_usertimestep(iresult)
    use m_timer
    use m_flow
    use m_flowgeom
+   use m_transport, only: constituents, NUMCONST, const_names
    use m_fourier_analysis
-   use m_trachy
    use dfm_error
-   use precision_basics, only : comparereal
-   use unstruc_model, only: md_fou_step
-   use m_partitioninfo, only: jampi
+   use precision_basics
+   use unstruc_files, only: defaultFilename
+   use unstruc_model, only: getoutputdir, md_fou_step
+   use m_partitioninfo, only: jampi, sdmn
    implicit none
 
    integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if successful.
-
+   double precision, pointer, dimension(:,:) :: s1_ptr, ws_ptr, ucx_ptr,  ucy_ptr,  taus_ptr,bl_ptr, u1_ptr
+   double precision, pointer, dimension(:,:) :: xs_ptr, ys_ptr, ucxa_ptr, ucya_ptr, ucmag_ptr, xu_ptr, yu_ptr
+   integer, pointer, dimension(:,:)          :: kfs_ptr
+   double precision, pointer, dimension(:,:,:) :: const_ptr
    double precision :: tem_dif
-   logical, external :: flow_trachy_needs_update
+   character(len=255) :: filename_fou_out
 
    iresult = DFM_GENERICERROR
 
 !   call fm_wq_processes_step(dt_user,time_user)
    if (ti_waqproc > 0) then
      if (comparereal(time_user, time_waqproc, eps10) == 0) then
-         if ( jatimer == 1 ) call starttimer(IFMWAQ)
-         call fm_wq_processes_step(ti_waqproc, time_user)
-         if ( jatimer == 1 ) call stoptimer (IFMWAQ)
+         if ( jatimer.eq.1 ) call starttimer(IFMWAQ)
+         call fm_wq_processes_step(ti_waqproc,time_user)
+         if ( jatimer.eq.1 ) call stoptimer (IFMWAQ)
          tem_dif = time_user/ti_waqproc
          time_waqproc = (floor(tem_dif + 0.001d0)+1)*ti_waqproc
      endif
@@ -333,51 +338,37 @@ subroutine flow_finalize_usertimestep(iresult)
          endif
      endif
    endif
-
+      
    if (comparereal(time1, time_user, eps10)>=0)  then
       if (comparereal(time1, time_user, eps10) <=0) then
          time1 = time_user
          time0 = time1
       endif
-      if ( jatimer == 1 ) call starttimer(IOUTPUT)
+      if ( jatimer.eq.1 ) call starttimer(IOUTPUT)
 
 !       only update values at the observation stations when necessary
 !          alternative: move this to flow_externaloutput
       if (ti_his > 0) then
-         if (comparereal(time1, time_his, eps10)>=0) then
-            call updateValuesOnObservationStations()
-            if (jampi == 1) then
-               call  updateValuesOnCrossSections_mpi(time1)
-               call reduce_particles
-            endif
-            if (jahisbal > 0) then ! Update WaterBalances etc.
-               call updateBalance()
-            endif
-            if ( jacheckmonitor == 1 ) then
-!              compute "checkerboard" monitor
-               call comp_checkmonitor()
-            endif
+         if (comparereal(time1,time_his,eps10)>=0) then
+              call  updateValuesOnObervationStations()
+              if (jampi == 1) then
+                 call  updateValuesOnCrossSections_mpi(time1)
+                 call reduce_particles
+              endif
+              if (jahisbal > 0) then ! Update WaterBalances etc.
+                 call updateBalance()
+              endif
+              if ( jacheckmonitor.eq.1 ) then
+!                compute "checkerboard" monitor
+                 call comp_checkmonitor()
          endif
+      endif
       endif
 
-!       in case of water level or discharge dependent roughness,
-!       the observations and cross sections must be up todate each DtTrt s (if they are actually used)
-      if (jatrt > 0) then
-         if (flow_trachy_needs_update(time1)) then
-            if (trachy_fl%gen%ntrtobs > 0) then
-               call updateValuesOnObservationStations()
-            endif
-            if (trachy_fl%gen%ntrtcrs > 0) then
-               if (jampi == 1) then
-                  call updateValuesOnCrossSections_mpi(time1)
-               endif
-            endif
-         endif
-      endif
 
       call flow_externaloutput(time1)
 
-      if ( jatimer == 1 ) call stoptimer(IOUTPUT)
+      if ( jatimer.eq.1 ) call stoptimer(IOUTPUT)
 
    endif
 
@@ -390,6 +381,8 @@ subroutine flow_finalize_usertimestep(iresult)
 
  iresult = DFM_NOERR
  return ! Return with success.
+
+      888 continue
 
  end subroutine flow_finalize_usertimestep
 
@@ -603,7 +596,7 @@ character(len=255)   :: filename_fou_out
        call updateTotalInflowLat(dts)
     end if
  end if
- ! note updateValuesOnObservationStations() in flow_usertimestep
+ ! note updateValuesOnObervationStations() in flow_usertimestep
 
  ! Time-integral statistics on all flow nodes.
  if (is_numndvals > 0) then
@@ -813,9 +806,7 @@ end subroutine flow_finalize_single_timestep
  call klok(cpu_extra(2,41)) ! End advec
 
  if (jazws0.eq.1)  then
-    if (index( md_restartfile, '_rst.nc', success ) == 0) then
-       call makeq1qaAtStart()                           ! when restart with a rst file, q1 and qa are already read from it, so skip this step.
-    end if                                              ! for other situations including restart with a map file, still call this subroutine
+    call makeq1qaAtStart()                           ! compute q1 and qa to ensure exact restart
     call setkfs()
  endif
 
@@ -925,8 +916,7 @@ end subroutine flow_finalize_single_timestep
 !> Validates the current flow state and returns whether simulation should be aborted.
 !! Moreover, a final snapshot is written into the output files before aborting.
 !!
-!! Validity is determined by s01max, u01max, umagmax and dtminbreak.
-!! Also print a warning if water level or velocity > s01warn, u01warn, umagwarn
+!! Validity is determined by s01max, u01max and dtminbreak.
 subroutine flow_validatestate(iresult)
  use unstruc_messages
  use m_flow
@@ -943,65 +933,29 @@ subroutine flow_validatestate(iresult)
 
  q = 0
 
- if (s01max > 0d0) then     ! water level difference validation
+ if (s01max > 0) then     ! water level validation
     do i = 1,ndx
-        if (abs(s1(i) - s0(i)) > s01max) then
+        if(abs(s1(i) - s0(i)) > s01max) then
             call mess(LEVEL_WARN,'water level change above threshold: (cell index, delta s[m]) = ', i, abs(s1(i) - s0(i)))
+            ! TODO: UNST-725, once done, change the above back to LEVEL_ERROR
             q = 1
             exit
         end if
     end do
  end if
 
- if (u01max > 0d0) then     ! velocity difference validation
+ if (u01max > 0) then     ! velocity validation
     do i = 1,lnx
-        if (abs(u1(i) - u0(i)) > u01max) then
-            call mess(LEVEL_WARN,'velocity change above threshold: (flowlink index, delta u[m/s]) = ', i, abs(u1(i) - u0(i)))
+        if(abs(u1(i) - u0(i)) > u01max) then
+            call mess(LEVEL_ERROR,'velocity change above threshold: (flowlink index, delta u[m/s]) = ', i, abs(u1(i) - u0(i)))
+            ! TODO: UNST-725, once done, change the above back to LEVEL_ERROR
             q = 1
             exit
         end if
     end do
  end if
 
- if (umagwarn > 0d0 .or. umagmax > 0d0) then     ! velocity magnitude needed
-    call getucxucyeulmag(ndkx, workx, worky, ucmag, jaeulervel, 1)
- end if
-
- if (umagmax > 0d0) then     ! velocity magnitude validation
-    do i = 1, ndkx
-        if (ucmag(i) > umagmax) then
-            call mess(LEVEL_WARN,'velocity magnitude above threshold: (cell index, ucmag[m/s]) = ', i, ucmag(i))
-            q = 1
-            exit
-        end if
-    end do
- end if
-
- if (s01warn > 0d0) then     ! water level warning
-    do i = 1,ndx
-        if (abs(s1(i)) > s01warn) then
-            call mess(LEVEL_WARN,'water level s1 above threshold: (cell index, s[m]) = ', i, s1(i))
-        end if
-    end do
- end if
-
- if (u01warn > 0d0) then     ! velocity component warning
-    do i = 1,lnx
-        if (abs(u1(i)) > u01warn) then
-            call mess(LEVEL_WARN,'velocity u1 above threshold: (flowlink index, u[m/s]) = ', i, u1(i))
-        end if
-    end do
- end if
-
- if (umagwarn > 0d0) then     ! velocity magnitude warning
-    do i = 1, ndkx
-        if (ucmag(i) > umagwarn) then
-            call mess(LEVEL_WARN,'velocity magnitude above threshold: (cell index, ucmag[m/s]) = ', i, ucmag(i))
-        end if
-    end do
- end if
-
-if (dtminbreak > 0d0) then  ! smallest allowed timestep (in s), checked on a sliding average of several timesteps
+if (dtminbreak > 0) then  ! smallest allowed timestep (in s), checked on a sliding average of several timesteps
    ! NOTE: this code below assumes that this routine is called once and exactly once every time step (i.e. in `dnt` rythm)
    dtavgwindow = (time1 - tvalswindow(idtwindow_start)) / max(1d0, min(dble(NUMDTWINDOWSIZE), dnt))
    if (dnt < dble(NUMDTWINDOWSIZE)) then
@@ -1119,10 +1073,9 @@ if(q /= 0) then
  integer :: ndraw
  COMMON /DRAWTHIS/  ndraw(50)
 
- integer            :: key, jposhchk_sav, LL, L, k1,k2, itype
+ integer            :: key, LL, L, k1,k2
  integer            :: ja, k, ierror, n, kt, num, js1, noddifmaxlevm, nsiz
  character (len=40) :: tex
- logical            :: firstnniteration
  double precision   :: wave_tnow, wave_tstop, t0, t1, dif, difmaxlevm
  double precision   :: hw,tw, uorbi,rkw,ustt,hh,cs,sn
 
@@ -1140,8 +1093,7 @@ if(q /= 0) then
  dti      = 1d0/dts
  nums1it  = 0
  nums1mit = 0
- firstnniteration = .true.                            !< Flag for first Nested Newton iteration. Only in case of negative depths
-                                                      !< firstnniteration is set to .false. 
+
 
  !call flow_set external forcingsonboundaries(time1) ! set boundary conditions for time that you attempt to reach, every step
                                                      ! should formally be at this position if setbacks occur
@@ -1157,8 +1109,7 @@ if(q /= 0) then
 
  if ( itstep.ne.4 ) then                                ! implicit time-step
 
-   222 if (nonlin == 2 .or. (nonlin ==3 .and. .not. firstnniteration)) then                               ! only for pressurised
-       ! Nested newton iteration, start with s1m at bed level.
+ 222 if (nonlin == 2) then                               ! only for pressurised
        s1m = bl !  s1mini
        call volsur()
        difmaxlevm = 0d0 ;  noddifmaxlevm = 0
@@ -1180,50 +1131,35 @@ if(q /= 0) then
     ! endif
 
 !    synchronise all water-levels
-    if ( jampi == 1 ) then
-       if ( jatimer == 1 ) call starttimer(IUPDSALL)
-       itype = merge(ITYPE_SALL, ITYPE_Snonoverlap, jaoverlap == 0)
-       call update_ghosts(itype, 1, Ndx, s1, ierror)
-       if ( jatimer == 1 ) call stoptimer(IUPDSALL)
+    if ( jampi.eq.1 ) then
+       if ( jaoverlap.eq.0 ) then
+          if ( jatimer.eq.1 ) call starttimer(IUPDSALL)
+          call update_ghosts(ITYPE_SALL, 1, Ndx, s1, ierror)
+          if ( jatimer.eq.1 ) call stoptimer(IUPDSALL)
+       else
+          if ( jatimer.eq.1 ) call starttimer(IUPDSALL)
+          call update_ghosts(ITYPE_Snonoverlap, 1, Ndx, s1, ierror)
+          if ( jatimer.eq.1 ) call stoptimer(IUPDSALL)
        end if
+    end if
 
-    if (firstnniteration .and. nonlin1D >=3) then
-       ! At first try only check for positive water depths only
-       ! Temporarily save the current JPOSCHK value
-       jposhchk_sav = jposhchk
-       jposhchk = -1
-    endif
-    
     call poshcheck(key)                                 ! s1 above local bottom? (return through key only for easier interactive)
 
-
-    if (firstnniteration .and. nonlin1D >=3) then
-       ! reset JPOSCHK to original value
-       jposhchk = jposhchk_sav
-    endif
-    
     if (key == 1) then
-       return                                           ! for easier mouse interrupt
+       return                                           ! go to user control, timestep too small
     else if (key == 2 ) then
-       if (nonlin1D >= 3 .and. firstnniteration) then   ! jposhcheck==-1
-         ! Negative depth(s): retry with restarted Nested Newton
-         firstnniteration = .false.
-         goto 222
-       endif
-
        if (wrwaqon.and.allocated(qsrcwaq)) then
           qsrcwaq = qsrcwaq0                            ! restore cumulative qsrc for waq from start of this time step to avoid
        end if                                           ! double accumulation and use of incorrect dts in case of time step reduction
        call setkfs()
        if (jposhchk == 2 .or. jposhchk == 4) then       ! redo without timestep reduction, setting hu=0 => 333 s1ini
-          if (nonlin >= 2) then
+          if (nonlin == 2) then
              goto 222
           else
              goto 333
           endif
        else
-          if ( jampi == 1 .and. my_rank == 0) call mess(LEVEL_WARN, 'Redo with timestep reduction.')
-          goto 111
+          goto 111                                      ! redo with timestep reduction => 111 furu
        endif
     endif
 
@@ -1289,7 +1225,7 @@ if(q /= 0) then
 
     ! beyond or past this point s1 is converged
 
-     if (nonlin >= 2) then
+     if (nonlin == 2) then
        difmaxlevm = 0d0 ;  noddifmaxlevm = 0
        do k = 1,ndx
           dif = abs(s1m(k)-s1(k))
@@ -1326,12 +1262,12 @@ if(q /= 0) then
  if ( itstep.eq.4 ) then   ! explicit time-step
     call update_s_explicit()
  end if
- hs = s1-bl
- hs = max(hs,0d0)
 
  ! JRE: moved update of SWAN derived quantities here
  if (jawave==3) then
     if( kmx == 0 ) then
+       hs = s1-bl
+       hs = max(hs,0d0)
        call wave_comp_stokes_velocities()
        call wave_uorbrlabda()                       ! hwav gets depth-limited here
        call tauwave()
@@ -1348,6 +1284,8 @@ if(q /= 0) then
     end if
  end if
  if (jawave.eq.4 .and. jajre.eq.1) then
+    hs = s1-bl
+    hs = max(hs,0d0)
     if (swave.eq.1 ) then
        call xbeach_waves()
     endif
@@ -1558,11 +1496,8 @@ if(q /= 0) then
                  call rcirc( xz(n), yz(n) )
               end if
 
-              if (jposhchk == -1) then                           ! only detect dry cells and return (for Nested Newton restart)
-                 key = 2
-                 exit
-              else if (jposhchk == 1) then                       ! only timestep reduction
-                 key = 2                                         ! flag redo timestep
+              if (jposhchk == 1) then                            ! only timestep reduction
+
                  exit
 
               else if (jposhchk == 2 .or. jposhchk == 3) then    ! set dry all attached links
@@ -1622,7 +1557,7 @@ if(q /= 0) then
     nodneg = idum(2)
  end if
 
- if (nodneg /= 0 .and. jposhchk /= -1) then
+ if (nodneg /= 0) then
     if (jposhchk == 1 .or. jposhchk == 3   .or. jposhchk == 5 .or. jposhchk == 7) then
         dts = 0.7d0*dts
     endif
@@ -1689,7 +1624,7 @@ if(q /= 0) then
 
  endif
 
- if (nonlin >= 2) then
+ if (nonlin == 2) then
     a1m = 0d0
  endif
 
@@ -1775,7 +1710,7 @@ if(q /= 0) then
        endif
     endif
 
-    if (nonlin >= 2) then
+    if (nonlin == 2) then
 
        LL = L
        if (L > lnxi) then                                   ! for 1D boundary links, refer to attached link
@@ -2613,7 +2548,7 @@ subroutine getseg1D(hpr,wu2,dz,ai,frcn,ifrctyp, wid,ar,conv,perim,jaconv)  ! cop
  enddo
 
  if (nshiptxy > 0) then
-    if (japerim == 1 .or. nonlin >= 2 .and. japressurehull >= 2) then                     ! and nonlin == 2
+    if (japerim == 1 .or. nonlin == 2 .and. japressurehull >= 2) then                     ! and nonlin == 2
        call addship2D(japerim)
        if (japressurehull == 3 .and. japerim == 0) then
           do n = 1,ndx
@@ -3608,8 +3543,7 @@ subroutine setdt()
    implicit none
 
    double precision :: dtsc_loc
-   double precision :: dim_real
-   
+
    integer          :: nsteps
    integer          :: jareduced
 
@@ -3617,8 +3551,7 @@ subroutine setdt()
    call setdtorg(jareduced) ! 7.1 2031
 
    dtsc_loc = dtsc
-   dim_real = 1.0d0
-   
+
 !  globally reduce time step
    if ( jampi.eq.1 .and. jareduced.eq.0 ) then
 !     globally reduce dts (dtsc may now be larger)
@@ -3683,19 +3616,13 @@ subroutine setdt()
       kkcflmx = 0   ! SPvdP: safety, was undefined but could be used later
    endif
    
-   if (stm_included .and. jased>0) then
-      if (stmpar%morpar%multi) then
-         call putarray (stmpar%morpar%mergehandle,dim_real,1)
-         call putarray (stmpar%morpar%mergehandle,dts,1)
-         call getarray (stmpar%morpar%mergehandle,dts,1)
-      endif
-   endif
-      
    call timestepanalysis(dtsc_loc)
 
    if ( jaGUI.eq.1 ) then
       call tekcflmx()
    endif
+
+
 
 end subroutine setdt
 
@@ -5168,7 +5095,12 @@ end subroutine setdt
                 siguL(L-Lb+1) = hu(L) / hu(LL)
              enddo
 
+             if (LL == 300) then
+                advel = 0d0
+             endif
+
              call lineinterp3( siguL, quuL1, volL1, sqaL1, Ltx0, sigk1, quuk1, volk1, sqak1, ktx01)
+
              call lineinterp3( siguL, quuL2, volL2, sqaL2, Ltx0, sigk2, quuk2, volk2, sqak2, ktx02)
 
              do L = Lb, Lt
@@ -5177,9 +5109,15 @@ end subroutine setdt
                 volu = vo1*ac1 + vo2*ac2
 
                 if (volu > 0) then
+
                    qu1   = quuL1(L-Lb+1) - quuL1(L-Lb) - u1(L)*( sqaL1(L-Lb+1) - sqaL1(L-Lb) )
                    qu2   = quuL2(L-Lb+1) - quuL2(L-Lb) - u1(L)*( sqaL2(L-Lb+1) - sqaL2(L-Lb) )
+
                    advel = ( ac1*qu1 + ac2*qu2 ) / volu
+
+                   if (L == Lb .and. LL == 300) then
+                        advel = 1d0*advel
+                   endif
                    adve(L) = adve(L) + advel
                 endif
              enddo
@@ -10648,7 +10586,7 @@ subroutine QucPeripiaczekteta(n12,L,ai,ae,volu,iad)  ! sum of (Q*uc cell IN cent
  use unstruc_display, only : ntek, jaGUI
  use m_alloc
  use m_bedform
- use m_fm_update_crosssections, only: fm_update_mor_width_area, fm_update_mor_width_mean_bedlevel 
+ use m_fm_update_crosssections, only: fm_update_mor_width_area
  use unstruc_netcdf_map_class
  use unstruc_caching
  !
@@ -10798,7 +10736,7 @@ subroutine QucPeripiaczekteta(n12,L,ai,ae,volu,iad)  ! sum of (Q*uc cell IN cent
  if (jawave > 2 .or. (jased > 0 .and. stm_included)) then
     call flow_waveinit()
  endif
- ! Construct a default griddim struct for D3D subroutines, i.e. fourier, sedmor or trachytopes
+ ! Construct a default griddim struct for D3D subroutines, i.e. fourier, sedmor or trachytopen
  call klok(cpu_extra(1,7)) ! Flow griddim
  if ( len_trim(md_foufile) > 0 .or. len_trim(md_sedfile) > 0 .or. jatrt == 1) then
     call D3Dflow_dimensioninit()
@@ -10941,10 +10879,9 @@ subroutine QucPeripiaczekteta(n12,L,ai,ae,volu,iad)  ! sum of (Q*uc cell IN cent
  endif
  call klok(cpu_extra(2,24)) ! end MBA init
 
- call klok(cpu_extra(1,25)) ! update MOR width and mean bed level
+ call klok(cpu_extra(1,25)) ! update MOR width
  if (stm_included) then
      call fm_update_mor_width_area()
-     call fm_update_mor_width_mean_bedlevel()
  endif
  call klok(cpu_extra(2,25)) ! end update MOR width
 
@@ -11102,8 +11039,6 @@ subroutine flow_sedmorinit()
     use m_branch
     use m_oned_functions, only: gridpoint2cross
     use m_fm_morstatistics
-    use timespace_parameters, only: LOCTP_POLYGON_FILE
-    use timespace, only: selectelset_internal_nodes
     use MessageHandling
 
     implicit none
@@ -11389,19 +11324,6 @@ subroutine flow_sedmorinit()
        call realloc(sswx_raw,(/ndx, stmpar%lsedtot/),stat=ierr,fill=0d0, keepExisting=.false.)
        call realloc(sswy_raw,(/ndx, stmpar%lsedtot/),stat=ierr,fill=0d0, keepExisting=.false.)
     endif
-    
-    ! mormerge additions
-    !
-    call realloc(kcsmor,ndx,stat=ierr,fill=0,keepExisting=.false.)
-    !
-    inquire (file = trim(md_morphopol), exist = ex)
-    if (.not. ex) then
-       ! do all cells
-       kcsmor = 1
-    else
-       ! find cells inside polygoon
-       call selectelset_internal_nodes(xz, yz, kcs, ndx, kcsmor, ndx, LOC_FILE=md_morphopol, LOC_SPEC_TYPE=LOCTP_POLYGON_FILE)
-    end if
 
     return
 end subroutine flow_sedmorinit
@@ -11856,20 +11778,6 @@ subroutine flow_trachyinit()
 
 end subroutine flow_trachyinit
 
-!> helper function to make sure that the check for updating cross sections is in line with the flow_trachyupdate
-logical function flow_trachy_needs_update(time1)
-   use precision_basics, only : hp
-   use m_flowtimes,      only : tstart_user, dt_user
-   use m_trachy,         only : itimtt
-
-   real(kind=hp), intent(in) :: time1  !< current time
-
-   real(kind=hp) :: ntrtsteps, dt_trachy
-
-   dt_trachy = dt_user * real(itimtt, hp)
-   ntrtsteps = (time1 - tstart_user) / dt_trachy
-   flow_trachy_needs_update = (abs(ntrtsteps - floor(ntrtsteps)) < 1d-6 )
-end function flow_trachy_needs_update
 
 subroutine flow_trachyupdate()
     use unstruc_messages
@@ -12041,9 +11949,9 @@ subroutine flow_trachyupdate()
     ! Perform computation of vegetation and alluvial roughness
     !
     if (stm_included) then
-       call trtrou(mdia     ,kmaxtrt   ,numl      ,            &                                            ! lnx instead of numl ?
+       call trtrou(mdia     ,kmaxtrt   ,numl      , &                                            ! lnx instead of numl ?
                 & cftrt     ,rouflo    ,linit     ,dx_trt    , &
-                & hu_trt    ,kcu_trt   ,sig       ,            &
+                & hu_trt    ,kcu_trt   ,sig       , &
                 & z0rou     ,1         ,waqol     ,trachy_fl , &
                 & umag      ,1         ,numl      ,1         , ndx      , &                      ! first entry in row r(u1) should be gdp%gderosed%umod !!WO-temp
                 & rhomean   ,ag        ,vonkar    , viskin   , &              ! ~z0 used for what?   ~viskin instead of vicmol (Delft3D)
@@ -12112,7 +12020,7 @@ subroutine calibration_init()
  use unstruc_model, only: md_cldfile, md_cllfile
  use m_flowgeom,    only: lnx
  use m_flow,        only: ifrcutp, ifrctypuni, frcu, frcu_bkp
- !
+
  implicit none
  !
  integer         :: LF
@@ -14256,7 +14164,7 @@ else if (nodval == 27) then
        endif
     endif
  else if (nodval == 48) then
-   if (nonlin >= 2) then
+   if (nonlin == 2) then
       znod = a1m(kk)
    endif
  else if (nodval == 49) then
@@ -15788,7 +15696,7 @@ end if
  ! Load restart file (*_map.nc) assigned in the *.mdu file OR read a *.rst file
  jawel = .false.
  if (len_trim(md_restartfile) > 0 ) then
-!    Find file extension based on first full stop symbol '.' at the back of the string.
+!    Find file extention based on first full stop symbol '.' at the back of the string.
      N1  = INDEX (md_restartfile,'.', .true.)
      N2  = len_trim(md_restartfile)
      EXT = ' '
@@ -15803,10 +15711,6 @@ end if
          endif
      else ! Restart from *_yyyymmdd_hhmmss_rst.nc or from *_map.nc
        call read_restart_from_map(md_restartfile, iresult) !TODO:JZ modify the name of this subroutine, since it also restarts from rst files.
-       if ((.not. network%loaded) .and. (network%sts%count > 0)) then
-          call setbobs()
-       end if
-       
        if (jampi == 1) then
           ! globally reduce the error
           call reduce_error(iresult)
@@ -15937,7 +15841,7 @@ endif
     teta(lnxi+1:lnx) = 1d0
  endif
 
- if (nonlin1d == 2 .or. nonlin1d == 3 .or.nonlin2D == 2) then
+ if (nonlin1d == 2 .or. nonlin2D == 2) then
     if (allocated(s1mini) ) deallocate(s1mini)
     allocate  ( s1mini(ndx) , stat= ierr)
     call aerr ('s1mini(ndx)', ierr, ndx ) ; s1mini = bl
@@ -16007,7 +15911,7 @@ endif
  s00 = s1
 
  nonlin = max(nonlin1D, nonlin2D)
- if (nonlin >= 2) then
+ if (nonlin == 2) then
     if (allocated(s1m) ) deallocate (s1m, a1m)
     allocate ( s1m(ndx), a1m(ndx) , STAT=ierr) ; s1m = s1
     call aerr('s1m(ndx), a1m(ndx)', ierr, ndx)
@@ -16348,7 +16252,7 @@ endif
 888 continue  ! Some error occurred, prevent further flow
  ndx = 0
 
- if (nonlin>=2) then
+ if (nonlin==2) then
     s1m = bl
  endif
 
@@ -16981,11 +16885,12 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    integer,          intent(out)   :: iresult !< Integer error status: DFM_NOERR==0 if succesful.
 
    double precision :: timmin
+   double precision :: ntrtsteps            !< variable to determine if trachytopes should be updated
    double precision :: tem_dif
    integer          :: k, L, i, k1, k2, iFirst, iLast
    logical          :: l_set_frcu_mor = .false.
 
-   logical, external :: flow_initwaveforcings_runtime, flow_trachy_needs_update
+   logical, external :: flow_initwaveforcings_runtime
    character(len=255) :: tmpstr
    type(tEcItem), pointer :: itemPtr !< Item under consideration, for right order of wind items
 
@@ -16993,7 +16898,6 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    integer                               :: n, ierr, istru, structInd
    double precision, allocatable         :: results(:,:)
    double precision, allocatable         :: waterLevelsLeft(:), waterLevelsRight(:),normalVelocity(:)
-   logical                               :: foundtempforcing
 
    iresult = DFM_EXTFORCERROR
    call klok(cpuext(1))
@@ -17102,48 +17006,39 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
 !   !$OMP SECTION
 
     if (jatem > 1) then
+       success = .false.
 
        ! Update arrays rhum, tair and clou in a single method call.
        ! Nothing happens in case quantity 'humidity_airtemperature_cloudiness' has never been added through ec_addtimespacerelation.
-       select case (itempforcingtyp)
-       case (1)
-          success = success .and. ec_gettimespacevalue(ecInstancePtr, 'humidity_airtemperature_cloudiness', tim)
-       case (2)
-          success = success .and. ec_gettimespacevalue(ecInstancePtr, 'humidity_airtemperature_cloudiness_solarradiation', tim)
-       case (3)
-          success = success .and. ec_gettimespacevalue(ecInstancePtr, 'dewpoint_airtemperature_cloudiness', tim)
-       case (4)
-          success = success .and. ec_gettimespacevalue(ecInstancePtr, 'dewpoint_airtemperature_cloudiness_solarradiation', tim)
-       end select
+       if (itempforcingtyp == 1) then
 
-       foundtempforcing = (itempforcingtyp >= 1 .and. itempforcingtyp <= 4)
+          success = success .or. ec_gettimespacevalue(ecInstancePtr, 'humidity_airtemperature_cloudiness', tim)
 
-       if (btempforcingtypH) then
-           success = success .and. ec_gettimespacevalue(ecInstancePtr, item_humidity, irefdate, tzone, tunit, tim)
-           foundtempforcing = .true.
-       endif
-       if (btempforcingtypA) then
-           success = success .and. ec_gettimespacevalue(ecInstancePtr, item_airtemperature, irefdate, tzone, tunit, tim)
-           foundtempforcing = .true.
-       endif
-       if (btempforcingtypS) then
-           success = success .and. ec_gettimespacevalue(ecInstancePtr, item_solarradiation, irefdate, tzone, tunit, tim)
-           foundtempforcing = .true.
-       endif
-       if (btempforcingtypC) then
-           success = success .and. ec_gettimespacevalue(ecInstancePtr, item_cloudiness, irefdate, tzone, tunit, tim)
-           foundtempforcing = .true.
-       endif
-       if (btempforcingtypL) then
-           success = success .and. ec_gettimespacevalue(ecInstancePtr, item_longwaveradiation, irefdate, tzone, tunit, tim)
-           foundtempforcing = .true.
-       endif
+       else if (itempforcingtyp == 2) then
 
-       if (.not. foundtempforcing ) then
-            call mess(LEVEL_WARN,'No humidity, airtemperature, cloudiness and solar radiation forcing found, setting temperature model [physics:Temperature] = 1 (Only transport)')
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, 'humidity_airtemperature_cloudiness_solarradiation', tim)
+
+       else if (itempforcingtyp == 3) then
+
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, 'dewpoint_airtemperature_cloudiness', tim)
+
+       else if (itempforcingtyp == 4) then
+
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, 'dewpoint_airtemperature_cloudiness_solarradiation', tim)
+
+       else if (itempforcingtyp == 5) then
+
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, item_humidity, irefdate, tzone, tunit, tim) ! hk: En bedankt voor de rename he lekker dan
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, item_airtemperature, irefdate, tzone, tunit, tim)
+           success = success .or. ec_gettimespacevalue(ecInstancePtr, item_solarradiation, irefdate, tzone, tunit, tim)
+
+       else
+            call mess(LEVEL_WARN,'No humidity, airtemperature and  cloudiness forcing found, setting temperature model [physics:Temperature] = 1 (Only transport)')
             jatem = 1
+            success = .true.
        endif
    endif
+
 
 !   !$OMP SECTION
 
@@ -17346,7 +17241,8 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    endif
 
    if (jatrt == 1) then
-       if (flow_trachy_needs_update(time1)) then
+       ntrtsteps = (time1 - tstart_user)/dt_max/itimtt
+       if (abs(ntrtsteps - floor(ntrtsteps)) .lt. 1e-6 ) then
            call flow_trachyupdate()                            ! perform a trachy update step
            l_set_frcu_mor = .true.
        end if
@@ -21678,7 +21574,7 @@ endif
 end subroutine
 
 !> update observation station data
-subroutine updateValuesOnObservationStations()
+subroutine updateValuesOnObervationStations()
    use m_observations
    use m_partitioninfo
    use m_timer
@@ -21701,7 +21597,7 @@ subroutine updateValuesOnObservationStations()
    end if
 
    return
-end subroutine updateValuesOnObservationStations
+end subroutine updateValuesOnObervationStations
 
 subroutine definencvar(ncid, idq, itype, idims, n, name, desc, unit, namecoord)
 use netcdf
@@ -21797,10 +21693,6 @@ subroutine wrimap(tim)
     use unstruc_netcdf
     use unstruc_model
     use unstruc_files , only: defaultFilename
-    use m_dad, only: dad_included
-    use m_fm_update_crosssections, only: fm_update_mor_width_mean_bedlevel
-    use m_flowgeom, only: ndx2d, ndxi
-   
     implicit none
     double precision, intent(in) :: tim
 
@@ -21814,7 +21706,6 @@ subroutine wrimap(tim)
     character(len=256) :: filnam
     logical            :: unitused
     double precision, save :: curtime_split = 0d0 ! Current time-partition that the file writer has open.
-    integer            :: ndx1d
 
     ! Another time-partitioned file needs to start, reset iteration count (and file).
     if (ti_split > 0d0 .and. curtime_split /= time_split0) then
@@ -21845,12 +21736,6 @@ subroutine wrimap(tim)
 
        if (mapids%ncid .ne. 0) then
           if (md_unc_conv == UNC_CONV_UGRID) then
-             ndx1d = ndxi - ndx2d
-             if (ndx1d > 0) then
-                if (dad_included) then
-                   call fm_update_mor_width_mean_bedlevel()
-                endif
-             endif
              call unc_write_map_filepointer_ugrid(mapids,tim)  ! wrimap
           else
              call unc_write_map_filepointer(mapids%ncid,tim)  ! wrimap
@@ -22800,9 +22685,7 @@ end subroutine unc_write_shp
  use m_flow, only : numlimdt, numlimdt_baorg, a1ini
  use m_oned_functions
  use unstruc_channel_flow, only : network
- use m_dad, only: dad_included
- use m_sediment, only: stm_included
- 
+
  implicit none
 
  integer,     intent(in) :: iphase   ! phase in geominit, 0 (all), 1 (first) or 2 (second)
@@ -23017,11 +22900,6 @@ end subroutine unc_write_shp
 
     call realloc(volMaxUnderground, ndxi-ndx2d, keepExisting = .false., fill = dmiss, stat = ierr)
     call aerr('volMaxUnderground(ndxi-ndx2d)', ierr, ndxi-ndx2d)
-    
-    if (stm_included) then
-        call realloc(bl_ave, ndxi-ndx2d, keepExisting = .false., fill = dmiss, stat = ierr)
-        call aerr('bl_ave(ndxi-ndx2d)', ierr, ndxi-ndx2d)
-    end if 
  end if
  
  if ( allocated (kfs) ) deallocate(kfs)
@@ -25272,7 +25150,7 @@ subroutine readprofilesdef(ja)    ! in afwachting van een module die profieldefi
 !   for the following, it is assumed that the moving obsrevation stations have been initialized (in flow_initexternalforcings)
     call init_valobs()   ! (re)initialize work array and set pointers for observation stations
 
-    call updateValuesOnObservationStations() ! and fill first value
+    call updateValuesOnObervationStations() ! and fill first value
 
     call init_structure_hisvalues()
 
@@ -26782,7 +26660,6 @@ endif
        allocate ( qrad(ndx) , stat = ierr)
        call aerr('qrad(ndx)', ierr, ndx)
        qrad = 0d0
-       if ( allocated(longwave) ) deallocate(longwave)
        if (Soiltempthick > 0) then
           if ( allocated (tbed) )  deallocate (tbed)
           allocate ( tbed(ndx) , stat = ierr)
@@ -35414,7 +35291,7 @@ bft:do ibathyfiletype=1,2
 
     do L = 1,lnx1D                                       ! 1D
 
-       if (iadv(L) > 20 .and. iadv(L) < 30 .and. (.not. stm_included)) cycle        ! skip update of bobs for structures
+       if (iadv(L) > 20 .and. iadv(L) < 30) cycle        ! skip update of bobs for structures
 
        n1  = ln(1,L)   ; n2 = ln(2,L)                    ! flow ref
        k1  = lncn(1,L) ; k2 = lncn(2,L)                  ! net  ref
@@ -37153,7 +37030,7 @@ end subroutine setbobs_fixedweirs
  use m_alloc
  use m_partitioninfo
  use m_xbeach_data, only: ust, vst, urms, swave, Lwave
- use m_waves, only: ypar, cfwavhi, hminlw, cfhi_vanrijn, uorb
+ use m_waves, only: ypar, cfwavhi, hminlw, cfhi_vanrijn
  use m_sediment
  use unstruc_channel_flow
  use m_cross_helper
@@ -37168,7 +37045,6 @@ end subroutine setbobs_fixedweirs
  use m_trachy, only: trachy_resistance
  use m_oned_functions
  use m_compound
- use unstruc_model, only: md_restartfile
 
  implicit none
 
@@ -37184,7 +37060,7 @@ end subroutine setbobs_fixedweirs
  double precision :: as1, as2, qtotal, width, st2, cmustr, wetdown, dpt
  double precision :: maxwidth1, maxwidth2
  double precision :: twot = 2d0/3d0, hb, h23, ustbLL, agp, vLL
- double precision :: hminlwi,fsqrtt,uorbL
+ double precision :: hminlwi,fsqrtt
  double precision :: perimeter, conv, czdum
  logical          :: firstiter
  type(t_structure), pointer :: pstru
@@ -37245,7 +37121,7 @@ end subroutine setbobs_fixedweirs
                     slopec = -hup
                 endif
              endif
-          else if (Drop1d) then            ! 1d droplosses, coding to avoid evaluating array iadv as long as possible,
+          else if (slopedrop1d) then            ! 1d droplosses, coding to avoid evaluating array iadv as long as possible,
              hup = s0(k2) - bob(2,L)
              if (hup < 0) then
                 slopec = hup
@@ -37296,8 +37172,7 @@ end subroutine setbobs_fixedweirs
               elseif (modind==9) then
                  frL = cfhi_vanrijn(L) * sqrt((u1L-ustokes(L))**2 + (v(L)-vstokes(L))**2)
               elseif (modind==10) then   ! Ruessink 2003
-                 uorbL = .5d0*(uorb(k1)+uorb(k2))
-                 frL = cfuhi(L)*sqrt((u1L-ustokes(L))**2 + (v(L)-vstokes(L))**2 + (1.16d0*uorbL*fsqrtt)**2)
+                 frL = cfuhi(L)*sqrt((u1L-ustokes(L))**2 + (v(L)-vstokes(L))**2 + (1.16d0*uorb(L)*fsqrtt)**2)
               end if
 
               !bdmwrs = frL * wavmu(L)
@@ -37436,7 +37311,7 @@ end subroutine setbobs_fixedweirs
 
                       call GetCSParsFlow(network%adm%line2cross(L), network%crs%cross, dpt, wetdown, perimeter, width)
 
-                       wetdown = max(wetdown, 0.0001d0)
+                      wetdown = max(wetdown, 0.0001d0)
                       call computeculvert(pstru%culvert, fu(L), ru(L), au(L), width, kfu, cmustr, s1(k1), s1(k2), &
                           q1(L), q1(L), pstru%u1(L0), pstru%u0(L0), dx(L), dts, bob0(:,L), wetdown, .true.)
                       bl(k1) = min(bl(k1), bob0(1,L))
@@ -37980,7 +37855,7 @@ end function ispumpon
  do n = 1,ndx                                        ! Waterlevels, = s1ini
     dtiba  = dti*a1(n)
     bbr(n) = bb(n) + dtiba                           ! need it also for kfs.ne.1 at the boundaries (for parallel runs, see partition_setkfs)
-    if (nonlin >= 2) then                            ! pressurised
+    if (nonlin == 2) then                            ! pressurised
         bbr(n)  = bbr(n) - dti*a1m(n)
     endif
 
@@ -37988,7 +37863,7 @@ end function ispumpon
        if (nonlin > 0) then
           ddr(n) = dd(n)  + dtiba*s1(n)              !
           ddr(n) = ddr(n) + dti*( vol0(n) - vol1(n) )
-          if (nonlin >= 2) then                      ! pressurised
+          if (nonlin == 2) then                      ! pressurised
              ddr(n) = ddr(n) - s1m(n)*a1m(n)*dti
           endif
        else
@@ -39571,13 +39446,8 @@ if (jahisbal > 0) then
             if (valpump(7,n) < 0d0) then
                valpump(7,n) = dmiss ! Set to fill value if stage is irrelevant.
             end if
-            if (pstru%pump%direction*pstru%pump%capacity(1) > 0) then
-               valpump(11,n) = valpump(3,n) ! water level at delivery side
-               valpump(10,n) = valpump(4,n) ! water level at suction side
-            else
-               valpump(11,n) = valpump(4,n)
-               valpump(10,n) = valpump(3,n)
-            end if
+            valpump(10,n) = getPumpDsLevel(pstru)
+            valpump(11,n) = getPumpSsLevel(pstru)
             valpump(8,n) = valpump(10,n) - valpump(11,n) ! Pump head
             valpump(9,n) = GetPumpReductionFactor(pstru)
             end if
@@ -40690,6 +40560,7 @@ end subroutine make_mirrorcells
     integer,          intent(in) :: netlinknrs(nbnd) !< Net link nrs in this open bnd section (in any order)
     character(len=*), intent(in) :: plifilename      !< File name of the original boundary condition definition polyline.
     integer,          intent(in) :: ibndtype         !< Type of this boundary section (one of IBNDTP_ZETA, etc...)
+    integer, external :: get_dirsep
     integer :: maxopenbnd, istart, i, n1, n2
 
     ! Start index (-1) of net link numbers for this net boundary section:
@@ -42512,62 +42383,47 @@ if (mext > 0) then
            endif
            success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, varname=varname)
            if (success) then
-              jatair = 1 ; btempforcingtypA = .true.
+              jatair = 1 ; itempforcingtyp = 5
            endif
 
         else if (qid == 'humidity') then
 
            if (.not. allocated(rhum) ) then
-              allocate ( rhum(ndx) , stat=ierr)
+              allocate ( rhum(ndx) , stat=ierr)  ; rhum = 0d0
               call aerr('rhum(ndx)', ierr, ndx)
-              rhum = 0d0
            endif
            success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, varname=varname)
            if (success) then
-              jarhum = 1  ; btempforcingtypH = .true.
+              jarhum = 1  ; itempforcingtyp = 5
            endif
 
         else if (qid == 'cloudiness') then
 
            if (.not. allocated(clou) ) then
-              allocate ( clou(ndx) , stat=ierr)
+              allocate ( clou(ndx) , stat=ierr)  ; clou = 0d0
               call aerr('clou(ndx)', ierr, ndx)
-              clou = 0d0
            endif
            success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, varname=varname)
            if (success) then
-              jaclou = 1 ; btempforcingtypC = .true.
+              jaclou = 1 ; itempforcingtyp = 5
            endif
 
          else if (qid == 'solarradiation') then
 
            if (.not. allocated(qrad) ) then
-              allocate ( qrad(ndx) , stat=ierr)
+              allocate ( qrad(ndx) , stat=ierr)  ; qrad = 0d0
               call aerr('qrad(ndx)', ierr, ndx)
-              qrad = 0d0
            endif
            success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, varname=varname)
            if (success) then
-              jasol = 1 ;  btempforcingtypS = .true.
-           endif
-
-        else if (qid == 'longwaveradiation') then
-           if (.not. allocated(longwave) ) then
-              allocate ( longwave(ndx) , stat=ierr)
-              call aerr('longwave(ndx)', ierr, ndx)
-              longwave = 0d0
-           endif
-           success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, varname=varname)
-           if (success) then
-              jalongwave = 1 ;  btempforcingtypL = .true.
+              jasol = 1 ;  itempforcingtyp = 5
            endif
 
         else if (qid(1:8) == 'rainfall' ) then
 
            if (.not. allocated(rain) ) then
-              allocate ( rain(ndx) , stat=ierr)
+              allocate ( rain(ndx) , stat=ierr) ; rain = 0d0
               call aerr('rain(ndx)', ierr, ndx)
-              rain = 0d0
            endif
 
            ! TODO: AvD: consider adding mask to all quantities.
@@ -45914,7 +45770,7 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
  use m_sferic
  use m_polygon
  use m_partitioninfo
- use string_module, only: strsplit, get_dirsep
+ use string_module, only: strsplit
  use geometry_module, only: dbdistance, CROSSinbox, dcosphi, duitpl, normalout
  use unstruc_caching
 
@@ -45939,6 +45795,7 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
 
  integer                                     :: jakdtree=1
  character(len=5)                            :: sd
+ character(len=1), external                  :: get_dirsep
  character(len=200), dimension(:), allocatable       :: fnames
  integer                                     :: jadoorladen, ifil
  double precision                            :: t0, t1, t_extra(2,10)
@@ -46445,6 +46302,7 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
  double precision, allocatable :: dSL(:)
  integer,          allocatable :: iLink(:), iLcr(:), iPol(:)
  character(len=5)              :: sd
+ character(len=1), external    :: get_dirsep
  double precision              :: t0, t1
  character(len=128)            :: mesg
 
@@ -46596,6 +46454,7 @@ subroutine setbobsonroofs( )      ! override bobs along pliz's
  character(len=128)            :: mesg
 
  character(len=5)              :: sd
+ character(len=1), external    :: get_dirsep
 
  if ( len_trim(md_roofsfile) == 0 ) then
     return
@@ -47204,12 +47063,8 @@ else if (jatem == 5) then
    Qcon   = -ch*rcpa*windn*(twatn-tairn)                          ! heat loss of water by convection eq.(A.23); Stanton number is ch:
 
    twatK  =  twatn + tkelvn
-   if (jalongwave > 0) then
-      Qlong = em * (longwave(n) - stf*(twatK**4))                   ! difference between prescribed long wave downward flux and calculated upward flux
-   else
-      Qlong  = -em*stf*(twatK**4)*(0.39d0-0.05d0*sqrt(pvtahu))       ! heat loss by effective infrared back radiation hl, restricted by
-      Qlong  =  Qlong*(1d0 - 0.6d0*cloun**2 )                        !  presence of clouds and water vapour in air; eq.(A.22):
-   endif
+   Qlong  = -em*stf*(twatK**4d0)*(0.39d0-0.05d0*sqrt(pvtahu))     ! heat loss by effective infrared back radiation hl, restricted by
+   Qlong  =  Qlong*(1d0 - 0.6d0*cloun**2 )                        !  presence of clouds and water vapour in air; eq.(A.22):
 
    Qfree  = 0d0 ; Qfrcon = 0d0 ; Qfreva = 0d0                     ! Contribution by free convection:
    rhoa0  = ((presn-pvtwmx)/rdry + pvtwmx/rvap) / (Twatn + Tkelvn)

@@ -104,12 +104,6 @@
    double precision                  :: csphi             ! cosphi of latest requested
 
    double precision, parameter       :: dtol_pole = 1d-4   ! pole tolerance in degrees
-
-   contains
-
-   subroutine default_sferic()
-      jasfer3D = 1
-   end subroutine default_sferic
    end module m_sferic
 
    module m_polygon
@@ -142,7 +136,7 @@
          integer :: ierr
 
          maxpolcur = size(xpl)
-         IF (N <= maxpolcur ) THEN
+         IF (N < maxpolcur ) THEN
             RETURN
          ENDIF
          MAXPOL = MAX(100000,INT(5d0*N))
@@ -321,7 +315,7 @@
    !> Main sample set
    module m_samples
    implicit none
-   double precision, ALLOCATABLE  :: XS(:), YS(:), ZS(:)   !< x-coordinate, y-coordinate and value of sample set
+   double precision, ALLOCATABLE  :: XS(:), YS(:), ZS(:)
    INTEGER,          ALLOCATABLE  :: IPSAM(:)              !< permutation array (increasing x-coordinate)
    integer,          parameter    :: IPSTAT_OK=0           !< permutation array is OK
    integer,          parameter    :: IPSTAT_NOTOK=1        !< permutation array is out of date

@@ -48,31 +48,9 @@ libIONetcdf_la_SOURCES = \
          netcdf_utils.F90 \
          coordinate_reference_system.F90 \
          meshdata.F90 \
-         simple_geometry.f90 \
          io_ugrid.F90 \
          io_netcdf.f90
          
 #-------------------------------------------------------------------------------
 #Libraries
-
-EXTRALIBS=
-
-if USEPROJ
-AM_FCFLAGS+=${PROJ_CFLAGS}
-LIBS+=${PROJ_LIBS}
-USEFORTRANGIS=TRUE
-endif
-
-if USEFORTRANGIS
-FMODULES += \
-    -I$(top_builddir)/third_party_open/fortrangis/libfortranc \
-    -I$(top_builddir)/third_party_open/fortrangis/libfortrangis
-EXTRALIBS += \
-    $(top_builddir)/third_party_open/fortrangis/libfortranc/libfortranc.la \
-    $(top_builddir)/third_party_open/fortrangis/libfortrangis/libfortrangis.la
-endif
-
-
-libIONetcdf_la_LIBADD=\
-         $(EXTRALIBS)
 

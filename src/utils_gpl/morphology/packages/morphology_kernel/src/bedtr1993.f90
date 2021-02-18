@@ -3,11 +3,10 @@ subroutine bedtr1993(uuu       ,vvv       ,u2dh      ,d50       ,d90       , &
                    & dstar     ,ws        ,hrms      ,tp        ,teta      , &
                    & rlabda    ,umod      ,qbcu      ,qbcv      ,qbwu      , &
                    & qbwv      ,qswu      ,qswv      ,rhowat    ,ag        , &
-                   & wave      ,eps       ,uon       ,uoff      ,vcr       , &
-                   & error     ,message   )
+                   & wave      ,eps       ,error     ,message   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -81,9 +80,6 @@ subroutine bedtr1993(uuu       ,vvv       ,u2dh      ,d50       ,d90       , &
     real(fp)    , intent(in)  :: uuu
     real(fp)    , intent(in)  :: vvv
     real(fp)    , intent(in)  :: ws      !  Description and declaration in esm_alloc_real.f90
-    real(fp)    , intent(out) :: uoff
-    real(fp)    , intent(out) :: uon
-    real(fp)    , intent(out) :: vcr
     logical     , intent(out) :: error
     logical     , intent(in)  :: wave
     character(*), intent(out) :: message !  Contains error message
@@ -124,6 +120,9 @@ subroutine bedtr1993(uuu       ,vvv       ,u2dh      ,d50       ,d90       , &
     real(fp) :: ua
     real(fp) :: ubw
     real(fp) :: umax
+    real(fp) :: uoff
+    real(fp) :: uon
+    real(fp) :: vcr
     real(fp) :: veff
     real(fp) :: vr
 !
@@ -178,7 +177,7 @@ subroutine bedtr1993(uuu       ,vvv       ,u2dh      ,d50       ,d90       , &
           ! Calculate Uon and Uoff, asymmetrie ISOBE
           !
           hs    = hrms*sqrt(2.0)
-          rls   = max(rlabda,1.0e-12_fp)
+          rls   = rlabda
           rhs13 = hs/rls
           tp1   = tp
           if (h1*2.0*pi/rls > 20.0) then

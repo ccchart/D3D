@@ -343,9 +343,9 @@ else
     if [ "$compiler" = 'intel14' ]; then
         petscModule="petsc/3.4.0_intel14.0.3_mpich_3.1.4"
     elif [ "$compiler" = 'intel16' ]; then
-        petscModule="petsc/3.4.0_intel16.0.3_mpich_3.1.4"
+    petscModule="petsc/3.4.0_intel16.0.3_mpich_3.1.4"
     elif [ "$compiler" = 'intel18' ]; then
-        petscModule="petsc/3.9.3_intel18.0.3_mpich_3.3_without_xhost"
+    petscModule="petsc/3.9.3_intel18.0.3_mpich_3.3"
     fi
 fi
 initPetsc="module load $petscModule"
@@ -427,11 +427,13 @@ fi
 
 #---------------------
 # proj
-
-# OLD: icc c++11 features are only available if gcc is in the path. This is required by proj
-# NEW: proj only has C(++) parts, so no Intel Fortran compiler needed. Just use GCC here.
-projModule="gcc/4.9.2 proj/6.3.1_gcc5.3.1"
-
+projModule=""
+if [ "$compiler" = 'intel16' ]; then
+    # icc c++11 features are only available if gcc is in the path. This is required by proj
+    projModule="intel/16.0.3 gcc/4.9.2 proj/5.2.0_intel16.0.3"
+elif [ "$compiler" = 'intel18' ]; then
+    projModule="intel/18.0.3 gcc/4.9.2 proj/5.2.0_intel18.0.3"
+fi
 initProj="module load $projModule"
 eval $initProj
 if [ $? -ne 0 ]; then
@@ -439,11 +441,16 @@ if [ $? -ne 0 ]; then
     cd $orgdir
     exit 1
 else
-	   # NOTE: PROJ_DIR was set during the execution of "module load $projModule"
+    # NOTE: PROJ currently ONLY available on H6 for Intel, disable for GNU compiler.
+    PROJ_CPPFLAGS=""
+    PROJ_LDFLAGS=""
+    PROJ_CONFARGS=""
+    if [[ "$compiler" = 'intel16' || "$compiler" = 'intel18' ]]; then
        PROJ_CPPFLAGS=-I$PROJ_DIR/include
        PROJ_LDFLAGS=-L$PROJ_DIR/lib
-       PROJ_CONFARGS="--with-proj=$PROJ_DIR"
+       PROJ_CONFARGS="--with-proj=$PROJ_DIR --disable-gdal"
     fi
+fi
 
 #---------------------
 # shapelib
@@ -464,40 +471,11 @@ else
     # NOTE: Shapelib currently ONLY available on H6 for Intel, disable for GNU compiler.
     SHAPELIB_CPPFLAGS=""
     SHAPELIB_LDFLAGS=""
-    SHAPELIB_CONFARGS="--disable-shapelib"
+    SHAPELIB_CONFARGS=""
     if [[ "$compiler" = 'intel16' || "$compiler" = 'intel18' ]]; then
-	   # NOTE: SHAPELIB_DIR was set during the execution of "module load $shapelibModule"
        SHAPELIB_CPPFLAGS=-I$SHAPELIB_DIR/include
        SHAPELIB_LDFLAGS=-L$SHAPELIB_DIR/lib
-       SHAPELIB_CONFARGS="--with-shapelib=$SHAPELIB_DIR"
-    fi
-fi
-
-# gdal
-
-# NEW: gdal only has C(++) parts, so no Intel Fortran compiler needed. Just use GCC here.
-# Update June 10, 2020: GDAL is still leading to linker errors in combination with GNU. Disabled until further notice.
-gdalModule=""
-if [[ "$compiler" = 'intel16' || "$compiler" = 'intel18' ]]; then
-    gdalModule="gcc/4.9.2 gdal/3.0.4_gcc5.3.1"
-fi
-
-initgdal="module load $gdalModule"
-eval $initgdal
-if [ $? -ne 0 ]; then
-    echo 'ERROR: gdal initialization fails!'
-    cd $orgdir
-    exit 1
-else
-    # NOTE: GDAL currently ONLY in use on H6 for Intel, disable for GNU compiler.
-    GDAL_CPPFLAGS=""
-    GDAL_LDFLAGS=""
-    GDAL_CONFARGS="--disable-gdal"
-    if [[ "$compiler" = 'intel16' || "$compiler" = 'intel18' ]]; then
-	   # NOTE: GDAL_DIR was set during the execution of "module load $gdalModule"
-       GDAL_CPPFLAGS=-I$GDAL_DIR/include
-       GDAL_LDFLAGS=-L$GDAL_DIR/lib
-       GDAL_CONFARGS="--with-gdal=$GDAL_DIR"
+       SHAPELIB_CONFARGS="--with-shapelib=$SHAPELIB_DIR --disable-gdal"
     fi
 fi
 
@@ -576,16 +554,13 @@ log="`pwd`/logs/autogen.log"
 command="./autogen.sh --verbose &> $log"
 log "Running $command in `pwd`"
 eval $command
-
 cd third_party_open/kdtree2
-log="`pwd`/logs/autogen_kdtree.log"
 log "Running $command in `pwd`"
 eval $command
 cd ../..
 
-if [ ! -z "$shapelibModule" -o ! -z "$projModule" -o ! -z "$gdalModule" ]; then
+if [ ! -z "$shapelibModule" -o ! -z "$projModule" ]; then
 cd third_party_open/fortrangis
-log="`pwd`/logs/autogen_fortrangis.log"
 cp -f ../../autogen.sh . # temp fix
 log "Running $command in `pwd`"
 eval $command
@@ -618,8 +593,8 @@ fi
 # http://www.gentoo.org/proj/en/base/amd64/howtos/index.xml?full=1#book_part1_chap3
 
 command=" \
-    CPPFLAGS='$PROJ_CPPFLAGS $SHAPELIB_CPPFLAGS $GDAL_CPPFLAGS' \
-    LDFLAGS='$PROJ_LDFLAGS $SHAPELIB_LDFLAGS $GDAL_LDFLAGS' \
+    CPPFLAGS='$PROJ_CPPFLAGS $SHAPELIB_CPPFLAGS' \
+    LDFLAGS='$PROJ_LDFLAGS $SHAPELIB_LDFLAGS' \
     CFLAGS='$flags $CFLAGS' \
     CXXFLAGS='$flags $CXXFLAGS' \
     AM_FFLAGS='$LDFLAGSMT_ADDITIONAL $AM_FFLAGS' \
@@ -627,7 +602,7 @@ command=" \
     AM_FCFLAGS='$LDFLAGSMT_ADDITIONAL $AM_FCFLAGS' \
     FCFLAGS='$flags $fflags $FCFLAGS' \
     AM_LDFLAGS='$LDFLAGSMT_ADDITIONAL $AM_LDFLAGS' \
-        ./configure --prefix=`pwd` --with-netcdf --with-mpi --with-petsc --with-metis=$METIS_DIR $PROJ_CONFARGS $SHAPELIB_CONFARGS $GDAL_CONFARGS $configureArgs &> $log \
+        ./configure --prefix=`pwd` --with-mpi --with-petsc --with-metis=$METIS_DIR $PROJ_CONFARGS $SHAPELIB_CONFARGS $configureArgs &> $log \
     "
 
 log "Running `echo $command | sed 's/ +/ /g'`"

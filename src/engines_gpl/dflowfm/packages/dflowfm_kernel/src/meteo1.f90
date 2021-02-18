@@ -68,7 +68,6 @@ module timespace_parameters
   !                            d) is daarmee bepalend voor de toepasbare interpolatiemethodes
   !
 
-
   ! Enumeration for location specification types (used in selectelset_internal_nodes).
   integer, parameter :: LOCTP_UNKNOWN                  = -1 !< Undefined location specification type.
   integer, parameter :: LOCTP_POLYGON_FILE             = 10 !< A polygon input file used for inside-polygon check.
@@ -519,11 +518,11 @@ contains
    !> 
    subroutine read1polylin(minp,xs,ys,ns,pliname)
       use m_alloc
-      integer          :: minp                          ! unit number of poly file
-      double precision, allocatable :: xs(:)            ! x-coordinates read from file    
-      double precision, allocatable :: ys(:)            ! y-coordinates read from file
-      integer                       :: ns               ! number of pli-points
-      character(len=:),allocatable,optional :: pliname  ! Optional, name (identifier) of pli
+      integer          :: minp
+      double precision, allocatable :: xs(:)
+      double precision, allocatable :: ys(:)
+      integer                       :: ns
+      character(len=:),allocatable,optional :: pliname
    
       character (len=maxnamelen)   :: rec
       integer                      :: k
@@ -5612,7 +5611,7 @@ contains
      integer     , intent(in)        :: filetype   ! spw, arcinfo, uniuvp etc
      logical,      intent(in)        :: usemask    !< Whether to use the mask array kc, or not (allows you to keep kc, but disable it for certain quantities, for example salinitybnd).
      double precision, intent(in), optional :: rrtolrel !< Optional, a more strict rrtolerance value than the global rrtol. selectelset will succeed if cross SL value <= rrtolrel
-     character(len=:),allocatable, optional :: pliname  !< Optional, name (identifier) of pli
+     character(len=:),allocatable,optional :: pliname
      
      ! locals
      double precision, allocatable   :: xs (:)     ! temporary array to hold polygon
@@ -6012,7 +6011,6 @@ contains
    use geometry_module, only: dbpinpol
    use gridoperations
    use unstruc_model, only: getoutputdir
-   use string_module, only: get_dirsep
    
    implicit none
    
@@ -6056,6 +6054,7 @@ contains
    double precision                :: rcel_store, percentileminmax_store
    integer                         :: iav_store, nummin_store
 
+   character(len=1), external      :: get_dirsep
    character(len=5)                :: sd
    
    success = .false. 
@@ -6432,7 +6431,6 @@ module m_meteo
    integer, target :: item_airtemperature                                    !< 'airtemperature' quantity
    integer, target :: item_cloudiness                                        !< 'cloudiness' quantity
    integer, target :: item_solarradiation                                    !< 'solarradiation' quantity
-   integer, target :: item_longwaveradiation                                 !< 'longwaveradiation' quantity
    
    integer, target :: item_discharge_salinity_temperature_sorsin             !< Unique Item id of the ext-file's 'discharge_salinity_temperature_sorsin' quantity
    integer, target :: item_hrms                                              !< Unique Item id of the ext-file's 'item_hrms' quantity
@@ -6519,7 +6517,6 @@ module m_meteo
       item_airtemperature                        = ec_undef_int
       item_cloudiness                            = ec_undef_int
       item_solarradiation                        = ec_undef_int
-      item_longwaveradiation                     = ec_undef_int
       item_hac_humidity                          = ec_undef_int
       item_hac_airtemperature                    = ec_undef_int
       item_hac_cloudiness                        = ec_undef_int
@@ -6866,16 +6863,13 @@ module m_meteo
             dataPtr1 => rhum                 ! Relative humidity 
          case ('airtemperature')
             itemPtr1 => item_airtemperature
-            dataPtr1 => tair
+            dataPtr1 => tair                
          case ('cloudiness')
             itemPtr1 => item_cloudiness
-            dataPtr1 => clou
+            dataPtr1 => clou                 
          case ('solarradiation')
             itemPtr1 => item_solarradiation
-            dataPtr1 => qrad
-         case ('longwaveradiation')
-            itemPtr1 => item_longwaveradiation
-            dataPtr1 => longwave
+            dataPtr1 => qrad                
          case ('nudge_salinity_temperature')
             itemPtr2 => item_nudge_sal
             dataPtr2 => nudge_sal 
@@ -7004,12 +6998,12 @@ module m_meteo
    function initializeConverter(instancePtr, converterId, convtype, operand, method, srcmask, inputptr) result(success)
       logical                    :: success      !< function status
       type(tEcInstance), pointer :: instancePtr  !< 
-      integer                    :: converterId  !< Id of the converter to be initialized
-      integer                    :: convtype     !< Type of conversion
-      integer                    :: operand      !< Operand (add/replace)
-      integer                    :: method       !< Method of interpolation
-      type (tEcMask), optional   :: srcmask      !< Mask excluding source points
-      real(hp), pointer, optional:: inputptr     !< pointer to an input arg for the converter (for QHBND)
+      integer                    :: converterId  !< 
+      integer                    :: convtype     !< 
+      integer                    :: operand      !< 
+      integer                    :: method       !< 
+      type (tEcMask), optional   :: srcmask      !< 
+      real(hp), pointer, optional:: inputptr
       !
       success              = ecSetConverterType(instancePtr, converterId, convtype)
       if (success) success = ecSetConverterOperand(instancePtr, converterId, operand)
@@ -7217,6 +7211,8 @@ module m_meteo
             message = 'Boundary '''//trim(qidname)//''', location='''//trim(location)//''', file='''//trim(forcingfile)//''' failed!' 
             call mess(LEVEL_ERROR, message)
          end if
+!     elseif (ec_filetype == provFile_qh) then
+          
       else
                !success = ecSetFileReaderProperties(ecInstancePtr, fileReaderId, ec_filetype, filename, refdate_mjd, tzone, ec_second, name, forcingfile=forcingfile, dtnodal=dtnodal)
                !success = ecSetFileReaderProperties(ecInstancePtr, fileReaderId, ec_filetype, filename, refdate_mjd, tzone, ec_second, name, forcingfile=forcingfile)
@@ -7466,7 +7462,7 @@ module m_meteo
          ! Each qhbnd polytim file replaces exactly one element in the target data array.
          ! Converter will put qh value in target_array(n_qhbnd)
       case ('windx', 'windy', 'windxy', 'stressxy', 'airpressure', 'atmosphericpressure', 'airpressure_windx_windy', &
-            'airpressure_windx_windy_charnock', 'airpressure_stressx_stressy','humidity','airtemperature','cloudiness','solarradiation', 'longwaveradiation' )
+            'airpressure_windx_windy_charnock', 'airpressure_stressx_stressy','humidity','airtemperature','cloudiness','solarradiation' )
          if (present(srcmaskfile)) then 
             if (ec_filetype == provFile_arcinfo .or. ec_filetype == provFile_curvi) then
                if (.not.ecParseARCinfoMask(srcmaskfile, srcmask, fileReaderPtr)) then
@@ -7659,7 +7655,6 @@ module m_meteo
                call mess(LEVEL_FATAL, 'm_meteo::ec_addtimespacerelation: Unsupported filetype for quantity rainfall.')
                return
             end if
-            if (.not.(ecQuantitySet(ecInstancePtr, quantityId, timeint=timeint_rainfall))) return
          case ('rainfall_rate')
             ! the name of the source item depends on the file reader
             if (ec_filetype == provFile_uniform) then
@@ -7979,13 +7974,7 @@ module m_meteo
          case ('cloudiness')
             sourceItemName = 'cloudfraction'
          case ('solarradiation')
-            if (ec_filetype == provFile_netcdf) then
-               sourceItemName = 'surface_net_downward_shortwave_flux'
-            else
-               sourceItemName = 'sw_radiation_flux'
-            end if
-         case ('longwaveradiation')
-            sourceItemName = 'long_wave_radiation'
+            sourceItemName = 'sw_radiation_flux'
          case ('nudge_salinity_temperature')
             if (ec_filetype == provFile_netcdf) then
                sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'sea_water_potential_temperature')
@@ -8036,12 +8025,12 @@ module m_meteo
                         if (success) success = ecAddConnectionSourceItem(ecInstancePtr, connectionId, sourceItemId_4)
                         if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, targetItemPtr4)
                         if (success) success = ecAddItemConnection(ecInstancePtr, targetItemPtr4, connectionId)
-                     endif
-                  endif
-               endif
-            else
+                     endif                     
+                  endif                     
+               endif                     
+            else                     
                call mess(LEVEL_FATAL, 'm_meteo::ec_addtimespacerelation: Unsupported quantity specified in ext-file (connect source and target): '//trim(target_name)//'.')
-            endif
+            endif                     
             return
       end select
 
@@ -8062,7 +8051,7 @@ module m_meteo
       end if
       
       success = ecSetConnectionIndexWeights(ecInstancePtr, connectionId)
-
+            
       if ( target_name=='nudge_salinity_temperature' ) then
          call ecConverterGetBbox(ecInstancePtr, SourceItemID, 0, col0, col1, row0, row1, ncols, nrows, issparse, Ndatasize)
          relcol = dble(col1-col0+1)/dble(ncols)

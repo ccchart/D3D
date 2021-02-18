@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2021.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -551,8 +551,8 @@ module m_ec_filereader_read
                item2%sourceT0FieldPtr%arr1dPtr(i*n_cols) = item2%sourceT0FieldPtr%arr1dPtr(1+(i-1)*n_cols)
                item3%sourceT0FieldPtr%arr1dPtr(i*n_cols) = item3%sourceT0FieldPtr%arr1dPtr(1+(i-1)*n_cols)
             end do
-            ! Compensate for unit of pressure (mbar (= hpa) versus Pa)
-            if ((index(item3%quantityPtr%units,'mbar') == 1) .or. (index(item3%quantityPtr%units,'hPa') == 1)) then
+            ! Compensate for unit of pressure (mbar versus Pa)
+            if (trim(item3%quantityPtr%units) == 'mbar') then
                do i=1, size(item3%sourceT0FieldPtr%arr1dPtr)
                   item3%sourceT0FieldPtr%arr1dPtr(i) = item3%sourceT0FieldPtr%arr1dPtr(i)*100.0_hp
                end do
@@ -651,8 +651,8 @@ module m_ec_filereader_read
                item2%sourceT1FieldPtr%arr1dPtr(i*n_cols) = item2%sourceT1FieldPtr%arr1dPtr(1+(i-1)*n_cols)
                item3%sourceT1FieldPtr%arr1dPtr(i*n_cols) = item3%sourceT1FieldPtr%arr1dPtr(1+(i-1)*n_cols)
             end do
-            ! Compensate for unit of pressure (mbar, hPa versus Pa)
-            if ((index(item3%quantityPtr%units,'mbar') == 1) .or. (index(item3%quantityPtr%units,'hPa') == 1)) then
+            ! Compensate for unit of pressure (mbar versus Pa)
+            if (trim(item3%quantityPtr%units) == 'mbar') then
                do i=1, size(item3%sourceT1FieldPtr%arr1dPtr)
                   item3%sourceT1FieldPtr%arr1dPtr(i) = item3%sourceT1FieldPtr%arr1dPtr(i)*100.0_hp
                end do
@@ -819,13 +819,8 @@ module m_ec_filereader_read
 
                if (item%elementSetPtr%nCoordinates > 0) then
                   if ( issparse == 1 ) then
-                     call read_data_sparse(fileReaderPtr%fileHandle, varid, n_cols, n_rows, item%elementSetPtr%n_layers, &
-                                           timesndx, fileReaderPtr%relndx, ia, ja, Ndatasize, fieldPtr%arr1dPtr, ierror)
-                     if (ecSupportNetcdfCheckError(ierror, 'Error reading quantity '//trim(item%quantityptr%name)//' from sparse data. ', fileReaderPtr%filename)) then
-                         valid_field = .true.
-                     else
-                         return
-                     endif
+                     call read_data_sparse(fileReaderPtr%fileHandle, varid, n_cols, n_rows, item%elementSetPtr%n_layers, timesndx, ia, ja, Ndatasize, fieldPtr%arr1dPtr, ierror)
+                     valid_field = .true.
                   else
                      if (item%elementSetPtr%n_layers == 0) then 
                         if (item%elementSetPtr%ofType == elmSetType_samples) then
@@ -1313,9 +1308,9 @@ module m_ec_filereader_read
          indxComment = index(rec, '#')
          if (indx /= 0) then
             if (indxComment /= 0) then
-               answer = adjustl(rec(indx+1:indxComment - 1))
+               answer = rec(indx+1:indxComment - 1)
             else
-               answer = adjustl(rec(indx+1:))
+               answer = rec(indx+1:)
             endif
          else
             call setECMessage("ERROR: ec_filereader_read::ecSpiderwebAndCurviFindInFile: Failed to read an existing line.")
@@ -2066,7 +2061,7 @@ module m_ec_filereader_read
        end subroutine strip_comment
        
 !     read data and store in CRS format
-      subroutine read_data_sparse(filehandle, varid, n_cols, n_rows, n_layers, timesndx, relndx, ia, ja, Ndatasize, arr1d, ierror)
+      subroutine read_data_sparse(filehandle, varid, n_cols, n_rows, n_layers, timesndx, ia, ja, Ndatasize, arr1d, ierror)
          use netcdf
          implicit none
          
@@ -2076,7 +2071,6 @@ module m_ec_filereader_read
          integer,                        intent(in)    :: n_rows      !< number of rows in input
          integer,                        intent(in)    :: n_layers    !< number of layers in input
          integer,                        intent(in)    :: timesndx    !< time index
-         integer,                        intent(in)    :: relndx      !< realization index in an ensemble
          integer,          dimension(:), intent(in)    :: ia          !< CRS sparsity pattern, startpointers
          integer,          dimension(:), intent(in)    :: ja          !< CRS sparsity pattern, column numbers
          integer,                        intent(in)    :: Ndatasize   !< dimension of sparse data
@@ -2150,9 +2144,6 @@ module m_ec_filereader_read
 !                 read data
                   start(1:2)   = (/ mcolmin(j), nrowmin /)
                   start(ndims) = timesndx
-                  if (relndx>0 .and. ndims>=4) then
-                     start(3) = relndx
-                  endif
                   if ( n_layers /= 0 ) then
                      start(ndims-1) = k
                   end if

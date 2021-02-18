@@ -1,7 +1,7 @@
 module m_rdstm
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -213,7 +213,6 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     !
     call rdtrafrm(lundia, error, filtrn, stm%lsedtot, &
                 & ipardef, rpardef, NPARDEF, stm%trapar, &
-                & stm%morpar%moroutput%sedparout, &
                 & stm%sedpar%sedtyp, stm%sedpar%sedblock, &
                 & griddim)
     if (error) goto 999

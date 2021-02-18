@@ -15,4 +15,4 @@ fc TESTTriton-res.txt ..\resultsApproved\w32\TESTTriton-res.txt
 fc TESTTritonRestart.def ..\resultsApproved\w32\TESTTritonRestart.def
 fc TESTTritonRestart.dat ..\resultsApproved\w32\TESTTritonRestart.dat
 
-exit /B 0
+exit 0

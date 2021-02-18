@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2021.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -837,16 +837,12 @@ end subroutine ecInstanceListSourceItems
          character(3000) :: message
          !
          if (ierror /= nf90_noerr) then
-            write (message,'(a,i0,a)') 'NetCDF error message : [',ierror,'] '//trim(nf90_strerror(ierror))
+            if (present(description) .and. present(filename)) then
+               write (message,'(6a)') trim(description), '. NetCDF file : "', trim(filename), '". Error message:', nf90_strerror(ierror)
+            else
+               write (message,'(2a)') 'NetCDF error : ', nf90_strerror(ierror)
+            endif
             call setECMessage(message)
-            if (present(filename)) then
-               write (message,'(a)') 'NetCDF file : "'//trim(filename)
-               call setECMessage(message)
-            endif
-            if (present(description))  then
-               write (message,'(a)') trim(description)
-               call setECMessage(message)
-            endif
             success = .false.
          else
             success = .true.
@@ -858,7 +854,6 @@ end subroutine ecInstanceListSourceItems
       !> Extracts time unit and reference date from a standard time string.
       !! ASCII example: "TIME = 0 hours since 2006-01-01 00:00:00 +00:00"
       !! NetCDF example: "minutes since 1970-01-01 00:00:00.0 +0000"
-      !! also ISO_8601 is supported: 2020-11-16T07:47:33Z
       function ecSupportTimestringToUnitAndRefdate(rec, unit, ref_date, tzone) result(success)
          !
          logical                                :: success       !< function status
@@ -868,11 +863,15 @@ end subroutine ecInstanceListSourceItems
          real(kind=hp), optional, intent(out)   :: tzone         !< time zone
          !
          integer                       :: i        !< helper index for location of 'since'
+         integer                       :: j        !< helper index for location of '+/-' in time zone
+         integer                       :: jplus    !< helper index for location of '+' in time zone
+         integer                       :: jmin     !< helper index for location of '-' in time zone
          integer                       :: jcomment !< helper index for location of '#'
+         integer                       :: minsize  !< helper index for time zone
+         real(kind=hp)                 :: temp     !< helper variable
          logical                       :: ok       !< check of refdate is found
          character(len=20)             :: date     !< parts of string for date
          character(len=20)             :: time     !< parts of string for time
-         character(len=20)             :: tz       !< parts of string for time zone
          character(len=:), allocatable :: string   !< unit string without comments and in lowercase
          !
          success = .false.
@@ -906,40 +905,40 @@ end subroutine ecInstanceListSourceItems
          end if
          ! Determine the reference date.
          i = index(string, 'since') + 6
+         call split_date_time(string(i:), date, time)
          if (i /= 6) then
-            ok = split_date_time(str_toupper(string(i:)), date, time, tz)
-            if (.not. ok) then
-               call setECMessage("ec_support::ecSupportTimestringToUnitAndRefdate: splitting of date and time fails. Date time = ", string(i:))
-               return
-            end if
-
             ! Date
             if (ymd2reduced_jul(date, ref_date)) then
                ! Time
-               if ( time /= ' ') then
-                  ref_date = ref_date + parse_time(time, ok)
+               if(len_trim(time)>=8) then
+                  read(time(1 : 2), *) temp
+                  ref_date = ref_date + temp / 24.0_hp
+                  read(time(4 : 5), *) temp
+                  ref_date = ref_date + temp / 24.0_hp / 60.0_hp
+                  read(time(7 : 8), *) temp
+                  ref_date = ref_date + temp / 24.0_hp / 60.0_hp / 60.0_hp
                end if
+               ok = .true.
             else
                ref_date = -999.0_hp
                ok = .false.
             endif
-         else if (ecSupportTimestringArcInfo(string, ref_date)) then
-            ok = .true.
-            tz = ' '
          else
-            call setECMessage("ec_support::ecSupportTimestringToUnitAndRefdate: Unable to identify keyword: since and not an ArcInfo format.")
-            return
-         end if
-
+            ok = ecSupportTimestringArcInfo(string, ref_date)
+         endif
          if (.not. ok) then
-            call setECMessage("ec_support::ecSupportTimestringToUnitAndRefdate: Unable to parse date time in: ", rec)
+            call setECMessage("ec_support::ecSupportTimestringToUnitAndRefdate: Unable to identify keyword: since.")
             return
          end if
 
          ! Determine the timezone
          if (present(tzone)) then
-             if (tz /= ' ') then
-                 success = parseTimezone(tz, tzone)
+             minsize = i + 18   ! +/- is to be found after date and time (note that date has '-')
+             jplus = index(string, '+', back=.true.)
+             jmin  = index(string, '-', back=.true.)
+             j     = max(jplus, jmin)
+             if (j > minsize) then
+                 success = parseTimezone(string(j:), tzone)
              else
                  tzone = 0.0_hp
                  success = .true.
@@ -951,8 +950,7 @@ end subroutine ecInstanceListSourceItems
       end function ecSupportTimestringToUnitAndRefdate
 
       !> Extracts time unit and reference date from a time string in Arc Info format.
-      !! example: ... time (hrs)     18.0 20000101 18
-      !! string must be in lower case
+      !! example: ... TIME (HRS)     18.0 20000101 18
       function ecSupportTimestringArcInfo(rec, ref_date, time_steps) result (success)
          character(len=*)       , intent(in)  :: rec        !< input string
          real(kind=hp), optional, intent(out) :: ref_date   !< reference date found
@@ -960,9 +958,9 @@ end subroutine ecInstanceListSourceItems
          logical                              :: success    !< function result
 
          integer       :: yyyymmdd    !< reference date as Gregorian yyyymmdd
-         integer       :: posHrs      !< position in a string of 'hrs', 'hours'
-         integer       :: posNumbers  !< first position of the numbers in a string (actually, the first space after '(hrs)')
-         integer       :: posTime     !< position in a string of 'time'
+         integer       :: posHrs      !< position in a string of '(HRS)', 'hrs', 'hours'
+         integer       :: posNumbers  !< first position of the numbers in a string (actually, the first space after '(HRS)')
+         integer       :: posTime     !< position in a string of 'TIME' or 'time'
          integer       :: ierr        !< error code
          integer       :: i           !< loop counter
          real(kind=hp) :: time        !< time found
@@ -971,10 +969,10 @@ end subroutine ecInstanceListSourceItems
          success = .false.
          posNumbers = 0
 
-         posTime = index(rec, 'time')
+         posTime = max(index(rec, 'TIME'), index(rec, 'time'))
 
          if (posTime > 0) then
-            posHrs = max(index(rec, 'hrs'), index(rec, 'hours'))
+            posHrs = max(index(rec, '(HRS)'), index(rec, 'hrs'), index(rec, 'hours'))
             do i = posHrs+3, len_trim(rec)
                if (rec(i:i) == ' ') then
                   posNumbers = i
@@ -1020,7 +1018,7 @@ end subroutine ecInstanceListSourceItems
       ! =======================================================================
 
       !> Extracts time zone from a standard time string.
-      !! examples: "+01:00", "+0200", "-01:00", "-0200", "+5:30", "Z"
+      !! examples: "+01:00", "+0200", "-01:00", "-0200", "+5:30"
       function parseTimezone(string, tzone) result(success)
          logical                              :: success         !< function status
          character(len=*),        intent(in)  :: string          !< units string
@@ -1035,34 +1033,31 @@ end subroutine ecInstanceListSourceItems
          character(len=2) :: cmin        !< minutes part of time zone, as character string
          character(len=3) :: chour       !< hours part of time zone, as character string
 
-         if (string == 'Z') then
-            tzone = 0.0_hp
-            ierr = 0
+         tzone = 0.0_hp
+
+         jcolon = index(string, ':')
+
+         if (jcolon == 0) then
+            posNulChar = index(string, char(0))
+            if (posNulChar > 0) then
+               jend = posNulChar-1
+            else
+               jend = len_trim(string)
+            endif
+            cmin = string(jend-1:)
+            chour = string(:jend-2)
          else
-            jcolon = index(string, ':')
-
-            if (jcolon == 0) then
-               posNulChar = index(string, char(0))
-               if (posNulChar > 0) then
-                  jend = posNulChar-1
-               else
-                  jend = len_trim(string)
-               endif
-               cmin = string(jend-1:)
-               chour = string(:jend-2)
-            else
-               cmin = string(jcolon+1:)
-               chour = string(:jcolon-1)
-            end if
-
-            read(chour, *, iostat=ierr) hour
-            if (ierr == 0) read(cmin, *, iostat=ierr) min
-            if (string(1:1) == '-') then
-               tzone = hour - min / 60.0_hp
-            else
-               tzone = hour + min / 60.0_hp
-            end if
+            cmin = string(jcolon+1:)
+            chour = string(:jcolon-1)
          end if
+
+         read(chour, *, iostat=ierr) hour
+         if (ierr == 0) read(cmin, *, iostat=ierr) min
+         if (string(1:1) == '-') then
+            tzone = hour - min / 60.0_hp
+         else
+            tzone = hour + min / 60.0_hp
+         endif
 
          success = (ierr == 0)
          if (.not. success) call setECMessage("ec_support::parseTimezone: error parsing time zone " // trim(string))
@@ -1254,33 +1249,18 @@ end subroutine ecInstanceListSourceItems
                   if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'AXIS', axis) ! support 'axis' in upper case, lower case and camel case
                   if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'Axis', axis)
 
-                  if (ierr == nf90_noerr) then
-                     if (strcmpi(axis,'X')) then
-                        x_varid = ivar
-                        x_dimid = dimids(1)
-                     else if (strcmpi(axis,'Y')) then
-                        y_varid = ivar
-                        y_dimid = dimids(1)
-                     else if (strcmpi(axis,'Z')) then
-                        z_varid = ivar
-                        z_dimid = dimids(1)
-                     end if
-                  else
-                     ierr = nf90_get_att(ncid, ivar, 'standard_name', stdname)
-                     select case (stdname)
-                     case ('projection_x_coordinate')
-                        x_varid = ivar
-                        x_dimid = dimids(1)
-                     case ('projection_y_coordinate')
-                        y_varid = ivar
-                        y_dimid = dimids(1)
-                     case default
-                        ierr = EC_DATA_NOTFOUND
-                     end select
-                  end if
                   if (ierr /= 0) then
-                     ierr = nf90_inquire_variable(ncid, ivar, name = varname)
-                     call setECmessage("attribute 'axis' not found for variable " // trim(varname)// ", nor 'projection_x/y_coordinate' was found.")
+                      ierr = nf90_inquire_variable(ncid, ivar, name = varname)
+                      call setECmessage("attribute 'axis' not found for variable " // trim(varname))
+                  else if (strcmpi(axis,'X')) then
+                     x_varid = ivar
+                     x_dimid = dimids(1)
+                  else if (strcmpi(axis,'Y')) then
+                     y_varid = ivar
+                     y_dimid = dimids(1)
+                  else if (strcmpi(axis,'Z')) then
+                     z_varid = ivar
+                     z_dimid = dimids(1)
                   end if
                case default
                   ! see if is the time dimension

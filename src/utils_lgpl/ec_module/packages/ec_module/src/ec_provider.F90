@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -29,8 +29,7 @@
 !> This module instantiates FileReaders and their source Items, just as a GUI/framework instantiates kernels and their target Items.
 !! @author adri.mourits@deltares.nl
 !! @author stef.hummel@deltares.nl
-!! @author robert.leander@deltares.nl
-!! @author edwin.spee@deltares.nl
+!! @author edwin.bos@deltares.nl
 module m_ec_provider
    use m_ec_typedefs
    use m_ec_parameters
@@ -96,30 +95,13 @@ module m_ec_provider
          character(len=*), optional, intent(in) :: funtype   !< matching function in the BC-block header
          !
          integer                    :: istat
-         integer                    :: forcingfiletype
          integer                    :: bcBlockId
          type (tEcBCBlock), pointer :: bcBlockPtr
-         logical                    :: file_exists
          success = .False.
-
-         inquire(FILE=forcingfile, EXIST=file_exists)
-         if (.not.file_exists) then
-           call setECMessage("Forcing file ("//trim(forcingfile)//") not found.")
-           return
-         endif
-         if (index(trim(forcingfile)//'|','.bc|')>0) then                               ! ASCII: bc-format  : detection is extension-based
-            forcingfiletype = BC_FTYPE_ASCII
-         else if (index(trim(forcingfile)//'|','.nc|')>0) then                          ! NETCDF: nc-format 
-            forcingfiletype = BC_FTYPE_NETCDF
-         else
-           call setECMessage("Forcing file ("//trim(forcingfile)//") should either have extension .nc (netcdf timeseries file) or .bc (ascii BC-file).")
-           return
-         endif 
-         
          bcBlockId = ecInstanceCreateBCBlock(instancePtr)
          bcBlockPtr=>ecSupportFindBCBlock(instancePtr, bcBlockId)
          if (.not. ecProviderInitializeBCBlock(instancePtr, bcBlockId,  &
-                         k_refdat, k_tzone, k_tsunit, fileReaderId, forcingfile, forcingfiletype, quantity, location, istat, funtype=funtype)) then
+                         k_refdat, k_tzone, k_tsunit, fileReaderId, forcingfile, quantity, location, istat, funtype=funtype)) then
                ! TODO: handle exception 
                return
             continue
@@ -131,7 +113,7 @@ module m_ec_provider
       
       !> Initialize a new BCBlock item, which in turn constructs and initializes a filereader 
 
-      function ecProviderInitializeBCBlock(instancePtr, bcBlockId, k_refdat, k_tzone, k_tsunit, fileReaderId, fileName, fileType, quantityName, &
+      function ecProviderInitializeBCBlock(instancePtr, bcBlockId, k_refdat, k_tzone, k_tsunit, fileReaderId, fileName, quantityName, &
                                            plilabel, istat, dtnodal, funtype) result(success)
       use m_ec_netcdf_timeseries
       use m_ec_alloc
@@ -144,7 +126,6 @@ module m_ec_provider
          integer,                intent(in)  :: k_tsunit     !< kernel timestep unit (1=sec, 2=min, 3=hour)
          integer,                intent(out) :: fileReaderId !< unique fileReader id
          character(*),           intent(in)  :: fileName     !< relative path of data file
-         integer,                intent(in)  :: fileType     !< type of the BC-file (ascii=bc, netcdf=nc)
          character(*),           intent(in)  :: quantityName !< name of quantity, needed for structured input files (NetCDF and BC)
          character(*),           intent(in)  :: plilabel     !< identify a (set of) pli-points
          real(hp), optional,     intent(in)  :: dtnodal      !< Nodal factors in astronomical bc update interval
@@ -164,9 +145,8 @@ module m_ec_provider
          bcBlockPtr => ecSupportFindBCBlock(instancePtr, bcBlockId)
          if (.not.associated(bcBlockPtr)) return
              
-         bcBlockPtr%ftype = fileType
-         select case (bcBlockPtr%ftype)
-         case (BC_FTYPE_ASCII)
+         if (index(trim(fileName)//'|','.bc|')>0) then                               ! ASCII: bc-format  : detection is extension-based
+!           bcFilePtr => ecSupportFindBCFileByFilename(instancePtr, fileName)       ! was this BC-file already opened?
             bcBlockPtr%bcFilePtr => ecSupportFindBCFileByFilename(instancePtr, fileName)! was this BC-file already opened?
             if (.not.associated(bcBlockPtr%bcFilePtr)) then                                    ! if not, create anew
             ! ensure capacity
@@ -181,7 +161,8 @@ module m_ec_provider
                bcBlockPtr%bcFilePtr%bcfilename = fileName
                instancePtr%ecBCFilesPtr(instancePtr%nBCFiles)%Ptr => bcBlockPtr%bcFilePtr
             endif
-         case (BC_FTYPE_NETCDF)
+            bcBlockPtr%ftype=BC_FTYPE_ASCII
+         else if (index(trim(fileName)//'|','.nc|')>0) then                          ! NETCDF: nc-format 
             !if (index(plilabel,'_')<=0) then 
             !   return                                                              ! If this was not pli-label  bla_0001 then its is a qhbnd
             !endif                                                                  ! not supported in combination with netcdf-files 
@@ -203,7 +184,10 @@ module m_ec_provider
                bcBlockPtr%vp => bcBlockPtr%ncptr%vp
                bcBlockPtr%numlay = bcBlockPtr%ncptr%nLayer
             endif
-         end select
+         else
+           call setECMessage("Forcing file ("//trim(fileName)//") should either have extension .nc (netcdf timeseries file) or .bc (ascii BC-file).")
+           return
+         endif 
          
          if (.not.ecBCInit (instancePtr, filename, quantityName, plilabel, bcBlockPtr, iostat, funtype=funtype)) return
 
@@ -278,12 +262,6 @@ module m_ec_provider
                if (.not. ecProviderNetcdfReadvars(fileReaderPtr)) then
                   ! todo: error handling with message
                   return
-               end if
-               if (size(fileReaderPtr%dim_length)>=5) then
-                  if (fileReaderPtr%relndx>fileReaderPtr%dim_length(3)) then
-                     call setECMessage("ERROR: ec_provider::ecProviderInitializeFileReader: Number of realization is outside the ensemble size.")
-                     return        
-                  end if
                end if
             end select
 
@@ -377,15 +355,12 @@ module m_ec_provider
                            "humidity_airtemperature_cloudiness",                          &
                            "humidity_airtemperature_cloudiness_solarradiation",           &
                            "dewpoint_airtemperature_cloudiness",                          &
-                           "dewpoint_airtemperature_cloudiness_solarradiation",           &
-                           "solarradiation", "longwaveradiation")
+                           "dewpoint_airtemperature_cloudiness_solarradiation")
                         success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
                      case ("hrms","tp", "tps", "rtp","dir","fx","fy","wsbu","wsbv","mx","my","dissurf","diswcap","ubot") 
                         success = ecProviderCreateWaveNetcdfItems(instancePtr, fileReaderPtr, quantityname)
                      case default
                         if (index(quantityName,'waqsegmentfunction')==1) then
-                           success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
-                        else if (index(quantityName, 'initialtracer')==1) then
                            success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
                         else
                            call setECMessage("ERROR: ec_provider::ecProviderCreateItems: Unsupported quantity name '"   &
@@ -876,6 +851,9 @@ module m_ec_provider
                   return
                end if
                elementSetName = fileReaderPtr%bc%bcname
+               if (quantityName == 'RAINFALL') then
+                  if (.not.(ecQuantitySet(instancePtr, quantityId, timeint=timeint_rainfall))) return
+               end if
          end select 
 
          ! N_quantities number of scalar quantities.
@@ -1033,15 +1011,8 @@ module m_ec_provider
                                                                 units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
-            else if (index(lc_filename, '.sdu') /= 0) then
-               ! ===== quantity: bedrock surface timeseries =====
-               quantityId = ecInstanceCreateQuantity(instancePtr)
-               if (.not. (ecQuantitySet(instancePtr, quantityId, name='bedrock_surface_elevation', &
-                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
-                  success = .false.
-               end if                                                    
             else
-                call setECMessage('extension not recognized in ' // trim(fileReaderPtr%fileName))
+                call setECMessage('extension not recoqnized in ' // trim(fileReaderPtr%fileName))
                 success = .false.
             end if
             field0Id = ecInstanceCreateField(instancePtr)
@@ -1477,19 +1448,8 @@ module m_ec_provider
             call setECMessage("ERROR: ec_provider::ecProviderCreatet3DItems: Unknown file type.")
             return 
          end select
-
-         ! In bc-files only, time-interpolation properties for T3D data can be customized
-         if (fileReaderPtr%ofType == provFile_bc) then
-            if (.not. ecQuantitySetTimeint(instancePtr, quantityId, fileReaderPtr%bc%timeint, & 
-                                           periodic = fileReaderPtr%bc%periodic,              &
-                                           constant = (fileReaderPtr%bc%func == BC_FUNC_CONSTANT))) then
-               return
-            endif         
-         endif         
-                                           
-         ! Assign vertical interpolation type
+         !Assign vertical interpolation type        
          valueptr%quantityPtr%zInterpolationType = zInterpolationType
-
          ! Add successfully created source Items to the FileReader
          if (.not.ecFileReaderAddItem(instancePtr, fileReaderPtr%id, valueptr%id)) return 
          success = .true.
@@ -1517,9 +1477,9 @@ module m_ec_provider
          character(len=maxFileNameLen), &
          &   dimension(:), allocatable       :: plipointlbls  !< user-specified name for all pli-point in bct context 
          character(len=maxFileNameLen)       :: polyline_name !< polyline name read from pli-file 
-         logical                             :: exists   !< helper boolean, indicating file existence
+         logical                             :: exists   !< helper boolian, indicating file existence
          integer                             :: id       !< dummy, catches ids which are not used
-         integer                             :: quantityId, elementSetId, fieldId, itemId
+         integer                             :: quantityId, elementSetId, fieldId, itemId, subconverterId, connectionId
          integer                             :: maxLay
          type(tEcItem), pointer              :: itemPT
          type(tEcItem), pointer              :: itemt3D
@@ -1527,7 +1487,7 @@ module m_ec_provider
          integer,  dimension(:), allocatable :: itemIDList
          integer                             :: vectormax
 
-         integer                             :: signaltype
+         logical                             :: is_tim, is_cmp, is_tim3d
          logical                             :: has_label
          integer                             :: lblstart
          type(tEcFileReader), pointer        :: fileReaderPtr2
@@ -1627,6 +1587,9 @@ module m_ec_provider
          n_signals = 0 ! Record whether at least one child provider is created for this polytim.
 
          do i=1, n_points
+            is_tim = .false.
+            is_cmp = .false.
+            is_tim3d = .false.
             ! plipoint labels read from the third column in the pli-file. Currently this goes wrong if in the test third-column labels are not unique 
             if (len_trim(plipointlbls(i))==0) then 
                write(plipointlbl,'(a,i4.4)') fileReaderPtr%fileName(1:L)//'_',i
@@ -1645,7 +1608,7 @@ module m_ec_provider
                fileReaderPtr2%vectormax = fileReaderPtr%vectormax ! TODO copy timeframe
                if (.not. (ecProviderInitializeFileReader(instancePtr, id, provFile_uniform, filename, fileReaderPtr%tframe%k_refdate,       &
                                      fileReaderPtr%tframe%k_timezone, fileReaderPtr%tframe%k_timestep_unit))) return
-               signaltype = BC_FUNC_TSERIES
+               is_tim = .true.
             else 
                filename = trim(plipointlbl)//'.cmp'
                inquire (file = trim(filename), exist = exists)
@@ -1657,7 +1620,7 @@ module m_ec_provider
                   if (.not. (ecProviderInitializeFileReader(instancePtr, id, provFile_fourier, filename, fileReaderPtr%tframe%k_refdate,       &
                                      fileReaderPtr%tframe%k_timezone, fileReaderPtr%tframe%k_timestep_unit, dtnodal=fileReaderPtr%tframe%dtnodal))) return
 
-                  signaltype = BC_FUNC_HARMONIC
+                  is_cmp = .true.
                else 
                   filename = trim(plipointlbl)//'.t3d'
                   inquire (file = trim(filename), exist = exists)
@@ -1669,18 +1632,19 @@ module m_ec_provider
                      if (.not. (ecProviderInitializeFileReader(instancePtr, id, provFile_t3D, filename, fileReaderPtr%tframe%k_refdate,       &
                                      fileReaderPtr%tframe%k_timezone, fileReaderPtr%tframe%k_timestep_unit))) return
 
-                     signaltype = BC_FUNC_TIM3D
+                     is_tim3d = .true.
                   else                           ! No file with data for this point 
                      if (has_label) then    ! Report explicitly labelled point without data 
                         call setECMessage("No .tim, .cmp or .t3d file found for labelled point '" &
                                        //  trim(plipointlbl)//"' (required).")
                         return
                      endif ! labelled point ? 
-                     signaltype = -1
                   endif    ! tim3d-file ? 
                endif       ! cmp file ? 
             endif          ! tim-file ?
-            if (.not. ecProviderConnectSourceItemsToTargets(instancePtr, signaltype, id, itemId, i,            &
+            !if (.not. ecProviderConnectSourceItemsToTargets(instancePtr, is_tim, is_cmp, is_tim3d, 'uniform_item',      &
+            !                                                id, itemId, i, n_signals, maxlay, itemIDList)) then
+            if (.not. ecProviderConnectSourceItemsToTargets(instancePtr, is_tim, is_cmp, is_tim3d, id, itemId, i,            &
                                                         n_signals, maxlay, itemIDList)) then
                ! No sub-FileReader made.
                mask(i) = 0
@@ -1726,19 +1690,18 @@ module m_ec_provider
          character(len=:), allocatable       :: polyline_name !< polyline name read from pli-file
          character(len=4)                    :: cnum     !< temp integer converted to a string
          integer                             :: id       !< dummy, catches ids which are not used
-         integer                             :: quantityId, elementSetId, fieldId, itemId, BCBlockID
+         integer                             :: quantityId, elementSetId, fieldId, itemId, subconverterId, connectionId, BCBlockID
          integer                             :: maxLay
          type(tEcItem), pointer              :: itemPT
          type(tEcItem), pointer              :: itemt3D
          type(tEcItem), pointer              :: sourceItem
          integer,  dimension(:), allocatable :: itemIDList
          integer                             :: vectormax
+         logical                             :: is_tim, is_cmp, is_tim3d
          type(tEcBCBlock), pointer           :: bcBlockPtr
          logical                             :: all_points_are_corr
          logical                             :: has_label
          integer                             :: lblstart
-         integer                             :: bctfiletype
-         logical                             :: file_exists
          !
 
 !        initialization
@@ -1753,7 +1716,7 @@ module m_ec_provider
          do
             call GetLine(fileReaderPtr%fileHandle, rec, istat)
             if (istat /= 0) then
-               call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItemsBC: Unexpected end of file.")
+               call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItems: Unexpected end of file.")
                return
             end if
             if (rec(1:1) /= '*') exit
@@ -1763,21 +1726,23 @@ module m_ec_provider
          ! Read the number of support points.
          read(fileReaderPtr%fileHandle, *, iostat = istat) n_points
          if (istat /= 0) then
-            call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItemsBC: Unable to read the number of points.")
+            call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItems: Unable to read the number of points.")
             return
          end if
          ! Sanity check
          if (n_points < 2) then
-            call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItemsBC: Less then two support points found.")
+            call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItems: Less then two support points found.")
             return
          end if
          ! Read the support point coordinate pairs.
-         allocate(xs(n_points), ys(n_points), mask(n_points), itemIDList(n_points), plipointlbls(n_points), stat=istat)
-         if (istat /= 0) then
-            call setECMessage("ERROR: ec_provider::ecProviderCreatePolyTimItemsBC: allocation error. N_points = ", n_points)
-         end if
+         allocate(xs(n_points))
+         allocate(ys(n_points))
+         
+         allocate(mask(n_points))
          mask = 1
+         allocate(itemIDList(n_points))
          itemIDList = ec_undef_int
+         allocate(plipointlbls(n_points))
          do i=1, n_points
             call GetLine(fileReaderPtr%fileHandle, rec, istat)
             if (index(rec,'!')>0) rec = rec(1:index(rec,'!')-1)          ! trim commented  (!)
@@ -1817,29 +1782,18 @@ module m_ec_provider
 
          itemPT => ecSupportFindItem(instancePtr, itemId)
 
-         inquire(FILE=bctfilename, EXIST=file_exists)
-         if (.not.file_exists) then
-           call setECMessage("Forcing file ("//trim(bctfilename)//") not found.")
-           return
-         endif
-         if (index(trim(bctfilename)//'|','.bc|')>0) then   ! ASCII: bc-format  : detection is extension-based
-            bctfiletype = BC_FTYPE_ASCII
-         else if (index(trim(bctfilename)//'|','.nc|')>0) then ! NETCDF: nc-format 
-            bctfiletype = BC_FTYPE_NETCDF
-         else
-           call setECMessage("Forcing file ("//trim(bctfilename)//") should either have extension .nc (netcdf timeseries file) or .bc (ascii BC-file).")
-           return
-         endif 
-         
-
          all_points_are_corr       = .true.
          ! Init BCBlock for (global) qh-bound 
+         n_signals = 0                                   ! Record whether at least one child provider is created for this polytim.
          bcBlockId = ecInstanceCreateBCBlock(InstancePtr)
          bcBlockPtr=>ecSupportFindBCBlock(instancePtr, bcBlockId)
          plipointlbl = polyline_name
          call str_upper(quantityname)
-         n_signals = 0                                   ! Record whether at least one child provider is created for this polytim.
+         n_signals = 0
          do i=1, n_points
+            is_tim = .false.
+            is_cmp = .false.
+            is_tim3d = .false.
             ! Process a *.tim file.
             bcBlockId = ecInstanceCreateBCBlock(InstancePtr) 
             bcBlockPtr=>ecSupportFindBCBlock(instancePtr, bcBlockId)
@@ -1854,17 +1808,18 @@ module m_ec_provider
                plipointlbl = trim(plipointlbls(i)%s)
                has_label = .True.
             endif
-
+            
             if (.not. ecProviderInitializeBCBlock(InstancePtr, bcBlockId, fileReaderPtr%tframe%k_refdate, fileReaderPtr%tframe%k_timezone, fileReaderPtr%tframe%k_timestep_unit,   &
-                                  id, bctfilename, bctfiletype, quantityname, plipointlbl, istat, dtnodal=fileReaderPtr%tframe%dtnodal)) then
+                                  id, bctfilename, quantityname, plipointlbl, istat, dtnodal=fileReaderPtr%tframe%dtnodal)) then
+               !call setECMessage("WARNING: ec_provider::ecProviderPolyTimItems: Error initializing EC Block.")
+               mask(i) = 0
+               mask(i) = 0
                if (has_label) then               ! for explicitly labelled pli-points, require data 
                   call setECMessage("BC-File "//trim(bctfilename)//" contains no data for labelled point '" &
                                               //trim(plipointlbl)//"' and quantity '"//trim(quantityname)//"' (required).")
                   return
-               else
-                  mask(i) = 0
-                  cycle
-               endif
+               endif 
+               cycle
             endif
             if (bcBlockPtr%func == BC_FUNC_HARMOCORR .or. bcBlockPtr%func == BC_FUNC_ASTROCORR) then
                ecAtLeastOnePointIsCorrection = .true. ! TODO: Refactor this shortcut (UNST-180).
@@ -1873,23 +1828,17 @@ module m_ec_provider
             else
                all_points_are_corr = .false.
             endif
-            if (.not. ecProviderConnectSourceItemsToTargets(instancePtr, bcBlockPtr%func, id, itemId, i,        &
+            is_tim = (bcBlockPtr%func == BC_FUNC_TSERIES) .or. (bcBlockPtr%func == BC_FUNC_CONSTANT)
+            is_cmp = ((bcBlockPtr%func == BC_FUNC_HARMONIC) .or. (bcBlockPtr%func == BC_FUNC_ASTRO))
+            is_tim3d = (bcBlockPtr%func == BC_FUNC_TIM3D)
+
+            if (.not. ecProviderConnectSourceItemsToTargets(instancePtr, is_tim, is_cmp, is_tim3d, id, itemId, i,        &
                                                      n_signals, maxlay, itemIDList, qname=quantityname)) then
                !
                ! No sub-FileReader made.
                mask(i) = 0
             endif
          end do               ! loop over support points
-
-
-         if (n_signals >  0) then
-            if (.not.ecQuantitySet(instancePtr, quantityId, &
-                          fillvalue = bcBlockPtr%quantity%missing, &
-                          offset = bcBlockPtr%quantity%offset, &
-                          factor = bcBlockPtr%quantity%factor )) then
-               return
-            endif
-         endif
 
          if (ecAtLeastOnePointIsCorrection) then  ! TODO: Refactor this shortcut (UNST-180).
              if (all_points_are_corr) then
@@ -1998,7 +1947,7 @@ module m_ec_provider
 
 !==============================================================================================================
       
-      function ecProviderConnectSourceItemsToTargets(instancePtr, signaltype, fileReaderId, targetItemId, targetIndex, n_signals, maxlay, itemIDList, qname) result(itemFound)
+      function ecProviderConnectSourceItemsToTargets(instancePtr, is_tim, is_cmp, is_tim3d, fileReaderId, targetItemId, targetIndex, n_signals, maxlay, itemIDList, qname) result(itemFound)
          logical :: itemFound
          type(tEcInstance),   pointer              :: instancePtr   !< intent(in)
          integer :: fileReaderId ! file reader id
@@ -2006,15 +1955,14 @@ module m_ec_provider
          integer :: targetIndex ! index in target item's values
          integer :: n_signals, maxlay ! INOUT
          integer,  dimension(:) :: itemIDList  ! INOUT
-         integer :: signaltype
+         logical ::	is_tim, is_cmp, is_tim3d
          integer :: subconverterId, magnitude, j, connectionId, nr_fourier_items, anItemId
          type(tEcItem), pointer :: itemt3D
          character(len=*), optional :: qname
          
          itemFound = .false.
 
-         select case (signaltype)
-         case (BC_FUNC_TSERIES, BC_FUNC_CONSTANT)
+         if (is_tim) then
             ! Construct a new Converter.
             subconverterId = ecInstanceCreateConverter(instancePtr)
             ! Determine the source Items.
@@ -2046,7 +1994,8 @@ module m_ec_provider
             if (.not. ecItemAddConnection(instancePtr, targetItemId, connectionId)) return
             n_signals = n_signals + 1
             itemFound = .true.
-         case (BC_FUNC_HARMONIC, BC_FUNC_ASTRO)
+         end if
+         if (is_cmp) then
             ! Construct a new Converter.
             subconverterId = ecInstanceCreateConverter(instancePtr)
             ! Determine the source Items.
@@ -2068,7 +2017,8 @@ module m_ec_provider
             if (.not. ecItemAddConnection(instancePtr, targetItemId, connectionId)) return
             n_signals = n_signals + 1
             itemFound = .true.
-         case (BC_FUNC_TIM3D)
+         end if
+         if (is_tim3d) then
             ! Construct a new Converter.
             subconverterId = ecInstanceCreateConverter(instancePtr)
 
@@ -2095,7 +2045,7 @@ module m_ec_provider
             ! Initialize the new Converter.
             if (.not. (ecConverterSetType(instancePtr, subconverterId, convType_uniform) .and. &
                        ecConverterSetOperand(instancePtr, subconverterId, operand_replace_element) .and. &
-                       ecConverterSetInterpolation(instancePtr, subconverterId, interpolate_timespace) .and. &
+                       ecConverterSetInterpolation(instancePtr, subconverterId, interpolate_time) .and. &
                        ecConverterSetElement(instancePtr, subconverterId, targetIndex))) return
             ! Construct a new Connection.
             connectionId = ecInstanceCreateConnection(instancePtr)
@@ -2106,7 +2056,7 @@ module m_ec_provider
             if (.not. ecItemAddConnection(instancePtr, targetItemId, connectionId)) return
             n_signals = n_signals + 1
             itemFound = .true.
-         end select
+         endif
          
       end function ecProviderConnectSourceItemsToTargets
      ! itemIDList
@@ -2395,6 +2345,7 @@ module m_ec_provider
          integer                                                 :: field0Id              !< helper variable 
          integer                                                 :: field1Id              !< helper variable 
          integer                                                 :: itemId                !< helper variable 
+         integer                                                 :: istat                 !< helper variable 
          type(tEcItem),              pointer                     :: itemPtr               !< Item containing quantity
          logical                                                 :: dummy                 !< temp
          character(len=50)                                       :: attstr 
@@ -2409,7 +2360,7 @@ module m_ec_provider
          integer                                                 :: expectedLength
          character(len=:), allocatable                           :: nameVar         ! variable name in error message
          character(len=2)                                        :: cnum1, cnum2    ! 1st and 2nd number converted to string for error message
-         integer                                                 :: nrow, ncol, nlay, nrel
+         integer                                                 :: nrow, ncol, nlay
          !
          success = .false.
          itemPtr => null()
@@ -2507,12 +2458,6 @@ module m_ec_provider
             ncstdnames(3) = 'cloud_area_fraction'
             ncvarnames(4) = 'ssr'                            ! outgoing SW radiation at the top-of-the-atmosphere
             ncstdnames(4) = 'surface_net_downward_shortwave_flux'
-         case ('solarradiation')
-            ncvarnames(1) = 'ssr'                            ! outgoing SW radiation at the top-of-the-atmosphere
-            ncstdnames(1) = 'surface_net_downward_shortwave_flux'
-         case ('longwaveradiation')
-            ncvarnames(1) = 'strd'                           ! outgoing long wave radiation
-            ncstdnames(1) = 'surface_net_downward_longwave_flux'
          case ('nudge_salinity_temperature')
             ncvarnames(1) = 'thetao'                         ! temperature
             ncstdnames(1) = 'sea_water_potential_temperature'
@@ -2522,9 +2467,6 @@ module m_ec_provider
             if (index(quantityName,'waqsegmentfunction')==1) then
                ncvarnames(1) = quantityName
                ncstdnames(1) = quantityName
-            else if (index(quantityName,'initialtracer')==1) then
-               ncvarnames(1) = quantityName(14:)
-               ncstdnames(1) = quantityName(14:)
             else
                ! we have faulty 
                call setECMessage("Quantity '"//trim(quantityName)//"', requested from file "//trim(fileReaderPtr%filename)//", unknown.")
@@ -2600,33 +2542,30 @@ module m_ec_provider
                coordids(idims) = fileReaderPtr%dim_varids(dimids(idims))
             enddo
 
-            fgd_id = -1
-            sgd_id = -1
             if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
                if (nod_dimid>0) then  
                   grid_type = elmSetType_samples
                else
                   grid_type = elmSetType_cartesian
                end if
-               if (x_varid>0) then
+               if (x_varid>0 .and. y_varid>0) then
                   fgd_id = x_varid
-               endif
-               if (y_varid>0) then
                   sgd_id = y_varid
-               endif
+               else
+                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
+                      //' requires ''projected_x_coordinate'' and ''projected_y_coordinate''.')
+                  return
+               end if
             else if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
                if (nod_dimid>0) then  
                   grid_type = elmSetType_samples
                else
                   grid_type = elmSetType_spheric
                end if
-               if (lon_varid>0) then
+               if (lon_varid>0 .and. lat_varid>0) then                                  ! First try absolute lon and lat ...
                   fgd_id = lon_varid
-               endif
-               if (lat_varid>0) then
                   sgd_id = lat_varid
-               endif
-               if ((grid_lon_varid>0) .and. (grid_lat_varid>0) .and. (fgd_id<0 .or. sgd_id<0)) then  ! ... then try relative (rotated-pole-) lon and lat
+               elseif ((grid_lon_varid>0) .and. (grid_lat_varid>0)) then                    ! ... then try relative (rotated-pole-) lon and lat
                   fgd_id = grid_lon_varid
                   sgd_id = grid_lat_varid
                   grid_mapping=''
@@ -2655,6 +2594,10 @@ module m_ec_provider
                         endif 
                      endif 
                   endif 
+               else
+                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
+                      //' either requires ''latitude'' and ''longitude'' or ''grid_latitude'' and ''grid_longitude''.')
+                  return
                end if
             end if
 
@@ -2667,47 +2610,29 @@ module m_ec_provider
             ierror = nf90_get_att(fileReaderPtr%fileHandle, idvar, "coordinates", coord_name)      ! get coordinates attribute
             if (len_trim(coord_name)>0) then
                if (allocated(coord_names)) deallocate(coord_names)
-               call strsplit(coord_name,1,coord_names,1)
-               do j=1,size(coord_names) 
+               allocate(coord_names(ndims))
+               coord_names = ''
+               read(coord_name, *,iostat=istat) ( coord_names(j), j=1,ndims )
+               do j=1,ndims 
                   if (len_trim(coord_names(j))>0) then
                      call ecProviderSearchStdOrVarnames(fileReaderPtr, j, varid, ncvarnames = coord_names, ignore_case = .True.)
                      if (varid<0) then
                         call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename) &
                                           //' coordinates variable '//trim(coord_names(2))//' referenced but not found')
-                     else
-                        if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
-                           if (strcmpi(fileReaderPtr%standard_names(varid),'projection_x_coordinate')) then
-                              fgd_id = varid
-                           endif
-                           if (strcmpi(fileReaderPtr%standard_names(varid),'projection_y_coordinate')) then
-                              sgd_id = varid
-                           endif
-                        end if
-                        if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
-                           if (strcmpi(fileReaderPtr%standard_names(varid),'longitude')) then
-                              fgd_id = varid
-                           endif
-                           if (strcmpi(fileReaderPtr%standard_names(varid),'latitude')) then
-                              sgd_id = varid
-                           endif
-                       end if
+                        return
+                     end if
+                     if (strcmpi(fileReaderPtr%standard_names(varid),'projected_x_coordinate')) then
+                         fgd_id = varid
+                     else if (strcmpi(fileReaderPtr%standard_names(varid),'projected_y_coordinate')) then
+                         sgd_id = varid
+                     else if (strcmpi(fileReaderPtr%standard_names(varid),'longitude')) then
+                         fgd_id = varid
+                     else if (strcmpi(fileReaderPtr%standard_names(varid),'latitude')) then
+                         sgd_id = varid
                      end if
                    end if
                end do
             end if    ! has non-empty coordinates attribute
-
-            if (fgd_id<0 .or. sgd_id<0) then
-               if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
-                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
-                     //' requires ''projection_x_coordinate'' and ''projection_y_coordinate''.')
-               end if
-               if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
-                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
-                     //' either requires ''latitude'' and ''longitude'' or ''grid_latitude'' and ''grid_longitude''.')
-               end if
-               return
-            end if
-                
 
             ! =========================================
             ! Create the ElementSet for this quantity
@@ -2796,30 +2721,11 @@ module m_ec_provider
                   ! Something wrong with the coordinate dimensions 
                endif 
 
-               ! Scale metric coordinates if needed:
-               units = ''
-               ierror = nf90_get_att(fileReaderPtr%fileHandle, fgd_id, 'units', units)
-               if (ierror == nf90_noerr .and. (strcmpi(units, 'km') .or. strcmpi(units, 'kilometer') .or. strcmpi(units, 'kilometre'))) then
-                  fgd_data_1d = fgd_data_1d*1000d0
-               end if
-               units = ''
-               ierror = nf90_get_att(fileReaderPtr%fileHandle, sgd_id, 'units', units)
-               if (ierror == nf90_noerr .and. (strcmpi(units, 'km') .or. strcmpi(units, 'kilometer') .or. strcmpi(units, 'kilometre'))) then
-                  sgd_data_1d = sgd_data_1d*1000d0
-               end if
-
                if (.not.ecElementSetSetType(instancePtr, elementSetId, grid_type)) then
                   return
                end if
 
-               if (realization_dimid > 0) then
-                  dim_offset = 1
-                  nrel = fileReaderPtr%dim_length(dimids(1))
-               else
-                  dim_offset = 0
-                  nrel = 0
-               endif
-
+               dim_offset = merge(1, 0, realization_dimid > 0)
                if (grid_type == elmSetType_samples) then
                   ncol = fileReaderPtr%dim_length(dimids(1))
                   nrow = 1
@@ -3188,6 +3094,8 @@ module m_ec_provider
          real(hp),            intent(in) :: k_timezone       !< Kernel's timezone.
          integer,             intent(in) :: k_timestep_unit  !< Kernel's time step unit (1=seconds, 2=minutes, 3=hours)
          real(hp), optional,  intent(in) :: dtnodal          !< Nodal factors update interval
+         real(hp) :: defTimeZone
+         character(len=12) :: date  ! date in error message
          !
          success = .false.
          !
@@ -3201,11 +3109,10 @@ module m_ec_provider
             fileReaderPtr%tframe%ec_timezone = fileReaderPtr%tframe%k_timezone
             fileReaderPtr%tframe%ec_timestep_unit = fileReaderPtr%tframe%k_timestep_unit 
 
-            fileReaderPtr%tframe%dtnodal = 1e+20_hp
-            if (present(dtnodal)) then
-               if (dtnodal /= 0.0_hp) then
-                  fileReaderPtr%tframe%dtnodal = dtnodal
-               endif
+            if(present(dtnodal) .and. dtnodal /= 0.0_hp) then
+               fileReaderPtr%tframe%dtnodal = dtnodal
+            else
+               fileReaderPtr%tframe%dtnodal = 1e+20_hp
             endif
 
          else

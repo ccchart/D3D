@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -52,7 +52,10 @@ c
       parameter   (delete = 1, replac = 2, insert = 3, abort  = 0,
      j             none   = 4)
       logical      newtab, duprol, newfrm
-      integer      io_mes, io_asc, io_inp, lunfil
+      integer      io_mes, io_asc, io_inp
+      data         io_mes /11/
+      data         io_asc /14/
+      data         io_inp /15/
       data         grp /'DummyGroup                          '/
       data         initialConfgId /'DummyConfg'/
       
@@ -73,7 +76,7 @@ c     Command line arguments
             if (index(ArgumentString,'-newfrm').gt.0) newfrm = .true.
       enddo
 
-      open ( newunit=io_mes , file = 'waqpb_import.log' )
+      open ( io_mes , file = 'waqpb_import.log' )
 	if (duprol) then
           write (io_mes,'(''DUPROL import'')')
           newtab = .true.
@@ -134,7 +137,7 @@ c         Remove secondary tables R4 till R8
       write (*,'('' Decomposing '',a,''......'')') pdffil
       write (*,*)
       write (io_mes,'('' Decomposing '',a,''......'')') pdffil
-      open ( newunit=io_asc , file = pdffil , status='old', err=999)
+      open ( io_asc , file = pdffil , status='old', err=999)
       read ( io_asc , * ) nprocl
       call iniind
 
@@ -413,11 +416,11 @@ c         DUPROL format has two additional blocks, specifying active and inactiv
 c     Sort and check R6-R7-R8
 
       call sortst ( stocfl, stocsu, stocsc, nstoc )
-      call chksto ( stocfl, stocsu, stocsc, nstoc , itemid, nitem, io_mes )
+      call chksto ( stocfl, stocsu, stocsc, nstoc , itemid, nitem )
       call sortst ( dispit, dispsu, dispsc, ndisp )
-      call chksto ( dispit, dispsu, dispsc, ndisp , itemid, nitem, io_mes )
+      call chksto ( dispit, dispsu, dispsc, ndisp , itemid, nitem )
       call sortst ( veloit, velosu, velosc, nvelo )
-      call chksto ( veloit, velosu, velosc, nvelo , itemid, nitem, io_mes )
+      call chksto ( veloit, velosu, velosc, nvelo , itemid, nitem )
 
 c     Create/update tables R1, R2
       call cratab (grp,newtab,initialConfgId,initialConfgName)
@@ -492,7 +495,7 @@ c----------------------------------------------------------------------c
 c     Dump tables
 c----------------------------------------------------------------------c
 
-      call writdb ( io_inp )
+      call writdb ( 15 )
 
 c----------------------------------------------------------------------c
 c     Write prefined set for SOBEK (DUPROL mode ONLY)
@@ -506,18 +509,18 @@ c----------------------------------------------------------------------c
             procesnaam = pdffil(1:i-1)
           endif
           pdffil = trim(procesnaam)//'.0'
-	    open (newunit=lunfil,file=pdffil)
-	    write (lunfil,1000) 
-      	write (lunfil,'(''this file is not available for a DUFLOW model '')')
-          close (lunfil)
+	    open (15,file=pdffil)
+	    write (15,1000) 
+      	write (15,'(''this file is not available for a DUFLOW model '')')
+          close (15)
           pdffil = trim(procesnaam)//'.des'
-	    open (newunit=lunfil,file=pdffil)
-	    write (lunfil,'(''DUFLOW model '',a)') trim(procesnaam)
-	    close (lunfil)
+	    open (15,file=pdffil)
+	    write (15,'(''DUFLOW model '',a)') trim(procesnaam)
+	    close (15)
           pdffil = trim(procesnaam)//'.sub'
-	    open (newunit=lunfil,file=pdffil)
-	    call wrisub(lunfil)
-	    close (lunfil)
+	    open (15,file=pdffil)
+	    call wrisub(15)
+	    close (15)
       endif
 
  1000 format ('configuration ''DUPROL'' serial 2011010101') 

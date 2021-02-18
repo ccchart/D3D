@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -50,7 +50,8 @@ program read_map
 !   Open file for storing results
 
     resFile = 'TESTMap-res.txt'
-    open(newunit=resLun,file=resFile)
+    resLun = 11
+    open(resLun,file=resFile)
 
 !   Get MAP IN data set
 

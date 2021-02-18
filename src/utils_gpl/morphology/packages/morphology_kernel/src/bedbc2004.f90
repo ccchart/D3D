@@ -4,16 +4,15 @@ subroutine bedbc2004(tp        ,rhowat    , &
                    & taucr0    ,u2dhim    ,aks       ,ra        ,usus      , &
                    & zusus     ,uwb       ,muc       ,tauwav    ,ustarc    , &
                    & tauc      ,taurat    ,ta        ,caks      ,dss       , &
-                   & uwc       ,uuu       ,vvv       ,rlabda    ,taubcw    , &
+                   & uwc       ,uuu       ,vvv       ,rlabda    , &
                    & hrms      ,delw      ,uon       ,uoff      ,uwbih     , &
                    & delm      ,fc1       ,fw1       ,phicur    ,kscr      , &
                    & i2d3d     ,mudfrac   ,fsilt     ,taucr1    ,psi       , &
                    & dzduu     ,dzdvv     ,eps       ,camax     ,iopsus    , &
-                   & ag        ,wave      ,tauadd    ,gamtcr    ,betam     , &
-                   & awb       )
+                   & ag        ,wave      ,tauadd    ,gamtcr    ,betam     ) 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -56,47 +55,47 @@ subroutine bedbc2004(tp        ,rhowat    , &
 ! Call variables
 !
     integer, intent(in)   :: i2d3d
-    real(fp), intent(out) :: aks    !  Description and declaration in esm_alloc_real.f90
-    real(fp), intent(out) :: awb
+    real(fp)              :: aks    !  Description and declaration in esm_alloc_real.f90
     real(fp), intent(in)  :: betam
-    real(fp), intent(out) :: caks
-    real(fp), intent(in)  :: d10
-    real(fp), intent(in)  :: d50
-    real(fp), intent(in)  :: d90
-    real(fp), intent(out) :: delw
+    real(fp)              :: caks
+    real(fp)              :: d10
+    real(fp)              :: d50
+    real(fp)              :: d90
+    real(fp)              :: delw
     real(fp), intent(in)  :: drho
     real(fp), intent(out) :: dss    !  Description and declaration in esm_alloc_real.f90
     real(fp), intent(in)  :: dstar
     real(fp), intent(out) :: fc1
     real(fp), intent(out) :: fsilt
     real(fp), intent(in)  :: gamtcr
-    real(fp), intent(in)  :: h1
-    real(fp), intent(in)  :: hrms   !  Description and declaration in esm_alloc_real.f90
+    real(fp)              :: h1
+    real(fp)              :: hrms   !  Description and declaration in esm_alloc_real.f90
     real(fp), intent(in)  :: kscr
-    real(fp), intent(out) :: muc
+    real(fp)              :: muc
     real(fp), intent(in)  :: mudfrac
     real(fp), intent(out) :: phicur
-    real(fp), intent(out) :: ra
+    real(fp)              :: ra
+    real(fp)              :: rc
     real(fp), intent(in)  :: rhowat !  Description and declaration in esm_alloc_real.f90
-    real(fp), intent(in)  :: rlabda !  Description and declaration in esm_alloc_real.f90
-    real(fp), intent(out) :: ta
-    real(fp), intent(out) :: taubcw
-    real(fp), intent(out) :: tauc
+    real(fp)              :: rlabda !  Description and declaration in esm_alloc_real.f90
+    real(fp)              :: ta
+    real(fp)              :: taubcw
+    real(fp)              :: tauc
     real(fp), intent(in)  :: taucr0
     real(fp), intent(out) :: taucr1
     real(fp), intent(out) :: taurat
-    real(fp), intent(out) :: tauwav
-    real(fp), intent(in)  :: tp     !  Description and declaration in esm_alloc_real.f90
+    real(fp)              :: tauwav
+    real(fp)              :: tp     !  Description and declaration in esm_alloc_real.f90
     real(fp), intent(in)  :: umod
-    real(fp), intent(out) :: ustarc
-    real(fp), intent(out) :: usus   !  Description and declaration in esm_alloc_real.f90
+    real(fp)              :: ustarc
+    real(fp)              :: usus   !  Description and declaration in esm_alloc_real.f90
     real(fp), intent(in)  :: uuu
-    real(fp), intent(out) :: uwb
+    real(fp)              :: uwb
     real(fp), intent(in)  :: vvv
-    real(fp), intent(in)  :: z0cur
+    real(fp)              :: z0cur
     real(fp), intent(in)  :: z0rou
     real(fp), intent(in)  :: zumod
-    real(fp), intent(out) :: zusus
+    real(fp)              :: zusus
     real(fp), intent(out) :: uon  
     real(fp), intent(out) :: uoff 
     real(fp), intent(out) :: uwbih
@@ -114,6 +113,7 @@ subroutine bedbc2004(tp        ,rhowat    , &
 !
     real(fp) :: a11  
     real(fp) :: alfacw
+    real(fp) :: awb
     real(fp) :: cmax
     real(fp) :: cc
     real(fp) :: cmaxs
@@ -128,7 +128,6 @@ subroutine bedbc2004(tp        ,rhowat    , &
     real(fp) :: kswr
     real(fp) :: muw
     real(fp) :: raih 
-    real(fp) :: rc
     real(fp) :: rmax 
     real(fp) :: rr
     real(fp) :: t1   
@@ -196,7 +195,7 @@ subroutine bedbc2004(tp        ,rhowat    , &
     endif
     if (wave .and. tp>0.1_fp) then
        hs  = hrms*sqrt(2.0_fp)
-       arg = 2.0_fp * pi * h1 / max(rlabda,1.0e-12_fp)
+       arg = 2.0_fp * pi * h1 / rlabda
        if (arg > 50.0_fp) then
           awb = 0.0_fp
           uwb = 0.0_fp

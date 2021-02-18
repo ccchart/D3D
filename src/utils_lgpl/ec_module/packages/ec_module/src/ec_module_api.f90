@@ -1,32 +1,3 @@
-!----- GPL ---------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2011-2021.
-!
-!  This program is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation version 3.
-!
-!  This program is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"
-!  are registered trademarks of Stichting Deltares, and remain the property of
-!  Stichting Deltares. All rights reserved.
-!
-!  $Id$
-!  $HeadURL$
-
-
 module ec_module_api
 
    use iso_c_binding
@@ -60,7 +31,7 @@ function triangulation(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, 
     ! inputs
     type(c_t_ug_meshgeomdim), intent(in)    :: meshtwoddim         !< input 2d mesh dimensions
     type(c_t_ug_meshgeom), intent(in)       :: meshtwod            !< input 2d mesh 
-    integer(c_int), intent(in)              :: startIndex          !< start index of index based arrays (might be needed for 1d interpolation)
+    type(c_ptr), intent(in)                 :: startIndex          !< start index of index based arrays (might be needed for 1d interpolation)
     type(c_ptr), intent(in)                 :: c_sampleX           !< samples x
     type(c_ptr), intent(in)                 :: c_sampleY           !< samples y 
     type(c_ptr), intent(in)                 :: c_sampleValues      !< samples values
@@ -85,7 +56,6 @@ function triangulation(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, 
     integer                                  :: ierr 
     integer                                  :: jdla
     real(hp)                                 :: transformcoef(6)
-    integer                                  :: shift, start_node, end_node 
     
     !fill meshgeom
     ierr = 0
@@ -106,27 +76,13 @@ function triangulation(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, 
       targetX = meshgeom%nodex
       targetY = meshgeom%nodey
     else if (locType.eq.2) then  
-      shift = 1 - startIndex
-      do i=1,size(meshgeom%edge_nodes,2)
-         meshgeom%edge_nodes(1,i) = meshgeom%edge_nodes(1,i) + shift
-         meshgeom%edge_nodes(2,i) = meshgeom%edge_nodes(2,i) + shift
-      enddo
-      allocate(targetX(size(meshgeom%edge_nodes,2)))
-      allocate(targetY(size(meshgeom%edge_nodes,2)))      
-      numTargets = 0
-      do i=1,size(meshgeom%edge_nodes,2)
-         start_node = meshgeom%edge_nodes(1,i)
-         end_node = meshgeom%edge_nodes(2,i)
-         if (start_node>=1 .and. start_node<=size(meshgeom%nodex,1) .and. end_node>=1 .and. end_node<=size(meshgeom%nodex,1)) then
-            targetX(i) = (meshgeom%nodex(start_node) + meshgeom%nodex(end_node)) * 0.5d0
-            targetY(i) = (meshgeom%nodey(start_node) + meshgeom%nodey(end_node)) * 0.5d0
-            numTargets = numTargets + 1
-         end if
-      enddo
-      if(numTargets.ne.size(meshgeom%edge_nodes,2)) then
-         ierr = -1
-         goto 1234  
-      endif
+      numTargets = size(meshgeom%edge_nodes,2)
+      allocate(targetX(numTargets))
+      allocate(targetY(numTargets))
+      do i=1,numTargets
+         targetX(i) = (meshgeom%nodex(meshgeom%edge_nodes(1,i)) + meshgeom%nodex(meshgeom%edge_nodes(2,i)))/2.0d0
+         targetY(i) = (meshgeom%nodey(meshgeom%edge_nodes(1,i)) + meshgeom%nodey(meshgeom%edge_nodes(2,i)))/2.0d0
+      enddo     
     else
       !not valid location
       ierr = -1
@@ -178,7 +134,7 @@ function averaging(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, c_sa
     !DEC$ ATTRIBUTES DLLEXPORT :: averaging
     use kdtree2Factory
     use m_ec_interpolationsettings
-    use m_ec_basic_interpolation, only: averaging2, TerrorInfo
+    use m_ec_basic_interpolation, only: averaging2
     use gridoperations
     use precision_basics
     use m_missing
@@ -204,7 +160,6 @@ function averaging(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, c_sa
     real(c_double), intent(in)              :: relativeSearchSize  !< relative search cell size
     integer(c_int), intent(in)              :: jsferic
     integer(c_int), intent(in)              :: jasfer3D
-    integer                                 :: ierr
 
     ! local variables
     type(t_ug_meshgeom)                     :: meshgeom            !< fortran meshgeom
@@ -220,14 +175,13 @@ function averaging(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, c_sa
     double precision, allocatable           :: targetX(:)
     double precision, allocatable           :: targetY(:)
     double precision, allocatable           :: rawTargetValues(:)
-    integer                                 :: k, IAVtmp, NUMMINtmp, INTTYPEtmp, i, jakdtree, numTargets
+    integer                                 :: k, IAVtmp, NUMMINtmp, INTTYPEtmp, ierr, i, jakdtree, numTargets
     double precision                        :: RCELtmp, valFirstNode,valSecondNode
     integer                                 :: nMaxNodesPolygon
     real(hp), allocatable                   :: xx(:,:), yy(:,:), xxx(:), yyy(:)
     integer, allocatable                    :: nnn(:)
-    integer                                 :: nNetCells, shift
-    type(TerrorInfo)                        :: errorInfo
-
+    integer                                 :: nNetCells
+       
     !get and convert meshgeom to kn table
     ierr = network_data_destructor()
     ierr = convert_cptr_to_meshgeom(meshtwod, meshtwoddim, meshgeom)
@@ -347,20 +301,14 @@ function averaging(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, c_sa
     dmiss,&
     jsferic,&
     jasfer3D,&
-    1,&
-    0,&
-    XPL,&
-    YPL,&
-    ZPL, &
-    errorInfo)
-
+    jins = 1,&
+    NPL = 0,&
+    XPL = XPL,&
+    YPL = YPL,&
+    ZPL = ZPL)
+    
     !delete kdtree
     call delete_kdtree2(treeglob)
-
-    if ( .not. errorInfo%success) then
-       ierr = -1
-       goto 1234
-    end if
 
     !copy values back
     if (locType.eq.0) then
@@ -372,13 +320,8 @@ function averaging(meshtwoddim, meshtwod, startIndex, c_sampleX, c_sampleY, c_sa
        call c_f_pointer(c_targetValues, targetValues, (/numTargets/))
        targetValues = interpolationResults(1,nodePermutation)
     else if(locType.eq.2) then
-        shift = 1 - meshgeom%start_index
-        do i=1,size(meshgeom%edge_nodes,2)
-          meshgeom%edge_nodes(1,i) = meshgeom%edge_nodes(1,i) + shift
-          meshgeom%edge_nodes(2,i) = meshgeom%edge_nodes(2,i) + shift
-        enddo
        ! if the node have been permuted by findcell, restore the original ordering, supposing is the same as 
-       ! the one in the edge_nodes       
+       ! the one in the edge_nodes
        allocate(rawTargetValues(numTargets))
        rawTargetValues = interpolationResults(1,nodePermutation)
        !reset number of targets, associate c# and fortran pointers

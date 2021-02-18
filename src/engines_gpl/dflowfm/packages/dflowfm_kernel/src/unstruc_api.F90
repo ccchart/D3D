@@ -329,7 +329,6 @@ integer                   :: ndraw
 !! For a restart, subsequently call a flowinit and flow/flowstep again.
 subroutine flowfinalize()
 use unstruc_files
-use unstruc_netcdf
 use m_ec_module
 use m_meteo, only: ecInstancePtr
  !!   cpuall(1) = cpuall0 ! Reset original start timing, for accurate totals
@@ -343,8 +342,6 @@ use m_meteo, only: ecInstancePtr
        continue     
     end if
     call close_all_files()
-    call unc_closeall()
-    close(mdia)
     
 end subroutine flowfinalize
 

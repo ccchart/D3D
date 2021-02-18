@@ -1,32 +1,3 @@
-!----- GPL ---------------------------------------------------------------------
-!                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
-!                                                                               
-!  This program is free software: you can redistribute it and/or modify         
-!  it under the terms of the GNU General Public License as published by         
-!  the Free Software Foundation version 3.                                      
-!                                                                               
-!  This program is distributed in the hope that it will be useful,              
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
-!  GNU General Public License for more details.                                 
-!                                                                               
-!  You should have received a copy of the GNU General Public License            
-!  along with this program.  If not, see <http://www.gnu.org/licenses/>.        
-!                                                                               
-!  contact: delft3d.support@deltares.nl                                         
-!  Stichting Deltares                                                           
-!  P.O. Box 177                                                                 
-!  2600 MH Delft, The Netherlands                                               
-!                                                                               
-!  All indications and logos of, and references to, "Delft3D" and "Deltares"    
-!  are registered trademarks of Stichting Deltares, and remain the property of  
-!  Stichting Deltares. All rights reserved.                                     
-!                                                                               
-!  $Id$
-!  $HeadURL$
-
-
 module m_ec_bcreader
   use precision
   use m_ec_parameters
@@ -36,7 +7,6 @@ module m_ec_bcreader
   use m_alloc
   use multi_file_io
   use string_module
-  use physicalconsts, only : CtoKelvin
   implicit none
 
   private
@@ -75,7 +45,6 @@ contains
     integer, optional,             intent(out)     :: iostat
     character(len=*), optional,    intent(in)      :: funtype
 
-    integer(kind=8)                                :: fhandle
     success = .false.
     bc%qname = quantityName
     bc%bcname = plilabel
@@ -88,11 +57,9 @@ contains
     select case (bc%ftype)
     case (BC_FTYPE_ASCII)
        if (bc%bcFilePtr%fhandle<0) then                   ! check if file already opened in our adminstration
-          if (.not.ecSupportOpenExistingFileGnu(fhandle, bc%bcFilePtr%bcfilename)) then
+          if (.not.ecSupportOpenExistingFileGnu(bc%bcFilePtr%fhandle, bc%bcFilePtr%bcfilename)) then
              call setECMessage("Unable to open "//trim(bc%bcFilePtr%bcfilename))
              return
-          else
-             bc%bcFilePtr%fhandle = fhandle
           end if
        end if
        if (.not.ecBCFilescan(bc, iostat, funtype=funtype)) then     ! parsing the open bc-file
@@ -110,13 +77,9 @@ contains
           bc%func = BC_FUNC_TIM3D
        endif
        ! TODO:
-       ! Support specification of the time-interpolation type in the netcdf timeseries variable as an attribute
+       ! Harvest the netCDF and the selected variable for metadata, using ecNetCDFGetAttrib
+       ! parse them and store in the BC instance, analogous to processhdr for the ASCII BC-files
        bc%timeunit = bc%ncptr%timeunit
-       bc%timeint = BC_TIMEINT_LIN   
-       bc%quantity%name = quantityName
-       bc%quantity%missing = bc%ncptr%fillvalues(bc%ncvarndx)
-       bc%quantity%factor = bc%ncptr%scales(bc%ncvarndx)
-       bc%quantity%offset = bc%ncptr%offsets(bc%ncvarndx)
        !  Set vector of dimensions for the found variable to 1
        ! For the time being we only allow scalars to be read from netCDF variables
        ! TODO: Introduce the vector-attribute (string) similar to the bc-format, composing a vector from scalar variables
@@ -475,8 +438,6 @@ contains
                 enddo
              endif
           endif
-       case ('MISSING')
-          read(hdrvals(ifld)%s,*) bc%quantity%missing
        case ('UNIT')
           if (bc%quantity%jacolumn(iq)) then
              bc%quantity%unit = trim(hdrvals(ifld)%s)
@@ -540,10 +501,6 @@ contains
              bc%timeint = BC_TIMEINT_BTO
           case ('BLOCK-FROM')
              bc%timeint = BC_TIMEINT_BFROM
-          case ('BLOCK')
-             call setECMessage("Unknown time interpolation Block in file "//trim(bc%fname)//", block " &
-                                //trim(bc%bcname)//". Use Block-To or Block-From.")
-             return
           case default
              call setECMessage("Unknown time interpolation '"//trim(adjustl(hdrvals(ifld)%s))//           &
                                 "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
@@ -596,11 +553,6 @@ contains
           end select
        end select
     enddo
-
-    if (bc%quantity%unit == 'K' .or. bc%quantity%unit == 'KELVIN' .or. bc%quantity%unit == 'Kelvin') then
-       ! convert Kelvin to degrees Celsius (kernel expects degrees Celsius)
-       bc%quantity%offset = bc%quantity%offset - CtoKelvin
-    endif
 
     ! Fill bc%quantity%col2elm(nq) which holds the mapping of columns in the file to vector positions
     bc%quantity%col2elm(iq) = -1
@@ -885,6 +837,36 @@ contains
     success = .true.
   end function ecBCReadLine
 
+  ! =======================================================================
+
+  ! Realloc sub and oldfil function to be removed lateron,
+  ! only included for standalone-testing
+  ! realloc can be found in m_alloc (deltares common)
+  ! oldfil to be replaced by ! ecSupportOpenExistingFile(fhandle, fname)
+  ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  integer function oldfil(fname, maxunit, iostat) result(unit)
+    implicit none
+    character(len=*),       intent(in)      :: fname
+    integer,                intent(in)      :: maxunit
+    integer,                intent(out)     :: iostat
+
+    logical     :: opened
+
+    iostat = 0                ! ran out of free file handles
+    do unit=1, maxunit
+       inquire(unit,opened=opened)
+       if (.not.opened) then
+          exit
+       endif
+    enddo
+    if (unit<=maxunit) then
+       open(unit, file=trim(fname), status='old', iostat=iostat)
+    else
+       iostat = -66           ! ran out of free file handles
+    endif
+    ! .....
+    return
+  end function oldfil
 
   ! =======================================================================
 

@@ -324,6 +324,33 @@ AM_CONDITIONAL(HAVE_MPI, [test "x$with_mpi" != xno])
 # Conditionals like this should not be needed but I don't know a shortcut
 AM_CONDITIONAL([USEMPI], test "x$with_mpi" != "xno")
 
+#
+# Checks for OpenDA if user selects this.
+#
+# User gives path to OpenDA libraries using --with-openda
+INT_OPENDA="todo";
+INT_OPENDA_VERSION="NO"
+ODA_SRC=""
+ODA_INCDIR=""
+ODA_LIB=""
+LTL_CTA=""
+AC_ARG_WITH(openda,
+              AS_HELP_STRING([--with-openda=PATH],
+                             [Try to use 'PATH/include' to find the OPENDA
+                              headers and 'PATH/lib' to find the OPENDA libraries.]),
+      [
+       OPENDA_DIR=${withval}
+       with_oda=yes
+       ODA_SRC=flow2d3d_openda
+       ODA_INCDIR="-I$OPENDA_DIR/include"
+       LTL_CTA="$OPENDA_DIR/lib/libcta.la"
+       ODA_LIB=" -lcta"
+      ],[])
+AC_SUBST(ODA_SRC)
+AC_SUBST(ODA_INCDIR)
+AC_SUBST(ODA_LIB)
+AC_SUBST(LTL_CTA)
+AM_CONDITIONAL([WITH_ODA],[test "$with_oda" = yes])
 
 
 dnl Already create the libtool script here, because we're using it to detect .dylib/.so extension (works for >=2.2)
@@ -469,32 +496,7 @@ if test "x" != "x$SHAPELIB_DIR"; then
     fi
 fi
 
-dnl Check for GDAL
-dnl Note that the option below is a --with-PKG=dir option,
-dnl whereas the third_party_open/fortrangis/ uses a --enable-PKG option.
-dnl As a result the include/lib paths are not automatically correct,
-dnl so we set them below in the central CPPFLAGS and LDFLAGS.
-AC_MSG_CHECKING([if GDAL is wanted])
-AC_ARG_WITH(gdal,[AS_HELP_STRING([--with-gdal[=DIR]],[Build with GDAL support  @<:@default=no@:>@])],[],[with_gdal=no])
-
-AS_IF([test "x$with_gdal" != "xno"],
-	[
-		AC_MSG_RESULT([yes])
-		PKG_CHECK_MODULES([GDAL], [gdal],
-			[
-				AC_DEFINE([HAVE_GDAL],1,[Defined if you have GDAL library.])
-				AX_APPEND_FLAG("${GDAL_CFLAGS}", CPPFLAGS)
-				AX_APPEND_FLAG("${GDAL_LIBS}", LDFLAGS)
-			]
-		)
-	],
-	[
-		AC_MSG_RESULT([no])
-	])
-AM_CONDITIONAL([USEGDAL], test "x$with_gdal" != "xno")
-
-
-AM_CONDITIONAL([USEFORTRANGIS], test "x$with_shapelib" != "xno" -o "x$with_proj" != "xno" -o "x$with_gdal" != "xno")
+AM_CONDITIONAL([USEFORTRANGIS], test "x$with_shapelib" != "xno" -o "x$with_proj" != "xno")
 
 AC_LANG_PUSH([C])
 AC_CHECK_LIB([dl], [dlclose],, [AC_MSG_ERROR([Compiler can not find libdl])])
@@ -584,6 +586,8 @@ engines_gpl/flow2d3d/packages/data/src/general/Makefile
 engines_gpl/flow2d3d/packages/data/src/Makefile
 engines_gpl/flow2d3d/packages/data/src/parallel_mpi/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/Makefile
+engines_gpl/flow2d3d/packages/flow2d3d_openda/Makefile
+engines_gpl/flow2d3d/packages/flow2d3d_openda/src/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/iterators/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/Makefile
 engines_gpl/flow2d3d/packages/flow2d3d/src/dd/mapper/Makefile
@@ -707,10 +711,6 @@ test/utils_lgpl/deltares_common/Makefile
 test/utils_lgpl/deltares_common/packages/Makefile
 test/utils_lgpl/deltares_common/packages/test_deltares_common/Makefile
 test/utils_lgpl/deltares_common/packages/test_deltares_common/src/Makefile
-test/utils_lgpl/ec_module/Makefile
-test/utils_lgpl/ec_module/packages/Makefile
-test/utils_lgpl/ec_module/packages/ec_module_test/Makefile
-test/utils_lgpl/ec_module/packages/ec_module_test/src/Makefile
 test/utils_lgpl/Makefile
 third_party/interacter_stub/Makefile
 third_party/interacter_stub/src/Makefile
@@ -765,7 +765,8 @@ tools_gpl/mormerge/Makefile
 tools_gpl/mormerge/packages/Makefile
 tools_gpl/mormerge/packages/mormerge/Makefile
 tools_gpl/mormerge/packages/mormerge/src/Makefile
-tools_gpl/mormerge/scripts/Makefile
+tools_gpl/mormerge/packages/mormerge_version_number/Makefile
+tools_gpl/mormerge/packages/mormerge_version_number/src/Makefile
 tools_gpl/nesthd1/Makefile
 tools_gpl/nesthd1/packages/Makefile
 tools_gpl/nesthd1/packages/nesthd1/Makefile
@@ -794,12 +795,6 @@ tools_gpl/waqpb/packages/waqpb_import/Makefile
 tools_gpl/waqpb/packages/waqpb_import/src/Makefile
 tools_gpl/waqpb/packages/waqpb_lib/Makefile
 tools_gpl/waqpb/packages/waqpb_lib/src/Makefile
-utils_gpl/dhydrology/Makefile
-utils_gpl/dhydrology/packages/Makefile
-utils_gpl/dhydrology/packages/dhydrology_io/Makefile
-utils_gpl/dhydrology/packages/dhydrology_io/src/Makefile
-utils_gpl/dhydrology/packages/dhydrology_kernel/Makefile
-utils_gpl/dhydrology/packages/dhydrology_kernel/src/Makefile
 utils_gpl/flow1d/include/Makefile
 utils_gpl/flow1d/Makefile
 utils_gpl/flow1d/packages/flow1d_core/Makefile
@@ -875,6 +870,8 @@ utils_lgpl/ec_module/packages/ec_module/Makefile
 utils_lgpl/ec_module/packages/ec_module/src/ectest/Makefile
 utils_lgpl/ec_module/packages/ec_module/src/Makefile
 utils_lgpl/ec_module/packages/ec_module/src/meteo/Makefile
+utils_lgpl/ec_module/packages/ec_module_test/Makefile
+utils_lgpl/ec_module/packages/ec_module_test/src/Makefile
 utils_lgpl/ec_module/packages/Makefile
 utils_lgpl/esmfsm/include/Makefile
 utils_lgpl/esmfsm/Makefile

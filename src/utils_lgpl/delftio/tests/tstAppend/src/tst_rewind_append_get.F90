@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -46,7 +46,8 @@ subroutine tst_rewind_append_get(resFileName, datasetName)
 
 !   Open file for storing results
 
-    open(newunit=resLun,file=resFileName)
+    resLun = 11
+    open(resLun,file=resFileName)
 
 !   Open data stream
 

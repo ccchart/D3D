@@ -7,7 +7,7 @@
 
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -210,7 +210,6 @@
       real(fp)                           :: SinkTot
       real(fp)                           :: SourFl
 !
-      integer, parameter                 :: npar = 30   !<    length of par array
       real(fp), dimension(:), allocatable:: par         !<    old array for real transport formula parameters
       real(hp), dimension(:), allocatable:: realpar     !<    real transport formula parameters
       integer, dimension(:), allocatable :: intpar      !<    integer transport formula parameters
@@ -244,7 +243,7 @@
       if (istat==0) allocate(sig    (kmax)  , stat=istat)
       if (istat==0) allocate(thick  (kmax)  , stat=istat)
       if (istat==0) allocate(ws     (0:kmax), stat=istat)
-      if (istat==0) allocate(par    (npar)  , stat=istat)
+      if (istat==0) allocate(par    (30)    , stat=istat)
       if (istat==0) allocate(realpar(MAX_RP), stat=istat)
       if (istat==0) allocate(intpar (MAX_IP), stat=istat)
       if (istat==0) allocate(strpar (MAX_SP), stat=istat)
@@ -538,9 +537,8 @@
                       & SlopeX    ,SlopeY    ,UOrb      ,TauAdd    ,cal_sus   , &
                       & cal_bed   ,cal_susw  ,cal_bedw  ,cal_espir ,wave      , &
                       & scour     ,ubot_from_com        ,camax     ,eps       , &
-                      & iform     ,npar      ,par       ,MAX_IP    ,MAX_RP    , &
-                      & MAX_SP    ,dllfunc   ,dllhandle ,intpar    ,realpar   , &
-                      & strpar    , &
+                      & iform     ,par       ,MAX_IP    ,MAX_RP    ,MAX_SP    , &
+                      & dllfunc   ,dllhandle ,intpar    ,realpar   ,strpar    , &
 !output:
                       & aks       ,caks      ,taurat    ,&  ! output
                       & seddif    ,rsedeq    , &            ! local variables in array
@@ -601,10 +599,10 @@
             call erosilt(thick    ,kmax      ,ws       ,lundia   , &
                        & thick0   ,thick1    ,fixfac   ,srcmax   , &
                        & frac     ,oldmudfrac,flmd2l   ,iform    , &
-                       & npar     ,par      ,MAX_IP    ,MAX_RP   , &
-                       & MAX_SP   ,dllfunc  ,dllhandle ,intpar   , &
-                       & realpar  ,strpar   ,iflufflyr ,mflufftot, &
-                       & fracf    ,0.0_fp   ,0.0_fp    , &
+                       & par      ,MAX_IP    ,MAX_RP   ,MAX_SP   , &
+                       & dllfunc  ,dllhandle ,intpar   ,realpar  , &
+                       & strpar   ,iflufflyr ,mflufftot,fracf    , &
+                       & 0.0_fp   ,0.0_fp    , &
 ! output:
                        & error    ,wstau     ,SinkTot  ,SourSe   , &
                        & SourFl   )

@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -28,9 +28,9 @@
 !  $HeadURL$
 
       subroutine chksto ( flux  , subs  , stoch , nstoc ,
-     j                    itemid, nitem, io_mes )
+     j                    itemid, nitem )
 
-      integer      nstoc , nitem, io_mes
+      integer      nstoc , nitem
       character*10 flux(nstoc),subs(nstoc),itemid(nitem)
       real         stoch(nstoc)
 
@@ -60,7 +60,7 @@ c     repet  indicates if a line is a repeated line
 
 c     zero local arrays
 
-      write ( io_mes, * ) 'chksto'
+      write ( 11, * ) 'chksto'
       do iitem = 1,nitem
           isflux(iitem) = 0
           isrepe(iitem) = 0
@@ -72,7 +72,7 @@ c     index table on items
           repet(istoc) = 1
           call zoek (flux(istoc),nitem,itemid,10,iitem)
           if (iitem.le.0) then
-              write ( io_mes, * ) flux(istoc)
+              write ( 11, * ) flux(istoc)
               stop 'BUG CHKSTO 001'
           endif
           fluxi(istoc) = iitem
@@ -81,7 +81,7 @@ c     index table on items
           if (iitem.le.0) stop 'BUG CHKSTO 002'
           subsi(istoc) = iitem
       enddo
-      write ( io_mes, * ) 'stochi table indexed'
+      write ( 11, * ) 'stochi table indexed'
 
 c     check occurence of repeated lines 
 
@@ -106,7 +106,7 @@ c     the same substances in the same way
 c         Only fluxes:
           if ( isflux(iitem) .eq. 1 ) then
               if ( isrepe(iitem) .gt. 1 )  
-     j        write (io_mes,*) ' flux ',itemid(iitem),isrepe(iitem)
+     j        write (11,*) ' flux ',itemid(iitem),isrepe(iitem)
 c             Zero effect on substances
               do iitem2 = 1,nitem
                   effect(iitem2) = 0.0
@@ -121,7 +121,7 @@ c             Compute effect on substances first occurrence
                   endif
               enddo
               do irepet = 2,isrepe(iitem)
-              write (io_mes,*) ' check ',irepet
+              write (11,*) ' check ',irepet
 c             Zero effect on substances
               do iitem2 = 1,nitem
                   effec2(iitem2) = 0.0

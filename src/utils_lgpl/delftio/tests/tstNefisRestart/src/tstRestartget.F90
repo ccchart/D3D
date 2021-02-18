@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -73,12 +73,12 @@ program test_nefis_restart_get
     integer :: errNr
     character(Len=DioMaxErrMsgLen) :: errMsg
     character(Len=DioMaxStreamLen) :: resFileName = 'TESTNefisRestart-res.txt'
-    integer :: resLun
+    integer :: resLun=11
 
     double precision :: currentTimeStep
 
 
-    open(newunit=resLun,file=resFileName)
+    open(resLun,file=resFileName)
 
 !   Initialize dio library
     call DioInit

@@ -1,7 +1,7 @@
 module m_General_Structure
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -80,31 +80,22 @@ module m_General_Structure
       double precision                 :: gateopeningwidth              !< width between the doors (as defined in input/RTC)
       double precision                 :: gateopeningwidth_actual       !< width between the doors (possibly adapted to crest width and always > 0) 
       double precision                 :: crestlength                   !< length of the crest for computing the extra resistance using bedfriction over the crest of the weir
-      double precision, pointer        :: widthcenteronlink(:) => null()          !< For each crossed flow link the the center width portion of this genstr. (sum(widthcenteronlink(1:numlink)) should equal widthcenter)
-      double precision, pointer        :: gateclosedfractiononlink(:) => null()   !< part of the link width that is closed by the gate
-      double precision, pointer        :: fu(:,:) => null()                       !< fu(1:3,L0) contains the partial computational value for fu (under/over/between gate, respectively)
-      double precision, pointer        :: ru(:,:) => null()                       !< ru(1:3,L0) contains the partial computational value for ru (under/over/between gate, respectively)
-      double precision, pointer        :: au(:,:) => null()                       !< au(1:3,L0) contains the partial computational value for au (under/over/between gate, respectively)
+      double precision, pointer        :: widthcenteronlink(:)          !< For each crossed flow link the the center width portion of this genstr. (sum(widthcenteronlink(1:numlink)) should equal widthcenter)
+      double precision, pointer        :: gateclosedfractiononlink(:)   !< part of the link width that is closed by the gate
+      double precision, pointer        :: fu(:,:)                       !< fu(1:3,L0) contains the partial computational value for fu (under/over/between gate, respectively)
+      double precision, pointer        :: ru(:,:)                       !< ru(1:3,L0) contains the partial computational value for ru (under/over/between gate, respectively)
+      double precision, pointer        :: au(:,:)                       !< au(1:3,L0) contains the partial computational value for au (under/over/between gate, respectively)
       integer                          :: numlinks                      !< Nr of flow links that cross this generalstructure.
       logical                          :: velheight                     !< Flag indicates the use of the velocity height or not
       integer                          :: openingDirection              !< possible values GEN_SYMMETRIC, GEN_FROMLEFT, GEN_FROMRIGHT
-      double precision, pointer        :: sOnCrest(:) => null()                   !< water level on crest per link (length = numlinks)
-      integer,          pointer        :: state(:,:) => null()                    !< state(1:3,L0) contains flow state on the L0th link of the structure for General Structure, Weir and Orifice
+      double precision, pointer        :: sOnCrest(:)                   !< water level on crest per link (length = numlinks)
+      integer,          pointer        :: state(:,:)                    !< state(1:3,L0) contains flow state on the L0th link of the structure for General Structure, Weir and Orifice
                                                                         !< 1: state of under gate flow, 2: state of over gate flow, 3: state of between gate flow
                                                                         !< 0 = No Flow
                                                                         !< 1 = Free Weir Flow
                                                                         !< 2 = Drowned Weir Flow
                                                                         !< 3 = Free Gate Flow
                                                                         !< 4 = Drowned Gate Flow
-      integer                          :: allowedflowdir                !< allowed flow direction
-                                                                        !< 0 all directions
-                                                                        !< 1 only positive flow
-                                                                        !< 2 only negative flow
-                                                                        !< 3 no flow allowed
-      logical                          :: uselimitFlowNeg               !< flag for limiting the maximum discharge through an orifice for negative flow  
-      logical                          :: uselimitFlowPos               !< flag for limiting the maximum discharge through an orifice for positive flow   
-      double precision                 :: limitFlowNeg                  !< maximal discharge in positive direction (in case useLimitFLowPos is true)
-      double precision                 :: limitFlowpos                  !< maximal discharge in negative direction (in case useLimitFLowNeg is true
    end type
 
 
@@ -118,27 +109,27 @@ contains
       ! modules
 
       ! Global variables
-      type(t_GeneralStructure), pointer, intent(inout) :: genstr               !< Derived type containing general structure information.
-      integer,                           intent(in   ) :: direction            !< Orientation of flow link w.r.t. the structure. (1d0 for same direction, -1d0 for reverse.)
-      integer,                           intent(in   ) :: L0                   !< Local link index.
-      double precision,                  intent(inout) :: maxWidth             !< Maximal width of the structure. Normally the the width of the flow link.
-      double precision,                  intent(in   ) :: bob0(2)              !< Bed level of channel upstream and downstream of the structure.
-      double precision,                  intent(  out) :: fuL                  !< fu component of momentum equation.
-      double precision,                  intent(  out) :: ruL                  !< Right hand side component of momentum equation.
-      double precision,                  intent(inout) :: auL                  !< Flow area of structure opening.
-      double precision,                  intent(in   ) :: as1                  !< (Geometrical) upstream flow area.
-      double precision,                  intent(in   ) :: as2                  !< (Geometrical) downstream flow area.
-      double precision,                  intent(  out) :: structwidth          !< Flow width of structure.
-      integer,                           intent(  out) :: kfuL                 !< Flag indicating whether the structure link is wet (=1) or not (=0).
-      double precision,                  intent(in   ) :: s1m1                 !< (Geometrical) upstream water level.
-      double precision,                  intent(in   ) :: s1m2                 !< (Geometrical) downstream water level.
-      double precision,                  intent(in   ) :: qtotal               !< Total discharge (in case of a compound structure this is not equal to 
-                                                                               !< the discharge through the structure).
-      double precision,                  intent(in   ) :: Cz                   !< Chezy value.
-      double precision,                  intent(in   ) :: dxL                  !< Length of the flow link.
-      double precision,                  intent(in   ) :: dt                   !< Time step (s).
-      logical,                           intent(in   ) :: SkipDimensionChecks  !< Flag indicating whether the dimensions of the structure is to be limited
-                                                                               !< by the cross sectional dimensions of the channel and correct, or not.
+      type(t_GeneralStructure), pointer, intent(inout):: genstr     !< Derived type containing general structure information.
+      double precision, intent(in)                 :: maxWidth      !< Maximal width of the structure. Normally the the width of the flow link.
+      double precision, intent(in)                 :: bob0(2)       !< bed level of channel upstream and downstream of the structure.
+      double precision, intent(out)                :: fuL           !< fu component of momentum equation.
+      double precision, intent(out)                :: ruL           !< Right hand side component of momentum equation.
+      double precision, intent(inout)              :: auL           !< Flow area of structure opening.
+      double precision, intent(in)                 :: as1           !< (geometrical) upstream flow area.
+      double precision, intent(in)                 :: as2           !< (geometrical) downstream flow area.
+      double precision, intent(out)                :: structwidth         !< flow width of structure.
+      integer, intent(in)                          :: direction     !< Orientation of flow link w.r.t. the structure. (1d0 for same direction, -1d0 for reverse.)
+      integer, intent(in)                          :: L0            !< Local link index.
+      integer, intent(out)                         :: kfuL          !< Flag indicating whether the structure link is wet (=1) or not (=0).
+      double precision, intent(in)                 :: s1m1          !< (geometrical) upstream water level.
+      double precision, intent(in)                 :: s1m2          !< (geometrical) downstream water level.
+      double precision, intent(in)                 :: qtotal        !< Total discharge (in case of a compound structure this is not equal to 
+                                                                    !< the discharge through the structure).
+      double precision, intent(in)                 :: Cz            !< Chezy value.
+      double precision, intent(in)                 :: dxL           !< Length of the flow link.
+      double precision, intent(in)                 :: dt            !< Time step (s).
+      logical, intent(in)                          :: SkipDimensionChecks  !< Flag indicating whether the dimensions of the structure is to be limited
+                                                                           !< by the cross sectional dimensions of the channel and correct, or not.
       !
       !
       ! Local variables
@@ -151,7 +142,6 @@ contains
       double precision :: bobstru(2)             !< same as BOB0, but with respect to the structure orientation
 
       logical                        :: velheight
-      integer                        :: allowedflowdir
       double precision               :: cgd
       double precision               :: cgf
       double precision               :: crest
@@ -181,12 +171,10 @@ contains
       double precision               :: gle
       double precision               :: dx_struc  
       double precision               :: dsL
-      double precision               :: maxFlowL
       double precision               :: u1L           
       double precision, dimension(3) :: fu
       double precision, dimension(3) :: ru
       double precision, dimension(3) :: au
-      
       !
       !
       !! executable statements -------------------------------------------------------
@@ -199,7 +187,6 @@ contains
          crest   = max(bob0(1), bob0(2), genstr%zs)
       else
          crest = genstr%zs
-         maxwidth = genstr%ws
       endif
       
       gle = max(crest, genstr%gateLowerEdgeLevel)
@@ -230,21 +217,9 @@ contains
          bobstru(2) = bob0(1)
       endif
       
-      allowedflowdir = genstr%allowedflowdir
-      if ((allowedflowdir == 3) .or. &
-          (direction*flowDir == 1  .and. allowedflowDir == 2) .or. &
-          (direction*flowDir == -1 .and. allowedflowDir == 1)) then
-        fuL = 0.0d0
-        ruL = 0.0d0
-        auL = 0.0d0
-        kfuL = 0
-        genstr%fu(:,L0) = 0.0d0
-        genstr%ru(:,L0) = 0.0d0
-        genstr%au(:,L0) = 0.0d0     
-        return
-      endif
-
-      call flgtar(genstr, L0, maxWidth, bobstru, direction*flowDir, zs, wstr, w2, wsd, zb2, ds1, ds2, cgf, cgd,   &
+      flowDir = direction*flowDir
+      
+      call flgtar(genstr, L0, maxWidth, bobstru, flowDir, zs, wstr, w2, wsd, zb2, ds1, ds2, cgf, cgd,   &
                   cwf, cwd, mugf, lambda)
       !
       rhoast = rhoright/rholeft
@@ -264,33 +239,10 @@ contains
          qL = Au(1)*u1L
 
          call flqhgs(fu(1), ru(1), u1L, dxL, dt, structwidth, kfuL, au(1), qL, flowDir, &
-                     hu, hd, uu, zs, gatefraction*wstr, w2, wsd, zb2, ds1, ds2, dg,                &
+                     hu, hd, uu, zs, gatefraction*wstr, gatefraction*w2, gatefraction*wsd, zb2, ds1, ds2, dg,                &
                      rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, ds, genstr%state(1,L0), velheight)
          genstr%sOnCrest(L0) = ds + crest     ! waterlevel on crest
          
-         ! Flow limiter is only available for an orifice type structure. In this case only flow under the door 
-         ! is possible. For General Structures (and Weirs) this limiter is not further implemented, only part "1"
-         ! (out of 1:3) of the flow is limited.
-         ! In 2D the maximum flow rate is divided over all individual links, where the limiter is applied for 
-         ! each flow link individually, weighted by flow link width.
-
-         ! qL is in orientation of structure (as are the limitFlow values)
-         qL = direction * au(1) * (ru(1) - fu(1)*dsL )
-         if (qL > 0d0 .and. genstr%uselimitFlowPos) then
-            maxFlowL = genstr%limitFlowPos * gatefraction*wstr / genstr%ws_actual
-            if (qL > maxFlowL) then
-               fu(1) = 0.0
-               ru(1) = direction * maxFlowL / max(1d-6,au(1))
-            endif
-         else if (qL < 0d0 .and. genstr%uselimitFlowNeg) then
-            maxFlowL = genstr%limitFlowNeg * gatefraction*wstr / genstr%ws_actual
-            if (abs(qL) > maxFlowL) then
-               fu(1) = 0.0
-               ru(1) = -  direction * maxFlowL /  max(1d-6,au(1))
-            endif
-       
-         endif
-
          !calculate flow over gate
          dg = huge(1d0)
          zgate = gle+genstr%gatedoorheight
@@ -298,7 +250,7 @@ contains
          qL = Au(2)*u1L
 
          call flqhgs(fu(2), ru(2), u1L, dxL, dt, structwidth, kfuL, au(2), qL, flowDir, &
-                     hu, hd, uu, zgate, gatefraction*wstr, w2, wsd, zb2, ds1, ds2, dg,                &
+                     hu, hd, uu, zgate, gatefraction*wstr, gatefraction*w2, gatefraction*wsd, zb2, ds1, ds2, dg,                &
                      rhoast, cgf, cgd, cwf, cwd, mugf, 0d0, 0d0, dx_struc, ds, genstr%state(2,L0), velheight)
       endif
       
@@ -309,7 +261,7 @@ contains
          qL = Au(3)*u1L
          
          call flqhgs(fu(3), ru(3), u1L, dxL, dt, structwidth, kfuL, au(3), qL, flowDir, &
-                     hu, hd, uu, zs, (1d0-gatefraction)*wstr, w2, wsd, zb2, ds1, ds2, dg,                &
+                     hu, hd, uu, zs, (1d0-gatefraction)*wstr, (1d0-gatefraction)*w2, (1d0-gatefraction)*wsd, zb2, ds1, ds2, dg,                &
                      rhoast, cgf, cgd, cwf, cwd, mugf, lambda, Cz, dx_struc, ds, genstr%state(3,L0), velheight)
          genstr%sOnCrest(L0) = ds + crest     ! waterlevel on crest
 
@@ -381,8 +333,7 @@ contains
       wstr = min(maxWidth, genstr%widthcenteronlink(L0))
       
       if (genstr%numlinks == 1) then
-         ! ws_actual is determined in update_widths restrictions 0 < ws < maxwidth)
-         genstr%ws_actual =  min(maxWidth, genstr%ws)
+         ! ws_actual is determined in update_widths (including restrictions 0 < ws < maxwidth)
          wstr =genstr%ws_actual
 
          ! all other width parameters must always be <= maxWidth, but >= ws
@@ -764,7 +715,6 @@ contains
          endif
          ds = u + v - aw/3.0D0
       endif
-      ds = min(ds, elu-zs, hd-zs)
    end subroutine flgsd3
                 
                 
@@ -1120,6 +1070,11 @@ contains
          ! gateclosedfraction will always be between 0 (= fully opened) and 1 (= fully closed)
          genstru%gateclosedfractiononlink(1) = 1d0 - genstru%gateopeningwidth_actual/genstru%ws_actual
       else
+         do L0=1,numlinks
+            Lf = iabs(links(L0))
+            genstru%widthcenteronlink(L0) = wu(Lf)
+            totalWidth = totalWidth + wu(Lf)
+         end do
 
          ! 2a: the desired crest width for this overall structure (hereafter, the open links for this genstru should add up to this width)
          !     Also: only for gates, the desired door opening width for this overall structure

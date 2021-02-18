@@ -21,11 +21,6 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
-      module dryfld_mod
-          implicit none
-          real(4), dimension(:), allocatable, save :: sumvol
-      end module dryfld_mod
-
       subroutine dryfld ( nosegw , noseg  , nolay  , volume , noq12  ,                &
      &                    area   , nocons , coname , cons   , surface,                &
      &                    iknmrk , iknmkv )
@@ -54,7 +49,6 @@
 !                           dhkmrk  - to get features
 
       use timers
-      use dryfld_mod
 
       implicit none
 
@@ -82,7 +76,7 @@
       real     ( 4)    minvolume       ! minimum volume in a cell
       real     ( 4)    minarea         ! minimum exhange area of a horizontal exchange
       integer  ( 4)    nosegl          ! number of computational volumes per layer
-      integer  ( 4)    isegl           ! loop variable volumes
+      integer  ( 4)    iseg            ! loop variable volumes
       integer  ( 4)    ivol            ! index for this computational volumes
       integer  ( 4)    ilay            ! loop variable layers
       integer  ( 4)    ikm             ! feature
@@ -95,18 +89,6 @@
 
       nosegl = nosegw / nolay
 
-      !
-      ! Allocate the work array - reallocate if
-      ! for some reason the model size has changed
-      !
-      if ( .not. allocated(sumvol) ) then
-          allocate( sumvol(nosegl) )
-      endif
-      if ( size(sumvol) /= nosegl ) then
-          deallocate( sumvol )
-          allocate( sumvol(nosegl) )
-      endif
-
       threshold = 0.001                                        ! default value of 1 mm
       call zoek20 ( 'DRY_THRESH', nocons, coname, 10, idryfld )
       if ( idryfld .gt. 0 ) threshold = cons(idryfld)          ! or the given value
@@ -115,37 +97,28 @@
       call zoek20 ( 'MIN_VOLUME', nocons, coname, 10, idryfld )
       if ( idryfld .gt. 0 ) minvolume = cons(idryfld)          ! or the given value
 
-      ivol   = 0
-      sumvol = 0.0
-      do ilay = 1, nolay
-         ! Use OpenMP? ikm, ivol private
-         ! Is ikm important?
-         !$omp parallel do private(ikm,ivol)
-         do isegl = 1, nosegl
-            !call dhkmrk( 1, iknmrk(isegl), ikm )
-            !if ( ikm .eq. 0 ) cycle                            ! whole collumn is inactive
-            ivol          = isegl + (ilay-1) * nosegl
-            sumvol(isegl) = sumvol(isegl) + volume(ivol)
+      do iseg = 1, nosegl
+         call dhkmrk( 1, iknmrk(iseg), ikm )
+         if ( ikm .eq. 0 ) cycle                               ! whole collumn is inactive
+         sum = 0.0
+         do ilay = 1, nolay
+            ivol = iseg + (ilay-1)*nosegl
+            sum  = sum  + volume(ivol)
          enddo
-      enddo
-
-      ivol   = 0
-      do ilay = 1, nolay
-         ! Use OpenMP? ivol private
-         !$omp parallel do private(ivol)
-         do isegl = 1, nosegl
-            ivol = isegl + (ilay-1) * nosegl
-            if ( sumvol(isegl) .lt. surface(isegl)*threshold ) then
+         if ( sum .lt. surface(iseg)*threshold ) then
+            do ilay = 1, nolay
+               ivol = iseg + (ilay-1)*nosegl
                call dhkmst(1, iknmkv(ivol), 0 )               ! zero the last bit
                call dhkmst(2, iknmkv(ivol), 0 )               ! and the second feature
-               !if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
-               volume(ivol) = max( volume(ivol), minvolume )
-            else
+               if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
+            enddo
+         else
+            do ilay = 1, nolay                                ! this copies the constant
+               ivol = iseg + (ilay-1)*nosegl                  ! property in case cell had
                iknmkv(ivol) = iknmrk(ivol)                    ! become wet again
-               !if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
-               volume(ivol) = max( volume(ivol), minvolume )
-            endif
-         enddo
+               if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
+            enddo
+         endif
       enddo
 
       minarea = 1.00E-04                                      ! default value of 1.00E-04 m2 = 1 cm2
@@ -182,8 +155,6 @@
 !     Routines            : none
 
       use timers
-      use dryfld_mod
-
       implicit none
 
 !     Parameters          :
@@ -205,7 +176,7 @@
       real     ( 4)    threshold       ! drying and flooding value
       real     ( 4)    minvolume       ! minimum volume in a cell
       integer  ( 4)    nosegl          ! number of computational volumes per layer
-      integer  ( 4)    isegl           ! loop variable
+      integer  ( 4)    iseg            ! loop variable
       integer  ( 4)    ivol            ! this computational volume
       integer  ( 4)    ilay            ! loop variable layers
       integer  ( 4)    ikm             ! feature
@@ -216,18 +187,6 @@
 
       nosegl = nosegw / nolay
 
-      !
-      ! Allocate the work array - reallocate if
-      ! for some reason the model size has changed
-      !
-      if ( .not. allocated(sumvol) ) then
-          allocate( sumvol(nosegl) )
-      endif
-      if ( size(sumvol) /= nosegl ) then
-          deallocate( sumvol )
-          allocate( sumvol(nosegl) )
-      endif
-
       threshold = 0.001                                         ! default value of 1 mm
       call zoek20 ( 'DRY_THRESH', nocons, coname, 10, idryfld )
       if ( idryfld .gt. 0 ) threshold = cons(idryfld)           ! or the given value
@@ -236,29 +195,21 @@
       call zoek20 ( 'MIN_VOLUME', nocons, coname, 10, idryfld )
       if ( idryfld .gt. 0 ) minvolume = cons(idryfld)          ! or the given value
 
-      sumvol = 0.0
-      do ilay = 1, nolay
-         ! Use OpenMP? ikm, ivol private
-         !$omp parallel do private(ikm,ivol)
-         do isegl = 1, nosegl
-            !call dhkmrk( 1, iknmrk(isegl), ikm )
-            !if ( ikm .eq. 0 ) cycle                            ! whole collumn is inactive
-            ivol = isegl + (ilay-1)*nosegl
-            sumvol(isegl) = sumvol(isegl) + volume(ivol)
+      do iseg = 1, nosegl
+         call dhkmrk( 1, iknmrk(iseg), ikm )
+         if ( ikm .eq. 0 ) cycle                               ! whole collumn is inactive
+         sum = 0.0
+         do ilay = 1, nolay
+            ivol = iseg + (ilay-1)*nosegl
+            sum = sum + volume(ivol)
          enddo
-      enddo
-
-      do ilay = 1, nolay
-         ! Use OpenMP? ikm, ivol private
-         !$omp parallel do private(ivol)
-         do isegl = 1, nosegl
-            ivol = isegl + (ilay-1)*nosegl
-            if ( sumvol(isegl) .gt. surface(isegl)*threshold ) then
+         if ( sum .gt. surface(iseg)*threshold ) then
+            do ilay = 1, nolay
+               ivol = iseg + (ilay-1)*nosegl
                iknmkv(ivol) = iknmrk(ivol)
-            endif
-            !if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
-            volume(ivol) = max( volume(ivol), minvolume )
-         enddo
+               if ( volume(ivol) .lt. 1.0e-25 ) volume(ivol) = minvolume
+            enddo
+         endif
       enddo
 
       if ( timon ) call timstop ( ithandl )

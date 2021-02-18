@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -31,8 +31,9 @@ c
       integer obsfil
       integer i, j
 c
+      obsfil = 11
 
-      open (newunit=obsfil, file='observ.inp')
+      open (obsfil, file='observ.inp')
 
       do 10 i = 1, 10
          write(obsfil,'(''location: '',i3)') i

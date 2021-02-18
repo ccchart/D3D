@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -43,6 +43,7 @@
 !       - A record with the actual data
 !
 module ftnunit_store
+    use ftnunit_utilities
 
     implicit none
 
@@ -151,11 +152,12 @@ subroutine test_open_storage_file( filename, lun, desc, output )
     endif
 
     !
-    ! Open the file and check
+    ! Get a LU-number, open the file and check
     !
+    call ftnunit_get_lun( lun )
 
     if ( output_ ) then
-        open( newunit = lun, file = filename, form = 'unformatted', status = 'new', iostat = ierr )
+        open( lun, file = filename, form = 'unformatted', status = 'new', iostat = ierr )
 
         if ( ierr /= 0 ) then
             write(*,*) 'FTNUNIT: unable to open file "' // trim(filename) // ' for writing'
@@ -168,7 +170,7 @@ subroutine test_open_storage_file( filename, lun, desc, output )
         write( lun ) desc_  ! Ensure a known length of the description
 
     else
-        open( newunit = lun, file = filename, form = 'unformatted', status = 'old', iostat = ierr )
+        open( lun, file = filename, form = 'unformatted', status = 'old', iostat = ierr )
 
         if ( ierr /= 0 ) then
             write(*,*) 'FTNUNIT: unable to open file "' // trim(filename) // ' for reading'

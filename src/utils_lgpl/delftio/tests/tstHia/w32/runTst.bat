@@ -20,4 +20,4 @@ fc TESTLocDesc.his ..\resultsApproved\w32\TESTLocDesc.his
 fc TESTParAndLocWithIntIds.hia ..\resultsApproved\w32\TESTParAndLocWithIntIds.hia
 fc TESTParAndLocWithIntIds.his ..\resultsApproved\w32\TESTParAndLocWithIntIds.his
 
-exit /B 0
+exit 0

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -58,8 +58,6 @@ program test
     integer length
     character name*20
     integer status
-    integer lunin
-    integer lunout
 
     write (*,*) 'FSM Test Program #1 Starting (reading from "input")'
 
@@ -67,13 +65,13 @@ program test
     status = fsmini (0, FSM_TRACE)
     status = fsmtrf ("trace.out")
 
-    open (newunit=lunin, file='input',  iostat=iostat, status='old', form='formatted')
+    open (10, file='input',  iostat=iostat, status='old', form='formatted')
     if (iostat /= 0) then
         write (*,*) 'Cannot open input file'
         stop
     endif
 
-    open (newunit=lunout, file='output', iostat=iostat, form='formatted')
+    open (11, file='output', iostat=iostat, form='formatted')
     if (iostat /= 0) then
         write (*,*) 'Cannot open output file'
         stop
@@ -82,7 +80,7 @@ program test
     line = 0
     do
         line = line + 1
-        read (lunin, '(a6,1x,i8,1x,i8,1x,a8)', iostat=iostat) operation, type, length, name
+        read (10, '(a6,1x,i8,1x,i8,1x,a8)', iostat=iostat) operation, type, length, name
         if (iostat < 0) then
             exit
         else if (iostat > 0) then
@@ -91,11 +89,11 @@ program test
         endif
 
         if (operation == 'makptr') then
-            call makepointer_l (lunout, name, type, length)
+            call makepointer_l (11, name, type, length)
         elseif (operation == 'getptr') then
-            call getpointer_l (lunout, name)
+            call getpointer_l (11, name)
         elseif (operation == 'relptr') then
-            call releasepointer_l (lunout, name)
+            call releasepointer_l (11, name)
         else
             write (*,*) 'Error: Unknown operation in input:', operation, 'on line ', line
         endif
@@ -103,8 +101,6 @@ program test
 
     status = prtkey ()
     write (*,*) 'FSM Test Program #1 Finished (results in "output")'
-    close(lunin)
-    close(lunout)
 end
 
 

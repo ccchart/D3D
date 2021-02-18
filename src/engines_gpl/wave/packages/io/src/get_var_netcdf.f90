@@ -1,5 +1,5 @@
 subroutine get_var_netcdf(i_flow, wavetime, varname, vararr, mmax, nmax, basename, &
-                        & lastvalidflowfield, kmax, flowVelocityType)
+                        & kmax, flowVelocityType)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2020.                                
@@ -45,7 +45,6 @@ subroutine get_var_netcdf(i_flow, wavetime, varname, vararr, mmax, nmax, basenam
     integer                      , intent(in)  :: i_flow
     integer                      , intent(in)  :: mmax
     integer                      , intent(in)  :: nmax
-    integer                                    :: lastvalidflowfield
     integer, optional            , intent(in)  :: kmax
     integer, optional            , intent(in)  :: flowVelocityType
     character(*)                 , intent(in)  :: varname
@@ -184,29 +183,14 @@ subroutine get_var_netcdf(i_flow, wavetime, varname, vararr, mmax, nmax, basenam
    endif
    itime = 0
    do i=1,ntimes
-      if (comparereal(wavetime%timsec,times(i)) >= 0) then
-         ! Found a time <= current time: can be used, but first check if there is a better matching time
+      if (comparereal(wavetime%timsec,times(i)) == 0) then
          itime = i
-         if (comparereal(wavetime%timsec,times(i)) == 0) then
-            ! Found a time equal to current time: use this one, quit the DO-loop
-            exit
-         endif
+         exit
       endif
    enddo
    if (itime == 0) then
       write(*,'(a,e10.3,3a)') "ERROR in get_var_netcdf: time (", wavetime%timsec, ") not found in file '", trim(filename), "'."
       call wavestop(1, "ERROR in get_var_netcdf: time not found in file '"//trim(filename)//"'.")
-   endif
-   if (comparereal(wavetime%timsec,times(itime)) == 1) then
-      ! Time not found, using the last valid field available:
-      ! If lastvalidflowfield = 0 then this is the first time that the time is not found; assume that the current one is the best available
-      ! else use lastvalidflowfield
-      if (lastvalidflowfield == 0) then
-         lastvalidflowfield = itime
-      endif
-      itime = lastvalidflowfield
-      write(*,'(a,e10.3,3a)') "WARNING in get_var_netcdf: time (", wavetime%timsec, ") not found in file '", trim(filename), "'."
-      write(*,'(a,e10.3,a)')  "                     using time (", times(itime), ") instead."
    endif
    !
    ! Get var

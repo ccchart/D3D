@@ -11,6 +11,10 @@ if sys.version_info<(3,0,0):
    # - open files with encoding='utf-8' (Both Python 2.x and 3.x)
    # - Do not use str(line) on lines read from file
    from codecs import open as open
+   from Tkinter import *
+else:
+   from tkinter import *
+
 
 #
 # This script can be used to create/convert the VisualStudio solution and project files
@@ -85,10 +89,6 @@ libdir["fortran1932"] = "$(IFORT_COMPILER19)\\compiler\\lib\\ia32"
 libdir["c1932"] = libdir["fortran1932"]
 libdir["fortran1964"] = "$(IFORT_COMPILER19)\\compiler\\lib\\intel64"
 libdir["c1964"] = libdir["fortran1964"]
-libdir["fortran2132"] = "$(IFORT_COMPILER21)\\compiler\\lib\\ia32"
-libdir["c2132"] = libdir["fortran2132"]
-libdir["fortran2164"] = "$(IFORT_COMPILER21)\\compiler\\lib\\intel64"
-libdir["c2164"] = libdir["fortran2164"]
 
 #
 #
@@ -134,10 +134,7 @@ redistdir["fortran1932"] = "$(IFORT_COMPILER19)redist\\ia32\\compiler\\&quot"
 redistdir["c1932"] = "$(IFORT_COMPILER19)redist\\ia32\\compiler\\"
 redistdir["fortran1964"] = "$(IFORT_COMPILER19)redist\\intel64\\compiler\\&quot"
 redistdir["c1964"] = "$(IFORT_COMPILER19)redist\\intel64\\compiler\\"
-redistdir["fortran2132"] = "$(IFORT_COMPILER21)redist\\ia32\\compiler\\&quot"
-redistdir["c2132"] = "$(IFORT_COMPILER21)redist\\ia32\\compiler\\"
-redistdir["fortran2164"] = "$(IFORT_COMPILER21)redist\\intel64\\compiler\\&quot"
-redistdir["c2164"] = "$(IFORT_COMPILER21)redist\\intel64\\compiler\\"
+
 
 # redistdir specifies the directory containing the ifort redistributable dlls
 # The string to be added can be set depending on:
@@ -181,10 +178,6 @@ mkldir["fortran1932"] = "$(IFORT_COMPILER19)redist\\ia32\\mkl\\&quot"
 mkldir["c1932"] = "$(IFORT_COMPILER19)redist\\ia32\\mkl\\"
 mkldir["fortran1964"] = "$(IFORT_COMPILER19)redist\\intel64\\mkl\\&quot"
 mkldir["c1964"] = "$(IFORT_COMPILER19)redist\\intel64\\mkl\\"
-mkldir["fortran2132"] = "$(IFORT_COMPILER21)redist\\ia32\\mkl\\&quot"
-mkldir["c2132"] = "$(IFORT_COMPILER21)redist\\ia32\\mkl\\"
-mkldir["fortran2164"] = "$(IFORT_COMPILER21)redist\\intel64\\mkl\\&quot"
-mkldir["c2164"] = "$(IFORT_COMPILER21)redist\\intel64\\mkl\\"
 
 #
 #
@@ -196,8 +189,8 @@ toolsversion[2013] = "12.0"
 toolsversion[2014] = "12.0"
 toolsversion[2015] = "14.0"
 toolsversion[2016] = "14.0"
-toolsversion[2017] = "15.0"
-toolsversion[2019] = "15.0"
+toolsversion[2017] = "14.0"
+toolsversion[2019] = "14.0"
 
 #
 #
@@ -315,8 +308,8 @@ def process_solution_file(sln, slntemplate):
                     line = "Microsoft Visual Studio Solution File, Format Version 12.00\r\n"
                 elif vs == 2019:
                     line = "Microsoft Visual Studio Solution File, Format Version 12.00\r\n"
-                else:
-                    pass
+                # else:
+                    # leave line unchanged
             startpos = line.find("# Visual Studio")
             if startpos == 0:
                 if vs == 2010:
@@ -334,9 +327,9 @@ def process_solution_file(sln, slntemplate):
                 elif vs == 2017:
                     line = "# Visual Studio 2017\r\n"
                 elif vs == 2019:
-                    line = "# Visual Studio 16\r\n"
-                else:
-                    pass
+                    line = "# Visual Studio 2019\r\n"
+                # else:
+                    # leave line unchanged
             filouthandle.write(line)
 
     # Process all project files referenced in the sln file
@@ -554,21 +547,22 @@ def getUCRTVersionNumber():
         sys.stdout.write("Trying to execute: " + getucrtdir[str(vs)] + " ...\n")
         try:
             result = subprocess.check_output(getucrtdir[str(vs)], shell=True)
-            result = result.decode('utf-8')
-        except Exception as e:
+        except:
             result = ""
-            sys.stdout.write("\n\n *** ERROR:Execution failed; is VisualStudio " + str(vs) + " installed?")
-            sys.stdout.write("Python reported: " + str(e))
-            sys.stdout.write("The ucrtdir is: " + getucrtdir[str(vs)])
-            sys.stdout.write("\n\n\n")
-
-        ucrtpos = result.rfind("UniversalCRTSdkDir=")
-        if ucrtpos == -1:
+            sys.stdout.write("\n\n *** ERROR:Execution failed; is VisualStudio " + str(vs) + " installed?\n\n\n")
+        result = result.decode('utf-8')
+        if result.find("UniversalCRTSdkDir") == -1:
             # Fallback: it should be this:
             sys.stdout.write("ucrtdir not found; set to default value\n")
-            ucrtdir = "c:\\Program Files (x86)\\Windows Kits\\10\\Lib"
+            ucrtdir = "c:\\Program Files (x86)\\Windows Kits\\10\\Lib\\"
         else:
-            ucrtdir = result[ucrtpos+19:]
+            ucrtdir = result[19:]
+            # result may be:
+            # ****\nbladibla\n****\nUniversalCRTSdkDir=<value>
+            # Get the value
+            ucrtpos = ucrtdir.rfind("UniversalCRTSdkDir=")
+            if ucrtpos > -1:
+                ucrtdir = ucrtdir[ucrtpos+19:]
             # Remove the trailing slash and the newline-character behind it
             lastslash = ucrtdir.rfind("\\")
             if lastslash != -1:
@@ -699,28 +693,27 @@ def build_gui():
     
     if chooseIfort == 1:
         Label(text="IFORT Version:", relief=RIDGE, width=20).grid(row=0, column=2)
-        Radiobutton(root, text="IFORT21: Intel oneAPI HPC 2021                 ", variable=ifort_gui, value=21).grid(row=1, column=2, sticky=W)
-        Radiobutton(root, text="IFORT19: Intel Parallel Studio XE 2019         ", variable=ifort_gui, value=19).grid(row=2, column=2, sticky=W)
-        Radiobutton(root, text="IFORT18: Intel Parallel Studio XE 2018 Update 4", variable=ifort_gui, value=18).grid(row=3, column=2, sticky=W)
-        Radiobutton(root, text="IFORT17: (Not Recommended)                     ", variable=ifort_gui, value=17).grid(row=4, column=2, sticky=W)
-        Radiobutton(root, text="IFORT16: Intel Parallel Studio XE 2016 Update 4", variable=ifort_gui, value=16).grid(row=5, column=2, sticky=W)
-        Radiobutton(root, text="IFORT15: Intel Parallel Studio XE 2015 Update 6", variable=ifort_gui, value=15).grid(row=6, column=2, sticky=W)
-        Radiobutton(root, text="IFORT14: Intel Visual Fortran Composer XE 2014 ", variable=ifort_gui, value=14).grid(row=7, column=2, sticky=W)
-        Radiobutton(root, text="IFORT13: Intel Visual Fortran Composer XE 2013 ", variable=ifort_gui, value=13).grid(row=8, column=2, sticky=W)
-        Radiobutton(root, text="IFORT12: Intel Visual Fortran Composer XE 2011 ", variable=ifort_gui, value=12).grid(row=9, column=2, sticky=W)
+        Radiobutton(root, text="IFORT19: Intel Parallel Studio XE 2019         ", variable=ifort_gui, value=19).grid(row=1, column=2, sticky=W)
+        Radiobutton(root, text="IFORT18: Intel Parallel Studio XE 2018 Update 4", variable=ifort_gui, value=18).grid(row=2, column=2, sticky=W)
+        Radiobutton(root, text="IFORT17: (Not Recommended)                     ", variable=ifort_gui, value=17).grid(row=3, column=2, sticky=W)
+        Radiobutton(root, text="IFORT16: Intel Parallel Studio XE 2016 Update 4", variable=ifort_gui, value=16).grid(row=4, column=2, sticky=W)
+        Radiobutton(root, text="IFORT15: Intel Parallel Studio XE 2015 Update 6", variable=ifort_gui, value=15).grid(row=5, column=2, sticky=W)
+        Radiobutton(root, text="IFORT14: Intel Visual Fortran Composer XE 2014 ", variable=ifort_gui, value=14).grid(row=6, column=2, sticky=W)
+        Radiobutton(root, text="IFORT13: Intel Visual Fortran Composer XE 2013 ", variable=ifort_gui, value=13).grid(row=7, column=2, sticky=W)
+        Radiobutton(root, text="IFORT12: Intel Visual Fortran Composer XE 2011 ", variable=ifort_gui, value=12).grid(row=8, column=2, sticky=W)
         # default value
         ifort_gui.set(16)
     else:
         ifort_gui.set(-999)
     
-    Label(text=" ").grid(row=9)
+    Label(text=" ").grid(row=8)
     if chooseIfort == 1:
-        Label(text="Choose your Visual Studio version, .Net Framework version and IFORT version and click 'Apply'").grid(row=10, column=0, columnspan=3)
+        Label(text="Choose your Visual Studio version, .Net Framework version and IFORT version and click 'Apply'").grid(row=9, column=0, columnspan=3)
     else:
-        Label(text="Choose your Visual Studio version and click 'Apply'").grid(row=10, column=0, columnspan=3)
+        Label(text="Choose your Visual Studio version and click 'Apply'").grid(row=9, column=0, columnspan=3)
     
-    b1 = Button(root, text="Apply", width=20, command=do_work).grid(row=11, column=0, sticky=W)
-    b2 = Button(root, text="Exit", width=20, command=exit_button_pressed).grid(row=11, column=2, sticky=E)
+    b1 = Button(root, text="Apply", width=20, command=do_work).grid(row=10, column=0, sticky=W)
+    b2 = Button(root, text="Exit", width=20, command=exit_button_pressed).grid(row=10, column=2, sticky=E)
     
     # To keep GUI window running
     root.mainloop()
@@ -753,10 +746,6 @@ if __name__ == "__main__":
     # Both vs and ifort defined via command line arguments: do_work
     # Else: Create GUI to select them
     if vs == -999 or ifort == -999:
-        if sys.version_info<(3,0,0):
-            from Tkinter import *
-        else:
-            from tkinter import *
         build_gui()
     else:
         do_work()

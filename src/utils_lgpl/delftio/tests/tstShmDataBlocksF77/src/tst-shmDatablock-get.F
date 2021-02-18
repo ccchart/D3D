@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -36,7 +36,8 @@
       integer resLun
 
       resFileName = 'TESTShmF77-res.txt'
-      open(newunit=resLun,file=resFileName)
+      resLun = 11
+      open(resLun,file=resFileName)
 
       nRealTimes = 10
       nGetTimes = 15

@@ -1,7 +1,7 @@
    module m_Dambreak
    !----- AGPL --------------------------------------------------------------------
    !
-   !  Copyright (C)  Stichting Deltares, 2017-2021.
+   !  Copyright (C)  Stichting Deltares, 2017-2020.
    !
    !  This program is free software: you can redistribute it and/or modify
    !  it under the terms of the GNU Affero General Public License as
@@ -59,10 +59,8 @@
       double precision :: waterLevelUpstreamLocationY       = -999d0
       double precision :: waterLevelDownstreamLocationX     = -999d0	
       double precision :: waterLevelDownstreamLocationY     = -999d0
-      character(IdLen) :: waterLevelUpstreamNodeId          = ''
-      character(IdLen) :: waterLevelDownstreamNodeId        = ''
-      character(Charln):: levelsAndWidths                   = ''
-
+      character(Charln) :: levelsAndWidths                  = ''
+      
       ! State variables, not to be read
       integer          :: phase
       double precision :: width

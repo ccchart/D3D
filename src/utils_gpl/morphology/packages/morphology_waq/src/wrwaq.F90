@@ -1,7 +1,7 @@
       module wrwaq
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,16 +41,18 @@
       function openwaqbinfile(filename) result (lun)
          character*(*), intent(in) :: filename !< Output filename.
          integer :: lun
+         integer, external :: newunit
 !
 !           WARNING: WAQ input files must be written using form=binary
 !                    instead of unformatted.
 !                    Although it is not standard Fortran
 !
+         lun    = newunit()
 #ifdef HAVE_FC_FORM_BINARY
-         open  ( newunit=lun , file=filename , form = 'binary' , SHARED )
+         open  ( lun , file=filename , form = 'binary' , SHARED )
 #else
 ! standardized way if binary is not available
-         open  ( newunit=lun , file=filename , form = 'unformatted' , access='stream' )
+         open  ( lun , file=filename , form = 'unformatted' , access='stream' )
 #endif
       end function openwaqbinfile
 
@@ -58,14 +60,16 @@
       function openasciifile(filename) result (lun)
          character*(*), intent(in) :: filename
          integer :: lun
+         integer, external :: newunit
 !
 !           NOTE: Opens a simple ASCII-file. Function is intended only
 !                 to isolate newunit dependency.
 !
+         lun    = newunit()
 #ifdef HAVE_FC_FORM_BINARY
-         open  ( newunit=lun , file=filename , form='formatted', SHARED )
+         open  ( lun , file=filename , form='formatted', SHARED )
 #else
-         open  ( newunit=lun , file=filename , form='formatted', access='stream')
+         open  ( lun , file=filename , form='formatted', access='stream')
 #endif
       end function openasciifile
 

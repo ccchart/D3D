@@ -304,7 +304,7 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata, selectedtime)
          write(*,'(a)') '  Write SWAN input'
          dom%curlif = swan_grids(i_swan)%tmp_name
 
-         call write_swan_input (swan_run, itide, wavedata%time%calccount, i_swan, swan_grids(i_swan)%xymiss, wavedata)
+         call write_swan_input (swan_run, itide, wavedata%time%calccount, i_swan, wavedata)
 
          ! The following commented code was used for a special version
          ! - to be implemented in a more constructive way
@@ -463,17 +463,9 @@ subroutine swan_tot (n_swan_grids, n_flow_grids, wavedata, selectedtime)
          enddo
          ! Initially comcount = 0
          ! After writing the first data set to (all) the comfile(s), comcount must be increased
-         ! Always write to field 1, unless append_com is true
-         if (swan_run%append_com) then
-            ! comcount = 0: The first fields have just been written; next time: comcount = 2
-            if (wavedata%output%comcount == 0) then
-               wavedata%output%comcount = 2
-            else
-               wavedata%output%comcount = wavedata%output%comcount + 1
-            endif
-         else
-            wavedata%output%comcount = 1
-         endif
+         ! Always write to field 1
+         ! To Do: optionally store all fields
+         wavedata%output%comcount = 1
       endif
    enddo   ! time steps
 end subroutine swan_tot

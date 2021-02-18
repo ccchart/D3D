@@ -1,7 +1,7 @@
 module m_Storage
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -53,7 +53,6 @@ module m_Storage
    public getSurface
    public printData
    public fill_hashtable
-   public getTopLevel
 
    interface printData
       module procedure printStorageSet
@@ -244,7 +243,7 @@ contains
          endif
       endif
       ! else : calculate well storage:
-      if (storage%storageType /= nt_None .and. level >= storage%storageArea%x(1)-1d-4 ) then
+      if (storage%storageType /= nt_None .and. level >= storage%storageArea%x(1) ) then
          getSurfaceByStorNode = interpolate(storage%storageArea, level)
       else
          getSurfaceByStorNode = 0d0
@@ -285,15 +284,6 @@ contains
       endif
    end function getVolumeByStorNode
 
-   double precision function getTopLevel(storage)
-      type(t_storage), intent(in)            :: storage
-      if (storage%useStreetStorage .and. (.not. storage%useTable)) then
-         getTopLevel = storage%streetArea%x(storage%streetArea%length)
-      else
-         getTopLevel = storage%storageArea%x(storage%storageArea%length)
-      endif
-   end function getTopLevel
-   
    subroutine fill_hashtable_sto(storS)
    
       type (t_storageSet), intent(inout), target   :: storS

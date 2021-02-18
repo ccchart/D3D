@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -119,7 +119,7 @@ subroutine test_triton_retrieve(fileName)
     character(Len=*), intent(IN)  :: fileName    ! restart file name
 
     ! resultFile
-    integer                       :: resLun      ! handle to result file
+    integer                       :: resLun = 11 ! handle to result file
     character(Len=DioMaxStreamLen):: resFileName = 'TESTTriton-res.txt'
 
     ! sizes
@@ -156,7 +156,7 @@ subroutine test_triton_retrieve(fileName)
     ! INITIALIZE
     !
     
-    open(newunit=resLun, file=resFileName)
+    open(resLun, file=resFileName)
   
     depth     = 0.D+00
     depth_aux = 0.D+00

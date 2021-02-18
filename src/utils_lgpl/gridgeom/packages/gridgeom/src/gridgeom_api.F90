@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -381,52 +381,7 @@ function ggeo_deallocate_dll() result(ierr) bind(C, name="ggeo_deallocate")
 
 end function ggeo_deallocate_dll
 
-
-function ggeo_count_cells_dll(c_meshDimIn, c_meshIn, c_meshDimOut) result(ierr) bind(C, name="ggeo_count_cells")
-!DEC$ ATTRIBUTES DLLEXPORT :: ggeo_count_cells_dll
-
-   use gridoperations   
-   use m_cell_geometry
-   use meshdata
-   use network_data
-   use m_missing
-   use m_alloc
-
-   type(c_t_ug_meshgeomdim), intent(in)       :: c_meshDimIn       !< input mesh dimensions, externally allocated
-   type(c_t_ug_meshgeom), intent(in)          :: c_meshIn          !< input mesh, externally allocated 
-   type(c_t_ug_meshgeomdim), intent(inout)    :: c_meshDimOut       !< input mesh dimensions
-   !locals
-   type(t_ug_meshgeom)                        :: meshgeomIn        !< fortran meshgeom
-   integer                                    :: ierr, n, nn, maxNumNodes
-   
-   ierr = 0
-   
-   ! destroy any previous state of the library
-   ierr = network_data_destructor()   
-   ! initialize local meshgeomIn
-   ierr = t_ug_meshgeom_destructor(meshgeomIn)  
-   !convert c to fortran pointers
-   ierr = convert_cptr_to_meshgeom(c_meshIn, c_meshDimIn, meshgeomIn)
-   !set library state
-   ierr = ggeo_deallocate()
-   ierr = ggeo_initialize() 
-   ierr = ggeo_convert(meshgeomIn, c_meshIn%start_index)
-   
-   !find net cells
-   call findcells(0)  
-   
-   !inquire dimension for outside allocation
-   maxNumNodes = 0
-   do n = 1, nump
-      maxNumNodes = max(maxNumNodes, size(netcell(n)%nod))
-   enddo
-   c_meshDimOut%numface         = nump
-   c_meshDimOut%maxnumfacenodes = maxNumNodes
-
-end function ggeo_count_cells_dll
-
-
-function ggeo_find_cells_dll(c_meshDimIn, c_meshInOut) result(ierr) bind(C, name="ggeo_find_cells")
+function ggeo_find_cells_dll(c_meshDimIn, c_meshIn, c_meshDimOut, c_meshOut, startIndex) result(ierr) bind(C, name="ggeo_find_cells")
 !DEC$ ATTRIBUTES DLLEXPORT :: ggeo_find_cells_dll
    use gridoperations   
    use m_cell_geometry
@@ -436,42 +391,62 @@ function ggeo_find_cells_dll(c_meshDimIn, c_meshInOut) result(ierr) bind(C, name
    use m_alloc
 
    type(c_t_ug_meshgeomdim), intent(in)       :: c_meshDimIn       !< input mesh dimensions, externally allocated
-   type(c_t_ug_meshgeom), intent(inout)       :: c_meshInOut          !< input mesh, externally allocated 
+   type(c_t_ug_meshgeom), intent(in)          :: c_meshIn          !< input mesh, externally allocated 
+   type(c_t_ug_meshgeomdim), intent(inout)    :: c_meshDimOut      !< input mesh dimensions, intenally allocated
+   type(c_t_ug_meshgeom), intent(inout)       :: c_meshOut         !< input mesh, intenally allocated 
+   integer(c_int), intent(in)                 :: startIndex        !< the start_index index of the arrays
    !locals
-   type(t_ug_meshgeom)                        :: meshgeomInOut         !< fortran meshgeom
-   integer                                    :: ierr, n, nn
+   type(t_ug_meshgeom)                        :: meshgeomIn        !< fortran meshgeom
+   type(t_ug_meshgeom)                        :: meshgeomOut       !< fortran meshgeom
+   integer, pointer                           :: face_nodes(:,:)   !< Face-to-node mapping array.
+   double precision, pointer                  :: facex(:)
+   double precision, pointer                  :: facey(:)
+   integer                                    :: ierr, n, nn, maxNumNodes
    
    ierr = 0
    
    ! destroy any previous state of the library
    ierr = network_data_destructor()   
-   ! initialize local meshgeomInOut
-   ierr = t_ug_meshgeom_destructor(meshgeomInOut) 
+   ! initialize local meshgeomIn
+   ierr = t_ug_meshgeom_destructor(meshgeomIn) 
+   ierr = t_ug_meshgeom_destructor(meshgeomOut) 
    !convert c to fortran pointers
-   ierr = convert_cptr_to_meshgeom(c_meshInOut, c_meshDimIn, meshgeomInOut)
+   ierr = convert_cptr_to_meshgeom(c_meshIn, c_meshDimIn, meshgeomIn)
    !set library state
    ierr = ggeo_deallocate()
    ierr = ggeo_initialize() 
-   ierr = ggeo_convert(meshgeomInOut, meshgeomInOut%start_index)
+   ierr = ggeo_convert(meshgeomIn, startIndex)
    
    !find net cells
    call findcells(0)   
-    
-   if (meshgeomInOut%dim.eq.2) then
+   
+   !inquire dimension for outside allocation
+   ierr = convert_cptr_to_meshgeom(c_meshOut, c_meshDimOut, meshgeomOut)
+   if (c_meshDimOut%numface <=0 .or. c_meshDimOut%maxnumfacenodes <=0) then
+      maxNumNodes = 0
+      do n = 1, nump
+         maxNumNodes = max(maxNumNodes, size(netcell(n)%nod))
+      enddo
+      c_meshDimOut%numface         = nump
+      c_meshDimOut%maxnumfacenodes = maxNumNodes
+      return
+   endif
+ 
+   if (meshgeomIn%dim.eq.2) then
       do n = 1, nump
          !fill face nodes
-         meshgeomInOut%face_nodes(:,n) = imiss;
+         meshgeomOut%face_nodes(:,n) = imiss;
          nn = size(netcell(n)%nod)
-         meshgeomInOut%face_nodes(1:nn,n) = netcell(n)%nod(1:nn)
+         meshgeomOut%face_nodes(1:nn,n) = netcell(n)%nod(1:nn)
          !fill cell centers
-         meshgeomInOut%facex(n) = xz(n)
-         meshgeomInOut%facey(n) = yz(n)
+         meshgeomOut%facex(n) = xz(n)
+         meshgeomOut%facey(n) = yz(n)
       end do
    endif
    
    !convert back to the start index
-   if (meshgeomInOut%start_index == 0) then
-      where(meshgeomInOut%face_nodes.ne.imiss) meshgeomInOut%face_nodes = meshgeomInOut%face_nodes - 1;
+   if (startIndex == 0) then
+      where(meshgeomOut%face_nodes.ne.imiss) meshgeomOut%face_nodes = meshgeomOut%face_nodes - 1;
    endif
  
    

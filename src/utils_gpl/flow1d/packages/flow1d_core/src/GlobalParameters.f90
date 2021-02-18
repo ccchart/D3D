@@ -1,7 +1,7 @@
 module m_GlobalParameters
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -49,7 +49,7 @@ module m_GlobalParameters
    double precision                 :: thresholdDry                  = 0.001d0
    double precision                 :: thresholdFlood                = 0.01d0
    double precision                 :: factorFloodingDividedByDrying = 10.0d0
-   double precision                 :: summerDikeTransitionHeight    = 0.50d0 !read from CrossSectionDefinitions.ini 
+   double precision                 :: summerDikeTransitionHeight    = 0.50d0
    double precision                 :: summerDikeThreshold           = 0.4d+0
    double precision                 :: ThresholdSiphon               = 0.1d0
    double precision                 :: StructureDynamicsFactor       = 1.0d0
@@ -68,7 +68,7 @@ module m_GlobalParameters
    integer, public :: luntrans = 0
 
    ! storage table controls
-   double precision, public      :: tb_inc = 0.1
+   double precision, public      :: tb_inc = 0.01
    double precision, public      :: tb_extra_height = 0.0
    character(len=charln), public :: st_filename
    logical, public               :: write_tables
@@ -123,15 +123,15 @@ module m_GlobalParameters
       double precision                :: teta
       
       !data for branch own mouth relations
-      type(t_node), pointer              :: mouth
-      double precision                   :: tidal_period
-      double precision                   :: start_time_tidal_period      !< start time of this tidal period
-      double precision                   :: rho_fresh_water              !< reference density of sea water
-      logical                            :: start_tidal_period           !< indicates whether the first tidal period has started.
-      logical                            :: first_tidal_period           !< indicates whether this is the first tidal period has started.
-      integer                            :: dis_loc                      !< location of discharge point near mouth 
-      integer                            :: dis_dir                      !< direction of discharge point if dis_dir*Q > 0 then flow is into the model  
-      logical                            :: use_f4_dispersion            !< logical indicating, whether f4 dispersion is to be used 
+      type(t_node), pointer           :: mouth
+      double precision                :: tidal_period
+      double precision                :: start_time_tidal_period    !< start time of this tidal period
+      double precision                :: rho_fresh_water            !< reference density of sea water
+      logical                         :: start_tidal_period         !< indicates whether the first tidal period has started.
+      logical                         :: first_tidal_period         !< indicates whether this is the first tidal period has started.
+      integer                         :: dis_loc                    !< location of discharge point near mouth 
+      integer                         :: dis_dir                    !< direction of discharge point if dis_dir*Q > 0 then flow is into the model  
+      logical                         :: use_f4_dispersion          !< logical indicating, whether f4 dispersion is to be used 
       logical, allocatable, dimension(:) :: use_f4_dispersion_for_branch !< logical indicating, whether f4 dispersion is defined on this branch
 
       double precision                :: n
@@ -154,9 +154,7 @@ module m_GlobalParameters
    integer, public, parameter              :: ST_CULVERT    =  9
    integer, public, parameter              :: ST_BRIDGE     = 10
    integer, public, parameter              :: ST_COMPOUND   = 11
-   integer, public, parameter              :: ST_LONGCULVERT = 12
-
-   integer, public, parameter              :: ST_MAX_TYPE   = 12 !< Max id of structure types. The preceding ids must be lower than this.
+   integer, public, parameter              :: ST_MAX_TYPE   = 11 !< Max id of structure types. The preceding ids must be lower than this.
 
    ! Flow geometry / computational grid
    integer, public, parameter              :: INDTP_1D      = 1  !< Type code for flow nodes that are 1D
@@ -310,11 +308,5 @@ module m_GlobalParameters
    integer, public, parameter :: CFiState                   = 124
    integer, public, parameter :: CFiWindVelocity            = 125
    integer, public, parameter :: CFiWindDirection           = 126
-  
-   ! UNST-4317: TEMP lowlevel timers
-   integer(kind=8) :: callcount(2) = 0 ! Number of calls to timed subroutines
-   integer(kind=8) :: wccount(2)   = 0 ! wallclock processor counts for some timers (output of system_clock).
-   integer(kind=8) :: countstart, countstop ! temp variables to start/stop the system_clock stopwatch. To be stored in wccount(:).
-   integer(kind=8) :: rate ! Rate of processor clock count
    
 end module m_GlobalParameters                                 

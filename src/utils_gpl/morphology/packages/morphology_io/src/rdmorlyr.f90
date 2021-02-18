@@ -1,7 +1,7 @@
 module m_rdmorlyr
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -1924,17 +1924,6 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
                    return
                 endif
                 !
-                ! Copy data to open boundary points
-                ! 
-                do ibnd = 1, size(dims%nmbnd,1)
-                   nm  = dims%nmbnd(ibnd,1)
-                   nm2 = dims%nmbnd(ibnd,2)
-                   svfrac(ilyr, nm) = svfrac(ilyr, nm2)
-                   thlyr(ilyr, nm) = thlyr(ilyr, nm2)
-                   do ised = 1, lsedtot
-                      msed(ised, ilyr, nm) = msed(ised, ilyr, nm2)
-                   enddo
-                enddo             
              enddo
              !
              deallocate(rtemp , stat = istat)

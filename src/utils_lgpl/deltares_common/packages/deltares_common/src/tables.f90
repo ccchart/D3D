@@ -1,7 +1,7 @@
 module tables
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -159,6 +159,7 @@ subroutine org_readtable(this, filnam, refjulday, errorstring)
     integer                   , dimension(:), allocatable :: itype
     integer                   , dimension(:), allocatable :: ifield
     integer                   , dimension(:), allocatable :: lenchr
+    integer                   , external                  :: newunit
     !
     logical                                               :: feof
     logical                                               :: error

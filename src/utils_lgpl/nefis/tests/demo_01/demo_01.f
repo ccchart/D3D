@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -105,6 +105,7 @@ C                 .. NEFIS-FUNCTION: CLOSE A DEFINITION FILE
 C                 .. NEFIS-FUNCTION: RETRIEVE ERROR STRING
 C=======================================================================
 C                 ..
+      OBSFIL = 11
 C                 .. LET US WRITE THE DATA IN NEUTRAL REPRESENTATION
       CODING = 'N'
 C                 ..
@@ -177,7 +178,7 @@ C                 ..
 C                 .. NOW, READ ALL FIELD OBSERVATIONS FROM A FILE
       write(*,'(''Demo1: Read observation data from input file'',
      *             '' (not a NEFIS action)'')')
-      OPEN (NEWUNIT=OBSFIL,FILE='observ.inp')
+      OPEN (OBSFIL,FILE='observ.inp')
       DO 10 I = 1, 10
          READ (OBSFIL,*)
          DO 20 J = 1, 100

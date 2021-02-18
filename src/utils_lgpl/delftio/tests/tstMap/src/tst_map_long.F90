@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2021.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -114,7 +114,8 @@ subroutine read_map_long
     ! nullify(locs)
 !   Open file for storing results
 
-    open(newunit=resLun,file='TESTMapLong-res.txt', iostat=ierr)
+    resLun = 11
+    open(resLun,file='TESTMapLong-res.txt', iostat=ierr)
 
 !   Get MAP IN data set
 

@@ -1,7 +1,7 @@
 module m_readStorageNodes
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2021.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -294,7 +294,7 @@ module m_readStorageNodes
             nullify(pSto%storageArea)
             nullify(pSto%streetArea)
 
-            ! Because of the complicated data structure of SOBEK storage in 'connection nodes'
+            ! Bcause of the complicated data structure of SOBEK storage in 'connection nodes'
             ! must be separated from the ordinary gridpoints
             pSto%id        = storgNodeId
             pSto%name      = storgNodeName
