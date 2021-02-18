@@ -316,7 +316,9 @@
       write ( lunout2 , '(a,a    )' ) 'attributes-file          ',trim(filstring)
 
       if (zmodel) then
+         write ( lunout1 , '(a, f15.6 )' ) 'z-layers-ztop ', ztop
          write ( lunout2 , '(a, f15.6 )' ) 'z-layers-ztop ', ztop
+         write ( lunout1 , '(a, f15.6 )' ) 'z-layers-zbot ', zbot
          write ( lunout2 , '(a, f15.6 )' ) 'z-layers-zbot ', zbot
       endif
 
@@ -344,10 +346,17 @@
       write ( lunout2 , '(a      )' ) 'end-constant-dispersion'
       write ( lunout1 , '(a      )' ) 'hydrodynamic-layers'
       write ( lunout2 , '(a      )' ) 'hydrodynamic-layers'
-      do i = 1,kmax
-         write ( lunout1 , '(f15.8  )' ) thick(i)
-         write ( lunout2 , '(f15.8  )' ) thick(i)
-      enddo
+      if (zmodel) then
+         do i = kmax, 1, -1
+            write ( lunout1 , '(f15.8  )' ) thick(i)
+            write ( lunout2 , '(f15.8  )' ) thick(i)
+         enddo
+      else
+         do i = 1,kmax
+            write ( lunout1 , '(f15.8  )' ) thick(i)
+            write ( lunout2 , '(f15.8  )' ) thick(i)
+         enddo
+      endif
       write ( lunout1 , '(a      )' ) 'end-hydrodynamic-layers'
       write ( lunout2 , '(a      )' ) 'end-hydrodynamic-layers'
       write ( lunout1 , '(a      )' ) 'water-quality-layers   '
