@@ -726,12 +726,12 @@ subroutine tree_get_data_string( tree, string, success )
       success = .true.
       length  = size(data_ptr)
       string  = ' '
-      if (length <= len(string)) then
+      ! A3M: Why was there this line? It's not needed and it blocks writing:      if (length <= len(string)) then
          length = min(length,len(string))
          do i=1, length
             string(i:i) = data_ptr(i)
          end do
-      endif
+      ! A3M: endif
    endif
 
 end subroutine tree_get_data_string
