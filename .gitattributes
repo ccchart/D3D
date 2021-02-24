@@ -12290,6 +12290,11 @@ src/third_party_open/swan/bin/linux/swan_4120_limiter_ctheta_linux64_omp.exe -te
 src/third_party_open/swan/bin/linux/swan_4120_limiter_ctheta_linux64_ser.exe -text
 src/third_party_open/swan/bin/linux/swan_mpi.exe -text
 src/third_party_open/swan/bin/linux/swan_omp.exe -text
+src/third_party_open/swan/bin/w64_i11/libgcc_s_seh-1.dll -text
+src/third_party_open/swan/bin/w64_i11/libgfortran-4.dll -text
+src/third_party_open/swan/bin/w64_i11/libgomp-1.dll -text
+src/third_party_open/swan/bin/w64_i11/libquadmath-0.dll -text
+src/third_party_open/swan/bin/w64_i11/libwinpthread-1.dll -text
 src/third_party_open/swan/bin/w64_i11/swan_4120_limiter_ctheta_w64_omp.exe -text
 src/third_party_open/swan/bin/w64_i11/swan_4120_limiter_ctheta_w64_ser.exe -text
 src/third_party_open/swan/bin/w64_i11/swan_omp.exe -text
