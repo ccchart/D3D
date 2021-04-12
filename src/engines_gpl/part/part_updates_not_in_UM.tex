@@ -1,33 +1,761 @@
 \documentclass[english]{deltares_manual}
-\title{Description PARTbranch}
-\subtitle{changes compared with the trunk version and not included in trunk version}
+%\usepackage{imakeidx}
+%    \makeindex
+%	\makeindex[name=authors,title=Authors,columns=3]
+\usepackage{natbib}								% voor referenties
+\usepackage[most]{tcolorbox}
+\usepackage{ragged2e}
+\usepackage{enumerate}
+%\usepackage{tabto}
+%\usepackage{subfig}
+\newcommand\tab[1][1cm]{\hspace*{#1}}
+\sloppy
+\title{Description PART branch}
+\subtitle{Changes compared with the trunk version but not \mbox{included} in trunk version}
 \manualtype{Additional information}
 \version{1.0}
 \begin{document}
-	
 \deltarestitle
+\sloppy	
+
 %------------------------------------------------------------------------------
-\section{Beschrijving van script waq\_balans.py}
+\chapter{Description of evaporation for Oil}
 
-This programme makes use of the mass balance ascii (prn) output files from delwaq.
-Two files can be used as input so that they can be compared.
+\section{Introduction}
+This is an internal document on changes in the PART code to improve its functionality.
 
-if substance in allsubs: this is the first main loop through the substances 
+The first section is an internal note on the implementation of an added option to apply a evaporation process according to Fingas. 
 
-\begin{description}
-	\item for ifile in range(len(infile)): the second loop through the (maximum) two input files, it was not tested if only one input file is used.
-\end{description}
+The evaporation in the oil module up to now was described by a first order function combined with a evaporative fraction.  The disadvantage of this was that the value of the decay parameter and the evaporative fraction cannot be directly linked to the characteristics of the oil. Standard practice to set these parameters is to validate the oil balance using a comparison with the ADIOS2 model. 
 
-At the end of the ifile loop all the terms are stored in indum (for both files)
-In de structure 'results' are all output included of the two files for that substance so that this can be converted two one dataframe that can be stored as an excel file. 
+\section{Specification of the evaporation}
+The evaporation process that is now available uses the description of evaporation of Fingas (\cite{Fingas2004},  \cite{Fingas2013}). Fingas proposed to describe the time-dependent evaporation using a natural log or a square root function, with a temperature dependency (\cite{Fingas2011}):
 
-I can search the structure on strings or values using something like:
-test = list(filter(lambda x:'Storage' in x, results)). The names that we want to compare are stored in varname
+For oils (most oils and petroleum products) that follow a logarithmic equation:
+\begin{equation}\label{evap1}
+\textbf{Percentage evaporated = [.165(\%D) + .045(T‐15)]ln(t)}
+\end{equation}
 
-This gives all occurences and then I can do the output as I please.
+For oils like diesel fuel that follow a square root equation:
+\begin{equation}\label{evap1}
+\textbf{Percentage evaporated = [.0254(\%D) + .01(T‐15)]$\sqrt{t}$}
+\end{equation}
+where \%D is the percentage (by weight) distilled at 180$^{o}C$, T the temperature in $^{o}C$ and t time in minutes.
 
+To invoke the evaporation process according to Fingas, the evaporation option that is included in the input file (*.inp), should be set to -1.  In addition to that, there is an option to include the water fraction into the evaporation rate. This occurs when the evaporation option = -2. The evaporation rate is then, equivalent to the ADIOS description, scaled to the oil content of the emulsion, which is 1-“water content”. If the option = -1 then this influence of the water content on the evaporation rate is not included. This was made an option because from the literature it is not unambiguously clear whether or not the effect of emulsification on the evaporation rate is included in the description as provided by Fingas. These options allow a flexible operation and manipulation of the model’s behaviour. If the specification of the temperature is less than 0 then the temperature that is used in the model is the absolute value of this input and the square root function is used. Otherwise (T>0) the log function is used.
 
+In Fingas’ description the time t features as a variable. This time is the time after release and in the PART model this is equivalent to the age of the particle, after release. Every model particle can have a different age (if release times vary). With the evaporation description two parameters will need to be supplied by the user:
+\begin{itemize}
+	\item[$\bullet$] the (water) temperature
+	\item[$\bullet$] the percentage oil evaporated at 180$^{o}C$
+\end{itemize}
+
+The water temperature is not (yet) taken from the hydrodynamic result files. 
+The described evaporation process is not yet supported by the GUI, which means that if the user wants to use the process he will need to edit the input file that is generated by the GUI.\\ 
+\begin{tcolorbox}[breakable, enhanced]
+   14 ;number of constants \\
+; Oil fraction dependent parameters\\
+; Ekofisk \\
+-1     10 10        ; Evaporation option (-1 then \%evap at 180 and temp, else fraction per day)\\
+1               ; Oil dispersion ; option[0/1] \\
+; (0=fraction per day 1=Delvigne/Sweeny formula)\\
+0.5               ; Sticky probability [0,1]\\
+1.0               ; Volatile fraction [0,1]\\
+1.6e-6               ; Emulsification parameter C1 (1.6=MOHID and ADIOS)\\
+0.7               ; Maximum water content C2  [0,1]\\
+0.10               ; Evap. fraction at which emulsification starts\\
+890               ; Density \\
+100               ; Kinematic viscosity; \\
+Global oil parameters\\
+0.0005               ; minimum thickness oil layer\\
+0               ; deflection angle (due to Coriolis force) - only
+\end{tcolorbox}
+
+The process is invoked when the evaporation parameter is set to 0. When it is larger than 0, this is not the case and the value is the first order rate constant (1/d). When the option is activated, then two more parameters will be needed, as follows (see example above):
+\begin{itemize}
+	\item[$\bullet$] \%D – the evaporated fraction at 180 $^{o}C$
+	\item[$\bullet$] T – temperature ($^{o}C$)
+\end{itemize}
+The values are added on the same line.
+The number of constants will need to be increased from 12 to 14. If more than 1 oil type is used then the number of constants will be 12*nfract+2, with nfract the number of oil types. An example is shown  below:\\
+
+\begin{tcolorbox}[breakable, enhanced]
+26 ;number of constants \\
+; Oil fraction dependent parameters\\
+; alberta\\
+-1  26 15        ; Evaporation option (-1 then \%evap at 180 and temp, else fraction per day)\\
+1               ; Oil dispersion ; option[0/1] \\
+; (0=fraction per day 1=Delvigne/Sweeny formula)\\
+0.5               ; Sticky probability [0,1]\\
+1.0               ; Volatile fraction [0,1]\\
+1.6e-6               ; Emulsification parameter C1 (1.6=MOHID and ADIOS)\\
+0.9               ; Maximum water content C2  [0,1]\\
+0.22               ; Evap. fraction at which emulsification starts\\
+847               ; Density \\
+8.3               ; Kinematic viscosity \\
+; Ekofisk \\
+-1 35 15        ; Evaporation option (0 then \%evap at 180 and temp, else fraction per day)\\
+1               ; Oil dispersion ; option[0/1] \\
+; (0=fraction per day 1=Delvigne/Sweeny formula)\\
+0.5               ; Sticky probability [0,1]\\
+1.0               ; Volatile fraction [0,1]\\
+1.6e-6               ; Emulsification parameter C1 (1.6=MOHID and ADIOS)\\
+0.9               ; Maximum water content C2  [0,1]\\
+0.21               ; Evap. fraction at which emulsification starts\\
+824               ; Density \\
+10.1               ; Kinematic viscosity \\
+; Global oil parameters\\
+0.0005               ; minimum thickness oil layer\\
+0               ; deflection angle (due to Coriolis force) - only
+\end{tcolorbox}
+
+In the original description of the evaporation, using a first order process, the emulsification process affects the evaporation. With the introduction of the process as proposed by Fingas, the processes are decoupled and the emulsification process does not affect the evaporation. It is implicitly assumed that the effect the emulsification may have on evaporation is accounted for in the evaporation process itself. The parameter volatile fraction is still active, but normally the value would be 1 if the evaporation option is used. The value of the evaporative fraction can be manipulated and used as a calibration/validation parameter, if needed. 
+
+\section{MODEL CHECK} 
+
+\subsection{Comparison with standard version}
+To check on the backward compatibility with a previous version a test was carried out with the same input file, using the latest standard release version of PART (PART Version 3.76.0.33151) and the present updated version. Figures \ref{fig:balance1} and \ref{fig:characteristics1} show results of the standard version.\\
+\begin{figure}[h!]
+	\begin{subfigure}{0.5\textwidth}
+%	\includegraphics[trim = 0 {0\wd0} 0 {0\wd0}, clip, width=0.5\textwidth]{figures/Oil_balance1.png}
+	\includegraphics[clip]{figures/Oil_balance1.png}
+	\caption{Oil mass balance as a function of time}
+	\label{fig:balance1}
+	\end{subfigure}
+	\begin{subfigure}{0.5\textwidth}
+	%	\includegraphics[trim = 0 {0\wd0} 0 {0\wd0}, clip, width=0.5\textwidth]{figures/Oil_balance1.png}
+	\includegraphics[clip]{figures/oil_characteristics1.png}
+	\caption{oil characteristics as a function of time}
+	\label{fig:characteristics1}
+\end{subfigure}
+\caption{Results with standard version of PART}
+\end{figure}
+
+Figures \ref{fig:balance2} and \ref{fig:characteristics2} show the results of the updated model, showing that results are identical. 
+
+\begin{figure}[h!]
+	\begin{subfigure}{0.5\textwidth}
+		%	\includegraphics[trim = 0 {0\wd0} 0 {0\wd0}, clip, width=0.5\textwidth]{figures/Oil_balance1.png}
+		\includegraphics[clip]{figures/Oil_balance2.png}
+		\caption{Oil mass balance as a function of time}
+		\label{fig:balance2}
+	\end{subfigure}
+	\begin{subfigure}{0.5\textwidth}
+		%	\includegraphics[trim = 0 {0\wd0} 0 {0\wd0}, clip, width=0.5\textwidth]{figures/Oil_balance1.png}
+		\includegraphics[clip]{figures/oil_characteristics2.png}
+		\caption{oil characteristics as a function of time}
+		\label{fig:characteristics2}
+	\end{subfigure}
+	\caption{Results with updated PART}
+\end{figure}
+
+One additional note on the results. The mass balance indicates that towards the end of the run the amount of oil reduces. This is because in the test model setup some of the oil reaches the outer model boundary and has left the model domain. This is not accounted for in the mass balance. 
+
+\subsection{Comparison with ADIOS2}
+A comparison with ADIOS2 was carried out to check whether the parameters that are used with the updated PART are compatible with the ADIOS2 model. If the two models give similar mass balances, then this means that they are and that it is possible to convert oil characteristics from the oil database can be converted to model parameters. 
+
+The D-PART model is driven by hydrodynamics from a small test model. The model covers a rectangular area of approximately 70x40km and has a small current of a few cm/s. The PART model is run over a period of 48 hours.  ADIOS runs for a 5 day period.
+
+The approach that was used can be divided into a number of steps:
+\begin{enumerate}
+	\item Selection of oil type – two oil types were selected. One of the criteria was that sufficient data is present in the database to derive directly the \%D, which is the evaporated fraction at 180oC, from the distillation data. If this data is not available then ADIOS2 will derive the parameters from the data that is available, but this algorithm is not directly available yet. Within this constraint two oil types were chosen: ALBERTA SWEET MIXED REFERENCE \#4 and EKOFISK, CITGO.
+	\item Run ADIOS2 for a selected condition – a standard amount of oil is discharged (instantaneous 1 metric ton) and it is assumed that the water temperature is 15oC. The output of the ADIOS model provides other model parameters, including the viscosity (at 15oC), density and the amount of evaporated fraction at which mousse forming starts. The latter is equivalent to when the emulsification process starts. The model setup was chosen such that all processes (except the sticking of oil to a coastline) are active, including dispersion, and emulsification. This required a wind speed of more than 5 m/s to activate the dispersion process. A value of 7 m/s was selected. 
+	\item Setup D-PART(Oil) – the parameter values are taken from the ADIOS2 model, the \%D is taken from the distillation curve, The maximum water content, evaporative fraction at which emulsification starts, the oil density and viscosity are taken from the model results. 
+	\item Comparison of D-PART with ADIOS2 – This comparison was limited to the general mass balance, i.e. the amount of floating, dispersed and evaporated oil as a function of time. 
 	
+\end{enumerate}
+\subsection{Results of model comparison with ADIOS2}
+For the two oil types, the comparison of the oil mass balance was carried out using the distillation curves of Ekofisk and Alberta oils (Figure \ref{fig:evapoil}). .
+\begin{figure}[h!]
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=0.5\textwidth]{figures/evaporation1.png}
+	\end{subfigure}
+	\caption{Distillation curves of Ekofisk and Alberta}
+	\label{fig:evapoil}
+\end{figure}
 
+The results of the two calculations are shown in Figure \ref{fig:comparebalance1} (Alberta) and \ref{fig:comparebalance2} (Ekofisk). These two runs were extended to a 5 day simulation (the same period as covered by the ADIOS model). The model parameters were taken from the ADIOS2 output. The parameter D180 was derived from the oil database. 
+For Ekofisk this lead to D180 = 35\% and for Alberta D180 = 26\%. The results of the two simulations are shown in the figures below including a comparison of the oil balance as calculated in ADIOS2.
+\begin{figure}[h!]
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/comparison1.png}
+	\end{subfigure}
+	\caption{Comparison of oil mass balance (Alberta) between D-PART and ADIOS2}
+	\label{fig:comparebalance1}
+\end{figure}
+
+
+\begin{figure}[h!]
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/comparison2.png}
+	\end{subfigure}
+	\caption{Comparison of oil mass balance (Ekosfisk) between D-PART and ADIOS2}
+	\label{fig:comparebalance2}
+\end{figure}
+
+In general, the agreement between the two models is good, considering that the evaporation process descriptions that are used in the two models are different. In general, the ADIOS model has a higher evaporation, in particular at the start of the model run. The ADIOS generates, for both oil types, an evaporation of more than 40\% in the first hour. According to Fingas, the first hour gives about 8\% (Alberta) and 10\% (Ekofisk) evaporated fraction, thus less than the ADIOS model. 
+
+As mentioned earlier, the option to include an effect of the water content on the evaporation rate when using Fingas has also been tested. The model can then be set in such a way that near-identical results are obtained when compared with the ADIOS oil budget. This has been carried out with the two examples of Alberta and Ekofisk oil types (see figures \ref{fig:comparebalance3} and \ref{fig:comparebalance4}).%
+\begin{figure}[H]%
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/comparison3.png}%
+	\end{subfigure}
+	\caption{Comparison of oil mass balance (Alberta) between D-PART and ADIOS2, with water content affecting the evaporation rate}
+	\label{fig:comparebalance3}
+\end{figure}
+\begin{figure}[H]
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/comparison4.png}
+	\end{subfigure}
+	\caption{Comparison of oil mass balance (Ekosfisk) between D-PART and ADIOS2, with water content affecting the evaporation rate}
+	\label{fig:comparebalance4}
+\end{figure}
+
+When invoking the effect of the water content on the evaporation rate as described by Fingas, the parameters of the model can be set in such a way that the match between the ADIOS model and PART is significantly improved. It should be mentioned though that the parameter setting of the volatile fraction is now greater than 1, which is physically not possible. This parameter has in this case, lost its physical relevance but should only be seen as a calibration factor that may be used if required. If the first order evaporation process is applied, then the volatile fraction will be needed to steer the process, thus avoiding that all of the oil can evaporate. The water content will affect the first order process.  This cannot be switched off, because this will allow a non-linear behavior of this process. 
+%\cite{Fingas2004} \\
+%\cite{Fingas2013} \\
+%1	Bibliography
+%Fingas, M. (2004). Modeling evaporation using models that are not boundary-layer regulated. Journal of Hazardous Materials, 107, pp 27–36.
+%Fingas, M. (2011). Evaporation Modeling. In M. F. (Editor), Oil Spill Science and Technology (pp. Chapter9, pp:201-242). Gulf Publishing, NY, NY.
+%Fingas, M. (2013). Modeling Oil and Petroleum Evaporation. Journal of Petroleum Science Research (JPSR), Volume 2 Issue 3, July 2013, pp: 104-115.
+
+
+
+
+
+
+\section{Parameterisation of the criticial wind speed for activation of the Delvigne and Sweeney dispersion process (dec 2014)}
+Originally the wind speed at which the dispersion process is triggered, is hard-coded at 5 m/s, but there are sufficient reasons to make this available as a parameter. This is included by setting the dispersion option in the input file from 1 (D\&S process with hardcoded 5m/s) to 2 with an additional parameter (for option 0 the parameter that is used for the dispersion rate) to specify at which wind speed this is activated:
+\begin{tcolorbox}[breakable, enhanced]
+12 \tab ;number of constants \\
+\tab ; Oil fraction dependent parameters\\
+\tab ; oildwh \\
+0\tab ; Evaporation fraction per day\\
+2\tab 3\tab    ; Oil dispersion option [0/1]\\
+\tab ; (0=fraction per day 1=Delvigne/Sweeny formula)\\
+0.1 \tab ; Sticky probability [0,1]\\
+0.94 \tab               ; Volatile fraction [0,1]\\
+2e-006 \tab               ; Emulsification parameter C1\\
+0.7   \tab             ; Maximum water content C2  [0,1]\\
+1       \tab         ; Evap. fraction at which emulsification starts\\
+890\tab                ; Density \\
+100     \tab           ; Kinematic viscosity \\
+\tab ; Global oil parameters\\
+0.0005\tab                ; minimum thickness oil layer\\
+1          \tab          ; wetting drying \\
+\end{tcolorbox}
+
+
+Jan 2015:
+The format of the spatial wind for part now includes the same format as used for flow, provided it is specified on a regular rectangular grid.
+
+\section{Initial condition file}
+Jan. 2015
+In the oil model an initial condition file can be specified using a polygon (see UM), but this has been extended with an ascii  file that can be derived from a satellite image. A python script (gdal\_raster2xyzfk.py) has been changed in such a way that the script produces an ascii file that has been formatted to be read by Part. In theory it can be generated by any other means:
+\begin{tcolorbox}[breakable, enhanced]
+*\\
+* Fraction: oildwh\\
+* Mass: 100 kg\
+* Particles: 321125\\
+* Factor: 3\\
+* Size: 250\\
+*\\
+741687.492 3307306.238 3\\
+741937.492 3307306.238 3\\
+742187.492 3307306.238 3\\
+742437.492 3307306.238 3\\
+742687.492 3307306.238 3\\
+742937.492 3307306.238 3\\
+743187.492 3307306.238 3\\
+\end{tcolorbox}
+
+The header is very similar to the polygon header, using the same keywords that are required (see above). The Particles keyword is essentially the number of lines (or pixels) in the file. Every line represents the coordinate of a non-background pixel. The size is the size of the pixel in m. The factor is the number of particles per pixel. They are randomly distributed with the area around the coordinate of the pixel. Every pixelline contains the x and y coordinate and a value, representing the ‘concentration’. This latter value depends on the processing of the image, so could be a grey value or similar.  
+The script that is being used is the script \file{gdal\_raster2xyz.py} as adapted by Gerrit Hendrikse. The way to run this script:
+Open an OSGeo4W shell and go to the working directory where the bitmap (in the example it is a tiff file, which was generated in the TO25 project, but this can be adapted where needed – not tested). The programme generates a file for a number of pixels that have oil, ie, not a background value (nodata).Every pixel generates a coordinate and the factor is used to multiply the number, so factor=1 generates the same number of particles as pixels with oil. The grey value is assumed to represent a concentration. The number of particles are scaled such that every particle has the same mass. The commandline looks something like:
+
+\textit{raster2xyzfk.py -nodata 0  -mass 1000 -fraction oildwh -size 250 –factor 3 inputfile.tif outputfile.csv}\\
+\begin{list}{}{\leftmargin=9em \itemindent=-8em}
+	\item -fraction is the name of the oil variable (exactly as in the input file!)
+	\item -mass is the total amount of mass in the oil patch
+	\item -size: pixelsize in m
+	\item -factor: number to multiply the number of particles to be used
+\end{list}
+
+This script will produce a ascii file that needs the header as described earlier. 
+
+When using this ascii file, generated with this python script, the initial condition option 2 will need to be used: 
+\begin{tcolorbox}[breakable, enhanced]
+2 \tab ; 0 = no initial particles
+'c8bitGray600Pack\_UTM15N.xyz' \tab ; Initial condition file (including polygones describing the oil patches)
+\end{tcolorbox}
+
+\section{removal of error- Jan 2015}
+An error was removed that was related to the use of active only coupling. In the processes of the oil model, this was not accounted for correctly. This was corrected by using the correct grid reference (lgrid3).
+
+\section{restart file - Jan 2015}
+A restart file generation was included in the model. For the oil model, it generates a \textit{res} and \textit{ras} file. The res file includes all particles and masses and ages, except for those that have left the model. IN addition a ras file only contains particles less than 14 days old. This is at present been hardcoded in. This option should be keyword activated, but this has not yet been implemented. For the plastics modelling (modeltype 6) a third option has been added that generates a re-initialisation file with all active particles but with additional information on the settling velocity because in the plastics model, this has been randomly assigned, but will need to be remembered. This is a file with the extension \textit{rvs}.The restart file includes in addition to the mass the age of the particle. And the settling velocity. This option cannot be used (when starting with a restart file) with an initial condition. 
+
+As of May2015 the generation of an initial file can be switched on and off by using keywords. The use keywords have now been implemented, but if used must be set just after the specification of the model specific parameters. After each keyword the parameters that are needed will need to be specified. At present the following keywords are present with the specified parameters:
+{'no\_vertical\_bounce'} with this keyword vertical bouncing is switched off\\
+{'write\_restart\_file'} (no additional parameter) : writes a restart file (*.ras) of all active particles not including the particles that have moved out of the model domain.\\
+{'max\_restart\_age'} parameter : Maximum age for particles writen into restart file in seconds\\
+{'plastics\_parameters}' this keyword is only valid for the plastics model (modtyp=6)
+Parameters (per plastic substance):
+\begin{list}{$\bullet$}{\leftmargin=9em \itemindent=-8em}
+	\item rdpldensity
+	\item rdplshapefactor
+	\item rdplmeansize
+	\item rdplvarsize
+	\item rdpldegrrate
+\end{list}
+\textbf{'pldebug'}(only for plastics model modtyp=6)
+will write plastics debug info (e.g. sizes).'
+
+To read an initial condition file, just enter the filename without specs of the number to specify intitial conditions.
+
+\section{Vertical density structure - <2014}
+Before 2014:
+It is noted (as extra info) that the model can handle the vertical density structure and the effect is has on the vertical diffusion. De volgende tekst komt bij Leo Postma vandaan die de implementatie beschrijft.
+
+\begin{enumerate}
+\item Je moet een FLOW som hebben waar een vdf (verticale diffusie) file uitgekomen is.
+\item Dat mag met active only of met volle matrix, dat maakt niet uit, maar de naam van de vdf file moet in de .hyd file staan.
+\item Voor vertikale diffusie had je nu:
+\begin{enumerate}[(i)]
+\item optie 0: je gaf een waarde (cdisp) en een schaal factor (scale) en die werd toegepast
+\item optie 1: er werd een diepte gemiddeld algebraïsch model gebruikt. De scale factor werd gebruikt om het resultaat te schalen. De cdisp werd niet gebruikt.
+\item Daar komt nu bij:
+\item optie 2: de waarden uit de vdf file worden gebruikt op de volgende manier: max( cdisp + alpha*vdiff(flow) , dminim ).
+\item Er is dus een coëfficiënt dminim bij gekomen als je deze optie kiest.
+\item In de vdf file staan de diffusies op de grensvlakken van de lagen. In de laatste laag (bij de bodem) staat niets (0.0). Part gebruikt nu de waarde van een laag voor die hele laag. Voor de laatste laag wordt de waarde van de voorlaatste laag genomen. De diffusie coëfficiënten zijn dus niet meer op de grensvlakken gedefinieerd.
+\end{enumerate}
+\item Het was mogelijk geweest om per laag het gemiddelde van de twee diffusies op de grensvlakken te nemen, maar dan zou een lage diffusie coëfficiënt kunnen verdwijnen door uitmiddeling. Vandaar de keuze.
+\item Het is een stabiele procedure. Je kunt willekeurig grote tijdstappen zetten. Hoe groter de stap, hoe groter echter de onnauwkeurigheid. Daar ga ik nog wel wat aan doen, maar dat is nog niet klaar.
+\item De methode is nog niet beveiligd tegen 0.0 zijnde diffusies en negatieve diffusies. Zodra je echter een reële waarde voor dminim (bijv. 1.0 e-7 of zo) hebt ingevuld, dan heb je je eigen beveiliging verzorgd.
+\item De methode heeft nauwelijks invloed op de rekentijd (is van een ontwapenende eenvoud, ik ben bezig aan een publicatie er over).
+\item De beveiliging dat je niet meer dan 100 lagen per tijdstap met een deeltje kon passeren is verwijderd. Ik had voor een 100 lagen testgeval van 10 meter diep en ergens in de vertikale een diffusie van 1.0E-3 m2/s een tijdstap van een dag gezet. Dat leverde gelijk meer dan 100 laagoverschrijdingen. Toen de check verwijderd was werd verder een prima resultaat geboekt.
+\end{enumerate}
+Mijn testsom was:
+\begin{enumerate}[(i)]
+	\item Een kolom (eigenlijk een klein horizontaal gridje met maar een cel waar het om ging).
+	\item 100 lagen van 0.1 meter elk (dus 10 meter totaal).
+	\item Begin concentratie 1.0 in de eerste 10 lagen en 0.0 in de andere 90.
+	\item Verticale diffusie in de eerste 10 lagen 1.0e-3 m$^{2}$/s.
+	\item Dan 10 lagen met 1.0e-4 m$^{2}$/s.
+	\item Dan 10 lagen met 1.0e-5 m$^{2}$/s.
+	\item Dan 70 lagen met 1.0e-4 m$^{2}$/s.
+	\item Ik heb 10 dagen doorgerekend met tijdstappen van 10 minuten tot 1 dag. Boven tijdstap groottes van 60 minuten werd de fout langzaam groter tot een procent of 15 bij een tijdstap van 1 dag.
+	\item Er traden geen locale vreemde minima en maxima op aan het eind van de 10e dag was het gehalte aan de bodem bijna 0.1 en aan het oppervlak iets meer dan 1.0. De variaties daaromheen waren de gebruikelijke variaties met deeltjesmodellen. Voor grotere tijdstappen waren de variaties wat groter dan voor kleinere. Ik heb 1 miljoen deeltjes gebruikt.
+	\item De rekentijd op mijn portable (met 2 processoren) was 435 seconde bij tijdstappen van 10 minuten en 12 seconde bij tijdstappen van 1 dag.
+\end{enumerate}
+
+Ik ben er nog niet in geslaagd de testsom met Delwaq na te doen om de uitkomsten te vergelijken. Er gaat nog iets fout in Delwaq.
+
+
+\section{Moving discharges}
+Moving discharges have been implemented and is triggered by the keyword:
+‘moving\_discharges’  followed by a parameter. 
+The parameter is in the model ‘nrtimcdis’ and is a parameter that specifies the number of moving discharges.
+The total number of continuous discharges, which is specified when the actual information on the discharge is to be given, includes the number of moving discharges. The moving discharges need to be specified first, before the other stationary continuous discharges. Without the keyword moving\_discharges the old input remains valid.
+The specs of the moving discharges are the same for the other continuous discharge, except for the fact that the first line of the x, y coordinates are no longer needed and that the timevarying x and y coordinates are added to the time breakpoints. 
+
+This means that for two moving discharges and one continuous discharge the input file looks something like:
+\begin{tcolorbox}[breakable, enhanced]
+\footnotesize
+\texttt{\\
+.\\
+.\\
+moving\_discharge 2  \tab ; the number of moving discharges\\
+.\\
+.\\
+;                            Continuous releases \\
+3 \tab ; total number of continuous releases, including the moving discharges\\
+'cont. release 01'\\
+10.000   \tab      100.00    \tab            ; radius(m)       perc. of total particles(%)\\
+1.000         \tab                      ; scale factor for load (kg/s)\\
+1           \tab                    ; interpolation option (0=block 1=linear)\\
+; released\_concentrations (kg/m3)\\
+1000.000        \tab; Ekofisk\\
+0.000       \tab ; Ekofisk dispersed\\
+0.000       \tab ; Ekofisk sticky\\
+; release rates\\
+6\\
+; dd hh mm ss     rate (m3/s)\\
+2  0  0  0      \tab   1.000  \tab     90962.90 \tab     471817.00  \\
+3  0  0  0     \tab    1.000 \tab     100962.90 \tab     475000.00  \\
+4  0  0  0     \tab    1.000  \tab    110962.90 \tab     480000.00  \\
+5  0  0  0     \tab    1.000  \tab    120962.90 \tab     485000.00  \\
+6  0  0  0     \tab    1.000  \tab    130962.90 \tab     490000.00  \\
+7  0  0  0     \tab    1.000  \tab    140000.90  \tab    495000.00  \\
+ \\
+'cont. release 1a' \\
+10.000      \tab   100.00       \tab         ; radius(m)       perc. of total particles(\%)\\
+1.000                              \tab ; scale factor for load (kg/s)\\
+1                               \tab; interpolation option (0=block 1=linear)\\
+; released\_concentrations (kg/m3)\\
+1000.000      \tab  ; Ekofisk\\
+0.000       \tab ; Ekofisk dispersed\\
+0.000       \tab ; Ekofisk sticky\\
+; release rates\\
+6\\
+; dd hh mm ss   \tab  rate (m3/s)\\
+2  0  0  0     \tab    1.000  \tab     90962.90 \tab    495000.00  \\
+3  0  0  0     \tab    1.000  \tab    100962.90 \tab    490000.00  \\
+4  0  0  0     \tab    1.000 \tab     110962.90 \tab    485000.00  \\
+5  0  0  0        \tab 1.000 \tab     120962.90 \tab    480000.00  \\
+6  0  0  0      \tab   1.000 \tab     130962.90 \tab    475000.00 \\
+\\
+'cont. release 02' \\
+110962.90   \tab   480000.00                 \tab; x-coord(m)      y-coord(m) (z-coord = 0)\\
+10.000      \tab 100.00    \tab            ; radius(m)       perc. of total particles(\%)\\
+1.000       \tab                        ; scale factor for load (kg/s)\\
+1               \tab                ; interpolation option (0=block 1=linear)\\
+; released\_concentrations (kg/m3)\\
+1000.000      \tab  ; Ekofisk\\
+0.000       \tab ; Ekofisk dispersed\\
+0.000       \tab ; Ekofisk sticky\\
+; release rates\\
+2\\
+; dd hh mm ss   \tab  rate (m3/s)\\
+2  0  0  0        \tab 1.000     \\
+7  0  0  0        \tab 1.000     \\
+}
+\end{tcolorbox}
+
+It can also be noted that the input file (not supported by the Delft3D-GUI) can make use of the include feature, the same way as for WAQ.
+
+\section{Moving Booms}
+Moving booms have been introduced where a number of polygons in combination with an introduction time can be introduced between which the model will interpolate the location of the boom, so that a moving boom is simulated. This is activated with a new keyword ‘moving\_boom’ . This keyword has a parameter specifiying how many boom locations are introduced. There is a limitation in that only one moving boom can be introduced, but every moving boom can consist of more boom locations. 
+After the specification of the keyword the polygons that define the oilboom are specified. The polygons have the same format as for the fixed booms.
+
+The block with the keyword thus looks something like:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+moving\_boom 2   \\
+2 0 0 0  1.000 'testboom4a.pol' \\
+3 0 0 0  1.000 'testboom4b.pol' \\
+}
+\end{tcolorbox}
+
+If the first time of the boom is after the start time of the model run, then the boom will be activated at the introduction time. If the last time is before the end of the run then the boom will remain at the position of the last polygon. At present the oil boom can consist of up to 25 points. Another requirement is that the number of points for each individual polygon for the boom are all the same. 
+
+\section{Boom processes}
+New functionality has been added for the efficiency of the booms. This is switched on by the keyword ‘boom\_proc’. At the time of introduction the description of the processes is simplified, but can be made more detailed when needed. At present there are a number of parameters that need to be specified when using the boom\_proc keyword:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+boom\_proc\\
+10.0    ; minimum wave height boom failure\\
+2.5    ; maximum wave height for maximum failure\\
+0.02   ; speed threshold for boom failure\\
+15.0   ; minimum boom-current angle for failure\\
+}
+\end{tcolorbox}
+There are essentially two types of processes, the first one is the dependency on the wave height. The wave height that is being used is the same as used for the oil model to calculate the dispersion process speed, so it is direcly dependent on the wind speed. 
+The efficiency is specified by:
+\begin{equation}\label{eq:boomeff}
+1-\frac{H_{0} - H_{min}}{H_{max}-H_{min}}
+\end{equation}
+With $H_{0}$ the wave height (at present significant wave height) in m, $H_{min}$  and $H_{max}$ the lower and upper threshold for the wave height. This means when $H_{0}$ is lower than the lower threshold, no litter will pass the boom (efficienvy of 1) and when it is higher than the upper threshold the efficiency drops to 0 (all material passes the boom). This is a simplification because it will also depend on the size of the items, its density (ie how far it stretches below the water surface). This equation represents overtopping of the barrier, so the barrier height will also come into this.
+
+The second process that has been included is the dependency on the currents. This is similar to the process for oil booms where oil may go underneath the barrier. The higher the currents (perpendicular to the boom) the lower its efficiency. At present the process is also a simplified one with a linear relationship with the currents (with a lower threshold), correct for the ‘angle of attack’. If the current is parallel to the boom, then the efficiency will be 1. This is also the case when the current speed (corrected for the angle of attack $\alpha$  ) drops below the threshold  . The efficiency drops to 0 when a maximum speed (corrected for the angle) has been reached:
+
+\begin{equation}\label{eq:boomeff}
+\quad
+	E = 1-\left[\frac{(U \cdot \sin(\alpha-\alpha_{min}) - U_{min})}{U_{max}} \right]
+\end{equation}
+The value of $E$ lies between 0 and 1.
+
+
+\section{Keywords}
+At the same time as the introduction of the moving booms, a change was made to the introduction of fixed booms and dispersants, which are now set by the use of keywords, instead of additional numbers of the initial condition specification. The block where the keywords need to be introduced is now located after the oil model parameter section, before the initial condition section:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+14 ; number of constants \\
+ ; Oil fraction dependent parameters \\
+; Ekofisk \\
+0    \tab           ; Evaporation fraction per day \\
+0   0 \tab          ; Oil dispersion option [0/1] \\
+\tab; (0=fraction per day 1=Delvigne/Sweeny formula) \\
+0.0 \tab              ; Sticky probability [0,1] \\
+1.00 \tab              ; Volatile fraction [0,1] \\
+0.0000  \tab             ; Emulsification parameter C1 \\
+1.00       \tab       ; Maximum water content C2  [0,1] \\
+1.0        \tab      ; Evap. fraction at which emulsification starts \\
+890          \tab     ; Density \\
+1500         \tab      ; Kinematic viscosity \\
+\tab ; Global oil parameters \\
+0.0005        \tab       ; minimum thickness oil layer \\
+0          \tab     ; deflection angle (due to Coriolis force) - only for 3D \\
+\\
+...... \\
+\\
+; end keywords bloc \\
+\\
+\tab ;                            Initial condition (oil only) \\
+\\
+0	\tab ; 0 = xyz = switches for booms, dispersants and initial conditions 
+}
+\end{tcolorbox}
+
+The keyword for the introduction of fixed booms is ‘boom’:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+boom  1    \\
+2 00 00  0         1.000           'testboom3.pol'
+}
+\end{tcolorbox}
+The parameter of this keyword is the number of boom introductions
+
+The keyword for the introduction of dispersant is ‘dispersants’, followed by a parameter specifying how many dispersant introductions are specified. 
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+dispersants 2 \\
+; dd hh mm ss        Ekofisk         filename polygon \\
+; \tab                         Dispersant introductions (oil only)\\
+3  0 0  0 \tab          0.800           'dispersant2.pol' \\
+4  2 0  0  \tab         0.800           'dispersant3.pol' \\
+}
+\end{tcolorbox}
+
+Extraction of particles from a boom:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+boom\_stick 0.05
+}
+\end{tcolorbox}
+
+This keyword is introduced to specify whether oil can stick to a boom. This process is governed by a probability factor (0-1) specifying the probability that a particle can stick to the boom, in a similar way in which oil can stick to a coastline. When a particle sticks to a boom, then it is effectively removed from the calculation. When this keyword is invoked, then it will hold for all booms that have been introduced, except when the keyword 
+
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+boom\_extract  2 0.5 \\
+1 3\\
+2 3 4\\
+}
+\end{tcolorbox}
+
+The keyword \texttt{‘boom\_extract’} is introduced to define whether particles can be extracted from a boom. In a sense it works very similar to the \texttt{boom\_stick} keyword, and here the process is also governed by an extraction probability. The \texttt{boom\_extract} is valid for the specified booms. The keyword is followed by an integer, specifying the number of booms (nb) for which the extraction needs to be implemented, and the extraction probability. This is then followed by n lines for each boom:
+Boom number, the number of points (sections) of the boom where particles are extracted, and the polygon points to identify the boom sections (\texttt{boom} or \texttt{moving\_boom}). 
+The boom number refers to the order in which the booms are introduced earlier in the input file. This means that this keyword can only be invoked after the keyword \texttt{booms}, or \texttt{moving\_booms}. 
+
+The extraction section is specified by points of the boom polygon. The number is the polygon point in the order in which it is defined in the polygon and the section is the section between this point and the next point. If a polygon had n points than the maximum number to specify a section is (n-1). 
+The keywords relating to the booms are in testing phase and not all combinations of keywords have been tested on possible inconsistencies when invoking two different keywords. 
+Extraction can also be applied to a moving boom. 
+
+March 2016: Stochastic sampling of the windfriction parameter
+A keyword \texttt{dragvar} is introduced to apply a normal distribution of the wind friction parameter. This feature is specifically introduced for the oil model. 
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+	dragvar average   stdev
+}
+\end{tcolorbox}
+
+The keyword needs two parameters (real), the mean and the standard deviation. To prevent very large negative and positive values, the distribution is cut off at +/- 3*$\sigma$, which represents about 0.3\% of the number of values (see image below). 
+\begin{figure}[H]%
+	\begin{subfigure}{0.5\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/windfrictiondistribution.png}%
+	\end{subfigure}
+	\caption{Distribution of the windfriction}
+	\label{fig:windfrictiondistribution}
+\end{figure}
+
+
+
+The sampled value of the windfriction cannot be less than 0. If the keyword is given, then it replaces the value of the standard model parameters.
+
+March 2016
+Introduction of so-called sediment screens, particularly useful when investigation screens to reduce the impact of dredging operations. The keyword is \texttt{sedscreen} followed by the number of introductions (screens):
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+	sedscreen (no of introductions)
+}
+\end{tcolorbox}
+
+the next line is specifying the times of the introductions
+
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+2  00 00  0   \tab      1.000 \tab    5.0  \tab     'testboom\_db5.pol' \\
+}
+\end{tcolorbox}
+
+Thus the time (dd hh mm ss) after the reference time T0, followed by an efficiency parameter (in most instances this would be the default of 1, ie holding everything) and the depth of the screen below the water surface in m, in this example 5 meters. All particles below 5 m will not feel the screen. Not that since the screen is introduced in PART only, there is no effect on the flows. The last item is the polygon defining the location of the screen. The polygon has the same format as for booms.
+
+At the same time, the use of booms has been made independent of whether it is an oil model or not. 
+
+\section{COUPLING WITH MET DELWAQ (to be added)}
+
+\section{Temperature dependent functions}
+Addition to the part model: make parameters dependent on the temperature, in particular the viscosity (evaporation already is if Fingas description is used). The function is also defined in ADIOS and MOHID as Andrade’s correlation, being:
+\begin{equation}\label{eq:viscocity_temp}
+\ln \left(\frac{\eta_2}{\eta_1} \right) = C_T \left(\frac{1}{T_2}-\frac{1}{T_1} \right)
+\end{equation}
+T is the water temperature in degrees Kelvin.  This was implemented with the keyword 
+\texttt{visc\_temp} followed by two parameters, T1 and T2 the default and actual temperature (in degrees Celcius), in the model they are corrected as Kelvin:
+\begin{tcolorbox}[breakable, enhanced]
+	\footnotesize
+	\texttt{\\
+		visc\_temp \tab  $T_1$  $T_2$
+	}
+\end{tcolorbox}
+
+
+\section{The IBM module intergration into Part}
+The IBM module has been developed to specifically deal with the development of fishlarvae. Different stages can be associated with specific behaviour. At present the main focus is on the vertical movement of the larve, but active horizontal movement can also be implemented if need be. 
+The IBM module is implemented as model type 7, which is defined in the first input line that stipulates the type of model. As soon the IBM model is switched on, this affects the input file and in particular the section of the model parameters and the initial condition. In addition in the definition of the substances at least 4 are compulsory and each stage can also be defined as a substance. This allows the individual stages to be plotted. The four compulsory substances are 
+\begin{table}[h!]
+	\begin{tabular}{ll} 
+	‘larvae type’ & what kind of fish \\
+	‘stage’	& the stage of the larve\\
+	‘stime’ &  time since last stage change\\
+	‘stemp’&	average temperature since last stage change\\
+	\end{tabular}	
+\end{table}
+
+The additional substances represent the individual stages. 
+\begin{figure}[H]%
+\begin{tcolorbox}[interior hidden, 
+	boxsep=0pt,
+	left=0pt,
+	right=0pt,
+	top=0pt,]
+	\begin{subfigure}{1.0\textwidth}
+		\includegraphics[clip, width=1\textwidth]{figures/fish_parameters.png}%
+	\end{subfigure}
+\end{tcolorbox}
+	\caption{example of input section for model parameters (larvae module)}
+	\label{fig:larvae_parameters}
+\end{figure}
+
+
+An example of the input section specifying the parameters is shown below:
+
+\begin{tcolorbox}[breakable, enhanced]
+	\begin{verbatim}
+2  00 00 0		1.000	5.0	'testboom_db5.pol' 
+	\end{verbatim}
+\end{tcolorbox}
+
+
+The number of parameters needs to be specified. This is the basis number of 9 plus the number of stages times 20 parameters per stage. The first nine parameters are compulsory. The following parameters are needed:
+The number of stages
+\texttt{istage\_nursery}, which is the final stage from where larvae can settle in nursery area. In this example, the number of stages is 4 and \texttt{istage\_nursery} =11 so the nursery stage will not be reached. The release layer is the layer where the larvae will be released after hatching (layer 1 is the top and the higher number is lower down in the watercolumn). Output per m$^2$ can be set up  using the three parameters start, stop and delta (delta t for this output). This output is the same for all layers and is integrated over the vertical. 
+It is possible to generate the particle distribution output in csv format.  The frequency (in sec) is set by delt csv uitvoer. 
+The tide\_opt is when a tidal dependency is included in the larvae behaviour (based on the tide or based on velocity). This is used in the behaviour type 8 (behaviour\_stst\_dem) and 9 (behaviour\_stst\_pel), Both are part of the Selective Tidal Stream Transport (STST) behaviour.
+For each stage 20 parameters need to be specified. The duration of each stage is defined by astage and bstage: 
+\begin{equation}
+duration (in days) = exp(a+b*stemp), 
+\end{equation}
+with stemp the average temperature since the last stage. 
+Btype is the behaviour type. At the time of writing the following behaviour types are defined:
+\begin{list}{$\bullet$}{\leftmargin=9em \itemindent=-8em}
+	\item	behaviour\_none     	= 0 
+	\item	behaviour\_bottom   	= 1 
+	\item	behaviour\_midlow   	= 2 
+	\item	behaviour\_midtop   	= 3 
+	\item	behaviour\_pelagic  	= 4 
+	\item	behaviour\_demersal 	= 5 
+	\item	behaviour\_diurnal  	= 6 
+	\item	behaviour\_herring  	= 7 
+	\item	behaviour\_stst\_dem 	= 8 
+	\item	behaviour\_stst\_pel 	= 9 
+	\item	behaviour\_float    	= 10 
+\end{list}
+
+Pelagic means all larvae in the water column with vertical migrations (spread out during night-time, concentrated during daytime). During passive demersal behaviour all larvae are in bottom layer of water column. 
+\textit{Mort1} and \textit{mort2} are the mortality rates at the start and end of the stage, with tcmort the temperature dependency. \textit{Btype} is the behaviour type. 
+\textit{Buoy1} and \textit{buoy2} are the buoyancy (m/d) of the particles. Negative means that the larvae tend to sink. \textit{Vzact1} and \textit{vzact2} are the active vertical movement at the beginning and end of a stage. Positive values mean particles get a negative velocity, ie towards the water surface. 
+\textit{Ztop1} and \textit{ztop2} are the depth from the surface at the beginning and end of the stage where the larvae prefer to be. \textit{Zbot1} and \textit{zbot2} are the equivalent of \textit{ztop1/2} but now the depth below \textit{ztop} (ie the thickness of the water within which the larvae prefer to be). 
+\textit{Phase} is the phase in the diurnal behaviour (in days). The phase is described by a sine wave, plus 0.5 so that it varies between 0 and 1. The frequency of this sinus wave is one per day. At t=0 days, the value is therefore 0.5 and the peak of 1 is after 6 hours and 0 after 18 hours.
+\textit\textit is the behaviour type to define the horizontal behaviour. This part of the model is still under development and needs to be validated. The swimming velocity is then defined by \textit{vswim1} and \textit{vswim2} (beginning and end of the stage). When \textit{hbtype} = 0 then there is no additional horizontal movement, except the dispersion of the particles.
+In the IBM module a number of depths and levels are defined that need to be explained in a little more detail to avoid confusion. The figure below gives an overview of the definitions for the herring behaviour. The definition of \textit{zbot} is for some of the other behaviours different. How \textit{zbot} is to be defined will depend on whether the lower part of the movement area is relative to the surface or the seabed. This can be identified by the if statement and whether \textit{zbot} is compared to \textit{zdepth} (ie relative to the surface) or \textit{zlevel} (relative to the bed). For the latter the \textit{zbot} is defined from the bed upwards. At present this is for the diurnal behaviour (see figure below). The section defining the behaviour (vertical) in the IBM module is: 
+\begin{figure}[H]%
+	\begin{tcolorbox}[interior hidden, 
+		boxsep=0pt,
+		left=0pt,
+		right=0pt,
+		top=0pt,]
+		\begin{subfigure}{1.0\textwidth}
+			\includegraphics[clip, width=1\textwidth]{figures/larvae_definitions.png}%
+		\end{subfigure}
+	\end{tcolorbox}
+	\caption{example of tghe definitions of the larvae types}
+	\label{fig:larvae_definitions}
+\end{figure}
+
+
+\textit{Zlevel} is the position of the particle relative to the bed en \textit{zdepth} relative to the water surface.
+\begin{figure}[H]%
+	\begin{tcolorbox}[interior hidden, 
+		boxsep=0pt,
+		left=0pt,
+		right=0pt,
+		top=0pt,]
+		\begin{subfigure}{1.0\textwidth}
+			\includegraphics[clip, width=1\textwidth]{figures/herringlarvaebehaviour.png}%
+		\end{subfigure}
+	\end{tcolorbox}
+	\caption{Behaviour of herring larvae as a function of time}
+	\label{fig:herring_behaviour}
+\end{figure}
+
+
+Behaviour of herring larvae in the IBM module the behaviour can easily be adapted/adjusted or additional behaviour rules added.
+De initiele conditie wordt gegenereerd met een extern programma. Dat is een python script dat een geotiff leest van de verspreiding (start). Het oorspronkelijke programma leek wat onnauwkeurigheden te bevatten. 
+
+\section{(Micro)Plastic degradation: changes of density as a function of particle age}
+To allow plastic particles to change with time, it is necessary to change the overall density as a function of time. This change is considered to be the combined result of eg algal or bacterial growth or changes in the composition with time, leading to a generally higher density. Relatively little is known how this change should be described, but this process will affect the final fate of the particles and in which area they may accumulate. Hence a very general description has been chosen. The density change is considered the dominating process over shorter periods (such as the residence time in the North Sea) since other degrading processes have much longer timescales. 
+
+A linear dependency was chosen starting with an initial density $\rho_{p}(start)$, ending with a final density $\rho_{p}(end)$and the speed of change (delta rho over the given time period $\left[ \dfrac{max(0, T_{p} - Td_{p})}{\Delta T} \right]$), with a time delay $Td_{p}$ for the start of the function to allow for extra flexibility. The speed of change is calcuated from the difference between the start and end density and the period (in days) that this takes.
+
+The keyword to switch on this option is:\\
+\texttt{pldenstime} with 
+
+\begin{equation}\label{tdensity}
+\rho_{p}(t) = \rho_{p}(start) - \left[ \rho_{p}(start)- \rho_{p}(end) \right] * \dfrac{max(0, T_{p} - Td_{p})}{\Delta T}
+\end{equation}
+
+parameters \textit{pldensend}, \textit{plddensdt} (in days for each of the defined plastics in the model) and \textit{pldtdelay}. The startdensity is given by the parameter \textit{pldensity} of the plastics model and the delay (in days) by \textit{pldtdelay}. 
+
+\begin{figure}[H]%
+		\begin{subfigure}{0.7\textwidth}
+			\includegraphics[clip, width=1\textwidth]{figures/plastic_density_change_test.pdf}%
+		\end{subfigure}
+	\caption{Plastic particle time dependent density example}
+	\label{fig:densitytime}
+\end{figure}
+
+An example of the data that goes with this keyword:
+\begin{tcolorbox}
+\begin{Verbatim}
+pldenstime
+; name         end density time period(days)  time delay (days)
+'Fiber_lh'      1040          30                 0
+'Fiber_sh'      1040          30                 0
+'Fiber_ll'      1040          30                 0
+'Fiber_sl'      1040          30                 0
+'Sphere_ll'     1030          30                 0
+'Sphere_sl'     1030          30                 0
+'Sphere_lh'     1030          30                 0
+'Sphere_sh'     1030          30                 0
+\end{Verbatim}
+\end{tcolorbox}
+The list of plastic types need to be the same as the list of substances in the input file.
+
+Hence\textbf{to be continued}
+
+\chapter*{Bibliography}
+\bibliographystyle{apalike}
+\bibliography{fmk_collection2}
 %------------------------------------------------------------------------------
 \end{document}
