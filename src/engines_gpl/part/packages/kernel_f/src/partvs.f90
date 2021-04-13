@@ -94,7 +94,7 @@
       integer  ( ip), intent(in   ) :: mmax                    !< second dimension lgrid
       integer  ( ip), intent(in   ) :: lgrid3 (nmax,mmax)      !< active grid matrix with noseg numbering
       integer  ( ip), intent(in   ) :: nolay
-      real     ( rp), intent(in   ) :: rhopart (nosubs, nopart)
+      real     ( rp), intent(inout) :: rhopart (nosubs, nopart)
       real     ( rp), intent(in   ) :: rhowatc (nosegp)
       real     ( rp), intent(in   ) :: spart (nosubs,*)        !< size of the particles
       integer  ( ip), intent(in   ) :: iptime (nopart)         !< age of the particles
@@ -173,6 +173,13 @@
                      write( lun2,*) ' K is out of range in partwr '
                      call stop_exit(1)
                   endif
+                  ! introduction of the time dependent density of the plastic, age of the plastic is
+                  ! iptime(ipart0 in seconds
+                  if (pldenstime) then
+                     rhopart(isub,ipart) = pldensity(isub) -(pldensity(isub)-end_pldenstime(isub)) * &
+                                         max(0.0, iptime(ipart) / 86400.0e0 - delay_denstime(isub))/period_denstime(isub)
+                  endif
+                  
                   iseg = (kpart(ipart) - 1)*noseglp + ic
                   vsfact1 = plshapefactor(isub) * 2.0e0 / 9.0e0 * (rhopart(isub,ipart) - rhowatc(iseg)) / &
                             viscosity_water * g * spart(isub,ipart)**2 / (2 ** ((iptime(ipart) / 86400.0e0) * plfragrate(isub)))

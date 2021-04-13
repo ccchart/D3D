@@ -409,7 +409,11 @@ module spec_feat_par
       real      (sp)            ,  pointer, dimension(:       ) :: plmusize
       real      (sp)            ,  pointer, dimension(:       ) :: plsigmasize
       real      (sp)            ,  pointer, dimension(:       ) :: plfragrate
+      real      (sp)            ,  pointer, dimension(:       ) :: end_pldenstime 
+      real      (sp)            ,  pointer, dimension(:       ) :: period_denstime
+      real      (sp)            ,  pointer, dimension(:       ) :: delay_denstime
       logical                                                   :: pldebug
+      logical                                                   :: pldenstime
       
 !     screens
       logical                  :: screens          ! are sceens active

@@ -675,6 +675,7 @@
       dragvar = .false.
       vertical_bounce = .true.
       write_restart_file = .false.
+      pldenstime = .false.
       moving_discharge = .false.
       moving_boom = .false.
       boom_proc = .false.
@@ -833,6 +834,28 @@
                   end do
                   if (plmissing .gt. 0) goto 9107
                   write (lun2, 3510)
+               case ('pldenstime')
+                  if (modtyp /= 6) goto 9101
+                  write ( lun2, '(/a)' ) '  Found keyword "pldenstime": will write plastics debug info (e.g. sizes).'
+                  write ( *   , '(/a)' ) ' Found keyword "pldenstime": will write plastics debug info (e.g. sizes).'
+                  ! use end_pldenstime period_denstime and delay_denstime
+                  call alloc ( "end_pldenstime", end_pldenstime, nosubs )
+                  end_pldenstime = 0
+                  call alloc ( "period_denstime", period_denstime, nosubs )
+                  period_denstime = 0.0
+                  call alloc ( "delay_denstime", delay_denstime, nosubs )
+                  delay_denstime = 0.0
+                  do j = 1, nosubs
+                     if (gettoken( cplastic, ierr2 ) .ne. 0) goto 9103
+                     write ( lun2, 3501 ) trim(cplastic)
+                     if (gettoken(end_pldenstime(j), ierr2 ) .ne. 0) goto 9104
+                     write ( lun2, 3511 ) end_pldenstime(j)
+                     if (gettoken(period_denstime(j), ierr2 ) .ne. 0) goto 9104
+                     write ( lun2, 3512 ) period_denstime(j)
+                     if (gettoken(delay_denstime(j), ierr2 ) .ne. 0) goto 9104
+                     write ( lun2, 3513 ) delay_denstime(j)
+                  end do
+                  pldenstime = .true.
                case ('pldebug')
                   write ( lun2, '(/a)' ) '  Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
                   write ( *   , '(/a)' ) ' Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
@@ -2706,6 +2729,9 @@
  3508 format(/'  ', A, ' is NOT active in the current model, settings not used!'/)
  3509 format(/'  No parameters found for plastic named : ',A)
  3510 format(/'  Parameters were found for all plastics'/)
+ 3511 format( '  Plastics end density        [g/m3] : ',F14.2)
+ 3512 format( '  Plastics degradation period    [d] : ',F14.4)
+ 3513 format( '  Plastics degradation delay     [d] : ',E14.4)
 
 11    write(*,*) ' Error when reading the model type '
       write(*,*) ' Is this version 3.50?'
