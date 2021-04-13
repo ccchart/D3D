@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -369,7 +369,6 @@
       use openfl_mod
       use delete_file_mod            ! explicit interface
       use oildsp_mod                 ! explicit interface
-      use part03_mod                 ! explicit interface
       use part09_mod                 ! explicit interface
       use part10_mod                 ! explicit interface
       use grid_search_mod            ! explicit interface
@@ -403,7 +402,7 @@
 
       include "omp_lib.h"
 
-      integer(ip)         :: itime   , lunpr
+      integer(ip)         :: itime   , lunpr, lunfil, lunini
       integer(ip)         :: nosubud , noth
       integer(ip)         :: ilp, isp, ids, ide, iext, nores, noras, nosubs_idp
       real(sp)            :: dtstep
@@ -473,11 +472,10 @@
       call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
                     noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
                     vdiff    , area     , flow     , vol1     , vol2     ,    &
-                    flow1    , flow2m   , vdiff1   , update   , cellpntp , flowpntp ,    &
+                    flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
                     tau      , tau1     , caltau   , salin    , salin1   ,    &
                     temper   , temper1  , nfiles   , lun      , fname    ,    &
-                    ftype    , flow2    , rhowatc)
-
+                    ftype    , rhowatc)
                     
 !     Read the whole input file ! Data is put in the partmem module !
 
@@ -574,8 +572,7 @@
       call part03 ( lgrid   , volumep , flow    , dx      , dy      ,    &
                     nmaxp   , mmaxp   , mnmaxk  , lgrid2  , velo    ,    &
                     layt    , area    , depth   , dpsp    , locdep  ,    &
-                    zlevel  , tcktot  , ltrack  , flow2m  , lgrid3  ,    &
-                    vol1    , vol2    , vel1    , vel2    )
+                    zlevel  , tcktot  , ltrack)
 
 !      write particle tracks (initial state)
 
@@ -642,8 +639,8 @@
 !            close ( 50 )
          else
             write ( lunpr, * ) ' Opening initial particles file:', idp_file(1:len_trim(idp_file))
-            call openfl ( 50, idp_file, ftype(2), 0 )
-            read ( 50 ) ilp, nopart, nosubs_idp
+            call openfl ( lunini, idp_file, ftype(2), 0 )
+            read ( lunini ) ilp, nopart, nosubs_idp
             if (nosubs_idp.ne.nosubs) then
                write ( lunpr, * ) ' Error: number of substances in the ini-file   : ',nosubs_idp
                write ( lunpr, * ) '        number of substances in the model setup: ',nosubs
@@ -652,7 +649,7 @@
                call stop_exit(1)
             endif
             do ilp = 1, nopart
-               read( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1:nosubs,ilp), &
+               read( lunini ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), wpart(1:nosubs,ilp), &
                           spart(1:nosubs,ilp), iptime(ilp)
             enddo
             do ilp = 1, nopart
@@ -662,7 +659,7 @@
                   endif                 
                enddo
             enddo
-            close ( 50 )
+            close ( lunini )
          end if
       endif
 
@@ -680,12 +677,12 @@
             size_file = fname(1)
             iext = len_trim(size_file) - 3
             size_file(iext+1:iext+5) = 'size'    !dump file for drawn plastic sizes
-            open  (50, file = size_file, form = 'formatted')
-            write(50 , '(A10,100A20)') 'particle', (trim(substi(isp)), isp=1,nosubs)
+            open  (newunit=lunfil, file = size_file, form = 'formatted')
+            write(lunfil , '(A10,100A20)') 'particle', (trim(substi(isp)), isp=1,nosubs)
             do ilp = 1, npmax
-               write(50 , '(I10,100E20.7)') ilp, spart(1:nosubs,ilp)
+               write(lunfil , '(I10,100E20.7)') ilp, spart(1:nosubs,ilp)
             enddo
-            close(50)
+            close(lunfil)
          endif
       end if
 
@@ -744,10 +741,10 @@
          call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
                        noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
                        vdiff    , area     , flow     , vol1     , vol2     ,    &
-                       flow1    , flow2m    , vdiff1   , update   , cellpntp , flowpntp ,    &
+                       flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
                        tau      , tau1     , caltau   , salin    , salin1   ,    &
                        temper   , temper1  , nfiles   , lun      , fname    ,    &
-                       ftype    , flow2    , rhowatc)
+                       ftype    , rhowatc)
 
 !        Part13 makes 3d detail plot grids corrected for recovery rate
 
@@ -786,9 +783,8 @@
 
          call part03 ( lgrid    , volumep  , flow     , dx       , dy       ,    &
                        nmaxp    , mmaxp    , mnmaxk   , lgrid2   , velo     ,    &
-                       layt     , area     , depth    , dpsp     , locdep   ,    &
-                       zlevel   , tcktot   , ltrack   , flow2m   , lgrid3   ,    &
-                       vol1     , vol2     , vel1     , vel2     )
+                       layt     , area     , depth    , dpsp     ,               &
+                       locdep   , zlevel   , tcktot   , ltrack)
 
 !        This section does water quality processes
 
@@ -1051,24 +1047,24 @@
                res_file(iext+1:iext+4) = 'res'     !all results, except those that are inactive (outside model)
             end if
             write ( lunpr, * ) ' Opening restart particles file:', idp_file(1:len_trim(res_file))
-            call openfl ( 50, res_file, ftype(2), 1 )
-            write ( 50 ) 0, nores, nosubs
+            call openfl ( lunfil, res_file, ftype(2), 1 )
+            write ( lunfil ) 0, nores, nosubs
 
             do ilp = 1, nopart
                if (npart(ilp)>1.and.mpart(ilp)>1) then
                   if (lgrid( npart(ilp), mpart(ilp)).ge.1) then  !only for the active particles
                      if (modtyp.ne.6) then
-                        write ( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
+                        write ( lunfil ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
                                      wpart(1:nosubs,ilp), iptime(ilp)
                      else
-                        write ( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
+                        write ( lunfil ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
                                      wpart(1:nosubs,ilp), spart(1:nosubs,ilp), iptime(ilp)
                      end if
                   end if
                end if
             enddo
             write (lunpr,*) ' Number of active particles in the restart file: ',nores
-            close ( 50 )
+            close ( lunfil )
          else
 !        Write the restart file with all active paritcles below a certain age
             if (modtyp.eq.6)then
@@ -1079,24 +1075,24 @@
             end if
             write ( lunpr, * ) ' Opening restart particles file:', idp_file(1:len_trim(res_file))
             write ( lunpr, * ) ' Particles older than ',max_restart_age,' seconds are removed'
-            call openfl ( 50, res_file, ftype(2), 1 )
-            write ( 50 ) 0, noras, nosubs
+            call openfl ( lunfil, res_file, ftype(2), 1 )
+            write ( lunfil ) 0, noras, nosubs
 
             do ilp = 1, nopart
                if (npart(ilp)>1.and.mpart(ilp)>1) then
                   if (lgrid( npart(ilp), mpart(ilp)).ge.1 .and. (iptime(ilp).lt.max_restart_age)) then   !only when the particles' age less than max_restart_age, time in seconds
                      if (modtyp.ne.6) then
-                        write ( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
+                        write ( lunfil ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
                                      wpart(1:nosubs,ilp),iptime(ilp)
                      else
-                        write ( 50 ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
+                        write ( lunfil ) npart(ilp), mpart(ilp), kpart(ilp), xpart(ilp), ypart(ilp), zpart(ilp), &
                                      wpart(1:nosubs,ilp), spart(1:nosubs,ilp), iptime(ilp)
                      end if
                   end if
                end if
             enddo
             write (lunpr,*) ' Number of active particles in the restart file below maximum age: ',noras
-            close ( 50 )
+            close ( lunfil )
          end if
       end if
 

@@ -22,9 +22,9 @@
 !!  rights reserved.
 
       subroutine dlwqbl ( lunin  , lunout , itime  , idtime , itime1 ,    &
-     &                    itime2 , ihdel  , nftot  , nrtot  , array1 ,    &
-     &                    result , ipnt   , luntxt , isflag , ifflag ,    &
-     &                    update )
+                          itime2 , ihdel  , nftot  , nrtot  , array1 ,    &
+                          result , ipnt   , luntxt , isflag , ifflag ,    &
+                          update )
 
 !     Deltares Software Centre
 

@@ -25,7 +25,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Debug|x64" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\include\$(PlatformName)\$(ConfigurationName)" FixedFormLineLength="fixedLength132" ErrorLimit="500" StandardWarnings="standardWarningsF90" Diagnostics="diagnosticsShowAll" WarnDeclarations="true" WarnUnusedVariables="true" WarnTruncateSource="true" SuppressUsageMessages="true" WarnInterfaces="true" LocalVariableStorage="localStorageAutomatic" InitLocalVarToNAN="true" ModulePath="..\..\include\$(PlatformName)\$(ConfigurationName)" Traceback="true" RuntimeChecks="rtChecksAll" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="..\..\include\$(PlatformName)\$(ConfigurationName)" FixedFormLineLength="fixedLength132" ErrorLimit="500" Diagnostics="diagnosticsShowAll" WarnDeclarations="true" WarnUnusedVariables="true" WarnTruncateSource="true" SuppressUsageMessages="true" WarnInterfaces="true" LocalVariableStorage="localStorageAutomatic" InitLocalVarToNAN="true" ModulePath="..\..\include\$(PlatformName)\$(ConfigurationName)" Traceback="true" RuntimeChecks="rtChecksAll" BoundsCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
@@ -35,7 +35,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|x64" ConfigurationType="typeStaticLibrary">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" AdditionalIncludeDirectories="..\..\include\$(PlatformName)\$(ConfigurationName)" FixedFormLineLength="fixedLength132" StandardWarnings="standardWarningsF90" Diagnostics="diagnosticsShowAll" LocalVariableStorage="localStorageAutomatic" ModulePath="..\..\include\$(PlatformName)\$(ConfigurationName)" RuntimeChecks="rtChecksNone" RuntimeLibrary="rtMultiThreadedDLL"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" AdditionalIncludeDirectories="..\..\include\$(PlatformName)\$(ConfigurationName)" FixedFormLineLength="fixedLength132" Diagnostics="diagnosticsShowAll" LocalVariableStorage="localStorageAutomatic" ModulePath="..\..\include\$(PlatformName)\$(ConfigurationName)" RuntimeChecks="rtChecksNone" RuntimeLibrary="rtMultiThreadedDLL"/>
 				<Tool Name="VFLibrarianTool"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
@@ -83,7 +83,9 @@
 		<File RelativePath=".\src\parttd.f90"/>
 		<File RelativePath=".\src\putget.f90"/>
 		<File RelativePath=".\src\rdccol.f90"/>
-		<File RelativePath=".\src\rdfnam.f90"/>
+		<File RelativePath=".\src\rdfnam.f90">
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" StandardWarnings="standardWarningsNone"/></FileConfiguration></File>
 		<File RelativePath=".\src\rdhyd.f90"/>
 		<File RelativePath=".\src\rdhydr.f90"/>
 		<File RelativePath=".\src\rdlgri.f90"/>

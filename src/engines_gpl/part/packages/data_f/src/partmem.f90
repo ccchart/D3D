@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -268,7 +268,7 @@ module partmem
       real     ( rp), pointer  :: rem    (:)    !
       real     ( rp), pointer  :: tmassc(:,:)   !
       real     ( rp), pointer  :: aconc (:,:)   !
-      character     (len=50   ) ,  pointer, dimension(:       ) :: cbuff
+      character     (len=20   ) ,  pointer, dimension(:       ) :: cbuff
       character     (len=20   ) ,  pointer, dimension(:       ) :: subsud
       integer       (sp       ) ,  pointer, dimension(:       ) :: floil
       integer       (sp       ) ,  pointer, dimension(:       ) :: ihplot

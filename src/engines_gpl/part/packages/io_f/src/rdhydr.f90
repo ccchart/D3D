@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -44,10 +44,10 @@ module rdhydr_mod
       subroutine rdhydr ( nmax   , mmax   , mnmaxk , nflow  , noseg  ,  &
                           noq    , itime  , itstrt , idelt  , volume ,  &
                           vdiff  , area   , flow   , vol1   , vol2   ,  &
-                          flow1  , flow2m , vdiff1 , update , cellpnt, flowpnt,  &
+                          flow1  , vdiff1 , update , cellpnt, flowpnt,  &
                           tau    , tau1   , caltau , salin  , salin1 ,  &
                           temper , temper1, nfiles , lunit  , fname  ,  &
-                          ftype  , flow2  , rhowatc)
+                          ftype  , rhowatc)
 !
 !     READING HYDRODYNAMICS FILE (*.hyd)
 !              (initially)
@@ -91,7 +91,6 @@ module rdhydr_mod
       real     (sp), intent(  out) :: vol1   (noseg )  !< first volume record
       real     (sp), intent(  out) :: vol2   (noseg )  !< second volume record
       real     (sp), intent(  out) :: flow1  ( noq  )  !< flow record in file
-      real     (sp), intent(  out) :: flow2m (nflow )  !< a grid with flows
       real     (sp), intent(  out) :: vdiff1 (noseg )  !< vertical diffusion record in file
       logical      , intent(  out) :: update           !< values have been updated
       integer  (ip), intent(in   ) :: cellpnt(noseg )  !< backpointering from volumes to grid
@@ -108,7 +107,6 @@ module rdhydr_mod
       integer  (ip), intent(inout) :: lunit(nfiles)    !< unit nrs of all files
       character(* ), intent(inout) :: fname(nfiles)    !< file names of all files
       character(20), intent(inout) :: ftype(2)         !< 'binary'
-      real     (sp), intent(  out) :: flow2  ( noq  )  !< flow record in file second record
 
 !     locals
 
@@ -184,30 +182,18 @@ module rdhydr_mod
 !
          read (lunit(7), iostat = iocond) it1, flow1
          if (iocond  /=  0    ) goto 140
-         read (lunit(7), iostat = iocond) it2, flow2
-         if (iocond  /=  0    ) goto 150
+!        read (lunit(7), iostat = iocond) it2, flow1
+!        if (iocond  /=  0    ) goto 150
 !        idelt = it2 - it1
 !        if (idelt   /=  idelt1) goto 160
          itstrt = it1
          rewind (lunit(6))
          rewind (lunit(7))
-         do i = 1, noseg
-
-!       limit volume to 5cm
-              i2 = cellpnt(i)
-              i2 = mod(cellpnt(i),nmax*mmax)
-              if(i2==0) i2 = nmax*mmax
-              vol1(i) = max(vol1(i), area(i2) * depmin)
-              vol2(i) = max(vol2(i), area(i2) * depmin)
-         
-         enddo
          volume(cellpnt(:)) = vol1 (:)
-         flow2 = 0.0
+         flow = 0.0
          do i = 1, noq
             if ( flowpnt(i,1) .gt. 0 ) flow(flowpnt(i,1)) = flow(flowpnt(i,1)) + flow1(i)
             if ( flowpnt(i,2) .gt. 0 ) flow(flowpnt(i,2)) = flow(flowpnt(i,2)) + flow1(i)
-            if ( flowpnt(i,1) .gt. 0 ) flow2m(flowpnt(i,1)) = flow2m(flowpnt(i,1)) + flow2(i)
-            if ( flowpnt(i,2) .gt. 0 ) flow2m(flowpnt(i,2)) = flow2m(flowpnt(i,2)) + flow2(i)
          enddo
       else
 !
@@ -230,8 +216,8 @@ module rdhydr_mod
 !.. note that flows must be block since no space is reserved for flow-interpolation
          call dlwqfl ( lunit(7), lunut   , itime   , idtimf  , itimf1  ,   &
                        itimf2  , idelt   , noq     , nflow   , flow1   ,   &
-                       flow2   , flow    , flowpnt , fname(7), isflag  , ifflag  ,   &
-                       updatf  , flow2m )
+                       flow    , flowpnt , fname(7), isflag  , ifflag  ,   &
+                       updatf  )
 
 !.. vertical diffusions
 

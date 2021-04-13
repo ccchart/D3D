@@ -1,5 +1,5 @@
 * text=auto !eol
-/agpl-3.0.txt -text
+/Makefile.am -text
 doc/readme_building_netcdf.txt -text
 examples/01_standard/config_d_hydro.xml -text
 examples/01_standard/f34.bca -text
@@ -414,8 +414,7 @@ examples/run_all_examples.sh -text
 examples/run_all_examples_sp.bat -text
 examples/run_all_examples_sp.sh -text
 examples/sed_in_file.tcl -text
-/gpl-3.0.txt -text
-/lgpl-2.1.txt -text
+/part_updates_not_in_UM.tex -text
 src/AUTHORS -text
 src/COPYING -text
 src/ChangeLog -text
@@ -14760,4 +14759,3 @@ src/utils_lgpl/unittests/wave_dll_csharp.tests/wave_dll_csharp.tests.csproj -tex
 src/utils_lgpl/unittests/wave_dll_csharp/Properties/AssemblyInfo.cs -text
 src/utils_lgpl/unittests/wave_dll_csharp/WaveModelDll.cs -text
 src/utils_lgpl/unittests/wave_dll_csharp/wave_dll_csharp.csproj -text
-/tsvn-auto-props -text

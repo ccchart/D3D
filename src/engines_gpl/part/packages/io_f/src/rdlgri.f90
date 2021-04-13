@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -85,12 +85,13 @@
       integer  ( ip) nobndl                      !  number of boundaries in 1 layer
 
       integer(4) ithndl              ! handle to time this subroutine
+      integer(ip) lun
       data       ithndl / 0 /
       if ( timon ) call timstrt( "rdlgri", ithndl )
 
 !       initialize the allocation system
 
-      call init_alloc( 97 , lunit(2) )
+      call init_alloc( lun , lunit(2) )
 
 !       initialize the tokenized reading facility
 
@@ -282,9 +283,7 @@
       call alloc ( "dx     ", dx     , mnmax2 )
       call alloc ( "dy     ", dy     , mnmax2 )
       call alloc ( "flow   ", flow   , nflow  )
-      call alloc ( "flow2  ", flow2m , nflow  )
       call alloc ( "flow1  ", flow1  , noqp   )
-      call alloc ( "flow2  ", flow2  , noqp   )
       call alloc ( "ipnt   ", ipntp  , mnmaxk )
       call alloc ( "nplay  ", nplay  , layt   )
       call alloc ( "vdiff  ", vdiff  , mnmaxk )
@@ -297,15 +296,12 @@
       call alloc ( "rhowatc ", rhowatc , nosegp )
       call alloc ( "temper1", temper1, nosegp )
       call alloc ( "velo   ", velo   , mnmaxk )
-      call alloc ( "vel1   ", vel1   , noseglp )
-      call alloc ( "vel2   ", vel2   , noseglp )
       call alloc ( "vol1   ", vol1   , nosegp )
       call alloc ( "vol2   ", vol2   , nosegp )
       call alloc ( "volume ", volumep, mnmaxk )
       call alloc ( "xb     ", xb     , mnmax2 )
       call alloc ( "yb     ", yb     , mnmax2 )
       call alloc ( "zlevel ", zlevel , mnmax2 )
-      call alloc ( "vel2   ", vel2   , noseglp )
       area = 0
 
 !     normal end of routine

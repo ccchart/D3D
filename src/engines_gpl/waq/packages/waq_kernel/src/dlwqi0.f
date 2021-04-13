@@ -194,10 +194,11 @@
       IF ( IERRD .EQ. 0 ) THEN
          DO I = 1 , NUFIL
             READ ( LUN(41) , * ) iftyp, FINAM
-            CALL DHOPNF ( 800+I , FINAM , 3 , 2+iftyp , IOERR )
+!             CALL DHOPNF ( 800+I , FINAM , 3 , 2+iftyp , IOERR )
+            CALL DHOPNF ( 850+I , FINAM , 3 , 2+iftyp , IOERR )
             IF ( IOERR .NE. 0 ) THEN
                WRITE ( LUN(19) , '(A,I3,A,A)' )
-     *         ' ERROR opening file on unit: ',800+I,' filename: ',FINAM
+     *         ' ERROR opening file on unit: ',850+I,' filename: ',FINAM
                CALL SRSTOP(1)
             ENDIF
             ICLEN = LEN(FINAM)

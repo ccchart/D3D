@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -100,9 +100,9 @@ contains
          case ( 1 )
             call delete_file ( finam, ierror )
             if(ftype=='unformatted') then
-               open ( lun, file = finam, form = ftype, access='stream', err = 99)
+               open ( newunit = lun, file = finam, form = ftype, access='stream', err = 99)
             elseif (ftype=='binary') then
-               open ( lun, file = finam, form = ftype, err = 99)
+               open ( newunit = lun, file = finam, form = ftype, err = 99)
             else
                write(*,*) ' Error when opening file with name: '
                write(*,*) finam
@@ -111,9 +111,9 @@ contains
             endif
          case ( 0 )
             if(ftype=='unformatted') then
-               open ( lun, file = finam, form = ftype, access='stream', status ='old', err = 99)
+               open ( newunit = lun, file = finam, form = ftype, access='stream', status ='old', err = 99)
             elseif (ftype=='binary') then
-               open ( lun, file = finam, form = ftype, status = 'old', err = 99)
+               open ( newunit = lun, file = finam, form = ftype, status = 'old', err = 99)
             else
                write(*,'(//a,a40)') ' Error on opening file: ',finam
                write(*,'(  a,a  )') ' Expected file type   : ',ftype
@@ -123,9 +123,9 @@ contains
             endif
          case ( 3 )
             if(ftype=='unformatted') then
-               open ( lun, file = finam, form = ftype, access='stream', status ='old', err = 10)
+               open ( newunit = lun, file = finam, form = ftype, access='stream', status ='old', err = 10)
             elseif (ftype=='binary') then
-               open ( lun, file = finam, form = ftype, status = 'old', err = 10)
+               open ( newunit = lun, file = finam, form = ftype, status = 'old', err = 10)
             else
                write(*,'(//a,a40)') ' Error on opening file: ',finam
                write(*,'(  a,a  )') ' Expected file type   : ',ftype
