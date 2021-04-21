@@ -11,7 +11,7 @@ function filtertbl = qp_filefilters(filters)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -58,7 +58,8 @@ filtertbl={...
     '*.nc'                                                 'NetCDF Files'                      'NetCDF'             0
     '*.hdf;*.hdf5'                                         'HDF5 Files'                        'HDF5'               0
     '*.grib;*.grib1;*.grib2'                               'GRIB Files'                        'grib'               0
-    'sds-*'                                                'Simona SDS Files'                  'waquasds'           0
+    'sds-*'                                                'SIMONA SDS Files'                  'waquasds'           0
+    '*.*'                                                  'SIMONA Box Files'                  'boxfile'            0
     '*.his;*.map;*.plo;*.psf;*.lga'                        'Delwaq Binary Files'               'delwaqbin'          0
     '*.tim'                                                'Delwaq Time Series Input Files'    'DelwaqTimFile'      0
     '*.arc;*.am?;*.asc'                                    'ARC/INFO Ascii Grid Files'         'arcgrid'            0
@@ -125,5 +126,5 @@ switch filters
         iFull = strncmp(lasttp,filtertbl(:,3),length(lasttp));
         filtertbl = filtertbl(iFull,:);
 end
-[dum,Reorder] = sort(filtertbl(:,2));
+[dum,Reorder] = sort(lower(filtertbl(:,2)));
 filtertbl = filtertbl(Reorder,1:3);

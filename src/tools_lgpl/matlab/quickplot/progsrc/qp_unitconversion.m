@@ -40,7 +40,7 @@ function varargout=qp_unitconversion(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -622,7 +622,7 @@ while anychange && any(~identified)
     for i=i_notidentified
         j=size(table{4},1);
         Def=inifile('get',UNIT,i,'definition','');
-        Names=inifile('get',UNIT,i,'name','');
+        [Names,iChap]=inifile('cgetstring',UNIT,i,'name');
         if isempty(Names)
             identified(i)=1;
             if ~strcmpi(units{i},'general')
@@ -636,9 +636,6 @@ while anychange && any(~identified)
                 'No definition for %s in chapter #%i: %s', ...
                 list2string(Names),i,units{i})
         else
-            if ~iscell(Names)
-                Names={Names};
-            end
             if ischar(Def)
                 try
                     [factor,si]=parse(Def,true);

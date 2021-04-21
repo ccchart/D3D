@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -147,8 +147,8 @@ module m_ec_provider
              
          if (index(trim(fileName)//'|','.bc|')>0) then                               ! ASCII: bc-format  : detection is extension-based
 !           bcFilePtr => ecSupportFindBCFileByFilename(instancePtr, fileName)       ! was this BC-file already opened?
-            bcBlockPtr%bcptr => ecSupportFindBCFileByFilename(instancePtr, fileName)! was this BC-file already opened?
-            if (.not.associated(bcBlockPtr%bcptr)) then                                    ! if not, create anew
+            bcBlockPtr%bcFilePtr => ecSupportFindBCFileByFilename(instancePtr, fileName)! was this BC-file already opened?
+            if (.not.associated(bcBlockPtr%bcFilePtr)) then                                    ! if not, create anew
             ! ensure capacity
                if (instancePtr%nBCFiles == size(instancePtr%ecBCFilesPtr)) then
                   if (.not. ecArrayIncrease(instancePtr%ecBCFilesPtr, instancePtr%nBCFiles)) then
@@ -157,9 +157,9 @@ module m_ec_provider
                end if
                instancePtr%nBCFiles = instancePtr%nBCFiles + 1
 
-               allocate (bcBlockPtr%bcptr)
-               bcBlockPtr%bcptr%bcfilename = fileName
-               instancePtr%ecBCFilesPtr(instancePtr%nBCFiles)%Ptr => bcBlockPtr%bcptr
+               allocate (bcBlockPtr%bcFilePtr)
+               bcBlockPtr%bcFilePtr%bcfilename = fileName
+               instancePtr%ecBCFilesPtr(instancePtr%nBCFiles)%Ptr => bcBlockPtr%bcFilePtr
             endif
             bcBlockPtr%ftype=BC_FTYPE_ASCII
          else if (index(trim(fileName)//'|','.nc|')>0) then                          ! NETCDF: nc-format 
@@ -263,6 +263,12 @@ module m_ec_provider
                   ! todo: error handling with message
                   return
                end if
+               if (size(fileReaderPtr%dim_length)>=5) then
+                  if (fileReaderPtr%relndx>fileReaderPtr%dim_length(3)) then
+                     call setECMessage("ERROR: ec_provider::ecProviderInitializeFileReader: Number of realization is outside the ensemble size.")
+                     return        
+                  end if
+               end if
             end select
 
             if(present(dtnodal)) then
@@ -355,12 +361,15 @@ module m_ec_provider
                            "humidity_airtemperature_cloudiness",                          &
                            "humidity_airtemperature_cloudiness_solarradiation",           &
                            "dewpoint_airtemperature_cloudiness",                          &
-                           "dewpoint_airtemperature_cloudiness_solarradiation")
+                           "dewpoint_airtemperature_cloudiness_solarradiation",           &
+                           "solarradiation", "longwaveradiation")
                         success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
                      case ("hrms","tp", "tps", "rtp","dir","fx","fy","wsbu","wsbv","mx","my","dissurf","diswcap","ubot") 
                         success = ecProviderCreateWaveNetcdfItems(instancePtr, fileReaderPtr, quantityname)
                      case default
                         if (index(quantityName,'waqsegmentfunction')==1) then
+                           success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
+                        else if (index(quantityName, 'initialtracer')==1) then
                            success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
                         else
                            call setECMessage("ERROR: ec_provider::ecProviderCreateItems: Unsupported quantity name '"   &
@@ -851,9 +860,6 @@ module m_ec_provider
                   return
                end if
                elementSetName = fileReaderPtr%bc%bcname
-               if (quantityName == 'RAINFALL') then
-                  if (.not.(ecQuantitySet(instancePtr, quantityId, timeint=timeint_rainfall))) return
-               end if
          end select 
 
          ! N_quantities number of scalar quantities.
@@ -1011,8 +1017,15 @@ module m_ec_provider
                                                                 units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if
+            else if (index(lc_filename, '.sdu') /= 0) then
+               ! ===== quantity: bedrock surface timeseries =====
+               quantityId = ecInstanceCreateQuantity(instancePtr)
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='bedrock_surface_elevation', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+                  success = .false.
+               end if                                                    
             else
-                call setECMessage('extension not recoqnized in ' // trim(fileReaderPtr%fileName))
+                call setECMessage('extension not recognized in ' // trim(fileReaderPtr%fileName))
                 success = .false.
             end if
             field0Id = ecInstanceCreateField(instancePtr)
@@ -1448,8 +1461,19 @@ module m_ec_provider
             call setECMessage("ERROR: ec_provider::ecProviderCreatet3DItems: Unknown file type.")
             return 
          end select
-         !Assign vertical interpolation type        
+
+         ! In bc-files only, time-interpolation properties for T3D data can be customized
+         if (fileReaderPtr%ofType == provFile_bc) then
+            if (.not. ecQuantitySetTimeint(instancePtr, quantityId, fileReaderPtr%bc%timeint, & 
+                                           periodic = fileReaderPtr%bc%periodic,              &
+                                           constant = (fileReaderPtr%bc%func == BC_FUNC_CONSTANT))) then
+               return
+            endif         
+         endif         
+                                           
+         ! Assign vertical interpolation type
          valueptr%quantityPtr%zInterpolationType = zInterpolationType
+
          ! Add successfully created source Items to the FileReader
          if (.not.ecFileReaderAddItem(instancePtr, fileReaderPtr%id, valueptr%id)) return 
          success = .true.
@@ -1840,6 +1864,13 @@ module m_ec_provider
             endif
          end do               ! loop over support points
 
+
+         if (.not.ecQuantitySet(instancePtr, quantityId, &
+                       fillvalue = bcBlockPtr%quantity%missing, &
+                       offset = bcBlockPtr%quantity%offset, &
+                       factor = bcBlockPtr%quantity%factor )) then
+            return
+         endif
          if (ecAtLeastOnePointIsCorrection) then  ! TODO: Refactor this shortcut (UNST-180).
              if (all_points_are_corr) then
                 success = .true.
@@ -2353,13 +2384,14 @@ module m_ec_provider
          integer                                                 :: lon_varid, lon_dimid, lat_varid, lat_dimid, tim_varid, tim_dimid
          integer                                                 :: grid_lon_varid, grid_lat_varid
          integer                                                 :: x_varid, x_dimid, y_varid, y_dimid, z_varid, z_dimid, nod_varid, nod_dimid
+         integer                                                 :: realization_varid, realization_dimid, dim_offset
 
          integer, dimension(:,:), allocatable                    :: crd_dimids, crd_dimlen
          integer                                                 :: timeint
          integer                                                 :: expectedLength
          character(len=:), allocatable                           :: nameVar         ! variable name in error message
          character(len=2)                                        :: cnum1, cnum2    ! 1st and 2nd number converted to string for error message
-         integer                                                 :: nrow, ncol, nlay
+         integer                                                 :: nrow, ncol, nlay, nrel
          !
          success = .false.
          itemPtr => null()
@@ -2457,6 +2489,12 @@ module m_ec_provider
             ncstdnames(3) = 'cloud_area_fraction'
             ncvarnames(4) = 'ssr'                            ! outgoing SW radiation at the top-of-the-atmosphere
             ncstdnames(4) = 'surface_net_downward_shortwave_flux'
+         case ('solarradiation')
+            ncvarnames(1) = 'ssr'                            ! outgoing SW radiation at the top-of-the-atmosphere
+            ncstdnames(1) = 'surface_net_downward_shortwave_flux'
+         case ('longwaveradiation')
+            ncvarnames(1) = 'strd'                           ! outgoing long wave radiation
+            ncstdnames(1) = 'surface_net_downward_longwave_flux'
          case ('nudge_salinity_temperature')
             ncvarnames(1) = 'thetao'                         ! temperature
             ncstdnames(1) = 'sea_water_potential_temperature'
@@ -2466,6 +2504,9 @@ module m_ec_provider
             if (index(quantityName,'waqsegmentfunction')==1) then
                ncvarnames(1) = quantityName
                ncstdnames(1) = quantityName
+            else if (index(quantityName,'initialtracer')==1) then
+               ncvarnames(1) = quantityName(14:)
+               ncstdnames(1) = quantityName(14:)
             else
                ! we have faulty 
                call setECMessage("Quantity '"//trim(quantityName)//"', requested from file "//trim(fileReaderPtr%filename)//", unknown.")
@@ -2485,7 +2526,8 @@ module m_ec_provider
                                                                            x_varid,   x_dimid,   y_varid,   y_dimid,      &
                                                                            z_varid,   z_dimid,                            &
                                                                          tim_varid, tim_dimid,                            &
-                                                                         nod_varid, nod_dimid)) then
+                                                                         nod_varid, nod_dimid,                            &
+                                                                 realization_varid, realization_dimid)) then
             ! Exception: inquiry of id's of required coordinate variables failed 
              return
          end if
@@ -2540,30 +2582,33 @@ module m_ec_provider
                coordids(idims) = fileReaderPtr%dim_varids(dimids(idims))
             enddo
 
+            fgd_id = -1
+            sgd_id = -1
             if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
                if (nod_dimid>0) then  
                   grid_type = elmSetType_samples
                else
                   grid_type = elmSetType_cartesian
                end if
-               if (x_varid>0 .and. y_varid>0) then
+               if (x_varid>0) then
                   fgd_id = x_varid
+               endif
+               if (y_varid>0) then
                   sgd_id = y_varid
-               else
-                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
-                      //' requires ''projected_x_coordinate'' and ''projected_y_coordinate''.')
-                  return
-               end if
+               endif
             else if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
                if (nod_dimid>0) then  
                   grid_type = elmSetType_samples
                else
                   grid_type = elmSetType_spheric
                end if
-               if (lon_varid>0 .and. lat_varid>0) then                                  ! First try absolute lon and lat ...
+               if (lon_varid>0) then
                   fgd_id = lon_varid
+               endif
+               if (lat_varid>0) then
                   sgd_id = lat_varid
-               elseif ((grid_lon_varid>0) .and. (grid_lat_varid>0)) then                    ! ... then try relative (rotated-pole-) lon and lat
+               endif
+               if ((grid_lon_varid>0) .and. (grid_lat_varid>0) .and. (fgd_id<0 .or. sgd_id<0)) then  ! ... then try relative (rotated-pole-) lon and lat
                   fgd_id = grid_lon_varid
                   sgd_id = grid_lat_varid
                   grid_mapping=''
@@ -2592,10 +2637,6 @@ module m_ec_provider
                         endif 
                      endif 
                   endif 
-               else
-                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
-                      //' either requires ''latitude'' and ''longitude'' or ''grid_latitude'' and ''grid_longitude''.')
-                  return
                end if
             end if
 
@@ -2608,29 +2649,47 @@ module m_ec_provider
             ierror = nf90_get_att(fileReaderPtr%fileHandle, idvar, "coordinates", coord_name)      ! get coordinates attribute
             if (len_trim(coord_name)>0) then
                if (allocated(coord_names)) deallocate(coord_names)
-               allocate(coord_names(ndims))
-               coord_names = ''
-               read(coord_name, *,iostat=istat) ( coord_names(j), j=1,ndims )
-               do j=1,ndims 
+               call strsplit(coord_name,1,coord_names,1)
+               do j=1,size(coord_names) 
                   if (len_trim(coord_names(j))>0) then
                      call ecProviderSearchStdOrVarnames(fileReaderPtr, j, varid, ncvarnames = coord_names, ignore_case = .True.)
                      if (varid<0) then
                         call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename) &
                                           //' coordinates variable '//trim(coord_names(2))//' referenced but not found')
-                        return
-                     end if
-                     if (strcmpi(fileReaderPtr%standard_names(varid),'projected_x_coordinate')) then
-                         fgd_id = varid
-                     else if (strcmpi(fileReaderPtr%standard_names(varid),'projected_y_coordinate')) then
-                         sgd_id = varid
-                     else if (strcmpi(fileReaderPtr%standard_names(varid),'longitude')) then
-                         fgd_id = varid
-                     else if (strcmpi(fileReaderPtr%standard_names(varid),'latitude')) then
-                         sgd_id = varid
+                     else
+                        if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
+                           if (strcmpi(fileReaderPtr%standard_names(varid),'projection_x_coordinate')) then
+                              fgd_id = varid
+                           endif
+                           if (strcmpi(fileReaderPtr%standard_names(varid),'projection_y_coordinate')) then
+                              sgd_id = varid
+                           endif
+                        end if
+                        if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
+                           if (strcmpi(fileReaderPtr%standard_names(varid),'longitude')) then
+                              fgd_id = varid
+                           endif
+                           if (strcmpi(fileReaderPtr%standard_names(varid),'latitude')) then
+                              sgd_id = varid
+                           endif
+                       end if
                      end if
                    end if
                end do
             end if    ! has non-empty coordinates attribute
+
+            if (fgd_id<0 .or. sgd_id<0) then
+               if (instancePtr%coordsystem == EC_COORDS_CARTESIAN) then 
+                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
+                     //' requires ''projection_x_coordinate'' and ''projection_y_coordinate''.')
+               end if
+               if (instancePtr%coordsystem == EC_COORDS_SFERIC) then 
+                  call setECMessage("Variable '"//trim(ncstdnames(i))//"' in NetCDF file '"//trim(fileReaderPtr%filename)   &
+                     //' either requires ''latitude'' and ''longitude'' or ''grid_latitude'' and ''grid_longitude''.')
+               end if
+               return
+            end if
+                
 
             ! =========================================
             ! Create the ElementSet for this quantity
@@ -2719,9 +2778,29 @@ module m_ec_provider
                   ! Something wrong with the coordinate dimensions 
                endif 
 
+               ! Scale metric coordinates if needed:
+               units = ''
+               ierror = nf90_get_att(fileReaderPtr%fileHandle, fgd_id, 'units', units)
+               if (ierror == nf90_noerr .and. (strcmpi(units, 'km') .or. strcmpi(units, 'kilometer') .or. strcmpi(units, 'kilometre'))) then
+                  fgd_data_1d = fgd_data_1d*1000d0
+               end if
+               units = ''
+               ierror = nf90_get_att(fileReaderPtr%fileHandle, sgd_id, 'units', units)
+               if (ierror == nf90_noerr .and. (strcmpi(units, 'km') .or. strcmpi(units, 'kilometer') .or. strcmpi(units, 'kilometre'))) then
+                  sgd_data_1d = sgd_data_1d*1000d0
+               end if
+
                if (.not.ecElementSetSetType(instancePtr, elementSetId, grid_type)) then
                   return
                end if
+
+               if (realization_dimid > 0) then
+                  dim_offset = 1
+                  nrel = fileReaderPtr%dim_length(dimids(1))
+               else
+                  dim_offset = 0
+                  nrel = 0
+               endif
 
                if (grid_type == elmSetType_samples) then
                   ncol = fileReaderPtr%dim_length(dimids(1))
@@ -2733,8 +2812,8 @@ module m_ec_provider
                   nlay = 0
                   if (size(dimids) > 2) then
                      nrow = fileReaderPtr%dim_length(dimids(2))
-                     if (size(dimids) > 3) then
-                        nlay = fileReaderPtr%dim_length(dimids(3))
+                     if (size(dimids) > 3+dim_offset) then
+                        nlay = fileReaderPtr%dim_length(dimids(3+dim_offset))
                      endif
                   endif
                end if
@@ -3106,10 +3185,11 @@ module m_ec_provider
             fileReaderPtr%tframe%ec_timezone = fileReaderPtr%tframe%k_timezone
             fileReaderPtr%tframe%ec_timestep_unit = fileReaderPtr%tframe%k_timestep_unit 
 
-            if(present(dtnodal) .and. dtnodal /= 0.0_hp) then
-               fileReaderPtr%tframe%dtnodal = dtnodal
-            else
-               fileReaderPtr%tframe%dtnodal = 1e+20_hp
+            fileReaderPtr%tframe%dtnodal = 1e+20_hp
+            if (present(dtnodal)) then
+               if (dtnodal /= 0.0_hp) then
+                  fileReaderPtr%tframe%dtnodal = dtnodal
+               endif
             endif
 
          else

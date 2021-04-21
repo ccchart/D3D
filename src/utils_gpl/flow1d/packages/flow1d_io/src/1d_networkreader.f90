@@ -1,7 +1,7 @@
 module m_1d_networkreader
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -137,7 +137,7 @@ module m_1d_networkreader
    !! but the input meshgeom often will only have one unique grid point on a connection node.
    !! In that case, parameter nodesOnBranchVertices allows to automatically create duplicate start/end points.
    integer function construct_network_from_meshgeom(network, meshgeom, branchids, branchlongnames, nodeids, nodelongnames, & !1d network character variables
-      gpsID, gpsIDLongnames, network1dname, mesh1dname, nodesOnBranchVertices) result(ierr)
+      gpsID, gpsIDLongnames, network1dname, mesh1dname, nodesOnBranchVertices, jampi) result(ierr)
 
    use gridgeom
    use meshdata
@@ -145,39 +145,44 @@ module m_1d_networkreader
    use odugrid
 
    !in variables
-   type(t_network),  intent(inout) :: network
-   type(t_ug_meshgeom), intent(in) :: meshgeom
-   character(len=ug_idsLen), allocatable, dimension(:), intent(in)             :: branchids
-   character(len=ug_idsLongNamesLen), allocatable, dimension(:),intent(in)     :: branchlongnames
-   character(len=ug_idsLen), allocatable, dimension(:),intent(in)              :: nodeids
-   character(len=ug_idsLongNamesLen), allocatable, dimension(:),intent(in)     :: nodelongnames
-   character(len=IdLen),allocatable, dimension(:),intent(inout)                :: gpsID
-   character(len=ug_idsLongNamesLen), allocatable, dimension(:),intent(inout)  :: gpsIDLongnames
-   character(len=ug_idsLongNamesLen),intent(in)                                :: network1dname
-   character(len=ug_idsLongNamesLen),intent(in)                                :: mesh1dname
-   integer, intent(in)                                                         :: nodesOnBranchVertices !< Whether or not (1/0) the input meshgeom itself already contains duplicate points on each connection node between multiple branches.
-                                                                                                        !! If not (0), additional grid points will be created.
+   type(t_network),                             intent(inout) :: network
+   type(t_ug_meshgeom),                         intent(in   ) :: meshgeom
+   character(len=*), allocatable, dimension(:), intent(in   ) :: branchids
+   character(len=*), allocatable, dimension(:), intent(in   ) :: branchlongnames
+   character(len=*), allocatable, dimension(:), intent(in   ) :: nodeids
+   character(len=*), allocatable, dimension(:), intent(in   ) :: nodelongnames
+   character(len=*), allocatable, dimension(:), intent(inout) :: gpsID
+   character(len=*), allocatable, dimension(:), intent(inout) :: gpsIDLongnames
+   character(len=*),                            intent(in   ) :: network1dname
+   character(len=*),                            intent(in   ) :: mesh1dname
+   integer,                                     intent(in   ) :: nodesOnBranchVertices !< Whether or not (1/0) the input meshgeom itself already contains duplicate points on each connection node between multiple branches.
+                                                                                       !! If not (0), additional grid points will be created.
+   integer,                                     intent(in   ), optional :: jampi       !< running in parallel mode (1) or not (0)
 
    !locals
    integer, allocatable, dimension(:)               :: gpFirst
    integer, allocatable, dimension(:)               :: gpLast
    double precision, allocatable, dimension(:)      :: gpsX
    double precision, allocatable, dimension(:)      :: gpsY
-   type(t_node), dimension(:), pointer              :: pnodes
-   integer                                          :: ibran, inode, i, j, jsferic
+   integer                                          :: ibran, inode, jsferic
    integer                                          :: gridPointsCount
    double precision, allocatable, dimension(:)      :: localOffsets
    double precision, allocatable, dimension(:)      :: localOffsetsSorted
    integer, allocatable, dimension(:)               :: localSortedIndexses  
    double precision, allocatable, dimension(:)      :: localGpsX
    double precision, allocatable, dimension(:)      :: localGpsY
-   character(len=IdLen), allocatable, dimension(:)  :: localGpsID
-   character(len=IdLen), allocatable, dimension(:)  :: idMeshNodesInNetworkNodes
+   character(len=len(gpsId)), allocatable, dimension(:)  :: localGpsID
+   character(len=len(gpsId)), allocatable, dimension(:)  :: idMeshNodesInNetworkNodes
    integer                                          :: firstNode, lastNode
    double precision, parameter                      :: snapping_tolerance = 1e-10
-   
+   double precision                                 :: distance, meanLength
+   integer                                          :: jampi_
 
    ierr = -1
+
+   jampi_ = 0
+   if (present(jampi)) jampi_ = jampi
+
    ! check data are present and correct
    if (meshgeom%numnode .eq. -1) then
       call SetMessage(LEVEL_FATAL, 'Network UGRID-File: Error in meshgeom%numnode')
@@ -310,23 +315,33 @@ module m_1d_networkreader
          localGpsID(1:gridPointsCount)   = gpsID(firstNode:lastNode)
       endif
 
-      if(nodesOnBranchVertices==0) then
+      if(nodesOnBranchVertices==0 .and. jampi_ == 0) then
          if(localOffsets(1)>snapping_tolerance .or. gridpointsCount == 0) then
             !start point missing
-            localOffsets(1:gridPointsCount+1)=(/ 0.0d0, localOffsets(1:gridPointsCount) /)
-            localGpsX(1:gridPointsCount+1)=(/ meshgeom%nnodex(meshgeom%nedge_nodes(1,ibran)), localGpsX(1:gridPointsCount) /)
-            localGpsY(1:gridPointsCount+1)=(/ meshgeom%nnodey(meshgeom%nedge_nodes(1,ibran)), localGpsY(1:gridPointsCount) /)
-            localGpsID(1:gridPointsCount+1)=(/ idMeshNodesInNetworkNodes(meshgeom%nedge_nodes(1,ibran)), localGpsID(1:gridPointsCount) /)
-            gridPointsCount = gridPointsCount + 1
+            call add_point(.true., localOffsets, localGpsX, localGpsY, localGpsID, idMeshNodesInNetworkNodes, gridPointsCount, ibran, meshgeom)
          endif
          ! TODO: consider using a relative tolerance
          if(abs(localOffsets(gridPointsCount)-meshgeom%nbranchlengths(ibran))> snapping_tolerance .or. gridpointsCount == 1) then
             !end point missing
-            localOffsets(1:gridPointsCount+1)=(/ localOffsets(1:gridPointsCount), meshgeom%nbranchlengths(ibran) /)
-            localGpsX(1:gridPointsCount+1)=(/ localGpsX(1:gridPointsCount), meshgeom%nnodex(meshgeom%nedge_nodes(2,ibran)) /)
-            localGpsY(1:gridPointsCount+1)=(/ localGpsY(1:gridPointsCount), meshgeom%nnodey(meshgeom%nedge_nodes(2,ibran)) /)
-            localGpsID(1:gridPointsCount+1)=(/ localGpsID(1:gridPointsCount), idMeshNodesInNetworkNodes(meshgeom%nedge_nodes(2,ibran)) /)
-            gridPointsCount = gridPointsCount + 1
+            call add_point(.false., localOffsets, localGpsX, localGpsY, localGpsID, idMeshNodesInNetworkNodes, gridPointsCount, ibran, meshgeom)
+         endif
+      else if(nodesOnBranchVertices==0 .and. jampi_ == 1) then
+         if(firstNode /= -1 .and. lastNode /= -1) then
+            if (gridPointsCount > 1) then
+               meanLength = (localOffsets(gridPointsCount) - localOffsets(1)) / dble(gridPointsCount - 1)
+            else
+               meanLength = meshgeom%nbranchlengths(ibran)
+            end if
+            distance = localOffsets(1)
+            if (distance > snapping_tolerance .and. distance < 2d0 * meanLength) then
+               !start point missing
+               call add_point(.true., localOffsets, localGpsX, localGpsY, localGpsID, idMeshNodesInNetworkNodes, gridPointsCount, ibran, meshgeom)
+            endif
+            distance = abs(localOffsets(gridPointsCount)-meshgeom%nbranchlengths(ibran))
+            if (distance > snapping_tolerance .and. distance < 2d0 * meanLength) then
+               !end point missing
+               call add_point(.false., localOffsets, localGpsX, localGpsY, localGpsID, idMeshNodesInNetworkNodes, gridPointsCount, ibran, meshgeom)
+            endif
          endif
       endif
 
@@ -345,6 +360,33 @@ module m_1d_networkreader
 
    end function construct_network_from_meshgeom
 
+   !> helper function to add a point at the start or end of a branch
+   subroutine add_point(atStart, localOffsets, localGpsX, localGpsY, localGpsID, idMeshNodesInNetworkNodes, gridPointsCount, ibran, meshgeom)
+   use meshdata, only : t_ug_meshgeom
+   logical,                                         intent(in   ) :: atStart     !< add point at start (true) or end (false) of branch
+   double precision,     allocatable, dimension(:), intent(inout) :: localGpsX
+   double precision,     allocatable, dimension(:), intent(inout) :: localGpsY
+   double precision,     allocatable, dimension(:), intent(inout) :: localOffsets
+   character(len=*),     allocatable, dimension(:), intent(inout) :: localGpsID
+   character(len=*),     allocatable, dimension(:), intent(in   ) :: idMeshNodesInNetworkNodes
+   integer,                                         intent(inout) :: gridPointsCount
+   integer,                                         intent(in   ) :: ibran
+   type(t_ug_meshgeom),                             intent(in   ) :: meshgeom
+
+   if (atStart) then
+      localOffsets(1:gridPointsCount+1)=(/ 0.0d0, localOffsets(1:gridPointsCount) /)
+      localGpsX(1:gridPointsCount+1)=(/ meshgeom%nnodex(meshgeom%nedge_nodes(1,ibran)), localGpsX(1:gridPointsCount) /)
+      localGpsY(1:gridPointsCount+1)=(/ meshgeom%nnodey(meshgeom%nedge_nodes(1,ibran)), localGpsY(1:gridPointsCount) /)
+      localGpsID(1:gridPointsCount+1)=(/ idMeshNodesInNetworkNodes(meshgeom%nedge_nodes(1,ibran)), localGpsID(1:gridPointsCount) /)
+   else
+      localOffsets(1:gridPointsCount+1)=(/ localOffsets(1:gridPointsCount), meshgeom%nbranchlengths(ibran) /)
+      localGpsX(1:gridPointsCount+1)=(/ localGpsX(1:gridPointsCount), meshgeom%nnodex(meshgeom%nedge_nodes(2,ibran)) /)
+      localGpsY(1:gridPointsCount+1)=(/ localGpsY(1:gridPointsCount), meshgeom%nnodey(meshgeom%nedge_nodes(2,ibran)) /)
+      localGpsID(1:gridPointsCount+1)=(/ localGpsID(1:gridPointsCount), idMeshNodesInNetworkNodes(meshgeom%nedge_nodes(2,ibran)) /)
+   end if
+   gridPointsCount = gridPointsCount + 1
+   end subroutine add_point
+
    subroutine read_1d_ugrid(network, ioncid, dflowfm)
 
    use io_netcdf
@@ -359,8 +401,6 @@ module m_1d_networkreader
    integer, intent(in)                    :: ioncid
    logical, optional, intent(inout)       :: dflowfm
 
-   integer                   :: igridpoint
-
    integer                   :: ierr
    integer                   :: numMesh
    integer                   :: meshIndex
@@ -371,7 +411,7 @@ module m_1d_networkreader
    character(len=ug_idsLongNamesLen), allocatable, dimension(:)     :: branchlongnames
    character(len=ug_idsLen), allocatable, dimension(:)              :: nodeids
    character(len=ug_idsLongNamesLen), allocatable, dimension(:)     :: nodelongnames
-   character(len=IdLen), allocatable, dimension(:)                  :: gpsID
+   character(len=ug_idsLen), allocatable, dimension(:)              :: gpsID
    character(len=ug_idsLongNamesLen), allocatable, dimension(:)     :: gpsIDLongnames
    character(len=ug_idsLongNamesLen)                                :: network1dname
    character(len=ug_idsLongNamesLen)                                :: mesh1dname
@@ -540,7 +580,7 @@ module m_1d_networkreader
          endif
       
          nds%node(nds%Count)%id                  = nodeids(iNode)
-         nds%node(nds%Count)%name                = nodelongnames(iNode)(1:40)
+         nds%node(nds%Count)%name                = nodelongnames(iNode)
          nds%node(nds%Count)%index               = nds%count
          nds%node(nds%Count)%nodetype            = nt_NotSet
          nds%node(nds%Count)%numberOfConnections = 0
@@ -762,16 +802,16 @@ module m_1d_networkreader
 
       type(t_branchSet), target, intent(inout)       :: brs
       type(t_nodeSet), target, intent(inout)         :: nds
-      character(len=IdLen), intent(in)               :: branchId
-      character(len=IdLen), intent(in)               :: begNodeId
-      character(len=IdLen), intent(in)               :: endNodeId
+      character(len=*), intent(in)                   :: branchId
+      character(len=*), intent(in)                   :: begNodeId
+      character(len=*), intent(in)                   :: endNodeId
       integer, intent(in)                            :: orderNumber
       
       integer, intent(in)                                          :: gridPointsCount
       double precision, dimension(gridPointsCount), intent(in)     :: gpX
       double precision, dimension(gridPointsCount), intent(in)     :: gpY
       double precision, dimension(gridPointsCount), intent(in)     :: gpchainages
-      character(len=IdLen), dimension(gridPointsCount), intent(in) :: gpID
+      character(len=*), dimension(gridPointsCount), intent(in)     :: gpID
       
       ! Local Variables
       integer                                  :: ibr
@@ -836,7 +876,7 @@ module m_1d_networkreader
       enddo
 
       pbr%gridPointsCount = gridPointsCount
-      uPointsCount        = pbr%gridPointsCount - 1
+      uPointsCount        = max(0, pbr%gridPointsCount - 1)
       pbr%uPointsCount    = uPointsCount
       
       call realloc(pbr%gridPointschainages, pbr%gridPointsCount)
@@ -880,9 +920,13 @@ module m_1d_networkreader
             gridIndex = ip2
          endif
          if (node%nodeType == nt_NotSet) then
-            ! probably end node (until proved otherwise
+            ! probably end node (until proved otherwise)
             node%nodeType = nt_endNode
-         node%gridNumber = gridIndex
+            if (gridPointsCount > 0) then
+               node%gridNumber = gridIndex
+            else
+               node%gridNumber = -1
+            endif
          elseif (node%nodeType == nt_endNode) then
             ! Already one branch connected, so not an endNode
             node%nodeType = nt_LinkNode

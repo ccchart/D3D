@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -21,7 +21,7 @@
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
 
- module m_sferic
+ module m_sferic_part
  implicit none
  integer                           :: jsferic = 0       ! xy pair is in : 0=cart, 1=sferic coordinates
  integer                           :: jsfertek= 0       ! drawn in 0=cart, 1=stereografisch
@@ -36,4 +36,4 @@
  double precision                  :: anglat = 0d0      ! 26.0     ! dubai 52.5     ! angle of latitude
  double precision                  :: dy2dg             ! from dy in m to lat in degrees
  double precision                  :: csphi             ! cosphi of latest requested
- end module m_sferic
+ end module m_sferic_part

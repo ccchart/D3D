@@ -1,8 +1,8 @@
-subroutine tranb7(utot      ,d50       ,d90       ,h         ,par       , &
-                & sbot      ,ssus      ,vonkar    ,mudfrac   )
+subroutine tranb7(utot      ,d50       ,d90       ,h         ,npar      , &
+                & par       ,sbot      ,ssus      ,vonkar    ,mudfrac   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,15 +41,17 @@ subroutine tranb7(utot      ,d50       ,d90       ,h         ,par       , &
 !
 ! Call variables
 !
-    real(fp)               , intent(in)  :: d50     ! grain size diameter (first specified diameter)
-    real(fp)               , intent(in)  :: d90     ! grain size diameter (first specified diameter)
-    real(fp)               , intent(in)  :: h       ! water depth
-    real(fp)               , intent(in)  :: mudfrac ! fraction of mud
-    real(fp)               , intent(out) :: sbot    ! bed load transport
-    real(fp)               , intent(out) :: ssus    ! suspended sediment transport
-    real(fp)               , intent(in)  :: utot    ! flow velocity
-    real(fp), dimension(30), intent(in)  :: par     ! sediment parameter list
-    real(fp)               , intent(in)  :: vonkar
+    integer                  , intent(in)    :: npar
+    real(fp)                 , intent(in)    :: d50     ! grain size diameter (first specified diameter)
+    real(fp)                 , intent(in)    :: d90     ! grain size diameter (first specified diameter)
+    real(fp)                 , intent(in)    :: h       ! water depth
+    real(fp)                 , intent(in)    :: mudfrac ! fraction of mud
+    real(fp), dimension(npar), intent(in)    :: par     ! sediment parameter list
+    real(fp)                 , intent(in)    :: utot    ! flow velocity
+    real(fp)                 , intent(in)    :: vonkar
+    !
+    real(fp)                 , intent(out)   :: sbot    ! bed load transport
+    real(fp)                 , intent(out)   :: ssus    ! suspended sediment transport
 !
 ! Local variables
 !

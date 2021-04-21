@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -1153,7 +1153,8 @@ end subroutine ecInstanceListSourceItems
                                                     x_varid, x_dimid,   y_varid,   y_dimid,      &
                                                     z_varid, z_dimid,                            &
                                                   tim_varid, tim_dimid,                          &
-                                               series_varid, series_dimid) result(success)
+                                               series_varid, series_dimid,                       &
+                                          realization_varid, realization_dimid) result(success)
       use netcdf
       logical              :: success
       integer, intent(in)  :: ncid           !< NetCDF file ID
@@ -1173,9 +1174,11 @@ end subroutine ecInstanceListSourceItems
       integer, intent(out) ::   z_dimid      !< Z dimension
       integer, intent(out) :: tim_dimid      !< Time dimension
       integer, intent(out) :: series_dimid   !< Series dimension
+      integer, intent(out) :: realization_varid  !< realization varid
+      integer, intent(out) :: realization_dimid  !< realization dimension
       integer :: ndim, nvar, ivar, nglobatts, unlimdimid, ierr
       integer, allocatable :: dimids(:)
-      character(len=NF90_MAX_NAME)  :: units, axis, varname, stdname, cf_role
+      character(len=NF90_MAX_NAME)  :: units, axis, varname, stdname, cf_role, std_name
 
       success = .False.
       lon_varid = -1
@@ -1185,6 +1188,7 @@ end subroutine ecInstanceListSourceItems
       z_varid = -1
       tim_varid = -1
       series_varid = -1
+      realization_varid = -1
 
       lon_dimid = -1
       lat_dimid = -1
@@ -1193,6 +1197,7 @@ end subroutine ecInstanceListSourceItems
       z_dimid = -1
       tim_dimid = -1
       series_dimid = -1
+      realization_dimid = -1
 
       allocate(dimids(NF90_MAX_VAR_DIMS))
 
@@ -1205,6 +1210,12 @@ end subroutine ecInstanceListSourceItems
          if (strcmpi(cf_role,'timeseries_id')) then 
             series_varid = ivar                                                 ! store last timeseries_id variable
             series_dimid = dimids(ndim)
+         end if
+         ierr = nf90_get_att(ncid, ivar, 'standard_name', std_name)
+         if (strcmpi(std_name,'realization')) then
+            realization_varid = ivar                                                 ! store last timeseries_id variable
+            realization_dimid = dimids(ndim)
+            cycle
          end if
          units=''
          ierr = nf90_get_att(ncid, ivar, 'units', units)
@@ -1238,18 +1249,33 @@ end subroutine ecInstanceListSourceItems
                   if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'AXIS', axis) ! support 'axis' in upper case, lower case and camel case
                   if (ierr /= 0) ierr = nf90_get_att(ncid, ivar, 'Axis', axis)
 
+                  if (ierr == nf90_noerr) then
+                     if (strcmpi(axis,'X')) then
+                        x_varid = ivar
+                        x_dimid = dimids(1)
+                     else if (strcmpi(axis,'Y')) then
+                        y_varid = ivar
+                        y_dimid = dimids(1)
+                     else if (strcmpi(axis,'Z')) then
+                        z_varid = ivar
+                        z_dimid = dimids(1)
+                     end if
+                  else
+                     ierr = nf90_get_att(ncid, ivar, 'standard_name', stdname)
+                     select case (stdname)
+                     case ('projection_x_coordinate')
+                        x_varid = ivar
+                        x_dimid = dimids(1)
+                     case ('projection_y_coordinate')
+                        y_varid = ivar
+                        y_dimid = dimids(1)
+                     case default
+                        ierr = EC_DATA_NOTFOUND
+                     end select
+                  end if
                   if (ierr /= 0) then
-                      ierr = nf90_inquire_variable(ncid, ivar, name = varname)
-                      call setECmessage("attribute 'axis' not found for variable " // trim(varname))
-                  else if (strcmpi(axis,'X')) then
-                     x_varid = ivar
-                     x_dimid = dimids(1)
-                  else if (strcmpi(axis,'Y')) then
-                     y_varid = ivar
-                     y_dimid = dimids(1)
-                  else if (strcmpi(axis,'Z')) then
-                     z_varid = ivar
-                     z_dimid = dimids(1)
+                     ierr = nf90_inquire_variable(ncid, ivar, name = varname)
+                     call setECmessage("attribute 'axis' not found for variable " // trim(varname)// ", nor 'projection_x/y_coordinate' was found.")
                   end if
                case default
                   ! see if is the time dimension

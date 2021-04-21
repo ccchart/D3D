@@ -3,7 +3,7 @@ function fig=qp_interface(showUI)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -165,7 +165,9 @@ MW.RecTB(1) = qp_toolbarpush(MW.TB,'logfile',0,'Record a macro/log file');
 MW.RecTB(2) = qp_toolbarpush(MW.TB,'scriptfile',0,'Record a MATLAB script file');
 MW.StopRec = qp_toolbarpush(MW.TB,'stoprecord',0,'Stop recording');
 MW.Run = qp_toolbarpush(MW.TB,'run',0,'Run a macro/log file');
+MW.Rerun = qp_toolbarpush(MW.TB,'rerun',0,'Run previous macro/log file again');
 set(MW.StopRec,'enable','off')
+set(MW.Rerun,'enable','off')
 %=============
 MW.TB_PM = qp_toolbartoggle(MW.TB,'plotmngr',1,'Show/hide plot manager');
 MW.TB_GV = qp_toolbartoggle(MW.TB,'gridview',0,'Show/hide grid view');
@@ -1545,6 +1547,19 @@ uicontrol('Parent',mfig, ...
 voffset=voffset-25;
 h1 = LocTextPopup_line(mfig,'Operator','operator',[offset voffset width 20],'Select value operator');
 set(h1(2),'String',{'none','abs'},'Value',1);
+%
+% ------ uniform colours ...
+%
+voffset=voffset-25;
+uicontrol('Parent',mfig, ...
+    'Callback','d3d_qp unicolour', ...
+    'Enable','off', ...
+    'HorizontalAlignment','left', ...
+    'Position',[offset voffset width 20], ...
+    'Style','checkbox', ...
+    'Value',0,...
+    'String','Colour Uniformly', ...
+    'Tag','unicolour');
 %
 % ------ colour ...
 %

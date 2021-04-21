@@ -3,7 +3,7 @@ function Fcn=qp_file2function(Info)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -105,6 +105,7 @@ F={'Delft3D-com'                'd3d_comfil'
     'SOBEK River network'        'sobekfil'
     'NetCDF'                     'netcdffil'
     'HDF5'                       'hdffil'
+    'XMDF'                       'hdffil'
     'SWAN spectral'              'swanfil'
     'TRITON'                     'nfs_tritonfil'
     'bil/hdr'                    'bilhdrfil'

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -79,6 +79,7 @@ module m_ec_typedefs
         character(len=25)       ::  unit        !< unit specification 
         real(hp)                ::  offset = 0.d0  !< to be added to all data for this quantity
         real(hp)                ::  factor = 1.d0  !< to be multiplied with all data for this quantity
+        real(hp)                ::  missing = ec_undef_hp !< Missing value or fillValue
 !       integer, allocatable    ::  vertndx(:)  !< vertical position nr (indices into the global vertical position array)
         integer                 ::  vertndx     !< vertical position nr (indices into the global vertical position array)
         integer                 ::  vectormax   = 1   !< number of vector elements, default scalar 
@@ -107,22 +108,23 @@ module m_ec_typedefs
         real(hp), pointer                          ::  vp(:) => null()     !< vertical positions  
         integer                                    ::  numlay = 1          !< number of vertical layers 
         integer                                    ::  zInterpolationType  !< Type of vertical interpolation 
-        real(hp)                                   ::  missing             !< Missing value 
         character(len=maxFileNameLen)              ::  bcname  = ''        !< Name (identifier) for this BC block (assumed to be uniq)
         character(len=maxFileNameLen)              ::  qname   = ''        !< Quantity name with which all found quantities must identify 
         character(len=maxFileNameLen)              ::  fname   = ''        !< Filename the data originates from 
-        integer(kind=8)                            ::  fhandle= -1         !< (C) filehandle to open file 
+!       integer(kind=8)                            ::  fhandle= -1         !< (C) filehandle to open file 
+        integer(kind=8)                            ::  fposition = -1      !< position of reading for fseek
         logical                                    ::  isLateral = .false. !< Lateral discharge? (otherwise: boundary condition)
         integer                                    ::  ftype  = -1         !< ASCII, NetCDF, ....
         type (tEcBCQuantity), pointer              ::  quantity => null()  !< Quantity object 
         type (tEcBCQuantity), allocatable          ::  quantities(:)       !< Array of quantity objects for each quantity with the same name  
         type (tEcNetCDF), pointer                  ::  ncptr => null()     !< pointer to a NetCDF instance, responsible for a connected NetCDF file 
-        type (tEcBCFile), pointer                  ::  bcptr => null()     !< pointer to a BCFile instance, responsible for a connected BC file 
+        type (tEcBCFile), pointer                  ::  bcFilePtr => null() !< pointer to a BCFile instance, responsible for a connected BC file 
         integer                                    ::  ncvarndx = -1       !< varid in the associated netcdf for the requested quantity 
         integer                                    ::  nclocndx = -1       !< index in the timeseries_id dimension for the requested location 
         integer                                    ::  nctimndx =  1       !< record number to be read 
         integer, dimension(:), allocatable         ::  ncdimvector         !< List of dimensions in NetCDF describing the chosen variable
         integer, allocatable, dimension(:)         ::  dimvector           !< dimension ID's indexing the variable of interest
+        logical                                    ::  feof = .False.      !< End-Of-File signal
         !
         integer                 ::  astro_component_column = -1  !< number of the column, containing astronomic components
         integer                 ::  astro_amplitude_column = -1  !< number of the column, containing astronomic amplitudes
@@ -155,6 +157,7 @@ module m_ec_typedefs
       integer                       :: id                  !< unique NCBlock number, set by ecInstanceCreateNCBlock
       character(len=:), allocatable :: bcfilename          !< file name of the BC-file 
       type (tEcBlocklist), pointer  :: blocklist => null() !< list of blocks (table of contents for this BC-file)
+      integer(kind=8)               :: fhandle = -1        !< file handle
       integer                       :: last_blocktype      !< type of the block (BT_GENERAL, BT_FORCING, ....) 
       integer                       :: last_position = 0   !< last position in the scan-process                   
       character(len=15)             :: FileVersion         !< File version stamp read from [General]::FileVersion in the bc-file
@@ -175,6 +178,9 @@ module m_ec_typedefs
         character(len=maxFileNameLen), allocatable, dimension(:)  ::  standard_names   !< list of standard names
         character(len=maxFileNameLen), allocatable, dimension(:)  ::  long_names       !< list of long names
         character(len=maxFileNameLen), allocatable, dimension(:)  ::  variable_names   !< list of variable names
+        real(hp), allocatable, dimension(:)  ::  fillvalues              !< missing/fillvalue for each variable
+        real(hp), allocatable, dimension(:)  ::  scales                  !< multiplication scale factor for each variable
+        real(hp), allocatable, dimension(:)  ::  offsets                 !< list of variable names
         integer                                      ::  nDims = 0       !< Number of dimensions 
         integer                                      ::  nTims = 0       !< Number of timeseries 
         integer                                      ::  nLayer = -1     !< Number of vertical layers, default single layer
@@ -341,13 +347,15 @@ module m_ec_typedefs
       integer                                             :: vectormax = 1           !< number of vector elements (from the demand side) 
                                                                                      !  This field is used to pass the dimensionality from the 
                                                                                      !            highest to the lowest level upon creation
-      logical                                             :: end_of_data             !< End of data reached?
-      character(len=100), dimension(:), allocatable :: standard_names                ! Standard names by varid in a netcdf-file 
-      character(len=100), dimension(:), allocatable :: variable_names                ! Variable names by varid in a netcdf file 
-!     integer, dimension(:), allocatable            :: dim_varids                    ! For each dimension in NetCDF: id of the associated variable                               
-!     integer, dimension(:), allocatable            :: dim_length                    ! For each dimension in NetCDF: length
-      integer, dimension(:), pointer                :: dim_varids => null()          ! For each dimension in NetCDF: id of the associated variable                               
-      integer, dimension(:), pointer                :: dim_length => null()          ! For each dimension in NetCDF: length
+      logical                                       :: end_of_data                   !< End of data reached?      
+      character(len=100), dimension(:), allocatable :: standard_names                !<Standard names by varid in a netcdf-file 
+      character(len=100), dimension(:), allocatable :: variable_names                !<Variable names by varid in a netcdf file 
+!     integer, dimension(:), allocatable            :: dim_varids                    !<For each dimension in NetCDF: id of the associated variable                               
+!     integer, dimension(:), allocatable            :: dim_length                    !<For each dimension in NetCDF: length
+      integer                                       :: relndx = 0                    !<Index of realization in an ensemble, for the reader
+                                                                                     ! ignored if below zero or file is not an ensemble
+      integer, dimension(:), pointer                :: dim_varids => null()          !<For each dimension in NetCDF: id of the associated variable                               
+      integer, dimension(:), pointer                :: dim_length => null()          !<For each dimension in NetCDF: length
    end type tEcFileReader
 
    type tEcFileReaderPtr

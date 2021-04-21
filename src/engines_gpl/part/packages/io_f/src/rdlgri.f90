@@ -60,6 +60,7 @@
       use alloc_mod
       use dd_prepare_mod
       use openfl_mod
+      use hydmod
 
       implicit none               ! force explicit typing
 
@@ -96,9 +97,19 @@
 !       initialize the tokenized reading facility
 
       close ( lunit(1) )
-      call rdhyd ( nfiles , lunit  , fname  , layt   , ihdel  ,                 &
-     &             tcktot , ndoms  , nbnds  , doms   , bnds   )
+      call rdhyd ( nfiles , lunit  , fname  , hyd    , layt   , zmodel , ihdel  ,                 &
+     &             tcktot , zlbot  , zltop  , ndoms  , nbnds  , doms   , bnds   )
 
+      if (zmodel) then 
+         write ( lunit(2), *)
+         write ( lunit(2), *) ' Zlayer defintion of z-layer model'
+         write ( lunit(2), *)
+         write ( lunit(2), *) ' Layer number     top of layer   bottom of layer'
+         write ( lunit(2), *) ' -----------------------------------------------'
+         do k = 1, layt
+            write ( lunit(2), '(i12,f15.3,f15.3)') k, zltop(k), zlbot(k)
+         enddo
+      endif
 !     reading active table
 
       write (lunit(2), *)
@@ -168,6 +179,29 @@
             enddo
          enddo
       endif
+      if (zmodel) then
+         call alloc ( "laytop", laytop, nmaxp, mmaxp)
+         call alloc ( "laytopp", laytopp, nmaxp, mmaxp)
+         call alloc ( "laybot", laybot, nmaxp, mmaxp)
+         call alloc ( "pagrid", pagrid, nmaxp, mmaxp, layt )
+         call alloc ( "aagrid", aagrid, nmaxp, mmaxp, layt )
+         laytop = 0
+         laytopp = 0
+         laybot = 0
+         pagrid = 0
+         do i = 1, nmaxp
+            do j = 1, mmaxp
+               if ( lgrid(i,j) .gt. 0 ) then
+                  do k = 1, layt
+                     pagrid(i, j, k) = mod(hyd%attributes(lgrid(i,j)+(k-1)*noseglp),10)
+                     if (pagrid(i, j, k) == 1) then
+                        laybot(i, j) = k
+                     endif
+                  enddo
+               endif
+            enddo
+         enddo
+      end if
       mnmaxk = mnmax2*layt
       nflow  = 2*mnmaxk + (layt-1)*nmaxp*mmaxp
       nosegp = noseglp*layt2

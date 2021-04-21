@@ -3,7 +3,7 @@ function [DomainNr,Props,subf,selected,stats,Ops]=qp_interface_update_options(mf
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -167,6 +167,9 @@ PlotType='View';
 EnablePlot = false;
 EnableLoad = false;
 
+if isempty(Props)
+    return
+end
 [nval,nvalstr]=convertnval(Props.NVal);
 DimFlag = Props.DimFlag;
 if nval<0
@@ -311,10 +314,8 @@ switch geometry
                 else
                     axestype={'X-Y','Time-Val','Text'};
                 end
-            elseif DimFlag(T_)
-                axestype={'Time-Val','Text'};
             else
-                axestype={'Text'};
+                axestype={'Time-Val','Text'};
             end
         end
     case 'PNT+'
@@ -478,6 +479,12 @@ switch geometry
 end
 if isequal(axestype,{'noplot'})
     MultipleColors = 0;
+elseif DimFlag(T_) ~= 0 && ~isempty(axestype{end})
+    % if there is a time dimension, add axestype 'Time' for time sliders and clocks
+    axestype{end+1} = 'Time';
+elseif DimFlag(T_) == 0
+    % if there is no time dimension, remove all axestypes that include Time
+    axestype(~cellfun(@isempty, strfind(axestype, 'Time'))) = [];
 end
 
 Inactive=UD.Inactive;
@@ -524,6 +531,14 @@ else
     i=1;
 end
 axestype=axestype{i};
+if strcmp(axestype,'Time')
+    multiple(:) = 0;
+    vslice = 0;
+    hslice = 0;
+    nval = -1;
+    usesmarker = 0;
+    MultipleColors = 0;
+end
 %
 if (multiple(M_) && ~multiple(N_) && DimFlag(N_)) || (~multiple(M_) && DimFlag(M_) && multiple(N_)) || vslice
     if isempty(strfind(axestype,'Time')) && (~multiple(K_) || hslice) && isempty(strfind(axestype,'Z'))
@@ -560,7 +575,9 @@ elseif strfind(axestype,'Val')
 elseif strcmp(axestype,'Text') || (strcmp(axestype,'Time-Val') && ~multiple(T_))
     MultipleColors=0;
     ask_for_textprops=1;
-    ask_for_numformat=1;
+    if ~strcmp(nvalstr,'strings')
+        ask_for_numformat=1;
+    end
 end
 if nval==-1 || (nval>=0 && nval<1)
     lineproperties=1;
@@ -820,7 +837,10 @@ end
 %---- presentation type
 %
 extend2edge = 0;
-if ((nval==1 || nval==6) && TimeSpatial==2) || ...
+if strcmp(axestype,'Text')
+    % always text ...
+    Ops.presentationtype = 'labels';
+elseif ((nval==1 || nval==6) && TimeSpatial==2) || ...
         ((nval==1 || nval==6) && TimeSpatial==1 && vslice) || ...
         nval==1.9 || ...
         strcmp(nvalstr,'strings') || ...
@@ -1264,6 +1284,19 @@ if nval>0 && nval<2
     end
 end
 
+if MultipleColors ...
+        && isfield(Ops,'presentationtype') ...
+        && (strcmp(Ops.presentationtype,'patches') ...
+            || strcmp(Ops.presentationtype,'edges'))
+    cun = findobj(OH,'tag','unicolour');
+    set(cun,'enable','on')
+    Ops.unicolour = get(cun,'value');
+    if Ops.unicolour
+        SingleColor = 1;
+        MultipleColors = 0;
+    end
+end
+
 if vectors && ~isempty(strmatch(axestype,{'X-Y','X-Y-Z','X-Y-Val','X-Z'},'exact'))
     set(findobj(OH,'tag','vectorstyle'),'enable','on')
     vstyle=findobj(OH,'tag','vectorstyle=?');
@@ -1335,19 +1368,21 @@ if ask_for_textprops
     Ops.fontsize=get(hFontsize,'userdata');
     set(hFontsize,'enable','on','backgroundcolor',Active);
     
-    set(findobj(OH,'tag','alignment'),'enable','on');
-    set(findobj(OH,'tag','horizontalalignment'),'enable','on');
-    set(findobj(OH,'tag','verticalalignment'),'enable','on');
-    hHorAlign=findobj(OH,'tag','horizontalalignment=?');
-    iHorAlign=get(hHorAlign,'value');
-    strHorAlign=get(hHorAlign,'string');
-    Ops.horizontalalignment=strHorAlign{iHorAlign};
-    set(hHorAlign,'enable','on','backgroundcolor',Active);
-    hVerAlign=findobj(OH,'tag','verticalalignment=?');
-    iVerAlign=get(hVerAlign,'value');
-    strVerAlign=get(hVerAlign,'string');
-    Ops.verticalalignment=strVerAlign{iVerAlign};
-    set(hVerAlign,'enable','on','backgroundcolor',Active);
+    if ~strcmp(axestype,'Text')
+        set(findobj(OH,'tag','alignment'),'enable','on');
+        set(findobj(OH,'tag','horizontalalignment'),'enable','on');
+        set(findobj(OH,'tag','verticalalignment'),'enable','on');
+        hHorAlign=findobj(OH,'tag','horizontalalignment=?');
+        iHorAlign=get(hHorAlign,'value');
+        strHorAlign=get(hHorAlign,'string');
+        Ops.horizontalalignment=strHorAlign{iHorAlign};
+        set(hHorAlign,'enable','on','backgroundcolor',Active);
+        hVerAlign=findobj(OH,'tag','verticalalignment=?');
+        iVerAlign=get(hVerAlign,'value');
+        strVerAlign=get(hVerAlign,'string');
+        Ops.verticalalignment=strVerAlign{iVerAlign};
+        set(hVerAlign,'enable','on','backgroundcolor',Active);
+    end
 end
 
 if ask_for_thinningmode
@@ -1411,7 +1446,7 @@ if isfield(Props,'ClosedPoly')
 end
 
 if ask_for_textprops
-    if matlabversionnumber>=6.05
+    if matlabversionnumber>=6.05 && ~strcmp(axestype,'Text')
         hTextbox=findobj(OH,'tag','textbox=?');
         set(hTextbox,'enable','on');
         if get(hTextbox,'value')
@@ -1701,6 +1736,7 @@ if nval>=0
         elseif  ~isequal(Ops.presentationtype,'continuous shades')
             ExpTypes{end+1}='ARCview shape';
             if isequal(Ops.presentationtype,'contour patches') || isequal(Ops.presentationtype,'contour patches with lines')
+                ExpTypes{end+1}='GeoJSON file';
                 ExpTypes{end+1}='polygon file';
             end
         end
@@ -1710,6 +1746,7 @@ if nval>=0
     elseif strcmp(geometry,'POLYL') || strcmp(geometry,'POLYG')
         ExpTypes{end+1}='ARCview shape';
         if strcmp(geometry,'POLYG')
+            ExpTypes{end+1}='GeoJSON file';
             ExpTypes{end+1}='polygon file';
         end
         ExpTypes{end+1}='landboundary file';
@@ -1773,7 +1810,7 @@ end
 if animate
     PlotType='Animate';
 end
-EnablePlot = ~strcmp(axestype,'noplot');
+EnablePlot = ~strcmp(axestype,'noplot') && ~strcmp(axestype,'Time');
 EnableLoad = nval~=-1;
 
 %---- Ops Version

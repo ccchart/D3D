@@ -6,7 +6,7 @@ function outdata=d3d_qp(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -136,10 +136,15 @@ end
 switch cmd
     case {'slider','startanim','animselect','animpush','stopanim'}
         qck_anim(cmd,cmdargs{:});
+
     case 'set'
         if length(cmdargs)==2
             qp_settings(cmdargs{:})
         end
+        
+    case 'debug'
+        error('Insert a break point HERE for debugging!')
+
     case {'gridviewpoint','gridviewline','gridviewlineseg', ...
             'gridviewpiecewise','gridviewarbline','gridviewrange', ...
             'gridviewall','gridviewarbrect','gridviewarbarea', ...
@@ -263,7 +268,7 @@ switch cmd
             end
             %
             if ~isstandalone
-                cmdx = qp_settings('autoruncmd',{});
+                cmdx = qp_settings('autoruncmd','');
                 for i = 1:length(cmdx)
                     try
                         eval(cmdx{i});
@@ -389,19 +394,50 @@ switch cmd
         end
         d3d_qp selectfile*
         
-    case 'difffiles'
+    case {'difffiles','diff_files','diff_files_one_domain'}
         pos = get(mfig,'position');
-        pos(4) = 190;
+        pos(4) = 310;
+        %
+        dfig = findall(0,'type','figure','tag','Diff Files');
+        delete(dfig);
+        %
         dfig = qp_uifigure('Diff Files','','Diff Files',pos);
         %
         voffset=pos(4)-29;
+        w = (pos(3)-40)/3;
+        uicontrol('Parent',dfig, ...
+            'Enable','off', ...
+            'Position',[11 voffset w 18], ...
+            'String','Domains Per File', ...
+            'Style','text', ...
+            'Horizontalalignment','left', ...
+            'Tag','txt_domain');
+        uicontrol('Parent',dfig, ...
+            'Callback','d3d_qp all_domains', ...
+            'Enable','off', ...
+            'Position',[21+w voffset w 18], ...
+            'String','All Defined', ...
+            'Style','radiobutton', ...
+            'Horizontalalignment','left', ...
+            'Value',1, ...
+            'Tag','all_domains');
+        h1D = uicontrol('Parent',dfig, ...
+            'Callback','d3d_qp one_domain', ...
+            'Enable','off', ...
+            'Position',[31+2*w voffset w 18], ...
+            'String','Select One', ...
+            'Style','radiobutton', ...
+            'Horizontalalignment','left', ...
+            'Value',0, ...
+            'Tag','one_domain');
+        voffset=voffset-30;
         uicontrol('Parent',dfig, ...
             'Enable','on', ...
             'Position',[11 voffset pos(3)-20 18], ...
             'String','Compare File', ...
             'Style','text', ...
             'Horizontalalignment','left', ...
-            'Tag','txt_difffile2');
+            'Tag','txt_difffile1');
         voffset=voffset-20;
         L1 = uicontrol('Parent',dfig, ...
             'Callback','d3d_qp difffile1', ...
@@ -421,6 +457,23 @@ switch cmd
             'Callback','d3d_qp openfile1', ...
             'Tooltip','Open a data file', ...
             'Tag','openfile1');
+        voffset=voffset-30;
+        uicontrol('Parent',dfig, ...
+            'Enable','off', ...
+            'Position',[11 voffset 80 18], ...
+            'String','Domain', ...
+            'Style','text', ...
+            'Horizontalalignment','left', ...
+            'Tag','txt_diffdomain1');
+        dom1 = uicontrol('Parent',dfig, ...
+            'Callback','d3d_qp diffdomain1', ...
+            'Enable','off', ...
+            'Position',[101 voffset pos(3)-110 20], ...
+            'String','-- none defined --', ...
+            'BackgroundColor',Inactive, ...
+            'Style','popupmenu', ...
+            'Tag','diffdomain1', ...
+            'Value',1);
         %
         voffset=voffset-30;
         uicontrol('Parent',dfig, ...
@@ -449,6 +502,42 @@ switch cmd
             'Callback','d3d_qp openfile2', ...
             'Tooltip','Open a data file', ...
             'Tag','openfile2');
+        voffset=voffset-30;
+        uicontrol('Parent',dfig, ...
+            'Enable','off', ...
+            'Position',[11 voffset 80 18], ...
+            'String','Domain', ...
+            'Style','text', ...
+            'Horizontalalignment','left', ...
+            'Tag','txt_diffdomain2');
+        dom2 = uicontrol('Parent',dfig, ...
+            'Callback','d3d_qp diffdomain2', ...
+            'Enable','off', ...
+            'Position',[101 voffset pos(3)-110 20], ...
+            'String','-- none defined --', ...
+            'BackgroundColor',Inactive, ...
+            'Style','popupmenu', ...
+            'Tag','diffdomain2', ...
+            'Value',1);
+        %
+        voffset=voffset-30;
+        DTp = uicontrol('Parent',dfig, ...
+            'Enable','on', ...
+            'Position',[11 voffset w 20], ...
+            'Style','text', ...
+            'String','Differencing Method', ...
+            'HorizontalAlignment','left', ...
+            'Tag','txt_difftype');
+        DTp = uicontrol('Parent',dfig, ...
+            'Enable','on', ...
+            'Position',[21+w voffset pos(3)-30-w 20], ...
+            'Style','popupmenu', ...
+            'String',{'Simply by Index', 'Correct for Renumbering'}, ...
+            'BackgroundColor',Active, ...
+            'HorizontalAlignment','left', ...
+            'Tag','difftype', ...
+            'Tooltip','Select the method of differencing');
+        DTpStr = {'index','renum'};
         %
         voffset=voffset-30;
         uicontrol('Parent',dfig, ...
@@ -500,31 +589,57 @@ switch cmd
                 'BackgroundColor',Active, ...
                 'string',Str, ...
                 'value',NrInList)
-            set(L1, ...
-                'userdata',File, ...
-                'tooltip', ['Select data file A' char(10) ...
-                ' ' char(10) ...
-                'Currently selected:' char(10) ...
-                File(NrInList).Name char(10) ...
-                'Type: ' File(NrInList).FileType])
-            set(L2, ...
-                'tooltip', ['Select reference data file B' char(10) ...
-                ' ' char(10) ...
-                'Currently selected:' char(10) ...
-                File(NrInList).Name char(10) ...
-                'Type: ' File(NrInList).FileType])
+            set(L1,'userdata',File)
         end
         %
         interactive = 1;
         if ~isempty(cmdargs)
-            d3d_qp('difffile1',cmdargs{1})
-            if nargin>2
-                d3d_qp('difffile2',cmdargs{2})
-                interactive = isequal(cmdargs{1},cmdargs{2});
+            switch cmd
+                case 'diff_files_one_domain'
+                    d3d_qp('difffile1',cmdargs{1})
+                    d3d_qp('one_domain')
+                    if nargin>2
+                        domList = get(dom1,'userdata');
+                        idom = find(strcmp(domList,cmdargs{2}));
+                        set(dom1,'value',idom)
+                    end
+                    if nargin>3
+                        d3d_qp('difffile2',cmdargs{3})
+                        interactive = isequal(cmdargs{1},cmdargs{3});
+                    end
+                    if nargin>4
+                        domList = get(dom2,'userdata');
+                        idom = find(strcmp(domList,cmdargs{4}));
+                        set(dom2,'value',idom)
+                    end
+                    if nargin>5
+                        d3d_qp('difflabel',cmdargs{5})
+                    end
+                    if nargin>6
+                        iTp = ustrcmpi(varargin{6},DTpStr);
+                        if iTp > 0
+                            set(DTp,'value',iTp)
+                        end
+                    end
+                otherwise
+                    d3d_qp('difffile1',cmdargs{1})
+                    if nargin>2
+                        d3d_qp('difffile2',cmdargs{2})
+                        interactive = isequal(cmdargs{1},cmdargs{2});
+                    end
+                    if nargin>3
+                        d3d_qp('difflabel',cmdargs{3})
+                    end
+                    if nargin>4
+                        iTp = ustrcmpi(varargin{4},DTpStr);
+                        if iTp > 0
+                            set(DTp,'value',iTp)
+                        end
+                    end
             end
-            if nargin>3
-                d3d_qp('difflabel',cmdargs{3})
-            end
+        elseif ~isempty(File)
+            d3d_qp('difffile1')
+            d3d_qp('difffile2')
         end
         %
         if interactive
@@ -537,13 +652,35 @@ switch cmd
         Label = get(Lb,'string');
         Indices = get(dfig,'userdata');
         DiffFile = get(L1,'userdata');
+        DiffType = DTpStr{get(DTp,'value')};
+        if strcmp(get(h1D,'enable'),'on') && get(h1D,'value')
+            Domains = [get(dom1,'value') get(dom2,'value')];
+            domList = get(dom1,'userdata');
+            if isempty(domList)
+                Domain1 = '';
+            else
+                Domain1 = domList{Domains(1)};
+            end
+            domList = get(dom2,'userdata');
+            if isempty(domList)
+                Domain2 = '';
+            else
+                Domain2 = domList{Domains(2)};
+            end
+            cmd = 'diff_files_one_domain';
+        else
+            Domains = [];
+            cmd = 'diff_files';
+        end
         delete(dfig)
         %
         if ~isempty(Indices)
             FileName=Label;
             NewRecord.QPF=1;
             NewRecord.Name=FileName;
-            NewRecord.Data=DiffFile(Indices);
+            NewRecord.Data.Files=DiffFile(Indices);
+            NewRecord.Data.DiffDomain = Domains;
+            NewRecord.Data.DiffType = DiffType;
             NewRecord.FileType='diff';
             NewRecord.Options=0;
             NewRecord.Otherargs={};
@@ -565,18 +702,63 @@ switch cmd
             d3d_qp selectfile*
             %
             if logfile
-                writelog(logfile,logtype,cmd,NewRecord.Data(1).Name,NewRecord.Data(2).Name,Label);
+                switch cmd
+                    case 'diff_files_one_domain'
+                        writelog(logfile,logtype,cmd,NewRecord.Data.Files(1).Name,Domain1,NewRecord.Data.Files(2).Name,Domain2,Label,DiffType);
+                    otherwise
+                        writelog(logfile,logtype,cmd,NewRecord.Data.Files(1).Name,NewRecord.Data.Files(2).Name,Label,DiffType);
+                end
             end
         end
+        
+    case {'all_domains','one_domain'}
+        hDiff = findall(0,'tag','Diff Files');
+        if length(hDiff)~=1, return, end
+        hDomSelAll = findobj(hDiff,'tag','all_domains');
+        hDomSelOne = findobj(hDiff,'tag','one_domain');
+        if strcmp(cmd,'all_domains')
+            set(hDomSelAll,'value',1)
+            set(hDomSelOne,'value',0)
+            for filnr = '12'
+                hDomText = findobj(hDiff,'tag',['txt_diffdomain' filnr]);
+                hDom     = findobj(hDiff,'tag',['diffdomain' filnr]);
+                Domains  = get(hDom,'userdata');
+                if ~isempty(Domains)
+                    set(hDomText,'enable','off')
+                    set(hDom, ...
+                        'enable','off', ...
+                        'backgroundcolor',Inactive, ...
+                        'value',1, ...
+                        'string','-- all domains --')
+                end
+            end
+        else
+            set(hDomSelOne,'value',1)
+            set(hDomSelAll,'value',0)
+            for filnr = '12'
+                hDomText = findobj(hDiff,'tag',['txt_diffdomain' filnr]);
+                hDom     = findobj(hDiff,'tag',['diffdomain' filnr]);
+                Domains  = get(hDomText,'userdata');
+                if ~isempty(Domains) && ~strcmp(get(hDomText,'enable'),'on')
+                    set(hDomText,'enable','on')
+                    set(hDom, ...
+                        'enable','on', ...
+                        'backgroundcolor',Active, ...
+                        'string',Domains, ...
+                        'value',length(Domains))
+                end
+            end
+        end
+        d3d_qp difflabel
         
     case {'openfile1','openfile2'}
         hDiff = findall(0,'tag','Diff Files');
         if length(hDiff)~=1, return, end
-        Handle_File1 = findobj(hDiff,'tag','difffile1');
-        Handle_File2 = findobj(hDiff,'tag','difffile2');
+        hDiffFile1 = findobj(hDiff,'tag','difffile1');
+        hDiffFile2 = findobj(hDiff,'tag','difffile2');
         Handle_FileI = findobj(hDiff,'tag',['difffile' cmd(end)]);
-        File=get(Handle_File1,'userdata');
-        Str=get(Handle_File1,'string');
+        File=get(hDiffFile1,'userdata');
+        Str=get(hDiffFile1,'string');
         %
         NrInList=get(Handle_FileI,'value');
         %
@@ -606,45 +788,87 @@ switch cmd
                     File(NrInList)=NewRecord;
                 end
             end
-            set(Handle_File1,'userdata',File);
-            set([Handle_File1 Handle_File2],'string',Str,'enable','on','backgroundcolor',Active);
+            set(hDiffFile1,'userdata',File);
+            set([hDiffFile1 hDiffFile2],'string',Str,'enable','on','backgroundcolor',Active);
             d3d_qp(['difffile' cmd(end)],NrInList)
         end
         
     case 'difflabel'
         hDiff = findall(0,'tag','Diff Files');
         if length(hDiff)~=1, return, end
-        Handle_File1 = findobj(hDiff,'tag','difffile1');
-        File = get(Handle_File1,'userdata');
-        NrInList1 = get(Handle_File1,'value');
-        Handle_File2 = findobj(hDiff,'tag','difffile2');
-        NrInList2 = get(Handle_File2,'value');
-        Handle_Label = findobj(hDiff,'tag','difflabel');
-        Handle_Define = findobj(hDiff,'tag','diffdefine');
-        if ~isempty(cmdargs)
-            setappdata(Handle_Label,'LabelMode','manual')
-            setappdata(Handle_Label,'Label',cmdargs{1})
-            set(Handle_Label,'String',cmdargs{1})
-        end
-        if NrInList1 == NrInList2
-            if strcmp(get(Handle_Label,'enable'),'on')
-                set(Handle_Label,'userdata',get(Handle_Label,'string'))
+        hDiffFile1 = findobj(hDiff,'tag','difffile1');
+        hDiffDom1 = findobj(hDiff,'tag','diffdomain1');
+        File = get(hDiffFile1,'userdata');
+        %
+        NrInList1 = get(hDiffFile1,'value');
+        hDiffFile2 = findobj(hDiff,'tag','difffile2');
+        hDiffDom2 = findobj(hDiff,'tag','diffdomain2');
+        %
+        NrInList2 = get(hDiffFile2,'value');
+        hDiffLabel = findobj(hDiff,'tag','difflabel');
+        hDiffDefine = findobj(hDiff,'tag','diffdefine');
+        %
+        hAllDomains = findobj(hDiff,'tag','all_domains');
+        multiDomains = get(hAllDomains,'value');
+        domList1 = get(hDiffDom1,'userdata');
+        if isempty(domList1)
+            Dom1 = '';
+        elseif multiDomains
+            if length(domList1) == 1
+                Dom1 = domList1{1};
+            else
+                Dom1 = domList1;
             end
-            set(Handle_Label,'String','Data File Equals Reference File', ...
+        else
+            Dom1 = domList1{get(hDiffDom1,'value')};
+        end
+        domList2 = get(hDiffDom2,'userdata');
+        if isempty(domList2)
+            Dom2 = '';
+        elseif multiDomains
+            if length(domList1) == 1
+                Dom2 = domList2{1};
+            else
+                Dom2 = domList2;
+            end
+        else
+            Dom2 = domList2{get(hDiffDom2,'value')};
+        end
+        compatible_domains = (ischar(Dom1) & ischar(Dom2)) | ...
+            isequal(Dom1, Dom2);
+        %
+        if ~isempty(cmdargs)
+            setappdata(hDiffLabel,'LabelMode','manual')
+            setappdata(hDiffLabel,'Label',cmdargs{1})
+            set(hDiffLabel,'String',cmdargs{1})
+        end
+        if ~compatible_domains
+            if strcmp(get(hDiffLabel,'enable'),'on')
+                set(hDiffLabel,'userdata',get(hDiffLabel,'string'))
+            end
+            set(hDiffLabel,'String','Incompatible Selection of Domains', ...
                 'BackgroundColor',Inactive, ...
                 'Enable','off')
-            set(Handle_Define,'Enable','off')
+            set(hDiffDefine,'Enable','off')
+        elseif NrInList1 == NrInList2
+            if strcmp(get(hDiffLabel,'enable'),'on')
+                set(hDiffLabel,'userdata',get(hDiffLabel,'string'))
+            end
+            set(hDiffLabel,'String','Data File Equals Reference File', ...
+                'BackgroundColor',Inactive, ...
+                'Enable','off')
+            set(hDiffDefine,'Enable','off')
         else
-            if isequal(gcbo,Handle_Label)
+            if isequal(gcbo,hDiffLabel)
                 % user edited the label
-                Label = get(Handle_Label,'string');
-                LabelRef = getappdata(Handle_Label,'Label');
+                Label = get(hDiffLabel,'string');
+                LabelRef = getappdata(hDiffLabel,'Label');
                 if ~isequal(Label,LabelRef)
-                    setappdata(Handle_Label,'LabelMode','manual')
-                    setappdata(Handle_Label,'Label',Label)
+                    setappdata(hDiffLabel,'LabelMode','manual')
+                    setappdata(hDiffLabel,'Label',Label)
                 end
             else
-                if isequal(getappdata(Handle_Label,'LabelMode'),'auto')
+                if isequal(getappdata(hDiffLabel,'LabelMode'),'auto')
                     File1 = File(NrInList1).Name;
                     Sep1 = [0 sort([strfind(File1,'/') strfind(File1,'\')]) length(File1)+1];
                     File2 = File(NrInList2).Name;
@@ -677,24 +901,25 @@ switch cmd
                     else
                         Label = ['(' Mid1 ') - (' Mid2 ')'];
                     end
-                    set(Handle_Label,'String',Label)
-                    setappdata(Handle_Label,'Label',Label)
+                    set(hDiffLabel,'String',Label)
+                    setappdata(hDiffLabel,'Label',Label)
                 else
-                    Label = getappdata(Handle_Label,'Label');
-                    set(Handle_Label,'String',Label)
+                    Label = getappdata(hDiffLabel,'Label');
+                    set(hDiffLabel,'String',Label)
                 end
             end
-            set(Handle_Label, ...
+            set(hDiffLabel, ...
                 'BackgroundColor',Active, ...
                 'Enable','on')
-            set(Handle_Define,'Enable','on')
+            set(hDiffDefine,'Enable','on')
         end
         
     case {'difffile1','difffile2'}
+        filnr = cmd(end);
         hDiff = findall(0,'tag','Diff Files');
         if length(hDiff)~=1, return, end
-        Handle_File1 = findobj(hDiff,'tag','difffile1');
-        File=get(Handle_File1,'userdata');
+        hDiffFile1 = findobj(hDiff,'tag','difffile1');
+        File=get(hDiffFile1,'userdata');
         %
         Handle_SelectFile=findobj(hDiff,'tag',cmd);
         %
@@ -721,10 +946,47 @@ switch cmd
         else
             NrInList=get(Handle_SelectFile,'value');
         end
-        switch cmd
-            case 'difffile1'
+        %
+        [Success,Domains] = qp_getdata(File(NrInList),'domains');
+        hDomSelText = findobj(hDiff,'tag','txt_domain');
+        hDomSelAll  = findobj(hDiff,'tag','all_domains');
+        hDomSelOne  = findobj(hDiff,'tag','one_domain');
+        hDomText    = findobj(hDiff,'tag',['txt_diffdomain' filnr]);
+        filnr2 = char(sum('12')-filnr);
+        hDomText2   = findobj(hDiff,'tag',['txt_diffdomain' filnr2]);
+        hDom = findobj(hDiff,'tag',['diffdomain' filnr]);
+        if ~Success || isempty(Domains)
+            set(hDomText,'enable','off', ...
+                'userdata',{})
+            set(hDom,'enable','off', ...
+                'value',1, ...
+                'string','-- none defined --', ...
+                'backgroundcolor',Inactive, ...
+                'userdata',{})
+            if isempty(get(hDomText2,'userdata'))
+                set([hDomSelText,hDomSelAll,hDomSelOne],'enable','off')
+            end
+        else
+            set(hDomText,'userdata',Domains)
+            set([hDomSelText,hDomSelAll,hDomSelOne],'enable','on')
+            if get(hDomSelAll,'value')
+                set(hDom,'enable','off', ...
+                    'value',1, ...
+                    'string','-- all domains --', ...
+                    'backgroundcolor',Inactive)
+            else
+                set(hDomText,'enable','on')
+                set(hDom,'enable','on', ...
+                    'value',1, ...
+                    'string',Domains, ...
+                    'backgroundcolor',Active)
+                set(hDom,'value',length(Domains))
+            end
+        end
+        switch filnr
+            case '1'
                 SelA = 'Select data file A';
-            case 'difffile2'
+            case '2'
                 SelA = 'Select reference data file B';
         end
         set(Handle_SelectFile, ...
@@ -735,6 +997,9 @@ switch cmd
             'Type: ' File(NrInList).FileType])
         d3d_qp difflabel
         
+    case {'diffdomain1','diffdomain2'}
+        % nothing to do yet
+        
     case 'diffcancel'
         hDiff = findall(0,'tag','Diff Files');
         if length(hDiff)~=1, return, end
@@ -743,10 +1008,10 @@ switch cmd
     case 'diffdefine'
         hDiff = findall(0,'tag','Diff Files');
         if length(hDiff)~=1, return, end
-        Handle_File1 = findobj(hDiff,'tag','difffile1');
-        NrInList1 = get(Handle_File1,'value');
-        Handle_File2 = findobj(hDiff,'tag','difffile2');
-        NrInList2 = get(Handle_File2,'value');
+        hDiffFile1 = findobj(hDiff,'tag','difffile1');
+        NrInList1 = get(hDiffFile1,'value');
+        hDiffFile2 = findobj(hDiff,'tag','difffile2');
+        NrInList2 = get(hDiffFile2,'value');
         set(hDiff,'userdata',[NrInList1 NrInList2]);
         set(hDiff,'visible','off')
         
@@ -1356,7 +1621,7 @@ switch cmd
                 end
             else
                 mstr(mstr>maxm)=[];
-                m=mstr;
+                m=mstr(:)';
             end
         catch
             lasterr('')
@@ -1812,48 +2077,12 @@ switch cmd
                     writelog(logfile,logtype,cmd,FileName);
                 end
                 
-            case 'loaddata'
-                if logfile
-                    writelog(logfile,logtype,cmd);
-                end
-                lasterr('');
-                try
-                    Ops=qp_state_version(Ops);
-                    if isfield(Props,'MNK') && Props.MNK
-                        Props.MNK = xyz_or_mnk(Ops,selected,Props.MNK);
-                    end
-                    %
-                    selected(~Props.DimFlag)=[];
-                    set(mfig,'pointer','watch')
-                    switch Ops.presentationtype
-                        case {'patches','patches with lines','polygons'}
-                            [Chk,data,Info]=qp_getdata(Info,DomainNr,Props,'gridcelldata',subf{:},selected{:});
-                        otherwise
-                            [Chk,data,Info]=qp_getdata(Info,DomainNr,Props,'griddata',subf{:},selected{:});
-                    end
-                    data = qp_thinning(data,Ops);
-                    % reset pointer ...
-                    set(mfig,'pointer','arrow')
-                    if Chk
-                        % update FileInfo ...
-                        File(NrInList)=Info;
-                        set(Handle_SelectFile,'userdata',File);
-                        % return data ...
-                        if nargout>0
-                            outdata=data;
-                        else
-                            assignin('base','data',data)
-                        end
-                    end
-                catch Ex
-                    set(mfig,'pointer','arrow')
-                    qp_error('Catch in d3d_qp\loaddata',Ex)
-                end
-                
-            case {'quickview','addtoplot','addtoplot_left','addtoplot_right'}
+            case {'quickview','addtoplot','addtoplot_left','addtoplot_right','loaddata'}
                 set(mfig,'pointer','watch')
                 % minimal addpath d:\src\trunk_os\src\tools_lgpl\matlab\quickplot\progsrc\drawnow needed for updating pointer
-                if matlabversionnumber>=7.06 % 'update' option available as of 2008a
+                if strcmp(cmd,'loaddata')
+                    % no drawnow
+                elseif matlabversionnumber>=7.06 % 'update' option available as of 2008a
                     drawnow('update')
                 else
                     drawnow
@@ -1875,7 +2104,9 @@ switch cmd
                     %
                     T=1;
                     Animate = getappdata(findobj(mfig,'tag','quickview'),'animate');
-                    if Animate && Props.DimFlag(T_)
+                    if strcmp(cmd,'loaddata')
+                        % keep all selected times
+                    elseif Animate && Props.DimFlag(T_)
                         if selected{T_}==0
                             maxt=get(findobj(mfig,'tag','max_t'),'userdata');
                             T=1:maxt;
@@ -1885,7 +2116,7 @@ switch cmd
                         selected{T_}=T(1);
                     end
                     
-                    if Props.NVal==-2
+                    if strcmp(cmd,'loaddata') || isequal(Props.NVal, -2)
                         % selfplotfig will create its own figure
                         Parent=0;
                         pfig=[];
@@ -1930,22 +2161,41 @@ switch cmd
                         PS.Props=Props;
                         PS.SubField=subf;
                         PS.Selected=selected;
-                        PS.Parent=Parent;
+                        if strcmp(cmd,'loaddata')
+                            PS.Parent='loaddata';
+                        else
+                            PS.Parent=Parent;
+                        end
                         PS.Handles=hNew;
                         PS.Stations=stats;
                         PS.Ops=Ops;
                         [hNew,Error,Info]=qp_plot(PS);
                     end
                     
-                    if ~isempty(pfig)
-                        set(UD.PlotMngr.FigList,'value',1,'string',listnames(pfig,'showType','no','showHandle','no','showTag','no'),'userdata',pfig);
-                        set(UD.PlotMngr.ItList,'value',[]) % clear item selection such that new item will be selected
-                        d3d_qp refreshfigs
-                    end
-                    qp_updatescroller(hNew,pfig)
-                    
-                    if Animate
-                        qck_anim('start',pfig,T);
+                    if strcmp(cmd,'loaddata')
+                        % hNew contains the data ...
+                        if ~Error
+                            % update FileInfo ...
+                            File(NrInList)=Info;
+                            set(Handle_SelectFile, 'userdata', File);
+                            % return data ...
+                            if nargout>0
+                                outdata = hNew;
+                            else
+                                assignin('base', 'data', hNew)
+                            end
+                        end
+                    else
+                        if ~isempty(pfig)
+                            set(UD.PlotMngr.FigList,'value',1,'string',listnames(pfig,'showType','no','showHandle','no','showTag','no'),'userdata',pfig);
+                            set(UD.PlotMngr.ItList,'value',[]) % clear item selection such that new item will be selected
+                            d3d_qp refreshfigs
+                        end
+                        qp_updatescroller(hNew,pfig)
+                        
+                        if Animate
+                            qck_anim('start',pfig,T);
+                        end
                     end
                 catch Ex
                     qp_error('Catch in d3d_qp\quickview',Ex)
@@ -2116,7 +2366,7 @@ switch cmd
         end
         
     case {'colourvectors','usemarkercolour','usemarkerfillcolour','colclassify','colourbar','colourdams','textbox','fillpolygons', ...
-            'colvector','coldams'}
+            'colvector','coldams','unicolour'}
         % commands require an input logical
         %
         % nothing do except refreshing the options
@@ -2370,44 +2620,76 @@ switch cmd
         end
         
     case 'update_addtoplot'
-        qv=findobj(mfig,'tag','quickview');
-        atp= findobj(mfig,'tag','addtoplot');
-        multi = get(UD.PlotMngr.FigAll,'value') | get(UD.PlotMngr.AxAll,'value');
+        qv=findobj(mfig, 'tag', 'quickview');
+        atp = findobj(mfig, 'tag', 'addtoplot');
+        multi = get(UD.PlotMngr.FigAll, 'value') | get(UD.PlotMngr.AxAll, 'value');
         if ~multi && ~isempty(UD.PlotMngr.CurrentAxes) ...
                 && ishandle(UD.PlotMngr.CurrentAxes) ...
-                && strcmp(get(qv,'enable'),'on')
-            axestype=getappdata(UD.PlotMngr.CurrentAxes,'AxesType');
+                && (strcmp(get(qv, 'enable'), 'on') ...
+                    || (isfield(UD.State,'axestype') ...
+                        && strcmp(UD.State.axestype, 'Time')))
+            axestype=getappdata(UD.PlotMngr.CurrentAxes, 'BasicAxesType');
             %
             % Temporarily replace Lon-Lat by X-Y.
             %
             if ischar(axestype)
-                axestype=strrep(axestype,'Lon-Lat','X-Y');
+                axestype=strrep(axestype, 'Lon-Lat', 'X-Y');
             end
             %
-            if ~ischar(axestype) || strcmp(axestype,UD.State.axestype)
+            if ~ischar(axestype)
+                %
+                % new axes type without type assigned.
+                %
+                atp_on = 1;
+            elseif strcmp(UD.State.axestype, 'Time')
+                %
+                % a time line needs a time axis
+                %
+                switch axestype
+                    case {'analog clock', 'digital clock', 'calendar page'}
+                        % only one data set can be added to these types of axes
+                        atp_on = isempty(get(UD.PlotMngr.ItList, 'userdata'));
+                    otherwise
+                        atp_on = ~isempty(strfind(axestype, 'Time'));
+                end
+            elseif ~ischar(axestype) || strcmp(axestype, UD.State.axestype)
                 %
                 % perfect match of axes types (including units in case of Val)
                 %
-                set(atp,'enable','on','foregroundcolor','k')
+                atp_on = 1;
             else
                 %
                 % no exact match
                 %
-                if strcmp(strtok(axestype),strtok(UD.State.axestype)) && ...
-                        (isempty(strfind(axestype,' ')) || ...
-                        isempty(strfind(UD.State.axestype,' ')))
+                if strcmp(strtok(axestype), strtok(UD.State.axestype)) && ...
+                        (isempty(strfind(axestype, ' ')) || ...
+                        isempty(strfind(UD.State.axestype, ' ')))
                     %
                     % if one of the two axes types lacks a unit specifier,
                     % and the axes types without unit specifier match, then
                     % still okay to combine plots.
                     %
-                    set(atp,'enable','on','foregroundcolor','k')
+                    atp_on = 1;
                 else
-                    set(atp,'enable','on','foregroundcolor','r')
+                    switch axestype
+                        case {'analog clock', 'digital clock', 'calendar page'}
+                            % only Time quantity can be added
+                            atp_on = 0;
+                        otherwise
+                            atp_on = 0.5;
+                    end
                 end
             end
         else
-            set(atp,'enable','off','foregroundcolor','k')
+            atp_on = 0;
+        end
+        switch atp_on
+            case 1   % yes!
+                set(atp, 'enable', 'on', 'foregroundcolor', 'k')
+            case 0.5 % not wise, but maybe ...
+                set(atp, 'enable', 'on', 'foregroundcolor', 'r')
+            case 0   % no!
+                set(atp, 'enable', 'off', 'foregroundcolor', 'k')
         end
         
     case 'close'
@@ -3124,6 +3406,7 @@ switch cmd
             tp = tps{itp};
             setaxesprops(ax,tp)
             d3d_qp refreshaxes
+            d3d_qp update_addtoplot
             %
             if logfile
                 writelog(logfile,logtype,cmd,tp);
@@ -4043,7 +4326,7 @@ switch cmd
             end
         end
         
-    case 'run'
+    case {'run','rerun'}
         PAR.X=[];
         PAR = rmfield(PAR,'X');
         blockcomment=0;
@@ -4121,6 +4404,9 @@ switch cmd
                 set(c(LogId),'label',sprintf('&1 %s',abbrevfn(filename)),'position',1);
             end
             set(OtherLog,'visible','on')
+            %
+            rerun=findobj(mfig,'tag','rerun');
+            set(rerun,'enable','on','ClickedCallback',LogCallBack,'TooltipString',sprintf('Run ''%s'' again.',filename))
         end
         %
         stop   = 0;

@@ -1,7 +1,7 @@
 module m_readObservationPoints
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -99,6 +99,8 @@ module m_readObservationPoints
       integer                               :: formatbr       ! =1: use branchid and chainage, =0: use xy coordinate and LocationType
       integer                               :: major, minor, ierr
       
+      call SetMessage(LEVEL_INFO, 'Reading Observation Points from '''//trim(observationPointsFile)//'''...')
+
       xx       = dmiss
       yy       = dmiss
       Chainage = dmiss
@@ -176,11 +178,12 @@ module m_readObservationPoints
                end if
                
                if (.not. success) then
-                  call SetMessage(LEVEL_ERROR, 'Error Reading Observation Point '''//trim(obsPointName)//'''')
+                  call SetMessage(LEVEL_ERROR, 'Error Reading Observation Point '''//trim(obsPointName)//''', location input is invalid.')
                   cycle
                end if
             else
-               call SetMessage(LEVEL_ERROR, 'Error Reading the name of Observation Point. ')
+               write (msgbuf, '(a,i0,a)') 'Error Reading Observation Point #', (i-1), ', name is missing.'
+               call err_flush()
                cycle
             end if
       

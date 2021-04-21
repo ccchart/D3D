@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -31,7 +31,7 @@ contains
                           xpolwaste       , ypolwaste       , lgrid  ,  &
                           lgrid2 , nmax   , mmax   , xp     , yp     ,  &
                           dx     , dy     , ndprt  , nosubs , kpart  ,  &
-                          layt   , tcktot , nplay  , kwaste , nolay  ,  &
+                          layt   , tcktot , zmodel , laytop , laybot , nplay  , kwaste , nolay  ,  &
                           modtyp , zwaste , track  , nmdyer , substi ,  &
                           rhopart )
 
@@ -115,6 +115,9 @@ contains
       integer  ( ip), intent(in   ) :: lun2                  !< output report unit number
       integer  ( ip), intent(  out) :: kpart  (*)            !< k-values particles
       real     ( rp), intent(in   ) :: tcktot (layt)         !< thickness hydrod.layer
+      logical       , intent(in   ) :: zmodel
+      integer  ( ip), intent(in   ) :: laytop(nmax,mmax)      !< highest active layer in z-layer model
+      integer  ( ip), intent(in   ) :: laybot(nmax,mmax)      !< highest active layer in z-layer model
       integer  ( ip)                :: nplay  (layt)         !< work array that could as well remain inside
       integer  ( ip), intent(inout) :: kwaste (nodye)        !< k-values of dye points
       integer  ( ip), intent(in   ) :: nolay                 !< number of comp. layer
@@ -241,7 +244,11 @@ contains
                call stop_exit(1)
             endif
    20       continue
-            kpart(i) = nulay
+            if (zmodel) then 
+               kpart(i) = min(laybot(npart(i), mpart(i)), max(nulay,laytop(npart(i), mpart(i))))
+            else
+               kpart(i) = nulay
+            endif
 
 !    for one layer models (2dh), the release will be in the user-defined location
 

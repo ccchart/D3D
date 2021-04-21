@@ -1,7 +1,7 @@
 module m_Storage
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -243,7 +243,7 @@ contains
          endif
       endif
       ! else : calculate well storage:
-      if (storage%storageType /= nt_None .and. level >= storage%storageArea%x(1) ) then
+      if (storage%storageType /= nt_None .and. level >= storage%storageArea%x(1)-1d-4 ) then
          getSurfaceByStorNode = interpolate(storage%storageArea, level)
       else
          getSurfaceByStorNode = 0d0

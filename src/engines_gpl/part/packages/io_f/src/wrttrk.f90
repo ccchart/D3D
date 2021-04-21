@@ -143,7 +143,7 @@
 !-----nefis statics
 !
       logical                            :: first =  .true.
-      real   (sp)                        :: default = 999.999
+      real   (sp)                        :: default = -999.999
       integer(ip), dimension(6,nelmx )   :: elt_dims
       save          first
 !
@@ -192,9 +192,15 @@
 !-----------------------------------------------------------------------
 !
       do it=1,ntrk
-         xyztrk(1,it)=xa(it)
-         xyztrk(2,it)=ya(it)
-         xyztrk(3,it)=za(it)
+         if (xa(it).ne.-999.999) then
+            xyztrk(1,it)=xa(it)
+            xyztrk(2,it)=ya(it)
+            xyztrk(3,it)=za(it)
+         else
+            xyztrk(1,it) = default
+            xyztrk(2,it) = default
+            xyztrk(3,it) = default
+         endif
       enddo
 !
 !     assign defaults to not yet released particles

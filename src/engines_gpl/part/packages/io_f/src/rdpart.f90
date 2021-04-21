@@ -856,6 +856,21 @@
                      write ( lun2, 3513 ) delay_denstime(j)
                   end do
                   pldenstime = .true.
+                  
+               case('pldragmod')
+                  write ( lun2, '(/a)' ) '  Found keyword "pldrag" '
+                  write ( *   , '(/a)' ) ' Found keyword "pldrag" '
+                  ! use end_pldenstime period_denstime and delay_denstime
+                  call alloc ( "pldrag", pldrag, nosubs )
+                  pldrag = 0
+                  do j = 1, nosubs
+                     if (gettoken( cplastic, ierr2 ) .ne. 0) goto 9103
+                     write ( lun2, 3501 ) trim(cplastic)
+                     if (gettoken(pldrag(j), ierr2 ) .ne. 0) goto 9104
+                     write ( lun2, 3514 ) pldrag(j)
+                  end do
+                  pldragmod = .true.
+               
                case ('pldebug')
                   write ( lun2, '(/a)' ) '  Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
                   write ( *   , '(/a)' ) ' Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
@@ -2382,6 +2397,9 @@
 
 !     further allocations
 
+      if (zmodel) then
+         call alloc ( "locdepp", locdepp, mnmax2   , noslay )
+      endif
       call alloc ( "locdep", locdep, mnmax2   , noslay )
       call alloc ( "adepth", adepth, nosubs   , noslay )
       call alloc ( "apeak ", apeak , nosubs   , noslay )
@@ -2732,6 +2750,7 @@
  3511 format( '  Plastics end density        [g/m3] : ',F14.2)
  3512 format( '  Plastics degradation period    [d] : ',F14.4)
  3513 format( '  Plastics degradation delay     [d] : ',E14.4)
+ 3514 format( '  Drag coefficient               [-] : ',E14.4)
 
 11    write(*,*) ' Error when reading the model type '
       write(*,*) ' Is this version 3.50?'

@@ -7,6 +7,7 @@ module m_ec_bcreader
   use m_alloc
   use multi_file_io
   use string_module
+  use physicalconsts, only : CtoKelvin
   implicit none
 
   private
@@ -45,6 +46,7 @@ contains
     integer, optional,             intent(out)     :: iostat
     character(len=*), optional,    intent(in)      :: funtype
 
+    integer(kind=8)                                :: fhandle
     success = .false.
     bc%qname = quantityName
     bc%bcname = plilabel
@@ -56,12 +58,15 @@ contains
     !
     select case (bc%ftype)
     case (BC_FTYPE_ASCII)
-       if (.not.ecSupportOpenExistingFileGnu(bc%fhandle, bc%fname)) then
-          call setECMessage("Unable to open "//trim(bc%fname))
-          return
+       if (bc%bcFilePtr%fhandle<0) then                   ! check if file already opened in our adminstration
+          if (.not.ecSupportOpenExistingFileGnu(fhandle, bc%bcFilePtr%bcfilename)) then
+             call setECMessage("Unable to open "//trim(bc%bcFilePtr%bcfilename))
+             return
+          else
+             bc%bcFilePtr%fhandle = fhandle
+          end if
        end if
-       if (.not.ecBCFilescan(bc, bc%fhandle, iostat, funtype=funtype)) then     ! parsing the open bc-file
-          call mf_close(bc%fhandle)
+       if (.not.ecBCFilescan(bc, iostat, funtype=funtype)) then     ! parsing the open bc-file
           return                                               ! quantityName-plilabel combination not found
        else
           allocate(bc%columns(bc%numcols))
@@ -76,13 +81,17 @@ contains
           bc%func = BC_FUNC_TIM3D
        endif
        ! TODO:
-       ! Harvest the netCDF and the selected variable for metadata, using ecNetCDFGetAttrib
-       ! parse them and store in the BC instance, analogous to processhdr for the ASCII BC-files
+       ! Support specification of the time-interpolation type in the netcdf timeseries variable as an attribute
        bc%timeunit = bc%ncptr%timeunit
-      !  Set vector of dimensions for the found variable to 1
-      ! For the time being we only allow scalars to be read from netCDF variables
-      ! TODO: Introduce the vector-attribute (string) similar to the bc-format, composing a vector from scalar variables
-      bc%quantity%vectormax = 1
+       bc%timeint = BC_TIMEINT_LIN   
+       bc%quantity%name = quantityName
+       bc%quantity%missing = bc%ncptr%fillvalues(bc%ncvarndx)
+       bc%quantity%factor = bc%ncptr%scales(bc%ncvarndx)
+       bc%quantity%offset = bc%ncptr%offsets(bc%ncvarndx)
+       !  Set vector of dimensions for the found variable to 1
+       ! For the time being we only allow scalars to be read from netCDF variables
+       ! TODO: Introduce the vector-attribute (string) similar to the bc-format, composing a vector from scalar variables
+       bc%quantity%vectormax = 1
     case default
        call setECMessage("Forcing file ("//trim(bc%fname)//") should either be of type .nc (netcdf timeseries file) or .bc (ascii BC-file).")
        return
@@ -94,16 +103,15 @@ contains
   ! =======================================================================
 
   !> Find quantity-pli point combination, preparing a BC-block using an ASCII-file as input
-  function ecBCFilescan(bc, fhandle, iostat, funtype) result (success)
+  function ecBCFilescan(bc, iostat, funtype) result (success)
     implicit none
     logical                                   :: success
     type (tEcBCBlock),          intent(inout) :: bc
-    integer (kind=8),           intent(in)    :: fhandle
     integer,                    intent(out)   :: iostat
     character(len=*), optional, intent(in)    :: funtype
-
     character(len=:), allocatable ::  rec
     character(len=:), allocatable ::  keyvaluestr ! all key-value pairs in one header; allocated on assign
+
     integer                       ::  posfs
     integer                       ::  nfld
     integer                       ::  nq
@@ -113,6 +121,7 @@ contains
     integer (kind=8)              ::  savepos
     type(tEcBlockList), pointer   ::  blocklistPtr
     type(tEcBCFile), pointer      ::  bcFilePtr
+    integer                       ::  reclen
     integer                       ::  blocktype
     integer, parameter            ::  BT_GENERAL = 0
     integer, parameter            ::  BT_FORCING = 1
@@ -130,7 +139,7 @@ contains
     !    find the last read position for this file, that is: the last recorded start position of a data-block
     !    start searching from there 
     
-    bcFilePtr => bc%bcptr
+    bcFilePtr => bc%bcFilePtr
     blocklistPtr => bcFilePtr%blocklist
     jafound = .false.
     jaheader = .false.
@@ -146,16 +155,21 @@ contains
        blocklistPtr => blocklistPtr%next 
     enddo
     
-    call mf_backspace(fhandle, currentpos)
+    call mf_backspace(bcFilePtr%fhandle, currentpos)
     if (.not.jafound) then
        do
-          if (mf_eof(fhandle)) then                               ! forward to last position we searched in this file
+          if (mf_eof(bcFilePtr%fhandle)) then                               ! forward to last position we searched in this file
              iostat = EC_EOF
              return
           endif
-          call mf_read(fhandle, rec, savepos)
-          if (len(rec) == 0) cycle
+          call mf_read(bcFilePtr%fhandle, rec, savepos)
+
+          if (rec=="") cycle
           if (index('!#%*',rec(1:1))>0) cycle
+          reclen=index(rec,'#')
+          if (reclen>0) then
+             rec = rec(1:reclen-1)
+          endif
  
           if (len_trim(rec)>0) then                                  ! skip empty lines
              if (index(rec,'[')>0 .and. index(rec,']')>0) then 
@@ -177,7 +191,7 @@ contains
                 select case (blocktype)
                 case (BT_FORCING)
                    if (jaheader) then
-                      posfs = index(rec,'=')               ! key value pair ?
+                      posfs = index(rec,'=')                         ! key value pair ?
                       if (posfs>0) then
                          call replace_char(rec,9,32)                 ! replace tabs by spaces, header key-value pairs only
                          nfld = nfld + 1                             ! count the number of lines in the header file
@@ -205,7 +219,7 @@ contains
                          if (matchblock(keyvaluestr,bc%bcname,bc%qname,funtype=funtype)) then
                             if (.not.processhdr(bc,nfld,nq,keyvaluestr)) return   ! dumb translation of bc-object metadata
                             if (.not.checkhdr(bc)) return                         ! check on the contents of the bc-object
-                            call mf_backspace(fhandle, savepos)                   ! Rewind the first line with data
+                            call mf_backspace(bcFilePtr%fhandle, savepos)                   ! Rewind the first line with data
                             success = .true.
                             iostat = EC_NOERR
                             return
@@ -432,6 +446,8 @@ contains
                 enddo
              endif
           endif
+       case ('MISSING')
+          read(hdrvals(ifld)%s,*) bc%quantity%missing
        case ('UNIT')
           if (bc%quantity%jacolumn(iq)) then
              bc%quantity%unit = trim(hdrvals(ifld)%s)
@@ -495,6 +511,10 @@ contains
              bc%timeint = BC_TIMEINT_BTO
           case ('BLOCK-FROM')
              bc%timeint = BC_TIMEINT_BFROM
+          case ('BLOCK')
+             call setECMessage("Unknown time interpolation Block in file "//trim(bc%fname)//", block " &
+                                //trim(bc%bcname)//". Use Block-To or Block-From.")
+             return
           case default
              call setECMessage("Unknown time interpolation '"//trim(adjustl(hdrvals(ifld)%s))//           &
                                 "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 
@@ -547,6 +567,11 @@ contains
           end select
        end select
     enddo
+
+    if (bc%quantity%unit == 'K' .or. bc%quantity%unit == 'KELVIN' .or. bc%quantity%unit == 'Kelvin') then
+       ! convert Kelvin to degrees Celsius (kernel expects degrees Celsius)
+       bc%quantity%offset = bc%quantity%offset - CtoKelvin
+    endif
 
     ! Fill bc%quantity%col2elm(nq) which holds the mapping of columns in the file to vector positions
     bc%quantity%col2elm(iq) = -1
@@ -705,7 +730,7 @@ contains
           eof = .false.
        endif
        do while(len_trim(rec)==0)
-          if (mf_eof(bcPtr%fhandle)) then
+          if (bcPtr%feof) then
              select case (BCPtr%func)
              case (BC_FUNC_TSERIES, BC_FUNC_TIM3D, BC_FUNC_CONSTANT)
                 call setECMessage("   File: "//trim(bcPtr%fname)//", Location: "//trim(bcPtr%fname)//", Quantity: "//trim(bcPtr%qname))
@@ -717,7 +742,17 @@ contains
              return
           endif
 
-          call mf_read(bcPtr%fhandle,rec,savepos)
+          if (bcPtr%fposition>0) then
+              call mf_backspace(bcPtr%bcFilePtr%fhandle, bcPtr%fposition)           ! set newly opened file to the appropriate position 
+              call mf_read(bcPtr%bcFilePtr%fhandle, rec,savepos)
+              bcPtr%feof = mf_eof(bcPtr%bcFilePtr%fhandle)
+              call mf_getpos(bcPtr%bcFilePtr%fhandle, bcPtr%fposition)
+          else        
+              call mf_read(bcPtr%bcFilePtr%fhandle, rec,savepos)
+              bcPtr%feof = mf_eof(bcPtr%bcFilePtr%fhandle)
+              call mf_getpos(bcPtr%bcFilePtr%fhandle, bcPtr%fposition)
+          endif
+
           if (len(rec) == 0) cycle
           if (rec(1:1)=='#') cycle
           if (index(rec,'[')>0 .and. index(rec,']')>0) then ! lines with [ and ] are assumed as block headings
@@ -821,36 +856,6 @@ contains
     success = .true.
   end function ecBCReadLine
 
-  ! =======================================================================
-
-  ! Realloc sub and oldfil function to be removed lateron,
-  ! only included for standalone-testing
-  ! realloc can be found in m_alloc (deltares common)
-  ! oldfil to be replaced by ! ecSupportOpenExistingFile(fhandle, fname)
-  ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  integer function oldfil(fname, maxunit, iostat) result(unit)
-    implicit none
-    character(len=*),       intent(in)      :: fname
-    integer,                intent(in)      :: maxunit
-    integer,                intent(out)     :: iostat
-
-    logical     :: opened
-
-    iostat = 0                ! ran out of free file handles
-    do unit=1, maxunit
-       inquire(unit,opened=opened)
-       if (.not.opened) then
-          exit
-       endif
-    enddo
-    if (unit<=maxunit) then
-       open(unit, file=trim(fname), status='old', iostat=iostat)
-    else
-       iostat = -66           ! ran out of free file handles
-    endif
-    ! .....
-    return
-  end function oldfil
 
   ! =======================================================================
 
@@ -899,8 +904,8 @@ contains
        ! TODO: also clean up netcdf instance somewhere (or is this not necessary)
     endif
 
-    if (bcblock%fhandle>0) then
-       call mf_close(bcblock%fhandle)
+    if (bcblock%bcFilePtr%fhandle>0) then
+       call mf_close(bcblock%bcFilePtr%fhandle)
     endif
 
     if (associated(bcblock%ncptr)) then

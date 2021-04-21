@@ -1,7 +1,7 @@
 module system_utils
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -294,5 +294,16 @@ logical function is_abs(path)
 #endif
 
 end function is_abs
-   
+
+!> find the last slash in a string.
+!! can a forward or a backward slash
+!! returns 0 if not found
+function find_last_slash(path) result (ipos)
+   character(len=*), intent(in) :: path  !< string with a path including slash(es)
+   integer                      :: ipos  !< position of slash
+
+   ipos = max(index(path,'\', .true.), index(path,'/', .true.))
+
+end function find_last_slash
+
 end module system_utils

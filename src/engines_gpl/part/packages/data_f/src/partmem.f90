@@ -34,6 +34,7 @@ module partmem
 !     Created             : July    2011 by Leo Postma
 
       use precision_part       ! single/double precision
+      use hydmod
       use typos           ! the derived types
 
       integer(ip)  , parameter          :: nfilesp =  100
@@ -45,12 +46,15 @@ module partmem
       real   (sp)   :: defang  , hmin    , ptlay   , accrjv
       logical       :: oil, ibmod     , oil2dh  , oil3d   , ltrack  , acomp  , fout
 
+      type(t_hyd)              :: hyd           ! description of the hydrodynamics
       integer  ( ip)           :: bufsize       ! size of rbuffr
       integer  ( ip)           :: nosub_max     ! maximum number of substances
       integer  ( ip)           :: nmaxp         ! horizontal dimension 1 of flow file
       integer  ( ip)           :: mmaxp         ! horizontal dimension 2 of flow file
       integer  ( ip)           :: mnmax2        ! nmax*mmax
       integer  ( ip)           :: layt          ! number of layers hydrodynamic model
+      logical                  :: fmmodel       ! grid type
+      logical                  :: zmodel        ! layer type
       integer  ( ip)           :: mnmaxk        ! mnmax2*layt
       integer  ( ip)           :: nflow         ! 2*mnmaxk + (layt-1)*mnmax2
       integer  ( ip)           :: noseglp       ! either mnmax2 or number of active volumes
@@ -135,7 +139,14 @@ module partmem
       integer  ( ip), pointer  :: lgrid (:,:)   ! active grid matrix, with 1-1 numbering
       integer  ( ip), pointer  :: lgrid2(:,:)   ! total grid matrix
       integer  ( ip), pointer  :: lgrid3(:,:)   ! active grid matrix with noseg numbering
+      integer  ( ip), pointer  :: laytop(:,:)   ! highest active layer in z-layer model
+      integer  ( ip), pointer  :: laytopp(:,:)  ! highest active layer in z-layer model on previous time step
+      integer  ( ip), pointer  :: laybot(:,:)   ! deepest active layer in z-layer model
+      integer  ( ip), pointer  :: pagrid(:,:,:) ! potentially active z-layer segments grid matrix
+      integer  ( ip), pointer  :: aagrid(:,:,:) ! actually active z-layer segments grid matrix
       real     ( rp), pointer  :: tcktot (:)    ! relative layer thickness
+      real     ( rp), pointer  :: zlbot (:)     ! z-layer layer bottom level
+      real     ( rp), pointer  :: zltop (:)     ! z-layer layer top level
       integer  ( ip), pointer  :: cellpntp(:)   ! pointer from noseg to mnmaxk
       integer  ( ip), pointer  :: flowpntp(:,:) ! pointer from noq to nflow
       real     ( rp), pointer  :: angle  (:)    !
@@ -169,6 +180,7 @@ module partmem
       real     ( rp), pointer  :: xb     (:)    !
       real     ( rp), pointer  :: yb     (:)    !
       real     ( rp), pointer  :: zlevel (:)    !
+      real     ( rp), pointer  :: locdepp(:,:)   !
       real     ( rp), pointer  :: locdep(:,:)   !
       character( 20), pointer  :: substi (:)    ! substances' names input file
       integer  ( ip), pointer  :: mapsub (:)    ! gives substances a number for output
@@ -178,8 +190,8 @@ module partmem
       character( 20), pointer  :: subst2 (:)    ! substances' names output file
       real     ( rp), pointer  :: wveloa (:)    ! wind velocity  m/s
       real     ( rp), pointer  :: wdira  (:)    ! wind direction degree from north
-      real     ( dp), pointer  :: wvelo  (:)    ! space varying wind velocity  m/s
-      real     ( dp), pointer  :: wdir   (:)    ! space varying wind direction degree from north
+      real     ( hp), pointer  :: wvelo  (:)    ! space varying wind velocity  m/s
+      real     ( hp), pointer  :: wdir   (:)    ! space varying wind direction degree from north
       integer  ( ip), pointer  :: iwndtm (:)    ! breakpoints wind time series
       real     ( rp), pointer  :: const  (:)    ! constant factors
       character( 20), pointer  :: nmstat (:)    ! names of the monitoring stations
@@ -412,8 +424,10 @@ module spec_feat_par
       real      (sp)            ,  pointer, dimension(:       ) :: end_pldenstime 
       real      (sp)            ,  pointer, dimension(:       ) :: period_denstime
       real      (sp)            ,  pointer, dimension(:       ) :: delay_denstime
+      real      (sp)            ,  pointer, dimension(:       ) :: pldrag
       logical                                                   :: pldebug
       logical                                                   :: pldenstime
+      logical                                                   :: pldragmod
       
 !     screens
       logical                  :: screens          ! are sceens active

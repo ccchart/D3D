@@ -166,6 +166,29 @@ rem =============================================================
 goto :endproc
 
 rem =============================================================
+rem === copyFolderContent takes two arguments: the name of    ===
+rem === the folder to copy the content to the destiny         ===
+rem === directory                                             ===
+rem ===                                                       ===
+rem === NOTE: errors will be reported and the script will     ===
+rem === with an error code after executing the rest of its    ===
+rem === statements                                            ===
+rem =============================================================
+:copyFolderContent
+    set folderName=%~1
+    set dest=%~2
+    rem
+    rem "echo f |" is (only) needed when dest does not exist
+    rem and does not harm in other cases
+    rem
+    echo f | xcopy "%folderName%" "%dest%" /s /e /h /f /y /i
+    if NOT !ErrorLevel! EQU 0 (
+        echo ERROR: while copying "!folderName!" to "!dest!"
+    )
+    call :handle_error
+goto :endproc
+
+rem =============================================================
 rem === copyNetcdf copy the appropriate netcdf.dll            ===
 rem =============================================================
 :copyNetcdf
@@ -313,7 +336,7 @@ rem ====================
     call :copyFile engines_gpl\waq\default\proc_def.dat                        !dest_default!
     call :copyFile engines_gpl\waq\default\proc_def.def                        !dest_default!
 
-    call :copyFile engines_gpl\dflowfm\scripts\MSDOS\run_dflowfm_processes.bat !dest_scripts!
+    call :copyFile engines_gpl\dflowfm\scripts\team-city\run_dflowfm_processes.bat !dest_scripts!
     call :copyFile engines_gpl\dflowfm\scripts\team-city\run_dflowfm.bat       !dest_scripts!
     call :copyFile engines_gpl\dflowfm\scripts\team-city\run_dfmoutput.bat     !dest_scripts!
 	
@@ -362,11 +385,13 @@ rem ================
     set dest_bin="!dest_main!\x64\dimr\bin"
     set dest_menu="!dest_main!\x64\menu\bin"
     set dest_scripts="!dest_main!\x64\dimr\scripts"
+	set dest_schemas="!dest_main!\x64\dimr\schema"
     set dest_share="!dest_main!\x64\share\bin"
 
     call :makeDir !dest_bin!
     call :makeDir !dest_menu!
     call :makeDir !dest_scripts!
+    call :makeDir !dest_schemas!
     call :makeDir !dest_share!
 
     call :copyFile engines_gpl\dimr\bin\x64\Release\dimr.exe             !dest_bin!
@@ -375,6 +400,7 @@ rem ================
     call :copyFile engines_gpl\d_hydro\scripts\create_config_xml.tcl     !dest_menu!
 
     call :copyFile "engines_gpl\dimr\scripts\generic\win64\*.*"     !dest_scripts!
+    call :copyFolderContent "engines_gpl\dimr\schemas"     				!dest_schemas!
 
 goto :endproc
 
@@ -771,15 +797,15 @@ rem ====================
 :mormerge
     echo "installing mormerge . . ."
 
-    set dest_bin="!dest_main!\x64\dflow2d3d\bin"
-    set dest_scripts="!dest_main!\x64\dflow2d3d\scripts"
+    set dest_bin="!dest_main!\x64\dmor\bin"
+    set dest_scripts="!dest_main!\x64\dmor\scripts"
     set dest_share="!dest_main!\x64\share\bin"
 
     call :makeDir !dest_bin!
     call :makeDir !dest_scripts!
 
-    call :copyFile engines_gpl\flow2d3d\scripts\mormerge.tcl                     !dest_scripts!
-    call :copyFile engines_gpl\flow2d3d\scripts\run_mormerge.bat                 !dest_scripts!
+    call :copyFile tools_gpl\mormerge\scripts\mormerge.tcl                       !dest_scripts!
+    call :copyFile tools_gpl\mormerge\scripts\run_mormerge.bat                   !dest_scripts!
     call :copyFile tools_gpl\mormerge\packages\mormerge\x64\Release\mormerge.exe !dest_bin!
     call :copyFile third_party_open\tcl\bin\win64\tclkitsh852.exe                !dest_share!
 goto :endproc
@@ -873,6 +899,23 @@ rem =====================
 
     call :copyFile "utils_lgpl\io_netcdf\packages\io_netcdf\dll\x64\Release\io_netcdf.dll"                  !dest_bin!
 goto :endproc
+
+
+
+rem =====================
+rem === INSTALL EC_MODULE
+rem =====================
+:ec_module
+    echo "installing ec_module . . ."
+
+    set dest_bin="!dest_main!\x64\share\bin"
+
+    call :makeDir !dest_bin!
+
+    call :copyFile "utils_lgpl\ec_module\packages\ec_module\dll\x64\Release\ec_module.dll"                  !dest_bin!
+goto :endproc
+
+
 
 rem =====================
 rem === INSTALL GRIDGEOM
@@ -973,7 +1016,7 @@ if NOT %globalErrorLevel% EQU 0 (
     rem
     echo An error occurred while executing this file
     echo Returning with error number %globalErrorLevel%
-    exit %globalErrorLevel%
+    exit /B %globalErrorLevel%
 )
 
 :endproc

@@ -19,7 +19,7 @@ function varargout=bitmapfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -158,7 +158,7 @@ NewFI=FI;
 cmd=lower(cmd);
 cmdargs={};
 
-switch cmd,
+switch cmd
     case 'initialize'
         OK=optfig(mfig);
         xminh=findobj(mfig,'tag','xmin');
@@ -193,7 +193,12 @@ switch cmd,
         set(xminh,'string',sprintf('%g',x))
         cmdargs={cmd x};
     case 'bitmapfig'
-        sz=[FI.FileInfo.Width FI.FileInfo.Height];
+        % get size in pixels
+        pxsz = [FI.FileInfo.Width FI.FileInfo.Height];
+        % get size in map units
+        sz = FI.Loc(3:4);
+        % requested size is such that lowest resolution just matches pixels
+        sz = min(pxsz./sz) * sz;
         ssz=qp_getscreen;
         fac=max(sz./ssz(3:4));
         if fac>1
@@ -211,6 +216,7 @@ switch cmd,
         xlim = sort(get(hNew,'xdata'));
         ylim = sort(get(hNew,'ydata'));
         set(Ax,'xlim',xlim,'ylim',ylim)
+        setaxesprops(Ax,'X-Y',{},{'',''})
         %
         cmdargs={cmd};
     otherwise

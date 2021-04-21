@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -81,7 +81,7 @@ module m_ec_parameters
    !> enumeration for tEcFileReader filetypes
    integer, parameter :: provFile_undefined           =  0
    integer, parameter :: provFile_uniform             =  1  !< kx values each timestep 1 dim arr       uni
-   integer, parameter :: provFile_unimagdir           =  2  !< 2 values each timestep; magnitide, direction
+   integer, parameter :: provFile_unimagdir           =  2  !< 2 values each timestep; magnitude, direction
    integer, parameter :: provFile_svwp                =  3  !< 3 fields each timestep 3 dim array      noint
    integer, parameter :: provFile_svwp_weight         =  4  !< 3 fields each timestep 3 dim array      noint
    integer, parameter :: provFile_arcinfo             =  5  !< 1 field each timestep 2 dim array        bilin/direct
@@ -172,6 +172,7 @@ module m_ec_parameters
    integer, parameter :: EC_METADATA_INVALID   = 12 !< Meta-data was mal-formatted or incomplete.
    integer, parameter :: EC_DATA_INVALID       = 13 !< Data was mal-formatted or incomplete.
    integer, parameter :: EC_EOF                = 14 !< EOF reached/file ended prematurely.
+   integer, parameter :: EC_IO_ERROR           = 15 !< Low-level I/O error from the multifile I/O routines.
 
    ! COORDINATE SYSTEM that applies to all elementsets in this instance
    integer, parameter :: EC_COORDS_CARTESIAN   = 1  !< Cartesian coordinates (x,y)
@@ -197,7 +198,7 @@ module m_ec_parameters
 
     ! Vertical position type
     integer, parameter :: BC_VPTYP_SINGLE      = 0   !< depth averaged
-    integer, parameter :: BC_VPTYP_PERCBED     = 1   !< precentage from bed
+    integer, parameter :: BC_VPTYP_PERCBED     = 1   !< percentage from bed
     integer, parameter :: BC_VPTYP_ZDATUM      = 2   !< z above datum
     integer, parameter :: BC_VPTYP_ZDATUM_DOWN = 3   !< z below datum
     integer, parameter :: BC_VPTYP_BEDSURF     = 4   !< bedsurface

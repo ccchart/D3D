@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -34,7 +34,7 @@ module part14_mod
                           dx     , dy     , ftime  , tmassu , nosubs ,    &
                           ncheck , t0buoy , modtyp , abuoy  , t0cf   ,    &
                           acf    , lun2   , kpart  , layt   , tcktot ,    &
-                          nplay  , kwaste , nolay  , linear , track  ,    &
+                          zmodel , laytop , laybot , nplay  , kwaste , nolay  , linear , track  ,    &
                           nmconr , spart  , rhopart, noconsp, const)
 
 !       Deltares Software Centre
@@ -142,6 +142,9 @@ module part14_mod
       integer  ( ip), intent(in   ) :: lun2                  !< output report unit number
       integer  ( ip), intent(  out) :: kpart  (*)            !< k-values particles
       real     ( rp), intent(in   ) :: tcktot (layt)         !< thickness hydrod.layer
+      logical       , intent(in   ) :: zmodel
+      integer  ( ip), intent(in   ) :: laytop(nmax,mmax)      !< highest active layer in z-layer model
+      integer  ( ip), intent(in   ) :: laybot(nmax,mmax)      !< highest active layer in z-layer model
       integer  ( ip)                :: nplay  (layt)         !< work array that could as well remain inside
       integer  ( ip), intent(in   ) :: kwaste (nodye+nocont) !< k-values of wasteload points
       integer  ( ip), intent(in   ) :: nolay                 !< number of comp. layer
@@ -369,7 +372,11 @@ module part14_mod
             endif
             if ( nulay .gt. nolay ) stop ' Nulay>nolay in part09 '
     80      continue
-            kpart (i)  = nulay
+            if (zmodel) then 
+               kpart(i) = min(laybot(npart(i), mpart(i)), max(nulay,laytop(npart(i), mpart(i))))
+            else
+               kpart(i) = nulay
+            endif
 
 !         give the particles a z-value within the layer
 

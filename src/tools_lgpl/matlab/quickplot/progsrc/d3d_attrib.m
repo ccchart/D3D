@@ -37,7 +37,7 @@ function varargout=d3d_attrib(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -384,8 +384,12 @@ for tpC = types
                         continue
                     end
                     i=i+1;
-                    Name{i,1}=deblank(Line(1:20));
-                    MN(i,1:2)=sscanf(Line(21:end),' %i %i',[1 2]);
+                    Name{i,1} = deblank(Line(1:20));
+                    mn = sscanf(Line(21:end),' %i %i',[1 2]);
+                    if any(mn <= 0)
+                        error('Invalid MN coordinates (%d,%d) for observation point "%s"',mn,Name{i,1})
+                    end
+                    MN(i,1:2) = mn;
                 end
                 fclose(fid);
                 Out.Name=Name;

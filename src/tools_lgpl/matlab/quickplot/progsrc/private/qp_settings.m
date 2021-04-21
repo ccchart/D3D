@@ -15,7 +15,7 @@ function valo=qp_settings(param,val)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -57,16 +57,19 @@ end
 if nargout==1
     % retrieve value
     if length(param)>6 && strcmpi(param(end-5:end),'string')
-        cmd='getstring';
+        cmd='cgetstring';
     else
-        cmd='get';
+        cmd='cget';
     end
-    valo=inifile(cmd,Settings,grp,param,{});
-    if iscell(valo) && (nargin==1 || ~iscell(val))
-        if nargin==1
-            val={};
-        end
-        valo=qp_settings_default(param,val);
+    if nargin>1
+        dval = val;
+    else
+        dval = {};
+    end
+    dval = qp_settings_default(param, dval);
+    valo = inifile(cmd, Settings, grp, param, dval);
+    if length(valo)==1
+        valo = valo{1};
     end
 elseif isequal(param,'<SAVE>')
     Settings=qp_write_settings(Settings,qppref);
@@ -125,6 +128,7 @@ Set.export_max_ntimes         = 10;
 %
 Set.netcdf_use_fillvalue      = 'valid_range';
 %
+Set.delwaq_names              = 'expanded';
 Set.delwaq_procdef            = 'auto';
 %
 Set.shipma_distance_along_desired_track = 1;

@@ -1,7 +1,7 @@
 module quickin_dep_file
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -74,7 +74,6 @@ subroutine read_qndep_single(lundia    ,error     ,fildep    ,fmttmp    ,array  
     integer                               :: luntmp ! Unit number for attribute file  
     integer                               :: m 
     integer                               :: n 
-    integer                 , external    :: newunit 
     character(300)                        :: errmsg ! Character string containing the error message to be written to file. The message depends on the error.
 ! 
 !! executable statements ------------------------------------------------------- 
@@ -194,7 +193,6 @@ subroutine read_qndep_double(lundia    ,error     ,fildep    ,fmttmp    ,array  
     integer                               :: luntmp ! Unit number for attribute file  
     integer                               :: m 
     integer                               :: n 
-    integer                 , external    :: newunit 
     character(300)                        :: errmsg ! Character string containing the error message to be written to file. The message depends on the error.
 ! 
 !! executable statements ------------------------------------------------------- 

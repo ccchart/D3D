@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2019.
+!!  Copyright (C)  Stichting Deltares, 2012-2021.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -22,9 +22,9 @@
 !!  rights reserved.
 
       subroutine dlwqbl ( lunin  , lunout , itime  , idtime , itime1 ,    &
-                          itime2 , ihdel  , nftot  , nrtot  , array1 ,    &
-                          result , ipnt   , luntxt , isflag , ifflag ,    &
-                          update )
+     &                    itime2 , ihdel  , nftot  , nrtot  , array1 ,    &
+     &                    result , ipnt   , luntxt , isflag , ifflag ,    &
+     &                    update )
 
 !     Deltares Software Centre
 

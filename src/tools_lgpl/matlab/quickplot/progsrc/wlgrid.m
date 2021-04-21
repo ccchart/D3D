@@ -59,7 +59,7 @@ function varargout=wlgrid(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -103,6 +103,9 @@ switch lcmd
         else
             varargout={Grid.X Grid.Y Grid.Enclosure Grid.CoordinateSystem Grid.MissingValue};
         end
+    case 'create'
+        Grid=Local_create_grid(varargin{:});
+        varargout{1}=Grid;
     case {'struct','write','newrgf','writeold','oldrgf','writeswan','swangrid'}
         switch lcmd
             case 'write'
@@ -122,6 +125,28 @@ switch lcmd
         error('Unknown command')
 end
 
+function GRID=Local_create_grid(szOrFld)
+if isequal(size(szOrFld),[1 2])
+    sz = szOrFld;
+    Fld = [];
+else
+    Fld = szOrFld;
+    sz = size(Fld);
+end
+GRID.X                = repmat((1:sz(1))',1,sz(2));
+GRID.Y                = repmat(1:sz(2),sz(1),1);
+if ~isempty(Fld)
+    Mask = isnan(Fld);
+    GRID.X(Mask) = NaN;
+    GRID.Y(Mask) = NaN;
+end
+GRID.Enclosure        = enclosure('extract',GRID.X,GRID.Y);
+GRID.FileName         = '';
+GRID.CoordinateSystem = 'Unknown';
+GRID.MissingValue     = 0;
+GRID.Attributes       = {};
+GRID.Type             = 'RGF';
+GRID.Orient           = 'anticlockwise';
 
 function GRID=Local_read_grid(filename)
 GRID.X                = [];

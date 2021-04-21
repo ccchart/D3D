@@ -1,7 +1,7 @@
 module m_Bridge
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -103,7 +103,6 @@ contains
       double precision                          :: wArea
       double precision                          :: wPerimiter
       double precision                          :: wWidth
-      double precision                          :: maxwidth
       double precision                          :: hydrRadius
       double precision                          :: dummy
       double precision                          :: frictloss
@@ -216,7 +215,7 @@ contains
 
          ! Initialize = bridge%pcross
          depth = smax - crestLevel
-         call GetCSParsFlow(bridge%pcross, depth, wArea, wPerimiter, wWidth, maxWidth)   
+         call GetCSParsFlow(bridge%pcross, depth, wArea, wPerimiter, wWidth)   
          bridge%flowArea = wArea
          
          ! in case the flow area is limited by the upstream flow area, the hydraulic radius

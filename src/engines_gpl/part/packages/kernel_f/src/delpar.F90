@@ -404,13 +404,12 @@
 
       integer(ip)         :: itime   , lunpr, lunfil, lunini
       integer(ip)         :: nosubud , noth
-      integer(ip)         :: ilp, isp, ids, ide, iext, nores, noras, nosubs_idp
+      integer(ip)         :: ilp, isp, ids, ide, iext, nores, noras, nosubs_idp, iniday
       real(sp)            :: dtstep
       logical             :: update
       character(len=*)    :: ifnam
-      integer             :: iniday  ! day number for initial condition
 
-      real     ( dp)              :: rseed = 0.5d0
+      real     ( hp)              :: rseed = 0.5d0
       real     ( sp)              :: rnorm
       
       integer(4) ithndl              ! handle to time this subroutine
@@ -434,12 +433,31 @@
                     1       , alone   )
       lunpr = lun(2)
 
+#ifdef HAVE_CONFIG_H
+#else
+      hyd%file_hyd%name = fname(18)
+      call read_hyd(hyd)
+      call read_hyd_init(hyd)
+#endif
+         
       call report_date_time ( lunpr   )
 
       noth = OMP_GET_MAX_THREADS()
 
       write ( lunpr  , 2020 ) noth
       write (    *   , 2020 ) noth
+
+#ifdef HAVE_CONFIG_H
+      zmodel = .false.
+	  fmmodel = .false.
+#else
+      zmodel = hyd%layer_type == HYD_LAYERS_Z
+!      fmmodel = hyd%geometry == HYD_GEOM_UNSTRUC
+!      if (fmmodel) then
+!         call partfm(lunpr)
+!         goto 999
+!      endif
+#endif
 
 !     rdlgri also calculates tcktot ! Data is put in the partmem module
 
@@ -572,13 +590,14 @@
       call part03 ( lgrid   , volumep , flow    , dx      , dy      ,    &
                     nmaxp   , mmaxp   , mnmaxk  , lgrid2  , velo    ,    &
                     layt    , area    , depth   , dpsp    , locdep  ,    &
-                    zlevel  , tcktot  , ltrack)
+                    zlevel  , zmodel  , laytop  , laytopp , laybot  ,    &
+                    pagrid  , aagrid  , ltrack)
 
-!      write particle tracks (initial state)
+!     initiate particle track file(s)
 
       if (ltrack) then
-!
-!     write initial information to track file
+
+!     write initial information to track file(s)
          dtstep = float(idelt)
          nstept = 1 + ((itstopp - itstrtp)/idelt)/itraki
 
@@ -605,13 +624,13 @@
 
       if ( ini_opt .eq. 1 .and. oil ) then
          call inipart( lgrid   , lgrid2  , nmaxp   , mmaxp   , xb      ,    &
-                       yb      , nopart  , nosubs  , substi(1)  , ini_file, &
+                       yb      , nopart  , nosubs  , substi  , ini_file,    &
                        xpol    , ypol    , npolmax , wpart   , xpart   ,    &
                        ypart   , zpart   , npart   , mpart   , kpart   ,    &
                        iptime  , npmax   , nrowsmax, lunpr   )
       elseif ( ini_opt .eq. 2 .and. oil ) then
           call inipart_asc( lgrid   , lgrid2  , nmaxp   , mmaxp   , xb  ,    &
-                       yb      , nopart  , nosubs  , substi(1)  , ini_file,  &
+                       yb      , nopart  , nosubs  , substi  , ini_file,    &
                        xpol    , ypol    , wpart   , xpart   , conc2 ,       &
                        ypart   , zpart   , npart   , mpart   , kpart   ,    &
                        iptime  , npmax   , nrowsmax, lunpr   )
@@ -722,6 +741,27 @@
          call part15 ( lun(2)   , itime    , spawnd   , mnmax2   , nowind   ,    &
                        iwndtm   , wveloa   , wdira    , wvelo    , wdir     )
 
+!        Rdhydr reads hydrodynamic water-flow
+
+         call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
+                       noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
+                       vdiff    , area     , flow     , vol1     , vol2     ,    &
+                       flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
+                       tau      , tau1     , caltau   , salin    , salin1   ,    &
+                       temper   , temper1  , nfiles   , lun      , fname    ,    &
+                       ftype    , rhowatc)
+
+!        Part03 computes velocities and depth (immediately after reading the new hydro)
+         call part03 ( lgrid    , volumep  , flow     , dx       , dy       ,    &
+                       nmaxp    , mmaxp    , mnmaxk   , lgrid2   , velo     ,    &
+                       layt     , area     , depth    , dpsp     , locdep   ,    &
+                       zlevel   , zmodel   , laytop   , laytopp  , laybot   ,    &
+                       pagrid   , aagrid   , ltrack)
+         
+         if (zmodel) then
+            call partzp(lunpr, nopart, nmaxp, mmaxp, mnmax2, nolayp, mpart, npart, kpart, zpart, lgrid, laytopp, laytop, locdepp, locdep, itime, itstrtp)
+         endif
+
 !        Part12 makes .map files, binary and Nefis versions
 
          call part12 ( lun(8)   , fname(8) , lun(2)   , title    , subst2   ,    &
@@ -735,16 +775,6 @@
                        layt     , area     , nfract   , lsettl   , mstick   ,    &
                        elt_names, elt_types, elt_dims , elt_bytes, locdep   ,    &
                        nosub_max, bufsize  )
-
-!        Rdhydr reads hydrodynamic water-flow
-
-         call rdhydr ( nmaxp    , mmaxp    , mnmaxk   , nflow    , nosegp   ,    &
-                       noqp     , itime    , itstrtp  , ihdel    , volumep  ,    &
-                       vdiff    , area     , flow     , vol1     , vol2     ,    &
-                       flow1    , vdiff1   , update   , cellpntp , flowpntp ,    &
-                       tau      , tau1     , caltau   , salin    , salin1   ,    &
-                       temper   , temper1  , nfiles   , lun      , fname    ,    &
-                       ftype    , rhowatc)
 
 !        Part13 makes 3d detail plot grids corrected for recovery rate
 
@@ -777,14 +807,22 @@
                        zpart    , za       , locdep   , dpsp     , tcktot   ,    &
                        lgrid3   )
 
+!        write particle tracks
+
+         if (ltrack.and.itime.eq.(itstrtp+idelt*itrakc)) then
+            ! get the absolute x,y,z's of the particles
+            call part11 ( lgrid    , xb       , yb       , nmaxp    , npart    ,    &
+                          mpart    , xpart    , ypart    , xa       , ya       ,    &
+                          nopart   , npwndw   , lgrid2   , kpart    , zpart    ,    &
+                          za       , locdep   , dpsp     , nolayp   , mmaxp    ,    &
+                          tcktot   )
+!           write actual particle tracks (file #16)
+            call wrttrk ( lun(2)   , fout     , fname(16), itrakc   , nopart  ,    &
+                          npmax    , xa       , ya       , za       , xyztrk  )
+            itrakc = itrakc + itraki
+         endif
+
          if ( itime .ge. itstopp ) exit    ! <=== here the simulation loop ends
-
-!        Part03 computes velocities and depth
-
-         call part03 ( lgrid    , volumep  , flow     , dx       , dy       ,    &
-                       nmaxp    , mmaxp    , mnmaxk   , lgrid2   , velo     ,    &
-                       layt     , area     , depth    , dpsp     ,               &
-                       locdep   , zlevel   , tcktot   , ltrack)
 
 !        This section does water quality processes
 
@@ -857,7 +895,7 @@
                        xpolwaste           , ypolwaste           , lgrid    ,    &
                        lgrid2   , nmaxp    , mmaxp    , xb       , yb       ,    &
                        dx       , dy       , ndprt    , nosubs   , kpart    ,    &
-                       layt     , tcktot   , nplay    , kwaste   , nolayp   ,    &
+                       layt     , tcktot   , zmodel   , laytop   , laybot   ,    nplay    , kwaste   , nolayp   ,    &
                        modtyp   , zwaste   , track    , nmdyer   , substi   ,    &
                        rhopart)
 
@@ -894,7 +932,7 @@
                                      ytime(ilp, ids))
                 endif
 
-20          continue
+20            continue
 !
 !         reset the dye discharges if they exist to world coordinates
           if (nodye.ge.1)then
@@ -919,24 +957,9 @@
                        dx       , dy       , ftime    , tmassu   , nosubs   ,    &
                        ncheck   , t0buoy   , modtyp   , abuoy    , t0cf     ,    &
                        acf      , lun(2)   , kpart    , layt     , tcktot   ,    &
-                       nplay    , kwaste   , nolayp   , linear   , track    ,    &
+                       zmodel   , laytop   , laybot   , nplay    , kwaste   , nolayp   , linear   , track    ,    &
                        nmconr   , spart    , rhopart  , noconsp  , const)
-        endif
-!        write particle tracks
-
-         if (ltrack.and.itime.eq.(itstrtp+idelt*itrakc-idelt)) then
-            ! get the absolute x,y,z's of the particles
-            call part11 ( lgrid    , xb       , yb       , nmaxp    , npart    ,    &
-                          mpart    , xpart    , ypart    , xa       , ya       ,    &
-                          nopart   , npwndw   , lgrid2   , kpart    , zpart    ,    &
-                          za       , locdep   , dpsp     , nolayp   , mmaxp    ,    &
-                          tcktot   )
-!           write actual particle tracks (file #16)
-            call wrttrk ( lun(2)   , fout     , fname(16), itrakc   , nopart  ,    &
-                          npmax    , xa       , ya       , za       , xyztrk  )
-            itrakc = itrakc + itraki
          endif
-
          if ( noudef .gt. 0 )  then
 
 !          add release in a way defined by the user
@@ -989,7 +1012,7 @@
                        area     , angle    , nmaxp    , mnmaxk   , idelt    ,    &
                        nopart   , npart    , mpart    , xpart    , ypart    ,    &
                        zpart    , iptime   , rough    , drand    , lgrid2   ,    &
-                       lgrid3 ,                                                  &
+                       lgrid3   , zmodel   , laytop   , laybot   ,               &
                        wvelo    , wdir     , decays   , wpart    , pblay    ,    &
                        npwndw   , vdiff    , nosubs   , dfact    , modtyp   ,    &
                        t0buoy   , abuoy    , kpart    , mmaxp    , layt     ,    &

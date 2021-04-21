@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2021.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -123,7 +123,6 @@ contains
     logical                             :: found
     real(hp), dimension(:,:,:), pointer :: open_bnd              ! open boundary coordinates
     integer , dimension(:)    , pointer :: nr_bnd_cells          
-    integer, external                   :: newunit
     integer                             :: lunbnd                ! logical unit boundary file
     character(len=256)                  :: bndfilename           ! boundary filename
 

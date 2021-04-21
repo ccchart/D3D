@@ -18,7 +18,7 @@ function varargout=d3d_trihfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -1134,6 +1134,10 @@ if Props.DimFlag(ST_)
         case {'ATR','DTR','SBTR','SSTR','SBTRC','SSTRC'}
             % cross-section
             [sz(ST_),Chk]=vs_get(FI,'his-const','NTRUV','quiet');
+        case {'PLOUGH_TFRAC','DREDGE_TFRAC'}
+            % dreding area
+            Info=vs_disp(FI,'his-dad-const','DREDGE_AREAS');
+            sz(ST_)=Info.SizeDim;
         case {'LINK_SUM'}
             % dredging link
             Info=vs_disp(FI,'his-dad-const','LINK_DEF');

@@ -18,7 +18,7 @@ function varargout=gridfil(FI,domain,field,cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -1394,6 +1394,9 @@ switch cmd
         cmdargs={cmd};
         
     case 'selectfile'
+        if isempty(mfig)
+            return
+        end
         Handle_SelectFile=findobj(mfig,'tag','selectfile');
         if nargin>3
             FileName=varargin{1};

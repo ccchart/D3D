@@ -22,6 +22,7 @@
     <ProjectGuid>{0C894FD0-D65E-42D5-B343-EC2076E98641}</ProjectGuid>
     <RootNamespace>plugin_culvert_c</RootNamespace>
     <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">

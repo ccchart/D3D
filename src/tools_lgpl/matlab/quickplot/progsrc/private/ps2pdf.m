@@ -99,7 +99,7 @@ function ps2pdf(varargin)
 %                    MATLAB's version of Ghostscript caused ps2pdf to fail.
 %      Apr 16, 2008: added deletepsfile option
 
-%   Copyright 2008-2019 The MathWorks, Inc.
+%   Copyright 2008-2020 The MathWorks, Inc.
 
    if nargin < 1 
       error('ps2pdf:parameters', 'No parameters specified. Type ''help ps2pdf'' for details on how to use this function.');
@@ -243,13 +243,22 @@ function gsData = LocalParseArgs(varargin)
                 
             % paper size 
             case 'gspapersize'
-               idx = strcmpi(param_value, gsData.paperSizes);
-               if ~any(idx)
-                  warning('ps2pdf:papersize', ...
-                        '''gspapersize'' value <%s> not found in the list of known sizes, ignoring it.', param_value);
-               else
-                  gsData.paperSize = gsData.paperSizes{idx};
-               end
+                if ischar(param_value)
+                    idx = strcmpi(param_value, gsData.paperSizes);
+                    if ~any(idx)
+                        warning('ps2pdf:papersize', ...
+                            '''gspapersize'' value <%s> not found in the list of known sizes, ignoring it.', param_value);
+                    else
+                        gsData.paperSize = gsData.paperSizes{idx};
+                    end
+                else % custom size
+                    if ~isnumeric(param_value) || ~isequal(size(param_value),[1 2]) || any(param_value <= 0)
+                        warning('ps2pdf:papersize', ...
+                            '''gspapersize'' value should be name of paper size or 1 x 2 array representing custom size in inches.');
+                    else
+                        gsData.customPaperSize = param_value;
+                    end
+                end
 
             % deletePSFile
             case 'deletepsfile'
@@ -354,7 +363,9 @@ function gsData = LocalCreateResponseFile(gsData)
    if isfield(gsData, 'fontPath')
       fprintf(rsp_fid, '-I"%s"\n', gsData.fontPath);
    end
-   if isfield(gsData, 'paperSize') 
+   if isfield(gsData, 'customPaperSize')
+      fprintf( rsp_fid, '-g%ix%i\n', ceil(gsData.customPaperSize * 720) );
+   elseif isfield(gsData, 'paperSize') 
       fprintf( rsp_fid, '-sPAPERSIZE=%s\n', gsData.paperSize );
    end
    fprintf(rsp_fid, '-sOutputFile="%s"\n', gsData.pdfFile);

@@ -1,8 +1,8 @@
-subroutine tranb4(utot      ,d         ,c         ,par       ,hidexp    , &
-                & sbot      ,ssus      )
+subroutine tranb4(utot      ,d         ,c         ,npar      ,par       , &
+                & hidexp    ,sbot      ,ssus      )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -41,14 +41,15 @@ subroutine tranb4(utot      ,d         ,c         ,par       ,hidexp    , &
 !
 ! Call variables
 !
-    real(fp)               , intent(in)  :: c      !  Description and declaration in esm_alloc_real.f90
-    real(fp)               , intent(in)  :: d
-    real(fp)               , intent(in)  :: hidexp ! hiding & exposure factor
-                                                   ! default value, 1.0, to be used when called from Delft3D-MOR
-    real(fp)               , intent(out) :: sbot
-    real(fp)               , intent(out) :: ssus
-    real(fp)               , intent(in)  :: utot
-    real(fp), dimension(30), intent(in)  :: par
+    integer                  , intent(in)    :: npar
+    real(fp)                 , intent(in)    :: c
+    real(fp)                 , intent(in)    :: d
+    real(fp)                 , intent(in)    :: hidexp !< hiding & exposure factor
+    real(fp), dimension(npar), intent(in)    :: par
+    real(fp)                 , intent(in)    :: utot
+    !
+    real(fp)                 , intent(out)   :: sbot
+    real(fp)                 , intent(out)   :: ssus
 !
 ! Local variables
 !

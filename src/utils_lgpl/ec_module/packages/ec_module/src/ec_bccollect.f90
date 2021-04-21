@@ -118,12 +118,12 @@ module m_ec_bccollect
                    if (.not.processhdr_all_quantities(bcBlockPtr,nfld,nq,keyvaluestr)) return   ! dumb translation of bc-object metadata  
                    if (.not.checkhdr(bcBlockPtr)) return                                        ! check on the contents of the bc-object 
                    bcBlockPtr%fname = fname 
-                   if (ecSupportOpenExistingFileGnu(bcBlockPtr%fhandle, fname)) then
-                      call mf_backspace(bcBlockPtr%fhandle, savepos)           ! set newly opened file to the appropriate position 
+                   if (ecSupportOpenExistingFileGnu(bcBlockPtr%bcFilePtr%fhandle, fname)) then
+                      call mf_backspace(bcBlockPtr%bcFilePtr%fhandle, savepos)           ! set newly opened file to the appropriate position 
                       count = count + 1 
                       iostat = EC_NOERR
                    else 
-                      call mf_close(bcBlockPtr%fhandle)
+                      call mf_close(bcBlockPtr%bcFilePtr%fhandle)
                       iostat = EC_DATA_NOTFOUND
                    end if
                 endif                                       ! Right label
@@ -139,6 +139,7 @@ module m_ec_bccollect
 ! Collectloop: Scan a bc-file
 !              For each bc-block, create a file reader, add it to the list of file readers in the instance
     integer function collectbc_all(instancePtr, fname, iostat, k_refdate, k_timezone, k_timestep_unit, dtnodal) result (count)
+    use m_ec_alloc
     implicit none            
     type (tEcInstance),     pointer,   intent(in)      :: instancePtr     !< EC Instance, overall structure for the EC-module 
     character(len=*),                  intent(in)      :: fname           !< file name (bc-format)
@@ -151,7 +152,6 @@ module m_ec_bccollect
     integer (kind=8)    ::  fhandle
     character(:), allocatable :: rec
     integer             ::  reclen 
-    integer             ::  commentpos
     character*(1000)    ::  keyvaluestr                                    ! all key-value pairs in one header 
     integer             ::  posfs
     integer             ::  nfld
@@ -159,12 +159,12 @@ module m_ec_bccollect
     logical             ::  jablock, jaheader
     integer             ::  lineno 
     integer (kind=8)    ::  savepos 
-    integer             ::  iostatloc
     type (tEcBCBlock),    pointer :: bcBlockPtr
+    type (tEcBCFile),     pointer :: bcFilePtr
     type (tEcFileReader), pointer :: fileReaderPtr
     integer             :: bcBlockId, fileReaderId
     integer             :: ifr 
-    logical             :: success, isLateral
+    logical             :: isLateral
     real(hp)            :: k_mjd                                          ! kernel reference date as Modified Julian date
 
     iostat = EC_UNKNOWN_ERROR
@@ -179,30 +179,30 @@ module m_ec_bccollect
        return
     end if
 
+    if (instancePtr%nBCFiles == size(instancePtr%ecBCFilesPtr)) then
+       if (.not. ecArrayIncrease(instancePtr%ecBCFilesPtr, instancePtr%nBCFiles)) then
+          return
+       end if
+    end if
+    instancePtr%nBCFiles = instancePtr%nBCFiles + 1
+
+    allocate (bcFilePtr)
+    bcFilePtr%bcfilename = fname
+    bcFilePtr%fhandle = fhandle
+    instancePtr%ecBCFilesPtr(instancePtr%nBCFiles)%Ptr => bcFilePtr
+
     do while (.not.mf_eof(fhandle))
        call mf_read(fhandle,rec,savepos)
-       iostatloc = 0 ! mf_read always ok?
-       if (iostatloc /= 0) then 
-          iostat = iostatloc
-          return ! beter break?
-       endif  
+       if (savepos<0) then
+          iostat = EC_IO_ERROR
+          return
+       end if
        lineno = lineno + 1 
-       if (index('!#%*',rec(1:1))>0) cycle                     ! deal with various begin-of-line delimiters
-       reclen = len_trim(rec)                                  ! deal with various comment delimiters 
-       commentpos = index(rec,'//')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,' %')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,' #')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,' *')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       commentpos = index(rec,' !')
-       if (commentpos>0) reclen = min(reclen,commentpos-1)
-       
-       if (reclen < 3) cycle
-
-       if (len_trim(rec(1:reclen))>0) then                     ! skip empty lines 
+       if (index('!#%*',rec)==1) cycle                     ! if commentws out in the first position
+       reclen = len_trim(rec)                              ! deal with various comment delimiters 
+       if (reclen < 3) then
+          cycle
+       else
           if (index(rec,'[forcing]'         )>0 .or. &
               index(rec,'[Boundary]'        )>0 .or. &
               index(rec,'[LateralDischarge]')>0) then          ! new boundary chapter       
@@ -242,14 +242,7 @@ module m_ec_bccollect
                      return  ! dumb translation of bc-object metadata  
                    endif
 !                  if (.not.(checkhdr(bcBlockPtr))) return    ! skip check                       ! check on the contents of the bc-object       
-                   bcBlockPtr%fname = fname 
                    bcBlockPtr%ftype=BC_FTYPE_ASCII                                               ! set BC-Block filetype to ASCII
-
-                   !if (bcBlockPtr%func==BC_FUNC_TSERIES) then 
-                   !   if (.not.ecSupportTimestringToUnitAndRefdate(bcBlockPtr%timeunit, unit, ref_date)) then 
-                   !      return
-                   !   endif           ! Parsing the time string failed 
-                   !endif              ! Timeseries function 
 
                    if (present(k_refdate) .and. present(k_timezone) .and. present(k_timestep_unit)) then 
                       k_mjd = date2mjd(k_refdate)
@@ -261,17 +254,9 @@ module m_ec_bccollect
                    else
                       if (.not.ecProviderInitializeTimeFrame(fileReaderPtr, -1.d0, 0.d0, ec_second)) return
                    endif
-
-                   if (ecSupportOpenExistingFileGnu(bcBlockPtr%fhandle, fname)) then
-                      call mf_backspace(bcBlockPtr%fhandle, savepos)           ! set newly opened file to the appropriate position 
-                      count = count + 1 
-                      iostat = EC_NOERR
-                   else 
-                      if (bcBlockPtr%fhandle /= 0) then
-                         call mf_close(bcBlockPtr%fhandle)
-                      endif
-                      iostat = EC_DATA_NOTFOUND
-                   end if
+                   bcBlockPtr%fposition = savepos
+                   bcBlockPtr%bcFilePtr => bcFilePtr 
+                   count = count + 1
                    jaheader = .false.
                 endif 
              endif          ! in header mode (data lines are ignored) 
@@ -280,13 +265,9 @@ module m_ec_bccollect
     enddo                   ! read/scan loop, ended when we reached end-of-file
     ! Create the items 
     do ifr = instancePtr%nFileReaders-count+1,instancePtr%nFileReaders                   ! The latest set of filereaders = latest set of bcBlocks       
-       success = items_from_bc_quantities(instancePtr,instancePtr%ecFileReadersPtr(ifr)%ptr)
-       if (.not.success) then
-           iostat = EC_UNKNOWN_ERROR
-       endif
+       if (.not.items_from_bc_quantities(instancePtr,instancePtr%ecFileReadersPtr(ifr)%ptr)) return
     enddo
-
-    call mf_close(fhandle)
+    iostat = EC_NOERR
 
     end function collectbc_all
 !============================================================================================================================
@@ -411,13 +392,17 @@ module m_ec_bccollect
                   return
                end select 
           case ('OFFSET')                           
-               if (iq>0) cycle 
-               read(hdrvals(ifld),*) bc%quantities(iq)%offset
+               if (iq>0) then
+                  read(hdrvals(ifld),*) bc%quantities(iq)%offset
+               endif
           case ('FACTOR')
-               if (iq>0) cycle 
-               read(hdrvals(ifld),*) bc%quantities(iq)%factor
+               if (iq>0) then
+                  read(hdrvals(ifld),*) bc%quantities(iq)%factor
+               endif
           case ('MISSING VALUE DEFINITION')
-               read(hdrvals(ifld),*) bc%missing
+               if (iq>0) then
+                  read(hdrvals(ifld),*) bc%quantities(iq)%missing
+               endif
           case ('TIME INTERPOLATION')
                select case (trim(adjustl(hdrvals(ifld))))
                   case ('LINEAR')

@@ -113,7 +113,7 @@ module rdhydr_mod
       logical           :: updatv, updatf, updatd, lblock
 !
       logical :: first  = .true.
-      integer(ip) :: i     , i2    , idelt1 , ifflag , iocond , isflag, kmax
+      integer(ip) :: i, i0, i03d, i1, i2, idelt1, ifflag , iocond , isflag, kmax
       integer(ip) :: it1   , it2   , max    , mod    , lunut
       integer(ip) :: mnmax                        ! number of cells per layer in the cube
       integer(ip) :: idtimv , itimv1 , itimv2     ! timings of the volumes file
@@ -127,8 +127,12 @@ module rdhydr_mod
       if ( timon ) call timstrt( "rdhydr", ithndl )
 !
       lunut = lunit(2)
-      depmin = 0.05*nmax*mmax/mnmaxk
-      depmin = max(depmin,0.001)
+      if (zmodel) then
+         depmin = 0.05
+      else
+         depmin = 0.05*nmax*mmax/mnmaxk
+         depmin = max(depmin,0.001)
+      end if
       kmax   = mnmaxk/nmax/mmax
       if ( idelt == -999 ) then
 !
@@ -189,7 +193,13 @@ module rdhydr_mod
          itstrt = it1
          rewind (lunit(6))
          rewind (lunit(7))
-         volume(cellpnt(:)) = vol1 (:)
+         !
+         ! This caused a stack overflow - 300000 grid cells
+         !volume(cellpnt(:)) = vol1 (:)
+         do i = 1,size(vol1)
+             volume(cellpnt(i)) = vol1(i)
+         enddo
+
          flow = 0.0
          do i = 1, noq
             if ( flowpnt(i,1) .gt. 0 ) flow(flowpnt(i,1)) = flow(flowpnt(i,1)) + flow1(i)
@@ -272,22 +282,35 @@ module rdhydr_mod
 !
       endif
 !
-      do 60 i = 1, mnmaxk
+      if (zmodel) then
+         ! only make sure the deepest
+         do i2 = 2, mmax
+            do i1 = 2, nmax
+               i0 = lgrid(i1, i2)
+               if (i0  >  0) then
+                  i03d = i0 + (laybot(i1, i2)-1)*nmax*mmax
+                  volume(i03d) = max(volume(i03d), area(i0) * depmin)
+               end if
+            end do
+         end do
+      else
+         do i = 1, mnmaxk
 
-!       limit volume to 5cm
+!          limit volume to 5cm
 
-        i2 = mod(i,nmax*mmax)
-        if(i2==0) i2 = nmax*mmax
-        volume(i) = max(volume(i), area(i2) * depmin)
+           i2 = mod(i,nmax*mmax)
+           if(i2==0) i2 = nmax*mmax
+           volume(i) = max(volume(i), area(i2) * depmin)
 
-!       apply scaling to vertical diffusion
-!       the .vdf file at the moment contains the D3D-FLOW dicww array in m2/s.
-!       typically: doffset = vicmol/sigmol(substance)
-!                  dscale  = 1.0   /sigdif(substance)
-!                  dminim  = gdp%gdphysco%dicoww       if I interpreted D3D-FLOW correctly (lp)
-!       off course only do this if the vertical diffusion was updated with the file-values
+!          apply scaling to vertical diffusion
+!          the .vdf file at the moment contains the D3D-FLOW dicww array in m2/s.
+!          typically: doffset = vicmol/sigmol(substance)
+!                     dscale  = 1.0   /sigdif(substance)
+!                     dminim  = gdp%gdphysco%dicoww       if I interpreted D3D-FLOW correctly (lp)
+!          off course only do this if the vertical diffusion was updated with the file-values
 
-   60 continue
+         end do
+      end if
 !
 !     end of routine
 !
@@ -300,7 +323,7 @@ module rdhydr_mod
             rhowatc(i) = rhow
          enddo
       endif
-      
+
       if ( timon ) call timstop ( ithndl )
       return
 !

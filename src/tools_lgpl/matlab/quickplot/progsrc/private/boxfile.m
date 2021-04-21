@@ -17,7 +17,7 @@ function varargout=boxfile(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -162,9 +162,18 @@ try
                 if isempty(vals)
                     vals =[];
                 end
-                while length(vals)<nval2read
-                    xvals = fscanf(fid,'%f%*[ ,]',[1 nval2read-length(vals)]);
-                    vals = [vals xvals];
+                nvalread = length(vals);
+                if nvalread < nval2read
+                    vals(1,nval2read) = 0;
+                end
+                while nvalread < nval2read
+                    [xvals,nval] = fscanf(fid,' %f%*[ ,]',[1 nval2read-nvalread]);
+                    if nval==0
+                        str = fgetl(fid);
+                        error('Error while reading "%s".\nExpected to read %i values for BOX MNMN=(%i, %i, %i, %i); only %i values read.\n',str,nval2read,data{i,2},nvalread);
+                    end
+                    vals(nvalread+1:nvalread+nval) = xvals;
+                    nvalread = nvalread + nval;
                 end
                 data{i,3} = reshape(vals,[MNMN(4)-MNMN(2)+1 MNMN(3)-MNMN(1)+1])';
             otherwise

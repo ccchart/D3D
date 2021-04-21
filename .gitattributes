@@ -1813,10 +1813,12 @@ src/engines_gpl/part/packages/kernel_f/src/part17.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/part18.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/part21.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/partfl.f90 -text
+src/engines_gpl/part/packages/kernel_f/src/partfm.F90 -text
 src/engines_gpl/part/packages/kernel_f/src/partini.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/partur.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/partvs.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/partwq.f90 -text
+src/engines_gpl/part/packages/kernel_f/src/partzp.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/plotgr.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/s_forcing.f90 -text
 src/engines_gpl/part/packages/kernel_f/src/t_forcing.f90 -text

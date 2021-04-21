@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -109,6 +109,7 @@ module MessageHandling
    public SetMessage
    public GetMessageCount
    public SetMessageHandling
+   public FinalizeMessageHandling
    public mess
    public err
    public GetMessage_MH
@@ -138,7 +139,7 @@ module MessageHandling
    integer,parameter, public     :: LEVEL_FATAL = 5
    integer,parameter, public     :: LEVEL_NONE  = 6
    integer,parameter, public     :: Charln = 256
-   integer,parameter, public     :: Idlen = 40
+   integer,parameter, public     :: Idlen = 256  !< Max string length of Ids. Recommended to use one character less for the actual Id, to allow for a null char at the end, when interfacing with C.
    integer,parameter, public     :: max_level = 5
    character(len=12), dimension(max_level), private    :: level_prefix = (/'** DEBUG  : ',  &
                                                                            '** INFO   : ',  &
@@ -187,7 +188,7 @@ private
 
    integer               , parameter,              private :: maxMessages = 3000
    integer               ,                         private :: messagecount = 0 !< Number of messages currently in message buffer (queue).
-   character(len=charln) , dimension(maxMessages), private :: Messages
+   character(len=MAXSTRINGLEN) , dimension(maxMessages), private :: Messages
    integer               , dimension(maxMessages), private :: Levels
    integer               ,                         private :: ibuffertail  = 0 !< Index of newest message in message buffer.
 
@@ -309,6 +310,11 @@ subroutine SetMessageHandling(write2screen, useLog, lunMessages, callback, thres
 
 end subroutine SetMessageHandling
 
+subroutine FinalizeMessageHandling()
+  close (lunMess)
+  lunMess = 0
+end subroutine FinalizeMessageHandling
+
 subroutine set_mh_callback(callback)
   procedure(mh_callbackiface) :: callback
   mh_callback => callback
@@ -364,7 +370,7 @@ recursive subroutine SetMessage(level, string)
   character(c_char)             :: c_string(MAXSTRINGLEN)
 
   integer :: levelact
-  character(len=charln)         :: msg !< message.
+  character(len=MAXSTRINGLEN)   :: msg !< message.
 
 
   levelact = max(1,min(max_level, level))

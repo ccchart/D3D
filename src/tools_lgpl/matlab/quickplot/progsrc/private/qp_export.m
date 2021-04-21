@@ -3,7 +3,7 @@ function filename=qp_export(ExpType,filenm1,DataState)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2019 Stichting Deltares.                                     
+%   Copyright (C) 2011-2020 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -102,9 +102,14 @@ switch expType
     case 'tecplot file'
         ext={'*.plt' 'Binary Tecplot File'
             '*.dat' 'ASCII Tecplot File'};
-    case 'arcview shape'
+    case {'arcview shape', 'geojson file'}
         % assumptions: 2D, one timestep
-        ext='shp';
+        switch expType
+            case 'arcview shape'
+                ext='shp';
+            case 'geojson file'
+                ext='json';
+        end
         if strcmp(Ops.presentationtype,'')
             if Props.NVal==0
                 Ops.presentationtype='grid';
@@ -137,16 +142,6 @@ switch expType
         switch Ops.presentationtype
             case {'patches','patches with lines'}
                 retrieve='gridcelldata';
-        end
-        saveops={};
-        switch expType
-            case 'mat file (v6)'
-                if matlabversionnumber>=7
-                    saveops={'-v6'};
-                end
-            case 'mat file (v7)'
-            case 'mat file (v7.3/hdf5)'
-                saveops={'-v7.3'};
         end
     otherwise
         ui_message('warning','Export type %s not implemented.',ExpType);
@@ -210,33 +205,47 @@ for f=1:ntim
     
     if strcmp(Ops.presentationtype,'vector') || ...
             strcmp(Ops.presentationtype,'markers') || ...
-            strcmp(Ops.presentationtype,'values')
+            strcmp(Ops.presentationtype,'values') || ...
+            strcmp(expType, 'sample file')
         % data = geom2pnt(data);
-        if isfield(data,'ValLocation')
-            if strcmp(data.ValLocation,'EDGE')
-                if isfield(data,'Geom') && strcmp(data.Geom,'sQUAD')
-                    data.EdgeNodeConnect = [1:length(data.X)-1;2:length(data.X)]';
+        for i = 1:length(data)
+            if isfield(data(i),'ValLocation')
+                if strcmp(data(i).ValLocation,'EDGE')
+                    if isfield(data(i),'Geom') && strcmp(data(i).Geom,'sQUAD')
+                        data(i).EdgeNodeConnect = [1:length(data(i).X)-1;2:length(data(i).X)]';
+                    end
+                    data(i).X = mean(data(i).X(data(i).EdgeNodeConnect),2);
+                    data(i).Y = mean(data(i).Y(data(i).EdgeNodeConnect),2);
+                elseif strcmp(data(i).ValLocation,'FACE')
+                    missing = isnan(data(i).FaceNodeConnect);
+                    nNodes = size(missing,2)-sum(missing,2);
+                    data(i).FaceNodeConnect(missing) = 1;
+                    data(i).X = data(i).X(data(i).FaceNodeConnect);
+                    data(i).X(missing) = 0;
+                    data(i).X = sum(data(i).X,2)./nNodes;
+                    data(i).Y = data(i).Y(data(i).FaceNodeConnect);
+                    data(i).Y(missing) = 0;
+                    data(i).Y = sum(data(i).Y,2)./nNodes;
                 end
-                data.X = mean(data.X(data.EdgeNodeConnect),2);
-                data.Y = mean(data.Y(data.EdgeNodeConnect),2);
-            elseif strcmp(data.ValLocation,'FACE')
-                missing = isnan(data.FaceNodeConnect);
-                nNodes = size(missing,2)-sum(missing,2);
-                data.FaceNodeConnect(missing) = 1;
-                data.X = data.X(data.FaceNodeConnect);
-                data.X(missing) = 0;
-                data.X = sum(data.X,2)./nNodes;
-                data.Y = data.Y(data.FaceNodeConnect);
-                data.Y(missing) = 0;
-                data.Y = sum(data.Y,2)./nNodes;
+                data(i).Geom = 'sSEG';
             end
-            for c = {'FaceNodeConnection','EdgeNodeConnection','ValLocation'}
-                s = c{1};
-                if isfield(data,s)
-                    data = rmfield(data,s);
+        end
+        if length(data)>1
+            data(1).X = cat(1,data.X);
+            data(1).Y = cat(1,data.Y);
+            for cfld = {'Val','CompX','CompY','CompZ'}
+                fld = cfld{1};
+                if isfield(data,fld)
+                    data(1).(fld) = cat(1,data.(fld));
                 end
             end
-            data.Geom = 'sSEG';
+            data(2:end) = [];
+        end
+        for c = {'FaceNodeConnection','EdgeNodeConnection','ValLocation'}
+            s = c{1};
+            if isfield(data,s)
+                data = rmfield(data,s);
+            end
         end
     end
     
@@ -356,21 +365,41 @@ for f=1:ntim
                 fprintf(fid,Format,datevec(data.Time)');
             end
             %
-            Format = [repmat('%.15g,',1,nCrd+nVal*nTim-1) '%.15g\n'];
-            Val = zeros(nCrd+nVal*nTim,numel(data.(flds{1}))/nTim);
+            if nVal==1 && isequal(flds{1},'Val') && iscellstr(data.Val)
+                charOutput = true;
+                Format = [repmat('%.15g,',1,nCrd) repmat('%s,',1,nTim-1) '%s\n'];
+            else
+                charOutput = false;
+                Format = [repmat('%.15g,',1,nCrd) repmat('%.15g,',1,nVal*nTim-1) '%.15g\n'];
+            end
+            Val = zeros(nCrd + nVal*nTim,numel(data.(flds{1}))/nTim);
             for i = 1:nCrd
                 Val(i,:) = data.(crds{i})(:)';
             end
-            if nTim>1
-                for i = 1:nVal
-                    Val(nCrd+i:nVal:end,:) = data.(flds{i})(:,:);
+            if charOutput
+                Val = num2cell(Val);
+                if nTim>1
+                    for i = 1:nVal
+                        Val(nCrd+i:nVal:end,:) = data.(flds{i})(:,:);
+                    end
+                else
+                    for i = 1:nVal
+                        Val(nCrd+i,:) = data.(flds{i})(:)';
+                    end
                 end
+                fprintf(fid,Format,Val{:});
             else
-                for i = 1:nVal
-                    Val(nCrd+i,:) = data.(flds{i})(:)';
+                if nTim>1
+                    for i = 1:nVal
+                        Val(nCrd+i:nVal:end,:) = data.(flds{i})(:,:);
+                    end
+                else
+                    for i = 1:nVal
+                        Val(nCrd+i,:) = data.(flds{i})(:)';
+                    end
                 end
+                fprintf(fid,Format,Val);
             end
-            fprintf(fid,Format,Val);
             %
             if f==ntim
                 fclose(fid);
@@ -585,7 +614,7 @@ for f=1:ntim
             if lastfield
                 tecplot('write',filename,xx);
             end
-        case {'arcview shape','polygon file'}
+        case {'arcview shape','polygon file','geojson file'}
             if isfield(data,'XDam')
                 Ops.presentationtype = 'thin dams';
             end
@@ -593,6 +622,7 @@ for f=1:ntim
                 case {'patches','patches with lines','markers','values','grid','polylines','polygons','edges',''}
                     xy=[];
                     if isfield(Props,'Geom') && (strcmp(Props.Geom,'POLYL') || strcmp(Props.Geom,'POLYG'))
+                        % for now only single partitions supported ...
                         vNaN=isnan(data.X);
                         if any(vNaN)
                             bs=findseries(~vNaN);
@@ -612,132 +642,159 @@ for f=1:ntim
                         else
                            shp_type = 'polygon';
                         end
+                        featureLabels = {};
+                        for i = length(xy):-1:1
+                            featureLabels{i} = sprintf('polygon %i',i);
+                        end
                         switch expType
                             case 'arcview shape'
                                 shapewrite(filename,shp_type,xy,vals{:})
+                            case 'geojson file'
+                                geojson('write', filename, 'polygon', featureLabels, xy)
                             case 'polygon file'
                                 DATA = [];
                                 for i = length(xy):-1:1
-                                    DATA.Field(i).Name = sprintf('polygon %i',i);
+                                    DATA.Field(i).Name = featureLabels{i};
                                     DATA.Field(i).Data = xy{i};
                                 end
                                 tekal('write',filename,DATA);
                         end
                     else
-                        d=1;
-                        shp_type = 'polygon';
-                        if isfield(Props,'Geom') && strncmp(Props.Geom,'UGRID',5)
-                            if Props.NVal==0 && isfield(data,'FaceNodeConnect')
-                                Props.Geom='UGRID2D-FACE';
-                                data.ValLocation='FACE';
-                            end
-                            switch Ops.presentationtype
-                                case {'markers','values'}
-                                    retrieve='griddata';
-                                    xy=[data(d).X data(d).Y];
+                        CV = [];
+                        FV = [];
+                        XV = [];
+                        XY = [];
+                        RM = logical([]);
+                        for d = 1:length(data)
+                            cv = [];
+                            fv = [];
+                            xv = [];
+                            xy = [];
+                            rm = [];
+                            shp_type = 'polygon';
+                            if isfield(Props,'Geom') && strncmp(Props.Geom,'UGRID',5)
+                                if Props.NVal==0 && isfield(data,'FaceNodeConnect')
+                                    Props.Geom='UGRID2D-FACE';
+                                    data.ValLocation='FACE';
+                                end
+                                switch Ops.presentationtype
+                                    case {'markers','values'}
+                                        retrieve='griddata';
+                                        xy=[data(d).X data(d).Y];
+                                        rm=[];
+                                    otherwise
+                                        switch Props.Geom(max(strfind(Props.Geom,'-'))+1:end)
+                                            case 'NODE'
+                                                retrieve='griddata';
+                                                xy=[data(d).X data(d).Y];
+                                                rm=[];
+                                            case 'EDGE'
+                                                xv=[data(d).X data(d).Y];
+                                                fv=data(d).EdgeNodeConnect;
+                                                shp_type = 'polyline';
+                                                rm=[];
+                                            case 'FACE'
+                                                xv=[data(d).X data(d).Y];
+                                                fv=data(d).FaceNodeConnect;
+                                                rm=[];
+                                            otherwise
+                                                error('Unsupported geometry ''%s''.',Props.Geom);
+                                        end
+                                end
+                            elseif isfield(Props,'Tri') && Props.Tri
+                                if strcmp(retrieve,'gridcelldata')
+                                    xv=data(d).XYZ(1,:,1,1:2);
+                                    xv=reshape(xv,[size(xv,2) 2]);
+                                    fv=data(d).TRI;
                                     rm=[];
-                                otherwise
-                                    switch Props.Geom(max(strfind(Props.Geom,'-'))+1:end)
-                                        case 'NODE'
-                                            retrieve='griddata';
-                                            xy=[data(d).X data(d).Y];
-                                            rm=[];
-                                        case 'EDGE'
-                                            xv=[data(d).X data(d).Y];
-                                            fv=data(d).EdgeNodeConnect;
-                                            shp_type = 'polyline';
-                                            rm=[];
-                                        case 'FACE'
-                                            xv=[data(d).X data(d).Y];
-                                            fv=data(d).FaceNodeConnect;
-                                            rm=[];
-                                        otherwise
-                                            error('Unsupported geometry ''%s''.',Props.Geom);
-                                    end
-                            end
-                        elseif isfield(Props,'Tri') && Props.Tri
-                            if strcmp(retrieve,'gridcelldata')
-                                xv=data(d).XYZ(1,:,1,1:2);
-                                xv=reshape(xv,[size(xv,2) 2]);
-                                fv=data(d).TRI;
-                                rm=[];
+                                else
+                                    xy=[data(d).X(:) data(d).Y(:)];
+                                    rm=any(isnan(xy),2);
+                                    xy(rm,:)=[];
+                                end
                             else
-                                xy=[data(d).X(:) data(d).Y(:)];
-                                rm=any(isnan(xy),2);
-                                xy(rm,:)=[];
+                                data(d).X=data(d).X(:,:,1); % remove 3rd dimension when appropriate
+                                data(d).Y=data(d).Y(:,:,1); % remove 3rd dimension when appropriate
+                                if strcmp(retrieve,'gridcelldata')
+                                    faces=reshape(1:prod(size(data(d).X)),size(data(d).X));
+                                    faces=faces(1:end-1,1:end-1);
+                                    xv=[data(d).X(:) data(d).Y(:)];
+                                    fv=[faces(:) faces(:)+1 faces(:)+size(data(d).X,1)+1 faces(:)+size(data(d).X,1)];
+                                    xx=data(d).X(fv);
+                                    yy=data(d).Y(fv);
+                                    rm=any(isnan(xx),2)|any(isnan(yy),2);
+                                    fv(rm,:)=[];
+                                else
+                                    xy=[data(d).X(:) data(d).Y(:)];
+                                    rm=any(isnan(xy),2);
+                                    xy(rm,:)=[];
+                                end
                             end
-                        else
-                            data(d).X=data(d).X(:,:,1); % remove 3rd dimension when appropriate
-                            data(d).Y=data(d).Y(:,:,1); % remove 3rd dimension when appropriate
-                            if strcmp(retrieve,'gridcelldata')
-                                faces=reshape(1:prod(size(data(d).X)),size(data(d).X));
-                                faces=faces(1:end-1,1:end-1);
-                                xv=[data(d).X(:) data(d).Y(:)];
-                                fv=[faces(:) faces(:)+1 faces(:)+size(data(d).X,1)+1 faces(:)+size(data(d).X,1)];
-                                xx=data(d).X(fv);
-                                yy=data(d).Y(fv);
-                                rm=any(isnan(xx),2)|any(isnan(yy),2);
-                                fv(rm,:)=[];
+                            cv=[];
+                            cLabels={};
+                            if isfield(data,'XComp')
+                                cv=[data(d).XComp(:)];
+                                cLabels{end+1}='X comp.';
+                            end
+                            if isfield(data,'YComp')
+                                cv=[cv data(d).YComp(:)];
+                                cLabels{end+1}='Y comp.';
+                            end
+                            if isfield(data,'ZComp')
+                                cv=[cv data(d).ZComp(:)];
+                                cLabels{end+1}='Z comp.';
+                            end
+                            if isfield(data,'Val')
+                                cv=[cv data(d).Val(:)];
+                                cLabels{end+1}=componentof;
+                            end
+                            %
+                            if ~isempty(xv)
+                                CV = cat(1,CV,cv);
+                                FV = cat(1,FV,fv + size(XV,1));
+                                XV = cat(1,XV,xv);
                             else
-                                xy=[data(d).X(:) data(d).Y(:)];
-                                rm=any(isnan(xy),2);
-                                xy(rm,:)=[];
+                                XY = cat(1,XY,xy);
                             end
+                            RM = cat(1,RM,rm);
                         end
-                        cv=[];
-                        cLabels={};
-                        if isfield(data,'XComp')
-                            cv=[data(d).XComp(:)];
-                            cLabels{end+1}='X comp.';
-                        end
-                        if isfield(data,'YComp')
-                            cv=[cv data(d).YComp(:)];
-                            cLabels{end+1}='Y comp.';
-                        end
-                        if isfield(data,'ZComp')
-                            cv=[cv data(d).ZComp(:)];
-                            cLabels{end+1}='Z comp.';
-                        end
-                        if isfield(data,'Val')
-                            cv=[cv data(d).Val(:)];
-                            cLabels{end+1}=componentof;
-                        end
-                        if isempty(cv)
+                        if isempty(CV)
                             %
                             % grid only ... export M, N coordinate?
                             %
-                            cv={};
+                            CV = {};
                         else
-                            cLabels=strrep(cLabels,' ','_');
+                            cLabels = strrep(cLabels,' ','_');
                             %
-                            cv(rm,:)=[];
-                            rm=any(isnan(cv),2);
-                            cv(rm,:)=[];
-                            if isempty(xy)
-                                fv(rm,:)=[];
+                            CV(RM,:) = [];
+                            RM = any(isnan(CV),2);
+                            CV(RM,:) = [];
+                            if isempty(XY)
+                                FV(RM,:) = [];
                             else
-                                xy(rm,:)=[];
+                                XY(RM,:) = [];
                             end
-                            cv={cLabels,cv};
+                            CV = {cLabels,CV};
                         end
                         if strcmp(retrieve,'gridcelldata')
                             %
                             % make sure that polygons are stored clockwise ...
+                            % just checking the first one
                             %
-                            if strcmp(shp_type,'polygon') && ~any(isnan(fv(1,:))) && clockwise(data(d).X(fv(1,:)),data(d).Y(fv(1,:)))<0
+                            if strcmp(shp_type,'polygon') && ~any(isnan(FV(1,:))) && clockwise(XV(FV(1,:),1),XV(FV(1,:),2))<0
                                 % a simple fv=fliplr(fv) only works if all
                                 % patches have the same number of corner
                                 % nodes, so no fill NaNs. To be generic we
                                 % have to loop:
-                                nv = size(fv,2)-sum(isnan(fv),2);
-                                for i = 1:size(fv,1)
+                                nv = size(FV,2) - sum(isnan(FV),2);
+                                for i = 1:size(FV,1)
                                     % first nv indices should not be NaN
-                                    fv(i,1:nv(i)) = fv(i,nv(i):-1:1);
+                                    FV(i,1:nv(i)) = FV(i,nv(i):-1:1);
                                 end
                             end
-                            shapewrite(filename,shp_type,xv,fv,cv{:})
+                            shapewrite(filename,shp_type,XV,FV,CV{:})
                         else
-                            shapewrite(filename,'point',xy,cv{:})
+                            shapewrite(filename,'point',XY,CV{:})
                         end
                     end
                 case {'vector','vector (split x,y)','vector (split m,n)','contour lines','coloured contour lines','contour patches','contour patches with lines','thin dams'}
@@ -812,19 +869,39 @@ for f=1:ntim
                             %
                             [xy,cLabels,cv] = process_polygons(xy,fc,cv,minmax);
                             %
+                            featureLabels = {};
+                            remove = false(size(xy));
+                            for i = length(xy):-1:1
+                                if isnan(cv(i,1))
+                                    if isnan(cv(i,2))
+                                        remove(i) = true;
+                                    else
+                                        featureLabels{i} = sprintf('values smaller than %g',cv(i,2));
+                                    end
+                                elseif isnan(cv(i,2))
+                                    featureLabels{i} = sprintf('values larger than %g',cv(i,1));
+                                else
+                                    featureLabels{i} = sprintf('values between %g and %g',cv(i,:));
+                                end
+                            end
+                            if any(remove)
+                                xy(remove) = [];
+                                cv(remove,:) = [];
+                                featureLabels(remove) = [];
+                            end
                             switch expType
                                 case 'arcview shape'
                                     shapewrite(filename,xy,cLabels,cv)
+                                case 'geojson file'
+                                    properties = [];
+                                    for p = 1:length(cLabels)
+                                        properties.(cLabels{p}) = cv(:,p);
+                                    end
+                                    geojson('write', filename, 'polygon', featureLabels, xy, properties)
                                 case 'polygon file'
                                     DATA = [];
                                     for i = length(xy):-1:1
-                                        if isnan(cv(i,1))
-                                            DATA.Field(i).Name = sprintf('values smaller than %g',cv(i,2));
-                                        elseif isnan(cv(i,2))
-                                            DATA.Field(i).Name = sprintf('values larger than %g',cv(i,1));
-                                        else
-                                            DATA.Field(i).Name = sprintf('values between %g and %g',cv(i,:));
-                                        end
+                                        DATA.Field(i).Name = featureLabels{i};
                                         DATA.Field(i).Data = xy{i};
                                     end
                                     tekal('write',filename,DATA);
@@ -901,6 +978,7 @@ for f=1:ntim
                     error('Unknown presentationtype "%s" during export of ArcView Shape',Ops.presentationtype)
             end
         case 'sample file'
+            writeHeader = true;
             x=0; y=0; z=0; sz=[];
             if isfield(data,'X')
                 x=1;
@@ -954,24 +1032,39 @@ for f=1:ntim
             if fid<0
                 error(['Could not create or open: ',filename])
             end
-            fprintf(fid,'"%s" ',vars{:});
+            if writeHeader
+                fprintf(fid,'"%s" ',vars{:});
+            end
             fprintf(fid,'\n');
             Format=repmat(' %14.6f',1,size(expdata,1));
             Format=[Format(2:end) '\n'];
             fprintf(fid,Format,expdata);
             fclose(fid);
         case {'stl stereolithography file (ascii)','stl stereolithography file (binary)'}
+            writeAscii = strcmp(expType(strfind(expType,'('):end), '(ascii)');
             xyz = squeeze(data.XYZ);
             if size(xyz,2)==2
-                xyz  = [xyz data.Val'];
+                xyz(:,3) = data.Val(:);
             end
-            switch expType(strfind(expType,'('):end)
-                case '(ascii)'
-                    stl('write_ascii',filename,data.Name,data.TRI,xyz)
-                case '(binary)'
-                    stl('write',filename,data.Name,data.TRI,xyz)
+            if writeAscii
+                stl('write_ascii',filename,data.Name,data.TRI,xyz)
+            else
+                stl('write',filename,data.Name,data.TRI,xyz)
             end
         case {'mat file','mat file (v6)','mat file (v7)','mat file (v7.3/hdf5)'}
+            saveops={};
+            switch expType
+                case 'mat file (v6)'
+                    if matlabversionnumber>=7
+                        saveops={'-v6'};
+                    end
+                case 'mat file (v7)'
+                    if matlabversionnumber>=7.3
+                        saveops={'-v7'};
+                    end
+                case 'mat file (v7.3/hdf5)'
+                    saveops={'-v7.3'};
+            end
             if scalar && isfield(data,'XComp')
                 data.Name = [data.Name ', ' Ops.vectorcomponent];
                 if isfield(data,'XComp')

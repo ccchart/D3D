@@ -47,7 +47,7 @@ function [varargout]=qp_getdata(varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2019 Stichting Deltares.
+%   Copyright (C) 2011-2020 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -502,7 +502,7 @@ DimFlag = Props.DimFlag;
 %
 v_slice=[];
 h_slice=[];
-if isfield(Props,'SubFld') && ~isempty(Props.SubFld)
+if ~isempty(feval(Fcn,FI,X{1:2},'subfields'))
     sf = 1;
 else
     sf = 0;

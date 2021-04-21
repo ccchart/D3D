@@ -108,6 +108,7 @@
       real   (rp)     twopi          ! 2*pi
       real   (rp)     g              ! gravitational acceleration (m/s2)
       real   (rp)     viscosity_water ! viscosity of water (Pa.s)
+      real   (rp)     rhodiff        ! density difference particle and ambient help variable
       real   (rp)     vsfact1        ! help variable
       real   (dp)     vs1  , vs2  , vs3  , vs4  , vs5  , vs6  , vst  ! accumulation help variables
       real   (dp)     w              ! help variable
@@ -166,6 +167,7 @@
                ! density dependent settling velocity 
                ic = lgrid3(npart(ipart), mpart(ipart))
 !              active cell's only
+               vsfact1 = vsfact(1,isub) ! this is to prevent a crash due to NaN when the particle is not in an active cell ?
                if (ic  >  0) then
                   if(kpart(ipart) <= 0.or.kpart(ipart) > nolay) then
                      write(*,*) ' ipart = ',ipart,' k = ',kpart(ipart)
@@ -177,12 +179,21 @@
                   ! iptime(ipart0 in seconds
                   if (pldenstime) then
                      rhopart(isub,ipart) = pldensity(isub) -(pldensity(isub)-end_pldenstime(isub)) * &
-                                         max(0.0, iptime(ipart) / 86400.0e0 - delay_denstime(isub))/period_denstime(isub)
+                                         min(max(0.0, iptime(ipart) / 86400.0e0 - delay_denstime(isub))/period_denstime(isub),1.0)
                   endif
                   
                   iseg = (kpart(ipart) - 1)*noseglp + ic
-                  vsfact1 = plshapefactor(isub) * 2.0e0 / 9.0e0 * (rhopart(isub,ipart) - rhowatc(iseg)) / &
-                            viscosity_water * g * spart(isub,ipart)**2 / (2 ** ((iptime(ipart) / 86400.0e0) * plfragrate(isub)))
+                  rhodiff = rhopart(isub,ipart) - rhowatc(iseg)
+                  if (pldragmod) then  ! this is the terminal velocity not using Stokes
+                    vsfact1 = sqrt(4.0 * g * spart(isub,ipart) * abs(rhodiff)/3 / pldrag(isub) / rhowatc(iseg))
+                    if (rhodiff < 0) then
+                       vsfact1 = -vsfact1
+                    endif
+                  else
+                    vsfact1 = plshapefactor(isub) * 2.0e0 / 9.0e0 * rhodiff / &
+                                viscosity_water * g * spart(isub,ipart)**2 / (2 ** ((iptime(ipart) / 86400.0e0) * plfragrate(isub)))
+                  endif
+                            
                endif
             else
                vsfact1 = vsfact(1,isub)

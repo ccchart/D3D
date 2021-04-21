@@ -101,6 +101,7 @@
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" OpenMP="OpenMPParallelCode" LocalVariableStorage="localStorageAutomatic"/></FileConfiguration></File>
 		<File RelativePath=".\src\partwq.f90"/>
+		<File RelativePath=".\src\partzp.f90"/>
 		<File RelativePath=".\src\plotgr.f90"/>
 		<File RelativePath=".\src\s_forcing.f90"/>
 		<File RelativePath=".\src\t_forcing.f90"/>

@@ -1,7 +1,7 @@
 module meteo_read
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2019.
+!  Copyright (C)  Stichting Deltares, 2011-2020.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -85,6 +85,7 @@ function readtime(minp, meteoitem, flow_itdate, flow_tzone, tread) result(succes
    character(len=1)              :: sign_time_zone
    character(len=:), allocatable :: rec
    character(len=:), allocatable :: time_definition
+   character(len=256)            :: iomsg
    !
    if (meteoitem%filetype == uniuvp) then
       success = .true.
@@ -93,8 +94,8 @@ function readtime(minp, meteoitem, flow_itdate, flow_tzone, tread) result(succes
    !
    time_definition = ' '
    do
-      rec             = ' '
-      call GetLine(minp, rec, ierr)
+      rec = ' '
+      call GetLine(minp, rec, ierr, iomsg)
       if (ierr /= 0) then
          meteomessage = 'Meteo input: Premature end of file; expecting data at additional time'
          success = .false.
@@ -119,7 +120,7 @@ function readtime(minp, meteoitem, flow_itdate, flow_tzone, tread) result(succes
             ! Line contains entry other than a keyword or commentary
             ! NOT ALLOWED: ERROR
             !
-            meteomessage = 'Meteo input: wrong entry in meteofile '//trim(meteoitem%filename)//'; expecting keyword or commentary, but found: '//rec(1:40)
+            meteomessage = 'Meteo input: wrong entry in meteofile '//trim(meteoitem%filename)//'; expecting keyword or commentary, but found: '//trim(rec)
             success = .false.
             return
          endif

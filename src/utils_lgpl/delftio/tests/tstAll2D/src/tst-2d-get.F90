@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This library is free software; you can redistribute it and/or                
 !  modify it under the terms of the GNU Lesser General Public                   
@@ -63,8 +63,7 @@ subroutine write_his_long_2dget(synched, auto, resFileName)
 
 !   Open file for results, write DioVersion
 
-    resLun = 11
-    open(resLun,file=resFileName)
+    open(newunit=resLun,file=resFileName)
     call DioGetVersion(dioVersion)
     call DioGetIdent(dioIdent)
     write(resLun,*) 'dioVersion: ', dioVersion

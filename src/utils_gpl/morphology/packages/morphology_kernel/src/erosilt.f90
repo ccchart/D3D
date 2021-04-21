@@ -1,16 +1,16 @@
 subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
                  & thick0   ,thick1    ,fixfac    ,srcmax   , &
                  & frac     ,oldmudfrac,flmd2l    ,iform    , &
-                 & par      ,numintpar ,numrealpar,numstrpar, &
-                 & dllfunc  ,dllhandle ,intpar    ,realpar  , &
-                 & strpar   ,iflufflyr ,mflufftot ,fracf    , &
-                 & maxslope ,wetslope  , &
+                 & npar     ,par       ,numintpar ,numrealpar, &
+                 & numstrpar,dllfunc  ,dllhandle ,intpar    , &
+                 & realpar  ,strpar   ,iflufflyr ,mflufftot , &
+                 & fracf    ,maxslope ,wetslope  , &
 ! output:
                  & error    ,wstau     ,sinktot   ,sourse   , &
                  & sourf    )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2019.                                
+!  Copyright (C)  Stichting Deltares, 2011-2020.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -50,6 +50,7 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
     use sediment_basics_module
     use morphology_data_module, only: RP_TAUB
     use message_module, only: write_error
+    use iso_c_binding, only: c_char
     !
     implicit none
     !
@@ -60,6 +61,7 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
     integer                             , intent(in)    :: numstrpar
     integer                             , intent(in)    :: kmax
     integer                                             :: lundia   !  Description and declaration in inout.igs
+    integer                             , intent(in)    :: npar
     integer       , dimension(numintpar), intent(inout) :: intpar
     integer(pntrsize)                   , intent(in)    :: dllhandle
     !
@@ -68,7 +70,7 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
     real(fp)                            , intent(in)    :: fracf
     real(fp)                            , intent(in)    :: maxslope
     real(fp)                            , intent(in)    :: mflufftot
-    real(fp)     , dimension(30)        , intent(inout) :: par
+    real(fp)     , dimension(npar)      , intent(inout) :: par
     real(fp)                            , intent(out)   :: sinktot
     real(fp)                            , intent(out)   :: sourf
     real(fp)                            , intent(out)   :: sourse
@@ -114,7 +116,11 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
     integer(pntrsize)           :: ierror_ptr
     integer(pntrsize), external :: perf_function_erosilt
     character(1024)             :: errmsg
-    character(256)              :: message     ! Contains message from user dll
+    character(256)              :: message        ! Contains message from user dll
+    character(kind=c_char)      :: message_c(257) ! C- version of "message", including C_NULL_CHAR
+                                                  ! Calling perf_function_erosilt with "message" caused problems
+                                                  ! Solved by using "message_c"
+    integer                     :: i
 !
 !! executable statements ------------------
 !
@@ -201,6 +207,10 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
           sink_dll    = 0.0_hp
           sour_dll    = 0.0_hp
           message     = ' '
+          do i=1,256
+             message_c(i) = message(i:i)
+          enddo
+          message_c(257) = C_NULL_CHAR
           !
           ! psem/vsem is used to be sure this works fine in DD calculations
           !
@@ -211,7 +221,8 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
                                              realpar         , numrealpar        , &
                                              strpar          , numstrpar         , &
                                              sink_dll        , sour_dll          , &
-                                             message)
+                                             message_c)
+          message = transfer(message_c(1:256), message)
           call vsemlun
           if (ierror_ptr /= 0) then
              errmsg = 'Cannot find function "'//trim(dllfunc)//'" in dynamic library.'

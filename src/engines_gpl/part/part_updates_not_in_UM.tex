@@ -6,6 +6,7 @@
 \usepackage[most]{tcolorbox}
 \usepackage{ragged2e}
 \usepackage{enumerate}
+\usepackage{xfrac}
 %\usepackage{tabto}
 %\usepackage{subfig}
 \newcommand\tab[1][1cm]{\hspace*{#1}}
@@ -713,8 +714,137 @@ In the IBM module a number of depths and levels are defined that need to be expl
 Behaviour of herring larvae in the IBM module the behaviour can easily be adapted/adjusted or additional behaviour rules added.
 De initiele conditie wordt gegenereerd met een extern programma. Dat is een python script dat een geotiff leest van de verspreiding (start). Het oorspronkelijke programma leek wat onnauwkeurigheden te bevatten. 
 
+\section{Plastic module, modeltype 6}
+When the model type 6 is selected the plastics module is invoked. When applying this model, a set of parameters will need to be added to the input. 
+This is done by the keyword \texttt{plastics\_parameters}
+
+An example of the data that goes with this module:
+\begin{tcolorbox}
+\begin{Verbatim}
+;name    density shapefactor meanradius varsize degr. rate 
+plastics_parameters
+'Fiber_lh'   995      0.01      2.50E-03      0.      0.0
+'Fiber_sh'   995      0.01      0.50E-04      0.      0.0
+'Fiber_ll'   995      0.1       2.50E-03      0.      0.0
+'Fiber_sl'   995      0.1       0.50E-04      0.      0.0
+'Sphere_ll'  995      1.0       2.50E-03      0.      0.0
+'Sphere_sl'  995      1.0       0.50E-04      0.      0.0
+'Sphere_lh'  995      1.0       2.50E-03      0.      0.0
+'Sphere_sh'  995      1.0       0.50E-04      0.      0.0
+end
+\end{Verbatim}
+\end{tcolorbox}
+
+The distribution of particles is determined by flow, diffusion and settling velocity. The settling velocity also depends on the properties of plastics and these properties need to be specified. In addition, the abundance of particles coming from each river has to be specified.
+
+\subsection{Settling velocity}
+The settling velocity of each spherical particle at a given time is calculated with the Stokes’ law (\cite{Shearer2008}):
+
+\begin{equation}\label{xx}
+	v_{t} = \frac{2}{9}\frac{(\rho_p - \rho_f)}{\mu}\cdot g \cdot R^2
+\end{equation}
+Where 	       
+$v_{t}$ settling velocity [m/s],
+$\rho_{p}$ density of the particles [kg/m3],
+$\rho_{f}$ density of the sea water [kg/m3],
+$\mu$ dynamic viscosity [kg/(s*m)],
+$g$ Gravitational acceleration[m/s2] and
+$R$ radius of particle[m].
+
+Also, the density of the sea water is dependent on the ambient conditions (temperature, salinity). We note that for negative values of the settling velocity (when the densities of the particles are smaller than the density of the fluid), the particles will move upwards towards the water surface.
+
+In order to use Stokes law, particles must have a low Reynolds number, meaning the particles are in a smooth constant motion. Intuitively, the marine environment seems like a turbulent one. However, the relative flow around small particles acts in a smooth, laminar fashion making Stokes law applicable. \\
+Paper settling velocity: \cite{Khatmullina2017}, \cite{Kowalski2016}.{check de inhoud van deze referenties, horen die bij de zinnen hierboven?}
+
+The Reynolds number aroud a sphere is defined by:
+
+\begin{equation}
+	Re = \frac{D \cdot v_{t} \cdot \rho_f}{\mu}
+\end{equation}
+with D the sphere diameter[m].
+
+\textit{Plastic properties}
+Settling velocity of particles depends on density, i.e. particles with a density lower than the density of seawater will float and particles with a density higher than the density of seawater will sink. Also the size of particles will determine how fast particles will sink. The shape of the particle, i.e. fibre, flake, grain will also influences the sinking process. 
+
+\textit{Size} 
+In this study, the Delft3D-PART module has been enhanced with a probabilistic element, which consists of the representation of the size of the particles using a logarithmic distribution as an optimum choice. The log-normal distribution is important in the description of natural phenomena and is applicable when the quantity of interest must be positive, since ln(x) exists only when x is positive. The mean and variance values are user defined. In this study, these values are determined from the field data analysed in the CleanSea project.
+
+\textit{Plastic shape}
+In addition to the size distribution, a shape factor has been introduced in the model to account for the different shapes of the plastics encountered in the field. Intuitively, a spherical particle settles faster compared to a flake shaped particle. To account for this behaviour, the concept of the Corey Shape Factor has been used. According to its definition, this factor is equal to 1 when a particle has a spherical or cubical shape. Based on this reference, corresponding shape factor values can be defined for other shapes.
+The average value of flakes is from 0.1 to 0.3, blocky grains is from 0.5 to 0.7, and the value of near-spherical grains is 0.8 or larger (\cite{Hou1992}.\\
+
+\textit{drag of particles}This is an overview of some of hte models presented by \cite{VanMelkebeke2020}. According to this paper the most accurate model would be by Dioguardi et al (2018).
+First of all the definition of the Reynolds number:
+\begin{equation}
+	Re= \frac{\rho_{f}w_{t}d_{p}}{\mu_{f}}
+\end{equation}
+where $\mu_{f}$ is the fluid (dynamic) viscocity. 
+\begin{equation}\label{dioguardi}
+	C_{D} = \frac{24}{Re_{p}} \left( \frac{1-\psi}{Re_{p}} + 1 \right)^{0.25} + 
+	\frac{24}{Re_{p}} \left( 0.1806 \cdot Re_{p}^{0.6459} \right) \psi^{-Re_{p}^{0.08}} +
+	\frac{0.4251}{1+\frac{6880.95}{Re_{p}}\psi^{5.05}}
+\end{equation}
+For $0.03 < Re_{p} < 10^{4}$. \\
+
+The following function is defined for $\psi$:
+\begin{equation}\label{psi}
+	\psi = f(\Phi, \chi)
+\end{equation}
+$\phi$ is sphericity, $\chi$ is circulatity 
+
+According to \cite{Dioguardi2018} definitions are as follows:
+\begin{equation}
+	\phi= \frac{A_{sph}}{A_{p}}
+	\label{key}
+\end{equation}
+
+A$_{sph}$ is calculated by means of the diameter of the volume equivalent sphere d$_{sph}$:
+\begin{equation}
+	d_{sph}= \sqrt[3]{\frac{6m}{\pi \rho_{p}}}
+	\label{eq:spherediam}
+\end{equation}
+where $m$ and $\rho_{p}$ are the mass and density of the particle. In practice Equation (\ref{eq:spherediam}) cannot be used (very difficult to obtain). 
+
+So the surface are is estimated from the main sizes along the three axis:
+\begin{equation}
+	A_{p}=4\pi \left(  \frac{\left( \sfrac{D_{l}}{2}\right)^{z}\left( \sfrac{D_{m}}{2}\right)^{z} + \left( \sfrac{D_{l}}{2}\right)^{z}\left( \sfrac{D_{s}}{2}\right)^{z} + \left( \sfrac{D_{m}}{2}\right)^{z}\left( \sfrac{D_{s}}{2}\right)^{z}}{3} \right)^{\sfrac{1}{z}}
+	\label{eq:sphersurf}
+\end{equation}
+where $D_{l}$, $D_{m}$ and $D_{s}$ are the three principal axis of the particle and z=1.3075.
+
+The circularity is defined as:
+\begin{equation}
+	\chi = \frac{P_{mp}}{P_{c}}
+\end{equation}
+where $P_{m}$ and $P_{c}$ are the maximum projection perimeter and the perimeter of the circle equivalent to the maximum projection area $A_{mp}$.
+For the purpose of this paper we will not have detailed information on the particles, but the size characterisation will be assumed for certain types of materials. 
+\cite{VanMelkebeke2020} include an overview of shape characterisation factors, including hte sphericity and circularity and the shape factor used in Dioguardi is defined by the quotient of the shape descriptor sphericity divided by the circularity ($\sfrac{\Phi}{\chi}$). The shape factors were in the range of 0.355 to 0.943. The limit is 1 which is a perfect sphere. We can use this as a range to be used in additional sensitivity studies. 
+
+In the modelling we use the terminal fall velocity that is defined by:
+\begin{equation}
+	w_{t}=\sqrt{\frac{4gd_{p}\left( \rho_{p}-\rho_{f}\right)}{3C_{d}\rho_{f}}}
+	\label{eq:settlingvel}
+\end{equation}
+The present settling in PART is based on Stokes and using a shape factor. It is better to use the terminal velocity as above (Equation \ref{eq:settlingvel}). This should be adapted in the Part description.
+Examples of drag coefficients:
+\begin{figure}[H]%
+	\centering
+	\begin{subfigure}{0.25\textwidth}
+		\begin{tcolorbox}[interior hidden, 
+		boxsep=2pt,
+		left=2pt,
+		right=2pt,
+		top=2pt,]
+			\includegraphics[clip, width=1\textwidth]{figures/Hoerner_fluid_dynamic_drag_coefficients.svg.png}%
+		\end{tcolorbox}
+	\end{subfigure}
+	\caption{Examples drag coefficients}
+	\label{fig:dragcoeff}
+\end{figure}
+
 \section{(Micro)Plastic degradation: changes of density as a function of particle age}
 To allow plastic particles to change with time, it is necessary to change the overall density as a function of time. This change is considered to be the combined result of eg algal or bacterial growth or changes in the composition with time, leading to a generally higher density. Relatively little is known how this change should be described, but this process will affect the final fate of the particles and in which area they may accumulate. Hence a very general description has been chosen. The density change is considered the dominating process over shorter periods (such as the residence time in the North Sea) since other degrading processes have much longer timescales. 
+
 
 A linear dependency was chosen starting with an initial density $\rho_{p}(start)$, ending with a final density $\rho_{p}(end)$and the speed of change (delta rho over the given time period $\left[ \dfrac{max(0, T_{p} - Td_{p})}{\Delta T} \right]$), with a time delay $Td_{p}$ for the start of the function to allow for extra flexibility. The speed of change is calcuated from the difference between the start and end density and the period (in days) that this takes.
 
@@ -722,10 +852,12 @@ The keyword to switch on this option is:\\
 \texttt{pldenstime} with 
 
 \begin{equation}\label{tdensity}
-\rho_{p}(t) = \rho_{p}(start) - \left[ \rho_{p}(start)- \rho_{p}(end) \right] * \dfrac{max(0, T_{p} - Td_{p})}{\Delta T}
+\rho_{p}(t) = \rho_{p}(start) - \left[ \rho_{p}(start)- \rho_{p}(end) \right] * \dfrac{min(max(0, T_{p} - Td_{p}),1.0)}{\Delta T}
 \end{equation}
 
 parameters \textit{pldensend}, \textit{plddensdt} (in days for each of the defined plastics in the model) and \textit{pldtdelay}. The startdensity is given by the parameter \textit{pldensity} of the plastics model and the delay (in days) by \textit{pldtdelay}. 
+
+\textbf{Note : this option is only valid for model type 6 (plastics)}
 
 \begin{figure}[H]%
 		\begin{subfigure}{0.7\textwidth}
@@ -750,9 +882,33 @@ pldenstime
 'Sphere_sh'     1030          30                 0
 \end{Verbatim}
 \end{tcolorbox}
-The list of plastic types need to be the same as the list of substances in the input file.
+The list of plastic types and the order in which they are specified need to be the same as the list of substances in the input file.
 
-Hence\textbf{to be continued}
+The start density is specified in the parameter section of the plastics model. 
+Hence
+\textbf{to be continued}
+
+\section{Running with z-layer hydrodynamics}
+20 April 2021.
+The model has been adapted to z-layer and seems to work well. The communication files can be used as is, except for a small change in the *.hyd file. The unstructured grid file cannot be used. 
+The hyd file needs a small addition (not supported by the coupling yet) and that is that the bottom and surface depths of the hydrodynamic model needs to be added. 
+This section of the hyd file has the following structure:
+\begin{tcolorbox}
+\begin{Verbatim}
+chezy-coefficients-file  'com-f03b-z.chz'
+shear-stresses-file      'com-f03b-z.tau'
+walking-discharges-file  'com-f03b-z.wlk'
+attributes-file          'com-f03b-z.atr'
+z-layers-ztop        1.000000
+z-layers-zbot      -10.000000
+minimum-vert-diffusion   
+upper-layer       0.0000E+00
+lower-layer       0.0000E+00
+interface-depth   0.0000E+00
+end-minimum-vert-diffusion
+\end{Verbatim}
+\end{tcolorbox}
+
 
 \chapter*{Bibliography}
 \bibliographystyle{apalike}
