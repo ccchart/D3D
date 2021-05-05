@@ -351,7 +351,7 @@ contains
 
    end subroutine getCrossFlowDataGP
    
-   subroutine getCrossFlowSectionGP(network, igrid, isec, water, DepthOrLevel, flowArea, flowWidth, wetPerimeter)
+   subroutine getCrossFlowSectionGP(network, igrid, isec, water, DepthOrLevel, flowArea, flowWidth, wetPerimeter, depthSect)
    
       type(t_network), intent(in)              :: network
       integer, intent(in)                      :: igrid
@@ -361,6 +361,7 @@ contains
       double precision, optional, intent(out)  :: flowArea
       double precision, optional, intent(out)  :: flowWidth
       double precision, optional, intent(out)  :: wetPerimeter
+      double precision, optional, intent(out)  :: depthSect     !< Water depth at isec
    
       type (t_CrossSection), pointer           :: cross1
       type (t_CrossSection), pointer           :: cross2 
@@ -379,6 +380,8 @@ contains
       double precision                   :: area2
       double precision                   :: width2
       double precision                   :: perimeter2
+      double precision                   :: depthSect1
+      double precision                   :: depthSect2
 
       cross1 => network%crs%cross(network%adm%gpnt2cross(igrid)%c1)
       cross2 => network%crs%cross(network%adm%gpnt2cross(igrid)%c2)
@@ -395,12 +398,13 @@ contains
          dpt = water
       endif
 
-      call GetTabFlowSectionFromTables(dpt, cross1, isec, area1, width1, perimeter1)
-      call GetTabFlowSectionFromTables(dpt, cross2, isec, area2, width2, perimeter2)
+      call GetTabFlowSectionFromTables(dpt, cross1, isec, area1, width1, perimeter1, depthSect1)
+      call GetTabFlowSectionFromTables(dpt, cross2, isec, area2, width2, perimeter2, depthSect2)
       
       area      = (1.0d0 - factor) * area1      + factor * area2
       width     = (1.0d0 - factor) * width1     + factor * width2
       perimeter = (1.0d0 - factor) * perimeter1 + factor * perimeter2
+      depthSect = (1.0d0 - factor) * depthSect1 + factor * depthSect2
       
       if (present(flowArea))     flowArea = area
       if (present(flowWidth))    flowWidth = width

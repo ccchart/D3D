@@ -188,7 +188,7 @@ module m_CrossSections
        double precision, allocatable, dimension(:)   :: totalArea     !< Total Areas
        double precision, allocatable, dimension(:)   :: area_min      !< Area for a narrowing part of a cross section (Nested Newton)
        double precision, allocatable, dimension(:)   :: width_min     !< Width for a narrowing part of a cross section (Nested Newton)
-       
+
        !--- additional data for river profiles
        double precision                         :: plains(3) = 0.0d0  !< 1: main channel, 2: floopplain 1, 3: floodplain 2
        integer                                  :: plainsLocation(3)
@@ -2215,7 +2215,7 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
 end subroutine GetTabulatedSizes
 
 
-subroutine GetTabFlowSectionFromTables(dpt, pCross, isector, area, width, perimeter)
+subroutine GetTabFlowSectionFromTables(dpt, pCross, isector, area, width, perimeter, depthSect)
 
    use m_GlobalParameters
 
@@ -2227,6 +2227,7 @@ subroutine GetTabFlowSectionFromTables(dpt, pCross, isector, area, width, perime
    double precision, intent(out)                :: width
    double precision, intent(out)                :: area
    double precision, intent(out)                :: perimeter
+   double precision, intent(out)                :: depthSect !< water depth at isector
 
    ! local parameters
    integer                                      :: levelsCount
@@ -2343,6 +2344,11 @@ subroutine GetTabFlowSectionFromTables(dpt, pCross, isector, area, width, perime
             
       enddo
          
+   endif
+   if (isector == 1) then
+      depthSect = dpt
+   else
+      depthSect = max(0d0,dpt - pCSD%height(pCSD%plainsLocation(isector-1)))
    endif
    
 end subroutine GetTabFlowSectionFromTables
