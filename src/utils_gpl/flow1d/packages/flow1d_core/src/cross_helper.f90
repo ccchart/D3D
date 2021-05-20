@@ -404,8 +404,9 @@ contains
       area      = (1.0d0 - factor) * area1      + factor * area2
       width     = (1.0d0 - factor) * width1     + factor * width2
       perimeter = (1.0d0 - factor) * perimeter1 + factor * perimeter2
-      depthSect = (1.0d0 - factor) * depthSect1 + factor * depthSect2
-      
+      if (present(depthSect) ) then
+         depthSect = (1.0d0 - factor) * depthSect1 + factor * depthSect2
+      endif
       if (present(flowArea))     flowArea = area
       if (present(flowWidth))    flowWidth = width
       if (present(wetPerimeter)) wetPerimeter = perimeter
