@@ -651,6 +651,10 @@ module m_readCrossSections
       if (success) call prop_get_double(node_ptr, '', 'sd_baseLevel', baseLevel, success)
       if (success) call prop_get_double(node_ptr, '', 'sd_flowArea',  flowArea,  success)
       if (success) call prop_get_double(node_ptr, '', 'sd_totalArea', totalArea, success)
+      if (success .and. flowArea > totalArea) then
+            call SetMessage(LEVEL_ERROR, 'Total area behind summerdike should be larger then flow area behind summerdike. Cross-Section Definition id: '//trim(pCS%id)//'.')
+            return
+      endif      
       if (success) then
          if (flowArea > 1.0d-5 .or. totalArea > 1.0d-5) then
             allocate(pCS%summerdike)
@@ -803,7 +807,7 @@ module m_readCrossSections
       deallocate(width)
       deallocate(TotalWidth)
 
-      readTabulatedCS =  .true.
+      readTabulatedCS = .true.
       
    end function readTabulatedCS
    
