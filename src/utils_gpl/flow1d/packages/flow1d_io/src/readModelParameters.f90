@@ -209,17 +209,22 @@ module m_readModelParameters
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Longitude', longitude, success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'timeZone', time_zone, success)
       
-      write_tables = .false.
-      call prop_get_logical(md_ptr, 'StorageTable', 'WriteStorageTables', write_tables, success)
+      use_volume_tables = .false.
+      call prop_get_logical(md_ptr, 'VolumeTable', 'UseVolumeTable', use_volume_tables, success)
       if (write_tables) then
-         call prop_get_string(md_ptr, 'StorageTable', 'StorageOutputFile', st_filename, success)
-         if (.not. success) then
-            call setmessage(LEVEL_ERROR, 'StorageOutputFile not found in md1d file')
+         call prop_get_logical(md_ptr, 'VolumeTable', 'WriteVolumeTables', write_tables, success)
+         call prop_get_logical(md_ptr, 'VolumeTable', 'ReadVolumeTables', read_tables, success)
+
+         if (write_tables .or. read_tables) then
+            call prop_get_string(md_ptr, 'VolumeTable', 'VolumeTableFile', st_filename, success)
+            if (.not. success) then
+               call setmessage(LEVEL_ERROR, 'VolumeTableFile not found in md1d file')
+            endif
          endif
          tb_inc = 0.1d0
-         call prop_get_double(md_ptr, 'StorageTable', 'StorageTableIncrement', tb_inc, success)
+         call prop_get_double(md_ptr, 'VolumeTable', 'VolumeTableIncrement', tb_inc, success)
          tb_extra_height = 0d0
-         call prop_get_double(md_ptr, 'StorageTable', 'ExtraHeight', tb_extra_height, success)
+         call prop_get_double(md_ptr, 'VolumeTable', 'ExtraHeight', tb_extra_height, success)
       endif
       
       call prop_get_integer(md_ptr, 'Morphology', 'CalculateMorphology', iValue, success)

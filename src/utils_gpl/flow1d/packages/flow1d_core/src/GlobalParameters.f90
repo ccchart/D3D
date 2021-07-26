@@ -73,6 +73,8 @@ module m_GlobalParameters
    double precision, public      :: tb_extra_height = 0.0
    character(len=charln), public :: st_filename
    logical, public               :: write_tables
+   logical, public               :: read_tables
+   logical, public               :: Use_volume_tables
 
    
    character(len=charln)            :: wlevStateFileIn
