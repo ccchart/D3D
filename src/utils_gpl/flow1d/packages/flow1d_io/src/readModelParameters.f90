@@ -211,21 +211,19 @@ module m_readModelParameters
       
       use_volume_tables = .false.
       call prop_get_logical(md_ptr, 'VolumeTable', 'UseVolumeTable', use_volume_tables, success)
-      if (write_tables) then
-         call prop_get_logical(md_ptr, 'VolumeTable', 'WriteVolumeTables', write_tables, success)
-         call prop_get_logical(md_ptr, 'VolumeTable', 'ReadVolumeTables', read_tables, success)
+      call prop_get_logical(md_ptr, 'VolumeTable', 'WriteVolumeTables', write_tables, success)
+      call prop_get_logical(md_ptr, 'VolumeTable', 'ReadVolumeTables', read_tables, success)
 
-         if (write_tables .or. read_tables) then
-            call prop_get_string(md_ptr, 'VolumeTable', 'VolumeTableFile', st_filename, success)
-            if (.not. success) then
-               call setmessage(LEVEL_ERROR, 'VolumeTableFile not found in md1d file')
-            endif
+      if (write_tables .or. read_tables) then
+         call prop_get_string(md_ptr, 'VolumeTable', 'VolumeTableFile', st_filename, success)
+         if (.not. success) then
+            call setmessage(LEVEL_ERROR, 'VolumeTableFile not found in md1d file')
          endif
-         tb_inc = 0.1d0
-         call prop_get_double(md_ptr, 'VolumeTable', 'VolumeTableIncrement', tb_inc, success)
-         tb_extra_height = 0d0
-         call prop_get_double(md_ptr, 'VolumeTable', 'ExtraHeight', tb_extra_height, success)
       endif
+      tb_inc = 0.1d0
+      call prop_get_double(md_ptr, 'VolumeTable', 'VolumeTableIncrement', tb_inc, success)
+      tb_extra_height = 0d0
+      call prop_get_double(md_ptr, 'VolumeTable', 'ExtraHeight', tb_extra_height, success)
       
       call prop_get_integer(md_ptr, 'Morphology', 'CalculateMorphology', iValue, success)
       if (success .and. iValue==1) then
