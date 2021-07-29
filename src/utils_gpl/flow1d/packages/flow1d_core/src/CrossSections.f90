@@ -2347,8 +2347,10 @@ subroutine GetTabFlowSectionFromTables(dpt, pCross, isector, area, width, perime
    endif
    if (isector == 1) then
       depthSect = dpt
-   else
+   elseif (pCSD%plainsLocation(isector-1)>0) then
       depthSect = max(0d0,dpt - pCSD%height(pCSD%plainsLocation(isector-1)))
+   else
+      depthSect = dpt
    endif
    
 end subroutine GetTabFlowSectionFromTables
