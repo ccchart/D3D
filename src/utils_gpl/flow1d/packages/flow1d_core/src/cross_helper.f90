@@ -64,6 +64,8 @@ module m_cross_helper
    public getConveyance
    public getCrossDischarge
 
+   public hasSummerdike
+
    integer, public, parameter :: CSH_DEPTH = 0
    integer, public, parameter :: CSH_LEVEL  = 1
    
@@ -695,6 +697,19 @@ contains
       endif
      
    end subroutine getSummerDikeGPData
+
+   logical function hasSummerdike(network, igrid)
+      type(t_network), intent(in)   :: network
+      integer, intent(in)           :: igrid
+
+      type (t_CrossSection), pointer     :: cross1
+      type (t_CrossSection), pointer     :: cross2 
+
+      cross1 => network%crs%cross(network%adm%gpnt2cross(igrid)%c1)
+      cross2 => network%crs%cross(network%adm%gpnt2cross(igrid)%c2)
+
+      hasSummerdike = associated(cross1%tabDef%summerdike) .or. associated(cross2%tabdef%summerdike)
+   end function hasSummerdike
 
    double precision function getChezyFromYZ(cru, network, ilink, di, r0, qi)
  
