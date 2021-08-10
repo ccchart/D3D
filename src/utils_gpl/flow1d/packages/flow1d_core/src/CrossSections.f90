@@ -1638,6 +1638,7 @@ subroutine GetCSParsTotalInterpolate(cross1, cross2, f, dpt, totalArea, totalWid
    if(cross1%crossIndx == cross2%crossIndx) then
       ! Same Cross-Section, no interpolation needed 
       call GetCSParsTotalCross(cross1, dpt, totalArea, totalWidth, calculationOption, hysteresis(1))
+      hysteresis(2) = hysteresis(1)
    else
       select case (cross1%crosstype)
       case (CS_CIRCLE, CS_EGG)
