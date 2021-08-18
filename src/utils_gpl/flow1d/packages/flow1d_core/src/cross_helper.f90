@@ -384,6 +384,9 @@ contains
       double precision                   :: perimeter2
       double precision                   :: depthSect1
       double precision                   :: depthSect2
+      double precision                   :: af_sub_local(3)
+      double precision                   :: perim_sub_local(3)
+      double precision                   :: width_sub_local(3)
 
       cross1 => network%crs%cross(network%adm%gpnt2cross(igrid)%c1)
       cross2 => network%crs%cross(network%adm%gpnt2cross(igrid)%c2)
@@ -400,8 +403,16 @@ contains
          dpt = water
       endif
 
-      call GetTabFlowSectionFromTables(dpt, cross1, isec, area1, width1, perimeter1, depthSect1)
-      call GetTabFlowSectionFromTables(dpt, cross2, isec, area2, width2, perimeter2, depthSect2)
+      call GetTabSizesFromTables(dpt, cross1%tabDef, area1, width1, perimeter1, af_sub_local, perim_sub_local, width_sub_local)
+      area1  = af_sub_local(isec)
+      width1 = width_sub_local(isec)	
+      perimeter1 = perim_sub_local(isec)
+      depthsect1 = dpt
+      call GetTabSizesFromTables(dpt, cross2%tabDef, area2, width2, perimeter2, af_sub_local, perim_sub_local, width_sub_local)
+      area2  = af_sub_local(isec)
+      width2 = width_sub_local(isec)	
+      perimeter2 = perim_sub_local(isec)
+      depthsect2 = dpt
       
       area      = (1.0d0 - factor) * area1      + factor * area2
       width     = (1.0d0 - factor) * width1     + factor * width2

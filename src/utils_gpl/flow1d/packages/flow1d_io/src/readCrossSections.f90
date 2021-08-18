@@ -552,11 +552,7 @@ module m_readCrossSections
       call realloc(pCS%af_sub, 3, numlevels)
       call realloc(pCS%width_sub, 3, numlevels)
       call realloc(pCS%perim_sub, 3, numlevels)
-      call realloc(pCS%flowArea, numlevels)
-      call realloc(pCS%wetPerimeter, numlevels)
       call realloc(pCS%totalArea, numlevels)
-      call realloc(pCS%area_min, numlevels)
-      call realloc(pCS%width_min, numlevels)   
    !
       pCS%levelsCount = numlevels
       
@@ -746,6 +742,7 @@ module m_readCrossSections
             if ( level_index_intersect /= 0) then
                if (j == 1) then
                   pCs%plains(1) = width(1)
+                  pcs%plainslocation(i) = 1
                elseif ( abs(wintersect - width(level_index_intersect-1) ) < 1d-5 ) then
                   pCs%plainsLocation(i) = level_index_intersect-1
                elseif ( abs(wintersect - width(level_index_intersect) ) < 1d-5 ) then
@@ -769,7 +766,11 @@ module m_readCrossSections
             endif
          
          enddo
-         pCs%plainsLocation(3) = numlevels
+         if (PCs%plains(3)==0d0) then
+            pCs%plainsLocation(3) = 0
+         else
+            pCs%plainsLocation(3) = numlevels
+         endif
       endif
       
       
@@ -780,11 +781,8 @@ module m_readCrossSections
       call realloc(pCS%af_sub, 3, numlevels)
       call realloc(pCS%width_sub, 3, numlevels)
       call realloc(pCS%perim_sub, 3, numlevels)
-      call realloc(pCS%flowArea, numlevels)
-      call realloc(pCS%wetPerimeter, numlevels)
+      call realloc(pCS%perim_inc_sub, 3, numlevels)
       call realloc(pCS%totalArea, numlevels)
-      call realloc(pCS%area_min, numlevels)
-      call realloc(pCS%width_min, numlevels)
       
       pCs%levelsCount = numlevels
       pCS%height      = height(1:numlevels)
@@ -799,9 +797,6 @@ module m_readCrossSections
          pCs%frictionSectionsCount = 1
       endif
             
-      ! Create Interpolation Tables
-      call createTablesForTabulatedProfile(pCs)
-      
       deallocate(height)
       deallocate(width)
       deallocate(TotalWidth)
@@ -927,11 +922,8 @@ module m_readCrossSections
                write(ibin) ((pdef%af_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                write(ibin) ((pdef%width_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                write(ibin) ((pdef%perim_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
-               write(ibin) (pdef%flowArea(j), j = 1, pdef%levelscount)
-               write(ibin) (pdef%wetPerimeter(j), j = 1, pdef%levelscount)
+               write(ibin) ((pdef%perim_inc_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                write(ibin) (pdef%totalArea(j), j = 1, pdef%levelscount)
-               write(ibin) (pdef%area_min(j), j = 1, pdef%levelscount)
-               write(ibin) (pdef%width_min(j), j = 1, pdef%levelscount)
                write(ibin) (pdef%plains(j), j = 1, 3)
                write(ibin) (pdef%plainsLocation(j), j = 1, 3)
             
@@ -998,22 +990,16 @@ module m_readCrossSections
                allocate(pdef%af_sub(3, pdef%levelscount))
                allocate(pdef%width_sub(3, pdef%levelscount))
                allocate(pdef%perim_sub(3, pdef%levelscount))
-               allocate(pdef%flowArea(pdef%levelscount))
-               allocate(pdef%wetPerimeter(pdef%levelscount))
+               allocate(pdef%perim_inc_sub(3, pdef%levelscount))
                allocate(pdef%totalArea(pdef%levelscount))
-               allocate(pdef%area_min(pdef%levelscount))
-               allocate(pdef%width_min(pdef%levelscount))
                read(ibin) (pdef%height(j), j = 1, pdef%levelscount)
                read(ibin) (pdef%flowWidth(j), j = 1, pdef%levelscount)
                read(ibin) (pdef%totalWidth(j), j = 1, pdef%levelscount)
                read(ibin) ((pdef%af_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                read(ibin) ((pdef%width_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                read(ibin) ((pdef%perim_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
-               read(ibin) (pdef%flowArea(j), j = 1, pdef%levelscount)
-               read(ibin) (pdef%wetPerimeter(j), j = 1, pdef%levelscount)
+               read(ibin) ((pdef%perim_inc_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
                read(ibin) (pdef%totalArea(j), j = 1, pdef%levelscount)
-               read(ibin) (pdef%area_min(j), j = 1, pdef%levelscount)
-               read(ibin) (pdef%width_min(j), j = 1, pdef%levelscount)
                read(ibin) (pdef%plains(j), j = 1, 3)
                read(ibin) (pdef%plainsLocation(j), j = 1, 3)
                

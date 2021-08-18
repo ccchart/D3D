@@ -75,6 +75,7 @@ module m_GlobalParameters
    logical, public               :: write_tables
    logical, public               :: read_tables
    logical, public               :: Use_volume_tables
+   logical                       :: useCrsInterpolation
 
    
    character(len=charln)            :: wlevStateFileIn

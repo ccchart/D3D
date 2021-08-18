@@ -208,6 +208,11 @@ module m_readModelParameters
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Latitude' , latitude,  success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Longitude', longitude, success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'timeZone', time_zone, success)
+      useCrsInterpolation = .false.
+      call prop_get_logical(md_ptr, 'AdvancedOptions', 'UseCrsInterpolation', useCrsInterpolation)
+      if (useCrsInterpolation) then
+         updateTabulatedProfiles = .false.
+      endif
       
       use_volume_tables = .false.
       call prop_get_logical(md_ptr, 'VolumeTable', 'UseVolumeTable', use_volume_tables, success)
