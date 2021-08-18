@@ -80,13 +80,6 @@ module m_network
       type(t_offset2cross), pointer :: line2cross(:) => null()             !< list containing cross section indices per u-location
       type(t_offset2cross), pointer :: gpnt2cross(:) => null()             !< list containing cross section indices per gridpoint-location
       logical, allocatable          :: hysteresis_for_summerdike(:,:)      !< array indicating for hysteresis in summerdikes
-
-      double precision, allocatable :: au_1d(:)
-      double precision, allocatable :: conv_1d(:)
-      double precision, allocatable :: dpu_1d(:)
-      double precision, allocatable :: minwidth1d(:)
-   
-      double precision, allocatable :: minconv(:)                      ! minimal 1d conveyance in link: C*P*sqrt(A/P)
    end type
 
    type, public   :: t_network
@@ -131,11 +124,6 @@ contains
       if (.not. associated(adm%gpnt2cross)) allocate(adm%gpnt2cross(all_links_count))
       if (.not. allocated(adm%hysteresis_for_summerdike)) allocate(adm%hysteresis_for_summerdike(2,all_links_count))
       adm%hysteresis_for_summerdike = .true.
-      if (.not. allocated(adm%au_1d)) allocate(adm%au_1d(oned_links_count))
-      if (.not. allocated(adm%conv_1d)) allocate(adm%conv_1d(oned_links_count))
-      if (.not. allocated(adm%dpu_1d)) allocate(adm%dpu_1d(oned_links_count))
-      if (.not. allocated(adm%minwidth1d)) allocate(adm%minwidth1d(oned_links_count))
-      if (.not. allocated(adm%minconv)) allocate(adm%minconv(oned_links_count))   
       
    end subroutine realloc_1dadmin
 
@@ -150,11 +138,6 @@ contains
       if (allocated(adm%lin2grid))    deallocate(adm%lin2grid)
       if (associated(adm%gpnt2cross))  deallocate(adm%gpnt2cross)
       if (allocated(adm%hysteresis_for_summerdike)) deallocate(adm%hysteresis_for_summerdike)
-      if (allocated(adm%au_1d))        deallocate(adm%au_1d)
-      if (allocated(adm%conv_1d))      deallocate(adm%conv_1d)
-      if (allocated(adm%dpu_1d))       deallocate(adm%dpu_1d)
-      if (allocated(adm%minwidth1d))   deallocate(adm%minwidth1d)
-      if (allocated(adm%minconv))      deallocate(adm%minconv)
 
    end subroutine dealloc_1dadmin
 
@@ -407,9 +390,6 @@ contains
          enddo
          
          ! Cross-Section indices for links
-         adm%minconv    = 0.0d0
-         adm%minwidth1d = 0.0d0
-         
          do ibran = 1, network%brs%Count
 
             pbran   => network%brs%branch(ibran)
@@ -530,15 +510,6 @@ contains
                      adm%line2cross(ilnk)%f  = 1.0d0
                   endif
                   
-                  chezy = 0.0d0
-                  ll = adm%lin2local(ilnk)
-                  f = adm%line2cross(ilnk)%f
-                  dpu1 = -network%crs%cross(adm%line2cross(ilnk)%c1)%bedLevel
-                  dpu2 = -network%crs%cross(adm%line2cross(ilnk)%c2)%bedLevel
-                  adm%dpu_1d(ll) = (1.0d0 - f) * dpu1 + f * dpu2
-                  vel = 0d0
-                  call GetCSParsFlow(network%crs%cross(adm%line2cross(ilnk)%c1), network%crs%cross(adm%line2cross(ilnk)%c2), adm%line2cross(ilnk)%f, &
-                                     thresholdDry, vel, chezy, as, wetPerimeter, adm%minwidth1d(ll), adm%minconv(ll))
                endif
                   
             enddo
