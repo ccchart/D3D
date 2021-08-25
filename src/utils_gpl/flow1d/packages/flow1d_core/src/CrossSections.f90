@@ -1968,7 +1968,11 @@ subroutine GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_s
       width_sub(isec) = min(max(0d0, widths(1)-widthplains(isec)), widthplains(isec+1)-widthplains(isec))
       perim_sub(isec) = min(max(0d0, widths(1)-widthplains(isec)), widthplains(isec+1)-widthplains(isec))
       if (doflow) then
-         levelsCount = crossDef%plainslocation(isec)
+         if (isec==1 .and. crossdef%plainslocation(2) == 0) then
+            levelsCount = crossDef%levelsCount
+         else
+            levelsCount = crossDef%plainslocation(isec)
+         endif
       elseif (isec>=2) then
          ! total width is only first section
          levelscount = 0
