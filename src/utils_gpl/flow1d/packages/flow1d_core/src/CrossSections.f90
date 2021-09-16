@@ -1263,7 +1263,7 @@ recursive subroutine findNeighbourAndAddCrossSection(brs, crs, branchid, cross, 
 
 end subroutine findNeighbourAndAddCrossSection
 
-subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub, perim_sub, cz_sub)
+subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub, perim_sub, cz_sub, width_sub)
 
    use m_GlobalParameters
    
@@ -1282,6 +1282,7 @@ subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, we
    double precision, intent(out), optional :: af_sub(3)      
    double precision, intent(out), optional :: perim_sub(3)      
    double precision, intent(out), optional :: cz_sub(3)      
+   double precision, intent(out), optional :: width_sub(3)      
 
    double precision                      :: cz1 = 0.d0
    double precision                      :: cz2 = 0.d0
@@ -1300,14 +1301,16 @@ subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, we
    double precision                      :: af_sub_local1(3), af_sub_local2(3)      
    double precision                      :: perim_sub_local1(3), perim_sub_local2(3)
    double precision                      :: cz_sub_local1(3), cz_sub_local2(3)      
+   double precision                      :: width_sub_local1(3), width_sub_local2(3)      
 
    if(cross1%crossIndx == cross2%crossIndx) then
       ! Same Cross-Section, no interpolation needed 
       call GetCSParsFlowCross(cross1, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub_local1, &
-                     perim_sub_local1, cz_sub_local1)
+                     perim_sub_local1, cz_sub_local1, width_sub_local1)
       if (present(af_sub)   ) af_sub    = af_sub_local1
       if (present(perim_sub)) perim_sub = perim_sub_local1
       if (present(cz_sub)   ) cz_sub    = cz_sub_local1
+      if (present(width_sub)) width_sub    = width_sub_local1
    else
       select case (cross1%crosstype)
          
@@ -1331,19 +1334,20 @@ subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, we
             crossi%tabDef%diameter    = (1.0d0 - f) * cross1%tabDef%diameter + f * cross2%tabDef%diameter
          
             call GetCSParsFlowCross(crossi, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub_local1, &
-                     perim_sub_local1, cz_sub_local1)
+                     perim_sub_local1, cz_sub_local1, width_sub_local1)
             if (present(af_sub)   ) af_sub    = af_sub_local1
             if (present(perim_sub)) perim_sub = perim_sub_local1
             if (present(cz_sub)   ) cz_sub    = cz_sub_local1
+            if (present(width_sub)   ) width_sub    = width_sub_local1
             
          case default                             ! Call GetCSParsFlowCross twice and interpolate the results 
 
             cz1 = cz
             cz2 = cz
             call GetCSParsFlowCross(cross1, dpt, u1, cz1, flowArea1, wetPerimeter1, flowWidth1, conv1, af_sub_local1, &
-                     perim_sub_local1, cz_sub_local1, .true.)
+                     perim_sub_local1, cz_sub_local1, width_sub_local1, .true.)
             call GetCSParsFlowCross(cross2, dpt, u1, cz2, flowArea2, wetPerimeter2, flowWidth2, conv2, af_sub_local2, &
-                     perim_sub_local2, cz_sub_local2, .true.)
+                     perim_sub_local2, cz_sub_local2, width_sub_local2, .true.)
         
             flowArea     = (1.0d0 - f) * flowArea1     + f * flowArea2
             flowWidth    = (1.0d0 - f) * flowWidth1    + f * flowWidth2
@@ -1360,6 +1364,9 @@ subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, we
             endif
             if (present(cz_sub)) then
                cz_sub = (1.0d0 - f) * cz_sub_local1     + f * cz_sub_local2
+            endif
+            if (present(width_sub)) then
+               width_sub = (1.0d0 - f) * width_sub_local1     + f * width_sub_local2
             endif
             if (cross1%crosstype .ne. CS_YZ_PROF) then
             
@@ -1466,7 +1473,7 @@ subroutine interpolateSummerDike(cross1, cross2, f, dpt, sdArea, sdWidth, doFlow
 
 end subroutine interpolateSummerDike
 
-subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub, perim_sub, cz_sub, doSummerDike)   
+subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWidth, conv, af_sub, perim_sub, cz_sub, width_sub, doSummerDike)   
 
    use m_GlobalParameters
    use precision_basics
@@ -1481,9 +1488,10 @@ subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWi
    double precision, intent(out)     :: flowWidth      !< flow width of water surface
    double precision, intent(out)     :: conv           !< conveyance
    logical, intent(in), optional     :: doSummerDike   !< Switch to calculate Summer Dikes or not
-   double precision, intent(out), optional :: af_sub(3)      
-   double precision, intent(out), optional :: perim_sub(3)      
-   double precision, intent(out), optional :: cz_sub(3)      
+   double precision, intent(out), optional    :: af_sub(3)      
+   double precision, intent(out), optional    :: perim_sub(3)      
+   double precision, intent(out), optional    :: cz_sub(3)      
+   double precision, intent(out), optional    :: width_sub(3)      
 
    type(t_CSType), pointer           :: crossDef
    double precision                  :: widgr
@@ -1492,11 +1500,15 @@ subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWi
    double precision                  :: af_sub_local(3)      
    double precision                  :: perim_sub_local(3)      
    double precision                  :: cz_sub_local(3)   
+   double precision                  :: width_sub_local(3)   
    integer                           :: numsect
    integer                           :: i
    logical                           :: hysteresis =.true.   ! hysteresis is a dummy variable at this location, since this variable is only used for total areas
   
    perim_sub_local = 0d0
+   af_sub_local    = 0.0D0
+   width_sub_local = 0d0
+   
    if (dpt <= 0.0d0) then
       flowArea     = 0.0
       wetPerimeter = 0.0
@@ -1515,7 +1527,7 @@ subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWi
       else
          getSummerDikes = .true.
       endif
-      call TabulatedProfile(dpt, cross, .true., getSummerDikes, flowArea, flowWidth, wetPerimeter, af_sub_local, perim_sub_local, CS_TYPE_NORMAL, hysteresis)
+      call TabulatedProfile(dpt, cross, .true., getSummerDikes, flowArea, flowWidth, wetPerimeter, af_sub_local, perim_sub_local, width_sub_local, CS_TYPE_NORMAL, hysteresis)
    case (CS_CIRCLE)
       call CircleProfile(dpt, crossDef%diameter, flowArea, flowWidth, wetPerimeter, CS_TYPE_NORMAL)
    case (CS_EGG)
@@ -1526,6 +1538,11 @@ subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWi
       call SetMessage(LEVEL_ERROR, 'INTERNAL ERROR: Unknown type of cross section')
    end select
 
+   if (cross%crossType /= CS_TABULATED) then
+      perim_sub_local(1) = wetPerimeter
+      af_sub_local(1)    = flowArea
+      width_sub_local(1) = flowWidth
+   endif         
    flowWidth = max(flowWidth,sl)
    if (cross%crosstype /= CS_TABULATED ) then
       af_sub_local = 0d0
@@ -1600,6 +1617,9 @@ subroutine GetCSParsFlowCross(cross, dpt, u1, cz, flowArea, wetPerimeter, flowWi
    endif
    if (present(cz_sub)) then
       cz_sub = cz_sub_local
+   endif
+   if (present(width_sub)) then
+      width_sub = width_sub_local
    endif
    
 end subroutine GetCSParsFlowCross
@@ -1699,7 +1719,7 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
    double precision                  :: u1 = 0.0d0
    double precision                  :: wlev            !< water level at cross section
    logical                           :: getSummerDikes
-   double precision                  :: af_sub(3), perim_sub(3)
+   double precision                  :: af_sub(3), perim_sub(3), width_sub(3)
    if (dpt <= 0.0d0) then
       totalArea = 0.0d0
       totalWidth = sl
@@ -1716,7 +1736,7 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
          else
             getSummerDikes = .true.
          endif
-         call TabulatedProfile(dpt, cross, .false., getSummerDikes, totalArea, totalWidth, wetPerimeter, af_sub, perim_sub, calculationOption, hysteresis)
+         call TabulatedProfile(dpt, cross, .false., getSummerDikes, totalArea, totalWidth, wetPerimeter, af_sub, perim_sub, width_sub, calculationOption, hysteresis)
       case (CS_CIRCLE)
          call CircleProfile(dpt, crossDef%diameter, totalArea, totalWidth, wetPerimeter, calculationOption)
       case (CS_EGG)
@@ -1730,7 +1750,7 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
 
 end subroutine GetCSParsTotalCross
 
-subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, perimeter, af_sub, perim_sub, calculationOption, hysteresis)
+subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, perimeter, af_sub, perim_sub, width_sub, calculationOption, hysteresis)
 
    use m_GlobalParameters
 
@@ -1745,6 +1765,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    double precision, intent(out)     :: perimeter
    double precision, intent(out)     :: af_sub(3)
    double precision, intent(out)     :: perim_sub(3)
+   double precision, intent(out)     :: width_sub(3)
    integer, intent(in)               :: calculationOption 
    logical, intent(inout)            :: hysteresis     !< Flag for hysteresis of summerdike
 
@@ -1755,7 +1776,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    double precision  :: wlev
    double precision  :: sdArea
    double precision  :: sdWidth
-   double precision  :: width_sub(3), area2, width2, perimeter2, af_sub2(3), perim_sub2(3)
+   double precision  :: area2, width2, perimeter2, af_sub2(3), perim_sub2(3)
    integer           :: section
 
    crossDef => cross%tabDef
