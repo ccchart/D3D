@@ -102,6 +102,7 @@ module m_boundaryConditions
       integer                :: access  = 0
       double precision       :: returnTime = 0d0  !< Thatcher Harleman return time for salinity boundary conditions
 
+      double precision       :: boundaryValue 
       type(t_table), pointer :: table => null()   !< table containing time series of boundary condition
       integer                :: salinityIndex     !< index to corresponding salinity boundary
       
@@ -289,8 +290,10 @@ contains
       do i = 1, NUM_BOUN_TYPE
          count = boundaries%tp(i)%count
          do j = 1, count
-            deallocate(boundaries%tp(i)%bd(j)%table)
-            boundaries%tp(i)%bd(j)%table => null()
+            if (associated(boundaries%tp(i)%bd(j)%table)) then
+               deallocate(boundaries%tp(i)%bd(j)%table)
+               boundaries%tp(i)%bd(j)%table => null()
+            endif
          enddo
          if (count > 0) deallocate(boundaries%tp(i)%bd)
          boundaries%tp(i)%bd => null()

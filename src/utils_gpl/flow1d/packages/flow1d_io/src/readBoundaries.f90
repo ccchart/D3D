@@ -165,9 +165,9 @@ module m_readBoundaries
             boundaries%tp(boundaryType)%bd(icount)%salinityIndex = -1
             boundaries%tp(boundaryType)%bd(icount)%iopt          = 1
             boundaries%tp(boundaryType)%bd(icount)%length        = 2
+            boundaries%tp(boundaryType)%bd(icount)%boundaryValue = 0d0
 
-            call setTable(boundaries%tp(boundaryType)%bd(icount)%table, 0, (/0.0d0, 1.0d0/), (/0.0d0, 1.0d0/), 2)            
-            
+
             do icon = 1, transportPars%constituents_count
                
                ! For each constituent add a boundary condition
@@ -194,9 +194,8 @@ module m_readBoundaries
                boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%iopt          = 2     ! Thatcher-Harleman
                boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%length        = 2
                boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%returnTime    = returnTime
+               boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%boundaryValue = 0d0
                
-               call setTable(boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%table, 0, (/0.0d0, 1.0d0/), (/0.0d0, 1.0d0/), 2)
-
                boundaries%tp(boundaryType)%bd(icount)%salinityIndex = boundaries%tp(ityp)%Count
                
                boundaries%tp(ityp)%bd(boundaries%tp(ityp)%Count)%returnTime = returnTime
@@ -379,6 +378,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                else
                   call setTable(p_bnds%bd(i)%table, 0, h_values, q_values, numValues)
                endif
+               p_bnds%bd(i)%table%interpoltype = 0
                
             else
                bc_count = bc_count + 1
@@ -393,7 +393,6 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
          ! - mod(interpoltype, 10) == 0: linear function
          ! - mod(interpoltype, 10) == 1: block function
          ! - mod(interpoltype, 10) == 2: linear function in degrees
-         p_bnds%bd(i)%table%interpoltype = 0
       enddo
    enddo
 
@@ -436,12 +435,9 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ! Prevent crash in Model-API
    ! TODO: Remove this when not necessary anymore
    allocate(network%boundaries%tp(B_WINDVEL)%bd(1))
-   call setTable(network%boundaries%tp(B_WINDVEL)%bd(1)%table, 0, (/0.0d0, 1.0d0/), (/0.0d0, 1.0d0/), 2)  
+   network%boundaries%tp(B_WINDVEL)%bd(1)%boundaryValue = 0d0
    allocate(network%boundaries%tp(B_WINDDIR)%bd(1))
-   call setTable(network%boundaries%tp(B_WINDDIR)%bd(1)%table, 0, (/0.0d0, 1.0d0/), (/0.0d0, 1.0d0/), 2)
-   
-!   call ecInstancePrintState(ec, callback_msg, 1)          ! for debugging purposes
-!   call ecInstanceListSourceItems(ec,6)
+   network%boundaries%tp(B_WINDDIR)%bd(1)%boundaryValue = 0d0
 
 end subroutine readBoundaryConditions
 
