@@ -910,6 +910,7 @@ module m_readCrossSections
          write(ibin) pdef%id
          write(ibin) pdef%crossType
          write(ibin) pdef%levelsCount
+         write(ibin) pdef%levelsCount2
          write(ibin) pdef%reference
          write(ibin) pdef%closed
          write(ibin) pdef%diameter
@@ -917,6 +918,7 @@ module m_readCrossSections
          select case(pdef%crossType)
             case (CS_TABULATED) 
                write(ibin) (pdef%height(j), j = 1, pdef%levelscount)
+               write(ibin) (pdef%height2(j), j = 1, pdef%levelscount2)
                write(ibin) (pdef%flowWidth(j), j = 1, pdef%levelscount)
                write(ibin) (pdef%totalWidth(j), j = 1, pdef%levelscount)
                write(ibin) ((pdef%af_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
@@ -978,6 +980,7 @@ module m_readCrossSections
          read(ibin) pdef%id
          read(ibin) pdef%crossType
          read(ibin) pdef%levelsCount
+         read(ibin) pdef%levelsCount2
          read(ibin) pdef%reference
          read(ibin) pdef%closed
          read(ibin) pdef%diameter
@@ -985,6 +988,7 @@ module m_readCrossSections
          select case(pdef%crossType)
             case (CS_TABULATED) 
                allocate(pdef%height(pdef%levelscount))
+               allocate(pdef%height2(pdef%levelscount2))
                allocate(pdef%flowWidth(pdef%levelscount))
                allocate(pdef%totalWidth(pdef%levelscount))
                allocate(pdef%af_sub(3, pdef%levelscount))
@@ -993,6 +997,7 @@ module m_readCrossSections
                allocate(pdef%perim_inc_sub(3, pdef%levelscount))
                allocate(pdef%totalArea(pdef%levelscount))
                read(ibin) (pdef%height(j), j = 1, pdef%levelscount)
+               read(ibin) (pdef%height2(j), j = 1, pdef%levelscount2)
                read(ibin) (pdef%flowWidth(j), j = 1, pdef%levelscount)
                read(ibin) (pdef%totalWidth(j), j = 1, pdef%levelscount)
                read(ibin) ((pdef%af_sub(j, k), j = 1, 3), k = 1, pdef%levelscount)
