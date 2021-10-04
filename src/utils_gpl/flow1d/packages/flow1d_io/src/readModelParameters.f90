@@ -208,7 +208,7 @@ module m_readModelParameters
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Latitude' , latitude,  success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Longitude', longitude, success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'timeZone', time_zone, success)
-      useCrsInterpolation = .false.
+      useCrsInterpolation = .true.
       call prop_get_logical(md_ptr, 'AdvancedOptions', 'UseCrsInterpolation', useCrsInterpolation)
       if (useCrsInterpolation) then
          updateTabulatedProfiles = .false.
@@ -232,6 +232,8 @@ module m_readModelParameters
       
       call prop_get_integer(md_ptr, 'Morphology', 'CalculateMorphology', iValue, success)
       if (success .and. iValue==1) then
+         useCrsInterpolation = .false.
+         updateTabulatedProfiles = .true.
          call AddOrReplaceParameter('Morphology', 'CalculateMorphology', 'true', .true.)
          
          call prop_get_string(md_ptr, 'Morphology', 'SedimentInputFile', scheme, success)
