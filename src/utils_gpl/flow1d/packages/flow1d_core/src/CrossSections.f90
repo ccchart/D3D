@@ -1886,11 +1886,6 @@ subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, peri
    
       af_sub = af_sub_tab(:, levelsCount) + (dpt - dTop) * width_sub_tab(:, levelsCount)
       perim_sub =  perim_sub_tab(:, levelsCount)
-      do ilev = 3, 1, -1
-         if (perim_sub(ilev) > 0d0) then
-            perim_sub(ilev) = perim_sub(ilev) + 2d0*(dpt-dtop)
-         endif
-      enddo
       
       width_sub_local = width_sub_tab(:,levelsCount)
       
