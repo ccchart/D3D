@@ -208,7 +208,7 @@ module m_readModelParameters
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Latitude' , latitude,  success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'Longitude', longitude, success)
       call prop_get_double(md_ptr, 'AdvancedOptions', 'timeZone', time_zone, success)
-      useCrsInterpolation = .true.
+      useCrsInterpolation = .false.
       call prop_get_logical(md_ptr, 'AdvancedOptions', 'UseCrsInterpolation', useCrsInterpolation)
       if (useCrsInterpolation) then
          updateTabulatedProfiles = .false.
