@@ -532,7 +532,6 @@ integer function AddTabCrossSectionDefinition(CSDefinitions , id, numLevels, lev
    endif
    CSDefinitions%CS(i)%closed = closed
    
-   call createTablesForTabulatedProfile(CSDefinitions%CS(i))
 !
    ! Initialize the summer dike information of the newly added cross-section
    if (flowArea > 1.0d-5 .or. totalArea > 1.0d-5) then
@@ -1776,13 +1775,9 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    double precision  :: wlev
    double precision  :: sdArea
    double precision  :: sdWidth
-   double precision  :: area2, width2, perimeter2, af_sub2(3), perim_sub2(3)
-   integer           :: section
+   integer           :: section, i
 
    crossDef => cross%tabDef
-   area2 = 0d0
-   width2 = 0d0
-   perimeter2 = 0d0
 
    if (updateTabulatedProfiles .or. .not. doFlow) then
       call GetTabulatedSizes(dpt, crossDef, doFlow, area, width, perimeter, af_sub, perim_sub, width_sub, calculationOption)
@@ -1806,6 +1801,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
       
             ! Get Summer Dike Total Data
             call GetSummerDikeTotal(summerdike, wlev, sdArea, sdWidth, hysteresis)
+            width = width + sdWidth
       
          endif
       
@@ -1813,7 +1809,6 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
          summerdike => null()
       
          area  = area  + sdArea
-         width = width + sdWidth
          if (sdArea > 0d0) then
             do section = 3, 1, -1
                if (af_sub(section) > thresholdForSummerdike) then
@@ -1823,21 +1818,16 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
             enddo
          endif
       endif
-      area2 = area
-      width2 = width
-      perimeter2 = perimeter
 
    else
-      call GetTabSizesFromTables(dpt, crossDef, area, width, perimeter, af_sub, perim_sub)
-      
-   endif    
-   
+      call GetTabSizesFromTables(dpt, crossDef, area, width, perimeter, af_sub, perim_sub, width_sub)
+   endif
 end subroutine TabulatedProfile
 
 subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, perim_sub, width_sub)
 
    use m_GlobalParameters
-
+   use precision_basics
    implicit none
 
    double precision, intent(in)                 :: dpt
@@ -1882,10 +1872,16 @@ subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, peri
    perim_sub_tab    => pCSD%perim_sub
    perim_inc_sub_tab=> pCSD%perim_inc_sub
 
-   if (dpt > dTop) then
+   if (comparereal(dpt, dTop) /= -1) then
    
       af_sub = af_sub_tab(:, levelsCount) + (dpt - dTop) * width_sub_tab(:, levelsCount)
       perim_sub =  perim_sub_tab(:, levelsCount)
+      do ilev = 3, 1, -1
+         if (perim_sub(ilev) > 0d0 .and. width_sub_tab(ilev,levelscount) >= ThresholdForPreismannLock) then
+            perim_sub(ilev) = perim_sub(ilev) + 2d0*(dpt-dtop)
+            exit
+         endif
+      enddo
       
       width_sub_local = width_sub_tab(:,levelsCount)
       
@@ -2826,11 +2822,16 @@ type(t_CSType) function CopyCrossDef(CrossDefFrom)
    CopyCrossDef%crossType   = CrossDefFrom%crossType
    CopyCrossDef%reference   = CrossDefFrom%reference
    CopyCrossDef%levelsCount = CrossDefFrom%levelsCount
+   CopyCrossDef%levelsCount2 = CrossDefFrom%levelsCount2
 
    !*** data for tabulated cross sections ***
    if (allocated(CrossDefFrom%height)) then
       allocate(CopyCrossDef%height(CopyCrossDef%levelsCount))
       CopyCrossDef%height = CrossDefFrom%height
+   endif
+   if (allocated(CrossDefFrom%height2)) then
+      allocate(CopyCrossDef%height2(CopyCrossDef%levelsCount2))
+      CopyCrossDef%height2 = CrossDefFrom%height2
    endif
    if (allocated(CrossDefFrom%flowWidth)) then
       allocate(CopyCrossDef%flowWidth(CopyCrossDef%levelsCount))
@@ -2842,16 +2843,20 @@ type(t_CSType) function CopyCrossDef(CrossDefFrom)
    endif
    
    if (allocated(CrossDefFrom%af_sub)) then
-      allocate(CopyCrossDef%af_sub(3, CopyCrossDef%levelsCount))
+      allocate(CopyCrossDef%af_sub(3, CopyCrossDef%levelsCount2))
       CopyCrossDef%af_sub = CrossDefFrom%af_sub
    endif
    if (allocated(CrossDefFrom%width_sub)) then
-      allocate(CopyCrossDef%width_sub(3, CopyCrossDef%levelsCount))
+      allocate(CopyCrossDef%width_sub(3, CopyCrossDef%levelsCount2))
       CopyCrossDef%width_sub = CrossDefFrom%width_sub
    endif
    if (allocated(CrossDefFrom%perim_sub)) then
-      allocate(CopyCrossDef%perim_sub(3, CopyCrossDef%levelsCount))
+      allocate(CopyCrossDef%perim_sub(3, CopyCrossDef%levelsCount2))
       CopyCrossDef%perim_sub = CrossDefFrom%perim_sub
+   endif
+   if (allocated(CrossDefFrom%perim_inc_sub)) then
+      allocate(CopyCrossDef%perim_inc_sub(3, CopyCrossDef%levelsCount2))
+      CopyCrossDef%perim_inc_sub = CrossDefFrom%perim_inc_sub
    endif
    if (allocated(CrossDefFrom%totalArea)) then
       allocate(CopyCrossDef%totalArea(CopyCrossDef%levelsCount))

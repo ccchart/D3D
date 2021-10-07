@@ -525,6 +525,14 @@ module m_readCrossSections
 
       call tree_destroy(md_ptr)
       call fill_hashtable(network%CSDefinitions)
+
+      do i = 1, network%CSDefinitions%count
+         pCS=> network%CSDefinitions%cs(i)
+         if (pCS%crossType == CS_TABULATED) then
+            call createTablesForTabulatedProfile(pCs)
+         endif
+      enddo
+
       
    end subroutine readCrossSectionDefinitions
 
