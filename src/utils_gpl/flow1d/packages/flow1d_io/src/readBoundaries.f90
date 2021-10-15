@@ -59,6 +59,8 @@ module m_readBoundaries
    integer, public            :: ec_itemId_humidity
    integer, public            :: ec_itemId_winddirection
    integer, public            :: ec_itemId_windvelocity
+   integer, public            :: ec_itemId_boundaries = ec_undef_int
+   integer, public            :: ec_itemId_laterals = ec_undef_int
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -70,7 +72,10 @@ module m_readBoundaries
    integer, public          , dimension(:,:), allocatable :: ec_lat_2_ec_index
    
    public ec_target_items_ids, ec_loc_names, ec_quant_names, ec_item_is_lateral, ec_item_has_been_set_externally
-   public readBoundaryLocations, readBoundaryConditions, getBoundaryValue, closeBoundaryConditionFiles
+   public readBoundaryLocations, readBoundaryConditions, getBoundaryValue, updateBoundaryValue, closeBoundaryConditionFiles
+   public getBoundaryValuePtr, getLateralValuePtr
+   public disableScalarUpdate
+   public write_laterals_and_boundaries
 
    contains
 
@@ -215,6 +220,67 @@ module m_readBoundaries
       
    end subroutine readBoundaryLocations
 
+
+function getBoundaryValuePtr(network, quantityId, locationId) result (valuePtr)
+   use m_boundaryConditions
+   double precision, pointer               :: valuePtr
+   type(t_network) , intent(inout), target :: network
+   character(len=*), intent(in)            :: quantityID
+   character(len=*), intent(in)            :: locationID
+   integer :: locIndex, varType
+   valuePtr => null()
+   select case (quantityId)
+      case ('wind_speed')
+         varType = B_WINDVEL
+      case ('wind_from_direction')
+         varType = B_WINDDIR
+      case('water_level')
+         varType = H_BOUN
+      case('water_discharge')
+         varType = Q_BOUN
+      case('water_salinity')
+         varType = S_BOUN
+      case('water_temperature')
+         varType = T_BOUN
+      case default
+         call SetMessage(LEVEL_ERROR, 'Quantity type ' // trim(quantityId) // ' not yet implemented in set_external_value')
+         return
+   end select
+   if (trim(locationID) == 'model_wide') then
+      locIndex = 1
+   else
+      locIndex = hashsearch(network%boundaries%tp(varType)%hashlist, locationID)
+   endif
+   valuePtr => network%boundaries%tp(varType)%bd(locIndex)%boundaryValue
+end function getBoundaryValuePtr
+
+
+function getLateralValuePtr(network, quantityId, locationId) result (valuePtr)
+   use m_boundaryConditions
+   double precision, pointer               :: valuePtr
+   type(t_network) , intent(inout), target :: network
+   character(len=*), intent(in)            :: quantityID
+   character(len=*), intent(in)            :: locationID
+   integer :: locIndex, varType
+   locIndex = hashsearch(network%lts%hashlist, locationID)
+   valuePtr => null()
+   select case(quantityID)
+      case('water_discharge')
+         varType = ec_lat_vartype_disch
+         valuePtr => network%lts%lat(locIndex)%discharge
+      case('water_salinity')
+         varType = ec_lat_vartype_sal
+         valuePtr => network%lts%lat(locIndex)%concentration(transportPars%salt_index)
+      case('water_temperature')
+         varType = ec_lat_vartype_temp
+         valuePtr => network%lts%lat(locIndex)%concentration(transportPars%temp_index)
+      case default
+         call SetMessage(LEVEL_ERROR, 'Quantity type ' // trim(quantityId) // ' not yet implemented in set_external_value')
+         return
+   end select         
+end function getLateralValuePtr
+   
+
 subroutine readBoundaryConditions(network, boundaryConditionsFile)
 
    use m_ec_bccollect
@@ -233,15 +299,17 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    character(len=IdLen) :: locationID     ! boundary location identifier (node name)
    character(len=IdLen) :: quantityID     ! water level or discharge
    
-   integer              :: bc_count       ! #boundary conditions read from bc file
-   integer              :: ec_bc_item     ! boundary condition item id in ec- module
+   integer              :: bc_count       ! counting bc-elements other than boundaries and laterals 
+   integer              :: ec_src_item    ! external forcing source item id in ec-module
+   integer              :: ec_tgt_item    ! external forcing target item id in ec-module (i.e. post temporal interpolation)
 
    logical                         :: is_qh_bound         ! Q(h) boundary?
    real(hp), dimension(:), pointer :: h_values, q_values  ! Q(h) table
    integer                         :: numValues           ! #rows in Q(h) table
    type(t_tp), pointer             :: p_bnds              ! pointer to boundaries (q-bnds, h-bnds, etc.)
    integer     :: numpars
-   integer     :: j
+   double precision, pointer       :: valueptr            ! dummy storage pointer to boundary value passed to ec
+   integer                         :: connectionId        ! temporarily stored ID of newly created ec-module connection instance
 
    inquire(file=boundaryConditionsFile, exist=success)
 
@@ -301,23 +369,27 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
 
    bc_count = 0
    ! laterals
+   ec_itemId_laterals = ecInstanceCreateItem(ec)
+   if (.not.ecSetItemRole(ec, ec_itemId_laterals, itemType_target)) then
+       return
+   endif
    do i = 1, network%lts%count
       locationID = network%lts%lat(i)%id
       numpars = 1 + transportPars%constituents_count
       
-      do j = 1, numpars
-         if (j==1) then
+      do ityp = 1, numpars
+         if (ityp==1) then
             quantityID = 'water_discharge'
          else
-            quantityID = trim(transportPars%co_h(j-1)%name)
+            quantityID = trim(transportPars%co_h(ityp-1)%name)
          endif
          
-         ec_bc_item = ecFindItemByQuantityLocation(ec, locationID, quantityID, isLateral = .true.)
-         if (ec_bc_item < 0)then
+         ec_src_item = ecFindItemByQuantityLocation(ec, locationID, quantityID, isLateral = .true.)
+         if (ec_src_item < 0)then
             ! use default concentration for this constituent
             continue
          else
-            is_qh_bound = ecItemGetQHtable(ec, ec_bc_item, h_values, q_values, success)
+            is_qh_bound = ecItemGetQHtable(ec, ec_src_item, h_values, q_values, success)
             if (is_qh_bound) then
                if (.not.success) then
                   call setmessage(LEVEL_FATAL, 'Error getting lateral discharge qh-table for ' &
@@ -326,18 +398,24 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                   call SetQlatQh(network%lts%lat(i), h_values, q_values, size(h_values))
                endif
             else
-               bc_count = bc_count + 1
-               ec_target_items_ids(bc_count) = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
-               ec_loc_names(bc_count) = locationID
-               ec_quant_names(bc_count) = quantityID
-               ec_item_is_lateral(bc_count) = .true.
-               ec_lat_2_ec_index(j,i) = bc_count
+               valueptr => getLateralValuePtr(network, quantityId, locationId) 
+               ec_tgt_item = ecCreateTimeInterpolatedItem(ec, ec_src_item, scalarPtr=valueptr)
+               ec_lat_2_ec_index(ityp,i) = ec_tgt_item
+               connectionId = ecCreateConnection(ec)
+               if (.not.ecAddConnectionSourceItem(ec, connectionId, ec_tgt_item)) return
+               if (.not.ecAddConnectionTargetItem(ec, connectionId, ec_itemId_laterals)) return
+               if (.not.ecCopyItemProperty(ec, ec_itemId_laterals, ec_tgt_item, 'quantityPtr')) return
+               if (.not.ecAddItemConnection(ec, ec_itemId_laterals, connectionId)) return
             endif
          endif
       enddo
    enddo
 
    ! boundaries
+   ec_itemId_boundaries = ecInstanceCreateItem(ec)
+   if (.not.ecSetItemRole(ec, ec_itemId_boundaries, itemType_target)) then
+       return
+   endif
    do ityp = 1, NUM_BOUN_TYPE
       p_bnds => network%boundaries%tp(ityp)
       do i = 1, p_bnds%count
@@ -355,13 +433,13 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
             call setmessage(LEVEL_ERROR, 'Boundary type not supported')
             cycle
          endif
-         ec_bc_item = ecFindItemByQuantityLocation(ec, locationID, quantityID)
-         if (ec_bc_item < 0)then
+         ec_src_item = ecFindItemByQuantityLocation(ec, locationID, quantityID)
+         if (ec_src_item < 0)then
             call setmessage(LEVEL_ERROR, 'Could not find ' // trim(locationID) // '.' // trim(quantityID) // ' in file ' // trim(boundaryConditionsFile))
          else
             is_qh_bound = .false.
             if ((ityp==Q_BOUN) .or. (ityp==H_BOUN)) then
-               is_qh_bound = ecItemGetQHtable(ec, ec_bc_item, h_values, q_values, success)
+               is_qh_bound = ecItemGetQHtable(ec, ec_src_item, h_values, q_values, success)
                if (is_qh_bound) then
                   if (.not.success) then
                      call setmessage(LEVEL_FATAL, 'Error getting boundary condition qh-table for ' &
@@ -381,11 +459,14 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                p_bnds%bd(i)%table%interpoltype = 0
                
             else
-               bc_count = bc_count + 1
-               ec_target_items_ids(bc_count) = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
-               ec_loc_names(bc_count) = locationID
-               ec_quant_names(bc_count) = quantityID
-               ec_bnd_2_ec_index(ityp,i) = bc_count
+               valueptr => getBoundaryValuePtr(network, quantityId, locationId) 
+               ec_tgt_item = ecCreateTimeInterpolatedItem(ec, ec_src_item, scalarPtr=valueptr)
+               ec_bnd_2_ec_index(ityp,i) = ec_tgt_item
+               connectionId = ecCreateConnection(ec)
+               if (.not.ecAddConnectionSourceItem(ec, connectionId, ec_tgt_item)) return
+               if (.not.ecAddConnectionTargetItem(ec, connectionId, ec_itemId_boundaries)) return
+               if (.not.ecCopyItemProperty(ec, ec_itemId_boundaries, ec_tgt_item, 'quantityPtr')) return
+               if (.not.ecAddItemConnection(ec, ec_itemId_boundaries, connectionId)) return
             endif
          endif
          !TODO invullen: function type for interpolation\n
@@ -397,37 +478,37 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    enddo
 
    ! Meteo
-   ec_bc_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_speed')
-   if (ec_bc_item > 0) then
-      ec_itemId_windvelocity  = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_speed')
+   if (ec_src_item > 0) then
+      ec_itemId_windvelocity  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_windvelocity  = 0
    endif
    
-   ec_bc_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_from_direction')
-   if (ec_bc_item > 0) then
-      ec_itemId_winddirection  = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_from_direction')
+   if (ec_src_item > 0) then
+      ec_itemId_winddirection  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_winddirection  = 0
    endif
 
-   ec_bc_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'humidity')
-   if (ec_bc_item > 0) then
-      ec_itemId_humidity  = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'humidity')
+   if (ec_src_item > 0) then
+      ec_itemId_humidity  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_humidity  = 0
    endif
 
-   ec_bc_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'air_temperature')
-   if (ec_bc_item > 0) then
-      ec_itemId_air_temperature  = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'air_temperature')
+   if (ec_src_item > 0) then
+      ec_itemId_air_temperature  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_air_temperature  = 0
    endif
 
-   ec_bc_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'cloudiness')
-   if (ec_bc_item > 0) then
-      ec_itemId_cloudiness  = ecCreateTimeInterpolatedItem(ec, ec_bc_item)
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'cloudiness')
+   if (ec_src_item > 0) then
+      ec_itemId_cloudiness  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_cloudiness  = 0
    endif
@@ -439,12 +520,15 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    allocate(network%boundaries%tp(B_WINDDIR)%bd(1))
    network%boundaries%tp(B_WINDDIR)%bd(1)%boundaryValue = 0d0
 
+   ! Dump EC item hierarchy
+   call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
+
 end subroutine readBoundaryConditions
 
 subroutine callback_msg(lvl,msg)
    integer, intent(in)              :: lvl
     character(len=*), intent(in)    :: msg 
-    write(6,'(A)') trim(msg)
+    call setmessage(lvl, trim(msg))
 end subroutine
 
 function getBoundaryValue(ec_target_item, timeAsMJD) result(value_from_ec)
@@ -455,12 +539,34 @@ function getBoundaryValue(ec_target_item, timeAsMJD) result(value_from_ec)
    
    value_from_ec = 0.0
    if (.not. ecGetValues(ec, ec_target_item, timeAsMJD, array_values_from_ec) ) then
-      ! call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
+      call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
    else
       value_from_ec = array_values_from_ec(1)
    endif
 
 end function getBoundaryValue
+
+subroutine updateBoundaryValue(ec_target_item, timeAsMJD) 
+   integer         , intent(in)   :: ec_target_item
+   double precision, intent(in)   :: timeAsMJD
+   
+   if (.not. ecGetValues(ec, ec_target_item, timeAsMJD) ) then
+      call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
+   endif
+
+end subroutine updateBoundaryValue
+
+subroutine disableScalarUpdate(ec_target_item) 
+   integer         , intent(in)   :: ec_target_item
+   type(tEcItem), pointer         :: itemPtr
+   
+   itemPtr => ecSupportFindItem(ec, ec_target_item)
+   if (associated(itemPtr)) then
+      if (associated(itemPtr%targetFieldPtr)) then
+         itemPtr%targetFieldPtr%scalarptr => null()
+      endif
+   endif
+end subroutine disableScalarUpdate
 
 subroutine closeBoundaryConditionFiles()
    logical :: success
@@ -469,5 +575,39 @@ subroutine closeBoundaryConditionFiles()
       ec => null()
    endif
 end subroutine closeBoundaryConditionFiles
+
+subroutine write_laterals_and_boundaries(network, timeAsMJD, devlat, devbnd)
+   type(t_network), target, intent(inout) :: network
+   double precision, intent(in)   :: timeAsMJD
+   integer, intent(in) :: devbnd     ! device to write the boundary values
+   integer, intent(in) :: devlat     ! device to write the lateral values
+   integer :: nType, nLoc, locIndex, varType
+   ! write laterals for a single timestep
+   nLoc = size(network%lts%lat)
+   write(devlat,'(f15.5,a$)') timeAsMJD, '|'
+   do locIndex = 1, nLoc
+      associate (lateral => network%lts%lat(locIndex))
+         write(devlat,'(i5.5,a,3e12.4,a$)') locIndex, ':', &
+                                         lateral%discharge, &
+                                         lateral%concentration(transportPars%temp_index), &
+                                         lateral%concentration(transportPars%salt_index), '|'
+      end associate ! lateral
+   enddo
+   write(devlat,*)
+   
+   ! write boundaries for a sngle timestep
+   write(devbnd,'(f15.5,a$)') timeAsMJD, '|'
+   nType = size(network%boundaries%tp)
+   do varType = 1, nType  
+      write(devbnd,'(i5.5,a$)') varType, ':'
+      nLoc = size(network%boundaries%tp(varType)%bd)
+      do locIndex = 1, nLoc
+         write(devbnd,'(e12.4,a$)') network%boundaries%tp(varType)%bd(locIndex)%boundaryValue, ' '
+      enddo
+      write(devbnd,'(a$)') '|'
+   enddo
+   write(devbnd,*)
+end subroutine write_laterals_and_boundaries
+ 
 
 end module m_readBoundaries
