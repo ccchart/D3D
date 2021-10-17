@@ -44,6 +44,7 @@
  use m_sobekdfm
  use unstruc_channel_flow
  use unstruc_display, only : ntek, jaGUI
+ use m_fm_icecover, only : ja_icecover, ice_p, ICECOVER_NONE
 
  implicit none
 
@@ -241,6 +242,11 @@
        if (japatm > 0 .and. PavBnd > 0) then
           zb = zb - ( patm(kb) - PavBnd )/(ag*rhomean)
        endif
+
+       if (ja_icecover /= ICECOVER_NONE) then
+          zb = zb - ice_p(kb) /(ag*rhomean)
+       endif
+
        zb = max( zb, bl(kb) + HBMIN )
 
        ddr(kb)     = bbr(kb)*zb

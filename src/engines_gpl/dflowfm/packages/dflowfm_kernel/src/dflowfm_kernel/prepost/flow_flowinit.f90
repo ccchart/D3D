@@ -65,6 +65,7 @@
  use unstruc_channel_flow, only: useVolumeTables
  use m_VolumeTables
  use timers
+ use m_fm_icecover, only: ja_icecover, ice_p, ICECOVER_NONE, fm_update_icepress
 
  implicit none
 
@@ -1143,6 +1144,15 @@ end if
 
  if (iresult /= DFM_NOERR) then
     goto 888
+ end if
+
+ if (len_trim(md_restartfile) == 0 ) then
+     if (ja_icecover /= ICECOVER_NONE) then
+        call fm_update_icepress(ag)
+        s1 = s1 - ice_p / (ag*rhomean)
+        s0 = s1
+        hs     = s0 - bl
+     endif
  end if
 
  ! Actual boundary forcing (now that initial water levels, etc. are also known):

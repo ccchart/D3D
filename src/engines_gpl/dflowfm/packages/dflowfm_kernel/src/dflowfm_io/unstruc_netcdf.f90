@@ -244,6 +244,9 @@ type t_unc_mapids
    integer :: id_icepths(MAX_ID_VAR)     = -1 !< Variable ID for interception layer waterdepth.
    integer :: id_wind(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_patm(MAX_ID_VAR)        = -1 !< Variable ID for
+   integer :: id_aice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_area_fraction
+   integer :: id_hice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_thickness
+   integer :: id_pice(MAX_ID_VAR)        = -1 !< Variable ID for the pressure excerted by the sea ice cover
    integer :: id_tair(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_rhum(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_clou(MAX_ID_VAR)        = -1 !< Variable ID for
@@ -4601,6 +4604,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    use m_hydrology_data, only : jadhyd, ActEvap, PotEvap, interceptionmodel, DFM_HYD_NOINTERCEPT, InterceptHs
    use m_subsidence, only: jasubsupl, subsout, subsupl, subsupl_t0
    use Timers
+   use m_fm_icecover, only: ja_icecover, ice_af, ice_h, ice_p, ICECOVER_NONE
    implicit none
 
    type(t_unc_mapids), intent(inout) :: mapids   !< Set of file and variable ids for this map-type file.
@@ -4995,6 +4999,12 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
       if (jamapwind > 0 .and. japatm /= 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm,  nf90_double, UNC_LOC_S, 'Patm',  'surface_air_pressure', 'Atmospheric pressure near surface', 'N m-2', jabndnd=jabndnd_)
+      end if
+
+      if (ja_icecover /= ICECOVER_NONE) then
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice,  nf90_double, UNC_LOC_S, 'aice',  'sea_ice_area_fraction', 'Fraction of surface area covered by floating ice', '1', jabndnd=jabndnd_)
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice,  nf90_double, UNC_LOC_S, 'hice',  'sea_ice_area_fraction', 'Thickness of the floating ice cover', 'm', jabndnd=jabndnd_)
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice,  nf90_double, UNC_LOC_S, 'pice',  '', 'Pressure excerted by the floating ice cover', 'N m-2', jabndnd=jabndnd_)
       end if
 
       if ((jamapwind > 0 .or. jamapwindstress > 0) .and. jawind /= 0) then
@@ -6698,6 +6708,12 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm  , UNC_LOC_S, patm, jabndnd=jabndnd_)
    endif
 
+   if (ja_icecover /= ICECOVER_NONE) then
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice  , UNC_LOC_S, ice_af, jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice  , UNC_LOC_S, ice_h, jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice  , UNC_LOC_S, ice_p, jabndnd=jabndnd_)
+   endif
+
    if (jawind /= 0 .and. jamapwindstress > 0) then
       allocate (windx(ndxndxi), windy(ndxndxi), stat=ierr)
       if (ierr /= 0) call aerr( 'windx/windy', ierr, ndxndxi)
@@ -6957,6 +6973,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
     use m_partitioninfo, only: jampi
     use string_module, only: replace_multiple_spaces_by_single_spaces
     use netcdf_utils, only: ncu_append_atts
+    use m_fm_icecover, only: ja_icecover, ice_af, ice_h, ice_p, ICECOVER_NONE
 
     implicit none
 
@@ -6990,7 +7007,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
     id_q1main, &
     id_s1, id_taus, id_ucx, id_ucy, id_ucz, id_ucxa, id_ucya, id_unorm, id_ww1, id_sa1, id_tem1, id_sed, id_ero, id_s0, id_u0, id_cfcl, id_cftrt, id_czs, id_czu, &
     id_qsun, id_qeva, id_qcon, id_qlong, id_qfreva, id_qfrcon, id_qtot, &
-    id_wind, id_patm, id_tair, id_rhum, id_clou, id_E, id_R, id_H, id_D, id_DR, id_urms, id_thetamean, &
+    id_wind, id_patm, id_aice, id_hice, id_pice, id_tair, id_rhum, id_clou, id_E, id_R, id_H, id_D, id_DR, id_urms, id_thetamean, &
     id_cwav, id_cgwav, id_sigmwav, id_SwE, id_SwT, &
     id_ust, id_Fx, id_Fy, id_vst, id_windx, id_windy, id_windxu, id_windyu, id_numlimdt, id_hs, id_bl, id_zk, &
     id_1d2d_edges, id_1d2d_zeta1d, id_1d2d_crest_level, id_1d2d_b_2di, id_1d2d_b_2dv, id_1d2d_d_2dv, id_1d2d_q_zeta, id_1d2d_q_lat, &
@@ -8256,6 +8273,12 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
 
         if (jamapwind > 0 .and. japatm > 0) then
             call definencvar(imapfile,id_patm(iid)   ,nf90_double,idims,2, 'Patm'  , 'Atmospheric Pressure', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
+        endif
+
+        if (ja_icecover /= ICECOVER_NONE) then
+            call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'aice'  , 'Fraction of the surface area covered by floating ice', '1', 'FlowElem_xcc FlowElem_ycc')
+            call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'hice'  , 'Thickness of floating ice cover', 'm', 'FlowElem_xcc FlowElem_ycc')
+            call definencvar(imapfile,id_pice(iid)   ,nf90_double,idims,2, 'pice'  , 'Pressure excerted by the floating ice cover', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
         endif
 
         if ((jamapwind > 0 .or. jamapwindstress > 0 .or. jaseparate_==2) .and. jawind /= 0) then
@@ -9639,6 +9662,12 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
 
     if (jamapwind > 0 .and. japatm > 0) then
        ierr = nf90_put_var(imapfile, id_patm(iid)  , Patm, (/ 1, itim /), (/ ndxndxi, 1 /))
+    endif
+
+    if (ja_icecover /= ICECOVER_NONE) then
+       ierr = nf90_put_var(imapfile, id_aice(iid)  , ice_af, (/ 1, itim /), (/ ndxndxi, 1 /))
+       ierr = nf90_put_var(imapfile, id_hice(iid)  , ice_h, (/ 1, itim /), (/ ndxndxi, 1 /))
+       ierr = nf90_put_var(imapfile, id_pice(iid)  , ice_p, (/ 1, itim /), (/ ndxndxi, 1 /))
     endif
 
     if (jamapheatflux > 0 .and. jatem > 1) then    ! Heat modelling only

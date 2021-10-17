@@ -378,6 +378,7 @@ module m_ec_provider
                            "humidity_airtemperature_cloudiness_solarradiation",           &
                            "dewpoint_airtemperature_cloudiness",                          &
                            "dewpoint_airtemperature_cloudiness_solarradiation",           &
+                           "sea_ice_area_fraction", "sea_ice_thickness",                  &
                            "solarradiation", "longwaveradiation")
                         success = ecProviderCreateNetcdfItems(instancePtr, fileReaderPtr, quantityname, varname)
                      case ("hrms","tp", "tps", "rtp","dir","fx","fy","wsbu","wsbv","mx","my","dissurf","diswcap","ubot") 
@@ -1037,6 +1038,20 @@ module m_ec_provider
                ! ===== quantity: bedrock surface timeseries =====
                quantityId = ecInstanceCreateQuantity(instancePtr)
                if (.not. (ecQuantitySet(instancePtr, quantityId, name='bedrock_surface_elevation', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+                  success = .false.
+               end if                                                    
+            else if (index(lc_filename, '.aice') /= 0) then
+               ! ===== quantity: sea ice area fraction timeseries =====
+               quantityId = ecInstanceCreateQuantity(instancePtr)
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='sea_ice_area_fraction', &
+                                                                units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
+                  success = .false.
+               end if                                                    
+            else if (index(lc_filename, '.hice') /= 0) then
+               ! ===== quantity: sea ice thickness timeseries =====
+               quantityId = ecInstanceCreateQuantity(instancePtr)
+               if (.not. (ecQuantitySet(instancePtr, quantityId, name='sea_ice_thickness', &
                                                                 units=trim(ecSpiderwebAndCurviFindInFile(fileReaderPtr%fileHandle, 'unit1'))))) then
                   success = .false.
                end if                                                    
@@ -2518,6 +2533,8 @@ module m_ec_provider
             ncstdnames(1) = 'sea_water_potential_temperature'
             ncvarnames(2) = 'so'                             ! salinity
             ncstdnames(2) = 'sea_water_salinity'
+         case ('sea_ice_area_fraction','sea_ice_thickness')
+            ncstdnames(1) = quantityName
          case default                                        ! experiment: gather miscellaneous variables from an NC-file,
             if (index(quantityName,'waqsegmentfunction')==1) then
                ncvarnames(1) = quantityName

@@ -55,6 +55,7 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    use time_class
    use m_longculverts
    use unstruc_messages
+   use m_fm_icecover, only: ja_icecover, fm_alloc_icecover, ice_af, ice_h, ICECOVER_EXT
 
    implicit none
 
@@ -84,6 +85,11 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    timmin = tim/60d0   ! talking to Meteo1 is in minutes
 
    success = .true.
+
+   if (ja_icecover == ICECOVER_EXT) then
+       ice_af = 0.d0
+       ice_h  = 0.d0
+   endif
 
    if (allocated(patm)) then
       ! To prevent any pressure jumps at the boundary, set (initial) patm in interior to PavBnd.
@@ -338,6 +344,15 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    endif
 
 !   !$OMP SECTION
+
+   if (ja_icecover == ICECOVER_EXT) then
+      if (item_sea_ice_area_fraction /= ec_undef_int) then
+         success = success .and. ec_gettimespacevalue(ecInstancePtr, item_sea_ice_area_fraction, irefdate, tzone, tunit, tim)
+      endif
+      if (item_sea_ice_thickness /= ec_undef_int) then
+         success = success .and. ec_gettimespacevalue(ecInstancePtr, item_sea_ice_thickness, irefdate, tzone, tunit, tim)
+      endif
+   endif
 
 !   !$OMP SECTION
 

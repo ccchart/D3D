@@ -38,7 +38,8 @@ use m_itdate
 use unstruc_model
 use m_flowtimes
 use m_heatfluxes
- use m_transport, only: constituents, itemp
+use m_transport, only: constituents, itemp
+use m_fm_icecover, only: ja_icecover, ice_af
 
 implicit none
 
@@ -60,6 +61,13 @@ double precision :: hlc, arn, wxL, wyL, uL, vL, uxL, uyL, bak2, twatb
 
 double precision :: qsunsoil, qwatsoil, watsoiltransfer, rdtsdz, soiltemprev, pvtamxB, pvtwmxB
 
+double precision :: afrac
+
+if (ja_icecover > 0) then
+    afrac = 1d0 - ice_af(n)
+else
+    afrac = 1d0
+endif
 
 presn   = 1d-2*paver                 ! Air pressure (mbar)
 rhumn   = 1d-2*backgroundhumidity    ! ( )
@@ -105,7 +113,7 @@ if (jatem == 3) then                 ! excess
 
    qheat  = -hlc*(twatn-tairn)
    rcpiba = rcpi*ba(n)
-   heatsrc0(kt) = heatsrc0(kt) + qheat*rcpiba  ! fill heat source array
+   heatsrc0(kt) = heatsrc0(kt) + qheat*rcpiba*afrac  ! fill heat source array
 
    if (jamapheatflux > 0 .or. jahisheatflux > 0) then          ! todo, only at mapintervals
       Qtotmap(n) = qheat
@@ -167,7 +175,7 @@ else if (jatem == 5) then
                endif
                dexp        = expup-explo
                if (dexp > 0d0) then
-                  heatsrc0(k) = heatsrc0(k) + sfr(j)*qsn*dexp
+                  heatsrc0(k) = heatsrc0(k) + sfr(j)*qsn*dexp*afrac
                else
                   exit
                endif
@@ -175,7 +183,7 @@ else if (jatem == 5) then
          enddo
 
       else
-         heatsrc0(n) = heatsrc0(n) + qsn
+         heatsrc0(n) = heatsrc0(n) + qsn*afrac
       endif
 
    endif
@@ -189,7 +197,7 @@ else if (jatem == 5) then
        watsoiltransfer = 1d0/(0.5d0*Soiltempthick)           ! thermalcond sand = 0.15 -> 4 for dry -> saturated, [W/mK]
        twatb           = constituents(itemp, kb)
        qwatsoil        = watsoiltransfer*( twatb - tbed(n) )
-       heatsrc0(kb)    = heatsrc0(kb) - rcpiba*qwatsoil
+       heatsrc0(kb)    = heatsrc0(kb) - rcpiba*qwatsoil*afrac
        rdtsdz          = rcpi*dts/Soiltempthick
        tbed(n)         = ( tbed(n) + rdtsdz*( qsunsoil + watsoiltransfer* twatb )  ) / ( 1d0 + watsoiltransfer*rdtsdz )
    endif
@@ -257,10 +265,10 @@ else if (jatem == 5) then
 
    qheat = Qeva + Qcon + Qlong + Qfree                            ! net heat flux [W/m^2] into water, solar radiation excluded:
    if (jaevap > 0) then
-      evap(n) = (Qeva+Qfreva)/(tL*rhomean)                        ! (J/sm2)/(J/kg)/kg/m3) = (m/s)
+      evap(n) = (Qeva+Qfreva)/(tL*rhomean)*afrac                        ! (J/sm2)/(J/kg)/kg/m3) = (m/s)
    endif
 
-   heatsrc0(kt) = heatsrc0(kt) + qheat*rcpiba                     ! fill heat source array
+   heatsrc0(kt) = heatsrc0(kt) + qheat*rcpiba*afrac                     ! fill heat source array
 
    if (jamapheatflux > 0 .or. jahisheatflux > 0) then ! todo, only at mapintervals
       Qsunmap(n)   = Qsu

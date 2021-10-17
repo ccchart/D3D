@@ -585,6 +585,7 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_grid.f90 -tex
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_gridsettings.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_grw.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_heatfluxes.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_ice.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_inverse_map.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_isoscaleunit.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_jacobi.f90 -text

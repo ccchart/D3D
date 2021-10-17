@@ -38,7 +38,10 @@
  use m_missing
  use m_sobekdfm
  use unstruc_model, only: md_restartfile
+ use m_fm_icecover, only: ja_icecover, ice_p, ICECOVER_NONE
+ 
  implicit none
+ 
  integer, intent(in) :: n01          !< Selects whether s0 or s1 has to be set.
  integer, intent(in) :: jasetBlDepth !< Whether or not (1/0) to set the boundary node bed levels, based on depth below s1. Typically only upon model init (based on initial water levels).
 
@@ -80,6 +83,10 @@
 
     if (japatm > 0 .and. PavBnd > 0) then
        zb = zb - ( patm(kb) - PavBnd )/(ag*rhomean)
+    endif
+
+    if (ja_icecover /= ICECOVER_NONE) then
+       zb = zb - ice_p(kb) /(ag*rhomean)
     endif
 
     !if (jasteric > 0) then

@@ -38,10 +38,11 @@
  use m_waves    , only: twav
  use m_physcoef
  use m_missing
+ use m_fm_icecover, only: ja_icecover, ice_af
 
  implicit none
  integer, intent (in) :: L
- integer              :: k1, maxnit = 100, nit, jalightwind = 0
+ integer              :: k1, k2, maxnit = 100, nit, jalightwind = 0
  double precision     :: uwi, cd10, rk, hsurf = 10d0
  double precision     :: omw, cdL2, dkpz0, s, sold, eps = 1d-4, awin
  double precision     :: p = -12d0, pinv = -0.083333d0, A, A10log, bvis, bfit, balf, r
@@ -163,5 +164,11 @@
         awin = max(0.1d0,uwi)
         cd10 = max(cd10, 0.0044d0 / awin**1.15d0)
     endif
+ endif
+ 
+ if (ja_icecover > 0) then
+     k1    = ln(1,L)
+     k2    = ln(2,L)
+     cd10  = cd10 * (1d0 - (ice_af(k1) + ice_af(k2))/2d0)
  endif
  end subroutine setcdwcoefficient

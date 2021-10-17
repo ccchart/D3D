@@ -40,11 +40,12 @@
  use m_wind
  use m_sferic
  use m_xbeach_data, only: Fx, Fy, swave, Lwave, hminlw, xb_started !, facmax, Trep
+ use m_fm_icecover, only: ice_p, ja_icecover, fm_update_icepress, ICECOVER_NONE
 
  implicit none
 
  integer          :: L,LL, Lb, Lt, k1,k2, kt1, kt2
- double precision :: dpatm, tidp, trshcorioi, fmax, floc, dzt, dztm, alf
+ double precision :: dptot, tidp, trshcorioi, fmax, floc, dzt, dztm, alf
  double precision :: GradHinUc
  double precision :: p1, p2, wfac, Dzk
 
@@ -136,46 +137,36 @@ if (jawind > 0) then
        enddo
     endif
  endif
-   
- if (japatm > 0 .or. jatidep > 0) then
+ 
+ if (ja_icecover /= ICECOVER_NONE) then
+    call fm_update_icepress(ag)
+ endif
+ 
+ if (japatm > 0 .or. jatidep > 0 .or. jaselfal > 0 .or. ja_icecover /= ICECOVER_NONE) then
     do L  = 1,lnx
        if ( hu(L) > 0 ) then
           k1     = ln(1,L) ; k2 = ln(2,L)
 
-          if (japatm > 0) then
-!             dpatm  = ( patm(k2) - patm(k1) )*dxi(L)/rhomean
-!             if ( hu(L) < trshcorio ) then
-!                 dpatm  = dpatm*hu(L)*trshcorioi
-!             endif
-
-             dpatm  = (patm(k2)-patm(k1))*dxi(L)/rhomean
-
-             if (kmx == 0) then
-                adve(L) = adve(L) + dpatm
-             else
-                do LL = Lbot(L), Ltop(L)
-                   adve(LL) = adve(LL) + dpatm
-                enddo
-             endif
-
-          endif
-     
+          dptot = 0.0d0
+          if (japatm > 0) dptot  = dptot + (patm(k2)-patm(k1))*dxi(L)/rhomean
+          if (ja_icecover /= ICECOVER_NONE) dptot  = dptot + (ice_p(k2)-ice_p(k1))*dxi(L)/rhomean
           if (jatidep > 0 .or. jaselfal > 0) then
              tidp  = ( tidep(1,k2) - tidep(1,k1) )*dxi(L)
              if ( hu(L) < trshcorio) then
                 tidp = tidp*hu(L)*trshcorioi
              endif
-             if (kmx == 0) then
-                adve(L) = adve(L) - tidp
-             else
-                do LL = Lbot(L), Ltop(L)
-                   adve(LL) = adve(LL) - tidp
-                enddo
-             endif
-
+             dptot = dptot - tidp
  !           add to tidal forces
              tidef(L) = tidp
            endif
+          
+          if (kmx == 0) then
+             adve(L) = adve(L) + dptot
+          else
+             do LL = Lbot(L), Ltop(L)
+                adve(LL) = adve(LL) + dptot
+             enddo
+          endif
        endif
     enddo
     
