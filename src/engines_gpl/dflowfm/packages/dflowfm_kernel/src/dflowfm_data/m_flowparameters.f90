@@ -143,6 +143,8 @@
  integer                           :: jasecflow         !< 0: no, 1: yes
 
  integer                           :: japillar          !< 0: no, 1: yes
+ 
+ integer                           :: jasealock         !< 0: no, 1: yes
 
  integer                           :: jaequili          !< secondary flow intensity gets calculated as equilibrium (0=no, 1=yes)
 
@@ -640,6 +642,8 @@ subroutine default_flowparameters()
     jasecflow = 0     ! include secondary flow (0=no, 1=yes)
 
     japillar  = 0     ! include pillar (0=no, 1=yes)
+    
+    jasealock = 0     ! include sea lock exchange (0=no, 1=yes)
 
     jaequili  = 0     ! equilibrium secondary flow (0=no, 1=yes)
 

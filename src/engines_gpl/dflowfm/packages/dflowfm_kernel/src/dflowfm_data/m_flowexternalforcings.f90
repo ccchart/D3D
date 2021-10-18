@@ -78,6 +78,7 @@
  integer         , allocatable     :: ken  (:)          !< temp (numl) edge oriented n normal vel.
  integer         , allocatable, target     :: ke1d2d(:) !< temp (numl) edge oriented 1d2d bnd
  integer         , allocatable     :: keg  (:)          !< temp (numl) edge oriented g gate
+ integer         , allocatable     :: kesl (:)          !< temp (numl) edge oriented sl sealock
  integer         , allocatable     :: ked  (:)          !< temp (numl) edge oriented d cdam
  integer         , allocatable     :: kegen(:)          !< temp (numl) edge oriented general structure
  integer         , allocatable     :: kegs (:)          !< temp (numl) edge oriented general structure new style
@@ -262,6 +263,14 @@
  integer         , allocatable     :: L2gatesg(:)       !< second ngate point in gate signal ngatesg
  integer                           :: ngatesg           !< nr of gate signals specified
  character(len=128), allocatable, target :: gate_ids(:)
+ 
+ integer                           :: nsealock          !< sealocks links dimension
+ integer         , allocatable     :: ksealock(:,:)     !< gates links index array, see lines above 
+ integer         , allocatable, target :: kdsl(:)       !< helper for multiple_uni
+ integer         , allocatable     :: L1sealocksg(:)    !< first  nsealock point in sealock signal nsealocksg
+ integer         , allocatable     :: L2sealocksg(:)    !< second nsealock point in sealock signal nsealocksg
+ integer                           :: nsealocksg        !< nr of sealock signals specified
+ character(len=128), allocatable, target :: sealock_ids(:)
 
  integer                           :: ncdam             !< nr of controllable dam points
  double precision, allocatable     :: xcdam(:)          !< dam nodes xcor = xz(k1)
@@ -288,7 +297,19 @@
  type(pillar_Type), dimension(:), allocatable :: pillar
  double precision,  dimension(:), allocatable :: Cpil
 
-
+ type sealock_type
+    double precision, dimension(:), allocatable :: xcor  !< x-coordinates of sealocks
+    double precision, dimension(:), allocatable :: ycor  !< y-coordinates of sealocks
+    !double precision                            :: xsea_transport , ysea_transport   ! Based on flow node, upstream of polyline
+    double precision                            :: xsea_probe     , ysea_probe
+    !double precision                            :: xlake_transport, ylake_transport  ! Based on flow node, dowstream of polyline
+    double precision                            :: xlake_probe    , ylake_probe
+    integer                                     :: ksea_probe
+    integer                                     :: klake_probe
+    integer, dimension(2)                       :: sorsin_index
+ end type sealock_type
+ type(sealock_Type), dimension(:), allocatable :: sealock
+ 
  integer                           :: ncgen             !< nr of controllable generalstr points
  double precision, allocatable     :: xcgen(:)          !< generalstr nodes xcor = xz(k1)
  double precision, allocatable     :: ycgen(:)          !< generalstr nodes ycor

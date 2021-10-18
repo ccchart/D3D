@@ -30,7 +30,7 @@
 ! $Id$
 ! $HeadURL$
 
- subroutine addsorsin(filename, area, ierr)
+ subroutine addsorsin(filename, area, ierr, xpin, ypin, zpin, dzlin)
 
  use m_flowexternalforcings
  use m_polygon
@@ -49,15 +49,29 @@
  character (len=*), intent(in)  :: filename
  double precision,  intent(in)  :: area
  integer,           intent(out) :: ierr
- integer   :: minp, k, kk, kb, kt, kk2, n1, n2, i, jakdtree, kdum(1)
+ double precision, dimension(:), optional :: xpin, ypin, zpin, dzlin
+ integer   :: minp, k, kk, kb, kt, kk2, n1, n2, i, jakdtree, kdum(1), npin
  character (len=IdLen) :: tmpname(1)
 
  ierr = DFM_NOERR
 
- call oldfil(minp, filename)
- call reapol(minp, 0)
+ if (len_trim(filename) > 0) then
+    call oldfil(minp, filename)
+    call reapol(minp, 0)
+
+ elseif (present(xpin)) then
+    npin = size(xpin)
+    call increasepol(npin, 1)
+    xpl(1:npin) = xpin
+    ypl(1:npin) = ypin
+    zpl(1:npin) = zpin  ! optional lowest z coordinate of sink and source side (sink in index 1, source in index npin, intermediate values do not matter if npin > 2)
+    dzL(1:npin) = dzlin ! optional hightest z coordinate of sink and source side
+    ! todo?? zpl?
+    npl = npin
+ end if
 
  if (npl == 0) return
+    
 
  numsrc = numsrc + 1
  call reallocsrc(numsrc)
@@ -67,6 +81,8 @@
  ysrc(numsrc,1:npl) = ypl(1:npl)
  nxsrc(numsrc)      = npl
  kk = 0; kk2 = 0
+ 
+
 
  ! Strip off trailing file extension .pli
  n2  = index(filename,'.', .true.) - 1

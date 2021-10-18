@@ -89,7 +89,7 @@
  double precision, allocatable :: viuh(:)            ! temp
  double precision, allocatable :: tt(:)
  logical :: exist
- integer                       :: numz, numu, numq, numg, numd, numgen, npum, numklep, numvalv, nlat, jaifrcutp
+ integer                       :: numz, numu, numq, numg, numd, numgen, npum, numklep, numvalv, nlat, jaifrcutp, numsl
  integer                       :: numnos, numnot, numnon ! < Nr. of unassociated flow links (not opened due to missing z- or u-boundary)
 
  double precision, allocatable :: xdum(:), ydum(:), xy2dum(:,:)
@@ -1761,6 +1761,19 @@ if (mext /= 0) then
            call realloc(L2gatesg,ngatesg) ; L2gatesg(ngatesg) = ngate + numg
 
            ngate   = ngate   + numg
+           
+        else if (jaoldstr > 0 .and. qid == 'sealock' ) then
+
+           call selectelset_internal_links(xz, yz, ndx, ln, lnx, kesl(nsealock+1:numl), numsl, LOCTP_POLYLINE_FILE, filename)
+           success = .true.
+           WRITE(msgbuf,'(a,1x,a,i8,a)') trim(qid), trim(filename) , numsl, ' nr of sealock links' ; call msg_flush()
+
+
+           nsealocksg = nsealocksg + 1
+           call realloc(L1sealocksg,nsealocksg) ; L1sealocksg(nsealocksg) = nsealock + 1
+           call realloc(L2sealocksg,nsealocksg) ; L2sealocksg(nsealocksg) = nsealock + numsl
+
+           nsealock = nsealock + numsl
 
         else if (jaoldstr > 0 .and. qid == 'damlevel' ) then
 

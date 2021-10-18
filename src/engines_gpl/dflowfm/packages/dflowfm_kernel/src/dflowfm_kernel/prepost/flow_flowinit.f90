@@ -65,7 +65,8 @@
  use unstruc_channel_flow, only: useVolumeTables
  use m_VolumeTables
  use timers
-
+ use m_zsf
+  
  implicit none
 
  ! locals
@@ -96,6 +97,11 @@
  double precision  :: Ds
  double precision  :: hw,tw,csw,snw, uorbi,rkw,ustt,hh, upot, ukin, ueaa
 
+ type(zsf_param_t)       :: p
+ type(zsf_results_t)     :: results
+ type(zsf_aux_results_t) :: aux_results
+ integer                 :: err_code
+ 
  iresult = DFM_GENERICERROR
 
  if (ndx == 0) then
@@ -151,7 +157,7 @@ end if
  if (jasecflow > 0 ) then
     spirint = spirini
  endif
-
+ 
  if (jased > 0 .and. jased < 4) then
     do k = 1,ndkx
        do j = 1,mxgr
@@ -912,6 +918,10 @@ end if
  call timstrt('Initialise external forcings', handle_iniext)
  iresult = flow_initexternalforcings()               ! this is the general hook-up to wind and boundary conditions
  call timstop(handle_iniext)
+ 
+ if (jasealock > 0) then
+    call init_sealock ()
+ endif
 
  ! from hereon, the processes are in sync
  if (jampi == 1) then

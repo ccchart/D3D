@@ -158,3 +158,51 @@
     endif
 
   end subroutine setpillars
+  
+  ! =================================================================================================
+  ! =================================================================================================
+  subroutine init_sealock ()
+     use m_flowexternalforcings, only: nsealocksg, sealock, numsrc
+     use m_flowgeom            , only: bl
+     use m_flow                , only: hs, s1
+     use gridoperations        , only: incells
+     implicit none
+     integer                        :: m, k1, k2, ierr
+     double precision               :: area
+     double precision, dimension(2) :: xpin, ypin, zpin, dzlin
+     
+     ! use m_flowexternalforcings, only: *sealockblabla
+     ! do i=1,numslf
+     !
+     !
+     !   ... call add_sorsin( ..., (/ sealock(i)%xsea_transport, xlake_transport /), (/ .. y... /) ..)
+     
+     ! end do
+    do m = 1,nsealocksg
+       call incells (sealock(m)%xsea_probe , sealock(m)%ysea_probe , k1)
+       call incells (sealock(m)%xlake_probe, sealock(m)%ylake_probe, k2)
+       sealock(m)%ksea_probe  = k1
+       sealock(m)%klake_probe = k2
+       
+       area = 0d0
+       ierr = 0
+       zpin(1)  = bl(k1)
+       dzlin(1) = bl(k1) + hs(k1) * 0.3d0   !TODO: hardcoded 30% needs to be as input
+       
+       zpin(2)  = bl(k2)
+       dzlin(2) = bl(k2) + hs(k2) * 0.3d0
+       
+       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin)  !TODO: buttom source sink from sea to lake
+       sealock(m)%sorsin_index(1) = numsrc ! Store source-sink index sea->lake for this sealock
+       zpin(1) = bl(k2) + hs(k2) * 0.7d0
+       dzlin(1) = s1(k2)
+       
+       zpin(2) = bl(k1) + hs(k1) * 0.7d0
+       dzlin(2) = s1(k1)
+       
+       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin)
+       sealock(m)%sorsin_index(2) = numsrc ! Store source-sink index lake->sea for this sealock
+
+    enddo
+  
+  end subroutine init_sealock

@@ -151,7 +151,7 @@
  if (japillar == 1 .or. japillar == 3) then
     call pillar_upd()
  endif
-
+ 
  ! TIDAL TURBINES: Insert equivalent calls to updturbine and applyturbines here
 
  call timstrt('setdt', handle_extra(40)) ! Start setdt
@@ -160,6 +160,10 @@
  end if
  call timstop(handle_extra(40)) ! End setdt
 
+ if (jasealock == 1) then
+    call sealock_upd()
+ endif
+ 
  if (nshiptxy > 0) then
      call setship()                                  ! in initimestep
  endif

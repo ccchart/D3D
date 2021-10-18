@@ -68,10 +68,10 @@ character(len=256)            :: plifile
 integer                       :: i, L, Lf, kb, LL, ierr, k, kbi, n, ifld, k1, k2
 integer                       :: nstr
 character (len=256)           :: fnam, rec, key, rec_old
-integer, allocatable          :: pumpidx(:), gateidx(:), cdamidx(:), cgenidx(:), dambridx(:) ! temp
+integer, allocatable          :: pumpidx(:), gateidx(:), cdamidx(:), cgenidx(:), dambridx(:), sealockidx(:) ! temp
 double precision              :: tmpval
 integer                       :: istru, istrtype, itmp, janewformat
-integer                       :: numg, numd, npum, ngs, numgen, numgs, ilinstr, ndambr
+integer                       :: numg, numd, npum, ngs, numgen, numgs, ilinstr, ndambr, numsl
 type(TREE_DATA), pointer      :: str_ptr
 double precision, allocatable :: widths(:)
 double precision              :: widthtot
@@ -150,6 +150,7 @@ if (allocated(dambreakLinksEffectiveLength)) deallocate(dambreakLinksEffectiveLe
 if (allocated(dambreakLinksActualLength))    deallocate(dambreakLinksActualLength)
 if (allocated(pumpidx)) deallocate(pumpidx)
 if (allocated(gateidx)) deallocate(gateidx)
+if (allocated(sealockidx)) deallocate(sealockidx)
 if (allocated(cdamidx)) deallocate(cdamidx)
 if (allocated(cgenidx)) deallocate(cgenidx)
 if (allocated(dambridx)) deallocate(dambridx)
@@ -163,6 +164,7 @@ allocate(dambreakLinksActualLength(numl))
 dambreakLinksActualLength = 0d0
 allocate(pumpidx(nstr))
 allocate(gateidx(nstr))
+allocate(sealockidx(nstr))
 allocate(cdamidx(nstr))
 allocate(cgenidx(nstr))
 allocate(dambridx(nstr))
@@ -331,6 +333,19 @@ do i=1,nstr
    !   end if
    !endif
    select case (strtype)
+   case ('sealock')
+
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, kdsl(nsealock+1:numl), numsl, LOCTP_POLYLINE_FILE, plifile)
+      success = .true.
+      WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , numsl, ' nr of sealock links' ; call msg_flush()
+
+      nsealocksg = nsealocksg + 1
+      sealockidx(nsealocksg) = i
+      call realloc(L1sealocksg,nsealocksg) ; L1sealocksg(nsealocksg) = nsealock + 1
+      call realloc(L2sealocksg,nsealocksg) ; L2sealocksg(nsealocksg) = nsealock + numsl
+
+      nsealock = nsealock + numsl
+      
    case ('gateloweredgelevel')  ! Old-style controllable gateloweredgelevel
         !else if (qid == 'gateloweredgelevel' ) then
 
@@ -600,6 +615,44 @@ end do
 
 
       select case (strtype)
+      !! SEALOCK !!
+      case ('sealock')
+         rec = ' '
+         call prop_get(str_ptr, '', 'XLakeProbe', rec, success)
+         if (.not. success .or. len_trim(rec) == 0) then
+            write(msgbuf, '(a,a,a)') 'Required field ''XLakeProbe'' missing in sealock ''', trim(strid), '''.'
+            call warn_flush()
+            cycle
+         end if
+         read(rec, *, iostat = ierr) sealock(n)%xlake_probe
+      
+         rec = ' '
+         call prop_get(str_ptr, '', 'YLakeProbe', rec, success)
+         if (.not. success .or. len_trim(rec) == 0) then
+            write(msgbuf, '(a,a,a)') 'Required field ''YLakeProbe'' missing in sealock ''', trim(strid), '''.'
+            call warn_flush()
+            cycle
+         end if
+         read(rec, *, iostat = ierr) sealock(n)%ylake_probe
+         
+         rec = ' '
+         call prop_get(str_ptr, '', 'XSeaProbe', rec, success)
+         if (.not. success .or. len_trim(rec) == 0) then
+            write(msgbuf, '(a,a,a)') 'Required field ''XLakeProbe'' missing in sealock ''', trim(strid), '''.'
+            call warn_flush()
+            cycle
+         end if
+         read(rec, *, iostat = ierr) sealock(n)%xsea_probe
+         
+         rec = ' '
+         call prop_get(str_ptr, '', 'YseaProbe', rec, success)
+         if (.not. success .or. len_trim(rec) == 0) then
+            write(msgbuf, '(a,a,a)') 'Required field ''YseaProbe'' missing in sealock ''', trim(strid), '''.'
+            call warn_flush()
+            cycle
+         end if
+         read(rec, *, iostat = ierr) sealock(n)%ysea_probe
+
       !! WEIR !!
       case ('weir')
          rec = ' '
@@ -985,6 +1038,124 @@ if (ngate > 0) then ! Old-style controllable gateloweredgelevel
    enddo
 
 endif ! Old style controllable gateloweredgelevel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (nsealocksg > 0) then ! Sea lock
+   if (allocated(ksealock)) deallocate(ksealock)
+   if (allocated(sealock_ids)) deallocate(sealock_ids)
+   allocate (sealock_ids(nsealocksg))
+   allocate (ksealock(3,nsealocksg), stat=ierr)
+   call aerr('ksealock(3,nsealocksg)', ierr, nsealocksg*5)
+   ksealock = 0d0
+   kx = 1
+
+   if (allocated(sealock)) deallocate(sealock)
+   allocate(sealock(nsealocksg))
+   do n = 1, nsealocksg
+      
+      do k = L1sealocksg(n), L2sealocksg(n)
+         Lf           = iabs(kdsl(k))
+         kb           = ln(1,Lf) 
+         kbi          = ln(2,Lf)
+         if (kdsl(k) > 0) then
+            ksealock(1,k)= kb
+            ksealock(2,k)= kbi
+         else
+            ksealock(1,k)= kbi
+            ksealock(2,k)= kb
+         end if
+         ksealock(3,k)= Lf
+      enddo
+   enddo
+   
+   do n = 1, nsealocksg
+      str_ptr => strs_ptr%child_nodes(sealockidx(n))%node_ptr
+
+      strid = ' '
+      call prop_get_string(str_ptr, '', 'id', strid, success)
+      sealock_ids(n) = strid
+
+      plifile = ' '
+      call prop_get_string(str_ptr, '', 'polylinefile', plifile)
+      call resolvePath(plifile, md_structurefile_dir, plifile)
+
+      rec = ' '
+      call prop_get(str_ptr, '', 'XLakeProbe', rec, success)
+      if (.not. success .or. len_trim(rec) == 0) then
+         write(msgbuf, '(a,a,a)') 'Required field ''XLakeProbe'' missing in sealock ''', trim(strid), '''.'
+         call warn_flush()
+         cycle
+      end if
+      read(rec, *, iostat = ierr) tmpval
+      sealock(n)%xlake_probe = tmpval
+      
+      rec = ' '
+      call prop_get(str_ptr, '', 'YLakeProbe', rec, success)
+      if (.not. success .or. len_trim(rec) == 0) then
+         write(msgbuf, '(a,a,a)') 'Required field ''YLakeProbe'' missing in sealock ''', trim(strid), '''.'
+         call warn_flush()
+         cycle
+      end if
+      read(rec, *, iostat = ierr) tmpval
+      sealock(n)%ylake_probe = tmpval
+      
+      rec = ' '
+      call prop_get(str_ptr, '', 'XSeaProbe', rec, success)
+      if (.not. success .or. len_trim(rec) == 0) then
+         write(msgbuf, '(a,a,a)') 'Required field ''XSeaProbe'' missing in sealock ''', trim(strid), '''.'
+         call warn_flush()
+         cycle
+      end if
+      read(rec, *, iostat = ierr) tmpval
+      sealock(n)%xsea_probe = tmpval
+      
+      rec = ' '
+      call prop_get(str_ptr, '', 'YSeaProbe', rec, success)
+      if (.not. success .or. len_trim(rec) == 0) then
+         write(msgbuf, '(a,a,a)') 'Required field ''YSeaProbe'' missing in sealock ''', trim(strid), '''.'
+         call warn_flush()
+         cycle
+      end if
+      read(rec, *, iostat = ierr) tmpval
+      sealock(n)%ysea_probe = tmpval
+
+   enddo
+endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if (ncdamsg > 0) then ! Old-style controllable damlevel
    if (allocated   (zcdam)   ) deallocate( zcdam)
