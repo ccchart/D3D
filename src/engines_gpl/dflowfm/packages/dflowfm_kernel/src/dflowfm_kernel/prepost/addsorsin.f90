@@ -30,7 +30,7 @@
 ! $Id$
 ! $HeadURL$
 
- subroutine addsorsin(filename, area, ierr, xpin, ypin, zpin, dzlin)
+ subroutine addsorsin(filename, area, ierr, xpin, ypin, zpin, dzlin, sorsin_name)
 
  use m_flowexternalforcings
  use m_polygon
@@ -43,15 +43,17 @@
  use geometry_module, only: normalin
  use m_sferic, only: jsferic, jasfer3D
  use MessageHandling, only: IdLen
+ use m_alloc
 
  implicit none
 
  character (len=*), intent(in)  :: filename
  double precision,  intent(in)  :: area
  integer,           intent(out) :: ierr
- double precision, dimension(:), optional :: xpin, ypin, zpin, dzlin
+ double precision, dimension(:), optional, intent(in) :: xpin, ypin, zpin, dzlin
+ character (len=*), optional, intent(in)  :: sorsin_name !< Optional custom name for source-sink, if filename is not used, but xpin is used instead.
  integer   :: minp, k, kk, kb, kt, kk2, n1, n2, i, jakdtree, kdum(1), npin
- character (len=IdLen) :: tmpname(1)
+ character (len=IdLen) :: tmpname
 
  ierr = DFM_NOERR
 
@@ -61,10 +63,11 @@
 
  elseif (present(xpin)) then
     npin = size(xpin)
-    call increasepol(npin, 1)
+    call increasepol(npin, 0)
     xpl(1:npin) = xpin
     ypl(1:npin) = ypin
     zpl(1:npin) = zpin  ! optional lowest z coordinate of sink and source side (sink in index 1, source in index npin, intermediate values do not matter if npin > 2)
+    call realloc(dzl, size(xpl,1), keepExisting=.false., fill=dxymis, stat=ierr)
     dzL(1:npin) = dzlin ! optional hightest z coordinate of sink and source side
     ! todo?? zpl?
     npl = npin
@@ -83,28 +86,32 @@
  kk = 0; kk2 = 0
  
 
+  if(len_trim(filename) > 0) then
+     ! Strip off trailing file extension .pli
+     n2  = index(filename,'.', .true.) - 1
+     if (n2 < 0) then
+        n2 = len_trim(filename)
+     end if
 
- ! Strip off trailing file extension .pli
- n2  = index(filename,'.', .true.) - 1
- if (n2 < 0) then
-    n2 = len_trim(filename)
- end if
+     ! Strip off leading path /dir/name/bnd/
+     n1  = index(filename(1:n2),'\', .true.) ! Win
+     if (n1 == 0) then
+         n1 = index(filename(1:n2),'/', .true.) ! Or try UX
+     end if
 
- ! Strip off leading path /dir/name/bnd/
- n1  = index(filename(1:n2),'\', .true.) ! Win
- if (n1 == 0) then
-     n1 = index(filename(1:n2),'/', .true.) ! Or try UX
- end if
-
- ! Store sink/source name for waq
- srcname(numsrc) = filename(n1+1:n2)
+     ! Store sink/source name for waq
+     srcname(numsrc) = filename(n1+1:n2)
+  elseif (present(sorsin_name)) then
+     srcname(numsrc) = sorsin_name
+  end if
+     
 
  ! call inflowcell(xpl(npl), ypl(npl), kk2) ! TO: Source
- tmpname(1) = filename(n1+1:n2) // ' source'
+ tmpname = trim(srcname(numsrc)) // ' source'
  jakdtree = 0
  kdum(1)  = 0
  if (xpl(npl) .ne. -999.999d0) then
-    call find_flownode(1,xpl(npl),ypl(npl),tmpname(1),kdum(1),jakdtree,-1, INDTP_ALL) ; kk2 = kdum(1)
+    call find_flownode(1,xpl(npl),ypl(npl),tmpname,kdum(1),jakdtree,-1, INDTP_ALL) ; kk2 = kdum(1)
  endif
 
  ! Support point source/sinks in a single cell if polyline has just one point (npl==1)
@@ -119,10 +126,10 @@
     arsrc (numsrc) = 0d0
  else ! Default: linked source-sink, with polyline npl >= 2
     ! call inflowcell(xpl(1) , ypl(1)  , kk) ! FROM: sink
-    tmpname = filename(n1+1:n2) // ' sink'
+    tmpname = trim(srcname(numsrc)) // ' sink'
     kdum(1) = 0
     if (xpl(1) .ne. -999.999d0) then
-       call find_flownode(1,xpl(1),ypl(1),tmpname(1),kdum(1),jakdtree,-1,INDTP_ALL) ; kk = kdum(1)
+       call find_flownode(1,xpl(1),ypl(1),tmpname,kdum(1),jakdtree,-1,INDTP_ALL) ; kk = kdum(1)
     endif
 
     if (kk.ne.0 .or. kk2.ne.0) then

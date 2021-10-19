@@ -919,6 +919,7 @@ end if
  iresult = flow_initexternalforcings()               ! this is the general hook-up to wind and boundary conditions
  call timstop(handle_iniext)
  
+ jasealock = 1
  if (jasealock > 0) then
     call init_sealock ()
  endif

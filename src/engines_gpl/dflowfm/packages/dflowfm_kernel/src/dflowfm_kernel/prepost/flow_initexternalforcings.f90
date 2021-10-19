@@ -2444,7 +2444,7 @@ endif ! read mext file
  endif
 
  if (allocated(kez)) then  ! mext > 0 .or. len_trim(md_extfile_new) > 0) then
-    deallocate ( kez, keu, kes, ketm, kesd, ket, keuxy, ken, ke1d2d, keg, ked, kep, kedb, keklep, kevalv, kegs, kegen, itpez, itpenz, itpeu, itpenu, kew, ketr)
+    deallocate ( kez, keu, kes, ketm, kesd, ket, keuxy, ken, ke1d2d, keg, kesl, ked, kep, kedb, keklep, kevalv, kegs, kegen, itpez, itpenz, itpeu, itpenu, kew, ketr)
 end if
 
  if (mext /= 0) then

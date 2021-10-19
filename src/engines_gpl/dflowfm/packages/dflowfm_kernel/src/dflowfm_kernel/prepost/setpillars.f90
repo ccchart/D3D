@@ -162,14 +162,25 @@
   ! =================================================================================================
   ! =================================================================================================
   subroutine init_sealock ()
-     use m_flowexternalforcings, only: nsealocksg, sealock, numsrc
+     use m_flowexternalforcings, only: nsealocksg, sealock, numsrc, ksealock, L1sealocksg, L2sealocksg
      use m_flowgeom            , only: bl
      use m_flow                , only: hs, s1
      use gridoperations        , only: incells
+     use network_data, only: xzw, yzw
      implicit none
-     integer                        :: m, k1, k2, ierr
+     integer                        :: m, k1, k2, ksea, klake, L, ierr
      double precision               :: area
      double precision, dimension(2) :: xpin, ypin, zpin, dzlin
+
+     interface
+        subroutine addsorsin(filename, area, ierr, xpin, ypin, zpin, dzlin, sorsin_name)
+            character (len=*), intent(in)  :: filename
+            double precision,  intent(in)  :: area
+            integer,           intent(out) :: ierr
+            double precision, dimension(:), optional, intent(in) :: xpin, ypin, zpin, dzlin
+            character (len=*), optional, intent(in)  :: sorsin_name !< Optional custom name for source-sink, if filename is not used, but xpin is used instead.
+        end subroutine addsorsin
+     end interface
      
      ! use m_flowexternalforcings, only: *sealockblabla
      ! do i=1,numslf
@@ -184,23 +195,36 @@
        sealock(m)%ksea_probe  = k1
        sealock(m)%klake_probe = k2
        
+       L = L1sealocksg(m)
+       ksea = ksealock(1,L) ! for now assume that a sealock is always on 1 gridcell, so use L from L1sealocksg.
+       klake = ksealock(2,L)
+       
        area = 0d0
        ierr = 0
-       zpin(1)  = bl(k1)
-       dzlin(1) = bl(k1) + hs(k1) * 0.3d0   !TODO: hardcoded 30% needs to be as input
+       xpin(1) = xzw(ksea)
+       ypin(1) = yzw(ksea)
+       zpin(1)  = bl(ksea)
+       dzlin(1) = bl(ksea) + hs(ksea) * 0.3d0   !TODO: hardcoded 30% needs to be as input
        
-       zpin(2)  = bl(k2)
-       dzlin(2) = bl(k2) + hs(k2) * 0.3d0
+       xpin(2) = xzw(klake)
+       ypin(2) = yzw(klake)
+       zpin(2)  = bl(klake)
+       dzlin(2) = bl(klake) + hs(klake) * 0.3d0
        
-       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin)  !TODO: buttom source sink from sea to lake
+       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin, trim(sealock(m)%id)//'_s2l')  !TODO: buttom source sink from sea to lake
        sealock(m)%sorsin_index(1) = numsrc ! Store source-sink index sea->lake for this sealock
-       zpin(1) = bl(k2) + hs(k2) * 0.7d0
-       dzlin(1) = s1(k2)
+
+       xpin(1) = xzw(klake)
+       ypin(1) = yzw(klake)
+       zpin(1) = bl(klake) + hs(klake) * 0.7d0
+       dzlin(1) = s1(klake)
        
-       zpin(2) = bl(k1) + hs(k1) * 0.7d0
-       dzlin(2) = s1(k1)
+       xpin(2) = xzw(ksea)
+       ypin(2) = yzw(ksea)
+       zpin(2) = bl(ksea) + hs(ksea) * 0.7d0
+       dzlin(2) = s1(ksea)
        
-       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin)
+       call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin, trim(sealock(m)%id)//'_l2s')
        sealock(m)%sorsin_index(2) = numsrc ! Store source-sink index lake->sea for this sealock
 
     enddo

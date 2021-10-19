@@ -335,7 +335,7 @@ do i=1,nstr
    select case (strtype)
    case ('sealock')
 
-      call selectelset_internal_links(xz, yz, ndx, ln, lnx, kdsl(nsealock+1:numl), numsl, LOCTP_POLYLINE_FILE, plifile)
+      call selectelset_internal_links(xz, yz, ndx, ln, lnx, kesl(nsealock+1:numl), numsl, LOCTP_POLYLINE_FILE, plifile)
       success = .true.
       WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , numsl, ' nr of sealock links' ; call msg_flush()
 
@@ -1054,8 +1054,6 @@ endif ! Old style controllable gateloweredgelevel
 
 if (nsealocksg > 0) then ! Sea lock
    if (allocated(ksealock)) deallocate(ksealock)
-   if (allocated(sealock_ids)) deallocate(sealock_ids)
-   allocate (sealock_ids(nsealocksg))
    allocate (ksealock(3,nsealocksg), stat=ierr)
    call aerr('ksealock(3,nsealocksg)', ierr, nsealocksg*5)
    ksealock = 0d0
@@ -1066,10 +1064,10 @@ if (nsealocksg > 0) then ! Sea lock
    do n = 1, nsealocksg
       
       do k = L1sealocksg(n), L2sealocksg(n)
-         Lf           = iabs(kdsl(k))
+         Lf           = iabs(kesl(k))
          kb           = ln(1,Lf) 
          kbi          = ln(2,Lf)
-         if (kdsl(k) > 0) then
+         if (kesl(k) > 0) then
             ksealock(1,k)= kb
             ksealock(2,k)= kbi
          else
@@ -1085,7 +1083,7 @@ if (nsealocksg > 0) then ! Sea lock
 
       strid = ' '
       call prop_get_string(str_ptr, '', 'id', strid, success)
-      sealock_ids(n) = strid
+      sealock(n)%id = strid
 
       plifile = ' '
       call prop_get_string(str_ptr, '', 'polylinefile', plifile)
