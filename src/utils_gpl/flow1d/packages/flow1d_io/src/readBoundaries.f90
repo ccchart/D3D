@@ -404,7 +404,6 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                connectionId = ecCreateConnection(ec)
                if (.not.ecAddConnectionSourceItem(ec, connectionId, ec_tgt_item)) return
                if (.not.ecAddConnectionTargetItem(ec, connectionId, ec_itemId_laterals)) return
-               if (.not.ecCopyItemProperty(ec, ec_itemId_laterals, ec_tgt_item, 'quantityPtr')) return
                if (.not.ecAddItemConnection(ec, ec_itemId_laterals, connectionId)) return
             endif
          endif
@@ -521,7 +520,8 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    network%boundaries%tp(B_WINDDIR)%bd(1)%boundaryValue = 0d0
 
    ! Dump EC item hierarchy
-   call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
+!  call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
+   call ecInstancePrintState(ec,callback_msg,LEVEL_INFO)
 
 end subroutine readBoundaryConditions
 
@@ -576,11 +576,26 @@ subroutine closeBoundaryConditionFiles()
    endif
 end subroutine closeBoundaryConditionFiles
 
-subroutine write_laterals_and_boundaries(network, timeAsMJD, devlat, devbnd)
+subroutine write_laterals_and_boundaries(network, timeAsMJD, f_lat, f_bnd)
    type(t_network), target, intent(inout) :: network
    double precision, intent(in)   :: timeAsMJD
-   integer, intent(in) :: devbnd     ! device to write the boundary values
+   character(len=*), intent(in) :: f_lat         ! file to write the lateral values
+   character(len=*), intent(in) :: f_bnd         ! file to write the boundaries values
+
+   integer :: devlat     ! device to write the lateral values
+   integer :: devbnd     ! device to write the boundary values
+   open(file=f_lat, newunit=devlat, access='append')
+   open(file=f_bnd, newunit=devbnd, access='append')
+   call write_laterals_and_boundaries_stream(network, timeAsMJD, devlat, devbnd)
+   close(devbnd)
+   close(devlat)
+end subroutine write_laterals_and_boundaries
+
+subroutine write_laterals_and_boundaries_stream(network, timeAsMJD, devlat, devbnd)
+   type(t_network), target, intent(inout) :: network
+   double precision, intent(in)   :: timeAsMJD
    integer, intent(in) :: devlat     ! device to write the lateral values
+   integer, intent(in) :: devbnd     ! device to write the boundary values
    integer :: nType, nLoc, locIndex, varType
    ! write laterals for a single timestep
    nLoc = size(network%lts%lat)
@@ -607,7 +622,7 @@ subroutine write_laterals_and_boundaries(network, timeAsMJD, devlat, devbnd)
       write(devbnd,'(a$)') '|'
    enddo
    write(devbnd,*)
-end subroutine write_laterals_and_boundaries
+end subroutine write_laterals_and_boundaries_stream
  
 
 end module m_readBoundaries
