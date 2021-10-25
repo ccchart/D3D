@@ -86,9 +86,11 @@
              do L = 1,numconst
                 srsn(1+L,n) = srsn(1+L,n) + constituents(L,k)*vol1(k)
              enddo
-             ksrc(3,n) = k
-             if ( frac*srsn(1,n) / dts > abs(qsrc(n)) ) then
-                  exit
+             if (jasrcsnkzrange == 0) then
+                ksrc(3,n) = k
+                if ( frac*srsn(1,n) / dts > abs(qsrc(n)) ) then
+                     exit
+                endif
              endif
           enddo
           if ( srsn(1,n) > 0d0 ) then
@@ -140,9 +142,11 @@
              do L = 1,numconst
                 srsn(1+numconst+1+L,n) = srsn(1+numconst+1+L,n) + constituents(L,k)*vol1(k)
              enddo
-             ksrc(6,n) = k
-             if ( frac*srsn(1+numconst+1,n) / dts > abs(qsrc(n)) ) then
-                  exit
+             if (jasrcsnkzrange == 0) then
+                ksrc(6,n) = k
+                if ( frac*srsn(1+numconst+1,n) / dts > abs(qsrc(n)) ) then
+                     exit
+                endif
              endif
           enddo
           if ( srsn(1+numconst+1,n) > 0d0) then

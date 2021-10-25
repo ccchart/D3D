@@ -160,7 +160,7 @@
  end if
  call timstop(handle_extra(40)) ! End setdt
 
- if (jasealock == 1) then
+ if (nsealocksg > 0) then
     call sealock_upd()
  endif
  

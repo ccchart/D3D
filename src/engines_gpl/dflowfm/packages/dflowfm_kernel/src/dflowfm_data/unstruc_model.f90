@@ -1224,6 +1224,8 @@ subroutine readMDUFile(filename, istat)
        sdu_update_s1 = 0
     endif
 
+    call prop_get_integer(md_ptr, 'numerics', 'SourceSinkZRange', jasrcsnkzrange)
+    
     ! Physics
     call prop_get_double (md_ptr, 'physics', 'UnifFrictCoef'  , frcuni)
     call prop_get_integer(md_ptr, 'physics', 'UnifFrictType'  , ifrctypuni)
@@ -3007,6 +3009,10 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     endif
     if (writeall .or. sdu_update_s1 > 0) then
        call prop_set (prop_ptr, 'numerics', 'SubsUplUpdateS1', sdu_update_s1, 'Update water levels (S1) due to subsidence / uplift')
+    endif
+    
+    if (writeall .or. jasrcsnkzrange > 0) then
+       call prop_set (prop_ptr, 'numerics', 'SourceSinkZRange', jasrcsnkzrange, 'extract source and sink from 0) only one layer, 1) range of layers')
     endif
 
 ! Physics

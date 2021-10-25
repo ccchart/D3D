@@ -65,7 +65,6 @@
   subroutine sealock_upd()
     use m_flowgeom            , only: lnx, ln, dx
     use m_flow                , only: sa1, hs, vol1, s1
-    use m_flowparameters      , only: jasealock
     use m_flowexternalforcings, only: sealock, nsealocksg, qstss
     use gridoperations
     use m_transport           , only: numconst
@@ -95,7 +94,7 @@
           salsum = salsum + sa1(k) * vol1(k)
           volsum = volsum + vol1(k) 
        enddo
-       p%salinity_sea = p%salinity_sea / volsum
+       p%salinity_sea = salsum / volsum
        p%head_sea = s1(k1)
     
        call getkbotktop(k2, kb, kt)

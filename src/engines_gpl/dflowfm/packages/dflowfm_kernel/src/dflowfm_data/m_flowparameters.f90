@@ -143,8 +143,6 @@
  integer                           :: jasecflow         !< 0: no, 1: yes
 
  integer                           :: japillar          !< 0: no, 1: yes
- 
- integer                           :: jasealock         !< 0: no, 1: yes
 
  integer                           :: jaequili          !< secondary flow intensity gets calculated as equilibrium (0=no, 1=yes)
 
@@ -417,6 +415,8 @@
 
  integer                           :: jalogsolverconvergence    !< log solver convergence message bloat (default 1, preferable 0)
 
+ integer                           :: jasrcsnkzrange            !< extract discharge from z-range 0) only one layer or 2) range of layers
+ 
  ! written to his file yes or no
  integer                           :: jahisbal                  !< Write mass balance/volume totals to his file, 0: no, 1: yes
  integer                           :: jahissourcesink           !< Write discharge/volume at sources/sinks, 0: no, 1: yest
@@ -642,8 +642,6 @@ subroutine default_flowparameters()
     jasecflow = 0     ! include secondary flow (0=no, 1=yes)
 
     japillar  = 0     ! include pillar (0=no, 1=yes)
-    
-    jasealock = 0     ! include sea lock exchange (0=no, 1=yes)
 
     jaequili  = 0     ! equilibrium secondary flow (0=no, 1=yes)
 
@@ -866,6 +864,8 @@ subroutine default_flowparameters()
 
     jaupwindsrc = 1
     jalogsolverconvergence = 1
+    
+    jasrcsnkzrange = 0
 
     jahisbal = 1
     jahissourcesink = 1

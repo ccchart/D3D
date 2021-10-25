@@ -283,6 +283,7 @@
 ! integer         , allocatable, target :: kdsl(:)       !< helper for multiple_uni
  integer         , allocatable     :: L1sealocksg(:)    !< first  nsealock point in sealock signal nsealocksg
  integer         , allocatable     :: L2sealocksg(:)    !< second nsealock point in sealock signal nsealocksg
+ 
  integer                           :: nsealocksg        !< nr of sealock signals specified
 
 
@@ -514,6 +515,8 @@ subroutine default_flowexternalforcings()
 
     ngate   = 0       ! gates links dimension, to specify gate lower edge level
     ngatesg = 0       ! nr of gate control signals
+    nsealock = 0      ! sea lock dimension
+    nsealocksg = 0    ! nr of sea lock signals
     ncdam   = 0       ! controllable dams nodes dimension, to specify local bottom level
     ncdamsg = 0       ! nr of controllable dam signals
     ncgen   = 0       ! general structure nodes dimension, to apply gen struc defs

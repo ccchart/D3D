@@ -169,7 +169,7 @@
      use network_data, only: xzw, yzw
      implicit none
      integer                        :: m, k1, k2, ksea, klake, L, ierr
-     double precision               :: area
+     double precision               :: area, t1, t2
      double precision, dimension(2) :: xpin, ypin, zpin, dzlin
 
      interface
@@ -189,6 +189,7 @@
      !   ... call add_sorsin( ..., (/ sealock(i)%xsea_transport, xlake_transport /), (/ .. y... /) ..)
      
      ! end do
+
     do m = 1,nsealocksg
        call incells (sealock(m)%xsea_probe , sealock(m)%ysea_probe , k1)
        call incells (sealock(m)%xlake_probe, sealock(m)%ylake_probe, k2)
@@ -204,29 +205,29 @@
        xpin(1) = xzw(ksea)
        ypin(1) = yzw(ksea)
        zpin(1)  = bl(ksea)
-       dzlin(1) = bl(ksea) + hs(ksea) * 0.3d0   !TODO: hardcoded 30% needs to be as input
+       dzlin(1) = bl(ksea) + (s1(ksea) - bl(ksea)) * 0.3d0   !TODO: hardcoded 30% needs to be as input
        
        xpin(2) = xzw(klake)
        ypin(2) = yzw(klake)
        zpin(2)  = bl(klake)
-       dzlin(2) = bl(klake) + hs(klake) * 0.3d0
+       dzlin(2) = bl(klake) + (s1(klake) - bl(klake)) * 0.3d0
        
        call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin, trim(sealock(m)%id)//'_s2l')  !TODO: buttom source sink from sea to lake
        sealock(m)%sorsin_index(1) = numsrc ! Store source-sink index sea->lake for this sealock
 
        xpin(1) = xzw(klake)
        ypin(1) = yzw(klake)
-       zpin(1) = bl(klake) + hs(klake) * 0.7d0
+       zpin(1) = bl(klake) + (s1(klake) - bl(klake)) * 0.7d0
        dzlin(1) = s1(klake)
        
        xpin(2) = xzw(ksea)
        ypin(2) = yzw(ksea)
-       zpin(2) = bl(ksea) + hs(ksea) * 0.7d0
+       zpin(2) = bl(ksea) + (s1(ksea) - bl(ksea)) * 0.7d0
        dzlin(2) = s1(ksea)
        
        call addsorsin('', area, ierr, xpin, ypin, zpin, dzlin, trim(sealock(m)%id)//'_l2s')
        sealock(m)%sorsin_index(2) = numsrc ! Store source-sink index lake->sea for this sealock
 
     enddo
-  
+
   end subroutine init_sealock
