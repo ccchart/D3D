@@ -464,7 +464,6 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                connectionId = ecCreateConnection(ec)
                if (.not.ecAddConnectionSourceItem(ec, connectionId, ec_tgt_item)) return
                if (.not.ecAddConnectionTargetItem(ec, connectionId, ec_itemId_boundaries)) return
-               if (.not.ecCopyItemProperty(ec, ec_itemId_boundaries, ec_tgt_item, 'quantityPtr')) return
                if (.not.ecAddItemConnection(ec, ec_itemId_boundaries, connectionId)) return
             endif
          endif
