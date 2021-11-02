@@ -65,6 +65,7 @@ module m_CrossSections
    public EggProfile
    public CircleProfile
    public GetTabSizesFromTables
+   public interpolateCrossSection
    
    interface fill_hashtable
       module procedure fill_hashtable_csdef
@@ -1777,7 +1778,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    double precision  :: wlev
    double precision  :: sdArea
    double precision  :: sdWidth
-   integer           :: section, i
+   integer           :: section
 
    crossDef => cross%tabDef
 
@@ -1826,7 +1827,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, per
    endif
 end subroutine TabulatedProfile
 
-subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, perim_sub, width_sub)
+subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, perim_sub, width_sub, width_sub_sd)
 
    use m_GlobalParameters
    use precision_basics
@@ -1840,6 +1841,7 @@ subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, peri
    double precision, intent(out)                :: af_sub(3)
    double precision, intent(out)                :: perim_sub(3)
    double precision, intent(out), optional      :: width_sub(3)     !< Width for Sub-Sections (Main, FP1 and FP2)
+   double precision, intent(out), optional      :: width_sub_sd(3)     !< Width for Sub-Sections (Main, FP1 and FP2)
 
    ! local parameters
    integer                                      :: levelsCount
@@ -1888,13 +1890,17 @@ subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, peri
       enddo
       
       width_sub_local = width_sub_tab(:,levelsCount)
-      
+      if (present(width_sub_sd)) then
+         width_sub_sd = width_sub_sd_tab(:,levelsCount)
+      endif
       
    else
       
       wlev = dpt + heights(1)
-      do ilev = 2, levelsCount
-         if (wlev < heights(ilev)) then
+      ! In order to prevent ilev to be > levelscount, stop this loop at levelscount-1
+      ! in case the condition is not met, ilev will be equal to levelscount.
+      do ilev = 2, levelsCount-1
+         if (wlev <= heights(ilev)) then
             exit
          endif
       enddo
@@ -1904,6 +1910,10 @@ subroutine GetTabSizesFromTables(dpt, pCSD, area, width, perimeter, af_sub, peri
       width_sub_local = (1d0-factor)*width_sub_sd_tab(:,ilev-1) + factor * width_sub_sd_tab(:,ilev)
       af_sub = af_sub_tab(:,ilev-1) + 0.5d0*(wlev - heights(ilev-1))*(width_sub_sd_tab(:,ilev-1) + width_sub_local)
 
+      if (present(width_sub_sd)) then
+         width_sub_sd= (1d0-factor)*width_sub_sd_tab(:,ilev-1) + factor * width_sub_sd_tab(:,ilev)
+      endif
+      
       ! For output reasons the widths are excluding the summerdikes
       width_sub_local = (1d0-factor)*width_sub_tab(:,ilev-1) + factor * width_sub_tab(:,ilev)
       perim_sub = perim_sub_tab(:,ilev-1) + factor*perim_inc_sub_tab(:,ilev)
@@ -3174,4 +3184,372 @@ subroutine CreateTablesForTabulatedProfile(crossDef)
  
    
    end subroutine write_crosssection_data
+
+   subroutine interpolateCrossSection(crossNew, cru, c1, c2, factor)
+      use m_interpolate_conveyance
+
+      type(t_CrossSection),               intent(out) :: crossNew
+      type(t_crsu), target,               intent(in)  :: cru
+      type(t_CrossSection),               intent(in)  :: c1
+      type(t_CrossSection),               intent(in)  :: c2
+      double precision,                   intent(in)  :: factor
+
+      integer :: i
+      integer :: levelscount
+      double precision, pointer, dimension(:)    :: height
+      double precision, pointer, dimension(:, :) :: af_sub
+      double precision, pointer, dimension(:, :) :: width_sub     
+      double precision, pointer, dimension(:, :) :: width_sub_sd     
+      double precision, pointer, dimension(:, :) :: perim_sub
+      double precision, pointer, dimension(:, :) :: perim_inc_sub
+
+      double precision :: area, width, perimeter
+      double precision, dimension(3) :: af_sub1, af_sub2
+      double precision, dimension(3) :: width_sub1, width_sub2
+      double precision, dimension(3) :: width_sub_sd1, width_sub_sd2
+      double precision, dimension(3) :: perim_sub1, perim_sub2
+      
+      type(t_CSType), pointer :: tabdef
+      crossNew%csid      = trim(c1%csid) //' -  '//trim(c2%csid)       
+      if (c1%crossType == c2%crossType) then
+         crossNew%crossType = c1%crossType
+      else
+         call SetMessage(LEVEL_ERROR, 'Two cross sections on the same branch have different types')
+         call SetMessage(-LEVEL_ERROR, 'Check cross sections '''//trim(c1%csid) // ''' and '''//trim(c2%csid) // '''.')
+      endif
+      crossNew%branchid     = c1%branchid
+      crossNew%location     = (1d0-factor) * c1%location     + factor * c2%location        
+      crossNew%bedLevel     = (1d0-factor) * c1%bedLevel     + factor * c2%bedLevel         
+      crossNew%shift        = (1d0-factor) * c1%shift        + factor * c2%shift           
+      crossNew%surfaceLevel = (1d0-factor) * c1%surfaceLevel + factor * c2%surfaceLevel    
+      crossNew%charHeight   = (1d0-factor) * c1%charHeight   + factor * c2%charHeight      
+      crossNew%charWidth    = (1d0-factor) * c1%charWidth    + factor * c2%charWidth       
+      crossNew%closed       = c1%closed
+
+      ! These items are not used
+      ! crossNew%bedFrictionType
+      ! crossNew%bedFriction
+      ! crossNew%groundFrictionType
+      ! crossNew%groundFriction
+      ! crossNew%frictionSectionsCount
+      ! crossNew%frictionSectionID(:)      
+      ! crossNew%frictionSectionFrom(:)    
+      ! crossNew%frictionSectionTo(:)      
+      ! crossNew%frictionTypePos(:)        
+      ! crossNew%frictionValuePos(:)       
+      ! crossNew%frictionTypeNeg(:)        
+      ! crossNew%frictionValueNeg(:)       
+
+      allocate(crossNew%tabDef)
+      allocate(crossNew%tabDef%groundlayer)
+      allocate(crossNew%convtab)
+      tabdef => crossNew%tabDef       
+      crossNew%tabDef%groundlayer%used = .false.
+      tabdef%id         = crossNew%csid          
+      tabdef%closed     = crossNew%closed      
+      tabdef%crossType  = crossNew%crossType 
+
+      select case(crossNew%crossType)
+      case (CS_YZ_PROF)
+         call interpolate_conveyance(crossnew%convTab, c1%convTab, c2%convTab, factor)
+      case (CS_TABULATED)         
+         ! Mix the heights arrays of both cross section definitions into the new cross section
+         call mergeHeights(tabdef%height2, levelscount, c1%tabDef%height2, c2%tabDef%height2, factor)
+         tabdef%levelsCount2 = levelscount
+         allocate(tabdef%af_sub(3,levelscount), tabdef%width_sub(3, levelscount), tabdef%perim_inc_sub(3, levelscount), &
+                  tabdef%perim_sub(3, levelscount), tabdef%width_sub_summerdike(3, levelscount))
+         af_sub        => tabdef%af_sub       
+         width_sub     => tabdef%width_sub    
+         width_sub_sd  => tabdef%width_sub_summerdike    
+         perim_sub     => tabdef%perim_sub    
+         perim_inc_sub => tabdef%perim_inc_sub
+         height        => tabdef%height2
+
+         ! Interpolate the 
+         do i = 1, levelsCount
+            call GetTabSizesFromTables(height(i)-height(1), c1%tabdef, area, width, perimeter, af_sub1, perim_sub1, width_sub1, width_sub_sd1)
+            call GetTabSizesFromTables(height(i)-height(1), c2%tabdef, area, width, perimeter, af_sub2, perim_sub2, width_sub2, width_sub_sd2)
+            af_sub(:,i)    = (1d0 - factor) * af_sub1    + factor * af_sub2
+            perim_sub(:,i) = (1d0 - factor) * perim_sub1 + factor * perim_sub2
+            width_sub(:,i) = (1d0 - factor) * width_sub1 + factor * width_sub2
+            width_sub_sd(:,i) = (1d0 - factor) * width_sub_sd1 + factor * width_sub_sd2
+            perim_inc_sub(:,i) = perim_sub(:,i) - perim_sub(:,max(i-1,1))
+         enddo
+
+      case(CS_CIRCLE, CS_EGG)
+         tabdef%diameter = (1d0-factor) * c1%tabDef%diameter    + factor * c2%tabDef%diameter
+      end select
+
+   end subroutine interpolateCrossSection
+
+   subroutine mergeHeights  (heightsnew, levelscount, heights1, heights2, factor)
+      use precision_basics
+
+      implicit none
+      double precision, dimension(:), allocatable, intent(out) :: heightsnew
+      integer                       ,              intent(out) :: levelscount 
+      double precision, dimension(:),              intent(in)  :: heights1, heights2
+      double precision              ,              intent(in)  :: factor 
+
+      integer :: numlev1
+      integer :: numlev2
+      integer :: index1, index2, indexnew
+      double precision, allocatable :: levels(:)
+      double precision :: depth1
+      double precision :: depth2
+
+      numlev1 = size(heights1)
+      numlev2 = size(heights2)
+      allocate(levels(numlev1+numlev2))
+      levels(1) = (1d0 - factor) * heights1(1) + factor * heights2(1)
+      index1 = 2
+      index2 = 2
+      indexnew = 1
+      depth1 = heights1(2) - heights1(1)
+      depth2 = heights2(2) - heights2(1)
+      do while (index1 <= numlev1 .or. index2 <=numlev2)
+         indexnew = indexnew + 1
+         select case(comparereal(depth1, depth2, 1d-6))
+         case(-1)
+            levels(indexnew) = depth1 + levels(1)
+            index1 = index1 + 1
+            if (index1 <= numlev1) then
+               depth1 = heights1(index1) - heights1(1)
+            else
+               depth1 = 1d10
+            endif
+         case(0)
+            levels(indexnew) = depth1 + levels(1)
+            index1 = index1 + 1
+            if (index1 <= numlev1) then
+               depth1 = heights1(index1) - heights1(1)
+            else
+               depth1 = 1d10
+            endif
+            index2 = index2 + 1
+            if (index2 <= numlev2) then
+               depth2 = heights2(index2) - heights2(1)
+            else
+               depth2 = 1d10
+            endif
+         case(1)
+            levels(indexnew) = depth2 + levels(1)
+            index2 = index2 + 1
+            if (index2 <= numlev2) then
+               depth2 = heights2(index2) - heights2(1)
+            else
+               depth2 = 1d10
+            endif
+         end select
+      enddo
+
+      levelscount = indexnew
+      allocate(heightsnew(levelscount))
+      heightsnew = levels(1:levelscount)
+      deallocate(levels)
+   end subroutine mergeHeights
+
+   subroutine interpolate_conveyance (convtab_new, convtab1, convtab2, factor)
+
+!=======================================================================
+!            Rijkswaterstaat/RIZA and Deltares
+!                One Dimensional Modelling System
+!                           S O B E K
+!-----------------------------------------------------------------------
+! Subsystem:          Parse new model database
+!
+! Programmer:         Johan Crebas/Herman Kernkamp
+!
+! Module:             CONvert CoNVeyance tables
+!
+! Module description: This routine converts conveyance tables on
+!                     arbitrary locations to grid points
+!
+!-----------------------------------------------------------------------
+! Subprogram calls:
+! NAME    DESCRIPTION
+! trajct  get TRAJeCT of gridpoints
+! crprof  CRoss sections between PROFiles
+!=======================================================================
+!
+! Let op:
+!
+! slopes worden ingelezen met de betekenis:
+!     > 0 is dalend in de richting van de positieve x-as
+! ze worden meteen met -1 vermenigvuldigd om er dbodem/dx van te maken
+!
+! missing value voor de slope boven de eerste en beneden de laatste
+! doorsnede op een tak betekent: slope = 0
+!
+!***********************************************************************
+!
+   use modelGlobaldata
+   use M_newcross
+
+   implicit none
+
+   type(t_crsu), pointer, intent(out)  :: convtab_new
+   type(t_crsu), pointer, intent(in)   :: convtab1
+   type(t_crsu), pointer, intent(in)   :: convtab2
+   double precision :: factor
+
+!  Local variables
+
+   integer :: ierr, level
+   integer :: numlevels
+!
+   double precision,  allocatable, save :: hlv(:)
+   
+   ! Variables for calculating extrapolation coefficients:
+   integer              :: i1 ! one but last index
+   integer              :: i2 ! last index
+   double precision     :: h_1
+   double precision     :: h_2
+   double precision     :: K_1
+   double precision     :: K_2
+
+   double precision     :: u1, cz1, area1, width1, perimeter1, conv1
+   double precision     :: cz2, area2, width2, perimeter2, conv2
+   integer              :: i012
+   
+   double precision, parameter         :: eps = 1d-4
+
+   !
+   !     door interpolatie kan lcnvmax nog hoger worden, ???  !hk: is ook wel vreemd
+   !     hier (LOCAAL) 2x te hoog gedeclareerd
+   !
+   numlevels = convtab1%nru+convtab2%nru
+   
+   if ( (.not. allocated(hlv)) .or. (numlevels > lcnvmax) ) then
+      lcnvmax = numlevels
+      if (allocated(hlv)) then
+         deallocate(hlv)
+      endif
+      allocate (hlv(lcnvmax*2))
+   endif
+
+   hlv(1:convtab1%nru) = convtab1%hu
+   hlv(convtab1%nru+1: convtab1%nru+convtab2%nru) = convtab2%hu
+
+   ! sort levels and remove double values
+   call regulatehlv(hlv, numlevels)
+
+   ! Allocate space
+   call realloc(convtab_new%hu, numlevels, stat = ierr)
+   call aerr('convtab_new%hu (nnlev)'  ,ierr,numlevels)
+   call realloc( convtab_new%af, numlevels, stat = ierr)
+   call aerr('convtab_new%af (numlevels,m)',ierr,numlevels)
+   call realloc( convtab_new%co1, numlevels, stat = ierr)
+   call aerr('convtab_new%co1(numlevels,m)',ierr,numlevels)
+   call realloc( convtab_new%pf, numlevels, stat = ierr)
+   call aerr('convtab_new%pf (numlevels,m)',ierr,numlevels)
+   call realloc( convtab_new%wf, numlevels, stat = ierr)
+   call aerr('convtab_new%wf (numlevels,m)',ierr,numlevels)
+   call realloc( convtab_new%cz1, numlevels, stat = ierr)
+   call aerr('convtab_new%cz1(numlevels,m)',ierr,numlevels)
+
+!         if (negc .eq. 1) then
+   call realloc( convtab_new%co2, numlevels, stat = ierr)
+   call aerr('convtab_new%co2(numlevels,m)',ierr,numlevels)
+   call realloc( convtab_new%cz2, numlevels, stat = ierr)
+   call aerr('convtab_new%cz2(numlevels,m)',ierr,numlevels)
+
+   call realloc( convtab_new%hh, numlevels, 2 ,stat = ierr)
+   call aerr('convtab_new%hh (n,2)',ierr,numlevels*2)
+   call realloc( convtab_new%at, numlevels, 2 ,stat = ierr)
+   call aerr('convtab_new%at (n,2)',ierr,numlevels*2)
+   call realloc( convtab_new%wt, numlevels, 2 ,stat = ierr)
+   call aerr('convtab_new%wt (n,2)',ierr,numlevels*2)
+   
+   convtab_new%nru = numlevels
+   convtab_new%hu = hlv(1:numlevels)   
+   convtab_new%nrhh(1)  = numlevels
+   convtab_new%nrhh(2)  = numlevels
+   convtab_new%hh(:,1) = hlv(1:numlevels)   
+   convtab_new%hh(:,2) = hlv(1:numlevels)   
+   convtab_new%bob = (1d0-factor) * convtab1%bob + factor * convtab2%bob
+
+   do level = 1, numlevels
+      ! conveyance for positive flow
+      u1 = 1d0
+      i012 = 0
+      call YZProfile(hlv(level), u1, cz1, convtab1, i012, area1, width1, perimeter1, conv1)
+      call YZProfile(hlv(level), u1, cz2, convtab2, i012, area2, width2, perimeter2, conv2)
+      convtab_new%af(level)   = (1d0-factor) * area1 + factor * area2
+      convtab_new%co1(level)  = (1d0-factor) * conv1 + factor * conv2
+      convtab_new%pf(level)   = (1d0-factor) * perimeter1 + factor * perimeter2
+      convtab_new%wf(level)   = (1d0-factor) * width1 + factor * width2
+      convtab_new%cz1(level)  = (1d0-factor) * cz1 + factor * cz2
+      
+      ! conveyance for negative flow
+      u1 = -1d0
+      call YZProfile(hlv(level), u1, cz1, convtab1, i012, area1, width1, perimeter1, conv1)
+      call YZProfile(hlv(level), u1, cz2, convtab2, i012, area2, width2, perimeter2, conv2)
+      convtab_new%cz2(level)  = (1d0-factor) * cz1 + factor * cz2
+      convtab_new%co2(level)  = (1d0-factor) * conv1 + factor * conv2
+      
+      ! total parameters
+      i012 = 1
+      call YZProfile(hlv(level), u1, cz1, convtab1, i012, area1, width1, perimeter1, conv1)
+      call YZProfile(hlv(level), u1, cz2, convtab2, i012, area2, width2, perimeter2, conv2)
+      convtab_new%at(level, :) = (1d0-factor) * area1 + factor * area2
+      convtab_new%wt(level, :) = (1d0-factor) * width1 + factor * width2
+   enddo
+   ! calculate the coefficients for extrapolation of conveyance above specified profile
+!(*)  !  document SOBEK-21942: Change of roughness formulations in "Y-Z" and
+   ! "Asymetrical Trapezium" profiles, Author:     Thieu van Mierlo
+   !                                   Programmer: Daniel Abel
+   i1  = convtab_new%nru - 1     ! so i1, i2 always inside table
+   i2  = i1 + 1
+   !
+   h_1 = convtab_new%hu(i1)
+   h_2 = convtab_new%hu(i2)
+   !
+   K_1 = convtab_new%co1(i1)
+   K_2 = convtab_new%co1(i2)
+   !
+   ! dlog (h1/h2) is almost zero, however, h1 and h2 
+   ! always differ enough (h2-h1 ~> 1e-5) s.t. the operation is stable and
+   ! accurate
+   !
+   convtab_new%b_pos_extr = dlog(K_1/K_2) / (dlog(h_1/h_2))
+   convtab_new%a_pos_extr = K_1*(h_1**(-convtab_new%b_pos_extr))
+   !
+   if (convtab_new%negcon .eq. 1) then
+      K_1 = convtab_new%co2(i1)
+      K_2 = convtab_new%co2(i2)
+      !
+      convtab_new%b_neg_extr = dlog(K_1/K_2) / (dlog(h_1/h_2))
+      convtab_new%a_neg_extr = K_1*(h_1**(-convtab_new%b_neg_extr))
+   else
+      convtab_new%b_neg_extr = convtab_new%b_pos_extr
+      convtab_new%a_neg_extr = convtab_new%a_pos_extr
+   endif
+
+!       enddo
+
+! !     End loop over branches
+! 500 continue
+   
+!    deallocate (ihlev ,      &
+!                iwft  ,      &
+!                iaft  ,      &
+!                ipft  ,      &
+!                ikpt  ,      &
+!                iknt  ,      &
+!                ifcp  ,      &
+!                ifcn  ,      &
+!                iatt  ,      &
+!                iwtt  , stat=ierr )
+!    if ( ierr .ne. 0 ) goto 9010
+
+!    return
+
+! 9000 continue
+!    call SetMessage(LEVEL_FATAL, 'ConCnv: Error allocating array space')
+
+! 9010 continue
+!    call SetMessage(LEVEL_FATAL, 'ConCnv: Error deallocating array space')
+end subroutine
+
 end module m_CrossSections
