@@ -40,7 +40,7 @@
  use MessageHandling
  use m_partitioninfo
  implicit none
- integer          :: n, ierr, kk, k, kb, kt, k2, kk2, kb2, kkk, ku, numvals, L
+ integer          :: n, ierr, kk, k, kb, kt, k2, kk2, kb2, kkk, ku, numvals, L, kt1
  double precision :: qsrck, qsrckk, dzss
  double precision :: frac=0.5d0           ! cell volume fraction that can at most be extracted in one step
 
@@ -80,8 +80,9 @@
        ksrc(2,n) = k                      ! store kb of src
        ksrc(3,n) = ku                     !
        if (qsrc(n) > 0) then              ! Reduce if flux pos
-
-          do k  = ksrc(2,n) , kt
+          kt1 = ku
+          if (jasrcsnkzrange == 0) kt1 = kt
+          do k  = ksrc(2,n) , kt1
              srsn(1,n) = srsn(1,n) + vol1(k)
              do L = 1,numconst
                 srsn(1+L,n) = srsn(1+L,n) + constituents(L,k)*vol1(k)
@@ -136,8 +137,9 @@
        ksrc(5,n) = k
        ksrc(6,n) = ku
        if ( qsrc(n) < 0 ) then            ! Reduce if flux neg
-
-          do k  = ksrc(5,n) , kt
+          kt1 = ku
+          if (jasrcsnkzrange == 0) kt1 = kt
+          do k  = ksrc(5,n) , kt1
              srsn(1+numconst+1,n) = srsn(1+numconst+1,n) + vol1(k)
              do L = 1,numconst
                 srsn(1+numconst+1+L,n) = srsn(1+numconst+1+L,n) + constituents(L,k)*vol1(k)
