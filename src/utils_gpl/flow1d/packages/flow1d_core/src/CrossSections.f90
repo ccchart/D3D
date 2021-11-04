@@ -3382,7 +3382,6 @@ subroutine CreateTablesForTabulatedProfile(crossDef)
 !
 !***********************************************************************
 !
-   use modelGlobaldata
    use M_newcross
 
    implicit none
