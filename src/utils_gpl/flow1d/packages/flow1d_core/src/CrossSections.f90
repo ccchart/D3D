@@ -3186,7 +3186,6 @@ subroutine CreateTablesForTabulatedProfile(crossDef)
    end subroutine write_crosssection_data
 
    subroutine interpolateCrossSection(crossNew, cru, c1, c2, factor)
-      use m_interpolate_conveyance
 
       type(t_CrossSection),               intent(out) :: crossNew
       type(t_crsu), target,               intent(in)  :: cru
