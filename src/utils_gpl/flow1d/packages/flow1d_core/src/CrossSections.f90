@@ -1347,10 +1347,11 @@ subroutine GetCSParsFlowInterpolate(cross1, cross2, f, dpt, u1, cz, flowArea, we
             cz1 = cz
             cz2 = cz
             call GetCSParsFlowCross(cross1, dpt, u1, cz1, flowArea1, wetPerimeter1, flowWidth1, conv1, af_sub_local1, &
-                     perim_sub_local1, cz_sub_local1, width_sub_local1, .true.)
+                     perim_sub_local1, cz_sub_local1, width_sub_local1)
+      
             call GetCSParsFlowCross(cross2, dpt, u1, cz2, flowArea2, wetPerimeter2, flowWidth2, conv2, af_sub_local2, &
-                     perim_sub_local2, cz_sub_local2, width_sub_local2, .true.)
-        
+                     perim_sub_local2, cz_sub_local2, width_sub_local2)
+
             flowArea     = (1.0d0 - f) * flowArea1     + f * flowArea2
             flowWidth    = (1.0d0 - f) * flowWidth1    + f * flowWidth2
             wetPerimeter = (1.0d0 - f) * wetPerimeter1 + f * wetPerimeter2
