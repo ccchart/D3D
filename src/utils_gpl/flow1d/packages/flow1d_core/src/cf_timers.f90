@@ -328,12 +328,12 @@ subroutine timstrt ( subrou, ihandl )
       maxlvl = max (maxlvl,dlevel)                           !  reported output
       prevhnd = handle                                       !  now this timer may become the caller
 
+      call date_and_time ( values = ival )
+      ntimcal(handle) = ntimcal(handle) + 1
       call system_clock  ( count, rate )
       call cpu_time      (          time )                   !  this is straight forward timing
       cpstart(handle) = time
-      call date_and_time ( values = ival )
       wcstart(handle) = real( count, 8 ) / real( rate, 8 )
-      ntimcal(handle) = ntimcal(handle) + 1
 end subroutine timstrt
 
 !***************
@@ -349,6 +349,9 @@ subroutine timstop ( ihandl )
       if (.not. timon) then
          return
       endif
+
+      call cpu_time      (        time )                   !  this is straight forward timing
+      call system_clock  ( count, rate )
       
       dlevel = dlevel-1                                      !  we return, decrease the level
       handle = -1
@@ -366,8 +369,6 @@ subroutine timstop ( ihandl )
          return
       endif
 
-      call cpu_time      (        time )                   !  this is straight forward timing
-      call system_clock  ( count, rate )
 
       cptime(handle) = cptime(handle) + time  - cpstart(handle)
       stopt = real( count, 8 ) / real( rate, 8 )
