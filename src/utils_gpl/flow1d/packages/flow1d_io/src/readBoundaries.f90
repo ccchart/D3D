@@ -519,8 +519,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    network%boundaries%tp(B_WINDDIR)%bd(1)%boundaryValue = 0d0
 
    ! Dump EC item hierarchy
-!  call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
-   call ecInstancePrintState(ec,callback_msg,LEVEL_INFO)
+   !call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
 
 end subroutine readBoundaryConditions
 
