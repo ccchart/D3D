@@ -221,13 +221,13 @@ module m_readBoundaries
    end subroutine readBoundaryLocations
 
 
-function getBoundaryValuePtr(network, quantityId, locationId) result (valuePtr)
+function getBoundaryValuePtr(network, quantityId, locationId, varType, locIndex) result (valuePtr)
    use m_boundaryConditions
    double precision, pointer               :: valuePtr
    type(t_network) , intent(inout), target :: network
    character(len=*), intent(in)            :: quantityID
    character(len=*), intent(in)            :: locationID
-   integer :: locIndex, varType
+   integer, intent(out)                    :: varType, locIndex  
    valuePtr => null()
    select case (quantityId)
       case ('wind_speed')
@@ -255,7 +255,7 @@ function getBoundaryValuePtr(network, quantityId, locationId) result (valuePtr)
 end function getBoundaryValuePtr
 
 
-function getLateralValuePtr(network, quantityId, locationId) result (valuePtr)
+function getLateralValuePtr(network, quantityId, locationId, varType, locIndex) result (valuePtr)
    use m_boundaryConditions
    double precision, pointer               :: valuePtr
    type(t_network) , intent(inout), target :: network
@@ -310,6 +310,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    integer     :: numpars
    double precision, pointer       :: valueptr            ! dummy storage pointer to boundary value passed to ec
    integer                         :: connectionId        ! temporarily stored ID of newly created ec-module connection instance
+   integer                         :: locIndex, varType
 
    inquire(file=boundaryConditionsFile, exist=success)
 
@@ -398,7 +399,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                   call SetQlatQh(network%lts%lat(i), h_values, q_values, size(h_values))
                endif
             else
-               valueptr => getLateralValuePtr(network, quantityId, locationId) 
+               valueptr => getLateralValuePtr(network, quantityId, locationId, varType, locIndex) 
                ec_tgt_item = ecCreateTimeInterpolatedItem(ec, ec_src_item, scalarPtr=valueptr)
                ec_lat_2_ec_index(ityp,i) = ec_tgt_item
                connectionId = ecCreateConnection(ec)
@@ -458,7 +459,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
                p_bnds%bd(i)%table%interpoltype = 0
                
             else
-               valueptr => getBoundaryValuePtr(network, quantityId, locationId) 
+               valueptr => getBoundaryValuePtr(network, quantityId, locationId, varType, locIndex) 
                ec_tgt_item = ecCreateTimeInterpolatedItem(ec, ec_src_item, scalarPtr=valueptr)
                ec_bnd_2_ec_index(ityp,i) = ec_tgt_item
                connectionId = ecCreateConnection(ec)
