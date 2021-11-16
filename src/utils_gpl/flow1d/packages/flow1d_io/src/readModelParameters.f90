@@ -213,7 +213,7 @@ module m_readModelParameters
       call prop_get_logical(md_ptr, 'AdvancedOptions', 'UseCrsInterpolation', useCrsInterpolation)
       
       use_volume_tables = .false.
-      call prop_get_logical(md_ptr, 'VolumeTable', 'UseVolumeTable', use_volume_tables, success)
+      call prop_get_logical(md_ptr, 'VolumeTable', 'UseVolumeTables', use_volume_tables, success)
       call prop_get_logical(md_ptr, 'VolumeTable', 'WriteVolumeTables', write_tables, success)
       call prop_get_logical(md_ptr, 'VolumeTable', 'ReadVolumeTables', read_tables, success)
 
@@ -228,6 +228,16 @@ module m_readModelParameters
       tb_extra_height = 0d0
       call prop_get_double(md_ptr, 'VolumeTable', 'ExtraHeight', tb_extra_height, success)
       
+      if (use_volume_tables) then
+         msgbuf = 'Volume tables are used for the calculation of the volumes in the gridpoints'
+         call msg_flush()
+         write(msgbuf, '("Specified increment for the volume tables is: ", f6.4)') tb_inc
+         call msg_flush()
+      else
+         msgbuf = 'Volume tables are NOT used for the calculation of the volumes in the gridpoints'
+         call msg_flush()
+      endif
+
       call prop_get_integer(md_ptr, 'Morphology', 'CalculateMorphology', iValue, success)
       if (success .and. iValue==1) then
          useCrsInterpolation = .false.
