@@ -275,6 +275,7 @@
     integer                                     :: klake_probe
     integer, dimension(2)                       :: sorsin_index
     character(len=128)                          :: id
+    double precision                            :: width
  end type sealock_type
  type(sealock_Type), dimension(:), allocatable :: sealock
  

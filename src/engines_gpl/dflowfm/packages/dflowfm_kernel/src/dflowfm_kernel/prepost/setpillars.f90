@@ -163,7 +163,7 @@
   ! =================================================================================================
   subroutine init_sealock ()
      use m_flowexternalforcings, only: nsealocksg, sealock, numsrc, ksealock, L1sealocksg, L2sealocksg
-     use m_flowgeom            , only: bl
+     use m_flowgeom            , only: bl, wu
      use m_flow                , only: hs, s1
      use gridoperations        , only: incells
      use network_data, only: xzw, yzw
@@ -199,6 +199,8 @@
        L = L1sealocksg(m)
        ksea = ksealock(1,L) ! for now assume that a sealock is always on 1 gridcell, so use L from L1sealocksg.
        klake = ksealock(2,L)
+       
+       sealock(m)%width = wu(L)
        
        area = 0d0
        ierr = 0

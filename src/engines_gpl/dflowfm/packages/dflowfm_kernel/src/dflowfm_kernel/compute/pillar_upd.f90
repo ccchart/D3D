@@ -84,6 +84,8 @@
     do m = 1,nsealocksg
        call zsf_param_default(p)
        
+       p%lock_width = sealock(m)%width
+       
        k1 = sealock(m)%ksea_probe
        k2 = sealock(m)%klake_probe
        
