@@ -134,7 +134,7 @@ integer function trisim_init(numdom, nummap, context_id, fsm_flags, runid_arg, o
     call openda_buffer_initialize
     !    
     call gdp_alloc(gdp)
-    call initsafe(gdp)
+    !call initsafe(gdp)
     call timers_init(gdp)
     call timer_start(timer_total, gdp)
     call timer_start(timer_init, gdp)
