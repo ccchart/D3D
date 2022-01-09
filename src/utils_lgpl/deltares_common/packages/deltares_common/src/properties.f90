@@ -2002,7 +2002,7 @@ end subroutine count_occurrences
     integer                   :: idot
     integer                   :: iend
     
-    
+    if (present(success)) success = .true.
     if (present(chapterin)) then
        chapterin_ = chapterin
     else
@@ -2014,8 +2014,9 @@ end subroutine count_occurrences
        keyin_ = 'fileVersion'
     endif
     
-    call prop_get_string(tree, chapterin_, keyin_, string, success)
-    if (.not. success) then
+    call prop_get_string(tree, chapterin_, keyin_, string, success_)
+    if (.not. success_) then
+       if (present(success)) success = success_
        return
     endif
     
@@ -2025,7 +2026,7 @@ end subroutine count_occurrences
    
     idot = index(string, '.')
     if (idot==0) then
-       success = .false.
+       if (present(success)) success = .false.
        return
     endif
        
