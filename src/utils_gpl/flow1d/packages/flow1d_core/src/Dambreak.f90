@@ -37,11 +37,18 @@
    public prepareComputeDambreak
    public setCoefficents
 
+   integer, parameter, public :: ST_FC_UNSET      = 0
+   integer, parameter, public :: ST_FC_WATERLEVEL = 1
+   integer, parameter, public :: ST_FC_VELMAG     = 2
+   integer, parameter, public :: ST_FC_ENERGYHGHT = 3
+   integer, parameter, public :: ST_FC_RELDEPTH   = 4
+   integer, parameter, public :: IDBMAX_NQUANT    = 4
+
    type, public :: t_dambreak
       double precision :: startLocationX
       double precision :: startLocationY
       integer          :: algorithm
-      double precision :: crestLevelIni
+      double precision :: crestLevelIni                     = -999d0
       double precision :: breachWidthIni
       double precision :: crestLevelMin
       double precision :: timeToBreachToMaximumDepth
@@ -49,19 +56,23 @@
       double precision :: f1
       double precision :: f2
       double precision :: ucrit
-      double precision :: t0
-      integer          :: hasTable       
+      double precision :: T0                                = 0.0d0
+      integer          :: hasTable
       integer          :: materialtype                      =  1 !for algorithm 1, default matrerial type is clay
       double precision :: endTimeFirstPhase
       double precision :: breachWidthDerivative             = -1.0d0
-      double precision :: waterLevelJumpDambreak            = -1.0d0	
-      double precision :: waterLevelUpstreamLocationX       = -999d0 
-      double precision :: waterLevelUpstreamLocationY       = -999d0
-      double precision :: waterLevelDownstreamLocationX     = -999d0	
-      double precision :: waterLevelDownstreamLocationY     = -999d0
-      character(IdLen) :: waterLevelUpstreamNodeId          = ''
-      character(IdLen) :: waterLevelDownstreamNodeId        = ''
+      double precision :: waterLevelJumpDambreak            = -1.0d0
+      double precision :: upstreamLocationX                 = -999d0
+      double precision :: upstreamLocationY                 = -999d0
+      double precision :: downstreamLocationX               = -999d0
+      double precision :: downstreamLocationY               = -999d0
+      character(IdLen) :: upstreamNodeId                    = ''
+      character(IdLen) :: downstreamNodeId                  = ''
       character(Charln):: levelsAndWidths                   = ''
+      character(IdLen) :: fragilityCurve                    = ''
+      integer          :: failQuantity                      = ST_FC_UNSET
+      double precision :: failValue                         = -999d0
+      double precision :: failThreshold                     = -1.0d0
 
       ! State variables, not to be read
       integer          :: phase
@@ -72,7 +83,18 @@
       double precision :: maximumAllowedWidth = - 1.0d0
 
    end type
-   
+
+   type, public :: t_fragilityCurve
+      character(len=256)                                    :: name               = ''          !< Name of the fragility curve.
+      integer                                               :: quantity1          = ST_FC_UNSET !< Quantity on which the fragility curve depends.
+      double precision, pointer, dimension(:,:)             :: values             => null()     !< Values of the curve (:,1) contains quantity1 and (:,2) contains the probability.
+   end type t_fragilityCurve
+
+   type, public :: t_fragilityCurveSet
+      integer                                               :: Size               = 0           !< Number of fragility curves.
+      type(t_fragilityCurve), pointer, dimension(:)         :: curves             => null()     !< Array of fragility curves.
+   end type t_fragilityCurveSet
+
    double precision, parameter :: hoursToSeconds = 3600.0d0
 
    private
@@ -115,7 +137,7 @@
    if (timeFromBreaching < 0) return
    
    !vdKnaap(2000) formula: to do: implement table 
-   if(dambreak%algorithm == 1) then     
+   if(dambreak%algorithm == ST_DB_VDKNAAP_00) then
 
       ! The linear part
       if (timeFromBreaching < dambreak%timeToBreachToMaximumDepth ) then
@@ -123,26 +145,28 @@
          breachWidth     = dambreak%breachWidthIni
       else
       ! The logarithmic part, timeFromBreaching in seconds 
-         breachWidth = dambreak%aCoeff * dlog(timeFromBreaching/dambreak%bCoeff)
+         dambreak%crl    = dambreak%crestLevelMin
+         breachWidth     = dambreak%aCoeff * dlog(timeFromBreaching/dambreak%bCoeff)
       endif
       
       ! breach width must increase monotonically 
       if (breachWidth > dambreak%width ) then
          dambreak%width = breachWidth
       endif
-      
 
    ! Verheij-vdKnaap(2002) formula
-   else if (dambreak%algorithm == 2) then  
+   else if (dambreak%algorithm == ST_DB_VERHEY_VDKNAAP_02) then
 
-      if (time1 <= dambreak%endTimeFirstPhase) then
+      if (time1 <= dambreak%endTimeFirstPhase) then ! equivalent to: timeFromBreaching <= dambreak%timeToBreachToMaximumDepth
       ! phase 1: lowering
+         dambreak%phase  = 1
          dambreak%crl    = dambreak%crestLevelIni - timeFromBreaching / dambreak%timeToBreachToMaximumDepth * (dambreak%crestLevelIni - dambreak%crestLevelMin)
          dambreak%width  = dambreak%breachWidthIni
-         dambreak%phase  = 1
       else
       ! phase 2: widening
+         dambreak%phase  = 2
          dambreak%crl = dambreak%crestLevelMin
+         dambreak%width  = max(dambreak%width, dambreak%breachWidthIni) ! catch the case that first phase is skipped
          smax = max(s1m1, s1m2)
          smin = min(s1m1, s1m2)
          hmx = max(0d0,smax - dambreak%crl)
@@ -185,7 +209,7 @@
 
    type(t_dambreak), pointer, intent(inout) :: dambreak
 
-   if (dambreak%algorithm == 1) then
+   if (dambreak%algorithm == ST_DB_VDKNAAP_00) then
       ! clay
       if (dambreak%materialtype == 1) then 
          dambreak%aCoeff = 20
@@ -197,10 +221,12 @@
          dambreak%bCoeff = 522
          dambreak%maximumAllowedWidth = 200 !meters
       endif
-   else if (dambreak%algorithm == 2) then
-         dambreak%endTimeFirstPhase = dambreak%t0 + dambreak%timeToBreachToMaximumDepth 
+
+   else if (dambreak%algorithm == ST_DB_VERHEY_VDKNAAP_02) then
+      dambreak%endTimeFirstPhase = dambreak%t0 + dambreak%timeToBreachToMaximumDepth
+
    endif
 
    end subroutine setCoefficents
 
-   end
+   end module m_Dambreak

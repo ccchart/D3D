@@ -61,6 +61,10 @@ module m_readstructures
    public readDambreak
    public allowedFlowDirtoInt
    public get_value_or_addto_forcinglist
+   public any_dambreaks_by_fragility_curve
+   public read_fragility_curves
+   public process_fragility_curves
+
 
    !> The file version number of the structure file format: d.dd, [config_major].[config_minor], e.g., 1.03
    !!
@@ -1216,10 +1220,236 @@ module m_readstructures
    end subroutine readBridge
 
 
+   !> Check whether any of the dambreak fails based on a fragility curve.
+   function any_dambreaks_by_fragility_curve(network) result (uses_fragility_curve)
+      type(t_network),              intent(in)    :: network       !< The network data structure containing a.o. the structures.
+      logical                                     :: uses_fragility_curve !< Logical indicating whether any dambreak structure uses a fragility curve.
+
+      integer                                     :: i              !< Structure index
+   
+      uses_fragility_curve = .false.
+      do i = 1, size(network%sts%struct)
+          if (network%sts%struct(i)%type == ST_DAMBREAK) then
+             if (network%sts%struct(i)%dambreak%algorithm == ST_DB_FRAGCURVE) then
+                uses_fragility_curve = .true.
+                return
+             endif
+          endif
+      end do
+   end function any_dambreaks_by_fragility_curve
+
+
+   !> Read the dambreak fragility curve data.
+   subroutine read_fragility_curves(network, fragility_file, success)
+      type(t_network),              intent(inout) :: network        !< The network data structure into whose Structure Set the fragility curve can be read.
+      character(len=*),             intent(in   ) :: fragility_file !< File name to be read for the fragility curves.
+      logical,                      intent(  out) :: success        !< Reading and parsing file completed successfully.
+   
+      type(tree_data), pointer                    :: curve_ptr      !< Tree pointer for a single fragility curve block.
+      type(tree_data), pointer                    :: md_ptr         !< Tree pointer for whole fragility curve file.
+      integer                                     :: i              !< Data block index.
+      integer                                     :: ic             !< Fragility curve index.
+      integer                                     :: iquant         !< Index of quantity: 1 for failure quantity, 2 for probability.
+      integer                                     :: istat          !< Reading status.
+      integer                                     :: j              !< Line index within curve block.
+      integer                                     :: j0             !< Last line before curve data.
+      integer                                     :: major          !< Major file version number.
+      integer                                     :: minor          !< Minor file version number.
+      integer                                     :: num_curves     !< Number of "Curve" blocks in file.
+      integer                                     :: num_groups     !< Number of data blocks in file.
+      character(len=256)                          :: curve_name     !< Name of the fragility curve.
+      character(len=256)                          :: keystr         !< Key string as read from line j.
+      character(len=256)                          :: quant_name     !< Name of quantity.
+      character(len=256)                          :: typestr        !< File type as specified in file.
+      character(len=256)                          :: unitstr        !< Unit string based on quant_name.
+      character(len=256)                          :: valstr         !< Value string as read from line j.
+
+      call tree_create(trim(fragility_file), md_ptr, maxlenpar)
+      if (fragility_file == ' ') then
+         write (msgbuf, '(a)') 'No fragility curve file specified.'
+         goto 999
+      endif
+
+      call prop_file('ini', trim(fragility_file), md_ptr, istat)
+
+      if (istat /= 0) then
+         write (msgbuf, '(a)') 'Unable to open fragility curve file '''//trim(fragility_file)//'''.'
+         goto 999
+      endif
+      
+      ! check file type and version
+      call prop_get_string(md_ptr, 'General', 'fileType', typestr)
+      major = -999
+      minor = -999
+      call prop_get_version_number(md_ptr, major = major, minor = minor)
+      if (typestr == '') then
+         write (msgbuf, '(a)') 'Unspecified fileType while reading the fragility curves file '''//trim(fragility_file)//'''.'
+         goto 999
+      elseif (typestr /= 'fragilityCurves') then
+         write (msgbuf, '(a)') 'The file '''//trim(fragility_file)//''' is of fileType '''//trim(typestr)//''' when expecting a fragilityCurve file.'
+         goto 999
+      elseif (major < 0 .or. minor < 0) then
+         write (msgbuf, '(a)') 'The fileVersion record is missing or invalid in fragilityCurve file '''//trim(fragility_file)//'''.'
+         goto 999
+      elseif (major /= 1 .or. minor /= 0) then
+         write (msgbuf, '(a,i0,".",i2.2,a,i0,".",i2.2,a)') 'The file '''//trim(fragility_file)//''' is a fragilityCurve file version ', major, minor, '. Unsupported version; required version: ',1,0,'.'
+         goto 999
+      end if
+
+      num_groups = 0
+      if (associated(md_ptr%child_nodes)) then
+         num_groups = size(md_ptr%child_nodes)
+      end if
+
+      num_curves = 0
+      do i = 1, num_groups
+         if (strcmpi(tree_get_name(md_ptr%child_nodes(i)%node_ptr), 'Curve')) then
+            num_curves = num_curves + 1
+         end if
+      end do
+      network%fragility%Size = num_curves
+      allocate(network%fragility%curves(num_curves))
+
+      ic = 0
+      do i = 1, num_groups
+         if (strcmpi(tree_get_name(md_ptr%child_nodes(i)%node_ptr), 'Curve')) then
+            ic = ic + 1
+            curve_ptr => md_ptr%child_nodes(i)%node_ptr
+            curve_name  = ''
+            iquant = 0
+            j0 = 0
+            do j = 1, size(curve_ptr%child_nodes)
+                keystr = tree_get_name(curve_ptr%child_nodes(j)%node_ptr)
+                valstr = tree_get_data(curve_ptr%child_nodes(j)%node_ptr)
+                call str_lower(keystr)
+                call str_lower(valstr)
+                select case (keystr)
+                case ('name')
+                   curve_name = valstr
+                   network%fragility%curves(ic)%name = curve_name
+                case ('quantity')
+                   quant_name = valstr
+                   iquant = iquant + 1
+                   if (iquant == 1) then
+                      if (curve_name == '') then
+                         write (msgbuf, '(a,i0,a)') 'Missing fragility curve name when reading the first quantity of data block ',i,' in file  '''//trim(fragility_file)//'''.'
+                         goto 999
+                      elseif (quant_name == 'waterlevel') then
+                         network%fragility%curves(ic)%quantity1 = ST_FC_WATERLEVEL
+                         unitstr = 'm'
+                      elseif (quant_name == 'velocity_magnitude') then
+                         network%fragility%curves(ic)%quantity1 = ST_FC_VELMAG
+                         unitstr = 'm/s'
+                      elseif (quant_name == 'head' .or. quant_name == 'energy_height') then
+                         network%fragility%curves(ic)%quantity1 = ST_FC_ENERGYHGHT
+                         unitstr = 'm'
+                      elseif (quant_name == 'relative_waterdepth') then
+                         network%fragility%curves(ic)%quantity1 = ST_FC_RELDEPTH
+                         unitstr = '-'
+                      else
+                         write (msgbuf, '(a,i0,a)') 'Unsupported first quantity '''//trim(quant_name)//''' specified for fragility curve '''//trim(curve_name)//'''.'
+                         goto 999
+                      endif
+                   elseif (iquant == 2) then
+                      if (quant_name /= 'probability') then
+                         write (msgbuf, '(a)') 'The second quantity of fragility curve '''//trim(curve_name)//''' should be ''probability'', but the specified quantity is '''//trim(quant_name)//'''.'
+                         goto 999
+                      else
+                         unitstr = '-'
+                      endif
+                   else
+                      write (msgbuf, '(a)') 'Third quantity '''//trim(quant_name)//''' encountered for fragility curve '''//trim(curve_name)//'''; only two quantities should be given.'
+                      goto 999
+                   endif
+                case ('unit')
+                   if (valstr /= unitstr) then
+                      write (msgbuf, '(a)') 'The unit of '''//trim(quant_name)//''' for fragility curve '''//trim(curve_name)//''' should be '''//trim(unitstr)//''', but the specified unit is '''//trim(valstr)//'''.'
+                      goto 999
+                   endif
+                case ('')
+                   if (j0 == 0) then
+                      j0 = j - 1
+                      allocate(network%fragility%curves(ic)%values(size(curve_ptr%child_nodes)-j0,2))
+                      network%fragility%curves(ic)%values = 0d0
+                   endif
+                   read(valstr,*) network%fragility%curves(ic)%values(j-j0,1),network%fragility%curves(ic)%values(j-j0,2)
+                case default
+                   write (msgbuf, '(a)') 'Unsupported keyword '''//trim(keystr)//''' encountered while reading fragility curve file '''//trim(fragility_file)//'''.'
+                   goto 999
+                end select
+            enddo
+         end if
+      end do
+      success = .true.
+      return
+      
+999   call err_flush()
+      success = .false.
+   end subroutine read_fragility_curves
+   
+
+   !> Convert the input dambreak failure threshold into a failure value by means of the fragility curve.
+   subroutine process_fragility_curves(network, success)
+      type(t_network),              intent(inout) :: network        !< The network data structure containing the dambreaks and fragility curves.
+      logical,                      intent(  out) :: success        !< Reading and parsing file completed successfully.
+   
+      integer                                     :: i              !< Structure index
+      integer                                     :: j              !< Fragility curve index
+      integer                                     :: k              !< Fragility curve point index
+      character(len=256)                          :: name           !< Name of fragility curve for selected structure
+      double precision                            :: p              !< Input failure probability threshold
+      double precision                            :: p0             !< Lower probability value of curve segment
+      double precision                            :: p1             !< Upper probability value of curve segment
+      double precision                            :: z              !< Failure value
+      double precision                            :: z0             !< Lower failure value of curve segment
+      double precision                            :: z1             !< Upper failure value of curve segment
+
+      do i = 1, network%sts%count
+          if (network%sts%struct(i)%type == ST_DAMBREAK .and. &
+              network%sts%struct(i)%dambreak%algorithm == ST_DB_FRAGCURVE) then
+             name = network%sts%struct(i)%dambreak%fragilityCurve
+             do j = 1, network%fragility%Size
+                if (network%fragility%curves(j)%name == name) then
+                   network%sts%struct(i)%dambreak%failQuantity = network%fragility%curves(j)%quantity1
+                   p = network%sts%struct(i)%dambreak%failThreshold
+                   do k = 1, size(network%fragility%curves(j)%values,1)
+                      p1 = network%fragility%curves(j)%values(k,2)
+                      z  = network%fragility%curves(j)%values(k,1)
+                      if (p <= p1) then
+                         if (k > 1) then
+                            z0 = network%fragility%curves(j)%values(k-1,1)
+                            z  = z0 + (p - p0)*(z - z0)/(p1 - p0)
+                         end if
+                         exit
+                      else
+                          p0 = p1
+                      end if
+                   end do
+                   network%sts%struct(i)%dambreak%failValue = z
+                   exit
+                end if
+             end do
+             if (network%sts%struct(i)%dambreak%failQuantity == ST_FC_UNSET) then
+                write (msgbuf, '(a)') 'Fragility curve '''//trim(name)//''' not found for dambreak '''//trim(network%sts%struct(i)%id)//'''.'
+                goto 999
+             end if
+          end if
+      end do
+      
+      success = .true.
+      return
+      
+999   call err_flush()
+      success = .false.
+   end subroutine process_fragility_curves
+
+
    !> Read the dambreak specific data for a dambreak structure.
    !! The common fields for the structure (e.g. x/yCoordinates) must have been read elsewhere.
    subroutine readDambreak(dambr, md_ptr, st_id, forcinglist, success)
    
+      use messageHandling, only: msgbuf, setMessage
+      
       type(t_dambreak), pointer,    intent(inout) :: dambr       !< Dambreak structure to be read into.
       type(tree_data), pointer,     intent(in   ) :: md_ptr      !< ini tree pointer with user input.
       character(IdLen),             intent(in   ) :: st_id       !< Structure character Id.
@@ -1231,63 +1461,100 @@ module m_readstructures
 
       allocate(dambr)
 
-      call prop_get_double(md_ptr, 'Structure', 'StartLocationX',  dambr%startLocationX, success)
+      call prop_get_double(md_ptr, 'Structure', 'startLocationX',  dambr%startLocationX, success)
       if (.not. success) return
 
-      call prop_get_double(md_ptr, 'Structure', 'StartLocationY',  dambr%startLocationY, success)
+      call prop_get_double(md_ptr, 'Structure', 'startLocationY',  dambr%startLocationY, success)
       if (.not. success) return
 
-      call prop_get_integer(md_ptr, 'Structure', 'Algorithm', dambr%algorithm, success)
+      call prop_get_integer(md_ptr, 'Structure', 'algorithm', dambr%algorithm, success)
       if (.not. success) return
 
-      call prop_get_double(md_ptr, 'Structure', 'CrestLevelIni', dambr%crestLevelIni, success)
-      if (.not. success) return
-         
-      if (dambr%algorithm == 2) then
-         
-         call prop_get_double(md_ptr, 'Structure', 'BreachWidthIni', dambr%breachWidthIni, success)
-         if (.not. success) return
-
-         call prop_get_double(md_ptr, 'Structure', 'CrestLevelMin', dambr%crestLevelMin, success)
-         if (.not. success) return
-
-         call prop_get_double(md_ptr, 'Structure', 'TimeToBreachToMaximumDepth', dambr%timeToBreachToMaximumDepth, success)
-         if (.not. success) return
-
-         call prop_get_double(md_ptr, 'Structure', 'F1', dambr%f1, success)
-         if (.not. success) return
-
-         call prop_get_double(md_ptr, 'Structure', 'F2', dambr%f2, success)
-         if (.not. success) return
-
-         call prop_get_double(md_ptr, 'Structure', 'Ucrit', dambr%ucrit, success)
-         if (.not. success) return
-         
-         ! optional extra fields
-         call prop_get_string(md_ptr, 'Structure', 'waterLevelUpstreamNodeId ', dambr%waterLevelUpstreamNodeId, localsuccess)
-         if (.not. localsuccess) then
-            call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationX', dambr%waterLevelUpstreamLocationX, localsuccess)
-            call prop_get_double(md_ptr, 'Structure', 'WaterLevelUpstreamLocationY', dambr%waterLevelUpstreamLocationY, localsuccess)
-         end if
-
-         call prop_get_string(md_ptr, 'Structure', 'waterLevelDownstreamNodeId ', dambr%waterLevelDownstreamNodeId, localsuccess)
-         if (.not. localsuccess) then
-            call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationX', dambr%waterLevelDownstreamLocationX, localsuccess)
-            call prop_get_double(md_ptr, 'Structure', 'WaterLevelDownstreamLocationY', dambr%waterLevelDownstreamLocationY, localsuccess)
-         end if
+      if (dambr%algorithm /= ST_DB_VDKNAAP_00 .and. &
+        & dambr%algorithm /= ST_DB_VERHEY_VDKNAAP_02 .and. &
+        & dambr%algorithm /= ST_DB_PRESCRIBED .and. &
+        & dambr%algorithm /= ST_DB_FRAGCURVE) then
+         write(msgbuf,'(3a, i0, a)') 'Error Reading Dambreak ''', trim(st_id), ''': invalid algorithm number ', dambr%algorithm, '.'
+         call setMessage(LEVEL_ERROR, msgbuf)
+         return
       endif
-      
-      ! get the name of the tim file 
-      if (dambr%algorithm == 3) then
+
+      ! read optional crestLevelIni - if not specified, it will be derived from the fixed weir height
+      call prop_get_double(md_ptr, 'Structure', 'crestLevelIni', dambr%crestLevelIni, success)
+
+      if (dambr%algorithm == ST_DB_VDKNAAP_00 .or. &
+        & dambr%algorithm == ST_DB_VERHEY_VDKNAAP_02) then
+
+         call prop_get_double(md_ptr, 'Structure', 'breachWidthIni', dambr%breachWidthIni, success)
+         if (.not. success) return
+
+         call prop_get_double(md_ptr, 'Structure', 'crestLevelMin', dambr%crestLevelMin, success)
+         if (.not. success) return
+
+         call prop_get_double(md_ptr, 'Structure', 'timeToBreachToMaximumDepth', dambr%timeToBreachToMaximumDepth, success)
+         if (.not. success) return
+
+         if (dambr%algorithm == ST_DB_VERHEY_VDKNAAP_02) then
+            call prop_get_double(md_ptr, 'Structure', 'f1', dambr%f1, success)
+            if (.not. success) return
+
+            call prop_get_double(md_ptr, 'Structure', 'f2', dambr%f2, success)
+            if (.not. success) return
+
+            call prop_get_double(md_ptr, 'Structure', 'uCrit', dambr%ucrit, success)
+            if (.not. success) return
+         endif
+
+      else if (dambr%algorithm == ST_DB_PRESCRIBED) then
+
+         ! get the name of the tim file 
+          
          ! UNST-3308: NOTE that only the .tim filename is read below. It is NOT added to the network%forcinglist.
          !            All time-space handling of the dambreak is still done in kernel.
-         call prop_get_string(md_ptr, 'Structure', 'DambreakLevelsAndWidths', dambr%levelsAndWidths, success)
-         if (.not. success) return         
+         call prop_get_string(md_ptr, 'Structure', 'dambreakLevelsAndWidths', dambr%levelsAndWidths, success)
+         if (.not. success) return
+
+      else if (dambr%algorithm == ST_DB_FRAGCURVE) then
+
+         dambr%fragilityCurve = ''
+         call prop_get_string(md_ptr, 'Structure', 'fragilityCurve', dambr%fragilityCurve, success)
+         if (.not. success) return
+
+         call prop_get_double(md_ptr, 'Structure', 'threshold', dambr%failThreshold, success)
+         if (.not. success) return
+
       endif
 
-      call prop_get_double(md_ptr, 'Structure', 'T0', dambr%t0, success)
-      if (.not. success) return
-      
+      ! optional extra fields
+      call prop_get_string(md_ptr, 'Structure', 'upstreamNodeId ', dambr%upstreamNodeId, localsuccess)
+      if (.not. localsuccess) then
+         call prop_get_string(md_ptr, 'Structure', 'waterLevelUpstreamNodeId ', dambr%upstreamNodeId, localsuccess)
+      end if
+      if (.not. localsuccess) then
+         call prop_get_double(md_ptr, 'Structure', 'upstreamLocationX', dambr%upstreamLocationX, localsuccess)
+         call prop_get_double(md_ptr, 'Structure', 'upstreamLocationY', dambr%upstreamLocationY, localsuccess)
+      end if
+      if (.not. localsuccess) then
+         call prop_get_double(md_ptr, 'Structure', 'waterLevelUpstreamLocationX', dambr%upstreamLocationX, localsuccess)
+         call prop_get_double(md_ptr, 'Structure', 'waterLevelUpstreamLocationY', dambr%upstreamLocationY, localsuccess)
+      end if
+
+      call prop_get_string(md_ptr, 'Structure', 'downstreamNodeId ', dambr%downstreamNodeId, localsuccess)
+      if (.not. localsuccess) then
+         call prop_get_string(md_ptr, 'Structure', 'waterLevelDownstreamNodeId ', dambr%downstreamNodeId, localsuccess)
+      end if
+      if (.not. localsuccess) then
+         call prop_get_double(md_ptr, 'Structure', 'downstreamLocationX', dambr%downstreamLocationX, localsuccess)
+         call prop_get_double(md_ptr, 'Structure', 'downstreamLocationY', dambr%downstreamLocationY, localsuccess)
+      end if
+      if (.not. localsuccess) then
+         call prop_get_double(md_ptr, 'Structure', 'waterLevelDownstreamLocationX', dambr%downstreamLocationX, localsuccess)
+         call prop_get_double(md_ptr, 'Structure', 'waterLevelDownstreamLocationY', dambr%downstreamLocationY, localsuccess)
+      end if
+
+      ! optional start time of breach; defaults to 0 if not specified
+      call prop_get_double(md_ptr, 'Structure', 't0', dambr%t0)
+
       call setCoefficents(dambr)
       
    end subroutine readDambreak

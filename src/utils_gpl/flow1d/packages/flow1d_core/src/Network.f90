@@ -40,6 +40,7 @@ module m_network
    use m_df1d_transport
    use m_ObservCrossSections
    use m_compound
+   use m_Dambreak, only: t_fragilityCurveSet
    
    implicit none
 
@@ -100,6 +101,7 @@ module m_network
       type(t_transportSet)                      :: trans
       type(t_ObservCrossSectionSet)             :: observcrs               !< set of observation Cross-Sections 
       type(t_forcingList)                       :: forcinglist             !< Work list of read-in (structure) forcing data, to be initialized by calling kernel later.
+      type(t_fragilityCurveSet)                 :: fragility               !< list of fragility curves
       logical                                   :: loaded      = .false.
       logical                                   :: initialized = .false.
    end type

@@ -155,6 +155,8 @@ module m_1d_structures
       
       integer                          :: numlinks       !< number of links in structure
       integer, pointer, dimension(:)   :: linknumbers => null() !< link numbers of structure (length = numlinks)
+      integer, pointer, dimension(:)   :: lftopol => null()   !< polygon segment index
+      double precision, pointer, dimension(:) :: ds => null() !< location of link along structure polygon
       double precision, pointer, dimension(:) :: fu => null() !< fu coefficient for momentum equation
       double precision, pointer, dimension(:) :: ru => null() !< ru coefficient for momentum equation
       double precision, pointer, dimension(:) :: au => null() !< flow area
@@ -356,6 +358,7 @@ subroutine deallocstructure(sts)
          if (associated(sts%struct(i)%xCoordinates)) deallocate(sts%struct(i)%xCoordinates)
          if (associated(sts%struct(i)%yCoordinates)) deallocate(sts%struct(i)%yCoordinates)
          if (associated(sts%struct(i)%linknumbers))  deallocate(sts%struct(i)%linknumbers)
+         if (associated(sts%struct(i)%ds))           deallocate(sts%struct(i)%ds)
          if (associated(sts%struct(i)%fu))           deallocate(sts%struct(i)%fu)
          if (associated(sts%struct(i)%ru))           deallocate(sts%struct(i)%ru)
          if (associated(sts%struct(i)%au))           deallocate(sts%struct(i)%au)
@@ -373,6 +376,7 @@ subroutine deallocstructure(sts)
          sts%struct(i)%xCoordinates => null()
          sts%struct(i)%yCoordinates => null()
          sts%struct(i)%linknumbers  => null()
+         sts%struct(i)%ds           => null()
          sts%struct(i)%fu           => null()
          sts%struct(i)%ru           => null()
          sts%struct(i)%au           => null()
@@ -1182,18 +1186,22 @@ end subroutine deallocstructure
 
 
    !> Initializes the flow link administration for a single structure.
-   function initialize_structure_links(struct, numlinks, links, wu) result(istat)
+   function initialize_structure_links(struct, numlinks, links, wu, ds, lftopol) result(istat)
 
-      type(t_structure),               intent(inout) :: struct   !< The structure object to be initialized.
-      integer,                         intent(in   ) :: numlinks !< The number of flow links affected by this structure.
-      integer, dimension(:),           intent(in   ) :: links    !< (numlinks) The flow link numbers affected by this structure.
-      double precision, dimension(:),  intent(in   ) :: wu       !< (numlinks) The width of the flow links affected by this structure.
-      integer                                        :: istat    !< Result status (0 if successful).
+      type(t_structure),              intent(inout) :: struct   !< The structure object to be initialized.
+      integer,                        intent(in   ) :: numlinks !< The number of flow links affected by this structure.
+      integer, dimension(:),          intent(in   ) :: links    !< (numlinks) The flow link numbers affected by this structure.
+      double precision, dimension(:), intent(in   ) :: wu       !< (numlinks) The width of the flow links affected by this structure.
+      double precision, dimension(:), intent(in   ) :: ds       !< (numlinks) Location of the flow link measured along the structure.
+      integer         , dimension(:), intent(in   ) :: lftopol  !< (numlinks) Polygon segment of the flow link.
+      integer                                       :: istat    !< Result status (0 if successful).
 
       istat = 0
-      allocate(struct%linknumbers(numlinks), struct%fu(numlinks), struct%ru(numlinks), struct%au(numlinks), struct%u0(numlinks), struct%u1(numlinks))
+      allocate(struct%linknumbers(numlinks), struct%ds(numlinks), struct%lftopol(numlinks), struct%fu(numlinks), struct%ru(numlinks), struct%au(numlinks), struct%u0(numlinks), struct%u1(numlinks))
       struct%numlinks = numlinks
       struct%linknumbers = links(1:numlinks)
+      struct%ds = ds(1:numlinks)
+      struct%lftopol = lftopol(1:numlinks)
       struct%fu = 0d0
       struct%ru = 0d0
       struct%au = 0d0
