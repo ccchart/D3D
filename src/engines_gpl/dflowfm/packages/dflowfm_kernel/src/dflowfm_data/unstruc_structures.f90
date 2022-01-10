@@ -102,17 +102,24 @@ integer :: jaoldstr !< tmp backwards comp: we cannot mix structures from EXT and
                                                               !<                      (25,:) general structure velocity under gate
                                                               !<                      (26,:) general structure counters of partitions for parallel
  double precision, dimension(:,:), allocatable, target :: valdambreak !< Array for dambreak, (1,:)  flow link width
-                                                              !<                      (2,:) instantanuous discharge
+                                                              !<                      (2,:) dambreak instantaneous discharge through breach
                                                               !<                      (3,:) dambreak water level up
                                                               !<                      (4,:) dambreak water level down
                                                               !<                      (5,:) dambreak structure head
-                                                              !<                      (6,:) dambreak flow area
+                                                              !<                      (6,:) dambreak breach flow area
                                                               !<                      (7,:) dambreak normal velocity
-                                                              !<                      (8,:) dambreak crest level
-                                                              !<                      (9,:) dambreak crest width
+                                                              !<                      (8,:) dambreak breach level
+                                                              !<                      (9,:) dambreak breach width
                                                               !<                      (10,:) dambreak water level jump
                                                               !<                      (11,:) dambreak breach width time derivative
-                                                              !<                      (12,:) cumulative discharge
+                                                              !<                      (12,:) dambreak instantaneous total discharge
+                                                              !<                      (13,:) dambreak total flow area
+                                                              !<                      (14,:) dambreak maximum water level
+                                                              !<                      (15,:) dambreak maximum velocity
+                                                              !<                      (16,:) dambreak maximum energy head
+                                                              !<                      (17,:) dambreak maximum relative depth
+                                                              !<                      (18,:) dambreak cumulative discharge through breach
+                                                              !<                      (19,:) dambreak cumulative total discharge
  double precision, dimension(:,:), allocatable :: valorifgen  !< Array for orifice (1,:) flow link width, used for averaging.
                                                               !<                      (2,:) discharge through orifice
                                                               !<                      (3,:) orifice water level up
@@ -182,7 +189,7 @@ integer :: jaoldstr !< tmp backwards comp: we cannot mix structures from EXT and
  integer                           :: NUMVALS_GATEGEN = 9     !< Number of variables for gate (new)
  integer                           :: NUMVALS_WEIRGEN = 13    !< Number of variables for weir
  integer                           :: NUMVALS_GENSTRU = 26    !< Number of variables for general structure( new exe file)
- integer                           :: NUMVALS_DAMBREAK = 12   !< Number of variables for dambreak
+ integer                           :: NUMVALS_DAMBREAK = 19   !< Number of variables for dambreak
  integer                           :: NUMVALS_ORIFGEN = 16    !< Number of variables for orific
  integer                           :: NUMVALS_BRIDGE  = 10    !< Number of variables for bridge
  integer                           :: NUMVALS_CULVERT = 11    !< Number of variables for culvert

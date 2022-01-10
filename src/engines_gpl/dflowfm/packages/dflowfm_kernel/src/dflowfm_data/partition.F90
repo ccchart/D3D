@@ -5002,7 +5002,7 @@ end subroutine partition_make_globalnumbers
    !> optional firstFilter is defined on a global weights array [1, ncells/nlinks]
    !> optional secondFilter is defined on a local array [1,size(secondFilter)]
    !> works also across multiple MPI ranks
-   function getAverageQuantityFromLinks(startLinks, endLinks, weights, indsWeight, quantity, indsQuantity, results, quantityType, &
+   function getAverageQuantityFromLinks(startLinks, endLinks, weights, indsLinks, quantity, indsCells, results, quantityType, &
       firstFilter, firstFilterValue, secondFilter, secondFilterValue ) result(ierr)
 
    use mpi
@@ -5013,10 +5013,10 @@ end subroutine partition_make_globalnumbers
    integer,intent(in),dimension(:)               :: startLinks             !< start indexes [1,nsegments]
    integer,intent(in),dimension(:)               :: endLinks               !< end   indexes [1,nsegments]
    double precision,intent(in),dimension(:)      :: weights                !< global weights array
-   integer,intent(in),dimension(:)               :: indsWeight             !< local indexes on global weights array
+   integer,intent(in),dimension(:)               :: indsLinks              !< local indexes for links arrays (0 if no local link)
    double precision,intent(in),dimension(:)      :: quantity               !< global quantity array
-   integer,intent(in),dimension(:)               :: indsQuantity           !< local indexes on global quantity array
-   integer,intent(in)                            :: quantityType           !< The type of quantity: 0 scalar, 1 array (edge orientation matters)
+   integer,intent(in),dimension(:)               :: indsCells              !< local indexes for cell arrays
+   integer,intent(in)                            :: quantityType           !< The type of quantity: 0 scalar at cells, 1 normal to edge (edge orientation matters)
    
    double precision,intent(in),dimension(:), optional :: firstFilter       !< filter to apply on the global weights array
    double precision,intent(in), optional              :: firstFilterValue  !< value to activate the first filter (activated if larger than filter value)
@@ -5024,7 +5024,9 @@ end subroutine partition_make_globalnumbers
    integer,intent(in), dimension(:), optional    :: secondFilter           !< filter to apply on the local weights array
    integer,intent(in), optional                  :: secondFilterValue      !< value to activate the second filter (activated if larger than filter value)
    !locals
-   integer                                       :: ns, nsegments, nl, indWeight, indQuantity
+   integer                                       :: ns, nsegments, nl
+   integer                                       :: l                      !< link index
+   integer                                       :: k                      !< cell index
    double precision                              :: sumQuantitiesByWeight, sumWeights
    double precision                              :: quantitiesByWeight, weight
    double precision, allocatable                 :: resultsSum(:,:)
@@ -5032,6 +5034,7 @@ end subroutine partition_make_globalnumbers
    !outputs
    double precision,dimension(:,:),intent(inout) :: results
    integer                                       :: ierr
+   integer                                       :: iq
 
    ierr = 0
    nsegments = size(startLinks)
@@ -5045,33 +5048,36 @@ end subroutine partition_make_globalnumbers
 
       do nl  = startLinks(ns), endLinks(ns)
 
-         indWeight    = abs(indsWeight(nl))
-         indQuantity  = abs(indsQuantity(nl))
+         l    = abs(indsLinks(nl))
+         if (l == 0) cycle
+         k    = abs(indsCells(nl))
          quantitiesByWeight = 0.0d0
          weight = 0.0d0
 
          if ( jampi.eq.1 ) then
             ! Exclude ghost nodes
-            if ( idomain(indQuantity).ne.my_rank ) then
+            if ( idomain(k).ne.my_rank ) then
                cycle
             end if
          end if
 
 
          ! weights are always positive
-         weight = weights(indWeight)
+         weight = weights(l)
          if(quantityType == 1) then
-            if (indsQuantity(nl)< 0) then
-               quantitiesByWeight =   - quantity(indQuantity)*weight
+            iq = l
+            if (indsLinks(nl)< 0) then
+               quantitiesByWeight =   - quantity(l)*weight
             else
-               quantitiesByWeight =   quantity(indQuantity)*weight
+               quantitiesByWeight =   quantity(l)*weight
             endif
          else
-            quantitiesByWeight =  quantity(indQuantity)*weight
+            iq = k
+            quantitiesByWeight =  quantity(k)*weight
          endif
 
          if ( present(firstFilter).and.present(firstFilterValue)) then
-            if ( firstFilter(indWeight) <= firstFilterValue ) then
+            if ( firstFilter(l) <= firstFilterValue ) then
                quantitiesByWeight =  0.0d0
                weight             =  0.0d0
             endif
@@ -5092,7 +5098,7 @@ end subroutine partition_make_globalnumbers
       results(2,ns) = sumWeights
    end do
 
-   if (jampi.eq.1) then
+   if ( jampi.eq.1 ) then
       ! Here we reduce the results
       if ( jatimer.eq.1 ) call starttimer(IMPIREDUCE)
 #ifdef HAVE_MPI

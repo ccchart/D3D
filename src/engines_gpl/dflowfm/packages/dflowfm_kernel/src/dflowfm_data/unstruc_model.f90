@@ -735,6 +735,7 @@ subroutine readMDUFile(filename, istat)
     use m_commandline_option, only: iarg_usecaching
     use m_subsidence, only: sdu_update_s1
     use unstruc_channel_flow
+    use m_flowexternalforcings, only: dambreakWideningString, dambreakWidening, DBW_SYMM, DBW_PROP, DBW_SYMM_ASYMM
 
     use m_sediment
     use m_waves, only: hwavuni, twavuni, phiwavuni
@@ -1320,6 +1321,20 @@ subroutine readMDUFile(filename, istat)
     call prop_get_double (md_ptr, 'physics', 'Backgroundsalinity', Backgroundsalinity)
     call prop_get_double (md_ptr, 'physics', 'Backgroundwatertemperature', Backgroundwatertemperature)
 
+    call prop_get_string (md_ptr, 'physics', 'FragilityCurveFile', md_1dfiles%fragility_curves)
+    call prop_get_string (md_ptr, 'physics', 'BreachGrowth', dambreakWideningString)
+    call str_lower(dambreakWideningString)
+    select case (dambreakWideningString)
+    case ('symmetric','')
+       dambreakWidening = DBW_SYMM
+    case ('proportional')
+       dambreakWidening = DBW_PROP
+    case ('symmetric-asymmetric')
+       dambreakWidening = DBW_SYMM_ASYMM
+    case default
+       call mess(LEVEL_ERROR, 'Invalid value specified for breach growth.')
+    end select
+
     call prop_get_integer(md_ptr, 'veg',     'Vegetationmodelnr', javeg) ! Vegetation model nr, (0=no, 1=Baptist DFM)
     if( japillar == 2 ) then
        javeg = 1
@@ -1886,6 +1901,7 @@ subroutine readMDUFile(filename, istat)
     call prop_get_integer(md_ptr, 'output', 'Wrishp_pump', jashp_pump, success)
     call prop_get_integer(md_ptr, 'output', 'Wrishp_dryarea', jashp_dry, success)
     call prop_get_integer(md_ptr, 'output', 'wrishp_genstruc', jashp_genstruc, success)
+    call prop_get_integer(md_ptr, 'output', 'wrishp_dambreak', jashp_dambreak, success)
 
     call prop_get_integer(md_ptr, 'output', 'WriteDFMinterpretedvalues', jawriteDFMinterpretedvalues, success)
 
@@ -2235,12 +2251,14 @@ subroutine readMDUFile(filename, istat)
       jashp_obs = 0
    endif
 
-   if (len_trim(md_structurefile) == 0 .and. (jashp_weir > 0 .or. jashp_gate > 0 .or. jashp_genstruc > 0 )) then
+   if (len_trim(md_structurefile) == 0 .and. (jashp_weir > 0 .or. jashp_gate > 0 .or. jashp_genstruc > 0 .or. jashp_dambreak > 0)) then
       write (msgbuf, '(a)') 'MDU settings does not specify any structur: StructureFile =  , but sets to write a ' &
          //'shape file for structure (Wrishp_weir/Wrishp_gate/Wrishp_genstruc = 1). In this situation, no such shape file is written.'
       call warn_flush()
       jashp_weir = 0
       jashp_gate = 0
+      jashp_genstruc = 0
+      jashp_dambreak = 0
    endif
 
    if (len_trim(md_thdfile) == 0 .and. jashp_thd > 0) then
@@ -3153,6 +3171,11 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
 
     endif
 
+    if (writeall .or. len_trim(md_1dfiles%fragility_curves) > 0) then
+       call prop_set(prop_ptr, 'physics', 'FragilityCurveFile', trim(md_1dfiles%fragility_curves), 'File *.ini containing dambreak algorithm 4 fragility curves')
+    end if
+    call prop_set_string (prop_ptr, 'physics', 'BreachGrowth', trim(dambreakWideningString), 'Method for implementing dambreak widening: symmetric, proportional, or symmetric-asymmetric')
+
 ! secondary flow
 ! output to mdu file
     call prop_set(prop_ptr, 'physics', 'SecondaryFlow'  , jasecflow, 'Secondary flow (0: no, 1: yes)')
@@ -3823,6 +3846,9 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     end if
     if( writeall .or. jashp_genstruc > 0 ) then
        call prop_set(prop_ptr, 'output', 'wrishp_genstruc', jashp_genstruc, 'Write a shape file for general structures')
+    end if
+    if( writeall .or. jashp_dambreak > 0 ) then
+       call prop_set(prop_ptr, 'output', 'wrishp_genstruc', jashp_dambreak, 'Write a shape file for dam breaks')
     end if
 
     call prop_set(prop_ptr, 'output', 'WriteDFMinterpretedvalues', jaWriteDFMinterpretedvalues, 'Write DFMinterpretedvalues (1: yes, 0: no)' )

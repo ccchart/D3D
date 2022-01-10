@@ -67,7 +67,7 @@ module m_inquire_flowgeom
    contains
    
    !> Find flow link number(s) intersected by a given polyline.
-   function findlink_by_pli(npl, xpl, ypl, Larr , numlinks, lftopol, sortlinks, linktype) result(ierr)
+   function findlink_by_pli(npl, xpl, ypl, Larr , numlinks, lftopol, sortlinks, linktype, ds) result(ierr)
       use m_flowgeom, only : xz, yz, ln, lnx, lnx1D
       use sorting_algorithms
       use dfm_error
@@ -81,6 +81,7 @@ module m_inquire_flowgeom
       integer, optional, intent(in   )  :: sortlinks    !< Indicates whether the flow links have to be sorted.
       integer, optional, intent(in   )  :: linktype     !< Limit search to specific link types: only 1D flow links (linktype==IFLTP_1D), 2D (linktype==IFLTP_2D), or both (linktype==IFLTP_ALL).
       integer, optional, intent(inout)  :: lftopol(:)   !< Mapping array from flow link to intersecting polyline segment.
+      double precision, optional, intent(  out) :: ds(:)       !< Output array containing the distance along the polyline for the flow link.
       
       double precision :: xa, ya
       double precision :: xb, yb
@@ -90,6 +91,7 @@ module m_inquire_flowgeom
       double precision, allocatable :: distsStartPoly(:)
       double precision, allocatable :: sortedDistsStartPoly(:)
       integer, allocatable          :: sortedIndexses(:)
+      integer, allocatable          :: tempLftopol(:)
       integer, allocatable          :: tempLinkArray(:)
       integer :: found
       integer :: size_arr
@@ -168,6 +170,17 @@ module m_inquire_flowgeom
                tempLinkArray(L) = Larr(sortedIndexses(L))
             end do
             Larr(1:numlinks) = tempLinkArray
+            if(present(lftopol)) then
+               allocate(tempLftopol(numlinks))
+               do L=1,numlinks
+                  tempLftopol(L) = lftopol(sortedIndexses(L))
+               end do
+               lftopol(1:numlinks) = tempLftopol
+               deallocate(tempLftopol)
+            endif
+            if (present(ds)) then
+                ds(1:numlinks) = sortedDistsStartPoly
+            endif
 
             deallocate(sortedDistsStartPoly)
             deallocate(sortedIndexses)

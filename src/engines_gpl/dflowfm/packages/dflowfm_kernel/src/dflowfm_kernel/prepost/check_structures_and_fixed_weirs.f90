@@ -32,9 +32,9 @@
 
 !> check if structures on flowlinks are unique
 subroutine check_structures_and_fixed_weirs()
-   use m_flowgeom, only: Lnx
-   use m_flowexternalforcings, only: ncgensg, kcgen, L1cgensg, L2cgensg
-   use m_fixedweirs, only: nfxw, lnfxw
+   use m_flowgeom, only: Lnx, bob
+   use m_flowexternalforcings, only: ncgensg, kcgen, L1cgensg, L2cgensg, ndambreaksg, L1dambreaksg, L2dambreaksg, kdambreak, dambreakInitialCrestLevel
+   use m_fixedweirs, only: nfxw, lnfxw, crestlevxw
    use unstruc_messages
    implicit none
 
@@ -46,6 +46,7 @@ subroutine check_structures_and_fixed_weirs()
    integer                            :: Lf, n, k
    integer                            :: nummulti
    integer                            :: numweir
+   integer                            :: nfw       !< Number of the fixed weir at flow link Lf
 
 !  allocate flowlink -> structure array
    allocate(L2struct(Lnx))
@@ -93,6 +94,21 @@ subroutine check_structures_and_fixed_weirs()
    if ( nummulti.gt.0 ) then
       call mess(LEVEL_ERROR, 'multiple general structures defined on one or more flowlink(s), see preceding message(s).')
    end if
+
+   do n = 1, ndambreaksg
+      do k = L1dambreaksg(n), L2dambreaksg(n)
+         Lf = iabs(kdambreak(3,k))
+         if (Lf == 0) cycle
+         !
+         nfw = L2weir(Lf)
+         if (nfw > 0) then
+            dambreakInitialCrestLevel(k) = crestlevxw(nfw)
+         else
+            write(msg, "('Flowlink ', I0, ' found in dambreak ', I0, ' doesn''t correspond to a fixed weir.')") Lf, n
+            call mess(LEVEL_WARN, trim(msg))
+         end if
+      enddo
+   enddo
 
 !  deallocate
    if ( allocated(L2struct) ) deallocate(L2struct)

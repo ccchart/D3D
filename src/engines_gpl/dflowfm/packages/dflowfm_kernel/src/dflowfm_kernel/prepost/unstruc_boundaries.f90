@@ -30,36 +30,6 @@
 ! $Id$
 ! $HeadURL$
 
-!----- AGPL --------------------------------------------------------------------
-!
-!  Copyright (C)  Stichting Deltares, 2017-2021.
-!
-!  This file is part of Delft3D (D-Flow Flexible Mesh component).
-!
-!  Delft3D is free software: you can redistribute it and/or modify
-!  it under the terms of the GNU Affero General Public License as
-!  published by the Free Software Foundation version 3.
-!
-!  Delft3D  is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU Affero General Public License for more details.
-!
-!  You should have received a copy of the GNU Affero General Public License
-!  along with Delft3D.  If not, see <http://www.gnu.org/licenses/>.
-!
-!  contact: delft3d.support@deltares.nl
-!  Stichting Deltares
-!  P.O. Box 177
-!  2600 MH Delft, The Netherlands
-!
-!  All indications and logos of, and references to, "Delft3D",
-!  "D-Flow Flexible Mesh" and "Deltares" are registered trademarks of Stichting
-!  Deltares, and remain the property of Stichting Deltares. All rights reserved.
-!
-!-------------------------------------------------------------------------------
-! $Id$
-! $HeadURL$
 module unstruc_boundaries
 implicit none
 
@@ -178,16 +148,31 @@ subroutine findexternalboundarypoints()             ! find external boundary poi
 
  if (allocated(kez)) then
     ! If flow_geominit was called separately from a flow_modelinit:
-    deallocate (             kez,     keu,     kes,     ketm,     kesd,     keuxy,     ket,     ken,     ke1d2d,     keg,     ked,     kep,     kedb,     keklep,     kevalv,     kegs,     kegen,     itpez,     itpenz,     itpeu,      itpenu,     kew)
+    deallocate (             kez,     keu,     kes,     ketm,     kesd,     keuxy,     ket,     ken,     ke1d2d,     keg,     ked,     kep,     kedb,     keklep,     kevalv,     kegs,     itpez,     itpenz,     itpeu,      itpenu,     kew)
+ end if
+ if (allocated(kegen)) then
+    deallocate ( kegen, ds_gen )
+ end if
+ if (allocated(kedb)) then
+    deallocate ( kedb )
+ end if
+ if (allocated(db_ds)) then
+    deallocate ( db_ghost, db_ds )
  end if
  if (allocated(ftpet) ) then
     deallocate(ftpet)
  end if
- allocate ( kce(nx), ke(nx), kez(nx), keu(nx), kes(nx), ketm(nx), kesd(nx), keuxy(nx), ket(nx), ken(nx), ke1d2d(nx), keg(nx), ked(nx), kep(nx), kedb(nx), keklep(nx), kevalv(nx), kegs(nx), kegen(nx), itpez(nx), itpenz(nx), itpeu(nx) , itpenu(nx), kew(nx), ftpet(nx), stat=ierr )
- call aerr('kce(nx), ke(nx), kez(nx), keu(nx), kes(nx), ketm(nx), kesd(nx), keuxy(nx), ket(nx), ken(nx), ke1d2d(nx), keg(nx), ked(nx), kep(nx), kedb(nx), keklep(nx), kevalv(nx), kegs(nx), kegen(nx), itpez(nx), itpenz(nx), itpeu(nx) , itpenu(nx), kew(nx), ftpet(nx)',ierr, 17*nx)
-            kce = 0; ke = 0; kez = 0; keu = 0; kes = 0; ketm = 0; kesd = 0; keuxy = 0; ket = 0; ken = 0; ke1d2d = 0; keg = 0; ked = 0; kep=  0; kedb=0  ; keklep=0  ; kevalv=0  ; kegen= 0; itpez = 0; itpenz = 0; itpeu = 0 ; itpenu = 0 ; kew = 0; ftpet = 1d6
+ allocate ( kce(nx), ke(nx), kez(nx), keu(nx), kes(nx), ketm(nx), kesd(nx), keuxy(nx), ket(nx), ken(nx), ke1d2d(nx), keg(nx), ked(nx), kep(nx), keklep(nx), kevalv(nx), kegs(nx), itpez(nx), itpenz(nx), itpeu(nx) , itpenu(nx), kew(nx), ftpet(nx), stat=ierr )
+ call aerr('kce(nx), ke(nx), kez(nx), keu(nx), kes(nx), ketm(nx), kesd(nx), keuxy(nx), ket(nx), ken(nx), ke1d2d(nx), keg(nx), ked(nx), kep(nx), keklep(nx), kevalv(nx), kegs(nx), itpez(nx), itpenz(nx), itpeu(nx) , itpenu(nx), kew(nx), ftpet(nx)',ierr, 17*nx)
+            kce = 0; ke = 0; kez = 0; keu = 0; kes = 0; ketm = 0; kesd = 0; keuxy = 0; ket = 0; ken = 0; ke1d2d = 0; keg = 0; ked = 0; kep=  0; keklep=0  ; kevalv=0  ; itpez = 0; itpenz = 0; itpeu = 0 ; itpenu = 0 ; kew = 0; ftpet = 1d6
+ allocate ( kegen(nx), ds_gen(nx), stat=ierr )
+ call aerr('kegen(nx), ds_gen(nx)',ierr, nx)
+            kegen=0  ; ds_gen = 0d0
+ allocate ( kedb(nx), db_ghost(nx), db_ds(nx), stat=ierr )
+ call aerr('kedb(nx), db_ghost(nx), db_ds(nx)',ierr, nx)
+            kedb=0  ; db_ghost(nx) = 0; db_ds = 0d0
 
- if (allocated(ketr) ) deallocate(ketr)
+ if (allocated(ketr) ) deallocate(ketr)          
  allocate ( ketr(nx,1), stat = ierr )
  call aerr('ketr(nx,1)', ierr, nx)
             ketr = 0

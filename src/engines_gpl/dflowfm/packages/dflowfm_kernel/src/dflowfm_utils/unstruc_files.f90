@@ -287,6 +287,9 @@ function defaultFilename(filecat, timestamp, prefixWithDirectory, allowWildcard)
    case ('shpgenstruc')
         activeFile = ''
         suffix     = '_snapped_genstruc' ! .shp extension will be added automatically (and .shx/.dbf)
+   case ('shpdambreak')
+        activeFile = ''
+        suffix     = '_snapped_dambreak' ! .shp extension will be added automatically (and .shx/.dbf)
     case ('mba')
         activeFile = ''
         suffix = '_mass_balances.txt'
@@ -362,7 +365,7 @@ function defaultFilename(filecat, timestamp, prefixWithDirectory, allowWildcard)
         if (prefix_dir) then
             defaultFilename = trim(getoutputdir())//trim(defaultFilename)
         end if
-    case ('shpcrs','shpobs', 'shpweir', 'shpthd', 'shpgate', 'shpemb', 'shpfxw', 'shpsrc', 'shppump', 'shpdry', 'shpgenstruc')
+    case ('shpcrs','shpobs', 'shpweir', 'shpthd', 'shpgate', 'shpemb', 'shpfxw', 'shpsrc', 'shppump', 'shpdry', 'shpgenstruc', 'shpdambreak')
         if (prefix_dir) then        
             shapeOutputDir = trim(getoutputdir())//'snapped'
             call makedir(shapeOutputDir)

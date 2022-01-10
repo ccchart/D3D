@@ -5747,7 +5747,7 @@ contains
    !! Only one of these methods is tried, based on loc_spec_type input.
    subroutine selectelset_internal_links( xz, yz, nx, ln, lnx, keg, numg, &
                                           loc_spec_type, loc_file, nump, xpin, ypin, branchindex, chainage, contactId, linktype, &
-                                          xps, yps, nps, lftopol, sortLinks)
+                                          xps, yps, nps, lftopol, sortLinks, ds)
      use m_inquire_flowgeom
      use m_flowgeom, only: lnx1D, xu, yu, kcu
      use dfm_error
@@ -5779,6 +5779,7 @@ contains
      integer,          optional, intent(inout) :: nps         !< (Optional) Number of polyline points that have been read in (only relevant when loc_spec_type==LOCTP_POLYGON_FILE/LOCTP_POLYLINE_FILE).
      integer,          optional, intent(inout) :: lftopol(:)  !< (Optional) Mapping array from flow links to the polyline index that intersected that flow link (only relevant when loc_spec_type==LOCTP_POLYLINE_FILE or LOCTP_POLYLINE_XY).
      integer,          optional, intent(in   ) :: sortLinks   !< (Optional) Whether or not to sort the found flow links along the polyline path. (only relevant when loc_spec_type==LOCTP_POLYGON_FILE or LOCTP_POLYGON_XY).
+     double precision, optional, intent(  out) :: ds(:)       !< Output array containing the distance along the polyline for the flow link.
 
      !locals 
      integer :: minp, L, Lstart, Lend, k1, k2, ja, opts, ierr, inp
@@ -5863,7 +5864,11 @@ contains
         case (2)
            ierr = findlink(npl, xpl, ypl, keg, numg, sortlinks = sortlinks, linktype = linktype_)
         case (3)
-           ierr = findlink(npl, xpl, ypl, keg, numg, lftopol, sortlinks, linktype = linktype_)
+           if (present(ds)) then
+              ierr = findlink(npl, xpl, ypl, keg, numg, lftopol, sortlinks, linktype = linktype_, ds = ds)
+           else
+              ierr = findlink(npl, xpl, ypl, keg, numg, lftopol, sortlinks, linktype = linktype_)
+           endif
         end select
      else if (loc_spec_type == LOCTP_POLYGON_FILE .or. loc_spec_type == LOCTP_POLYGON_XY) then
         !

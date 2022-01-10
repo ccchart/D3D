@@ -35,6 +35,7 @@
  use m_wind
  use m_nudge
  use m_bnd
+ use m_dambreak, only: IDBMAX_NQUANT
  implicit none
 
 
@@ -80,6 +81,7 @@
  integer         , allocatable     :: keg  (:)          !< temp (numl) edge oriented g gate
  integer         , allocatable     :: ked  (:)          !< temp (numl) edge oriented d cdam
  integer         , allocatable     :: kegen(:)          !< temp (numl) edge oriented general structure
+ double precision, allocatable     :: ds_gen (:)        !< temp (numl) distance along dambreak of flow link
  integer         , allocatable     :: kegs (:)          !< temp (numl) edge oriented general structure new style
  integer         , allocatable     :: kep  (:)          !< temp (numl) edge oriented p pump
  integer         , allocatable     :: keklep(:)         !< temp (numl) edge oriented check valve
@@ -88,6 +90,8 @@
  integer         , allocatable     :: ketr (:,:)        !< temp (numl) edge oriented tracer
  integer         , allocatable     :: kesf (:,:)        !< temp (numl) edge oriented sedfrac
  integer         , allocatable     :: kedb (:)          !< temp (numl) edge oriented dambreak
+ integer         , allocatable     :: db_ghost(:)       !< temp (numl) dambreak link belongs to other partition (ghost or beyond)
+ double precision, allocatable     :: db_ds (:)         !< temp (numl) distance along dambreak of flow link
 
  integer,          allocatable     :: itpez(:)          !< temp (numl) edge oriented,
                                                         !! 1,*=boundary typ, see type indicator kbndz(4,*) below
@@ -359,23 +363,36 @@
  double precision, allocatable, target   :: breachDepthDambreak(:)                !< the dambreak breach width (as a level)
  double precision, allocatable, target   :: breachWidthDambreak(:)                !< the dambreak breach width (as a level)
  double precision, allocatable           :: normalVelocityDambreak(:)             !< dambreak normal velocity
- double precision, allocatable           :: dambreakAveraging(:,:)                !< to avoid allocations/deallocations
+ double precision, allocatable           :: dambreakAveraging(:,:,:)              !< temporary array for collecting quantities across partitions
+ double precision, allocatable           :: dambreakMaximum(:,:)                  !< temporary array for collecting quantities across partitions (maximum)
  double precision, allocatable           :: breachWidthDerivativeDambreak(:)      !< breach width derivatives
  double precision, allocatable           :: waterLevelJumpDambreak(:)             !< water level jumps
  !constant in time
  double precision, allocatable           :: maximumDambreakWidths(:)              !< the total dambreak width (from pli file)
  double precision, allocatable           :: dambreakLinksEffectiveLength(:)       !< dambreak maximum flow widths
- double precision, allocatable           :: dambreakLinksActualLength(:)          !< dambreak actual flow widths
+ double precision, allocatable           :: dambreakLinksBreachLength(:)          !< dambreak breach flow widths
+ double precision, allocatable           :: dambreakInitialCrestLevel(:)          !< initial crest level (to be used in case of partial breach)
  integer        , allocatable            :: dambreaks(:)                          !< store the dambreaks indexes among all structures
+ integer        , parameter              :: DBW_SYMM       = 1                    !< symmetrical dambreak widening (limited width in case of asymmetric starting link placement)
+ integer        , parameter              :: DBW_PROP       = 2                    !< dambreak wideining proportional to left/right dam length
+ integer        , parameter              :: DBW_SYMM_ASYMM = 3                    !< symmetrical dambreak widening until left/right runs out of space then continues one sided
+ integer                                 :: dambreakWidening = DBW_SYMM           !< method for dambreak widening
+ character(len=128)                      :: dambreakWideningString = 'symmetric'  !< method for dambreak widening (string for input processing)
  integer                                 :: ndambreak                             !< nr of dambreak links
+ integer                                 :: ndambreak_glob                        !< total global number of dambreak links
  integer                                 :: ndambreaksg                           !< nr of dambreak signals
  integer         , allocatable           :: L1dambreaksg(:)                       !< first dambreak link for each signal
  integer         , allocatable           :: L2dambreaksg(:)                       !< second dambreak link for each signal
  integer         , allocatable           :: activeDambreakLinks(:)                !< activeDambreakLinks, open dambreak links
  integer         , allocatable           :: LStartBreach(:)                       !< the starting link, the closest to the breach point
+ double precision, allocatable           :: dambreakCrestLevel(:)                 !< crest level at starting link LStartBreach
+ double precision, allocatable           :: dambreakUpstreamBedLevel(:)           !< upstream ed level at starting link LStartBreach
+ double precision, allocatable           :: dambreakDownstreamBedLevel(:)         !< downstream bed level at starting link LStartBreach
+ double precision, allocatable           :: dsStartBreach(:)                      !< distance between the starting link and the specified breach point
  integer         , allocatable           :: kdambreak(:,:)                        !< dambreak links index array
  double precision, allocatable, target   :: dambreakLevelsAndWidthsFromTable(:)   !< dambreak widths and heights
  character(len=128), allocatable, target :: dambreak_ids(:)                       !< the dambreak ids
+ integer         , allocatable           :: db_ndomains(:)                        !< number of partitions in which a dambreak object is located
  ! Upstream water level
  integer                                 :: nDambreakLocationsUpstream                 !< nr of dambreak signals with locations upstream
  integer         , allocatable           :: dambreakLocationsUpstreamMapping(:)        !< mapping of dambreak locations upstream
@@ -388,7 +405,11 @@
  integer         , allocatable           :: dambreakLocationsDownstream(:)             !< store cell ids for water level locations downstream
  integer                                 :: nDambreakAveragingDownstream               !< nr of dambreak signals downstream with averaging
  integer         , allocatable           :: dambreakAverigingDownstreamMapping(:)      !< mapping of dambreak averaging in the dambreak arrays
-
+! parameters
+ integer         , parameter             :: IDB_S1U    = 1 !< index for water level upstream of breach in dambreakAveraging
+ integer         , parameter             :: IDB_S1D    = 2 !< index for water level downstream of breach in dambreakAveraging
+ integer         , parameter             :: IDB_U1     = 3 !< index for breach velocity in dambreakAveraging
+ integer         , parameter             :: IDB_NQUANT = 3 !< number of quantities in dambreakAveraging
 
  type polygon
    double precision, dimension(:), allocatable :: xp, yp

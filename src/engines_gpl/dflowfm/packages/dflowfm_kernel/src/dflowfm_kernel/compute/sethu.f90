@@ -165,6 +165,7 @@ subroutine sethu(jazws0)                            ! Set upwind waterdepth hu
        blup(L) = bup
     end if
 
+    ! need to put some code here or in this area for handling partial breached/flooded dambreaks
     huL = sup-bup
 
     if (huL  > epshu) then

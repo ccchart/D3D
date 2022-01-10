@@ -42,6 +42,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
    use m_meteo
    use m_flowexternalforcings
    use m_flowtimes
+   use parallel_dambreaks, only: mpi_dambreak3
 
    implicit none
 
@@ -55,6 +56,16 @@ subroutine update_dambreak_breach(startTime, deltaTime)
    integer                               :: indAverageDownStream(ndambreak)
    integer                               :: nAverageUpStream, nAverageDownStream
    integer                               :: n, ierr, istru, indexLevelsAndWidths
+   integer                               :: i
+   integer                               :: k
+   integer                               :: l
+   integer                               :: Lf
+   double precision                      :: e   !< energy height (m)
+   double precision                      :: h   !< ratio of water depth over dambreak weir height (-)
+   double precision                      :: s   !< water level (m)
+   double precision                      :: u   !< flow velocity magnitude (m/s)
+   double precision                      :: zb  !< bed level at dambreak (m)
+   double precision                      :: zc  !< dambreak weir crest level (m)
 
    if (ndambreak > 0) then
 
@@ -62,6 +73,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
       ! Initialize
       !
       dambreakAveraging              = 0.0d0
+      dambreakMaximum                = -huge(1.0d0)
       waterLevelsDambreakUpStream    = 0.0d0
       waterLevelsDambreakDownStream  = 0.0d0
       normalVelocityDambreak         = 0.0d0
@@ -69,76 +81,186 @@ subroutine update_dambreak_breach(startTime, deltaTime)
       waterLevelJumpDambreak         = 0.0d0
 
       !
-      ! Upstream water level
+      ! Water level upstream of breach
       !
       if (nDambreakLocationsUpstream > 0) then
-         waterLevelsDambreakUpStream(dambreakLocationsUpstreamMapping(1:nDambreakLocationsUpstream)) = s1(dambreakLocationsUpstream(1:nDambreakLocationsUpstream))
+         dambreakAveraging(1,dambreakLocationsUpstreamMapping(1:nDambreakLocationsUpstream), IDB_S1U) = s1(dambreakLocationsUpstream(1:nDambreakLocationsUpstream))
+         dambreakAveraging(2,dambreakLocationsUpstreamMapping, IDB_S1U) = 1d0
       endif
-
-      !call this code only if something has to be averaged
-      if (nDambreakAveragingUpstream > 0) then
-
-         ! Compute sumQuantitiesByWeight upstream
-         ierr = getAverageQuantityFromLinks(L1dambreaksg(dambreakAverigingUpstreamMapping(1:nDambreakAveragingUpstream)), L2dambreaksg(dambreakAverigingUpstreamMapping(1:nDambreakAveragingUpstream)), wu, kdambreak(3,:), s1, kdambreak(1,:), dambreakAveraging, 0, &
-                                            hu, dmiss, activeDambreakLinks, 0)
-
-         if (ierr.ne.0) then
-            success=.false.
-            return
+      do i = 1, nDambreakAveragingUpstream
+          n = dambreakAverigingUpstreamMapping(i)
+          do l = L1dambreaksg(n), L2dambreaksg(n)
+              Lf = abs(kdambreak(3,l))
+              if (Lf == 0) cycle
+              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+                 dambreakAveraging(1,n, IDB_S1U) = dambreakAveraging(1,n, IDB_S1U) + wu(Lf) * s1(kdambreak(1,l))
+                 dambreakAveraging(2,n, IDB_S1U) = dambreakAveraging(2,n, IDB_S1U) + wu(Lf)
          endif
-
-         do n = 1, nDambreakAveragingUpstream
-            if (dambreakAveraging(2,n)>0.0d0) then
-               waterLevelsDambreakUpStream(dambreakAverigingUpstreamMapping(n))  = dambreakAveraging(1,n)/dambreakAveraging(2,n)
-            else if (abs(startTime-network%sts%struct(dambreaks(dambreakAverigingUpstreamMapping(n)))%dambreak%T0)<1d-10) then
-               waterLevelsDambreakUpStream(dambreakAverigingUpstreamMapping(n)) = s1(kdambreak(1,LStartBreach(dambreakAverigingUpstreamMapping(n))))
-            else
-               continue
+          enddo
+          if (LStartBreach(n) > 0) then
+             if ( kdambreak(1,LStartBreach(n)) > 0) then
+                dambreakAveraging(3,n, IDB_S1U) = s1(kdambreak(1,LStartBreach(n)))
             endif
+          endif
          enddo
-      endif
-
       !
-      ! Downstream water level
+      ! Water level downstream of breach
       !
       if (nDambreakLocationsDownstream > 0) then
-         waterLevelsDambreakDownStream(dambreakLocationsDownstreamMapping(1:nDambreakLocationsDownstream)) = s1(dambreakLocationsDownstream(1:nDambreakLocationsDownstream))
+         dambreakAveraging(1,dambreakLocationsDownstreamMapping(1:nDambreakLocationsDownstream), IDB_S1D) = s1(dambreakLocationsDownstream(1:nDambreakLocationsDownstream))
+         dambreakAveraging(2,dambreakLocationsDownstreamMapping, IDB_S1D) = 1d0
       endif
-
-
-      !call this code only if something has to be averaged downstream
-      if (nDambreakAveragingDownstream > 0) then
-
-         ! Compute sumQuantitiesByWeight downstream
-         ierr = getAverageQuantityFromLinks(L1dambreaksg(dambreakAverigingDownstreamMapping(1:nDambreakAveragingDownstream)), L2dambreaksg(dambreakAverigingDownstreamMapping(1:nDambreakAveragingDownstream)), wu, kdambreak(3,:), s1, kdambreak(2,:), dambreakAveraging, 0, &
-                                            hu, dmiss, activeDambreakLinks, 0)
-
-         if (ierr.ne.0) then
-            success=.false.
-            return
+      do i = 1, nDambreakAveragingDownstream
+          n = dambreakAverigingDownstreamMapping(i)
+          do l = L1dambreaksg(n), L2dambreaksg(n)
+              Lf = abs(kdambreak(3,l))
+              if (Lf == 0) cycle
+              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+                 dambreakAveraging(1,n, IDB_S1D) = dambreakAveraging(1,n, IDB_S1D) + wu(Lf) * s1(kdambreak(2,l))
+                 dambreakAveraging(2,n, IDB_S1D) = dambreakAveraging(2,n, IDB_S1D) + wu(Lf)
+              endif
+          enddo
+          if (LStartBreach(n) > 0) then
+             if (kdambreak(2,LStartBreach(n)) > 0) then
+                dambreakAveraging(3,n, IDB_S1D) = s1(kdambreak(2,LStartBreach(n)))
+             endif
+          endif
+      enddo
+      !
+      ! Velocity through breach
+      !
+      do n = 1, ndambreaksg
+          do l = L1dambreaksg(n), L2dambreaksg(n)
+              Lf = abs(kdambreak(3,l))
+              if (Lf == 0) cycle
+              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+                 dambreakAveraging(1,n, IDB_U1) = dambreakAveraging(1,n, IDB_U1) + au(Lf) * u1(Lf)
+                 dambreakAveraging(2,n, IDB_U1) = dambreakAveraging(2,n, IDB_U1) + au(Lf)
+              endif
+          enddo
+      enddo
+      !
+      ! Maximum water level before or after the breach
+      !
+      do i = 1, nDambreakLocationsUpstream
+         n = dambreakLocationsUpstreamMapping(i)
+         ! use crest level zc and bed level zb at LStartBreach
+         zc = dambreakCrestLevel(n)
+         zb = dambreakUpstreamBedLevel(n)
+         if (zc > zb) then
+            s = s1(dambreakLocationsUpstream(i))
+            u = ucmag(dambreakLocationsUpstream(i))
+            e = s + u**2/(2*ag)
+            h = (s - zb)/(zc - zb)
+            dambreakMaximum(n, ST_FC_WATERLEVEL) = s
+            dambreakMaximum(n, ST_FC_VELMAG    ) = u
+            dambreakMaximum(n, ST_FC_ENERGYHGHT) = e
+            dambreakMaximum(n, ST_FC_RELDEPTH  ) = h
          endif
+      enddo
+      do i = 1, nDambreakLocationsDownstream
+         n = dambreakLocationsDownstreamMapping(i)
+         ! use crest level zc and bed level zb at LStartBreach
+         zc = dambreakCrestLevel(n)
+         zb = dambreakDownstreamBedLevel(n)
+         if (zc > zb) then
+            s = s1(dambreakLocationsDownstream(i))
+            u = ucmag(dambreakLocationsDownstream(i))
+            e = s + u**2/(2*ag)
+            h = (s - zb)/(zc - zb)
+            dambreakMaximum(n, ST_FC_WATERLEVEL) = max(dambreakMaximum(n, ST_FC_WATERLEVEL), s)
+            dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
+            dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
+            dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH)  , h)
+         endif
+      enddo
+      do i = 1, nDambreakAveragingUpstream
+         n = dambreakAverigingUpstreamMapping(i)
+         do k = L1dambreaksg(n), L2dambreaksg(n)
+            if (.not. db_ghost(k)) then
+               L = kdambreak(3,k)
+               Lf = iabs(L)
+               ! use local crest level zc and bed level zb
+               if (L > 0) then
+                  zc = bob(1,Lf)
+                  zb = bob0(1,Lf)
+               else
+                  zc = bob(2,Lf)
+                  zb = bob0(2,Lf)
+               endif
+               if (zc > zb) then
+                  s = s1(kdambreak(1,k))
+                  u = ucmag(kdambreak(1,k))
+                  e = s + u**2/(2*ag)
+                  h = (s - zb)/(zc - zb)
+                  dambreakMaximum(n, ST_FC_WATERLEVEL) = max(dambreakMaximum(n, ST_FC_WATERLEVEL), s)
+                  dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
+                  dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
+                  dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH  ), h)
+               endif
+            endif
+         enddo
+      enddo
+      do i = 1, nDambreakAveragingDownstream
+         n = dambreakAverigingDownstreamMapping(i)
+         do k = L1dambreaksg(n), L2dambreaksg(n)
+            if (.not. db_ghost(k)) then
+               L = kdambreak(3,k)
+               Lf = iabs(L)
+               ! use local crest level zc and bed level zb
+               if (L > 0) then
+                  zc = bob(2,Lf)
+                  zb = bob0(2,Lf)
+               else
+                  zc = bob(1,Lf)
+                  zb = bob0(1,Lf)
+               endif
+               if (zc > zb) then
+                  s = s1(kdambreak(2,k))
+                  u = ucmag(kdambreak(2,k))
+                  e = s + u**2/(2*ag)
+                  h = (s - zb)/(zc - zb)
+                  dambreakMaximum(n, ST_FC_WATERLEVEL) = max(dambreakMaximum(n, ST_FC_WATERLEVEL), s)
+                  dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
+                  dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
+                  dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH  ), h)
+               endif
+            endif
+         enddo
+      enddo
 
-         do n = 1, nDambreakAveragingDownstream
-            if (dambreakAveraging(2,n)>0.0d0) then
-               waterLevelsDambreakDownStream(dambreakAverigingDownstreamMapping(n))  = dambreakAveraging(1,n)/dambreakAveraging(2,n)
-            else if (abs(startTime-network%sts%struct(dambreaks(dambreakAverigingDownstreamMapping(n)))%dambreak%T0)<1d-10) then
-               waterLevelsDambreakDownStream(dambreakAverigingDownstreamMapping(n)) = s1(kdambreak(2,LStartBreach(dambreakAverigingDownstreamMapping(n))))
+      call mpi_dambreak3()
+
+      !
+      ! Water level upstream of breach
+      !
+      do n = 1, ndambreaksg
+         if (dambreakAveraging(2,n, IDB_S1U) > 0.0d0) then
+            waterLevelsDambreakUpStream(n)  = dambreakAveraging(1,n, IDB_S1U)/dambreakAveraging(2,n, IDB_S1U)
+         else if (startTime >= network%sts%struct(dambreaks(n))%dambreak%t0) then
+            waterLevelsDambreakUpStream(n) = dambreakAveraging(3,n, IDB_S1U)
+         else
+            continue
+         endif
+      enddo
+      !
+      ! Water level downstream of breach
+      !
+      do n = 1, ndambreaksg
+         if (dambreakAveraging(2,n, IDB_S1D) > 0.0d0) then
+            waterLevelsDambreakDownStream(n)  = dambreakAveraging(1,n, IDB_S1D)/dambreakAveraging(2,n, IDB_S1D)
+         else if (startTime >= network%sts%struct(dambreaks(n))%dambreak%t0) then
+            waterLevelsDambreakDownStream(n) = dambreakAveraging(3,n, IDB_S1D)
             else
                continue
             endif
          enddo
-      endif
-
       !
-      ! u0 velocity on the flowlinks (averaged by the wetted area). The mask is the water level itself
+      ! Velocity through breach
       !
-      ierr = getAverageQuantityFromLinks(L1dambreaksg, L2dambreaksg, au, kdambreak(3,:), u1, kdambreak(3,:), dambreakAveraging, 1, &
-                                        hu, dmiss, activeDambreakLinks, 0)
-      if (ierr.ne.0) success=.false.
-
       do n = 1, ndambreaksg
-         if (dambreakAveraging(2,n)>0.0d0) then
-            normalVelocityDambreak(n)  = dambreakAveraging(1,n)/dambreakAveraging(2,n)
+         if (dambreakAveraging(2,n, IDB_U1) > 0.0d0) then
+            normalVelocityDambreak(n)  = dambreakAveraging(1,n, IDB_U1)/dambreakAveraging(2,n, IDB_U1)
          endif
       enddo
 
@@ -146,12 +268,19 @@ subroutine update_dambreak_breach(startTime, deltaTime)
       do n = 1, ndambreaksg
          istru = dambreaks(n)
          if (istru.ne.0) then
-            if(network%sts%struct(istru)%dambreak%algorithm == 1 .or. network%sts%struct(istru)%dambreak%algorithm == 2) then
+            if (network%sts%struct(istru)%dambreak%algorithm == ST_DB_VDKNAAP_00 .or. network%sts%struct(istru)%dambreak%algorithm == ST_DB_VERHEY_VDKNAAP_02) then
                ! Compute the breach width
                call prepareComputeDambreak(network%sts%struct(istru)%dambreak, waterLevelsDambreakUpStream(n), waterLevelsDambreakDownStream(n), normalVelocityDambreak(n), startTime, deltaTime, maximumDambreakWidths(n))
+
+            else if (network%sts%struct(istru)%dambreak%algorithm == ST_DB_FRAGCURVE) then ! fragility curve
+               if (dambreakMaximum(n, network%sts%struct(istru)%dambreak%failQuantity) > network%sts%struct(istru)%dambreak%failValue) then
+                  ! if breaching condition is satisfied, break completely
+                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelMin
+                  network%sts%struct(istru)%dambreak%width = maximumDambreakWidths(n)
             endif
-            if(network%sts%struct(istru)%dambreak%algorithm == 3 .and. startTime > network%sts%struct(istru)%dambreak%t0) then
-               !Time in the tim file is relative to the start time
+
+            else if(network%sts%struct(istru)%dambreak%algorithm == ST_DB_PRESCRIBED .and. startTime > network%sts%struct(istru)%dambreak%t0) then
+               ! Time in the tim file is relative to the start time
                success = ec_gettimespacevalue_by_itemID(ecInstancePtr, item_dambreakLevelsAndWidthsFromTable, irefdate, tzone, tunit, startTime-network%sts%struct(istru)%dambreak%t0)
                ! NOTE: AvD: the code above works correctly, but is dangerous:
                ! the addtimespace for dambreak has added each dambreak separately with a targetoffset.

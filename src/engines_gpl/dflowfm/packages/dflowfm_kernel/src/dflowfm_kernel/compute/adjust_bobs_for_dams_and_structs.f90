@@ -148,7 +148,7 @@
       istru = dambreaks(n)
       if (istru.ne.0) then
          ! Update the bottom levels
-         call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, network%sts%struct(istru)%dambreak%crl,  LStartBreach(n), L1dambreaksg(n), L2dambreaksg(n), network%sts%struct(istru)%id)
+         call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, maximumDambreakWidths(n), network%sts%struct(istru)%dambreak%crl,  LStartBreach(n), L1dambreaksg(n), L2dambreaksg(n), network%sts%struct(istru)%id)
       endif
    enddo
    end if

@@ -535,6 +535,7 @@
  integer                           :: jashp_pump                !< Write a shape file for pumps
  integer                           :: jashp_dry                 !< Write a shape file for dry areas
  integer                           :: jashp_genstruc            !< Write a shape file for general structures
+ integer                           :: jashp_dambreak            !< Write a shape file for dam breaks
 
  integer                           :: jambawritecsv             !< Option to write areas mass balance terms to a csv-file
 
@@ -975,7 +976,7 @@ subroutine default_flowparameters()
     jashp_pump= 0
     jashp_dry = 0
     jashp_genstruc = 0
-
+    jashp_dambreak = 0
     jambawritecsv = 0
 
     jambalumpmba = 0

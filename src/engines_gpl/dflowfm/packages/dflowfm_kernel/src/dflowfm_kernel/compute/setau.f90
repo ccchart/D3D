@@ -44,6 +44,7 @@
  integer                                           :: n, nq, L, k1, k2, nlowest
  integer                                           :: ierror, ng, Lnu, LL, iup, k
  double precision                                  :: at, ssav, wwav, blowest, fac, zlu, zgaten, sup, bupmin, bup, openfact, afac, hh
+ double precision                                  :: huc !< water depth over dam crest
 
  double precision, parameter                       :: FAC23 = 0.6666666666667d0
 
@@ -65,14 +66,30 @@
     if (ChangeVelocityAtStructures) then
        au_nostrucs = au
     endif
-    
-    ! set correct flow areas for dambreaks, using the actual flow width
+
+    ! set correct flow areas for dambreaks, taking into account partial breach and overtopping
+    ! Note that dambreaks follow the convention of fixed weirs that use the undisturbed flow area
+    ! i.e. width * depth without weir
     do n = 1, ndambreaksg
        do k = L1dambreaksg(n), L2dambreaksg(n)
           L = abs(kdambreak(3,k))
-          au(L) = hu(L) * dambreakLinksActualLength(k)
+          if (L == 0) cycle
+          if (dambreakLinksBreachLength(k) > 0 .and. hu(L) > 0) then
+             if (dambreakLinksBreachLength(k) < dambreakLinksEffectiveLength(k)) then
+                ! partial breach, check for possible overtopping and breach flow
+                huc = max(0d0,hu(L) + max(bob(1,L),bob(2,L)) - dambreakInitialCrestLevel(k))
+                fac = dambreakLinksBreachLength(k) / dambreakLinksEffectiveLength(k)
+                au(L) = au(L) * (fac + (1 - fac) * huc / hu(L))
+                hu(L) = au(L) / dambreakLinksEffectiveLength(k)
+             else
+                ! full breach, so keep the au and hu as full breach flow
+             endif
+          else
+             ! no breach yet, so keep the au and hu as is representing dam overtoppping (or no flow)
+          endif
        enddo
     enddo
+
     call reduceFlowAreaAtLongculverts()
 
  endif
