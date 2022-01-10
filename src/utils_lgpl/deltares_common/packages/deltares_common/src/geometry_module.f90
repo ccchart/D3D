@@ -139,6 +139,12 @@ module geometry_module
    ! Assign the flow links and the starting link of the breach
    dis = huge(dmiss)      
    do k = 1, size(xl, 1)
+      ! don't snap to mid point of missing links (such links may occur due to parallellization
+      ! and dbdistance will return distance = 0 if coordinates equal dmiss).
+      if (xl(k,1) == dmiss .or. yl(k,1) == dmiss) then
+         cycle
+      endif
+
       ! calculate the coordinates of the intersection of the 1d2d link with the dambreak polygon
       do i = 1, np-1
          call cross (xp(i), yp(i), xp(i+1), yp(i+1), xl(k, 1), yl(k,1), xl(k,2), yl(k,2), jacros, sl, sm, xc, yc, crpm, jsferic, dmiss)
