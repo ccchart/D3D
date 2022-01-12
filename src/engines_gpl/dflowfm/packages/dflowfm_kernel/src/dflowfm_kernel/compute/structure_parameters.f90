@@ -45,10 +45,13 @@
       use m_compound
       use m_GlobalParameters
       use m_longculverts, only: nlongculvertsg, longculverts
+      use m_dambreak, only: ST_FC_WATERLEVEL, ST_FC_VELMAG, ST_FC_ENERGYHGHT, ST_FC_RELDEPTH
+
       implicit none
       integer                       :: i, n, L, Lf, La, ierr, ntmp, k, ku, kd, istru, nlinks
       double precision              :: dir
       integer                       :: jaghost, idmn_ghost, jaghostexist
+      double precision              :: aub               !< flow area au through dambreak breach
       double precision, save        :: timprev = -1d0
       double precision              :: timstep
       type(t_structure), pointer    :: pstru
@@ -420,15 +423,21 @@
       !
       if (allocated(valdambreak)) then
          do n = 1, ndambreaksg
-            ! valdambreak(NUMVALS_DAMBREAK,n) is the cumulative over time, we do not reset it to 0
-            valdambreak(1:NUMVALS_DAMBREAK-1,n) = 0d0
+            ! valdambreak(NUMVALS_DAMBREAK-1:NUMVALS_DAMBREAK,n) are cumulative over time, we should not reset it to 0
+            valdambreak(1:NUMVALS_DAMBREAK-2,n) = 0d0
+            if (jampi .and. my_rank > 0) then
+               ! valdambreak(NUMVALS_DAMBREAK-1:NUMVALS_DAMBREAK,n) still need to be reset in all but one partition
+               ! to avoid that mpireduce starts to diverge
+               valdambreak(NUMVALS_DAMBREAK-1:NUMVALS_DAMBREAK,n) = 0d0
+            endif
+            if (L1dambreaksg(n) > L2dambreaksg(n)) then
+               cycle
+            endif
             istru = dambreaks(n)
+            ! quantities accumulated over flow links need to be specified by all partitions
             do L = L1dambreaksg(n),L2dambreaksg(n)
-               if (activeDambreakLinks(L) /= 1) then
-                  cycle
-               end if
-
                Lf = kdambreak(3,L)
+               if (Lf == 0) cycle
                La = abs( Lf )
                if( jampi > 0 ) then
                   call link_ghostdata(my_rank,idomain(ln(1,La)), idomain(ln(2,La)), jaghost, idmn_ghost)
@@ -438,32 +447,62 @@
                if( Ln(1,La) /= kdambreak(1,L) ) then
                   dir = -1d0
                end if
-               valdambreak(1,n) = valdambreak(1,n) + dambreakLinksActualLength(L)
-               valdambreak(2,n) = valdambreak(2,n) + q1(La)*dir
-               valdambreak(6,n) = valdambreak(6,n) + au(La) ! flow area
-               valdambreak(9,n) = valdambreak(9,n) + dambreakLinksActualLength(L)
+               valdambreak(12,n) = valdambreak(12,n) + q1(La)*dir ! total discharge
+               valdambreak(13,n) = valdambreak(13,n) + au(La) ! total flow area
+               if (activeDambreakLinks(L) /= 1) then
+                  cycle
+               end if
+
+               aub = min(hu(La), dambreakInitialCrestLevel(L) - network%sts%struct(istru)%dambreak%crl) *dambreakLinksBreachLength(L)
+               valdambreak(1,n)  = valdambreak(1,n)  + dambreakLinksBreachLength(L)
+               if (au(La) > 0) then
+                  valdambreak(2,n)  = valdambreak(2,n)  + q1(La)*dir*(aub/au(La)) ! breach discharge
+               endif
+               valdambreak(6,n)  = valdambreak(6,n)  + aub ! total breach flow area
+               valdambreak(9,n)  = valdambreak(9,n)  + dambreakLinksBreachLength(L)
             enddo
-            if (network%sts%struct(istru)%dambreak%width > 0d0) then
-               valdambreak(8,n) = network%sts%struct(istru)%dambreak%crl ! crest level
-            else
-               valdambreak(1:NUMVALS_DAMBREAK-1,n) = dmiss               ! No breach started yet, set FillValue
+            ! point quantities need to be specified by only one partition
+            ! choose the partition with the starting link
+            if( jampi > 0 ) then
                La = abs(kdambreak(3,LStartBreach(n)))
-               valdambreak(8,n) = bob(1,La)                              ! No breach started yet, use bob as 'crest'.
-               valdambreak(9,n) = 0d0                                    ! No breach started yet, set crest width to 0
-               cycle
-            end if
-            ! TODO: UNST-5102: code below needs checking: when dambreak #n not active in current partition,
-            ! most values below *are* available (based on other partitions). And in the code ahead, a call to reduce_crs
-            ! assumes that all values are present and will be sum-reduced in a flowlinkwidth-weighted manner.
-            valdambreak(3,n)  = waterLevelsDambreakUpStream(n)
-            valdambreak(4,n)  = waterLevelsDambreakDownStream(n)
-            valdambreak(5,n)  = valdambreak(3,n) - valdambreak(4,n)
-            valdambreak(7,n)  = normalVelocityDambreak(n)
-            valdambreak(10,n) = waterLevelJumpDambreak(n)
-            valdambreak(11,n) = breachWidthDerivativeDambreak(n)
-            valdambreak(12,n) = valdambreak(12,n) + valdambreak(2,n) * timstep ! cumulative discharge
+               if (La == 0) then ! starting link not inside domain
+                  jaghost = 1
+               else ! starting link inside this domain, but it may still be in the ghost region
+                  call link_ghostdata(my_rank,idomain(ln(1,La)), idomain(ln(2,La)), jaghost, idmn_ghost)
+               endif
+            else ! non parallel case, so always proceed
+               jaghost = 0
+            endif
+            if (.not.jaghost) then
+               valdambreak(14,n) = dambreakMaximum(n, ST_FC_WATERLEVEL)
+               valdambreak(15,n) = dambreakMaximum(n, ST_FC_VELMAG    )
+               valdambreak(16,n) = dambreakMaximum(n, ST_FC_ENERGYHGHT)
+               valdambreak(17,n) = dambreakMaximum(n, ST_FC_RELDEPTH  )
+               !
+               if (network%sts%struct(istru)%dambreak%width > 0d0) then
+                  valdambreak(8,n) = network%sts%struct(istru)%dambreak%crl ! crest level
+               else
+                  valdambreak(1:13,n) = dmiss                               ! No breach started yet, set FillValue
+                  La = abs(kdambreak(3,LStartBreach(n)))
+                  if (La > 0) then
+                     valdambreak(8,n) = bob(1,La)                              ! No breach started yet, use bob as 'crest'.
+                  endif
+                  valdambreak(9,n) = 0d0                                    ! No breach started yet, set crest width to 0
+                  cycle
+               end if
+               ! TODO: UNST-5102: code below needs checking: when dambreak #n not active in current partition,
+               ! most values below *are* available (based on other partitions). And in the code ahead, a call to reduce_crs
+               ! assumes that all values are present and will be sum-reduced in a flowlinkwidth-weighted manner.
+               valdambreak(3,n)  = waterLevelsDambreakUpStream(n)
+               valdambreak(4,n)  = waterLevelsDambreakDownStream(n)
+               valdambreak(5,n)  = valdambreak(3,n) - valdambreak(4,n)
+               valdambreak(7,n)  = normalVelocityDambreak(n)
+               valdambreak(10,n) = waterLevelJumpDambreak(n)
+               valdambreak(11,n) = breachWidthDerivativeDambreak(n)
+            endif
          enddo
       end if
+
       !
       ! === General structures (from new ext file)
       !
@@ -870,6 +909,17 @@
          if (jampi > 0) then
             call reduce_crs(valpump(6:12,1:npumpsg),npumpsg,7)
          end if
+
+         ! === Dambreak
+         if( ndambreaksg > 0 .and. allocated(valdambreak) ) then
+            call subsitute_reduce_buffer( valdambreak, ndambreaksg*NUMVALS_DAMBREAK )
+           ! accumulate over time after merging fluxes across partitions
+            do n = 1, ndambreaksg
+               valdambreak(NUMVALS_DAMBREAK-1,n) = valdambreak(NUMVALS_DAMBREAK-1,n) + valdambreak( 2,n) * timstep ! cumulative discharge through breach
+               valdambreak(NUMVALS_DAMBREAK  ,n) = valdambreak(NUMVALS_DAMBREAK  ,n) + valdambreak(12,n) * timstep ! cumulative discharge through and over dambreak structure
+            enddo
+         endif
+
       endif
 
       !update timeprev
