@@ -36,10 +36,12 @@ argfile=config_d_hydro.xml
 export ARCH=lnx64
 export D3D_HOME=../../../bin
 exedir=$D3D_HOME/$ARCH/flow2d3d/bin
+exedir=../../src/bin
+libdir=../../src/lib
 
 
 
-cp corinp_lnx.dat corinp.dat
+# cp corinp_lnx.dat corinp.dat
 rm -f trim*.*
 rm -f tri-diag.*
 rm -f TMP_*.*
@@ -51,9 +53,9 @@ rm -f COSUMO/FF2NF/FF2NF*.txt
     #
 
     # Set some (environment) parameters
-export LD_LIBRARY_PATH=$exedir:$LD_LIBRARY_PATH 
-module load intel/14.0.3
-module load mpich2/3.1.4_intel_14.0.3
+export LD_LIBRARY_PATH=$libdir:$LD_LIBRARY_PATH 
+module load intel/21.2.0
+module load mpich/3.3.2_intel21.2.0
 
 
 
@@ -114,13 +116,13 @@ done
     ### For debug purpose:
 echo " "
 echo "ldd libflow2d3d.so: start"
-ldd $exedir/libflow2d3d.so
+ldd $libdir/libflow2d3d.so
 echo "ldd libflow2d3d.so: end"
 echo " "
 
     ### General, start delftflow in parallel by means of mpirun.
     ### The machines in the h4 cluster are dual core; start 2*NHOSTS parallel processes
-mpirun -np $NHOSTS $exedir/d_hydro.exe $argfile
+mpirun -np $NHOSTS $exedir/d_hydro $argfile
     ### alternatives:
     ### mpiexec -n $DELTAQ_NumNodes delftflow_91.exe -r $inputfile.mdf
     ### mpiexec -n `expr $DELTAQ_NumNodes \* 2` $exedir/deltares_hydro.exe $argfile

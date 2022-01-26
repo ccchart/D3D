@@ -11,7 +11,7 @@
         <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
       </general>
       <comm>
-        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <FF2NFdir>COSUMO/FF2NF/</FF2NFdir>
         <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
         <FFrundir>rundir</FFrundir>
       </comm>
@@ -55,7 +55,7 @@
       <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
     </general>
     <comm>
-        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <FF2NFdir>COSUMO/FF2NF/</FF2NFdir>
         <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
         <FFrundir>rundir</FFrundir>
     </comm>
@@ -99,7 +99,7 @@
       <postProcessFcn>bfsch_TVA_PPFcn_SpreadSinks_disInt_Shift20m</postProcessFcn>
     </general>
     <comm>
-        <FF2NFdir>COSUMO\FF2NF\</FF2NFdir>
+        <FF2NFdir>COSUMO/FF2NF/</FF2NFdir>
         <!-- rundir: current directory, may be overruled to force COSUMO to write on another location -->
         <FFrundir>rundir</FFrundir>
     </comm>

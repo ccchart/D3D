@@ -26,9 +26,11 @@ argfile=config_d_hydro.xml
 export ARCH=lnx64
 export D3D_HOME=../../../bin
 exedir=$D3D_HOME/$ARCH/flow2d3d/bin
+exedir=../../src/bin
+libdir=../../src/lib
  
 
-cp corinp_lnx.dat corinp.dat
+# cp corinp_lnx.dat corinp.dat
 rm -f trim*.*
 rm -f tri-diag.*
 rm -f TMP_*.*
@@ -40,7 +42,7 @@ rm -f COSUMO/FF2NF/FF2NF*.txt
     #
 
     # Set some (environment) parameters
-export LD_LIBRARY_PATH=$exedir:$LD_LIBRARY_PATH 
+export LD_LIBRARY_PATH=$libdir:$LD_LIBRARY_PATH 
 
     # Run
-$exedir/d_hydro.exe $argfile
+$exedir/d_hydro $argfile
