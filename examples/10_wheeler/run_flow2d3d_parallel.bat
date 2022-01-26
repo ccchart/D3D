@@ -33,9 +33,10 @@ echo When error message "The system cannot find the path specified." appears bel
 echo   Check "ARCH" in the run-script:
 echo     Version 6.01.17.5275 and older: default ARCH=win32
 echo     Version 6.01.18.5368 and newer: default ARCH=win64
-set ARCH=win64
-set D3D_HOME=..\..\bin
-set exedir=%D3D_HOME%\%ARCH%\flow2d3d\bin
+set ARCH=x64
+set D3D_HOME=..\..\src\bin
+set exedir=%D3D_HOME%\%ARCH%\dflow2d3d\bin
+set sharedir=%D3D_HOME%\%ARCH%\share\bin
 
     rem
     rem No adaptions needed below
@@ -55,17 +56,17 @@ del /f del.log
 
 
     rem Set some (environment) parameters
-set PATH=%exedir%;%PATH%
+set PATH=%exedir%;%PATH%;%sharedir%
     rem mpiexec is in %exedir%
     rem For some users, it is necessary to use the locally installed mpiexec:
-set MPIPATH=%exedir%
+set MPIPATH=%sharedir%
     rem set MPIPATH="C:\Program Files (x86)\Common Files\Intel\Shared Libraries\redist\intel64\mpirt"
 
 
     rem Run
     rem start computation on all local cores (2 for dual core; 4 for quad core etc.)
     rem note the flag "-localonly" which may be needed to avoid "Aborting: unable to connect to machinename.local"
-%MPIPATH%\mpiexec -n 2 -localonly %exedir%\d_hydro.exe %argfile%
+%MPIPATH%\mpiexec -n 4 -localonly %exedir%\d_hydro.exe %argfile%
 
 
 :end
