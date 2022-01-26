@@ -63,6 +63,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     logical                             , pointer :: tps_from_com  !  Description and declaration in procs.igs    
     logical                             , pointer :: ubot_from_com !  Description and declaration in procs.igs
     logical                             , pointer :: wlen_from_com !  Description and declaration in procs.igs
+	logical                             , pointer :: skipuniqueid
     integer                             , pointer :: numdomains
     integer                             , pointer :: itis
     integer                             , pointer :: rolcorr
@@ -124,7 +125,6 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     logical                   :: found
     logical                   :: lhulp
     logical                   :: newkw  ! Flag to specify if the keyword to look for is a new keyword
-    logical                   :: skipuniqueid
     character(20)             :: cdef   ! Default value for chulp 
     character(20)             :: chulp  ! Help variable to read character from MD-file 
     character(256)            :: filrol
@@ -142,6 +142,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     itis              => gdp%gdrdpara%itis
     rolcorr           => gdp%gdbetaro%rolcorr
     sbkConfigFile     => gdp%gdsobek%sbkConfigFile
+    skipuniqueid      => gdp%gdnfl%skipuniqueid
     !
     ! calculate LSTSC
     ! locate 'Sub1' record for 'S'alinity, 'T'emperaure, 'I'secondary flow and 'W'ind
@@ -372,9 +373,6 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     !
     skipuniqueid = .false.
     call prop_get(gdp%mdfile_ptr, '*', 'SkipUniqueId', skipuniqueid)
-    if (skipuniqueid) then
-       gdp%uniqueid = ' '
-    endif
     !
     ! Fixed gates (CDW): get file name
     !

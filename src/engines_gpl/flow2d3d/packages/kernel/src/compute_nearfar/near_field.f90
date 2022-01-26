@@ -118,6 +118,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer       , dimension(:)       , pointer :: nl
     logical                            , pointer :: zmodel
 	logical                            , pointer :: nf_src_mom
+	logical                            , pointer :: skipuniqueid
 
 !
 ! Global variables
@@ -170,6 +171,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nub
     integer                                             :: nm
     integer                                             :: k_dummy
+    real(fp)                                            :: dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
     real(fp), dimension(10)                             :: linkinf ! 1: dis_sal, 2: dis_temp, 3: dis_dens, 4: amb_vel, 5: amb_dir, 6: rel_dir, 7: n_start, 8: m_start, 9: n_end, 10: m_end
@@ -278,6 +280,7 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     mmaxgl         => gdp%gdparall%mmaxgl
     nmaxgl         => gdp%gdparall%nmaxgl
     nf_src_mom     => gdp%gdnfl%nf_src_mom
+    skipuniqueid   => gdp%gdnfl%skipuniqueid
 
     if (gdp%arch=='win32' .or. gdp%arch=='win64') then
        slash = '\'
@@ -488,7 +491,16 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    !
                    write(c_idis,'(i3.3)') idis
                    !
-                   call initsafe(gdp)
+                   if (skipuniqueid) then
+                      gdp%uniqueid = ' '
+                   else
+                      call random_seed()
+                      do i=1,6
+                         call random_number(dummy)
+                         gdp%uniqueid(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
+                      enddo
+                   endif
+                   !
                    filename(1) = trim(gdp%gdnfl%base_path(idis))//'FF2NF_'//trim(gdp%uniqueid)//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
                    filename(2) = trim(basecase(idis,1))//'COSUMO'//slash//'NF2FF'//slash//'NF2FF_'//trim(gdp%uniqueid)//'_'//trim(gdp%runid)//'_'//c_inode//'_SubMod'//c_idis//'_'//trim(adjustl(cctime))//'.xml'
                    filename(3) = trim(basecase(idis,1))

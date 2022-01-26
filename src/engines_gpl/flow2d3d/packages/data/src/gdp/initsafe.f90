@@ -48,7 +48,6 @@ subroutine initsafe(gdp)
     !
     integer  :: i
     integer  :: istat
-    real(fp) :: dummy
 !
 !! executable statements -------------------------------------------------------
 !
@@ -111,11 +110,6 @@ subroutine initsafe(gdp)
     call initdfparall  (gdp%gdparall)
     call initdfparall  (gdp%iopartit)
     !
-    call random_seed()
-    do i=1,6
-       call random_number(dummy)
-       gdp%uniqueid(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
-    enddo
     ! 
     ! Since GDP allocation has not yet succeeded, calling prterr(...,gdp) and d3stop(...) does not work
     !
