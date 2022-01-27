@@ -153,6 +153,16 @@ if [ ${ready} -eq 0 ]; then
       #
       cp $1.swn INPUT >/dev/null
       #
+      # Add vegetation input in INPUT file
+      #
+      sedscript=add_vegetation_to_SWAN_INPUT_file.sh
+      if [ -f "$sedscript" ]; then
+          echo "Executing script $sedscript" >>swan_sh.log
+          $sedscript
+      else 
+          echo "$sedscript does not exist. Vegetation will not be included in the SWAN computation." >>swan_sh.log
+      fi
+      #
       #echo press enter to continue
       #read dummy
       #
