@@ -143,5 +143,6 @@ Flnfl  = 5.0     5.000    14400.0
 Nflmod = #generic#
 Filnfl = #COSUMOsettings.xml#
 Nflwdr = 0.0
+NfTimeout = 0.5
 Commnt =                  
-SkipUniqueId = true
+SkipUniqueId = false

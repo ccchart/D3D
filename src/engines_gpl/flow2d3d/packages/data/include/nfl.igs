@@ -94,6 +94,7 @@ type gd_nfl
 	real(fp)                        :: nf_q_source ! Qsource as read from NF2FF file
 	real(fp)                        :: nf_q_intake ! Qintake as read from NF2FF file
 	real(fp)                        :: momrelax    ! Momentum Relaxation parameter
+    real(fp)                        :: nf_timeout  ! Minutes to wait for the nearfield files to appear
     !
     ! logicals
     !

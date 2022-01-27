@@ -60,6 +60,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     character(256)                      , pointer :: filvg3d
     character(256)                      , pointer :: dredgefile
     real(fp)                            , pointer :: dco
+    real(fp)                            , pointer :: nf_timeout
     logical                             , pointer :: tps_from_com  !  Description and declaration in procs.igs    
     logical                             , pointer :: ubot_from_com !  Description and declaration in procs.igs
     logical                             , pointer :: wlen_from_com !  Description and declaration in procs.igs
@@ -135,6 +136,7 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     filvg3d           => gdp%gdveg3d%filvg3d
     dredgefile        => gdp%gddredge%dredgefile
     dco               => gdp%gdnumeco%dco
+    nf_timeout        => gdp%gdnfl%nf_timeout
     tps_from_com      => gdp%gdprocs%tps_from_com
     ubot_from_com     => gdp%gdprocs%ubot_from_com
     wlen_from_com     => gdp%gdprocs%wlen_from_com
@@ -373,6 +375,12 @@ subroutine dimpro(lunmd     ,lundia    ,error     ,nrrec     ,lsts      , &
     !
     skipuniqueid = .false.
     call prop_get(gdp%mdfile_ptr, '*', 'SkipUniqueId', skipuniqueid)
+    !
+    nf_timeout = huge(nf_timeout)
+    call prop_get(gdp%mdfile_ptr, '*', 'NfTimeout', nf_timeout)
+    if (nf_timeout < huge(nf_timeout)) then
+       write (lundia, '(a,f8.1,a)') '*** MESSAGE NfTimeout = ', nf_timeout, ' minutes'
+    endif
     !
     ! Fixed gates (CDW): get file name
     !

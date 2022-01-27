@@ -42,6 +42,10 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, erro
     implicit none
     !
     type(globdat),target :: gdp
+    !
+    ! The following list of pointer parameters is used to point inside the gdp structure
+    !
+    real(fp), pointer :: nf_timeout
 !
 ! Global variables
 !
@@ -59,6 +63,12 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, erro
     integer                 :: ios
     integer                 :: i
     integer                 :: sleeptime
+    integer(long)           :: tcount
+    integer(long)           :: trate
+    integer(long)           :: tmax
+    real(hp)                :: tstart
+    real(hp)                :: tnow
+    real(hp)                :: twait
     logical                 :: ex_file    ! true: file exists
     logical                 :: fileok     ! true: file contains the end tag </NF2FF>
     logical                 :: opend
@@ -66,6 +76,7 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, erro
 !
 !! executable statements -------------------------------------------------------
 !
+    nf_timeout => gdp%gdnfl%nf_timeout
     error = .false.
     ! Check for how many files we are waiting to appear
     idis = 0
@@ -89,6 +100,8 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, erro
        ! This will cost CPU time, but there is nothing else to do (Cosumo/Cormix run on another machine)
        !
        call timer_start(timer_wait, gdp)
+       call system_clock(tcount, trate, tmax)
+       tstart   = real(tcount,hp) / real(trate,hp)
        idis     = 0
        filename = ' '
        do while (.not. ex_file)
@@ -106,6 +119,14 @@ subroutine wait_until_finished (no_dis, waitfiles, idis, filename, waitlog, erro
                 endif
              endif
           enddo
+          call system_clock(tcount, trate, tmax)
+          tnow   = real(tcount,hp) / real(trate,hp)
+          twait  = tnow - tstart
+          if (twait/60.0 > nf_timeout) then
+             write(*,*) "ERROR: Timeout: waited ", twait, " minutes for nearfield files to appear. Aborting."
+             call prterr(gdp%gdinout%lundia, 'P004', "Timeout. nearfield files did not appear in specified NfTimeout period. Aborting.")
+             call d3stop(1, gdp)
+          endif
        enddo
        call timer_stop(timer_wait, gdp)
        !
