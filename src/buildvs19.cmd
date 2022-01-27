@@ -60,31 +60,31 @@ if %d3d_open_only% EQU 1 (
     goto finished
 )
 
-rem ===========================================================================
-rem dflowfm_open.sln
-"%VS2017INSTALLDIR%\Common7\IDE\devenv.com" dflowfm_open.sln /Build "Release|x64" /Out build_dflowfm_open.log
-if NOT %ErrorLevel% EQU 0 (
-    echo "Error in compiling dflowfm_open.sln: %ErrorLevel%"
-    set globalErrorLevel=%ErrorLevel%
-)
-
-
-rem ===========================================================================
-rem io_netcdf.sln
-"%VS2017INSTALLDIR%\Common7\IDE\devenv.com" io_netcdf.sln /Build "Release|x64" /Out build_io_netcdf.log
-if NOT %ErrorLevel% EQU 0 (
-    echo "Error in compiling delft3d_open.sln: %ErrorLevel%"
-    set globalErrorLevel=%ErrorLevel%
-)
-
-
-rem ===========================================================================
-rem nefis.sln
-"%VS2017INSTALLDIR%\Common7\IDE\devenv.com" nefis.sln /Build "Release|x64" /Out build_nefis.log
-if NOT %ErrorLevel% EQU 0 (
-    echo "Error in compiling delft3d_open.sln: %ErrorLevel%"
-    set globalErrorLevel=%ErrorLevel%
-)
+rem    rem ===========================================================================
+rem    rem dflowfm_open.sln
+rem    "%VS2017INSTALLDIR%\Common7\IDE\devenv.com" dflowfm_open.sln /Build "Release|x64" /Out build_dflowfm_open.log
+rem    if NOT %ErrorLevel% EQU 0 (
+rem        echo "Error in compiling dflowfm_open.sln: %ErrorLevel%"
+rem        set globalErrorLevel=%ErrorLevel%
+rem    )
+rem    
+rem    
+rem    rem ===========================================================================
+rem    rem io_netcdf.sln
+rem    "%VS2017INSTALLDIR%\Common7\IDE\devenv.com" io_netcdf.sln /Build "Release|x64" /Out build_io_netcdf.log
+rem    if NOT %ErrorLevel% EQU 0 (
+rem        echo "Error in compiling delft3d_open.sln: %ErrorLevel%"
+rem        set globalErrorLevel=%ErrorLevel%
+rem    )
+rem    
+rem    
+rem    rem ===========================================================================
+rem    rem nefis.sln
+rem    "%VS2017INSTALLDIR%\Common7\IDE\devenv.com" nefis.sln /Build "Release|x64" /Out build_nefis.log
+rem    if NOT %ErrorLevel% EQU 0 (
+rem        echo "Error in compiling delft3d_open.sln: %ErrorLevel%"
+rem        set globalErrorLevel=%ErrorLevel%
+rem    )
 
 
 
@@ -96,9 +96,9 @@ if %d3d_open_only% EQU 1 (
     echo "Skipping remaining replace steps due to flag delft3d_open_only"
     goto end
 )
-third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_dflowfm_open.log 
-third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_io_netcdf.log 
-third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_nefis.log 
+rem    third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_dflowfm_open.log 
+rem    third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_io_netcdf.log 
+rem    third_party_open\commandline\bin\win32\sed.exe -e "/[Ee]rror[\:\ ]/s/^/\#\#teamcity\[buildStatus status\=\'FAILURE\' text\=\' /g;/buildStatus/s/$/\'\]/g" build_nefis.log 
 
 
 :end
