@@ -111,6 +111,8 @@ if [ ! -f $configfile ]; then
     echo "ERROR: configfile $configfile does not exist"
     print_usage_info
 fi
+# Always try the following module load: it will not harm and may avoid troubles.
+module load mpich/3.3.2_intel21.2.0 &>/dev/null
 
 
 workdir=`pwd`

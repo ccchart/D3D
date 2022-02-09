@@ -135,7 +135,8 @@ if [ -z "${numnode}" ]; then
     echo "Error: number of nodes missing on commandline."
     print_usage_info
 fi
-
+# Always try the following module load: it will not harm and may avoid troubles.
+module load mpich/3.3.2_intel21.2.0 &>/dev/null
 
 JOBNAME="${JOBNAME}_${numnode}x${corespernode}"
 
