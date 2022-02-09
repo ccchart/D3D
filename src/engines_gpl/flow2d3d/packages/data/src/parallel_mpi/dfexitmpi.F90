@@ -58,7 +58,7 @@ subroutine dfexitmpi ( iexit )
 !
 ! Local variables
 !
-    integer :: ierr           ! error value of MPI call
+    integer :: ierr                     ! error value of MPI call
     logical :: mpi_is_initialized       ! if true, parallel process is carried out with MPI
     logical :: mpi_is_finalized         ! if true, mpi_finalize has already been called
 !
@@ -71,8 +71,6 @@ subroutine dfexitmpi ( iexit )
     call mpi_initialized ( mpi_is_initialized, ierr )
     call mpi_finalized   ( mpi_is_finalized  , ierr )
     if ( mpi_is_initialized .and. .not. mpi_is_finalized ) then
-
-       call mpi_barrier ( engine_comm_world, ierr )
 
        if ( iexit /= 0 ) then
 
