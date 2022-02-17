@@ -5915,10 +5915,10 @@ contains
      if (npl > 0 .and. present(xps)) then
         if(allocated(xps)) deallocate(xps)
         if(allocated(yps)) deallocate(yps)
-        call realloc(xps,100000)
-        call realloc(yps,100000)
-        xps = xpl ! doubles a bit with xpl for polygon file
-        yps = ypl
+        call realloc(xps,npl)
+        call realloc(yps,npl)
+        xps = xpl(1:npl) ! doubles a bit with xpl for polygon file
+        yps = ypl(1:npl)
         nps = npl
      endif
 
