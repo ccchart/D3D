@@ -74,15 +74,15 @@ module m_readObservationPoints
       type(t_ObservationPoint), pointer     :: pOPnt
       type(t_branch), pointer               :: pbr
       
-      character(CharLn)                     :: line
-      character(CharLn)                     :: pnt1
-      character(CharLn)                     :: pnt2
-      character(CharLn)                     :: val1
-      character(CharLn)                     :: val2
+      character(IdLen)                     :: line
+      character(IdLen)                     :: pnt1
+      character(IdLen)                     :: pnt2
+      character(IdLen)                     :: val1
+      character(IdLen)                     :: val2
 
       integer                               :: pos
       integer                               :: ibin = 0
-      character(len=Charln)                 :: binfile
+      character(len=IdLen)                 :: binfile
       logical                               :: file_exist
  
       pos = index(observationPointsFile, '.', back = .true.)

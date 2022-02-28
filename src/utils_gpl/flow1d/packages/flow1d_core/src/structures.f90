@@ -576,7 +576,7 @@ end subroutine
 !
 ! Local variables
 !
-      character(CharLn)                   :: line
+      character(IdLen)                   :: line
 !
 !
 !! executable statements -------------------------------------------------------
@@ -692,7 +692,7 @@ end subroutine
 !
 ! Local variables
 !
-      character(CharLn)                   :: line
+      character(IdLen)                   :: line
 !
 !
 !! executable statements -------------------------------------------------------

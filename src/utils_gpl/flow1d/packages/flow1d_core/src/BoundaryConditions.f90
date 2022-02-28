@@ -163,7 +163,7 @@ contains
       ! local parameters
       integer           :: i, j
       integer           :: count
-      character(Charln)                             :: line
+      character(IdLen)                             :: line
       double precision, dimension(:), allocatable   :: help
 
       ! Program code

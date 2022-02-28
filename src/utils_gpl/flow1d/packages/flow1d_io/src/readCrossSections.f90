@@ -78,7 +78,7 @@ module m_readCrossSections
       logical                        :: success
       type(t_CrossSection), pointer  :: pCrs
       type(t_CSType), pointer        :: pCrsDef
-      character(len=Charln)          :: binfile
+      character(len=IdLen)          :: binfile
       logical                        :: file_exist
       integer                        :: pos, ibin
 
@@ -295,7 +295,7 @@ module m_readCrossSections
       type(t_CSType), pointer       :: pCS
       integer                       :: pos
       integer                       :: ibin = 0
-      character(len=Charln)         :: binfile
+      character(len=IdLen)         :: binfile
       logical                       :: file_exist
       
       pos = index(CrossSectionDefinitionFile, '.', back = .true.)

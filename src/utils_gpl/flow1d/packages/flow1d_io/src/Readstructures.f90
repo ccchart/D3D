@@ -97,7 +97,7 @@ module m_readstructures
       
       integer                       :: pos
       integer                       :: ibin = 0
-      character(len=Charln)         :: binfile
+      character(len=IdLen)         :: binfile
       logical                       :: file_exist
       
       pos = index(structureFile, '.', back = .true.)

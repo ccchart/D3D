@@ -85,7 +85,7 @@ module m_flow1d_reader
       character(len=*), intent(inout) :: md_flow1d_file
       type(t_network), intent(inout)  :: network
       type(tree_data), pointer        :: md_ptr
-      character(len=charln)           :: inputfile
+      character(len=IdLen)           :: inputfile
       integer                         :: numstr
       integer                         :: backslash
       integer                         :: slash
@@ -99,7 +99,7 @@ module m_flow1d_reader
       logical                         :: UseInitialWaterDepth
       double precision                :: default
       
-      character(len=Charln)           :: binfile
+      character(len=IdLen)           :: binfile
       character(len=1024  )           :: filestring
       logical                         :: file_exist
       integer                         :: istat

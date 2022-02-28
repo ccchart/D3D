@@ -69,11 +69,11 @@ contains
       integer                                :: count
       integer                                :: def_type
       logical                                :: success
-      character(len=charLn)                  :: file
+      character(len=IdLen)                  :: file
       double precision                       :: default
 
       integer                                :: ibin = 0
-      character(len=Charln)                  :: binfile
+      character(len=IdLen)                  :: binfile
       logical                                :: file_exist
       integer                                :: istat
       
@@ -182,7 +182,7 @@ contains
       type(t_roughnessSet), intent(inout)    :: rgs
       type(t_branchSet), intent(in)          :: brs
       type(t_spatial_dataSet), intent(inout) :: spdata
-      character(len=charLn), intent(in)      :: inputfile
+      character(len=IdLen), intent(in)      :: inputfile
       double precision, intent(inout)        :: default
       integer, intent(inout)                 :: def_type
    

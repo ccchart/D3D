@@ -71,15 +71,15 @@ module m_GlobalParameters
    ! storage table controls
    double precision, public      :: tb_inc = 0.1d0
    double precision, public      :: tb_extra_height = 0.0
-   character(len=charln), public :: st_filename
+   character(len=IdLen), public :: st_filename
    logical, public               :: write_tables
    logical, public               :: read_tables
    logical, public               :: Use_volume_tables
    logical                       :: useCrsInterpolation
 
    
-   character(len=charln)            :: wlevStateFileIn
-   character(len=charln)            :: wlevStateFileOut
+   character(len=IdLen)            :: wlevStateFileIn
+   character(len=IdLen)            :: wlevStateFileOut
    
    character(len=20)                :: obsIntPolType
 
