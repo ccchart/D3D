@@ -78,27 +78,17 @@
    use m_commandline_option
    use dfm_signals
    use gridoperations
-   use m_monitoring_crosssections, only: increaseCrossSections, maxcrs
+   use m_monitoring_crosssections, only: increaseCrossSections
    implicit none
 
-   interface
-      subroutine realan(mlan, antot)
-         integer, intent(inout)                ::  mlan
-         integer, intent(inout), optional      ::  antot
-      end subroutine realan
-   end interface
-
    double precision :: ag, cdflow, cfl, cfric, deltx, delty, deltz, dscr, dx, e0, eps, epsgs, fbouy, fdyn, gx, gy, gz
-   integer :: ierr, itgs
-   integer :: ja, istat
+   integer :: itgs
    integer :: janet, jav
    integer :: jqn
    integer :: jview
-   integer :: k, i
+   integer :: k
    integer :: maxitgs
-   integer :: minp
    integer :: moments
-   
    integer :: ndraw
    integer :: nlevel
    double precision :: pi
@@ -127,16 +117,8 @@
    COMMON /SOLVER/ EPSGS, MAXITGS, ITGS
    COMMON /PLOTFIL/   PLOTJE
    CHARACTER PLOTJE*255
-
-  
    CHARACTER WRDKEY*40
 
-!  for command line options
-   character(len=MAXOPTLEN)                     :: Soption    ! option
-   integer                                      :: Nkeys      ! number of keys for this option
-   character(len=MAXKEYLEN), dimension(MAXKEYS) :: Skeys      ! keys
-   integer,                  dimension(MAXKEYS) :: ivals      ! values
-   integer                                      :: ikey
 
    !  1=CLS
    !  2=GRID/NET    1=RECHT   2=SPLINE
@@ -344,18 +326,25 @@
    use unstruc_model
    use unstruc_display
    use unstruc_messages
-   use M_splines, only: increasespl, maxspl, maxsplen, readsplines
+   use M_splines, only: increasespl, readsplines
    USE M_SAMPLES
    use m_commandline_option
    use dfm_signals
    use gridoperations
-   use m_monitoring_crosssections, only: increaseCrossSections, maxcrs
+   use m_monitoring_crosssections, only: increaseCrossSections
 
 
    implicit none
    CHARACTER inarg*(*), EXT*4
    LOGICAL JAWEL
    integer :: minp, n1, n2, istat, ja
+
+   interface
+      subroutine realan(mlan, antot)
+         integer, intent(inout)                ::  mlan
+         integer, intent(inout), optional      ::  antot
+      end subroutine realan
+   end interface
 
    INQUIRE(FILE = trim(inarg),EXIST = JAWEL)
    if (JAWEL) then
@@ -416,20 +405,17 @@
    use unstruc_model
    use unstruc_display
    use unstruc_messages
-   use M_splines, only: increasespl, maxspl, maxsplen, readsplines
+   use M_splines, only: increasespl, readsplines, writesplines
    USE M_SAMPLES
    use m_commandline_option
    use dfm_signals
    use gridoperations
-   use m_monitoring_crosssections, only: increaseCrossSections, maxcrs
-   use M_splines      ! need for wrispl
-   use unstruc_netcdf ! need for wrinet
-
+   use m_monitoring_crosssections, only: increaseCrossSections
+   use unstruc_netcdf, only : unc_write_net
 
    implicit none
    CHARACTER inarg*(*), EXT*4
-   LOGICAL JAWEL
-   integer :: minp, n1, n2, istat, ja  ! in this subroutine minp should be: mout
+   integer :: minp, n1, n2, istat  ! in this subroutine minp should be: mout
 
        ! Find file extention based on first full stop symbol '.' at the back of the string.
       N1  = INDEX (inarg,'.', .true.)

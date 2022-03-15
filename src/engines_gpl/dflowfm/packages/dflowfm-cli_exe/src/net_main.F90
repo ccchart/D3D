@@ -159,9 +159,6 @@
       call mpi_comm_size(DFM_COMM_DFMWORLD,numranks,ierr)
    end if
 
-   write(*,*) ' my_rank, numranks ', my_rank, numranks
-
-
    if ( numranks.le.1 ) then
       jampi = 0
    end if
@@ -217,6 +214,10 @@
        goto 1234
     end select
 
+#ifdef HAVE_MPI
+    write(*,*) ' my_rank, numranks ', my_rank, numranks
+#endif
+
     if ( md_pressakey == 1 ) then
        call pressakey()
     end if
@@ -230,7 +231,9 @@
     
 
 #ifdef HAVE_PETSC
-      call startpetsc()
+    if (jampi > 0) then
+        call startpetsc()
+    end if
 #endif
   
     MODE = 1
@@ -442,8 +445,10 @@
    
 1234 continue
 
-!  finalize before exit
-   call partition_finalize()
+!  finalize before exit in case we did "normal" computation
+   if (jampi > 0) then
+      call partition_finalize()
+   end if
 
    call klok(tstopall)
 

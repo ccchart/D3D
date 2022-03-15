@@ -37,33 +37,32 @@ subroutine furu()                                   ! set fu, ru and kfs
  use m_flowtimes
  use m_alloc
  use m_partitioninfo
- use m_xbeach_data, only: ust, vst, urms, swave, Lwave
+ use m_xbeach_data, only: swave
  use m_waves, only: ypar, cfwavhi, hminlw, cfhi_vanrijn, uorb
  use m_sediment
  use unstruc_channel_flow
  use m_sferic
  use m_trachy, only: trachy_resistance
- use unstruc_model, only: md_restartfile
 
  implicit none
 
- integer          :: L, Lf, n, k1, k2, kb, LL, k, itu1, Lb, Lt, itpbn, ns, i
+ integer          :: L, n, k1, k2, kb, LL, k, itu1, Lb, Lt, itpbn, i
+ integer          :: kup, kdo, iup
 
- double precision :: bui, cu, du, du0, gdxi, ds, riep, as, gdxids
- double precision :: slopec, hup, u1L, v2, frL, u1L0, rhof, zbndun, zbndu0n, bdmwrp, bdmwrs
+ double precision :: bui, cu, du, du0, gdxi, ds
+ double precision :: slopec, hup, hdo, u1L, v2, frL, u1L0, zbndun, zbndu0n
  double precision :: qk0, qk1, dzb, hdzb, z00  !
- double precision :: as1, as2, qtotal, width, st2, cmustr, wetdown, dpt
+ double precision :: st2
  double precision :: twot = 2d0/3d0, hb, h23, ustbLL, agp, vLL
  double precision :: hminlwi,fsqrtt,uorbL
 
  integer          :: np, L1     ! pumpstuff
  double precision :: ap, qp, vp ! pumpstuff
 
- double precision :: cfuhi3D, Cz    ! for bed friction
+ double precision :: cfuhi3D    ! for bed friction
 
- integer          :: ierr, jaustarintsave
+ integer          :: jaustarintsave
  double precision :: sqcfi
- logical          :: SkipDimensionChecks
  integer :: ispumpon
 
  hminlwi=1d0/hminlw
@@ -208,13 +207,26 @@ subroutine furu()                                   ! set fu, ru and kfs
        vp    = 0d0
        do n  = L1pumpsg(np), L2pumpsg(np)
           k1 = kpump(1,n)
+          k2 = kpump(2,n)
           L1 = kpump(3,n)
           L  = iabs(L1)
           hu(L) = 0d0; au(L) = 0d0
           fu(L) = 0d0; ru(L) = 0d0
-          if (hs(k1) > 1d-2 .and. ispumpon(np,s1(k1)) == 1) then
-             hu(L) = 1d0
-             au(L) = 1d0
+          if (qp*L1 > 0) then
+             kup = k1
+             kdo = k2
+             iup = 1
+          else
+             kup = k2
+             kdo = k1
+             iup = 2
+          end if
+
+          if (hs(kup) > 1d-2 .and. ispumpon(np,s1(kup)) == 1) then
+             hup   = s1(kup) - bob0(iup,L)
+             hdo   = s1(kdo) - bob0(3-iup,L) 
+             hu(L) = max(hup,hdo)    ! 1d0
+             au(L) = wu(L)*hu(L)     ! 1d0
              ap    = ap + au(L)
              vp    = vp + vol1(k1)
           endif
@@ -225,11 +237,9 @@ subroutine furu()                                   ! set fu, ru and kfs
 
        if (ap > 0d0) then
           do n  = L1pumpsg(np), L2pumpsg(np)
-             k1 = kpump(1,n)
-             if (hs(k1) > 1d-2) then
-                L1 = kpump(3,n)
-                L  = iabs(L1)
-                fu(L) = 0d0
+             L1 = kpump(3,n)
+             L  = iabs(L1)
+             if (au(L) > 0d0) then
                 if (L1 > 0) then
                     ru(L) =  qp/ap
                 else

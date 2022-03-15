@@ -65,7 +65,7 @@ module swan_input
 !         0.0000000e+000 0
 !
 !
-!         * Y/N Use bathmetry, use waterlevel, use current
+!         * Y/N Use bathmetry, use waterlevel, use 
 !         0 0 0
 !         ......
 !         * Water level correction, Extend flow data on the last # grid(s),
@@ -4495,6 +4495,7 @@ subroutine write_swan_inp (wavedata, calccount, &
        line(ind + 11:ind + 14) = 'FREE'
        line(ind + 15:79)       = ' '
        write (luninp, '(1X,A)') trim(line)
+       write (luninp, '(1X,A)') 'WIND DRAG WU'
        line(1:79)              = ' '
     endif
     line(1:2)  = '$ '
@@ -4776,9 +4777,18 @@ subroutine write_swan_inp (wavedata, calccount, &
           line  = 'INIT HOTS ''' // trim(fname) // ''''
           write (luninp, '(1X,A)') line
           write(*,'(2a)') '  Using SWAN hotstart file: ',trim(fname)
-       else
-          ! Set usehottime to 0.0 to flag that it isn't used
-          sr%usehottime    = '00000000.000000'
+       else ! check if there exists at least 1 partioned hotfile
+          write (fname,'(a,i0,3a,i3.3)') 'hot_', inest, '_', trim(swan_run%usehottime), '-', 1
+          inquire (file = trim(fname), exist = exists)
+          if (exists) then
+             write (fname,'(a,i0,2a)') 'hot_', inest, '_', trim(sr%usehottime) ! swan input needs filename without partition no
+             line  = 'INIT HOTS ''' // trim(fname) // ''''
+             write (luninp, '(1X,A)') line
+             write(*,'(2a)') '  Using SWAN hotstart file: ',trim(fname)
+          else   
+             ! No hotfile, set usehottime to 0.0 to flag that it isn't used
+             sr%usehottime    = '00000000.000000'
+          endif
        endif
     endif
     !

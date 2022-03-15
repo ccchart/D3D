@@ -110,7 +110,7 @@
 !     NOQ     INTEGER       1     INPUT   total number of exchanges
 !     NODUMP  INTEGER       1     INPUT   Number of dump segments
 !     NOBND   INTEGER       1     INPUT   Number of open boundaries
-!     NOBTYP  INTEGER       1     INPUT   Number of boundarie types
+!     NOBTYP  INTEGER       1     INPUT   Number of boundary types
 !     NOWST   INTEGER       1     INPUT   Number of load locations
 !     NOWTYP  INTEGER       1     INPUT   Number of waste load types
 !     NOCONS  INTEGER       1     INPUT   Number of constants used
@@ -128,7 +128,7 @@
 
       INTEGER      IPDMP(*)  , IQDMP(*)   , ISDMP (*) , IORAAI(*) ,
      +             NQRAAI(*) , IQRAAI(*)  , GRDNOS(*) , GRDREF(*)
-      INTEGER      GRDSEG(NOSEG,NOGRID)
+      INTEGER      GRDSEG(NOSEG+NSEG2,NOGRID)
       CHARACTER*40 MODID (4) , BNDNAM(*)  , WSTNAM(*)
       CHARACTER*20 SYSID (*) , DUMPID(*)  , BNDID (*) , BNDTYP(*) ,
      *             WASTID(*) , WSTTYP(*)  , CONAME(*) , PANAME(*) ,

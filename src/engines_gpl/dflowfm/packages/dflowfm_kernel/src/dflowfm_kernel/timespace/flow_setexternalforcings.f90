@@ -42,7 +42,6 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    use m_missing
    use m_structures
    use m_meteo
-   use m_trachy, only : itimtt
    use m_calbedform
    use m_bedform
    use dfm_error
@@ -64,7 +63,6 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    integer,          intent(out)   :: iresult !< Integer error status: DFM_NOERR==0 if succesful.
 
    double precision :: timmin
-   double precision :: tem_dif
    integer          :: k, L, i, k1, k2, iFirst, iLast
    logical          :: l_set_frcu_mor = .false.
 
@@ -73,9 +71,6 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
    type(tEcItem), pointer :: itemPtr !< Item under consideration, for right order of wind items
 
    ! variables for processing the pump with levels, SOBEK style
-   integer                               :: n, ierr, istru, structInd
-   double precision, allocatable         :: results(:,:)
-   double precision, allocatable         :: waterLevelsLeft(:), waterLevelsRight(:),normalVelocity(:)
    logical                               :: foundtempforcing, success_copy
    double precision                      :: tUnitFactor
 
@@ -514,9 +509,7 @@ subroutine flow_setexternalforcings(tim, l_initPhase, iresult)
 
    if (stm_included) then
        if ((jased>0) .and. l_set_frcu_mor) then
-           if (jamd1dfile == 0) then
-               call set_frcu_mor(1)     !otherwise frcu_mor is set in getprof_1d()
-           endif
+           call set_frcu_mor(1)     !otherwise frcu_mor is set in getprof_1d()
            call set_frcu_mor(2)
        endif
    endif

@@ -50,7 +50,7 @@ module m_readModelParameters
       
       
       type(tree_data), pointer, intent(in)      :: md_ptr
-      character(len=Charln)                     :: sobekSimIniFile
+      character(len=IdLen)                     :: sobekSimIniFile
 
       integer                                   :: iValue
       double precision                          :: Value
@@ -269,25 +269,6 @@ module m_readModelParameters
             call str_lower(keyValue)
             
             call AddOrReplaceParameter(category, keyWord, keyValue, .true.)
-                        
-            ! Set CacheMode Switches
-            if (category == 'advancedoptions' .and. keyWord == 'cachemode') then
-            
-               select case (keyValue)
-                  case ('none')
-                     doReadCache  = .false.
-                     doWriteCache = .false.
-                  case ('read')
-                     doReadCache  = .true.
-                     doWriteCache = .false.
-                  case ('write')
-                     doReadCache  = .false.
-                     doWriteCache = .true.
-                  case default
-                     doReadCache  = .false.
-                     doWriteCache = .false.
-               end select
-            endif
             
          enddo
          
@@ -682,7 +663,6 @@ module m_readModelParameters
       call AddOrReplaceParameter(category, 'WriteNetCDF', '0', .true.)
 
       category = 'AdvancedOptions'
-      call AddOrReplaceParameter(category, 'CacheMode', 'none', .true.)
       call AddOrReplaceParameter(category, 'CalculateDelwaqOutput', '0', .true.)
       call AddOrReplaceParameter(category, 'ExtraResistanceGeneralStructure', '0.0', .true.)
       call AddOrReplaceParameter(category, 'LateralLocation', '0', .true.)

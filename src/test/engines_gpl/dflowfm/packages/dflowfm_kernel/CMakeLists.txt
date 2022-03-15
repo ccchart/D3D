@@ -34,12 +34,10 @@ if(UNIX)
                             libsigwatch
                             md5digest
                             md5
-                            metisoptions
                             morphology_data
                             morphology_io
                             morphology_kernel
                             morphology_plugins_c
-                            nefis
                             polypack
                             trachytopes_io
                             trachytopes_kernel
@@ -87,13 +85,10 @@ if(WIN32)
                          libsigwatch
                          md5digest
                          md5
-                         metis
-                         metisoptions
                          morphology_data
                          morphology_io
                          morphology_kernel
                          morphology_plugins_c
-                         nefis
                          netcdf4
                          netcdff
                          petsc

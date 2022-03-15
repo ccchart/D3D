@@ -44,8 +44,6 @@ module m_GlobalParameters
    logical                          :: writeNetCDF                   = .false.
    logical                          :: useImplicitSolver             = .false.
    logical                          :: fillCulvertsWithGL            = .false.
-   logical                          :: doReadCache                   = .false.
-   logical                          :: doWriteCache                  = .false.
    double precision                 :: thresholdDry                  = 0.001d0
    double precision                 :: thresholdFlood                = 0.01d0
    double precision                 :: factorFloodingDividedByDrying = 10.0d0
@@ -68,8 +66,8 @@ module m_GlobalParameters
    !TODO temporary unit to be removed, when finished
    integer, public :: luntrans = 0
 
-   character(len=charln)            :: wlevStateFileIn
-   character(len=charln)            :: wlevStateFileOut
+   character(len=IdLen)            :: wlevStateFileIn
+   character(len=IdLen)            :: wlevStateFileOut
    
    character(len=20)                :: obsIntPolType
 
@@ -90,7 +88,6 @@ module m_GlobalParameters
    end type
  
    type t_filenames
-      character(len=255) :: onednetwork                  = ' ' !< 1d Network definition             (e.g., flow1d.md1d)
       character(len=255) :: cross_section_definitions    = ' ' !< 1d cross section definitions
       character(len=255) :: cross_section_locations      = ' ' !< 1d cross section locations
       character(len=1024):: roughness                    = ' ' !< 1d roughness files

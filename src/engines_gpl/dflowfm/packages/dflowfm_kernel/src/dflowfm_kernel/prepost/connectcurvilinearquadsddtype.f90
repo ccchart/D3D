@@ -36,6 +36,7 @@
   use geometry_module, only: dbdistance, cross
   use m_missing, only: dmiss
   use m_sferic,  only: jsferic, jasfer3D
+  use m_mergenodes
   use gridoperations
 
   implicit none
@@ -381,7 +382,7 @@
   do m  = 1,mer
      k1 = merg(1,m) ; k2 = merg(2,m)
      if (kc(k2) .ne. 0) then
-        call mergeUNCONNECTEDnodes(k1,k2,ja)
+        call mergenodes(k1,k2,ja,.true.)
         kc(k2) = 0
      endif
   enddo
@@ -585,7 +586,7 @@
   do m = 1,mer
      k1 = merg(1,m) ; k2 = merg(2,m)
      if (kc(k2) .ne. 0) then
-        call mergeUNCONNECTEDnodes(k2,k1,ja)
+        call mergenodes(k2,k1,ja,.true.)
      endif
   enddo
 

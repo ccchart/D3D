@@ -78,7 +78,6 @@ subroutine setdt()
      call setdtmaxavalan(dts)
    end if
 
-   dti = 1d0/dts
    dtsc = dts
 
 !  account for user time step
@@ -128,6 +127,8 @@ subroutine setdt()
 
    call timestepanalysis(dtsc_loc)
 
+   dti = 1d0/dts
+   
    if ( jaGUI.eq.1 ) then
       call tekcflmx()
    endif

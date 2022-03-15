@@ -37,6 +37,7 @@
       use m_landboundary
       use m_missing
       use gridoperations
+      use m_mergenodes
 
       implicit none
 
@@ -171,7 +172,7 @@
 
 
                   ! NOTE: This assumes that the opposite node is ONLY marked for deletion, NOT YET deleted, such that node numbering won't change yet, and file reading can continue with original numbers!
-                  call MERGEUNCONNECTEDNODES(K1,K2,JA)
+                  call MERGENODES(K1,K2,JA,.true.)
 
                end if
 
