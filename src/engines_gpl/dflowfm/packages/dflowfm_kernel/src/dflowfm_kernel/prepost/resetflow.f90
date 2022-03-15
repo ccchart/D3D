@@ -47,6 +47,7 @@
  use m_sobekdfm
  use m_save_ugrid_state, only: reset_save_ugrid_state
  use m_longculverts, only: reset_longculverts
+ use m_sedtrails_data
  implicit none
 
     ! Only reset counters and other scalars, allocatables should be
@@ -60,6 +61,9 @@
 
     ! Reset some flow (rest is done in flow_geominit())
     call reset_flowgeom()
+    
+    ! Sedtrails
+    call sedtrails_resetdata()
 
     call reset_flowexternalforcings()
 

@@ -32,6 +32,8 @@
 
  module m_flowparameters
  use m_sediment, only: jased
+ use m_missing
+
  implicit none
 
  integer                           :: jatransportmodule = 1    !< use transport module (1) or subroutine (0), or no transport (2)
@@ -73,7 +75,7 @@
 
  integer                           :: jacorioconstant=0 !< 0=default, 1=Coriolis constant in sferic models anyway,2=beta plane, both in cart. and spher. coor.
 
- double precision                  :: Oceaneddyamp = 0.05d0  !< Amplitude of testcase Oceaneddy, negative = anticyclone
+ double precision                  :: Oceaneddyamp = 0.0d0   !< Amplitude of testcase Oceaneddy, negative = anticyclone
 
  double precision                  :: Oceaneddyvel = 0.0d0   !< Velocity of testcase Oceaneddy, negative = anticyclone
 
@@ -197,6 +199,7 @@
  double precision                  :: blmin             !<  : lowest bedlevel point in model
 
  double precision                  :: upot0=-999d0      !<  : initial potential energy
+ double precision                  :: ukin0=-999d0      !<  : initial potential energy
 
  integer                           :: jaupdbndbl        !< Update bl at boundary (1 = update, 0 = no update)
  integer                           :: jaupdbobbl1d     !< Update bl and bobs for 1d network (call to setbobs_1d only at initialization)
@@ -221,11 +224,6 @@
  integer                           :: jafilter          !< apply horizontal filter (1:explicit, 2:implicit) or not (0)
  integer                           :: filterorder       !< order of filter
  integer                           :: jacheckmonitor    !< compute and output "checkerboard" mode monitor
-
-!    Secondary Flow
-! integer                           :: jasftesting       !< (secondary flow testing: 0: no just compute fm velocitie, 1: prescribe exact ucx,ucy point values 2: prescribe exact edge velocities (FM reconstructs ucx,ucy) 3: prescribe exact ucx,ucy cell-averaged values
-! integer                           :: jasfinttype       !< 1: perot reconstruction 2: standard gauss
-! integer                           :: jasftesttype      !< -1: u_theta = 0.1*200/r; u_r = 0 | k: k=0..3, u_x = x^k, u_y = 0
 
  double precision                  :: Uniformhu         !< Uniformhu for arjen's membranes
  double precision                  :: bedslope          !< bed inclination testcases
@@ -314,6 +312,7 @@
  double precision                  :: epswav            !< minimum waterdepth for wave calculations
  double precision                  :: chkhuexpl         !< only for step_explicit:  check computed flux beneath this waterdepth
  double precision                  :: chkadvd           !< check advection  for 'drying' below this (upwind) waterdepth
+ double precision                  :: chkdifd           !< check diffusion, only for jatransportautotimestepdiff== 1
  double precision                  :: chkwndd           !< check windstress for 'drying' below this waterdepth
  double precision                  :: chktempdep        !< check heatfluxes for 'drying' below this waterdepth
  double precision                  :: trsh_u1Lb = 0.0d0
@@ -327,7 +326,7 @@
  integer                           :: jsolpos           !< in iterative solver force solution above bottom level
  integer                           :: Icgsolver         !< 'Solver type , 1 = sobekGS_OMP, 2 = sobekGS_OMPthreadsafe, 3 = sobekGS, 4 = sobekGS + Saadilud, 5 = parallel/global Saad, 6 = parallel/Petsc, 7 = parallel/GS '
  integer                           :: ipre              !< Preconditioner, 0=rowscaling, 1=GS, 2=trial
- integer                           :: jajipjan          !< arrays in gauss substi
+ integer                           :: Noderivedtypes    !< 0=use derived types in gauss and substi, 5=use simple Fortran arrays (faster) 
  integer                           :: jacheckmatrix     !< checkmatrix
 
  integer                           :: mdump             ! dump file unit nr
@@ -396,6 +395,16 @@
 
  double precision                  :: cffacver = 0d0         !< switch to low order at high cf in constituent transport vertical, 1d0=yes, 0d0 = no
 
+ double precision                  :: cffachormom = 1d0      !< switch to low order at high cf in horizontal mom. transport, 1d0=yes, 0d0 = no
+
+ double precision                  :: cfexphormom = 1d0      !< exponent of same
+
+ double precision                  :: cfconhormom = 0d0      !< constant of same
+
+ double precision                  :: cffachu     = 1d0      !< switch to low order at high cf in sethu, 1d0=yes, 0d0 = no
+
+ double precision                  :: cfexphu     = 1d0      !< exponent of same
+
  double precision                  :: toplayminthick         !< minimum top layer thickness (m)
 
  double precision                  :: botlayminthick         !< minimum bot layer thickness (m)
@@ -417,6 +426,8 @@
  integer                           :: jadiffusiononbnd   = 1    !< 0 switches off diffusion on open boundaries 
 
  integer                           :: jajre                     !< 0: default, 1: sb
+ 
+ integer                           :: jasedtrails               !< sedtrails custom averaged output - 0: no (default) ; 1: yes
 
  integer                           :: jasourcesink              !< 1: source+sink 2:source 3:sink for sediment
 
@@ -573,9 +584,6 @@
  ! parameter for bed roughness and transport
  integer                                              :: v2dwbl
 
- ! determines whether md1d file exist
- integer                                              :: jamd1dfile = 0
-
  ! parameter for secondary flow
  integer                                              :: ispirparopt ! for visualization
 
@@ -679,7 +687,9 @@ subroutine default_flowparameters()
     jarhoxu  = 0      ! rho effects in momentum, 0=no, 1=in horizontal adv, 2=+ in vertical adv, 3 = + in pressure term
 
     jased    = 0      ! Include sediment
-
+    
+    jasedtrails = 0   ! Include sedtrail averaging 
+    
     jatrt    = 0      !< Include alluvial and vegetation roughness (trachytopes)
 
     jacali   = 0      !< Include calibration factor for roughness
@@ -828,6 +838,7 @@ subroutine default_flowparameters()
     epswav     = 1d-2    ! minimum waterdepth for wave calculations
     chkhuexpl  = 0.1d0   ! only for step_explicit:  check computed flux beneath this waterdepth
     chkadvd    = 0.1d0   ! check advection  for 'drying' below this (upwind) waterdepth
+    chkdifd    = 0.01d0  ! check diffusion only for jatransportautotimestepdiff == 1
     chkwndd    = 0.1d0   ! check windstress              below this waterdepth
     chktempdep = 0.1d0   ! check heatfluxes              below this waterdepth
 
@@ -840,7 +851,7 @@ subroutine default_flowparameters()
     jsolpos    = 0       ! in iterative solver force solution above bottom level
     Icgsolver  = 4       !    Icgsolver = 1      ! 1 = GS_OMP, 2 = GS_OMPthreadsafe, 3 = GS, 4 = Saadilud
     ipre       = 0       ! preconditioner, 0=rowscaling, 1=GS, 2=trial
-    jajipjan   = 5       ! jipjan arrays in gauss
+    Noderivedtypes = 5   ! 0=use derived types in gauss and substi, 5=use simple Fortran arrays (faster) 
 
     hwetbed    = 0.2d0   ! for case wetbed
 

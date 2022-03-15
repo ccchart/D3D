@@ -44,7 +44,7 @@
  use m_partitioninfo
  use m_timer
  use m_flowtimes
- use unstruc_model ! , only: md_ident, md_restartfile,  writeMDUFilepointer, md_foufile, md_flowgeomfile, md_snapshotdir, md_numthreads
+ use unstruc_model 
  use unstruc_files, only: mdia
  use unstruc_netcdf
  use MessageHandling
@@ -63,9 +63,8 @@
  use unstruc_netcdf_map_class
  use unstruc_caching
  use m_monitoring_crosssections, only: ncrs, fill_geometry_arrays_crs
-  use m_setucxcuy_leastsquare, only: reconst2ndini
+ use m_setucxcuy_leastsquare, only: reconst2ndini
 
- !use m_mormerge
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
  ! Activate the following line (See also statements below)
@@ -76,7 +75,6 @@
  integer              :: jw, istat, L, ierr
  integer, external    :: flow_flowinit
  integer, external    :: init_openmp
-! integer, external    :: set_model_boundingbox
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
  ! Activate the following 3 lines, See also statements below

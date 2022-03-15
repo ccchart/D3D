@@ -159,6 +159,7 @@
  integer                           :: it_rst      !< Nr of snapshots presently in rst file
  integer                           :: it_waq      !< Nr of snapshots presently in delwaq files.
  integer                           :: it_stat     !< Nr of simulation statistics presently in log file.
+ integer                           :: it_st       !< Nr of simulation statistics presently in sedtrails output file.
  ! for performance timings
  logical                           :: debugtimeon     !< timing yes or no
  integer                           :: handle_user     !< timer handle for user timesteps
@@ -308,6 +309,7 @@ subroutine reset_flowtimes()
     it_map       = 0                 !< Nr of snapshots presently in map file
     it_wav       = 0                 !< Nr of snapshots presently in time-avg'd file JRE
     it_sed       = 0                 !< Nr of snapshots presently in time-avg'd sed file JRE
+    it_st        = 0                 !< Nr of snapshots presently in time-avg'd sedtrails file JRE
     it_map_tec   = 0                 !< Nr of snapshots presently in map file
     it_his       = 0                 !< Nr of snapshots presently in his file
     it_inc       = 0                 !< Nr of lines     presently in inc file
