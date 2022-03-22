@@ -1,150 +1,99 @@
 module m_sedtrails_netcdf
    use m_sedtrails_data
+   use unstruc_netcdf
    
    implicit none
+   
+   type t_unc_sedtrailsids
+      integer                  :: ncid = 0 !< NetCDF data set id (typically NetCDF file pointer)
+      type(t_unc_timespace_id) :: id_tsp
+      
+      integer                  :: id_time               = -1  
+      integer                  :: id_timestep           = -1  
+      integer                  :: id_H_mean(4)          = -1
+      integer                  :: id_H_var(4)           = -1
+      integer                  :: id_H_min(4)           = -1 
+      integer                  :: id_H_max(4)           = -1 
+   end type t_unc_sedtrailsids
    
    contains
    
-   !> Increase the number of net links
-   SUBROUTINE sedtrails_increasenetwork(K0,L0, also_dxe)
-   use m_alloc
-   use m_missing, only : xymis, dmiss
-
-   implicit none
-   integer,           intent(in) :: K0       !< New number of net nodes.
-   integer,           intent(in) :: L0       !< New number of net links
-   logical, optional, intent(in) :: also_dxe !< Also allocate the optional dxe array for edge lengths. Default: .false.
-
-   integer :: ierr
-   integer :: k
-   integer :: knxx
-   logical :: also_dxe_
-
-   if (present(also_dxe)) then
-      also_dxe_ = also_dxe
-   else
-      also_dxe_ = .false.
-   end if
-
-   if (also_dxe_) then
-      ! Directly ensure dxe allocation, since it may not have been allocated before (as it is optional).
-      call realloc(dxe, LMAX, keepExisting = .true., fill = dmiss)
-   end if
-
-   if (K0 < KMAX .and. L0 < LMAX) RETURN
-
-   CALL sedtrails_SAVENET()
-
-   IF (KMAX <= K0) THEN
-      KMAX = K0 + 100000   ! 2 KAN WEG
-      IF (allocated(nod)) then
-         do k = 1,size(nod)
-            if ( allocated(nod(k)%lin) ) deallocate (nod(k)%lin)
-         enddo
-         deallocate(nod, xk, yk, zk, kc, nmk)
-      end if
-      ALLOCATE ( NOD(KMAX) , STAT = IERR)
-      CALL AERR('NOD(KMAX)', IERR, KMAX )
-      ALLOCATE ( XK (KMAX), YK (KMAX), ZK (KMAX), KC (KMAX), NMK (KMAX) , STAT=IERR   )
-      CALL AERR('XK (KMAX), YK (KMAX), ZK (KMAX), KC (KMAX), NMK (KMAX)', IERR, 6*KMAX)
-
-      DO K = 1,KMAX
-         IF ((allocated(NMK0)).and.(K .LE. SIZE(NMK0))) THEN
-            KNXX = MAX(NMK0(K),KNX)
-         ELSE
-            KNXX = KNX
-         ENDIF
-         ALLOCATE(NOD(K)%LIN(KNXX) , STAT=IERR) ;
-         NOD(K)%LIN = 0
-      ENDDO
-
-      NMK = 0 ; KC = 1 ; XK = XYMIS ; YK = XYMIS ; ZK = dmiss
-   ENDIF
-
-   IF (LMAX <= L0) THEN
-      LMAX = L0 + 3*100000
-      IF (SIZE(LC) > 0 .and. allocated(kn)) THEN
-         DEALLOCATE(KN ,LC , RLIN)
-      ENDIF
-      ALLOCATE (KN (3,LMAX), LC (LMAX), STAT=IERR) ; KN = 0 ; LC = 0 ! TODO: AvD: catch memory error
-      ALLOCATE (RLIN (LMAX), STAT=IERR)
-      
-      if (also_dxe_) then
-         if (allocated(dxe)) deallocate(dxe)
-         allocate(dxe(LMAX))
-         dxe = dmiss
-      end if
-   ENDIF
-
-   CALL sedtrails_RESTORE()
-
-END SUBROUTINE 
+subroutine sedtrails_write_stats(tim)
+   use m_flowparameters, only: eps10
+   use m_flowtimes, only: ti_st, ti_sts, ti_ste, tstop_user, time_st   
+   use precision_basics
+   use m_sedtrails_stats
    
-   !> Restore variables with backup data
-SUBROUTINE sedtrails_RESTORE()
-   use m_sedtrails_data
    implicit none
-   integer :: k, KX, LS, LS0, LX, NODSIZ, IERR
-
-   !IF ( NUMK0.EQ.0 ) RETURN
-   if (.not. allocated(xk0) .or. .not. allocated(kn0) .or. .not. allocated(nod0)) return
-
-   KX = size(XK0) ! restore everything present (in case numk/numk0 has not yet been increased)
-
-   XK (1:KX)  = XK0 (1:KX)
-   YK (1:KX)  = YK0 (1:KX)
-   ZK (1:KX)  = ZK0 (1:KX)
-
-   NMK(1:KX)  = NMK0(1:KX)
-   KC (1:KX)  = KC0 (1:KX)
-
-   LX = size(LC0) ! restore everything present (in case numl/numl0 has not yet been increased)
-
-   KN(:,1:LX) = KN0(:,1:LX)
-   LC(  1:LX) = LC0(  1:LX)
-
-   ! Only restore optional dxe when it is there already
-   if (allocated(dxe)) then
-      dxe(1:LX) = dxe0(1:LX)
+   
+   double precision, intent(in)      :: tim
+   integer                           :: ierr
+   
+   ierr = 1
+   if (ti_st > 0) then
+      if (comparereal(tim, time_st, eps10) >= 0) then
+         call sedtrails_write_nc(tim)
+         call reset_sedtrails_stats()
+         if (ti_st > 0) then
+             time_st = max(ti_sts + (floor((tim-ti_sts)/ti_st)+1)*ti_st,ti_sts)
+         else
+             time_st = tstop_user
+         endif
+         if (comparereal(time_st, ti_ste, eps10) == 1) then
+             time_st = tstop_user
+         endif
+      endif
    end if
+   
+   ierr = 0
+   
+1234 continue
+   return
+end subroutine
 
-   NODSIZ = SIZE(NOD)
+subroutine sedtrails_write_nc(tim)
+    use netcdf
+    use unstruc_model
+    use unstruc_files , only: defaultFilename
+    use Messagehandling
+    implicit none
 
-   DO K = 1,KX
-      IF (ALLOCATED(NOD0(K)%LIN) ) THEN
-         LS0 = SIZE(NOD0(K)%LIN )  ! LS0 = NMK0(K)
-      ELSE
-         LS0 = 0
-      ENDIF
+    double precision, intent(in) :: tim
 
-      IF (LS0 .GE. 1) THEN
-         ! IF (.NOT. ASSOCIATED(NOD(K)%LIN) ) THEN
-         IF (ALLOCATED(NOD(K)%LIN) ) THEN
-            LS = SIZE(NOD(K)%LIN )
-         ELSE
-            LS = 0
-         ENDIF
-         IF (LS .LT. LS0) THEN
-            IF (LS .GE. 1) DEALLOCATE (NOD(K)%LIN )
-            ALLOCATE   (NOD(K)%LIN(LS0), STAT = IERR )
-            NOD(K)%LIN = 0
-         ENDIF
-         NOD(K)%LIN(1:LS0) = NOD0(K)%LIN(1:LS0)
-      ENDIF
-   ENDDO
+    type(t_unc_sedtrailsids), save :: stids
+    integer                        :: ierr
+    character(len=256)             :: filnam
 
-   NUMK = NUMK0
-   NUML = NUML0
+    if (stids%ncid /= 0 .and. ((stids%id_tsp%idx_curtime == 0))) then
+       ierr = unc_close(stids%ncid)
+       stids%ncid = 0
+    end if
 
-   !  need findcells
-   netstat = NETSTAT_CELLS_DIRTY
-   RETURN
-   END SUBROUTINE   
 
+    if (stids%ncid == 0) then
+       filnam = defaultFilename('sedtrails')
+       ierr = unc_create(filnam , 0, stids%ncid)
+       if (ierr /= nf90_noerr) then
+           call mess(LEVEL_WARN, 'sedtrails_write_nc :: Could not create sedtrails output file.')
+           stids%ncid = 0
+       end if
+    endif
+
+    if (stids%ncid .ne. 0) then
+       call unc_write_sedtrails_filepointer(stids%ncid,tim)  
+    endif
+
+    if (unc_noforcedflush == 0) then
+       ierr = nf90_sync(stids%ncid) ! Flush file
+    end if
+
+end subroutine sedtrails_write_nc   
+   
 !> Reads the net data from a NetCDF file.
 !! Processing is done elsewhere.
 subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
    use m_sedtrails_data
+   use m_sedtrails_network
    use m_save_ugrid_state
    use io_netcdf
    use netcdf
@@ -168,7 +117,7 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
    integer                         :: ncid, id_netnodez
    integer, allocatable            :: kn12(:,:), kn3(:) ! Placeholder arrays for the edge_nodes and edge_types
    double precision                :: convversion, zk_fillvalue, altsign
-   type(t_ug_meshgeom) :: meshgeom
+   type(t_ug_meshgeom)             :: meshgeom
 
    character(len=:), allocatable             :: tmpstring
    integer :: n1, n2, ibr_n1, ibr_n2, ibr
@@ -204,12 +153,11 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
    deallocate(tmpstring)
 
    ierr = ionc_get_coordinate_reference_system(ioncid, crs)
-   ! ierr = ionc_get_crs(ioncid, crs) ! TODO: make this API routine.
-   ! TODO: also get the %crs item from the ionc dataset, store it in unstruc, AND, use that one in unc_write_flowgeom_ugrid.
    if (ierr /= ionc_noerr) then
-   call mess(LEVEL_WARN,  'sedtrails_unc_read_net_ugrid::ionc_get_coordinate_system: No epsg_code found in UGRID net file '''//trim(filename)//'''.')
-   goto 999
+      call mess(LEVEL_WARN,  'sedtrails_unc_read_net_ugrid::ionc_get_coordinate_system: No epsg_code found in UGRID net file '''//trim(filename)//'''.')
+      goto 999
    end if
+   !
    select case (crs%epsg_code)
    case (4326) ! WGS84
       jsferic  = 1
@@ -240,8 +188,6 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
          end if
          ierr = ionc_get_meshgeom(ioncid, im, networkIndex, meshgeom, start_index, includeArrays) 
          mesh2dname = meshgeom%meshname
-         !ierr = ionc_get_face_coordinates(ioncid, im, xface, yface)
-         !call read_mesh2d_face_z(ioncid, im, meshgeom%numface)
       else
          ! Only support 1D network and 2D grid
          write(msgbuf, '(a,i0,a,i0,a)') 'sedtrails_unc_read_net_ugrid: unsupported topology dimension ', meshgeom%dim, &
@@ -249,14 +195,13 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
          call warn_flush()
          cycle
       end if
-      
-      !do_edgelengths = .false.
+ 
       need_edgelengths = .false. ! Either from a previous meshgeom, or now for the first time.
       
       !increasenetw 
-      call sedtrails_increasenetwork(numk_last + meshgeom%numnode, numl_last + meshgeom%numedge, also_dxe=need_edgelengths) ! increases XK, YK, KN, optionally dxe
+      call sedtrails_increasenetwork(numk_last + meshgeom%numnode, numl_last + meshgeom%numedge) ! increases XK, YK, KN, optionally dxe
       if (meshgeom%dim == 2) then  ! always true, see above
-      ! 2D, or 1D without network topology
+         ! 2D
          ierr = ionc_get_node_coordinates(ioncid, im, XK(numk_last+1:numk_last + meshgeom%numnode), YK(numk_last+1:numk_last + meshgeom%numnode)) ! TODO: LC: this duplicates with the above get_meshgeom with includearrays=.true.
       endif
 
@@ -272,48 +217,17 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
          call warn_flush()
          goto 999
       end if
-
-      ! zk values on nodes, not needed
-      ZK(numk_last+1:numk_last+meshgeom%numnode) = dmiss
-
-      !
-      ! 3. Net links. Just append the edges from the mesh(es) as netlinks, later setnodadm() at call site will group them by 1D and 2D.
-      !
-      if (allocated(kn12)) deallocate(kn12)
-      allocate(kn12(2, meshgeom%numedge))
-
-      if (allocated(kn3))  deallocate(kn3)
-      allocate(kn3(meshgeom%numedge))
-
-      if (meshgeom%dim.ne.1) then 
-         ! TODO: LC: these have already been read into meshgeom%edge_nodes, so maybe just copy it here?
-         ierr = ionc_get_edge_nodes(ioncid, im, kn12, 1) !unstruct requires 1 based indexes
-      else
-         kn12 = meshgeom%edge_nodes
-         ierr = ionc_noerr
-      endif
-
-      if (ierr /= ionc_noerr) then
-         write (msgbuf, '(a,i0,a)') 'sedtrails_unc_read_net_ugrid: Could not read edge-node connectivity from mesh #', im, ' in UGRID net file '''//trim(filename)//'''.'
-         call warn_flush()
-         goto 999
-      end if
-      
-      kn3(:) = 2
-
-      do L=1,meshgeom%numedge
-         ! Append the netlink table, and also increment netnode numbers in netlink array to ensure unique ids.
-         kn(1:2,numl_last+L) = numk_last + kn12(:,L)
-         kn(3,  numl_last+L) = kn3(L)
-      enddo
       
       numk_read = numk_read + meshgeom%numnode 
       numk_last = numk_last + meshgeom%numnode  
 
+      ! not used
       numl_read = numl_read + meshgeom%numedge
       numl_last = numl_last + meshgeom%numedge
 
    end do
+   
+   call realloc(zk,numk_read,keepExisting=.false.,fill=dmiss)
 
    ! Success
 888 continue    
@@ -336,7 +250,6 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, num
     use m_sferic
     use m_missing
     use dfm_error
-    use gridoperations
     use netcdf_utils, only: ncu_get_att, ncu_get_var_attset
 
     character(len=*), intent(in)     :: filename  !< Name of NetCDF file.
@@ -345,23 +258,6 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, num
     integer,          intent(out)    :: numk_read !< Number of new netnodes read from file.
     integer,          intent(out)    :: numl_read !< Number of new netlinks read from file.
     integer,          intent(out)    :: ierr      !< Return status (NetCDF operations)
-
-    logical :: stringsequalinsens
-    
-    character(len=:), allocatable :: coordsyscheck
-    integer, dimension(:),   allocatable :: kn3read
-    integer, dimension(:),   allocatable :: kn1read
-    integer, dimension(:),   allocatable :: kn2read
-    
-    
-    integer :: inetfile, &
-               id_netnodedim, id_netlinkdim, &             !< Dimensions
-               id_netnodex, id_netnodey, id_netnodez, &    ! Node variables
-               id_netlink, id_netlinktype, &                !< Link variables
-               id_crsvar
-
-    integer :: L
-    double precision :: zk_fillvalue
 
     call mess(LEVEL_INFO,'sedtrails_unc_read_net::Reading net data...')
     !
@@ -372,84 +268,311 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, num
        ! UGRID successfully read, we're done.
        return
     else
-       ! No UGRID, but just try to use the 'old' format now.
+       ! No UGRID, error.
        call mess(LEVEL_ERROR,'sedtrails_unc_read_net::Could not read '''//trim(filename)//'''')
        return
     end if
 
 end subroutine
+ 
+!> Writes the unstructured flow geometry to a netCDF file.
+!! If file exists, it will be overwritten.
+!subroutine sedtrails_unc_write_flowgeom(filename)
+!    character(len=*), intent(in) :: filename
+!
+!    integer :: igeomfile, ierr
+!
+!    ierr = unc_create(filename, 0, igeomfile)
+!    if (ierr /= nf90_noerr) then
+!        call mess(LEVEL_ERROR, 'sedtrails_unc_write_flowgeom::Could not create flow geometry file '''//trim(filename)//'''.')
+!        call check_error(ierr)
+!        return
+!    end if
+!
+!    call unc_write_flowgeom_filepointer(igeomfile) ! UNC_CONV_CFOLD
+!
+!    ierr = unc_close(igeomfile)
+!end subroutine 
+  
+!> Writes the unstructured sedtrails geometry to an already opened netCDF dataset.
+subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
+    use m_sedtrails_data
+    use m_sferic
+    use m_missing
+    use netcdf
+    use m_partitioninfo, only: jampi
+    use m_flowparameters, only: jafullgridoutput
+    
+    implicit none
+    
+    integer, intent(in)             :: igeomfile
+    integer                         :: ndxndxi       !< Last node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
+    integer :: ierr
+    integer ::  id_flowelemdim,& 
+        id_flowelemxcc, id_flowelemycc, id_flowelemzcc, &
+        id_flowelemba,&
+        id_flowelemdomain
+
+    integer :: i, numContPts, numNodes, n, nn, L
+    integer :: jaInDefine
+    integer :: jaghost, idmn
+
+    jaInDefine = 0
+
+    if (numk <= 0) then
+        call mess(LEVEL_WARN, 'sedtrails_unc_write_flowgeom_filepointer :: No flow elements in model, will not write flow geometry.')
+        return
+    end if
+
+    ndxndxi=numk
+
+    ! Put dataset in define mode (possibly again) to add dimensions and variables.
+    ierr = nf90_redef(igeomfile)
+    if (ierr == nf90_eindefine) jaInDefine = 1 ! Was still in define mode.
+    if (ierr /= nf90_noerr .and. ierr /= nf90_eindefine) then
+        call mess(LEVEL_ERROR, 'sedtrails_unc_write_flowgeom_filepointer::Could not put header in sedtrails geometry file.')
+        call check_error(ierr)
+        return
+    end if
+
+    ierr = nf90_def_dim(igeomfile, 'nNodes',  ndxndxi, id_flowelemdim)
+
+    ! Net nodes
+    ierr = nf90_def_var(igeomfile, 'net_xcc', nf90_double, id_flowelemdim, id_flowelemxcc)
+    ierr = nf90_def_var(igeomfile, 'net_ycc', nf90_double, id_flowelemdim, id_flowelemycc)
+    !ierr = nf90_def_var(igeomfile, 'FlowElem_bac', nf90_double, id_flowelemdim, id_flowelemba)   to discuss with Stuart
+    
+    ierr = unc_addcoordatts(igeomfile, id_flowelemxcc, id_flowelemycc, jsferic)
+    ierr = nf90_put_att(igeomfile, id_flowelemxcc, 'long_name'    , 'x-coordinate of sedtrails grid corner')
+    ierr = nf90_put_att(igeomfile, id_flowelemycc, 'long_name'    , 'y-coordinate of sedtrails grid corner')
+
+    ! Coordinate/grid mapping
+    ierr = unc_addcoordmapping(igeomfile, jsferic)
+    
+    !   domain numbers
+    if ( jampi.eq.1 ) then
+       ierr = nf90_def_var(igeomfile, 'FlowElemDomain', nf90_int, id_flowelemdim, id_flowelemdomain)
+       ierr = nf90_put_att(igeomfile, id_flowelemdomain, 'long_name'    ,   'domain number of sedtrails grid corner')
+    end if
+
+    ierr = nf90_enddef(igeomfile)
+    ! End of writing time-independent flow net data.
+
+    ! -- Start data writing (time-independent data) ------------
+    ! Flow cell cc coordinates (only 1D + internal 2D)
+    ierr = nf90_put_var(igeomfile, id_flowelemxcc, xk(1:ndxndxi))
+    ierr = nf90_put_var(igeomfile, id_flowelemycc, yk(1:ndxndxi))
+    !ierr = nf90_put_var(igeomfile, id_flowelemba, ba(1:ndxndxi))      ! after consultation with Stuart, not needed
+    
+    ! domain numbers
+    if ( jampi.eq.1 ) then  
+       ! flow cell domain number   
+       ierr = nf90_put_var(igeomfile, id_flowelemdomain, idomain(1:ndxndxi) )    
+    end if
+
+    ! Leave the dataset in the same mode as we got it.
+    if (jaInDefine == 1) then
+        ierr = nf90_redef(igeomfile)
+    end if
+
+end subroutine sedtrails_unc_write_flowgeom_filepointer
 
 
-   SUBROUTINE sedtrails_SAVENET()
-   use m_sedtrails_data
+subroutine unc_write_sedtrails_filepointer(imapfile,tim)
+   use m_sedtrails_stats
+   use m_sedtrails_network
+   use m_alloc
+   use m_flowtimes, only: Tudunitstr
+   use m_fm_erosed
+   use m_sediment, only: stm_included
+   use m_missing, only: dmiss
+   use m_flowtimes, only: it_st
+   use m_flow, only: hs, ucx, ucy
+   use m_flowgeom, only: bl
+   
    implicit none
-   integer :: ierr
-   integer :: k, KX, LS, LS0, LX, NN
-
-   if (.not. allocated(xk) .or. .not. allocated(kn) .or. .not. allocated(nod)) return
-
-   KX = KMAX ! backup everything present (in case numk has not yet been increased) ! KX = NUMK
-   IF (ALLOCATED(nod0)) THEN
-      DO K= 1, SIZE(NOD0)
-         if ( allocated(nod0(k)%lin) ) DEALLOCATE(NOD0(K)%LIN)
-      ENDDO
-      DEALLOCATE(NOD0)
-   ENDIF
-   ALLOCATE ( NOD0(KX) , stat = ierr )
-   !CALL AERR('NOD0(KX)', IERR, KX)
-
-   if (allocated(xk0)) deallocate(xk0,yk0,zk0)
-   allocate ( XK0(KX), YK0(KX), ZK0(KX) , STAT=IERR)
-   !call aerr('XK0(KX), YK0(KX), ZK0(KX)', IERR, 3*kx)
-
-   if (allocated (KC0) ) deallocate ( KC0 )
-   ALLOCATE( KC0(KX), STAT=IERR)
-
-   if (allocated (nmk0) ) deallocate ( NMK0 )
-   ALLOCATE( NMK0(KX), STAT=IERR)
-
-   XK0 (1:KX) = XK (1:kx)
-   YK0 (1:KX) = YK (1:kx)
-   ZK0 (1:KX) = ZK (1:kx)
-   KC0( 1:KX) = KC (1:kx)
-   NMK0(1:KX) = NMK(1:kx)
-
-   IF (ALLOCATED(LC0)) DEALLOCATE(KN0 ,LC0)
-   LX = LMAX ! backup everything present (in case numl has not yet been increased) ! LX = NUML
-   ALLOCATE (KN0(3,LX), LC0(LX), STAT=IERR)
-
-   KN0(:,1:LX) = KN(:,1:LX)
-   LC0(  1:LX) = LC(  1:LX)
-
-   ! Only save optional dxe when it is there already
-   if (allocated(dxe)) then
-      if (allocated(dxe0)) deallocate(dxe0)
-      allocate(dxe0(LX), STAT=IERR)
-      dxe0(1:LX) = dxe(1:LX)
+   
+   integer, intent(in)                    :: imapfile
+   double precision, intent(in)           :: tim
+   
+   ! Locals
+   integer                                :: ndxndxi
+   integer                                :: iid, k, l
+   integer                                :: ierr, itim
+   integer, save                          :: ndim
+   integer, dimension(2)                  :: idims
+   integer, dimension(2), save            :: id_timedim, id_time, id_timestep, id_sbx, id_sby, id_ssx, id_ssy, id_ssc, &
+                                             id_sedtotdim,id_flowelemdim, id_ucx, id_ucy, id_bl, id_hs, id_taus, id_tausmax
+   double precision, allocatable          :: work(:,:)
+   
+   ! Define variables and write time-invariant data
+   if (numk <= 0) then
+      call mess(LEVEL_WARN, 'unc_write_sedtrails_filepointer :: No flow elements in sedtrails grid, will not write geometry.')
+      return
    end if
 
+   iid = 1
+   ndxndxi = numk
+    
+   ! Use nr of dimensions in netCDF file a quick check whether vardefs were written
+   ! before in previous calls.
+   ndim = 0
+   ierr = nf90_inquire(imapfile, nDimensions=ndim)
 
-   DO K   = 1,KX
-      LS  = NMK(K) ! SIZE(NOD (K)%LIN )
-      IF (LS .GE. 1) THEN
-         !       IF (.NOT. ASSOCIATED(NOD0(K)%LIN) ) THEN
-         IF (.NOT. ALLOCATED(NOD0(K)%LIN) ) THEN
-            LS0 = 0
-         ELSE
-            LS0 = SIZE(NOD0(K)%LIN )
-         ENDIF
-         IF (LS0 .LT. LS) THEN
-            IF (LS0 .GE. 1 .and. allocated(NOD0(K)%LIN)) DEALLOCATE (NOD0(K)%LIN )
-            ALLOCATE   (NOD0(K)%LIN(LS) ) ; NOD0(K)%LIN = 0
-         ENDIF
-         NOD0(K)%LIN(1:LS) = NOD(K)%LIN(1:LS)
-      ENDIF
-   ENDDO
+   ! Only write net and flow geometry data the first time, or for a separate map file.
+   if (ndim == 0) then
+       call sedtrails_unc_write_flowgeom_filepointer(imapfile)      ! Write standard net data as well
+       ierr = nf90_inq_dimid(imapfile, 'nNodes', id_flowelemdim(iid))
 
-   NUMK0 = NUMK
-   NUML0 = NUML
-   RETURN
-   END SUBROUTINE
-  
+       ! Time
+       ierr = nf90_def_dim(imapfile, 'time', nf90_unlimited, id_timedim(iid))
+       call check_error(ierr, 'def time dim')
+       ierr = nf90_def_var(imapfile, 'time', nf90_double, id_timedim(iid),  id_time(iid))
+       ierr = nf90_put_att(imapfile, id_time(iid),  'units'        , trim(Tudunitstr))
+       ierr = nf90_put_att(imapfile, id_time(iid),  'standard_name', 'time')
+             
+       ! Size of latest timestep
+       ierr = nf90_def_var(imapfile, 'timestep', nf90_double, id_timedim(iid),  id_timestep(iid))
+       ierr = nf90_put_att(imapfile, id_timestep(iid),  'units'        , 'seconds')
+       ierr = nf90_put_att(imapfile, id_timestep(iid),  'standard_name', 'timestep')
+      
+       idims(1) = id_flowelemdim(iid)
+       idims(2) = id_timedim(iid)
+
+       ! Variables that will always be written
+       call definencvar(imapfile,id_bl(iid)   ,nf90_double,idims,2, 'bottomlevel', 'bottom level', 'm', 'net_xcc net_ycc')
+       
+       if (trim(sedtrails_analysis)=='flowvelocity' .or. trim(sedtrails_analysis)=='all') then
+          call definencvar(imapfile,id_ucx(iid),nf90_double,idims,2, 'sea_water_x_velocity', 'depth-averaged velocity on grid corner, x-component', 'm s-1', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_ucy(iid),nf90_double,idims,2, 'sea_water_y_velocity', 'depth-averaged velocity on grid corner, y-component', 'm s-1', 'net_xcc net_ycc')
+       endif
+
+       if ((trim(sedtrails_analysis)=='transport' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
+          ! Fractions
+          ierr = nf90_def_dim(imapfile, 'nSedTot', lsedtot, id_sedtotdim(iid))
+          !
+          call definencvar(imapfile,id_sbx(iid),nf90_double,(/ id_flowelemdim(iid) , id_sedtotdim(iid) , id_timedim(iid) /),3, 'bedload_x_comp', 'bedload transport on grid corner, x-component', 'kg m-1 s-1', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_sby(iid),nf90_double,(/ id_flowelemdim(iid) , id_sedtotdim(iid) , id_timedim(iid) /),3, 'bedload_y_comp', 'bedload transport on grid corner, y-component', 'kg m-1 s-1', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_ssx(iid),nf90_double,(/ id_flowelemdim(iid) , id_sedtotdim(iid) , id_timedim(iid) /),3, 'susload_x_comp', 'suspended transport on grid corner, x-component', 'kg m-1 s-1', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_ssy(iid),nf90_double,(/ id_flowelemdim(iid) , id_sedtotdim(iid) , id_timedim(iid) /),3, 'susload_y_comp', 'suspended transport on grid corner, y-component', 'kg m-1 s-1', 'net_xcc net_ycc')
+       endif    
+       
+       if ((trim(sedtrails_analysis)=='soulsby' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
+          ! Fractions
+          ierr = nf90_inq_dimid(imapfile, 'nSedTot', id_sedtotdim(iid))
+          if (ierr>0) then
+             ierr = nf90_def_dim(imapfile, 'nSedTot', lsedtot, id_sedtotdim(iid)) ! only once
+          endif
+          !
+          call definencvar(imapfile,id_hs(iid)     ,nf90_double,idims,2, 'waterdepth', 'water depth', 'm', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_taus(iid)   ,nf90_double,idims,2, 'mean_bss_magnitude', 'mean bed shear stress magnitude', 'Pa', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_tausmax(iid),nf90_double,idims,2, 'max_bss_magnitude' , 'max bed shear stress magnitude', 'Pa', 'net_xcc net_ycc')
+          call definencvar(imapfile,id_ssc(iid)    ,nf90_double,(/ id_flowelemdim(iid) , id_sedtotdim(iid) , id_timedim(iid) /),3, 'suspended_sed_conc', 'depth-averaged suspended sediment concentration', 'kg m-3', 'net_xcc net_ycc')
+       endif   
+       
+       ierr = nf90_enddef(imapfile)
+   endif
    
+   ! Interpolate and write variables
+   it_st   = it_st+1
+   itim    = it_st ! Increment time dimension index  
+    
+    ! Time
+    ierr = nf90_put_var(imapfile, id_time    (iid), tim, (/ itim /))
+    ierr = nf90_put_var(imapfile, id_timestep(iid), is_dtint, (/ itim /))
+   
+   ! Analysis:
+   call realloc(work,(/ numk, lsedtot/), keepExisting=.false., fill=dmiss)
+   
+   ! Bottom level
+   do k=1, numk
+      work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_BL,st_ind(1,k), l) + &
+                  st_wf(2,k)*is_sumvalsnd(IDX_BL,st_ind(2,k), l) + &
+                  st_wf(3,k)*is_sumvalsnd(IDX_BL,st_ind(3,k), l)   ! could be done with sum
+   enddo 
+   work=work/is_dtint
+   ierr = nf90_put_var(imapfile, id_bl(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+ 
+   !'TRANSPORT'
+   if ((trim(sedtrails_analysis)=='transport' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
+      do l=1,lsedtot
+         do k=1, numk
+            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SBX,st_ind(1,k), l) + &
+                        st_wf(2,k)*is_sumvalsnd(IDX_SBX,st_ind(2,k), l) + &
+                        st_wf(3,k)*is_sumvalsnd(IDX_SBX,st_ind(3,k), l)   ! could be done with sum
+         enddo 
+      enddo
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_sbx(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
+      !
+      do l=1,lsedtot
+         do k=1, numk
+            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SBY,st_ind(1,k), l) + &
+                        st_wf(2,k)*is_sumvalsnd(IDX_SBY,st_ind(2,k), l) + &
+                        st_wf(3,k)*is_sumvalsnd(IDX_SBY,st_ind(3,k), l)   ! could be done with sum
+         enddo 
+      enddo
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_sby(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))   
+      !
+      do l=1,lsedtot
+         do k=1, numk
+            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSX,st_ind(1,k), l) + &
+                        st_wf(2,k)*is_sumvalsnd(IDX_SSX,st_ind(2,k), l) + &
+                        st_wf(3,k)*is_sumvalsnd(IDX_SSX,st_ind(3,k), l)   ! could be done with sum
+         enddo 
+      enddo
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_ssx(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))  
+      !
+      do l=1,lsedtot
+         do k=1, numk
+            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSY,st_ind(1,k), l) + &
+                        st_wf(2,k)*is_sumvalsnd(IDX_SSY,st_ind(2,k), l) + &
+                        st_wf(3,k)*is_sumvalsnd(IDX_SSY,st_ind(3,k), l)   ! could be done with sum
+         enddo 
+      enddo
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_ssy(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))      
+   endif
+   
+   !"SOULSBY"
+   if ((trim(sedtrails_analysis)=='soulsby' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
+      do k=1, numk
+         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_HS,st_ind(1,k), l)+&
+                     st_wf(2,k)*is_sumvalsnd(IDX_HS,st_ind(2,k), l)+&
+                     st_wf(3,k)*is_sumvalsnd(IDX_HS,st_ind(3,k), l)   ! could be done with sum
+      enddo 
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_hs(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+      !
+      do k=1, numk
+         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_TAUS,st_ind(1,k), l)+&
+                     st_wf(2,k)*is_sumvalsnd(IDX_TAUS,st_ind(2,k), l)+&
+                     st_wf(3,k)*is_sumvalsnd(IDX_TAUS,st_ind(3,k), l)   ! could be done with sum
+      enddo 
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_taus(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+      !
+      do k=1, numk
+         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(1,k), l)+&
+                     st_wf(2,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(2,k), l)+&
+                     st_wf(3,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(3,k), l)   ! could be done with sum
+      enddo 
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
+      !
+      do l=1,lsedtot
+         do k=1, numk
+            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSC,st_ind(1,k), l) + &
+                        st_wf(2,k)*is_sumvalsnd(IDX_SSC,st_ind(2,k), l) + &
+                        st_wf(3,k)*is_sumvalsnd(IDX_SSC,st_ind(3,k), l)   ! could be done with sum
+         enddo 
+      enddo
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_ssc(iid), work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))       
+   endif   
+
+end subroutine
+ 
 end module

@@ -1076,7 +1076,6 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/rearst.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/reathd2pli.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/reaweir.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/sedmor_write_stats.f90 -text
-src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/sedtrails.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/sedtrails_netcdf.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/sedtrails_network.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/tecplot.F90 -text
@@ -1810,6 +1809,7 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sam2n
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/samdif.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sample_spline.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/samples_to_cellmask.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sedtrails_stats.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/selllinksinpol.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/set_nudgerate.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/set_saltem_nudge.f90 -text

@@ -195,6 +195,9 @@ function defaultFilename(filecat, timestamp, prefixWithDirectory, allowWildcard)
     case ('avgsedquant')                         
         activeFile = md_avgsedquantfile
         suffix     = '_sed.nc'
+    case ('sedtrails')                         
+        activeFile = md_avgsedtrailsfile
+        suffix     = '_sedtrails.nc'    
     case ('tec')
         activeFile = ''
         suffix     = '.dat'

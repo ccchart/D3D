@@ -163,6 +163,7 @@ implicit none
     character(len=255) :: md_timingsfile   = ' ' !< Output timings file (auto-set)
     character(len=255) :: md_avgwavquantfile = ' ' !< Output map file for time-averaged wave output (e.g., *_wav.nc)
     character(len=255) :: md_avgsedquantfile = ' ' !< Output map file for time-averaged sedmor output (e.g., *_sed.nc)
+    character(len=255) :: md_avgsedtrailsfile = ' ' !< Output map file for time-averaged sedtrails output (e.g., *_sedtrails.nc)
     character(len=255) :: md_waqfilebase   = ' ' !< File basename for all Delwaq files. (defaults to md_ident)
     character(len=255) :: md_waqoutputdir  = ' ' !< Output directory for all WAQ communication files (waqgeom, vol, flo, etc.)
     character(len=255) :: md_waqhoraggr    = ' ' !< DELWAQ output horizontal aggregation file (*.dwq)
@@ -431,6 +432,8 @@ subroutine loadModel(filename)
     use unstruc_caching
     use m_longculverts
     use unstruc_channel_flow
+    use m_flowparameters, only: jasedtrails
+    use m_sedtrails_network, only: sedtrails_loadnetwork, default_sedtrails_geom
 
     interface
        subroutine realan(mlan, antot)
@@ -475,10 +478,7 @@ subroutine loadModel(filename)
 
     ! read and proces dflow1d model
     ! This routine is still used for Morphology model with network in INI-File (Willem Ottevanger)
-
-
-       jadoorladen = 0
-
+    jadoorladen = 0
     timerHandle = 0
     call timstrt('Load network', timerHandle)
     call loadNetwork(md_netfile, istat, jadoorladen)
@@ -657,6 +657,15 @@ subroutine loadModel(filename)
     end if
 
     call delpol()
+    
+    if (jasedtrails>0) then
+       call default_sedtrails_geom()
+       jadoorladen=0
+       call sedtrails_loadNetwork(md_sedtrailsfile, istat, jadoorladen)
+       if (istat>0) then
+          call mess(LEVEL_ERROR,'unstruc_model::loadModel - Could not load sedtrails network.')
+       endif   
+    endif   
 
     call timstop(handle_loadModel)
 end subroutine loadModel
@@ -1369,6 +1378,7 @@ subroutine readMDUFile(filename, istat)
           call prop_get_doubles(md_ptr, 'sedtrails', 'SedtrailsInterval'   ,  ti_st_array, 3, success)
           if (ti_st_array(1) .gt. 0d0) ti_st_array(1) = max(ti_st_array(1) , dt_user)
           call getOutputTimeArrays(ti_st_array, ti_sts, ti_st, ti_ste, success)
+          call prop_get_string (md_ptr, 'sedtrails', 'SedtrailsOutputFile',  md_avgsedtrailsfile, success)
        endif
     endif
     call prop_get_integer(md_ptr, 'wind', 'ICdtyp'                    , ICdtyp)

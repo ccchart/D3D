@@ -201,7 +201,7 @@ type t_unc_mapids
    integer :: id_vol1(MAX_ID_VAR)     = -1 !< Variable ID for volume
    integer :: id_au(MAX_ID_VAR)       = -1 !< Variable ID for flow area
    integer :: id_taus(MAX_ID_VAR)     = -1 !< Variable ID for 
-   integer :: id_tausmax(MAX_ID_VAR)     = -1 !< Variable ID for 
+   integer :: id_tausmax(MAX_ID_VAR)  = -1 !< Variable ID for 
    integer :: id_ucx(MAX_ID_VAR)      = -1 !< Variable ID for 
    integer :: id_ucy(MAX_ID_VAR)      = -1 !< Variable ID for 
    integer :: id_ucz(MAX_ID_VAR)      = -1 !< Variable ID for 
@@ -6516,7 +6516,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    ! Time averaged transports, could probably be more concise...
    !morstarthyd = tstart_user + stmpar%morpar%tmor*tfac        ! seconds
    dmorft      = stmpar%morpar%morft - stmpar%morpar%morft0    ! days since morstart
-   dmorfs      = dmorft*86400.0d0                              ! seconds
+   dmorfs      = dmorft*86400.0d0                              ! seconds since morstart
    mortime     = stmpar%morpar%morft*86400d0                   ! seconds*morfac since tstart_user
    if (stmpar%morpar%hydrt > stmpar%morpar%hydrt0) then       
       moravg = dmorft/(stmpar%morpar%hydrt - stmpar%morpar%hydrt0)

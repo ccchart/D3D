@@ -66,7 +66,7 @@
    enddo
    !
    ! for output purposes
-   if (jamaptaucurrent>0) then
+   if (jamaptaucurrent>0 .or. jasedtrails>0) then
       tausmax   = 0d0
       do L=1,lnx
          k1=ln(1,L)

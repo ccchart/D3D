@@ -228,7 +228,7 @@
    !      In Delft3D this parameter is named 'maximum bottom friction' via the taumax
    !      This is NOT the same as 'bed shear stress' which is defined in Delft3D as rhow*(taubpu*u1 + taubsu)
    !      MIND: taus computed here ~= gettaus!!
-   if (jamaptaucurrent>0) then
+   if (jamaptaucurrent>0 .or. jasedtrails>0) then
       tausmax   = 0d0
       do L=1,LNx
          k1=ln(1,L)

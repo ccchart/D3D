@@ -48,7 +48,7 @@
  use unstruc_files, only: mdia
  use unstruc_netcdf
  use MessageHandling
- use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves
+ use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves, jasedtrails
  use dfm_error
  use m_fm_wq_processes, only: jawaqproc
  use m_vegetation
@@ -64,6 +64,7 @@
  use unstruc_caching
  use m_monitoring_crosssections, only: ncrs, fill_geometry_arrays_crs
  use m_setucxcuy_leastsquare, only: reconst2ndini
+ use m_sedtrails_network, only: sedtrails_get_grid_on_network
 
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
@@ -436,6 +437,10 @@
     end if
  end if
  call timstop(handle_extra(35)) ! end write flowgeom ugrid
+ 
+ if (jasedtrails>0) then
+    call sedtrails_get_grid_on_network()   
+ endif   
 
  ! store the grid-based information in the cache file
  call timstrt('Remainder           ', handle_extra(36)) ! remainder

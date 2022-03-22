@@ -137,7 +137,7 @@ END SUBROUTINE
     use m_sedtrails_data
     use m_polygon
     use m_tpoly
-    use m_partitioninfo
+    use m_partitioninfo, only: my_rank, jampi,generate_partition_pol_from_idomain
     use network_data, only: netstat, NETSTAT_OK
     use geometry_module, only: get_startend
     use m_missing
@@ -240,18 +240,24 @@ END SUBROUTINE
     jakdtree = 1
     allocate ( indxx(3,numk), wfxx(3,numk), dumin(ndx),dumout(numk) )
     dumin=dmiss
-    call TRIINTfast(xz,yz,dumin,ndx,1,xk,yk,dumout,numk,JDLA,jakdtree, jsferic, 1, jins, dmiss, jasfer3D, &
+    call TRIINTfast(xz,yz,dumin,ndx,1,xk,yk,dumout,numk,JDLA,jakdtree, jsferic, 0, jins, dmiss, jasfer3D, &
                     (/0d0/),(/0d0/),(/0d0/),transformcoef)
     !
     call realloc(st_ind,(/3,numk/), keepExisting=.false.,fill=0)
     call realloc(st_wf,(/3,numk/), keepExisting=.false.,fill=0d0)
     do k=1, numk
-       st_ind(3,k)=indxx(3,k)
-       st_wf(3,k)=wfxx(3,k)
+       st_ind(:,k)=indxx(:,k)
+       st_wf(:,k)=wfxx(:,k)
     enddo   
+    !
+    ! And now that we have the correct number of nodes:
+    if (jampi>0) then
+       call realloc(idomain,numk,keepExisting=.false.,fill=my_rank)
+    endif   
     !
     call dealloc_tpoly(pli)
     call restorepol()
+    deallocate (indxx, wfxx, dumin, dumout)
 
  end subroutine
  

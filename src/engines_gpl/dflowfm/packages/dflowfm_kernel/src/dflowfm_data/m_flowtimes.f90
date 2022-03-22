@@ -134,6 +134,7 @@
  double precision                  :: time_map      !< Map output interval
  double precision                  :: time_wav      !< Time-avg'd output interval xb JRE
  double precision                  :: time_sed      !< Time-avg'd output interval sedmor
+ double precision                  :: time_st      !< Time-avg'd output interval sedtrails
  double precision                  :: time_his      !< Next time for his output
  double precision                  :: time_xls      !< Next time for his output
  double precision                  :: time_rst      !< Next time for restart output
