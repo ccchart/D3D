@@ -93,7 +93,7 @@ end subroutine sedtrails_write_nc
 !! Processing is done elsewhere.
 subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
    use m_sedtrails_data
-   use m_sedtrails_network
+   use m_sedtrails_network, only: sedtrails_increasenetwork
    use m_save_ugrid_state
    use io_netcdf
    use netcdf
@@ -380,7 +380,6 @@ end subroutine sedtrails_unc_write_flowgeom_filepointer
 
 subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    use m_sedtrails_stats
-   use m_sedtrails_network
    use m_alloc
    use m_flowtimes, only: Tudunitstr
    use m_fm_erosed
@@ -574,5 +573,45 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    endif   
 
 end subroutine
+
+subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
+    use unstruc_messages
+    use m_missing
+
+    implicit none
+
+
+    character(*), intent(in)  :: filename !< Name of file to be read (in current directory or with full path).
+    integer,      intent(out) :: istat    !< Return status (0=success)
+    integer,      intent(in)  :: jadoorladen
+    character(len=255)        :: data_file_1d
+
+    integer                   :: iDumk
+    integer                   :: iDuml
+   
+    integer                   :: minp,  K0, L0, L, NUMKN, NUMLN
+    logical                   :: jawel
+   
+    inquire(file = filename, exist=jawel)
+    if (.not. jawel) then
+        call mess(LEVEL_WARN,'sedtrails_loadNetwork::Could not open '''//trim(filename)//'''')
+        return
+    end if
+
+    IF (JADOORLADEN == 0) THEN
+        K0 = 0
+    ELSE
+        K0 = NUMK
+    ENDIF
+
+    ! New NetCDF net file
+    call sedtrails_unc_read_net(filename, K0, L0, NUMKN, NUMLN, istat)
+   
+    if (istat == 0) then
+        NUMK = K0 + NUMKN
+    else
+       call qnerror('sedtrails_loadNetwork::Error while loading network from '''//trim(filename)//''', please inspect the preceding diagnostic output.', ' ',  ' ')
+    endif
+end subroutine sedtrails_loadNetwork  
  
 end module

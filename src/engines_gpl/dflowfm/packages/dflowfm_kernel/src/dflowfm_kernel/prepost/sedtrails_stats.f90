@@ -21,7 +21,6 @@ module m_sedtrails_stats
    contains
    
    !> Sets ALL (scalar) variables in this module to their default values.
-   !! For a reinit prior to flow computation, only call reset_integralstats() instead.
    subroutine default_sedtrails_stats()
    
       is_numndvals = 0
@@ -79,7 +78,7 @@ module m_sedtrails_stats
       end if
       
       if (jawave<3) then      ! do not overwrite current+wave induced bed shear stresses from tauwave
-         call gettaus(1, 1)   ! tausmax known from taubxu_nowave
+         call gettaus(1, 1)   ! tausmax known from taubxu_nowave. This needs updating after JRE TRUNKMERGE
       endif
    
       do k=1,ndx

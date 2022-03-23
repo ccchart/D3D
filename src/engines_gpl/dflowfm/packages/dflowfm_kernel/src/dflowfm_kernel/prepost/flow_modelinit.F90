@@ -53,7 +53,7 @@
  use m_fm_wq_processes, only: jawaqproc
  use m_vegetation
  use m_hydrology, only: jadhyd, init_hydrology
- use m_integralstats
+ use m_integralstats, is_is_numndvals=>is_numndvals
  use m_xbeach_data, only: instat, newstatbc, bccreated
  use m_oned_functions
  use unstruc_display, only : ntek, jaGUI
@@ -64,8 +64,9 @@
  use unstruc_caching
  use m_monitoring_crosssections, only: ncrs, fill_geometry_arrays_crs
  use m_setucxcuy_leastsquare, only: reconst2ndini
- use m_sedtrails_network, only: sedtrails_get_grid_on_network
-
+ use m_sedtrails_network
+ use m_sedtrails_netcdf, only: sedtrails_loadNetwork
+ use m_sedtrails_stats, st_is_numndvals=>is_numndvals
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
  ! Activate the following line (See also statements below)
@@ -198,9 +199,9 @@
 
  if (javeg > 0) then
     ! NOTE: AvD: hardcoded for now: if vegetation is on, maintain max shear stresses for Peter and Jasper.
-    is_numndvals = 3
+    is_is_numndvals = 3
  end if
-
+ 
  ! 3D: flow_allocflow will set kmxn, kmxL and kmxc arrays
  call timstrt('Flow allocate arrays          ', handle_extra(37)) ! alloc flow
  call flow_allocflow()                               ! allocate   flow arrays
@@ -418,7 +419,12 @@
     call flow_fourierinit()
  endif
  call timstop(handle_extra(33)) ! end Fourier init
-
+ 
+ ! Initialise sedtrails statistics
+  if (jasedtrails>0) then
+    st_is_numndvals = 11
+    call alloc_sedtrails_stats()
+ endif
  
  call timstrt('MDU file pointer    ', handle_extra(34)) ! writeMDUFilepointer
  call mess(LEVEL_INFO, '** Model initialization was successful **')
@@ -439,7 +445,12 @@
  call timstop(handle_extra(35)) ! end write flowgeom ugrid
  
  if (jasedtrails>0) then
-    call sedtrails_get_grid_on_network()   
+    call default_sedtrails_geom()
+    call sedtrails_loadNetwork(md_sedtrailsfile, istat, 0)
+    if (istat>0) then
+       call mess(LEVEL_ERROR,'unstruc_model::loadModel - Could not load sedtrails network.')
+    endif 
+   call sedtrails_get_grid_on_network()   
  endif   
 
  ! store the grid-based information in the cache file

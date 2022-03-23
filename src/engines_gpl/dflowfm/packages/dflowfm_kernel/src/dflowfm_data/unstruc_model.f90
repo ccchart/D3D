@@ -432,8 +432,6 @@ subroutine loadModel(filename)
     use unstruc_caching
     use m_longculverts
     use unstruc_channel_flow
-    use m_flowparameters, only: jasedtrails
-    use m_sedtrails_network, only: sedtrails_loadnetwork, default_sedtrails_geom
 
     interface
        subroutine realan(mlan, antot)
@@ -657,16 +655,7 @@ subroutine loadModel(filename)
     end if
 
     call delpol()
-    
-    if (jasedtrails>0) then
-       call default_sedtrails_geom()
-       jadoorladen=0
-       call sedtrails_loadNetwork(md_sedtrailsfile, istat, jadoorladen)
-       if (istat>0) then
-          call mess(LEVEL_ERROR,'unstruc_model::loadModel - Could not load sedtrails network.')
-       endif   
-    endif   
-
+     
     call timstop(handle_loadModel)
 end subroutine loadModel
 
@@ -1374,13 +1363,25 @@ subroutine readMDUFile(filename, istat)
           jasedtrails=1
           call mess(LEVEL_INFO, 'SedTrails enabled.')
           call prop_get_string (md_ptr, 'sedtrails', 'SedtrailsAnalysis',  sedtrails_analysis, success)
+          
           ti_st_array = 0d0
           call prop_get_doubles(md_ptr, 'sedtrails', 'SedtrailsInterval'   ,  ti_st_array, 3, success)
           if (ti_st_array(1) .gt. 0d0) ti_st_array(1) = max(ti_st_array(1) , dt_user)
           call getOutputTimeArrays(ti_st_array, ti_sts, ti_st, ti_ste, success)
           call prop_get_string (md_ptr, 'sedtrails', 'SedtrailsOutputFile',  md_avgsedtrailsfile, success)
+          
+          call str_lower(sedtrails_analysis)
+          if (.not.(trim(sedtrails_analysis)=='all' .or. &
+                    trim(sedtrails_analysis)=='flowvelocity' .or. & 
+                    trim(sedtrails_analysis)=='transport' .or. &
+                    trim(sedtrails_analysis)=='soulsby')) then
+             call mess(LEVEL_WARN,'Invalid entry for SedtrailsAnalysis. Should be all, transport, flowvelocity or soulsby. Sedtrails output switched off.')
+             jasedtrails=0
+          endif  
        endif
     endif
+    
+    
     call prop_get_integer(md_ptr, 'wind', 'ICdtyp'                    , ICdtyp)
     if (Icdtyp == 1) then
        call prop_get_doubles(md_ptr, 'wind', 'Cdbreakpoints'          , Cdb, 1)
@@ -3205,13 +3206,6 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
           end if
        endif
     endif
-    
-    if (writeall .or. jasedtrails>0) then
-        ti_st_array(1) = ti_st
-        ti_st_array(2) = ti_sts
-        ti_st_array(3) = ti_ste
-        call prop_set(prop_ptr, 'sedtrails', 'SedtrailsInterval', ti_st_array, 'SedTrails averaging times (s), interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period')
-    endif
 
     if (writeall .or. javeg > 0) then
        call prop_set(prop_ptr, 'veg', 'Vegetationmodelnr', javeg      , 'Vegetation model nr, (0=no, 1=Baptist DFM)')
@@ -3313,6 +3307,16 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        endif
 
     endif
+    
+    if (writeall .or. jasedtrails>0) then
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsGrid',  md_sedtrailsfile, 'Grid file for sedtrails output locations on corners')
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsAnalysis',  md_sedtrailsfile, 'Sedtrails analysis. Should be all, transport, flowvelocity or soulsby.')
+       ti_st_array(1) = ti_st
+       ti_st_array(2) = ti_sts
+       ti_st_array(3) = ti_ste
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsInterval', ti_st_array, 'Sedtrails output times (s), interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period')
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsOutputFile', md_avgsedtrailsfile, 'Sedtrails time-avgd output file')
+    endif   
 
     ! Time
     call prop_set(prop_ptr, 'time', 'RefDate',                 refdat,         'Reference date (yyyymmdd)')

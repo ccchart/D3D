@@ -17,48 +17,7 @@ module m_sedtrails_network
        ! node (s) related : dim=numk
        numk=0
    end subroutine
-   
-   subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
-       use m_sedtrails_netcdf, only : sedtrails_unc_read_net
-       use unstruc_messages
-       use m_missing
-   
-       implicit none
-   
-   
-       character(*), intent(in)  :: filename !< Name of file to be read (in current directory or with full path).
-       integer,      intent(out) :: istat    !< Return status (0=success)
-       integer,      intent(in)  :: jadoorladen
-       character(len=255)        :: data_file_1d
-   
-       integer                   :: iDumk
-       integer                   :: iDuml
       
-       integer                   :: minp,  K0, L0, L, NUMKN, NUMLN
-       logical                   :: jawel
-      
-       inquire(file = filename, exist=jawel)
-       if (.not. jawel) then
-           call mess(LEVEL_WARN,'sedtrails_loadNetwork::Could not open '''//trim(filename)//'''')
-           return
-       end if
-   
-       IF (JADOORLADEN == 0) THEN
-           K0 = 0
-       ELSE
-           K0 = NUMK
-       ENDIF
-   
-       ! New NetCDF net file
-       call sedtrails_unc_read_net(filename, K0, L0, NUMKN, NUMLN, istat)
-      
-       if (istat == 0) then
-           NUMK = K0 + NUMKN
-       else
-          call qnerror('sedtrails_loadNetwork::Error while loading network from '''//trim(filename)//''', please inspect the preceding diagnostic output.', ' ',  ' ')
-       endif
-   end subroutine sedtrails_loadNetwork  
-   
    !> Increase the number of net links
    SUBROUTINE sedtrails_increasenetwork(K0,L0)
    use m_alloc

@@ -44,11 +44,13 @@ use dfm_error
 use dfm_signals
 use m_mass_balance_areas, only: jamba
 use m_partitioninfo, only: jampi, my_rank
-use m_integralstats
+use m_integralstats, is_is_numndvals=>is_numndvals
 use m_fourier_analysis
 use m_oned_functions, only: updateTimeWetOnGround, updateTotalInflow1d2d, updateTotalInflowLat, &
                             updateFreeboard, updateDepthOnGround, updateVolOnGround
 use unstruc_channel_flow, only : network
+use m_sedtrails_stats, st_is_numndvals=>is_numndvals
+
 implicit none
 integer, intent(out) :: iresult
 
@@ -117,9 +119,15 @@ integer, intent(out) :: iresult
  ! note updateValuesOnObservationStations() in flow_usertimestep
 
  ! Time-integral statistics on all flow nodes.
- if (is_numndvals > 0) then
+ if (is_is_numndvals > 0) then
     call update_integralstats()
  end if
+ 
+ if (jasedtrails>0) then
+    if (st_is_numndvals > 0) then
+       call update_sedtrails_stats()
+    end if
+ endif   
 
  if ( jaGUI.eq.1 ) then
     call TEXTFLOW()

@@ -29,7 +29,7 @@ module m_sedtrails_data
    
       implicit none
       
-      sedtrails_analysis = ''
+      sedtrails_analysis = 'all'
 
    end subroutine
    
