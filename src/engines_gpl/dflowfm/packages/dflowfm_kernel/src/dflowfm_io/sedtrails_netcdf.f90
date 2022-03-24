@@ -6,14 +6,6 @@ module m_sedtrails_netcdf
    
    type t_unc_sedtrailsids
       integer                  :: ncid = 0 !< NetCDF data set id (typically NetCDF file pointer)
-      type(t_unc_timespace_id) :: id_tsp
-      
-      integer                  :: id_time               = -1  
-      integer                  :: id_timestep           = -1  
-      integer                  :: id_H_mean(4)          = -1
-      integer                  :: id_H_var(4)           = -1
-      integer                  :: id_H_min(4)           = -1 
-      integer                  :: id_H_max(4)           = -1 
    end type t_unc_sedtrailsids
    
    contains
@@ -32,7 +24,7 @@ subroutine sedtrails_write_stats(tim)
    ierr = 1
    if (ti_st > 0) then
       if (comparereal(tim, time_st, eps10) >= 0) then
-         call sedtrails_write_nc(tim)
+         call sedtrails_write_nc(time_st)
          call reset_sedtrails_stats()
          if (ti_st > 0) then
              time_st = max(ti_sts + (floor((tim-ti_sts)/ti_st)+1)*ti_st,ti_sts)
@@ -53,6 +45,7 @@ end subroutine
 
 subroutine sedtrails_write_nc(tim)
     use netcdf
+    use m_flowtimes, only: it_st
     use unstruc_model
     use unstruc_files , only: defaultFilename
     use Messagehandling
@@ -64,7 +57,7 @@ subroutine sedtrails_write_nc(tim)
     integer                        :: ierr
     character(len=256)             :: filnam
 
-    if (stids%ncid /= 0 .and. ((stids%id_tsp%idx_curtime == 0))) then
+    if (stids%ncid /= 0 .and. it_st==0) then
        ierr = unc_close(stids%ncid)
        stids%ncid = 0
     end if
@@ -309,9 +302,8 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     integer                         :: ndxndxi       !< Last node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
     integer :: ierr
     integer ::  id_flowelemdim,& 
-        id_flowelemxcc, id_flowelemycc, id_flowelemzcc, &
-        id_flowelemba,&
-        id_flowelemdomain
+                id_flowelemxcc, id_flowelemycc, id_flowelemzcc, &
+                id_flowelemdomain
 
     integer :: i, numContPts, numNodes, n, nn, L
     integer :: jaInDefine
@@ -362,7 +354,6 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     ! Flow cell cc coordinates (only 1D + internal 2D)
     ierr = nf90_put_var(igeomfile, id_flowelemxcc, xk(1:ndxndxi))
     ierr = nf90_put_var(igeomfile, id_flowelemycc, yk(1:ndxndxi))
-    !ierr = nf90_put_var(igeomfile, id_flowelemba, ba(1:ndxndxi))      ! after consultation with Stuart, not needed
     
     ! domain numbers
     if ( jampi.eq.1 ) then  
@@ -440,7 +431,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
        idims(2) = id_timedim(iid)
 
        ! Variables that will always be written
-       call definencvar(imapfile,id_bl(iid)   ,nf90_double,idims,2, 'bottomlevel', 'bottom level', 'm', 'net_xcc net_ycc')
+       call definencvar(imapfile,id_bl(iid)   ,nf90_double,idims,2, 'bedlevel', 'bed level', 'm', 'net_xcc net_ycc')
        
        if (trim(sedtrails_analysis)=='flowvelocity' .or. trim(sedtrails_analysis)=='all') then
           call definencvar(imapfile,id_ucx(iid),nf90_double,idims,2, 'sea_water_x_velocity', 'depth-averaged velocity on grid corner, x-component', 'm s-1', 'net_xcc net_ycc')
@@ -477,9 +468,9 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    it_st   = it_st+1
    itim    = it_st ! Increment time dimension index  
     
-    ! Time
-    ierr = nf90_put_var(imapfile, id_time    (iid), tim, (/ itim /))
-    ierr = nf90_put_var(imapfile, id_timestep(iid), is_dtint, (/ itim /))
+   ! Time
+   ierr = nf90_put_var(imapfile, id_time(iid), tim, (/ itim /))
+   ierr = nf90_put_var(imapfile, id_timestep(iid), is_dtint, (/ itim /))
    
    ! Analysis:
    call realloc(work,(/ numk, lsedtot/), keepExisting=.false., fill=0d0)
@@ -490,8 +481,8 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
       work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_BL,st_ind(nodes,k), 1))
    enddo 
    work=work/is_dtint
-   ierr = nf90_put_var(imapfile, id_bl(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
-   
+   ierr = nf90_put_var(imapfile, id_bl(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+      
    ! 'FLOWVELOCITY'
    if ((trim(sedtrails_analysis)=='flowvelocity' .or. trim(sedtrails_analysis)=='all')) then
       do k=1, numk
@@ -499,14 +490,14 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCX,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ucx(iid)  , work, (/ 1, itim /), (/ ndxndxi,1 /))
+      ierr = nf90_put_var(imapfile, id_ucx(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi,1 /))
       !
       do k=1, numk
          nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCY,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ucy(iid)  , work, (/ 1, itim /), (/ ndxndxi, 1 /))  
+      ierr = nf90_put_var(imapfile, id_ucy(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
    endif
  
    !'TRANSPORT'
@@ -518,7 +509,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_sbx(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
+      ierr = nf90_put_var(imapfile, id_sbx(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
       !
       do l=1,lsedtot
          do k=1, numk
@@ -527,7 +518,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_sby(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))   
+      ierr = nf90_put_var(imapfile, id_sby(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))   
       !
       do l=1,lsedtot
          do k=1, numk
@@ -536,7 +527,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssx(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))  
+      ierr = nf90_put_var(imapfile, id_ssx(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))  
       !
       do l=1,lsedtot
          do k=1, numk
@@ -545,7 +536,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssy(iid)  , work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))      
+      ierr = nf90_put_var(imapfile, id_ssy(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))      
    endif
    
    !"SOULSBY"
@@ -555,21 +546,21 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_HS,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_hs(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+      ierr = nf90_put_var(imapfile, id_hs(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
          nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUS,st_ind(nodes,k), 1))         
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_taus(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+      ierr = nf90_put_var(imapfile, id_taus(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
          nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(nodes,k), 1))         
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
+      ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
       !
       do l=1,lsedtot
          do k=1, numk
@@ -578,9 +569,8 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssc(iid), work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))       
+      ierr = nf90_put_var(imapfile, id_ssc(iid), work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))       
    endif   
-   ierr = nf90_sync(imapfile)
    
 end subroutine
 
