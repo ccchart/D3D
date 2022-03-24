@@ -70,6 +70,7 @@ module m_sedtrails_stats
       use m_fm_erosed
       use m_transport, only: constituents, ISED1
       use m_sediment, only: sedtot2sedsus, stm_included
+      use m_flowparameters, only: jawave
    
       integer :: k
    
@@ -103,7 +104,7 @@ module m_sedtrails_stats
             enddo
          end do 
          
-         do l=1, lsedsus
+         do l=1, lsed
             do k=1,ndx
                is_sumvalsnd(IDX_SSC , k, sedtot2sedsus(l)) = is_sumvalsnd(IDX_SSC  ,k, sedtot2sedsus(l)) + dts * constituents(ISED1+l-1,k)   ! this works just for 2D now
             enddo   

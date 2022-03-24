@@ -343,17 +343,18 @@
    implicit none
    !
    ! parameters
-   integer,       intent(inout)        :: jakdtree               !< use kdtree (1) or not (0)
-   integer,       intent(in)           :: ns, NDIM               !< sample vector dimension
-   integer,       intent(in)           :: nh, jins, jsferic, nxy
-   integer,       intent(out)          :: jdla                   ! always 0 on return
-   real(kind=hp), intent(in)           :: dmiss
-   integer,       intent(in)           :: jasfer3D
-   real(kind=hp), intent(in), target   :: XS_IN(ns), YS_IN(ns), ZS_IN(NDIM,ns) !< sample coordinates and values
-   real(kind=hp), intent(in)           :: X(:), Y(:)                           !< node coordinates
-   real(kind=hp), intent(inout)        :: Z(NDIM,nxy)                          !< node values
-   real(kind=hp), intent(in)           :: XH(:), YH(:), ZH(:), transformcoef(:)
-   integer,       intent(in), optional :: kc(:)
+   integer,       intent(inout)           :: jakdtree               !< use kdtree (1) or not (0)
+   integer,       intent(in)              :: ns, NDIM               !< sample vector dimension
+   integer,       intent(in)              :: nh, jins, jsferic, nxy
+   integer,       intent(out)             :: jdla                   ! always 0 on return
+   real(kind=hp), intent(in)              :: dmiss
+   integer,       intent(in)              :: jasfer3D
+   real(kind=hp), intent(in), target      :: XS_IN(ns), YS_IN(ns), ZS_IN(NDIM,ns) !< sample coordinates and values
+   real(kind=hp), intent(in)              :: X(:), Y(:)                           !< node coordinates
+   real(kind=hp), intent(inout)           :: Z(NDIM,nxy)                          !< node values
+   real(kind=hp), intent(in)              :: XH(:), YH(:), ZH(:), transformcoef(:)
+   integer,       intent(in), optional    :: kc(:)
+
    !
    ! locals
    real(kind=hp)                       :: af

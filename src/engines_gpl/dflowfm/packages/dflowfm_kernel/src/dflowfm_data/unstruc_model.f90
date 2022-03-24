@@ -2431,6 +2431,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     use m_sobekdfm,              only : sbkdfm_umin, sbkdfm_umin_method, minimal_1d2d_embankment, sbkdfm_relax
     use m_subsidence, only: sdu_update_s1
     use unstruc_channel_flow
+    use m_sedtrails_data
 
     integer, intent(in)  :: mout  !< File pointer where to write to.
     logical, intent(in)  :: writeall !< Write all fields, including default values
@@ -3309,13 +3310,13 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     endif
     
     if (writeall .or. jasedtrails>0) then
-       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsGrid',  md_sedtrailsfile, 'Grid file for sedtrails output locations on corners')
-       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsAnalysis',  md_sedtrailsfile, 'Sedtrails analysis. Should be all, transport, flowvelocity or soulsby.')
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsGrid',  trim(md_sedtrailsfile), 'Grid file for sedtrails output locations on corners')
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsAnalysis',  trim(sedtrails_analysis), 'Sedtrails analysis. Should be all, transport, flowvelocity or soulsby.')
        ti_st_array(1) = ti_st
        ti_st_array(2) = ti_sts
        ti_st_array(3) = ti_ste
        call prop_set(prop_ptr, 'sedtrails', 'SedtrailsInterval', ti_st_array, 'Sedtrails output times (s), interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period')
-       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsOutputFile', md_avgsedtrailsfile, 'Sedtrails time-avgd output file')
+       call prop_set(prop_ptr, 'sedtrails', 'SedtrailsOutputFile', trim(md_avgsedtrailsfile), 'Sedtrails time-avgd output file')
     endif   
 
     ! Time

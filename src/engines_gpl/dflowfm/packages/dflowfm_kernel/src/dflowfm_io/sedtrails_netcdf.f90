@@ -227,7 +227,7 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
 
    end do
    
-   call realloc(zk,numk_read,keepExisting=.false.,fill=dmiss)
+   call realloc(zk,numk_read,keepExisting=.false.,fill=0d0)
 
    ! Success
 888 continue    
@@ -396,13 +396,14 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    
    ! Locals
    integer                                :: ndxndxi
-   integer                                :: iid, k, l
+   integer                                :: iid, k, l, ii
    integer                                :: ierr, itim
    integer, save                          :: ndim
    integer, dimension(2)                  :: idims
    integer, dimension(2), save            :: id_timedim, id_time, id_timestep, id_sbx, id_sby, id_ssx, id_ssy, id_ssc, &
                                              id_sedtotdim,id_flowelemdim, id_ucx, id_ucy, id_bl, id_hs, id_taus, id_tausmax
    double precision, allocatable          :: work(:,:)
+   integer         , allocatable          :: nodes(:)
    
    ! Define variables and write time-invariant data
    if (numk <= 0) then
@@ -481,24 +482,39 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
     ierr = nf90_put_var(imapfile, id_timestep(iid), is_dtint, (/ itim /))
    
    ! Analysis:
-   call realloc(work,(/ numk, lsedtot/), keepExisting=.false., fill=dmiss)
+   call realloc(work,(/ numk, lsedtot/), keepExisting=.false., fill=0d0)
    
    ! Bottom level
    do k=1, numk
-      work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_BL,st_ind(1,k), l) + &
-                  st_wf(2,k)*is_sumvalsnd(IDX_BL,st_ind(2,k), l) + &
-                  st_wf(3,k)*is_sumvalsnd(IDX_BL,st_ind(3,k), l)   ! could be done with sum
+      nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+      work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_BL,st_ind(nodes,k), 1))
    enddo 
    work=work/is_dtint
    ierr = nf90_put_var(imapfile, id_bl(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
+   
+   ! 'FLOWVELOCITY'
+   if ((trim(sedtrails_analysis)=='flowvelocity' .or. trim(sedtrails_analysis)=='all')) then
+      do k=1, numk
+         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCX,st_ind(nodes,k), 1))
+      enddo 
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_ucx(iid)  , work, (/ 1, itim /), (/ ndxndxi,1 /))
+      !
+      do k=1, numk
+         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCY,st_ind(nodes,k), 1))
+      enddo 
+      work=work/is_dtint
+      ierr = nf90_put_var(imapfile, id_ucy(iid)  , work, (/ 1, itim /), (/ ndxndxi, 1 /))  
+   endif
  
    !'TRANSPORT'
    if ((trim(sedtrails_analysis)=='transport' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
       do l=1,lsedtot
          do k=1, numk
-            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SBX,st_ind(1,k), l) + &
-                        st_wf(2,k)*is_sumvalsnd(IDX_SBX,st_ind(2,k), l) + &
-                        st_wf(3,k)*is_sumvalsnd(IDX_SBX,st_ind(3,k), l)   ! could be done with sum
+            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SBX,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
@@ -506,9 +522,8 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
       !
       do l=1,lsedtot
          do k=1, numk
-            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SBY,st_ind(1,k), l) + &
-                        st_wf(2,k)*is_sumvalsnd(IDX_SBY,st_ind(2,k), l) + &
-                        st_wf(3,k)*is_sumvalsnd(IDX_SBY,st_ind(3,k), l)   ! could be done with sum
+            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SBY,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
@@ -516,9 +531,8 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
       !
       do l=1,lsedtot
          do k=1, numk
-            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSX,st_ind(1,k), l) + &
-                        st_wf(2,k)*is_sumvalsnd(IDX_SSX,st_ind(2,k), l) + &
-                        st_wf(3,k)*is_sumvalsnd(IDX_SSX,st_ind(3,k), l)   ! could be done with sum
+            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSX,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
@@ -526,9 +540,8 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
       !
       do l=1,lsedtot
          do k=1, numk
-            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSY,st_ind(1,k), l) + &
-                        st_wf(2,k)*is_sumvalsnd(IDX_SSY,st_ind(2,k), l) + &
-                        st_wf(3,k)*is_sumvalsnd(IDX_SSY,st_ind(3,k), l)   ! could be done with sum
+            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSY,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
@@ -538,40 +551,37 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    !"SOULSBY"
    if ((trim(sedtrails_analysis)=='soulsby' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
       do k=1, numk
-         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_HS,st_ind(1,k), l)+&
-                     st_wf(2,k)*is_sumvalsnd(IDX_HS,st_ind(2,k), l)+&
-                     st_wf(3,k)*is_sumvalsnd(IDX_HS,st_ind(3,k), l)   ! could be done with sum
+         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_HS,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_hs(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
-         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_TAUS,st_ind(1,k), l)+&
-                     st_wf(2,k)*is_sumvalsnd(IDX_TAUS,st_ind(2,k), l)+&
-                     st_wf(3,k)*is_sumvalsnd(IDX_TAUS,st_ind(3,k), l)   ! could be done with sum
+         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUS,st_ind(nodes,k), 1))         
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_taus(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
-         work(k,1) = st_wf(1,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(1,k), l)+&
-                     st_wf(2,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(2,k), l)+&
-                     st_wf(3,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(3,k), l)   ! could be done with sum
+         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(nodes,k), 1))         
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(:,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
       !
       do l=1,lsedtot
          do k=1, numk
-            work(k,l) = st_wf(1,k)*is_sumvalsnd(IDX_SSC,st_ind(1,k), l) + &
-                        st_wf(2,k)*is_sumvalsnd(IDX_SSC,st_ind(2,k), l) + &
-                        st_wf(3,k)*is_sumvalsnd(IDX_SSC,st_ind(3,k), l)   ! could be done with sum
+            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSC,st_ind(nodes,k), l))            
          enddo 
       enddo
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_ssc(iid), work, (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))       
    endif   
-
+   ierr = nf90_sync(imapfile)
+   
 end subroutine
 
 subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)

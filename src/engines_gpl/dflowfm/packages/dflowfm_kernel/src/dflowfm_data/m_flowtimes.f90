@@ -236,6 +236,9 @@ subroutine default_flowtimes()
     ti_his      = 120d0             !< history interval (s)
     ti_seds     = 0d0
     ti_sede     = 0d0
+    ti_sts      = 0d0
+    ti_ste      = 0d0
+    ti_st       = 3600d0
     ti_xls      = 0d0               !< history interval (s) xls
     ti_rst      = 24d0*3600d0       !< restart interval (s)
     ti_mba      = 0d0
@@ -281,6 +284,7 @@ subroutine reset_flowtimes()
     time_map     = tstart_user       !< next time for map output
     time_wav     = tstart_user       !< same, wav
     time_sed     = tstart_user       !< same, morstats
+    time_st      = tstart_user       !< same, sedtrails
     time_his     = tstart_user       !< next time for his output
     time_xls     = tstart_user       !< next time for his output
     time_rst     = tstart_user       !< next time for restart output

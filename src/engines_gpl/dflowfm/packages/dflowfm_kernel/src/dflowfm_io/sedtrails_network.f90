@@ -98,12 +98,12 @@ END SUBROUTINE
     use m_tpoly
     use m_partitioninfo, only: my_rank, jampi,generate_partition_pol_from_idomain
     use network_data, only: netstat, NETSTAT_OK
-    use geometry_module, only: get_startend
+    use geometry_module, only: get_startend, dbdistance
     use m_missing
     use m_flowexternalforcings, only: transformcoef
-    use m_flowgeom, only: xz, yz,ndx
+    use m_flowgeom, only: xz, yz,ndx,bl
     use m_ec_triangle, only: jagetwf, indxx, wfxx
-    use m_ec_basic_interpolation, only: triintfast
+    use m_ec_basic_interpolation, only: triinterp2
     use m_sferic
     
     implicit none
@@ -113,7 +113,9 @@ END SUBROUTINE
     integer                               :: ipoint, ipoly, numpoints
     integer                               :: istart, iend
     integer                               :: nv, iorient,iinterior,inside
-    integer                               :: jakdtree, jdla
+    integer                               :: jakdtree, jdla, ip1
+    double precision                      :: dmaxsize
+    
     integer, allocatable                  :: indices(:)
     integer, allocatable                  :: sedtrails_idom(:)
     double precision, allocatable         :: dumin(:), dumout(:)
@@ -178,6 +180,9 @@ END SUBROUTINE
        endif   
     enddo
     !
+    call dealloc_tpoly(pli)
+    call restorepol()
+    !
     ! Get own nodes
     indices=find_nodes_idom_int(sedtrails_idom, 1)
     numk=size(indices)
@@ -197,10 +202,14 @@ END SUBROUTINE
     ! Save in module variables st_ind, st_wf
     jagetwf = 1
     jakdtree = 1
-    allocate ( indxx(3,numk), wfxx(3,numk), dumin(ndx),dumout(numk) )
-    dumin=dmiss
-    call TRIINTfast(xz,yz,dumin,ndx,1,xk,yk,dumout,numk,JDLA,jakdtree, jsferic, 0, jins, dmiss, jasfer3D, &
-                    (/0d0/),(/0d0/),(/0d0/),transformcoef)
+    jdla=1
+    call realloc(indxx,(/ 3,numk /),keepExisting=.false., fill=0)
+    call realloc(wfxx,(/ 3,numk /),keepExisting=.false., fill=0d0)
+    call realloc(dumout,numk,keepExisting=.false., fill=dmiss)
+ 
+    transformcoef(6)=1.1d0
+    CALL triinterp2(xk, yk, dumout, numk, jdla, &
+            xz, yz, bl, ndx, dmiss, jsferic, jins, jasfer3D, NPL, 0, 0, XPL, YPL, ZPL, transformcoef)
     !
     call realloc(st_ind,(/3,numk/), keepExisting=.false.,fill=0)
     call realloc(st_wf,(/3,numk/), keepExisting=.false.,fill=0d0)
@@ -214,9 +223,7 @@ END SUBROUTINE
        call realloc(idomain,numk,keepExisting=.false.,fill=my_rank)
     endif   
     !
-    call dealloc_tpoly(pli)
-    call restorepol()
-    deallocate (indxx, wfxx, dumin, dumout)
+    deallocate (indxx, wfxx, dumout)
 
  end subroutine
  
