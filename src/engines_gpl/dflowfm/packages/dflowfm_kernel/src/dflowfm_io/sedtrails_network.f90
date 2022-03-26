@@ -7,7 +7,6 @@ module m_sedtrails_network
    contains
    
    subroutine default_sedtrails_geom()
-   ! JRE Clean this after throwing out all 1D stuff
       
        ! Remaining of variables is handled in reset_flowgeom()
        call reset_sedtrails_geom()
@@ -19,13 +18,12 @@ module m_sedtrails_network
    end subroutine
       
    !> Increase the number of net links
-   SUBROUTINE sedtrails_increasenetwork(K0,L0)
+   SUBROUTINE sedtrails_increasenetwork(K0)
    use m_alloc
    use m_missing, only : xymis, dmiss
 
    implicit none
    integer,           intent(in) :: K0       !< New number of net nodes.
-   integer,           intent(in) :: L0       !< New number of net links
 
    integer :: ierr
    integer :: k
@@ -36,7 +34,7 @@ module m_sedtrails_network
    CALL sedtrails_SAVENET()
 
    IF (KMAX <= K0) THEN
-      KMAX = K0 + 100000   ! 2 KAN WEG
+      KMAX = K0 + 100000
       IF (allocated(xk)) then
          deallocate(xk, yk)
       end if
@@ -50,7 +48,7 @@ module m_sedtrails_network
 
 END SUBROUTINE 
    
-   !> Restore variables with backup data
+!> Restore variables with backup data
 SUBROUTINE sedtrails_RESTORE()
    use m_sedtrails_data
    implicit none
@@ -72,8 +70,8 @@ END SUBROUTINE
    use m_sedtrails_data
    implicit none
    integer :: ierr
-   integer :: k, KX, LS, LS0, LX, NN
-
+   integer :: k, KX
+   
    if (.not. allocated(xk)) return
 
    KX = KMAX ! backup everything present (in case numk has not yet been increased) ! KX = NUMK
@@ -196,6 +194,7 @@ END SUBROUTINE
     call realloc(yk,numk,keepExisting=.false.,fill=0d0)   
     xk=xk1(indices)
     yk=yk1(indices)
+    deallocate(xk1, yk1)
     !
     ! Generate interpolation weights from flowgeom cell centres
     ! Use dummy interpolation

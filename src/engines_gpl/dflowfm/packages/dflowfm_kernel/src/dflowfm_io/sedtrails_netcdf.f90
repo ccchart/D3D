@@ -84,7 +84,7 @@ end subroutine sedtrails_write_nc
    
 !> Reads the net data from a NetCDF file.
 !! Processing is done elsewhere.
-subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
+subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep,  numk_read, ierr)
    use m_sedtrails_data
    use m_sedtrails_network, only: sedtrails_increasenetwork
    use m_save_ugrid_state
@@ -100,32 +100,23 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
 
    character(len=*), intent(in)    :: filename           !< Name of NetCDF file.
    integer,          intent(inout) :: numk_keep          !< Number of netnodes to keep in existing net (0 to replace all).
-   integer,          intent(inout) :: numl_keep          !< Number of netlinks to keep in existing net (0 to replace all).
    integer,          intent(out)   :: numk_read          !< Number of new netnodes read from file.
-   integer,          intent(out)   :: numl_read          !< Number of new netlinks read from file.
    integer,          intent(out)   :: ierr               !< Return status (NetCDF operations)
 
    integer                         :: ioncid, iconvtype, start_index, networkIndex
-   integer                         :: im, nmesh, i, L, numk_last, numl_last
-   integer                         :: ncid, id_netnodez
-   integer, allocatable            :: kn12(:,:), kn3(:) ! Placeholder arrays for the edge_nodes and edge_types
-   double precision                :: convversion, zk_fillvalue, altsign
+   integer                         :: im, nmesh, i, numk_last
+   integer                         :: ncid
+   double precision                :: convversion
    type(t_ug_meshgeom)             :: meshgeom
 
    character(len=:), allocatable             :: tmpstring
-   integer :: n1, n2, ibr_n1, ibr_n2, ibr
-   double precision :: off1, off2
-   integer :: numerr, threshold_abort_current
    logical :: need_edgelengths, includeArrays
 
    numk_read = 0
-   numl_read = 0
    start_index = 1
    numk_last = numk_keep
-   numl_last = numl_keep
    includeArrays = .true.
    networkIndex = 0
-   numerr = 0
    
    allocate(character(len=0) :: tmpstring)
    ierr = ionc_open(filename, NF90_NOWRITE, ioncid, iconvtype, convversion)
@@ -182,7 +173,7 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
          ierr = ionc_get_meshgeom(ioncid, im, networkIndex, meshgeom, start_index, includeArrays) 
          mesh2dname = meshgeom%meshname
       else
-         ! Only support 1D network and 2D grid
+         ! Only support 2D grid
          write(msgbuf, '(a,i0,a,i0,a)') 'sedtrails_unc_read_net_ugrid: unsupported topology dimension ', meshgeom%dim, &
             ' in file '''//trim(filename)//' for mesh #', im, '.'
          call warn_flush()
@@ -192,10 +183,10 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
       need_edgelengths = .false. ! Either from a previous meshgeom, or now for the first time.
       
       !increasenetw 
-      call sedtrails_increasenetwork(numk_last + meshgeom%numnode, numl_last + meshgeom%numedge) ! increases XK, YK, KN, optionally dxe
+      call sedtrails_increasenetwork(numk_last + meshgeom%numnode) ! increases XK, YK, KN, optionally dxe
       if (meshgeom%dim == 2) then  ! always true, see above
          ! 2D
-         ierr = ionc_get_node_coordinates(ioncid, im, XK(numk_last+1:numk_last + meshgeom%numnode), YK(numk_last+1:numk_last + meshgeom%numnode)) ! TODO: LC: this duplicates with the above get_meshgeom with includearrays=.true.
+         ierr = ionc_get_node_coordinates(ioncid, im, XK(numk_last+1:numk_last + meshgeom%numnode), YK(numk_last+1:numk_last + meshgeom%numnode))
       endif
 
       if (ierr /= ionc_noerr) then
@@ -213,10 +204,6 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_rea
       
       numk_read = numk_read + meshgeom%numnode 
       numk_last = numk_last + meshgeom%numnode  
-
-      ! not used
-      numl_read = numl_read + meshgeom%numedge
-      numl_last = numl_last + meshgeom%numedge
 
    end do
    
@@ -238,7 +225,7 @@ end subroutine sedtrails_unc_read_net_ugrid
    
 !> Reads the net data from a NetCDF file.
 !! Processing is done elsewhere.
-subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
+subroutine sedtrails_unc_read_net(filename, numk_keep, numk_read, ierr)
     use m_sedtrails_data
     use m_sferic
     use m_missing
@@ -247,16 +234,14 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, num
 
     character(len=*), intent(in)     :: filename  !< Name of NetCDF file.
     integer,          intent(inout)  :: numk_keep !< Number of netnodes to keep in existing net.
-    integer,          intent(inout)  :: numl_keep !< Number of netlinks to keep in existing net.
     integer,          intent(out)    :: numk_read !< Number of new netnodes read from file.
-    integer,          intent(out)    :: numl_read !< Number of new netlinks read from file.
     integer,          intent(out)    :: ierr      !< Return status (NetCDF operations)
 
     call mess(LEVEL_INFO,'sedtrails_unc_read_net::Reading net data...')
     !
     ! Try and read as new UGRID NetCDF format
     !
-    call sedtrails_unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
+    call sedtrails_unc_read_net_ugrid(filename, numk_keep, numk_read, ierr)
     if (ierr == dfm_noerr) then
        ! UGRID successfully read, we're done.
        return
@@ -267,26 +252,8 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numl_keep, numk_read, num
     end if
 
 end subroutine
- 
-!> Writes the unstructured flow geometry to a netCDF file.
-!! If file exists, it will be overwritten.
-!subroutine sedtrails_unc_write_flowgeom(filename)
-!    character(len=*), intent(in) :: filename
-!
-!    integer :: igeomfile, ierr
-!
-!    ierr = unc_create(filename, 0, igeomfile)
-!    if (ierr /= nf90_noerr) then
-!        call mess(LEVEL_ERROR, 'sedtrails_unc_write_flowgeom::Could not create flow geometry file '''//trim(filename)//'''.')
-!        call check_error(ierr)
-!        return
-!    end if
-!
-!    call unc_write_flowgeom_filepointer(igeomfile) ! UNC_CONV_CFOLD
-!
-!    ierr = unc_close(igeomfile)
-!end subroutine 
-  
+   
+   
 !> Writes the unstructured sedtrails geometry to an already opened netCDF dataset.
 subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     use m_sedtrails_data
@@ -302,12 +269,10 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     integer                         :: ndxndxi       !< Last node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
     integer :: ierr
     integer ::  id_flowelemdim,& 
-                id_flowelemxcc, id_flowelemycc, id_flowelemzcc, &
+                id_flowelemxcc, id_flowelemycc, &
                 id_flowelemdomain
 
-    integer :: i, numContPts, numNodes, n, nn, L
     integer :: jaInDefine
-    integer :: jaghost, idmn
 
     jaInDefine = 0
 
@@ -332,7 +297,6 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     ! Net nodes
     ierr = nf90_def_var(igeomfile, 'net_xcc', nf90_double, id_flowelemdim, id_flowelemxcc)
     ierr = nf90_def_var(igeomfile, 'net_ycc', nf90_double, id_flowelemdim, id_flowelemycc)
-    !ierr = nf90_def_var(igeomfile, 'FlowElem_bac', nf90_double, id_flowelemdim, id_flowelemba)   to discuss with Stuart
     
     ierr = unc_addcoordatts(igeomfile, id_flowelemxcc, id_flowelemycc, jsferic)
     ierr = nf90_put_att(igeomfile, id_flowelemxcc, 'long_name'    , 'x-coordinate of sedtrails grid corner')
@@ -584,12 +548,8 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
     character(*), intent(in)  :: filename !< Name of file to be read (in current directory or with full path).
     integer,      intent(out) :: istat    !< Return status (0=success)
     integer,      intent(in)  :: jadoorladen
-    character(len=255)        :: data_file_1d
-
-    integer                   :: iDumk
-    integer                   :: iDuml
    
-    integer                   :: minp,  K0, L0, L, NUMKN, NUMLN
+    integer                   :: minp,  K0,  NUMKN
     logical                   :: jawel
    
     inquire(file = filename, exist=jawel)
@@ -605,7 +565,7 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
     ENDIF
 
     ! New NetCDF net file
-    call sedtrails_unc_read_net(filename, K0, L0, NUMKN, NUMLN, istat)
+    call sedtrails_unc_read_net(filename, K0, NUMKN, istat)
    
     if (istat == 0) then
         NUMK = K0 + NUMKN
