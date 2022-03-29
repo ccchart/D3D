@@ -307,6 +307,7 @@
  ! See also m_flowtimes::dtminbreak
 
  ! parameters controlling flooding/drying/solving
+ integer                           :: testdryflood      !< Flag for testing alternative drying flooding algoritm; 0 = standard, 1 =Delft3D-FLOW
  double precision                  :: epshu             !< minimum waterdepth for setting hu>0
  double precision                  :: epshs             !< minimum waterdepth for setting cfu
  double precision                  :: epswav            !< minimum waterdepth for wave calculations
@@ -362,8 +363,6 @@
  integer                           :: jabarocterm       !< 1 or 2 for original or revised term, we only document the revised term, keep org for backw. comp.
 
  integer                           :: jaorgbarockeywords !< default=0=new, 1=org
-
- integer                           :: jalts = 1         ! local time-stepping (1) or not (0)
 
  integer                           :: jatransportautotimestepdiff = 0 ! Auto Timestep in Transport module, 0 = limitation of diffusion, but no limitation of time-step due to diffusion, 1 = no limitation of diffusion, but limitation of time step due to diffusion, 2: no limitation of diffusion and no limitation of time step due to diffusion
 
