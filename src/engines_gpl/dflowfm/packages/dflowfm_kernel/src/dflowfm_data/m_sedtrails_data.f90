@@ -22,6 +22,8 @@ module m_sedtrails_data
    double precision, allocatable         :: st_wf(:,:)      !< (3,:)
    
    integer, allocatable                  :: idomain(:) 
+   integer, allocatable                  :: iglobal_s(:) 
+   integer, allocatable                  :: iwork(:) 
       
    contains
    

@@ -8,7 +8,7 @@ module m_sedtrails_network
    
    subroutine default_sedtrails_geom()
       
-       ! Remaining of variables is handled in reset_flowgeom()
+       ! Remaining of variables is handled in reset_sedtrails_geom()
        call reset_sedtrails_geom()
    end subroutine default_sedtrails_geom
    
@@ -17,13 +17,13 @@ module m_sedtrails_network
        numk=0
    end subroutine
       
-   !> Increase the number of net links
+   !> Increase the number of sedtrails nodes
    SUBROUTINE sedtrails_increasenetwork(K0)
    use m_alloc
    use m_missing, only : xymis, dmiss
 
    implicit none
-   integer,           intent(in) :: K0       !< New number of net nodes.
+   integer,           intent(in) :: K0       !< New number of sedtrails nodes.
 
    integer :: ierr
    integer :: k
@@ -90,6 +90,7 @@ END SUBROUTINE
  END SUBROUTINE
  
  ! Set mask to determine which sedtrails XK,YK points lie on present grid
+ ! Determine interpolation weights to transfer data from flowgeom to sedtrails output
  subroutine sedtrails_get_grid_on_network()
     use m_sedtrails_data
     use m_polygon
@@ -187,9 +188,17 @@ END SUBROUTINE
     !
     ! Reallocate nodes arrays and copy values
     call realloc(xk1,size(xk),keepExisting=.false.,fill=0d0)  
-    call realloc(yk1,size(xk),keepExisting=.false.,fill=0d0) 
+    call realloc(yk1,size(xk),keepExisting=.false.,fill=0d0)
     xk1=xk
     yk1=yk
+    if (jampi>0) then
+       call realloc(iwork,size(xk),keepExisting=.false.,fill=0)
+       iwork=iglobal_s
+       call realloc(iglobal_s,numk,keepExisting=.false.,fill=0)
+       iglobal_s=iwork(indices)
+       deallocate(iwork)
+    endif
+
     call realloc(xk,numk,keepExisting=.false.,fill=0d0)  
     call realloc(yk,numk,keepExisting=.false.,fill=0d0)   
     xk=xk1(indices)

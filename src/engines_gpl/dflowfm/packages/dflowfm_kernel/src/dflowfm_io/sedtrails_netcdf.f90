@@ -266,11 +266,11 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     implicit none
     
     integer, intent(in)             :: igeomfile
-    integer                         :: ndxndxi       !< Last node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
+    integer                         :: ndxndxi   
     integer :: ierr
     integer ::  id_flowelemdim,& 
                 id_flowelemxcc, id_flowelemycc, &
-                id_flowelemdomain
+                id_flowelemdomain, id_flowelemglobalnr
 
     integer :: jaInDefine
 
@@ -308,21 +308,24 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     !   domain numbers
     if ( jampi.eq.1 ) then
        ierr = nf90_def_var(igeomfile, 'FlowElemDomain', nf90_int, id_flowelemdim, id_flowelemdomain)
-       ierr = nf90_put_att(igeomfile, id_flowelemdomain, 'long_name'    ,   'domain number of sedtrails grid corner')
+       ierr = nf90_put_att(igeomfile, id_flowelemdomain, 'long_name',   'domain number of sedtrails grid corner')
+       ierr = nf90_def_var(igeomfile, 'FlowElemGlobalNr', nf90_int, id_flowelemdim, id_flowelemglobalnr)
+       ierr = nf90_put_att(igeomfile, id_flowelemglobalnr, 'long_name',   'global sedtrails corner numbering')
     end if
 
     ierr = nf90_enddef(igeomfile)
     ! End of writing time-independent flow net data.
 
     ! -- Start data writing (time-independent data) ------------
-    ! Flow cell cc coordinates (only 1D + internal 2D)
+    ! Flow cell cc coordinates
     ierr = nf90_put_var(igeomfile, id_flowelemxcc, xk(1:ndxndxi))
     ierr = nf90_put_var(igeomfile, id_flowelemycc, yk(1:ndxndxi))
     
     ! domain numbers
     if ( jampi.eq.1 ) then  
        ! flow cell domain number   
-       ierr = nf90_put_var(igeomfile, id_flowelemdomain, idomain(1:ndxndxi) )    
+       ierr = nf90_put_var(igeomfile, id_flowelemdomain, idomain(1:ndxndxi) )  
+       ierr = nf90_put_var(igeomfile, id_flowelemglobalnr, iglobal_s(1:ndxndxi))
     end if
 
     ! Leave the dataset in the same mode as we got it.
@@ -541,6 +544,9 @@ end subroutine
 subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
     use unstruc_messages
     use m_missing
+    use m_alloc
+    use m_partitioninfo, only: jampi
+    use m_sedtrails_data
 
     implicit none
 
@@ -569,6 +575,12 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
    
     if (istat == 0) then
         NUMK = K0 + NUMKN
+        
+        ! Fill global domain mode numbers, before reducing the sedtrails grid to the submodel we're in
+        if (jampi>0) then
+           call realloc(iglobal_s,numk,keepExisting=.false., fill=0)
+           iglobal_s=(/ 1:numk /)
+        endif   
     else
        call qnerror('sedtrails_loadNetwork::Error while loading network from '''//trim(filename)//''', please inspect the preceding diagnostic output.', ' ',  ' ')
     endif
