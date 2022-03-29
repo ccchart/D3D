@@ -99,7 +99,6 @@ END SUBROUTINE
     use network_data, only: netstat, NETSTAT_OK
     use geometry_module, only: get_startend, dbdistance
     use m_missing
-    use m_flowexternalforcings, only: transformcoef
     use m_flowgeom, only: xz, yz,ndx,bl
     use m_ec_triangle, only: jagetwf, indxx, wfxx
     use m_ec_basic_interpolation, only: triinterp2
@@ -119,6 +118,9 @@ END SUBROUTINE
     integer, allocatable                  :: sedtrails_idom(:)
     double precision, allocatable         :: dumin(:), dumout(:)
     type(tpoly),dimension(:), allocatable :: pli
+    double precision, dimension(6)        :: transformcoef   ! don't override externalforcing setting
+    
+    transformcoef=0d0
 
     ! Detect grid enclosure for this partition/overlapping part of grids
     call savepol()
