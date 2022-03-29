@@ -205,7 +205,7 @@ contains
    
    function getnodeId_fun(nds, gridpoint) result(id)
    
-      character(len=80)    :: id
+      character(len=IdLen)             :: id
       type(t_nodeset), intent(in)      :: nds
       integer        , intent(in)      :: gridpoint
       
