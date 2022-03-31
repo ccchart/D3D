@@ -1,102 +1,137 @@
+!----- AGPL --------------------------------------------------------------------
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!                                                                               
+!  This file is part of Delft3D (D-Flow Flexible Mesh component).               
+!                                                                               
+!  Delft3D is free software: you can redistribute it and/or modify              
+!  it under the terms of the GNU Affero General Public License as               
+!  published by the Free Software Foundation version 3.                         
+!                                                                               
+!  Delft3D  is distributed in the hope that it will be useful,                  
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU Affero General Public License for more details.                          
+!                                                                               
+!  You should have received a copy of the GNU Affero General Public License     
+!  along with Delft3D.  If not, see <http://www.gnu.org/licenses/>.             
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D",                  
+!  "D-Flow Flexible Mesh" and "Deltares" are registered trademarks of Stichting 
+!  Deltares, and remain the property of Stichting Deltares. All rights reserved.
+!                                                                               
+!-------------------------------------------------------------------------------
+
+! $Id$
+! $HeadURL$
+
 module m_sedtrails_network
    use m_sedtrails_data
    use m_alloc
    
    implicit none
    
+   private :: reset_sedtrails_geom, &
+              find_nodes_idom_int, &
+              sedtrails_savenet, &
+              sedtrails_restore
+   
    contains
    
    subroutine default_sedtrails_geom()
       
-       ! Remaining of variables is handled in reset_sedtrails_geom()
+       ! remaining of variables is handled in reset_sedtrails_geom()
        call reset_sedtrails_geom()
    end subroutine default_sedtrails_geom
    
    subroutine reset_sedtrails_geom()
        ! node (s) related : dim=numk
        numk=0
-   end subroutine
+   end subroutine reset_sedtrails_geom
       
-   !> Increase the number of sedtrails nodes
-   SUBROUTINE sedtrails_increasenetwork(K0)
+   !> increase the number of sedtrails nodes
+   subroutine sedtrails_increasenetwork(k0)
    use m_alloc
-   use m_missing, only : xymis, dmiss
+   use m_missing, only : xymis
 
    implicit none
-   integer,           intent(in) :: K0       !< New number of sedtrails nodes.
+   integer,           intent(in) :: k0       !< new number of sedtrails nodes.
 
    integer :: ierr
-   integer :: k
-   integer :: knxx
 
-   if (K0 < KMAX) RETURN
+   if (k0 < kmax) return
 
-   CALL sedtrails_SAVENET()
+   call sedtrails_savenet()
 
-   IF (KMAX <= K0) THEN
-      KMAX = K0 + 100000
-      IF (allocated(xk)) then
+   if (kmax <= k0) then
+      kmax = k0 + 100000
+      if (allocated(xk)) then
          deallocate(xk, yk)
       end if
-      ALLOCATE ( XK (KMAX), YK (KMAX), STAT=IERR   )
-      CALL AERR('XK (KMAX), YK (KMAX)', IERR, 2*KMAX)
+      allocate ( xk (kmax), yk (kmax), stat=ierr   )
+      call aerr('xk (kmax), yk (kmax)', ierr, 2*kmax)
 
-      XK = XYMIS ; YK = XYMIS
-   ENDIF
+      xk = xymis ; yk = xymis
+   endif
 
-   CALL sedtrails_RESTORE()
+   call sedtrails_restore()
 
-END SUBROUTINE 
+end subroutine sedtrails_increasenetwork
    
-!> Restore variables with backup data
-SUBROUTINE sedtrails_RESTORE()
+!> restore variables with backup data
+subroutine sedtrails_restore()
    use m_sedtrails_data
    implicit none
-   integer :: k, KX, LS, LS0, LX, NODSIZ, IERR
+   integer :: kx
 
    if (.not. allocated(xk0)) return
 
-   KX = size(XK0) ! restore everything present (in case numk/numk0 has not yet been increased)
+   kx = size(xk0) ! restore everything present (in case numk/numk0 has not yet been increased)
 
-   XK (1:KX)  = XK0 (1:KX)
-   YK (1:KX)  = YK0 (1:KX)
+   xk (1:kx)  = xk0 (1:kx)
+   yk (1:kx)  = yk0 (1:kx)
 
-   NUMK = NUMK0
+   numk = numk0
 
-   RETURN
-END SUBROUTINE   
+   return
+end subroutine sedtrails_restore
 
- SUBROUTINE sedtrails_SAVENET()
+ subroutine sedtrails_savenet()
    use m_sedtrails_data
    implicit none
    integer :: ierr
-   integer :: k, KX
+   integer :: kx
    
    if (.not. allocated(xk)) return
 
-   KX = KMAX ! backup everything present (in case numk has not yet been increased) ! KX = NUMK
+   kx = kmax ! backup everything present (in case numk has not yet been increased) ! kx = numk
 
    if (allocated(xk0)) deallocate(xk0,yk0,zk0)
-   allocate ( XK0(KX), YK0(KX), ZK0(KX) , STAT=IERR)
+   allocate ( xk0(kx), yk0(kx), zk0(kx) , stat=ierr)
 
 
-   XK0 (1:KX) = XK (1:kx)
-   YK0 (1:KX) = YK (1:kx)
-   ZK0 (1:KX) = ZK (1:kx)
+   xk0 (1:kx) = xk (1:kx)
+   yk0 (1:kx) = yk (1:kx)
+   zk0 (1:kx) = zk (1:kx)
 
-   NUMK0 = NUMK
+   numk0 = numk
 
-   RETURN
- END SUBROUTINE
+   return
+ end subroutine sedtrails_savenet
  
- ! Set mask to determine which sedtrails XK,YK points lie on present grid
- ! Determine interpolation weights to transfer data from flowgeom to sedtrails output
+ ! set mask to determine which sedtrails xk,yk points lie on present grid
+ ! determine interpolation weights to transfer data from flowgeom to sedtrails output
  subroutine sedtrails_get_grid_on_network()
     use m_sedtrails_data
     use m_polygon
     use m_tpoly
     use m_partitioninfo, only: my_rank, jampi,generate_partition_pol_from_idomain
-    use network_data, only: netstat, NETSTAT_OK
+    use network_data, only: netstat, netstat_ok
     use geometry_module, only: get_startend, dbdistance
     use m_missing
     use m_flowgeom, only: xz, yz,ndx,bl
@@ -110,47 +145,46 @@ END SUBROUTINE
     integer                               :: ierr, netstat_store
     integer                               :: ipoint, ipoly, numpoints
     integer                               :: istart, iend
-    integer                               :: nv, iorient,iinterior,inside
-    integer                               :: jakdtree, jdla, ip1
-    double precision                      :: dmaxsize
+    integer                               :: inside
+    integer                               :: jakdtree, jdla
     
     integer, allocatable                  :: indices(:)
     integer, allocatable                  :: sedtrails_idom(:)
-    double precision, allocatable         :: dumin(:), dumout(:)
+    double precision, allocatable         :: dumout(:)
     type(tpoly),dimension(:), allocatable :: pli
     double precision, dimension(6)        :: transformcoef   ! don't override externalforcing setting
     
     transformcoef=0d0
 
-    ! Detect grid enclosure for this partition/overlapping part of grids
+    ! detect grid enclosure for this partition/overlapping part of grids
     call savepol()
     if (jampi>0) then 
        netstat_store = netstat
-       netstat = NETSTAT_OK
+       netstat = netstat_ok
        call generate_partition_pol_from_idomain(ierr, myrank=my_rank)
        netstat = netstat_store
     else
        call copynetboundstopol(0, 0, 1, 0)
     endif
-    call realloc(iistart, maxpoly, keepExisting=.false.)
-    call realloc(iiend, maxpoly, keepExisting=.false.)
+    call realloc(iistart, maxpoly, keepexisting=.false.)
+    call realloc(iiend, maxpoly, keepexisting=.false.)
     ipoint = 1
     ipoly = 0
     numpoints = 0
-    do while ( ipoint <= NPL)
+    do while ( ipoint <= npl)
        ipoly = ipoly+1
        if (ipoly > maxpoly) then
           maxpoly = ceiling(maxpoly*1.1)
-          call realloc(iistart, maxpoly, keepExisting=.true.)
-          call realloc(iiend, maxpoly, keepExisting=.true.)
+          call realloc(iistart, maxpoly, keepexisting=.true.)
+          call realloc(iiend, maxpoly, keepexisting=.true.)
        end if
 
       ! get polygon start and end pointer respectively
-      call get_startend(NPL-ipoint+1,xpl(ipoint:NPL),ypl(ipoint:NPL), istart, iend, dmiss)
+      call get_startend(npl-ipoint+1,xpl(ipoint:npl),ypl(ipoint:npl), istart, iend, dmiss)
       istart = istart+ipoint-1
       iend   = iend  +ipoint-1
 
-      if ( istart.ge.iend .or. iend.gt.NPL ) exit ! done
+      if ( istart.ge.iend .or. iend.gt.npl ) exit ! done
       
       iistart(ipoly) = istart
       iiend(ipoly)   = iend
@@ -162,16 +196,16 @@ END SUBROUTINE
     npoly = ipoly
     
     !
-    ! Allocate poly index
+    ! allocate poly index
     if (.not. allocated(sedtrails_idom)) then
        allocate(sedtrails_idom(1:numk))
        sedtrails_idom=0
     endif   
     !
-    ! Convert to tpolies
+    ! convert to tpolies
     call pol_to_tpoly(npoly, pli, .false.)
     !
-    ! Get sedtrials points inside domain
+    ! get sedtrials points inside domain
     inside=-1
     jins=1
     do k=1,numk
@@ -184,66 +218,69 @@ END SUBROUTINE
     call dealloc_tpoly(pli)
     call restorepol()
     !
-    ! Get own nodes
+    ! get own nodes
     indices=find_nodes_idom_int(sedtrails_idom, 1)
     numk=size(indices)
     !
-    ! Reallocate nodes arrays and copy values
-    call realloc(xk1,size(xk),keepExisting=.false.,fill=0d0)  
-    call realloc(yk1,size(xk),keepExisting=.false.,fill=0d0)
+    ! reallocate nodes arrays and copy values
+    call realloc(xk1,size(xk),keepexisting=.false.,fill=0d0)
+    call realloc(yk1,size(xk),keepexisting=.false.,fill=0d0)
     xk1=xk
     yk1=yk
     if (jampi>0) then
-       call realloc(iwork,size(xk),keepExisting=.false.,fill=0)
+       call realloc(iwork,size(xk),keepexisting=.false.,fill=0)
        iwork=iglobal_s
-       call realloc(iglobal_s,numk,keepExisting=.false.,fill=0)
+       call realloc(iglobal_s,numk,keepexisting=.false.,fill=0)
        iglobal_s=iwork(indices)
        deallocate(iwork)
     endif
 
-    call realloc(xk,numk,keepExisting=.false.,fill=0d0)  
-    call realloc(yk,numk,keepExisting=.false.,fill=0d0)   
+    call realloc(xk,numk,keepexisting=.false.,fill=0d0)
+    call realloc(yk,numk,keepexisting=.false.,fill=0d0)
     xk=xk1(indices)
     yk=yk1(indices)
     deallocate(xk1, yk1)
     !
-    ! Generate interpolation weights from flowgeom cell centres
-    ! Use dummy interpolation
-    ! Save in module variables st_ind, st_wf
+    ! generate interpolation weights from flowgeom cell centres
+    ! use dummy interpolation
+    ! save in module variables st_ind, st_wf
     jagetwf = 1
     jakdtree = 1
     jdla=1
-    call realloc(indxx,(/ 3,numk /),keepExisting=.false., fill=0)
-    call realloc(wfxx,(/ 3,numk /),keepExisting=.false., fill=0d0)
-    call realloc(dumout,numk,keepExisting=.false., fill=dmiss)
+    call realloc(indxx,(/ 3,numk /),keepexisting=.false., fill=0)
+    call realloc(wfxx,(/ 3,numk /),keepexisting=.false., fill=0d0)
+    call realloc(dumout,numk,keepexisting=.false., fill=dmiss)
  
     transformcoef(6)=1.1d0
-    CALL triinterp2(xk, yk, dumout, numk, jdla, &
-            xz, yz, bl, ndx, dmiss, jsferic, jins, jasfer3D, NPL, 0, 0, XPL, YPL, ZPL, transformcoef)
+    call triinterp2(xk, yk, dumout, numk, jdla, &
+            xz, yz, bl, ndx, dmiss, jsferic, jins, jasfer3d, npl, 0, 0, xpl, ypl, zpl, transformcoef)
     !
-    call realloc(st_ind,(/3,numk/), keepExisting=.false.,fill=0)
-    call realloc(st_wf,(/3,numk/), keepExisting=.false.,fill=0d0)
+    call realloc(st_ind,(/3,numk/), keepexisting=.false.,fill=0)
+    call realloc(st_wf,(/3,numk/), keepexisting=.false.,fill=0d0)
     do k=1, numk
        st_ind(:,k)=indxx(:,k)
        st_wf(:,k)=wfxx(:,k)
     enddo   
     !
-    ! And now that we have the correct number of nodes:
+    ! and now that we have the correct number of nodes:
     if (jampi>0) then
-       call realloc(idomain,numk,keepExisting=.false.,fill=my_rank)
+       call realloc(idomain,numk,keepexisting=.false.,fill=my_rank)
     endif   
     !
     deallocate (indxx, wfxx, dumout)
 
- end subroutine
+ end subroutine sedtrails_get_grid_on_network
  
- FUNCTION find_nodes_idom_int(array, min) RESULT(indices)
+ function find_nodes_idom_int(array, min) result(indices)
     use precision
-    integer, INTENT(IN)  :: array(:)
-    integer, INTENT(IN)  :: min
-    INTEGER, ALLOCATABLE :: indices(:)
-    INTEGER :: ii
-    indices = PACK([(ii,ii=1,SIZE(array))], array == min)
- END FUNCTION find_nodes_idom_int
+    
+    implicit none
+    
+    integer, intent(in)  :: array(:)
+    integer, intent(in)  :: min
+    integer, allocatable :: indices(:)
+    integer :: ii
+    indices = pack([(ii,ii=1,size(array))], array == min)
+ end function find_nodes_idom_int
 
-end module
+end module m_sedtrails_network

@@ -66,7 +66,7 @@
  use m_setucxcuy_leastsquare, only: reconst2ndini
  use m_sedtrails_network
  use m_sedtrails_netcdf, only: sedtrails_loadNetwork
- use m_sedtrails_stats, st_is_numndvals=>is_numndvals
+ use m_sedtrails_stats, only: default_sedtrails_stats, alloc_sedtrails_stats
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:
  ! Activate the following line (See also statements below)
@@ -422,7 +422,7 @@
  
  ! Initialise sedtrails statistics
   if (jasedtrails>0) then
-    st_is_numndvals = 11
+    call default_sedtrails_stats()
     call alloc_sedtrails_stats()
  endif
  
@@ -465,10 +465,5 @@
  
  return
 1234 continue
-!  BEGIN DEBUG
-   !call dum_makesal()
-   !call dum_makeflowfield()
-!  END DEBUG
-
 
 end function flow_modelinit

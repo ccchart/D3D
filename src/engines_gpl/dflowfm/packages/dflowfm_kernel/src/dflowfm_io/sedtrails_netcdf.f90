@@ -1,3 +1,35 @@
+!----- AGPL --------------------------------------------------------------------
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!                                                                               
+!  This file is part of Delft3D (D-Flow Flexible Mesh component).               
+!                                                                               
+!  Delft3D is free software: you can redistribute it and/or modify              
+!  it under the terms of the GNU Affero General Public License as               
+!  published by the Free Software Foundation version 3.                         
+!                                                                               
+!  Delft3D  is distributed in the hope that it will be useful,                  
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU Affero General Public License for more details.                          
+!                                                                               
+!  You should have received a copy of the GNU Affero General Public License     
+!  along with Delft3D.  If not, see <http://www.gnu.org/licenses/>.             
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D",                  
+!  "D-Flow Flexible Mesh" and "Deltares" are registered trademarks of Stichting 
+!  Deltares, and remain the property of Stichting Deltares. All rights reserved.
+!                                                                               
+!-------------------------------------------------------------------------------
+
+! $Id$
+! $HeadURL$
+
 module m_sedtrails_netcdf
    use m_sedtrails_data
    use unstruc_netcdf
@@ -5,14 +37,19 @@ module m_sedtrails_netcdf
    implicit none
    
    type t_unc_sedtrailsids
-      integer                  :: ncid = 0 !< NetCDF data set id (typically NetCDF file pointer)
+      integer                  :: ncid = 0
    end type t_unc_sedtrailsids
+   
+   private :: sedtrails_unc_read_net_ugrid, &
+              unc_write_sedtrails_filepointer, &
+              sedtrails_write_nc, &
+              sedtrails_unc_write_flowgeom_filepointer
    
    contains
    
 subroutine sedtrails_write_stats(tim)
    use m_flowparameters, only: eps10
-   use m_flowtimes, only: ti_st, ti_sts, ti_ste, tstop_user, time_st   
+   use m_flowtimes, only: ti_st, ti_sts, ti_ste, tstop_user, time_st
    use precision_basics
    use m_sedtrails_stats
    
@@ -41,7 +78,7 @@ subroutine sedtrails_write_stats(tim)
    
 1234 continue
    return
-end subroutine
+end subroutine sedtrails_write_stats
 
 subroutine sedtrails_write_nc(tim)
     use netcdf
@@ -73,14 +110,14 @@ subroutine sedtrails_write_nc(tim)
     endif
 
     if (stids%ncid .ne. 0) then
-       call unc_write_sedtrails_filepointer(stids%ncid,tim)  
+       call unc_write_sedtrails_filepointer(stids%ncid,tim)
     endif
 
     if (unc_noforcedflush == 0) then
        ierr = nf90_sync(stids%ncid) ! Flush file
     end if
 
-end subroutine sedtrails_write_nc   
+end subroutine sedtrails_write_nc
    
 !> Reads the net data from a NetCDF file.
 !! Processing is done elsewhere.
@@ -97,6 +134,8 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep,  numk_read, ierr)
    use MessageHandling
    use dfm_error
    use m_alloc
+   
+   implicit none
 
    character(len=*), intent(in)    :: filename           !< Name of NetCDF file.
    integer,          intent(inout) :: numk_keep          !< Number of netnodes to keep in existing net (0 to replace all).
@@ -121,8 +160,7 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep,  numk_read, ierr)
    allocate(character(len=0) :: tmpstring)
    ierr = ionc_open(filename, NF90_NOWRITE, ioncid, iconvtype, convversion)
 
-   if (ierr /= ionc_noerr .or. iconvtype /= IONC_CONV_UGRID .or. convversion < 1.0) then ! NOTE: no check on conventions version number (yet?)
-      ! No valid UGRID, not a problem, call site will fall back to trying old format.
+   if (ierr /= ionc_noerr .or. iconvtype /= IONC_CONV_UGRID .or. convversion < 1.0) then
       call mess(LEVEL_ERROR,  'sedtrails_unc_read_net_ugrid:: net file '''//trim(filename)//''' is not UGRID. Save network file with cell info.')
       ierr = DFM_EFILEFORMAT
       goto 999
@@ -183,21 +221,21 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep,  numk_read, ierr)
       need_edgelengths = .false. ! Either from a previous meshgeom, or now for the first time.
       
       !increasenetw 
-      call sedtrails_increasenetwork(numk_last + meshgeom%numnode) ! increases XK, YK, KN, optionally dxe
+      call sedtrails_increasenetwork(numk_last + meshgeom%numnode) ! increases xk, yk, kn, optionally dxe
       if (meshgeom%dim == 2) then  ! always true, see above
-         ! 2D
-         ierr = ionc_get_node_coordinates(ioncid, im, XK(numk_last+1:numk_last + meshgeom%numnode), YK(numk_last+1:numk_last + meshgeom%numnode))
+         ! 2d
+         ierr = ionc_get_node_coordinates(ioncid, im, xk(numk_last+1:numk_last + meshgeom%numnode), yk(numk_last+1:numk_last + meshgeom%numnode))
       endif
 
       if (ierr /= ionc_noerr) then
-         write (msgbuf, '(a,i0,a)') 'unc_read_net_ugrid: Could not read x/y node coordinates from mesh #', im, ' in UGRID net file '''//trim(filename)//'''.'
+         write (msgbuf, '(a,i0,a)') 'sedtrails_unc_read_net_ugrid: could not read x/y node coordinates from mesh #', im, ' in ugrid net file '''//trim(filename)//'''.'
          call warn_flush()
          goto 999
       end if
 
       ierr = ionc_get_ncid(ioncid, ncid)
       if (ierr /= ionc_noerr) then
-         write (msgbuf, '(a,i0,a)') 'unc_read_net_ugrid: Could not get direct access to UGRID NetCDF net file '''//trim(filename)//'''.'
+         write (msgbuf, '(a,i0,a)') 'sedtrails_unc_read_net_ugrid: Could not get direct access to UGRID NetCDF net file '''//trim(filename)//'''.'
          call warn_flush()
          goto 999
       end if
@@ -220,7 +258,7 @@ subroutine sedtrails_unc_read_net_ugrid(filename, numk_keep,  numk_read, ierr)
    ! Try to close+cleanup the data set anyway.
    i = ionc_close(ioncid) ! Don't overwrite actual ierr.
 
-end subroutine sedtrails_unc_read_net_ugrid   
+end subroutine sedtrails_unc_read_net_ugrid
    
    
 !> Reads the net data from a NetCDF file.
@@ -230,7 +268,8 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numk_read, ierr)
     use m_sferic
     use m_missing
     use dfm_error
-    use netcdf_utils, only: ncu_get_att, ncu_get_var_attset
+    
+    implicit none
 
     character(len=*), intent(in)     :: filename  !< Name of NetCDF file.
     integer,          intent(inout)  :: numk_keep !< Number of netnodes to keep in existing net.
@@ -251,7 +290,7 @@ subroutine sedtrails_unc_read_net(filename, numk_keep, numk_read, ierr)
        return
     end if
 
-end subroutine
+end subroutine sedtrails_unc_read_net
    
    
 !> Writes the unstructured sedtrails geometry to an already opened netCDF dataset.
@@ -261,12 +300,11 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     use m_missing
     use netcdf
     use m_partitioninfo, only: jampi
-    use m_flowparameters, only: jafullgridoutput
     
     implicit none
     
     integer, intent(in)             :: igeomfile
-    integer                         :: ndxndxi   
+    integer                         :: ndxndxi
     integer :: ierr
     integer ::  id_flowelemdim,& 
                 id_flowelemxcc, id_flowelemycc, &
@@ -324,7 +362,7 @@ subroutine sedtrails_unc_write_flowgeom_filepointer(igeomfile)
     ! domain numbers
     if ( jampi.eq.1 ) then  
        ! flow cell domain number   
-       ierr = nf90_put_var(igeomfile, id_flowelemdomain, idomain(1:ndxndxi) )  
+       ierr = nf90_put_var(igeomfile, id_flowelemdomain, idomain(1:ndxndxi) )
        ierr = nf90_put_var(igeomfile, id_flowelemglobalnr, iglobal_s(1:ndxndxi))
     end if
 
@@ -342,10 +380,7 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
    use m_flowtimes, only: Tudunitstr
    use m_fm_erosed
    use m_sediment, only: stm_included
-   use m_missing, only: dmiss
    use m_flowtimes, only: it_st
-   use m_flow, only: hs, ucx, ucy
-   use m_flowgeom, only: bl
    
    implicit none
    
@@ -431,47 +466,47 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
        ierr = nf90_enddef(imapfile)
    endif
    
-   ! Interpolate and write variables
+   ! interpolate and write variables
    it_st   = it_st+1
-   itim    = it_st ! Increment time dimension index  
+   itim    = it_st ! increment time dimension index
     
-   ! Time
+   ! time
    ierr = nf90_put_var(imapfile, id_time(iid), tim, (/ itim /))
    ierr = nf90_put_var(imapfile, id_timestep(iid), is_dtint, (/ itim /))
    
-   ! Analysis:
-   call realloc(work,(/ numk, lsedtot/), keepExisting=.false., fill=0d0)
+   ! analysis:
+   call realloc(work,(/ numk, lsedtot/), keepexisting=.false., fill=0d0)
    
-   ! Bottom level
+   ! bottom level
    do k=1, numk
-      nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+      nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
       work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_BL,st_ind(nodes,k), 1))
    enddo 
    work=work/is_dtint
    ierr = nf90_put_var(imapfile, id_bl(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       
-   ! 'FLOWVELOCITY'
+   ! 'flowvelocity'
    if ((trim(sedtrails_analysis)=='flowvelocity' .or. trim(sedtrails_analysis)=='all')) then
       do k=1, numk
-         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCX,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_ucx(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi,1 /))
       !
       do k=1, numk
-         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_UCY,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ucy(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
+      ierr = nf90_put_var(imapfile, id_ucy(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
    endif
  
-   !'TRANSPORT'
+   !'transport'
    if ((trim(sedtrails_analysis)=='transport' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
       do l=1,lsedtot
          do k=1, numk
-            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
             work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SBX,st_ind(nodes,k), l))
          enddo 
       enddo
@@ -480,66 +515,66 @@ subroutine unc_write_sedtrails_filepointer(imapfile,tim)
       !
       do l=1,lsedtot
          do k=1, numk
-            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
             work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SBY,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_sby(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))   
+      ierr = nf90_put_var(imapfile, id_sby(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
       !
       do l=1,lsedtot
          do k=1, numk
-            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
             work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSX,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssx(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))  
+      ierr = nf90_put_var(imapfile, id_ssx(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
       !
       do l=1,lsedtot
          do k=1, numk
-            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+            nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
             work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSY,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssy(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))      
+      ierr = nf90_put_var(imapfile, id_ssy(iid)  , work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
    endif
    
-   !"SOULSBY"
+   !"soulsby"
    if ((trim(sedtrails_analysis)=='soulsby' .or. trim(sedtrails_analysis)=='all') .and. stm_included) then
       do k=1, numk
-         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
+         nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
          work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_HS,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_hs(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
-         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
-         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUS,st_ind(nodes,k), 1))         
+         nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUS,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
       ierr = nf90_put_var(imapfile, id_taus(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do k=1, numk
-         nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
-         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(nodes,k), 1))         
+         nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
+         work(k,1) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_TAUSMAX,st_ind(nodes,k), 1))
       enddo 
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))  
+      ierr = nf90_put_var(imapfile, id_tausmax(iid)  , work(1:numk,1), (/ 1, itim /), (/ ndxndxi, 1 /))
       !
       do l=1,lsedtot
          do k=1, numk
-            nodes = PACK([(ii,ii=1,SIZE(st_ind(:,k)))], st_ind(:,k) > 0)
-            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSC,st_ind(nodes,k), l))            
+            nodes = pack([(ii,ii=1,size(st_ind(:,k)))], st_ind(:,k) > 0)
+            work(k,l) = sum(st_wf(nodes,k)*is_sumvalsnd(IDX_SSC,st_ind(nodes,k), l))
          enddo 
       enddo
       work=work/is_dtint
-      ierr = nf90_put_var(imapfile, id_ssc(iid), work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))       
+      ierr = nf90_put_var(imapfile, id_ssc(iid), work(1:numk,1:lsedtot), (/ 1, 1, itim /), (/ ndxndxi, lsedtot, 1 /))
    endif   
    
-end subroutine
+end subroutine unc_write_sedtrails_filepointer
 
 subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
     use unstruc_messages
@@ -550,12 +585,11 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
 
     implicit none
 
-
     character(*), intent(in)  :: filename !< Name of file to be read (in current directory or with full path).
     integer,      intent(out) :: istat    !< Return status (0=success)
     integer,      intent(in)  :: jadoorladen
    
-    integer                   :: minp,  K0,  NUMKN
+    integer                   :: k0, numkn
     logical                   :: jawel
    
     inquire(file = filename, exist=jawel)
@@ -564,17 +598,17 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
         return
     end if
 
-    IF (JADOORLADEN == 0) THEN
-        K0 = 0
-    ELSE
-        K0 = NUMK
-    ENDIF
+    if (jadoorladen == 0) then
+        k0 = 0
+    else
+        k0 = numk
+    endif
 
     ! New NetCDF net file
-    call sedtrails_unc_read_net(filename, K0, NUMKN, istat)
+    call sedtrails_unc_read_net(filename, k0, numkn, istat)
    
     if (istat == 0) then
-        NUMK = K0 + NUMKN
+        numk = k0 + numkn
         
         ! Fill global domain mode numbers, before reducing the sedtrails grid to the submodel we're in
         if (jampi>0) then
@@ -584,6 +618,6 @@ subroutine sedtrails_loadNetwork(filename, istat, jadoorladen)
     else
        call qnerror('sedtrails_loadNetwork::Error while loading network from '''//trim(filename)//''', please inspect the preceding diagnostic output.', ' ',  ' ')
     endif
-end subroutine sedtrails_loadNetwork  
+end subroutine sedtrails_loadNetwork
  
-end module
+end module m_sedtrails_netcdf

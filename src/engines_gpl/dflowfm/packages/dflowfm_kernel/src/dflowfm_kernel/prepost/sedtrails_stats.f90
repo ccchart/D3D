@@ -1,21 +1,58 @@
+!----- AGPL --------------------------------------------------------------------
+!                                                                               
+!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!                                                                               
+!  This file is part of Delft3D (D-Flow Flexible Mesh component).               
+!                                                                               
+!  Delft3D is free software: you can redistribute it and/or modify              
+!  it under the terms of the GNU Affero General Public License as               
+!  published by the Free Software Foundation version 3.                         
+!                                                                               
+!  Delft3D  is distributed in the hope that it will be useful,                  
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of               
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                
+!  GNU Affero General Public License for more details.                          
+!                                                                               
+!  You should have received a copy of the GNU Affero General Public License     
+!  along with Delft3D.  If not, see <http://www.gnu.org/licenses/>.             
+!                                                                               
+!  contact: delft3d.support@deltares.nl                                         
+!  Stichting Deltares                                                           
+!  P.O. Box 177                                                                 
+!  2600 MH Delft, The Netherlands                                               
+!                                                                               
+!  All indications and logos of, and references to, "Delft3D",                  
+!  "D-Flow Flexible Mesh" and "Deltares" are registered trademarks of Stichting 
+!  Deltares, and remain the property of Stichting Deltares. All rights reserved.
+!                                                                               
+!-------------------------------------------------------------------------------
+
+! $Id$
+! $HeadURL$
+
 module m_sedtrails_stats
    use m_sedtrails_data
-   integer                                  :: is_numndvals         !< Number of variables on flow nodes for which statistics are recorded.
+   
+   implicit none
+   
    integer, parameter                       :: IDX_BL         = 1   !< Index for avg bottom level
    integer, parameter                       :: IDX_HS         = 2   !< Index for avg water depth
    integer, parameter                       :: IDX_UCX        = 3   !< Index for avg x velocity
    integer, parameter                       :: IDX_UCY        = 4   !< Index for avg y velocity
    integer, parameter                       :: IDX_TAUS       = 5   !< Index for avg x bed shear stress
    integer, parameter                       :: IDX_TAUSMAX    = 6   !< Index for avg y shear stress
-   integer, parameter                       :: IDX_SBX        = 7    
-   integer, parameter                       :: IDX_SBY        = 8   
-   integer, parameter                       :: IDX_SSX        = 9   
-   integer, parameter                       :: IDX_SSY        = 10  
-   integer, parameter                       :: IDX_SSC        = 11  !< Index for avg sediment concentration  
-                                            
-   double precision, allocatable, target    :: is_sumvalsnd(:,:,:) 
+   integer, parameter                       :: IDX_SBX        = 7
+   integer, parameter                       :: IDX_SBY        = 8
+   integer, parameter                       :: IDX_SSX        = 9
+   integer, parameter                       :: IDX_SSY        = 10
+   integer, parameter                       :: IDX_SSC        = 11  !< Index for avg sediment concentration
+   !
+   integer, parameter                       :: is_numndvals   = 11  !< Number of variables on flow nodes for which statistics are recorded.
+
    
-   character(len=1024), allocatable, target :: is_valnamesnd(:) 
+   double precision, allocatable, target    :: is_sumvalsnd(:,:,:)
+   
+   character(len=100)                       :: is_valnamesnd(is_numndvals)
    double precision, target                 :: is_dtint             !< [s] total time interval since last statistics reset.
    
    contains
@@ -23,7 +60,8 @@ module m_sedtrails_stats
    !> Sets ALL (scalar) variables in this module to their default values.
    subroutine default_sedtrails_stats()
    
-      is_numndvals = 0
+      implicit none
+      
       is_valnamesnd(:)  = ''
       is_valnamesnd(1)  = 'bl'
       is_valnamesnd(2)  = 'hs'
@@ -44,7 +82,10 @@ module m_sedtrails_stats
    !> Resets only stats variables intended for a restart of flow simulation.
    !! Upon loading of new model/MDU, call default_sedtrails_stats() instead.
    subroutine reset_sedtrails_stats()
-       is_sumvalsnd(1:is_numndvals,:,:) = 0d0   
+
+      implicit none
+
+       is_sumvalsnd(1:is_numndvals,:,:) = 0d0
        is_dtint = 0d0
    end subroutine reset_sedtrails_stats
    
@@ -57,7 +98,6 @@ module m_sedtrails_stats
       
       if (is_numndvals > 0) then
          call realloc(is_sumvalsnd, (/ is_numndvals, ndx, lsedtot /), keepExisting = .false., fill = 0d0)
-         call realloc(is_valnamesnd, is_numndvals, keepExisting = .false., fill = '')
       end if
    
    end subroutine alloc_sedtrails_stats
@@ -71,9 +111,11 @@ module m_sedtrails_stats
       use m_transport, only: constituents, ISED1
       use m_sediment, only: sedtot2sedsus, stm_included
       use m_flowparameters, only: jawave
-   
-      integer :: k
-   
+
+      implicit none
+
+      integer :: k, l
+
       if (is_numndvals <= 0) then
          return
       end if
@@ -111,9 +153,8 @@ module m_sedtrails_stats
          enddo   
       endif
       
-      is_dtint = is_dtint + dts         
-                                           
+      is_dtint = is_dtint + dts
+
    end subroutine update_sedtrails_stats
-                                        
-end module m_sedtrails_stats         
-                                        
+
+end module m_sedtrails_stats
