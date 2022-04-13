@@ -55,6 +55,7 @@
    use dfm_error
    use gridoperations
    use string_module, only: strcmpi
+   use m_realan, only: realan
 
    implicit none
    integer :: MODE, NUM,  NWHAT,  KEY
@@ -66,13 +67,6 @@
    integer :: i, k, ierror
    logical :: jawel
    logical, external :: read_samples_from_geotiff
-
-   interface
-      subroutine realan(mlan, antot)
-         integer, intent(inout)                ::  mlan
-         integer, intent(inout), optional      ::  antot
-      end subroutine realan
-   end interface
 
    COMMON /DRAWTHIS/ ndraw(50)
    COMMON /BACKGROUND/ SCREENFILE

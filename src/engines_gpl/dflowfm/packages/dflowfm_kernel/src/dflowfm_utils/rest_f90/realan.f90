@@ -29,7 +29,13 @@
 
 ! $Id$
 ! $HeadURL$
-
+module m_realan
+    
+    private
+    public realan
+    
+contains
+    
     SUBROUTINE REALAN( MLAN, ANTOT)
       use m_polygon
       use M_landboundary
@@ -176,4 +182,6 @@
       call doclose (MLAN)
       RETURN
 
-      END
+    END subroutine realan
+
+end module m_realan

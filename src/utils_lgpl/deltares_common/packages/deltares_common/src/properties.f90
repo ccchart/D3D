@@ -221,84 +221,81 @@ subroutine prop_inifile_pointer(lu, tree)
     ! To do:
     !   Get rid of leading blanks
     do
-        line = ''
-        lend = 0
-        multiple_lines = .false.
+       line = ''
+       lend = 0
+       multiple_lines = .false.
 
-        do ! Check on line continuation
-            call GetLine(lu, lineconttemp, eof)
-            if (index(lineconttemp, 'END PARAMETERS') == 1) then 
-               eof = -1
-               return ! stop reading from file
-            endif
-            linecont = adjustl(lineconttemp)
-            lcend = len_trim(linecont)
-            if (lcend == 0) then
-                ! Empty line, leave continuation loop
-                exit
-            endif
-            if (linecont(1:1)=='#' .or. linecont(1:1) == '*') then
-                ! Comment line, leave continuation loop
-                exit
-            endif
-            ! There could be a comment (started by #) after line continuation backslash
-            num_hash = 0
-            do i=1,lcend                                          ! count number of #
-               if (linecont(i:i)=='#') num_hash = num_hash + 1
-            enddo
-            if (num_hash==0) then                                 ! if none, it is easy
-               lcend = len_trim(linecont)
-            else
-               if (num_hash==1) then                              ! if only one, then this is THE comment mark
-                  lcend = index(linecont(1:lcend),'#') - 1
-               else                                               ! if more than one
-                                                                  !    if nothing between '=' and the first '#', cut after second '#'
-                  if (len_trim(linecont(index(linecont(1:lcend),'=')+1:index(linecont(1:lcend),'#')-1))==0) then
-                     lcend=index(linecont(index(linecont(1:lcend),'#')+1:lcend),'#')+index(linecont(1:lcend),'#')
-                  else
-                     lcend = index(linecont(1:lcend),'#') - 1     !    else cut before the first
-                  endif
-               endif
-            endif
-            lcend=len_trim(linecont(1:lcend))                     ! finally, remove trailing blanks
-            linecont=linecont(1:lcend)                            ! and actually remove the end of the string
-            if (lcend > 0) then
-                num_bs = lcend - verify(linecont(1:lcend),char(92),.true.) ! nr of backslashes at end of line
-                if (mod(num_bs, 2) == 1) then ! Odd nr of backslashes, indeed line continuation
-                    multiple_lines = .true.
-                    lcend = lcend-1 ! Strip off single line cont character
-                    goto 700
+       do ! Check on line continuation
+          call GetLine(lu, lineconttemp, eof)
+          if (index(lineconttemp, 'END PARAMETERS') == 1) then 
+             eof = -1
+             return ! stop reading from file
+          endif
+          linecont = adjustl(lineconttemp)
+          lcend = len_trim(linecont)
+          if (lcend == 0) then
+              ! Empty line, leave continuation loop
+              exit
+          endif
+          if (linecont(1:1)=='#' .or. linecont(1:1) == '*') then
+              ! Comment line, leave continuation loop
+              exit
+          endif
+          ! There could be a comment (started by #) after line continuation backslash
+          num_hash = 0
+          do i=1,lcend                                          ! count number of #
+             if (linecont(i:i)=='#') num_hash = num_hash + 1
+          enddo
+          if (num_hash==0) then                                 ! if none, it is easy
+             lcend = len_trim(linecont)
+          else
+             if (num_hash==1) then                              ! if only one, then this is THE comment mark
+                lcend = index(linecont(1:lcend),'#') - 1
+             else                                               ! if more than one
+                                                                !    if nothing between '=' and the first '#', cut after second '#'
+                if (len_trim(linecont(index(linecont(1:lcend),'=')+1:index(linecont(1:lcend),'#')-1))==0) then
+                   lcend=index(linecont(index(linecont(1:lcend),'#')+1:lcend),'#')+index(linecont(1:lcend),'#')
                 else
-                    if (.not. multiple_lines) then
-                        ! No continuation, so leave possible comment as well
-                        lcend = len_trim(linecont)
-                    end if
-                    goto 800
-                end if
-            else
-                ! Empty line, leave continuation loop
-                exit
-            end if
-
-        700 line = line(1:lend)//' '//linecont(1:lcend)
-            lend = lend + lcend + 1
-            cycle ! Line continuation, proceed to next line
-        800 line = line(1:lend)//' '//linecont(1:lcend)
-            lend = lend + lcend + 1
-            exit  ! No further lines for this value
-        end do
+                   lcend = index(linecont(1:lcend),'#') - 1     !    else cut before the first
+                endif
+             endif
+          endif
+          lcend=len_trim(linecont(1:lcend))                     ! finally, remove trailing blanks
+          linecont=linecont(1:lcend)                            ! and actually remove the end of the string
+          if (lcend > 0) then
+             num_bs = lcend - verify(linecont(1:lcend),char(92),.true.) ! nr of backslashes at end of line
+             if (mod(num_bs, 2) == 1) then ! Odd nr of backslashes, indeed line continuation
+                multiple_lines = .true.
+                lcend = lcend-1 ! Strip off single line cont character
+                line = line(1:lend)//' '//linecont(1:lcend)
+                lend = lend + lcend + 1
+                cycle ! Line continuation, proceed to next line
+             else
+                if (.not. multiple_lines) then
+                   ! No continuation, so leave possible comment as well
+                   lcend = len_trim(linecont)
+                endif
+                line = line(1:lend)//' '//linecont(1:lcend)
+                lend = lend + lcend + 1
+                exit  ! No further lines for this value
+             endif
+          else
+             ! Empty line, leave continuation loop
+             exit
+          endif
+       enddo
 
        if (eof/=0) exit
        !
        ! Remove carriage returns and tabs
        !
-        do k=1,len_trim(line)
-            if (line(k:k) == char(13)) then
-                line(k:k) = ' '
-            else if (line(k:k) == char(9)) then
-                line(k:k) = ' '
-            end if
-        end do
+       do k=1,len_trim(line)
+          if (line(k:k) == char(13)) then
+             line(k:k) = ' '
+          else if (line(k:k) == char(9)) then
+             line(k:k) = ' '
+          endif
+       enddo
        !
        ! Remove leading spaces, cycle when line is empty
        !

@@ -441,13 +441,8 @@ subroutine loadModel(filename)
     ! use string_module, only: get_dirsep
     use unstruc_caching
     use m_longculverts
+    use m_realan, only: realan
 
-    interface
-       subroutine realan(mlan, antot)
-          integer, intent(inout)                ::  mlan
-          integer, intent(inout), optional      ::  antot
-       end subroutine realan
-    end interface
 
     character(*), intent(inout)  :: filename !< Name of file to be read (in current directory or with full path).
 
@@ -3848,7 +3843,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        call prop_set(prop_ptr, 'output', 'wrishp_genstruc', jashp_genstruc, 'Write a shape file for general structures')
     end if
     if( writeall .or. jashp_dambreak > 0 ) then
-       call prop_set(prop_ptr, 'output', 'wrishp_genstruc', jashp_dambreak, 'Write a shape file for dam breaks')
+       call prop_set(prop_ptr, 'output', 'wrishp_dambreak', jashp_dambreak, 'Write a shape file for dam breaks')
     end if
 
     call prop_set(prop_ptr, 'output', 'WriteDFMinterpretedvalues', jaWriteDFMinterpretedvalues, 'Write DFMinterpretedvalues (1: yes, 0: no)' )

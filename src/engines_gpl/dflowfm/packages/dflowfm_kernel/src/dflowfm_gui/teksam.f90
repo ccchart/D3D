@@ -152,6 +152,7 @@
 
      double precision :: x,y,z,rc,hrc
      integer          :: met,m,n
+     logical          :: inview
 
      COMMON /DRAWTHIS/ ndraw(50)
 
