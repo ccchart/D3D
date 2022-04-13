@@ -358,6 +358,7 @@ subroutine deallocstructure(sts)
          if (associated(sts%struct(i)%xCoordinates)) deallocate(sts%struct(i)%xCoordinates)
          if (associated(sts%struct(i)%yCoordinates)) deallocate(sts%struct(i)%yCoordinates)
          if (associated(sts%struct(i)%linknumbers))  deallocate(sts%struct(i)%linknumbers)
+         if (associated(sts%struct(i)%lftopol))      deallocate(sts%struct(i)%lftopol)
          if (associated(sts%struct(i)%ds))           deallocate(sts%struct(i)%ds)
          if (associated(sts%struct(i)%fu))           deallocate(sts%struct(i)%fu)
          if (associated(sts%struct(i)%ru))           deallocate(sts%struct(i)%ru)
@@ -376,6 +377,7 @@ subroutine deallocstructure(sts)
          sts%struct(i)%xCoordinates => null()
          sts%struct(i)%yCoordinates => null()
          sts%struct(i)%linknumbers  => null()
+         sts%struct(i)%lftopol      => null()
          sts%struct(i)%ds           => null()
          sts%struct(i)%fu           => null()
          sts%struct(i)%ru           => null()
@@ -1200,8 +1202,8 @@ end subroutine deallocstructure
       allocate(struct%linknumbers(numlinks), struct%ds(numlinks), struct%lftopol(numlinks), struct%fu(numlinks), struct%ru(numlinks), struct%au(numlinks), struct%u0(numlinks), struct%u1(numlinks))
       struct%numlinks = numlinks
       struct%linknumbers = links(1:numlinks)
-      struct%ds = ds(1:numlinks)
       struct%lftopol = lftopol(1:numlinks)
+      struct%ds = ds(1:numlinks)
       struct%fu = 0d0
       struct%ru = 0d0
       struct%au = 0d0

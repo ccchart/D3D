@@ -63,6 +63,7 @@ use iso_c_binding
 use m_inquire_flowgeom
 use m_partitioninfo, only: idomain, my_rank
 use parallel_dambreaks, only: mpi_dambreak1, mpi_dambreak2
+use kdtree2Factory, only: treeglob
 
 implicit none
 logical                       :: status
@@ -110,10 +111,32 @@ integer                       :: istat
 double precision              :: chainage
 double precision, pointer :: tgtarr(:)
 integer :: loc_spec_type
+integer                       :: nps             !< number of polygon points
+integer                       :: npst            !< total number of polygon points (plus dmiss separators)
+double precision, allocatable :: xps(:), yps(:)  !< Arrays in which the read in polyline x,y-points can be stored.
+integer                       :: itype           !< flag indicating location type
+integer                       :: jaboundarylinks !< flag indicating whether structures can be located on boundary links
+integer                       :: numcrossedlinks !< number of crossed links
+integer, allocatable          :: ilink(:)        !< flow link index
+integer, allocatable          :: ipol(:)         !< polyline segment index
+double precision, allocatable :: dsl(:)          !< distance along polygon section
+integer                       :: ierror          !< error flag
+integer, allocatable          :: ipolf(:)        !< index of first segment of dambreak i
+integer, allocatable          :: ipoll(:)        !< index of last segment of dambreak i
+integer, allocatable          :: ncl(:)          !< number of crossed links of dambreak i
+integer, allocatable          :: idb(:)          !< dambreak index of polyline segment
+integer                       :: ip              !< index of polyline
+integer                       :: j               !<
+integer                       :: iseg            !< index of dam break polyline segment
+double precision              :: ds              !< length of this segment
+double precision              :: ds0             !< offset along dam break polyline until begin of segment
+type(t_structureSet), pointer :: sts
+integer :: choice
+
 !! if (jatimespace == 0) goto 888                      ! Just cleanup and close ext file.
 
 status = .False.
-
+sts => network%sts
 !
 ! Some structures may have already been read by flow1d's readStructures into network.
 !
@@ -197,13 +220,23 @@ do i=1,network%sts%count
    ! NOTE: kegen below does not apply to general structures. Just a placeholder for the link snapping of all structure types.
    select case (pstru%type)
    case (ST_DAMBREAK)
+       choice = 1
       idbpl = idbpl + 1
-      call selectelset_internal_links( xz, yz, ndx, ln, lnx, kegen(1:numl), numgen, &
+      if (choice == 1) then
+          nps = pstru%numCoordinates
+          allocate(dambreakPolygons(idbpl)%xp(nps), dambreakPolygons(idbpl)%yp(nps))
+          dambreakPolygons(idbpl)%xp = pstru%xCoordinates
+          dambreakPolygons(idbpl)%yp = pstru%yCoordinates
+          dambreakPolygons(idbpl)%np = nps
+          cycle
+      elseif (choice == 2) then
+          call selectelset_internal_links( xz, yz, ndx, ln, lnx, kegen(1:numl), numgen, &
                                        loc_spec_type, nump = pstru%numCoordinates, xpin = pstru%xCoordinates, ypin = pstru%yCoordinates, &
                                        branchindex = pstru%ibran, chainage = pstru%chainage, &
                                        xps = dambreakPolygons(idbpl)%xp, yps = dambreakPolygons(idbpl)%yp, nps = dambreakPolygons(idbpl)%np, &
                                        lftopol = lftopol(1:numl), sortLinks = 1, ds = ds_gen(1:numl))
-      ndambreak = ndambreak + numgen ! UNST-3308: early counting of ndambreak is needed here, because of lftopol array
+      endif
+      !ndambreak = ndambreak + numgen ! UNST-3308: early counting of ndambreak is needed here, because of lftopol array
    case default
       call selectelset_internal_links( xz, yz, ndx, ln, lnx, kegen(1:numl), numgen, &
                                        loc_spec_type, nump = pstru%numCoordinates, xpin = pstru%xCoordinates, ypin = pstru%yCoordinates, &
@@ -395,28 +428,18 @@ do i=1,nstr
 
    case ('dambreak')
 
-      if (loc_spec_type /= LOCTP_POLYLINE_FILE) then
-         ndambr = pstru%numlinks
-         kedb(ndambreak+1:ndambreak+ndambr) = pstru%linknumbers(1:ndambr)
-         db_ds(ndambreak+1:ndambreak+ndambr) = pstru%ds(1:ndambr)
-         lftopol(ndambreak+1:ndambreak+ndambr) = pstru%lftopol(1:ndambr)
-      else
+      if (loc_spec_type == LOCTP_POLYLINE_FILE) then
          idbpl = idbpl + 1
-         call selectelset_internal_links(xz, yz, ndx, ln, lnx, kedb(ndambreak+1:numl), ndambr, LOCTP_POLYLINE_FILE, plifile, &
-                                         xps = dambreakPolygons(idbpl)%xp, yps = dambreakPolygons(idbpl)%yp, nps = dambreakPolygons(idbpl)%np, &
-                                         lftopol = lftopol(ndambreak+1:numl), sortLinks = 1, ds = db_ds(ndambreak+1:numl))
+         ! TODO: read plifile, but don't identify links ...
+         !call selectelset_internal_links(xz, yz, ndx, ln, lnx, kedb(ndambreak+1:numl), ndambr, LOCTP_POLYLINE_FILE, plifile, &
+         !                                xps = dambreakPolygons(idbpl)%xp, yps = dambreakPolygons(idbpl)%yp, nps = dambreakPolygons(idbpl)%np, &
+         !                                lftopol = lftopol(ndambreak+1:numl), sortLinks = 1, ds = db_ds(ndambreak+1:numl))
       end if
 
       success = .true.
-      WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , ndambr, ' nr of dambreak links' ; call msg_flush()
 
       ndambreaksg = ndambreaksg + 1
       dambridx(ndambreaksg) = i
-      call realloc(L1dambreaksg,ndambreaksg) ; L1dambreaksg(ndambreaksg) = ndambreak + 1
-      call realloc(L2dambreaksg,ndambreaksg) ; L2dambreaksg(ndambreaksg) = ndambreak + ndambr
-
-      ndambreak   = ndambreak   + ndambr
-
 
    case ('gate', 'weir', 'generalstructure') !< The various generalstructure-based structures
       if (loc_spec_type /= LOCTP_POLYLINE_FILE) then
@@ -470,6 +493,125 @@ do i=1,nstr
       call mess(LEVEL_WARN, 'flow_init_structurecontrol: unknown structure type '''//trim(strtype)//'''.')
    end select
 end do
+
+if (ndambreaksg > 0) then
+    ! determine start and end points for collecting all dam break polygon information
+    ! TODO: can dambreak be specified by other means?
+    allocate(ipolf(ndambreaksg), ipoll(ndambreaksg))
+    ipolf = 0
+    ipoll = 0
+    do i = 1, ndambreaksg
+        nps = dambreakPolygons(i)%np
+        if (i == 1) then
+            ipolf(i) = 1
+        else
+            ipolf(i) = ipoll(i-1) + 2
+        endif
+        ipoll(i) = ipolf(i) -1 + nps
+    enddo
+    
+    ! collect the dam break polygons into xps, yps
+    npst = ipoll(ndambreaksg)
+    allocate(xps(npst), yps(npst))
+    xps = dmiss
+    yps = dmiss
+    do i = 1, ndambreaksg
+        xps(ipolf(i):ipoll(i)) = dambreakPolygons(i)%xp
+        yps(ipolf(i):ipoll(i)) = dambreakPolygons(i)%yp
+    enddo
+    
+    ! identify all intersected links
+    allocate(ilink(lnx), ipol(lnx), dsl(lnx))
+    itype = 2 ! flow links
+    jaboundarylinks = 1 ! include boundary links
+    call find_crossed_links_kdtree2(treeglob,npst,xps,yps,itype,Lnx,jaboundarylinks,numcrossedLinks, ilink, ipol, dsl, ierror)
+    
+    ! count the number of links per dam break structure
+    allocate(ncl(ndambreaksg),idb(numcrossedLinks))
+    ncl = 0
+    do L = 1, numcrossedLinks
+        do i = 1, ndambreaksg
+            if (ipol(L) >= ipolf(i) .and. ipol(L) <= ipoll(i)) then
+                idb(L) = i
+                ncl(i) = ncl(i) + 1
+                exit
+            endif
+        enddo
+    enddo
+    
+    ! allocate L1dambreaksg and L2dambreaksg
+    call realloc(L1dambreaksg,ndambreaksg)
+    call realloc(L2dambreaksg,ndambreaksg)
+    do i = 1, ndambreaksg
+        ndambr = ncl(i)
+        ! WRITE(msgbuf,'(2a,i8,a)') trim(qid), trim(plifile) , ndambr, ' nr of dambreak links' ; call msg_flush()
+        if (i == 1) then
+            L1dambreaksg(i) = 1
+            L2dambreaksg(i) = ndambr
+        else
+            L1dambreaksg(i) = L2dambreaksg(i-1) + 1
+            L2dambreaksg(i) = L2dambreaksg(i-1) + ndambr
+        endif
+        !
+        istrtmp = dambridx(i)
+        pstru => network%sts%struct(istrtmp)
+        istat =  initialize_structure_links(pstru, ndambr, kegen(1:ndambr), wu, ds = ds_gen(1:ndambr), lftopol = lftopol(1:ndambr))
+    enddo
+    ndambreak = L2dambreaksg(ndambreaksg)
+    
+    ! collect the link data and sort
+    ! initially ds is filled by relative coordinate on polyline segment
+    ncl = 0
+    do L = 1, numcrossedLinks
+        i = idb(L)
+        ncl(i) = ncl(i) + 1
+        iseg = ipol(L) - ipolf(i) + 1
+        
+        istrtmp = dambridx(i)
+        pstru => network%sts%struct(istrtmp)
+        do j = ncl(i)-1,1,-1
+            if ((pstru%lftopol(j) > iseg) .or. &
+                ((pstru%lftopol(j) == iseg) .and. (pstru%ds(j) > dsl(L)))) then
+                pstru%linknumbers(j+1) = pstru%linknumbers(j)
+                pstru%ds(j+1)          = pstru%ds(j)
+                pstru%lftopol(j+1)     = pstru%lftopol(j)
+            else
+                exit
+            endif
+        enddo
+        pstru%linknumbers(j+1) = ilink(L)
+        pstru%ds(j+1)          = dsl(L)
+        pstru%lftopol(j+1)     = iseg
+    enddo
+    
+    do i = 1, ndambreaksg
+        nps = dambreakPolygons(i)%np
+        
+        istrtmp = dambridx(i)
+        pstru => network%sts%struct(istrtmp)
+        j = 1
+        
+        ds0 = 0d0
+        ip = ipolf(i) - 1
+        do iseg = 1, nps-1
+            ip = ip + 1
+            ds = dbdistance(xps(ip), yps(ip), xps(ip+1), yps(ip+1), jsferic, jasfer3D, dmiss)
+            
+            do while (j <= ncl(i))
+                if (pstru%lftopol(j) /= iseg) exit
+                pstru%ds(j) = ds0 + pstru%ds(j) * ds
+                j = j + 1
+            end do
+            ds0 = ds0 + ds
+        enddo
+        
+        kedb(L1dambreaksg(i):L2dambreaksg(i)) = pstru%linknumbers
+        lftopol(L1dambreaksg(i):L2dambreaksg(i)) = pstru%lftopol
+        db_ds(L1dambreaksg(i):L2dambreaksg(i)) = pstru%ds
+    enddo
+    
+    deallocate(ipolf, ipoll, xps, yps, ilink, ipol, dsl, ncl, idb)
+endif
 
 !if (ngate == 0) ngatesg = 0
 !if (ncdam == 0) ncdamsg = 0
