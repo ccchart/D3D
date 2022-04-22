@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectCreator="Intel Fortran" Keyword="Console Application" Version="11.0" ProjectIdGuid="{EE6877BE-3466-4EB2-8CEB-99479A51778A}">
+	<Platforms>
+		<Platform Name="x64"/></Platforms>
+	<Configurations>
+		<Configuration Name="Debug|x64" OutputDirectory="C:\Users\chavarri\checkouts\20210719_fm_1d_implicit\build_dflowfm\dflowfm_lib\Debug">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" PreprocessorDefinitions="USE_MSWINDOWS;X64" DebugParameter="debugParameterAll" WarnDeclarations="true" WarnUnusedVariables="true" WarnInterfaces="true" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(UniversalCRTSdkDir)Lib\10.0.17763.0\ucrt\x64" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool" CommandLine="call ..\..\..\..\..\scripts_lgpl\win32\update_version.cmd .\src\sobeksim_version.F90 ..\..\ ..\include\version_number.ini&#xA;call ..\..\..\..\..\scripts_lgpl\win32\update_version.cmd .\src\sobeksim_version.rc .\ ..\include\version_number.ini"/>
+				<Tool Name="VFPostBuildEventTool" CommandLine="copy /y &quot;..\..\..\..\..\third_party_open\pthreads\bin\$(PlatformName)\pthreadVC2.dll&quot; &quot;$(OutDir)&quot;&#xA;copy /y &quot;$(IFORT_COMPILER18)redist\intel64\compiler\*.dll&quot; &quot;$(OutDir)&quot;"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
+		<Configuration Name="Release|x64" OutputDirectory="..\..\..\..\bin\$(PlatformName)\$(ConfigurationName)">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Preprocess="preprocessYes" PreprocessorDefinitions="USE_MSWINDOWS;X64" RuntimeLibrary="rtMultiThreadedDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(UniversalCRTSdkDir)Lib\10.0.17763.0\ucrt\x64" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool" CommandLine="call ..\..\..\..\..\scripts_lgpl\win32\update_version.cmd .\src\sobeksim_version.F90 ..\..\ ..\include\version_number.ini&#xA;call ..\..\..\..\..\scripts_lgpl\win32\update_version.cmd .\src\sobeksim_version.rc .\ ..\include\version_number.ini"/>
+				<Tool Name="VFPostBuildEventTool" CommandLine="copy /y &quot;..\..\..\..\..\third_party_open\pthreads\bin\$(PlatformName)\pthreadVC2.dll&quot; &quot;$(OutDir)&quot;&#xA;copy /y &quot;$(IFORT_COMPILER18)redist\intel64\compiler\*.dll&quot; &quot;$(OutDir)&quot;"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration></Configurations>
+	<Files>
+		<Filter Name="Header Files" Filter="fi;fd;h;inc"/>
+		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
+		<File RelativePath=".\src\sobeksim_version.rc"/>
+		<File RelativePath=".\src\sobeksim_version.rc.svn"/></Filter>
+		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
+		<File RelativePath=".\src\DEBMEM.f"/>
+		<File RelativePath=".\src\DMPMEM.f"/>
+		<File RelativePath=".\src\ESTMORF.f"/>
+		<File RelativePath=".\src\GKWINI.f"/>
+		<File RelativePath=".\src\GSDEGS.f"/>
+		<File RelativePath=".\src\GSINRES.f"/>
+		<File RelativePath=".\src\GSNOMO.f"/>
+		<File RelativePath=".\src\GSRIMO.f"/>
+		<File RelativePath=".\src\GTCLEN.f"/>
+		<File RelativePath=".\src\GTCPNT.f"/>
+		<File RelativePath=".\src\GTDLEN.f"/>
+		<File RelativePath=".\src\GTDPNT.f"/>
+		<File RelativePath=".\src\GTILEN.f"/>
+		<File RelativePath=".\src\GTIPNT.f"/>
+		<File RelativePath=".\src\GTLLEN.f"/>
+		<File RelativePath=".\src\GTLPNT.f"/>
+		<File RelativePath=".\src\GTRLEN.f"/>
+		<File RelativePath=".\src\GTRPNT.f"/>
+		<File RelativePath=".\src\INIMEM.f"/>
+		<File RelativePath=".\src\MAFINA.f"/>
+		<File RelativePath=".\src\MKCPNT.f"/>
+		<File RelativePath=".\src\MKDPNT.f"/>
+		<File RelativePath=".\src\MKIPNT.f"/>
+		<File RelativePath=".\src\MKLPNT.f"/>
+		<File RelativePath=".\src\MKRPNT.f"/>
+		<File RelativePath=".\src\SOADNA.f"/>
+		<File RelativePath=".\src\SOAUX.f"/>
+		<File RelativePath=".\src\sobeksim.f"/>
+		<File RelativePath=".\src\sobeksim_version.F90"/>
+		<File RelativePath=".\src\sobeksim_version.F90.svn"/>
+		<File RelativePath=".\src\SOCFIL.f"/>
+		<File RelativePath=".\src\SOCNAM.f"/>
+		<File RelativePath=".\src\SOCONV.f"/>
+		<File RelativePath=".\src\SODECL.f"/>
+		<File RelativePath=".\src\SODEFI.f"/>
+		<File RelativePath=".\src\SODEFK.f"/>
+		<File RelativePath=".\src\SODEFL.f"/>
+		<File RelativePath=".\src\SODEIN.f"/>
+		<File RelativePath=".\src\SODEKA.f"/>
+		<File RelativePath=".\src\SODEMO.f"/>
+		<File RelativePath=".\src\SODESA.f"/>
+		<File RelativePath=".\src\SODESE.f"/>
+		<File RelativePath=".\src\SODEWQ.f"/>
+		<File RelativePath=".\src\SOEDEF.f"/>
+		<File RelativePath=".\src\SOESMO.f"/>
+		<File RelativePath=".\src\SOESTI.f"/>
+		<File RelativePath=".\src\sofin.f"/>
+		<File RelativePath=".\src\SOFLOW.f"/>
+		<File RelativePath=".\src\SOGARG.f"/>
+		<File RelativePath=".\src\SOGDEF.f"/>
+		<File RelativePath=".\src\SOGETC.f"/>
+		<File RelativePath=".\src\sogetd_from_r.f90"/>
+		<File RelativePath=".\src\SOGETI.f"/>
+		<File RelativePath=".\src\SOGETL.f"/>
+		<File RelativePath=".\src\SOGETM.f"/>
+		<File RelativePath=".\src\SOGETR.f"/>
+		<File RelativePath=".\src\soini1.f"/>
+		<File RelativePath=".\src\soini2.f"/>
+		<File RelativePath=".\src\SOINIT.f"/>
+		<File RelativePath=".\src\SOINRM.f"/>
+		<File RelativePath=".\src\SOIPAR.f"/>
+		<File RelativePath=".\src\SONOMO.f"/>
+		<File RelativePath=".\src\SOOFIL.f"/>
+		<File RelativePath=".\src\SORIMO.f"/>
+		<File RelativePath=".\src\SORPAR.f"/>
+		<File RelativePath=".\src\SOSCAG.f"/>
+		<File RelativePath=".\src\SOSCAV.f"/>
+		<File RelativePath=".\src\SOSDIR.f"/>
+		<File RelativePath=".\src\SOSIMc.f"/>
+		<File RelativePath=".\src\SOSIMf.f"/>
+		<File RelativePath=".\src\SOSIMi.f"/>
+		<File RelativePath=".\src\SOSRUN.f"/>
+		<File RelativePath=".\src\SOSTAT.f"/>
+		<File RelativePath=".\src\SOTLAG.f"/>
+		<File RelativePath=".\src\SOWQ.f"/>
+		<File RelativePath=".\src\SOWQIN.f"/>
+		<File RelativePath=".\src\SOWRBF.f"/>
+		<File RelativePath=".\src\SOWREL.f"/>
+		<File RelativePath=".\src\SOWRES.f"/>
+		<File RelativePath=".\src\SRTMEM.f"/>
+		<File RelativePath=".\src\WRLOGO.f"/>
+		<File RelativePath=".\src\ZOEK.f"/>
+		<File RelativePath=".\src\ZZDUMP.f"/>
+		<File RelativePath=".\src\ZZFDPT.f"/>
+		<File RelativePath=".\src\ZZGTLN.f"/>
+		<File RelativePath=".\src\ZZGTPT.f"/>
+		<File RelativePath=".\src\ZZMKPT.f"/>
+		<File RelativePath=".\src\ZZSORT.f"/></Filter></Files>
+	<Globals/></VisualStudioProject>
