@@ -79,12 +79,12 @@ module m_f1dimp_data
       logical                          :: steady                 !<  steady state flag
       
       integer                          :: istep                  !<  Current time step number (at t n+1 ) 
-      integer, dimension(2)            :: itim                   !<   Actual time level (at t n+1 ) expressed in date and time. Format:
-                                                                     !– itim(1) = YYYYMMDD (year,month,day)
-                                                                     !– itim(2) = HHMMSSHH (hour,minute,second, hundredth of a second)
+      !integer, dimension(2)            :: itim                   !<   Actual time level (at t n+1 ) expressed in date and time. Format:
+      !                                                               !– itim(1) = YYYYMMDD (year,month,day)
+      !                                                               !– itim(2) = HHMMSSHH (hour,minute,second, hundredth of a second)
       
-      real(fp)                         :: time                   !<  Actual time level (at t n+1 ) in seconds.
-      real(fp)                         :: dtf                    !<  Flow time step in seconds.     
+      real                            :: time                   !<  Actual time level (at t n+1 ) in seconds.
+      real                            :: dtf                    !<  Flow time step in seconds.     
 
       !character(256)                   :: flbdfh                 !< File specifying Bedform-height
       !real(fp)      , dimension(:)    , pointer :: bedformD50    !< 50-percentile of sediment diameters (if no sediment simulated)

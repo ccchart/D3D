@@ -417,6 +417,35 @@ c     Mozart parameters plus groundwater switch
      +ip(triger),ip(cnpflg),ker       ,qtyp      ,  lfrou   ,rp(strbuf),
      +ip(ibuf)  ,rp(solbuf),rp(buflag),ip(indx)  ,   bicg   ,rp(stdbq) ,
      +   nstdb  )
+c     
+c    original call
+c
+c      call FLOW (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
+c     +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,nnm   ,nnn    ,nns     ,
+c     +nnf   ,nnmu  ,nosdim,lagstm,nlags ,juer  ,
+cc     Mozart parameters plus groundwater switch
+c     +  lmoza   ,  istmoz  ,cp(qlatid), cp(qlatnm), lgrwt   ,
+c     +  lrest   ,rp(flwpar),rp(contrl),
+c     +ip(branch),ip(typcr),maxlev,ip(nlev),dp(hlev) ,rp(wft),rp(aft)   ,
+c     +rp(wtt)   ,rp(att)   ,rp(arex)  ,ip(arexcn),ip(arexop),rp(of)    ,
+c     +ip(bfrict),rp(bfricp),   maxtab ,ntabm  ,  ip(ntab)   ,rp(table) ,
+c     +rp(sectc) ,rp(sectv) ,rp(grsize),rp(engpar),rp(gangle),rp(wndpar),
+c     +ip(wfrict),rp(wshld) ,rp(snceq) ,rp(snmeq) ,rp(snqhs) ,rp(snfric),
+c     +rp(snmu)  ,rp(snwind),ip(sclceq),ip(sclmeq),ip(sclqhs),ip(scceq) ,
+c     +ip(scmeq) ,ip(scqhs) ,ip(scifri),ip(scimu) ,ip(scnode),rp(snnode),
+c     +ip(sclnod),rp(pfa)   ,rp(pmua)  ,rp(pw)    ,   nexres ,rp(exres) ,
+c     +   lsalt  ,rp(izwft) ,   nhstat ,ip(hbdpar),   nqstat ,ip(qbdpar),
+c     +   nstru  ,ip(strtyp),rp(strpar),   nqlat  ,rp(qltpar),ip(grid)  ,
+c     +rp(x)     ,rp(grhis) ,
+c     +rp(rho)   ,   ngridm ,   nnode  ,ip(node)  ,   nbrnod ,
+c     +ip(nodnod),ip(numnod),rp(prslot),rp(psltvr),rp(conhis),rp(waoft) ,
+c     +rp(cpack) ,rp(rpack) ,rp(alfab) ,rp(tauwi) ,rp(ksi)   ,rp(a1m)   ,
+c     +rp(hstat) ,rp(qstat) ,rp(qlat)  ,rp(qlatgr),lp(strclo),dp(rfv1)  ,
+c     +dp(rfv2)  ,dp(abcd1) ,dp(abcd2 ),dp(mat)   ,dp(rhsvv) ,dp(hpack) ,
+c     +dp(qpack) ,dp(delh)  ,dp(work)  ,ip(cnstrl),rp(strhis),ip(trcnrl),
+c     +ip(triger),ip(cnpflg),ker       ,qtyp      ,  lfrou   ,rp(strbuf),
+c     +ip(ibuf)  ,rp(solbuf),rp(buflag),ip(indx)  ,   bicg   ,rp(stdbq) ,
+c     +   nstdb  )
 
 c
 c        Check for convergence
@@ -439,11 +468,11 @@ c
 c
 c     Update info for data base structure warnings
 c
-      call fltser (0      ,nstru  ,ngrid  ,rp(strpar) ,ip(strtyp) ,
-     +             dp(h2) ,ker    ,juer   )
+c      call fltser (0      ,nstru  ,ngrid  ,rp(strpar) ,ip(strtyp) ,
+c     +             dp(h2) ,ker    ,juer   )
 c
 c      if ( ker .ne. fatal ) then
-
+c
 c        if ( lkalm ) then
 c
 c         af2    =     gtrpnt ( 'AF2'   )
@@ -514,11 +543,13 @@ c
      +               rp(wtt)   ,rp(att)   ,ker    )
       endif
 c
-      call sowrbf( juresd    , justrd    , jusold    ,
-     +             ip(ibuf)  , rp(resbuf), rp(strbuf),
-     +             nstru     , ip(strtyp), ngrid     ,
-     +             jufrou    , rp(solbuf), ker       ,
-     +             conv      , lfrou     , frobuf    )
+c SObek WRite BuFfer
+c
+C      call sowrbf( juresd    , justrd    , jusold    ,
+C     +             ip(ibuf)  , rp(resbuf), rp(strbuf),
+C     +             nstru     , ip(strtyp), ngrid     ,
+C     +             jufrou    , rp(solbuf), ker       ,
+C     +             conv      , lfrou     , frobuf    )
 c
 c #if !  defined (SHR_MEM)
 c ====  shared memory  ====
@@ -529,4 +560,4 @@ c     +    istep .eq. nstep) call ENDCT (idmoz, istcnt)
 c #endif    
 c      return
 
-      end
+       end

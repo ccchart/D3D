@@ -419,18 +419,21 @@ c                 <h_n+1>    <Q_n>    <Q_*>    <Q_n+1>  <At_n>
 c                 <At_n+1>
      +            waoft(1,4),qtyp)
 c
-      if ( iter .eq. 1 .or. steady ) then
-
-      call FLCSTR (time   ,dt1     ,istep   ,g          ,rho    ,
-     +                ncontr ,contrl  ,strtyp  ,strpar     ,ngrid  ,
-c                      <h_*>    <Q_*>    <Af>
-     +                hp(1,2) ,qp(1,2) ,waoft(1,3) ,maxtab ,ntabm  ,
-     +                ntab    ,table   ,ncsrel ,cnstrl     ,ntrigr ,
-     +                triger  ,ntcrel  ,trcnrl ,nstru      ,strhis ,
-     +                conhis  ,cnpflg  ,lagstm ,nlags      ,buflag ,
-     +                nqlat   ,qltpar  ,juer   ,lrest      ,ker    )
-
-      endif
+c
+c Neglect structures for now
+c
+c      if ( iter .eq. 1 .or. steady ) then
+c
+c      call FLCSTR (time   ,dt1     ,istep   ,g          ,rho    ,
+c     +                ncontr ,contrl  ,strtyp  ,strpar     ,ngrid  ,
+cc                      <h_*>    <Q_*>    <Af>
+c     +                hp(1,2) ,qp(1,2) ,waoft(1,3) ,maxtab ,ntabm  ,
+c     +                ntab    ,table   ,ncsrel ,cnstrl     ,ntrigr ,
+c     +                triger  ,ntcrel  ,trcnrl ,nstru      ,strhis ,
+c     +                conhis  ,cnpflg  ,lagstm ,nlags      ,buflag ,
+c     +                nqlat   ,qltpar  ,juer   ,lrest      ,ker    )
+c
+c      endif
 
       if (ker .eq. fatal) goto 1000
 c
@@ -490,10 +493,10 @@ c        Set minus sign to define that buffer data has been stored
          ibuf(1) = -ibuf(1)
  1000 continue
 
-      if (ker .ne. ok) then
-         write (txt,'(2(1x,i8))') itim
-         call error (juer,'FLOW timestep@'//txt//'@',eflmes,info)
-         if (ker .ne. fatal) ker = ok
-      endif
+c      if (ker .ne. ok) then
+c         write (txt,'(2(1x,i8))') itim
+c         call error (juer,'FLOW timestep@'//txt//'@',eflmes,info)
+c         if (ker .ne. fatal) ker = ok
+c      endif
 c
       end

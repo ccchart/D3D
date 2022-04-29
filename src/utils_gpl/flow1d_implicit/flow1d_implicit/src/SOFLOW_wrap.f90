@@ -104,36 +104,47 @@ f1dimppar%steady=.true.
 
 !<SOFLOW> input
 f1dimppar%istep=1
-f1dimppar%itim(1)=20000101 
-f1dimppar%itim(2)=00000000
+!<itim> only used for writing to file when error
+!f1dimppar%itim(1)=20000101 
+!f1dimppar%itim(2)=00000000
 f1dimppar%time=1.0d0
 f1dimppar%dtf=1.0d0
 
 !#END# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
-g => f1dimppar%g
-psi => f1dimppar%psi
-theta => f1dimppar%theta
-epsh => f1dimppar%epsh
-epsq => f1dimppar%epsq
-rhow => f1dimppar%rhow
-omega => f1dimppar%omega
+!<flwpar> variables
+g      => f1dimppar%g
+psi    => f1dimppar%psi
+theta  => f1dimppar%theta
+epsh   => f1dimppar%epsh
+epsq   => f1dimppar%epsq
+rhow   => f1dimppar%rhow
+omega  => f1dimppar%omega
 epsqrl => f1dimppar%epsqrl
 lambda => f1dimppar%lambda
 relstr => f1dimppar%relstr
 dhstru => f1dimppar%dhstru
 cflpse => f1dimppar%cflpse
-resid => f1dimppar%resid
+resid  => f1dimppar%resid
 overlp => f1dimppar%overlp
-omcfl => f1dimppar%omcfl
-dhtyp => f1dimppar%dhtyp
+omcfl  => f1dimppar%omcfl
+dhtyp  => f1dimppar%dhtyp
 exrstp => f1dimppar%exrstp
 
+!<SOFLOW> variables
+time   => f1dimppar%time
+dtf    => f1dimppar%dtf
 
-call SOFLOW(g      , psi    , theta  , epsh   , epsq   , &
+call SOFLOW( &
+!<flwpar> input
+        &   g      , psi    , theta  , epsh   , epsq   , &
         &   rhow   , omega  , epsqrl , lambda , relstr , &
         &   dhstru , cflpse , resid  , overlp , omcfl  , &
-        &   dhtyp  , exrstp )
+        &   dhtyp  , exrstp ,                            &
+!<SOFLOW> input
+        &   time   , dtf                                 &
+!close
+        &)
     
         
 end subroutine SOFLOW_wrap
