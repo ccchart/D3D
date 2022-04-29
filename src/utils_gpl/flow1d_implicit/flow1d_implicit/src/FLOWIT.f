@@ -274,7 +274,7 @@ c
 c     Include constants for array dimensions
 c
       !DEC$ IF DEFINED (_DLL)
-      use SobekRE_OpenMI
+c      use SobekRE_OpenMI
       !DEC$ ENDIF
 
       include '..\include\sobdim.i'

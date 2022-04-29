@@ -134,7 +134,7 @@ c
 c
 c***********************************************************************
 c
-      use flow_in_datools
+c      use flow_in_datools
 c
 c     Parameters
 c
@@ -187,26 +187,26 @@ c              write(11,*) 'FLCHKH',igr,psltvr(3,igr),h(igr)
                write (btxt,'(f10.3)') bottom
                call getbrn (ibr,branam,lbrnam)
                write (xtxt,'(f10.2)') xc
-               if ( .not. da_running_in_da_tools() ) then
+c               if ( .not. da_running_in_da_tools() ) then
                   call ERROR (juer,'FLCHKH @'//branam(:lbrnam)//'@ @'
      +                                       //xtxt//'@ @'
      +                                       //htxt//'@ @'
      +                                       //btxt//'@',
      +                             eflhbo , ker )
-               else
+c               else
 c
 c                 Water level below bottom may be a result of the
 c                 disturbance imposed by DATools.
 c                 Report warning, and adjust it.
 c
-                  ker = warnng
-                  call ERROR (juer,'ADJUST @'//branam(:lbrnam)//'@ @'
-     +                                       //xtxt//'@ @'
-     +                                       //htxt//'@ @'
-     +                                       //btxt//'@',
-     +                             eflhbo , ker )
-                  h(igr) = bottom + 0.0001D0
-               endif
+c                  ker = warnng
+c                  call ERROR (juer,'ADJUST @'//branam(:lbrnam)//'@ @'
+c     +                                       //xtxt//'@ @'
+c     +                                       //htxt//'@ @'
+c     +                                       //btxt//'@',
+c     +                             eflhbo , ker )
+c                  h(igr) = bottom + 0.0001D0
+c               endif
             endif
  100     continue
  200  continue
