@@ -46,23 +46,23 @@ integer                          , pointer :: flitmx
 integer                          , pointer :: iterbc                 
 
 real                             , pointer :: g
-!real(fp)                         , pointer :: g                      
-real(fp)                         , pointer :: psi                    
-real(fp)                         , pointer :: theta                  
-real(fp)                         , pointer :: epsh                   
-real(fp)                         , pointer :: epsq                   
-real(fp)                         , pointer :: rhow                   
-real(fp)                         , pointer :: omega                  
-real(fp)                         , pointer :: epsqrl                 
-real(fp)                         , pointer :: lambda                 
-real(fp)                         , pointer :: relstr                 
-real(fp)                         , pointer :: dhstru                 
-real(fp)                         , pointer :: cflpse                 
-real(fp)                         , pointer :: resid                  
-real(fp)                         , pointer :: overlp                 
-real(fp)                         , pointer :: omcfl                  
-real(fp)                         , pointer :: dhtyp                  
-real(fp)                         , pointer :: exrstp                 
+real                             , pointer :: psi                    
+real                             , pointer :: theta                  
+real                             , pointer :: epsh                   
+real                             , pointer :: epsq                   
+real                             , pointer :: rhow                   
+real                             , pointer :: omega                  
+real                             , pointer :: epsqrl                 
+real                             , pointer :: lambda                 
+real                             , pointer :: relstr                 
+real                             , pointer :: dhstru                 
+real                             , pointer :: cflpse                               
+real                             , pointer :: overlp                 
+real                             , pointer :: omcfl                  
+real                             , pointer :: dhtyp                  
+real                             , pointer :: exrstp     
+
+double precision                 , pointer :: resid
       
 
 
@@ -73,6 +73,7 @@ real(fp)                         , pointer :: exrstp
 
 !#BEGIN# MOVE TO INITIALIZATION PARAMETERS
 
+!<flwpar>
 f1dimppar%g=9.81d0
 f1dimppar%psi=0.5d0
 f1dimppar%theta=1.0d0 !I think it is rewriten if steady flow is chosen anyhow
@@ -94,18 +95,45 @@ f1dimppar%omcfl=0.9d0 !default in SRE
 f1dimppar%dhtyp=0.1d0 !default in SRE
 f1dimppar%exrstp=0.0d0 !default in SRE
 
-f1dimppar%istep=1
-f1dimppar%itim(1)=20000101
-f1dimppar%itim(2)=00000000
+!<SOFLOW> input
 f1dimppar%steady=.true.
-f1dimppar%time=1.0d0
-f1dimppar%dtf=1.0d0
 
 !#END# MOVE TO INITIALIZATION PARAMETERS
 
-g => f1dimppar%g
+!#BEGIN# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
-call SOFLOW(g)
+!<SOFLOW> input
+f1dimppar%istep=1
+f1dimppar%itim(1)=20000101 
+f1dimppar%itim(2)=00000000
+f1dimppar%time=1.0d0
+f1dimppar%dtf=1.0d0
+
+!#END# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
+
+g => f1dimppar%g
+psi => f1dimppar%psi
+theta => f1dimppar%theta
+epsh => f1dimppar%epsh
+epsq => f1dimppar%epsq
+rhow => f1dimppar%rhow
+omega => f1dimppar%omega
+epsqrl => f1dimppar%epsqrl
+lambda => f1dimppar%lambda
+relstr => f1dimppar%relstr
+dhstru => f1dimppar%dhstru
+cflpse => f1dimppar%cflpse
+resid => f1dimppar%resid
+overlp => f1dimppar%overlp
+omcfl => f1dimppar%omcfl
+dhtyp => f1dimppar%dhtyp
+exrstp => f1dimppar%exrstp
+
+
+call SOFLOW(g      , psi    , theta  , epsh   , epsq   , &
+        &   rhow   , omega  , epsqrl , lambda , relstr , &
+        &   dhstru , cflpse , resid  , overlp , omcfl  , &
+        &   dhtyp  , exrstp )
     
         
 end subroutine SOFLOW_wrap

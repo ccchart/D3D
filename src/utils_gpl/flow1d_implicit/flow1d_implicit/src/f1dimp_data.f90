@@ -62,14 +62,15 @@ module m_f1dimp_data
       real                             :: omega                  !< Under relaxation coefficient
       real                             :: epsqrl                 !< Convergence criterium for discharges(relative)
       real                             :: lambda                 !< Extra resistance in general structure
-      real(fp)                         :: relstr                 !< Under relaxation factor for structures
-      real(fp)                         :: dhstru                 !< dh used for numerical differentation
-      real(fp)                         :: cflpse                 !< (initial) pseudo Courant number
-      real(fp)                         :: resid                  !< Allowable convergence measure for BICGST
-      real(fp)                         :: overlp                 !< sumerdike transition height
-      real(fp)                         :: omcfl                  !< parameter for computing next value of dx/dt_pseudo
-      real(fp)                         :: dhtyp                  !< parameter for computing next value of dx/dt_pseudo
-      real(fp)                         :: exrstp                 !< Extra resistance in momentum equation
+      real                             :: relstr                 !< Under relaxation factor for structures
+      real                             :: dhstru                 !< dh used for numerical differentation
+      real                             :: cflpse                 !< (initial) pseudo Courant number
+      real                             :: overlp                 !< sumerdike transition height
+      real                             :: omcfl                  !< parameter for computing next value of dx/dt_pseudo
+      real                             :: dhtyp                  !< parameter for computing next value of dx/dt_pseudo
+      real                             :: exrstp                 !< Extra resistance in momentum equation
+      
+      double precision                 :: resid                  !< Allowable convergence measure for BICGST
       
       !
       !input variables to <SOFLOW>

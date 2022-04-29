@@ -1,4 +1,7 @@
-      subroutine SOFLOW (g)
+      subroutine SOFLOW(g      , psi    , theta  , epsh   , epsq   , 
+     +                  rhow   , omega  , epsqrl , lambda , relstr , 
+     +                  dhstru , cflpse , resid  , overlp , omcfl  , 
+     +                  dhtyp  , exrstp )
       
 c      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
 c     +                    cpredn ,steady ,lsalt  ,lkalm  )
@@ -164,7 +167,8 @@ c     mozart pointer, (Id's,names,storageWidth)
 c
 c     Single variables
 c
-      real    epsh ,epsq, overlp, epsqrl, qtyp, dhtyp
+c      real    epsh ,epsq, overlp, epsqrl, qtyp, dhtyp
+      real    qtyp
 c
       integer flitmx, iter, conv, miniter
       logical lconv , bicg      
@@ -187,17 +191,24 @@ c
 c     Extract parameters from flwpar
 c
 c      flwpar = gtrpnt ( 'FLWPAR' )
-      
-      integer iterbc ,exrstp ,istru, igrid
-      real    theta2 ,omalfa ,omc    ,omr    ,omw    ,omboun ,omqlat
-      real    g      ,psi    ,theta  ,rhow   ,omega  ,lambda ,relstr
-      double precision        resid
-
+c      
 c      epsh   = sorpar ( rp(flwpar), 4 )
 c      epsq   = sorpar ( rp(flwpar), 5 )
 c      epsqrl = sorpar ( rp(flwpar), 9 )
 c      flitmx = soipar ( rp(flwpar), 7 )
-c      lconv  = soipar ( rp(flwpar), 17) .eq. 1
+c      lconv  = soipar ( rp(flwpar), 17) .eq. 1    
+c
+c      
+c    Passed from <SOFLOW_wrap>      
+c      
+      real     g      , psi    , theta  , epsh   , epsq,   
+     +         rhow   , omega  , epsqrl , lambda , relstr,
+     +         dhstru , cflpse ,          overlp , omcfl,  
+     +         dhtyp  , exrstp 
+                    
+      double precision           resid
+
+
 
 c
 c     Find starting addresses of working arrays
