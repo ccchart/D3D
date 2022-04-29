@@ -1,9 +1,9 @@
       subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
-     +                    cpredn ,steady ,lsalt  ,lkalm  ,
+     +                    cpredn ,steady ,lsalt  ,lkalm  )
 c                         mozart parameters
-     +                    lmoza  ,lgrwt  ,lrest  ,nstep  , 
-     +                    juresi ,jufrou ,juresd ,justrd ,juer   ,ker  ,
-     +                    inocon ,jusold ,lfrou  ,itstat ,frobuf )
+c     +                    lmoza  ,lgrwt  ,lrest  ,nstep  , 
+c     +                    juresi ,jufrou ,juresd ,justrd ,juer   ,ker  ,
+c     +                    inocon ,jusold ,lfrou  ,itstat ,frobuf )
 
 c=======================================================================
 c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS
@@ -179,8 +179,8 @@ c
 c
 c     Include memory pool
 c
-      include 'mempool.i'
-      include 'errcod.i'
+c      include 'mempool.i'
+c      include 'errcod.i'
 c
 c     Extract parameters from flwpar
 c
@@ -347,10 +347,10 @@ c ====  shared memory  ====
 c ====  niet voor SRS BOS
 c Koppeling Mozart    
 c
-      if(lmoza .and. nqlat.gt.0)
-     +call MOZCONTROL (  istep   ,   ngrid  ,   nqlat  ,   dtf    ,
-     +                   juer    ,   istmoz ,   idmoz  ,   itim   ,
-     +                 rp(qltpar),cp(qlatid),rp(qlatgr),dp(hpack) )
+c      if(lmoza .and. nqlat.gt.0)
+c     +call MOZCONTROL (  istep   ,   ngrid  ,   nqlat  ,   dtf    ,
+c     +                   juer    ,   istmoz ,   idmoz  ,   itim   ,
+c     +                 rp(qltpar),cp(qlatid),rp(qlatgr),dp(hpack) )
 #endif     
 c       
 c     Repeat until convergence
@@ -425,61 +425,61 @@ c
       call fltser (0      ,nstru  ,ngrid  ,rp(strpar) ,ip(strtyp) ,
      +             dp(h2) ,ker    ,juer   )
 c
-      if ( ker .ne. fatal ) then
+c      if ( ker .ne. fatal ) then
 
-        if ( lkalm ) then
+c        if ( lkalm ) then
 c
-         af2    =     gtrpnt ( 'AF2'   )
-         deriva =     gtrpnt ( 'DERIVA')
-         kabcd1 =     gtdpnt ( 'KABCD1')
-         kabcd2 =     gtdpnt ( 'KABCD2')
-         kalpar =     gtrpnt ( 'KALPAR')
-         kbeta  =     gtdpnt ( 'KBETA' )
-         kgain  =     gtrpnt ( 'KGAIN' )
-         lfilt  =     gtlpnt ( 'LFILT' )
-         np     = ip (gtipnt ( 'NP'    ))
-         nsamp  = ip (gtipnt ( 'NSAMP' ))
-         ntsam  = ip (gtipnt ( 'NTSAM' ))
-         p1     =     gtrpnt ( 'P1'    )
-         p2     =     gtrpnt ( 'P2'    )
-         pcol   =     gtrpnt ( 'PCOL'  )
-         qlatac =     gtrpnt ( 'QLATAC')
-         res    =     gtrpnt ( 'RES'   )
-         rescov =     gtrpnt ( 'RESCOV')
-         sample =     gtrpnt ( 'SAMPLE')
-         scares =     gtrpnt ( 'SCARES')
-         scfric =     gtipnt ( 'SCFRIC')
-         scmu   =     gtipnt ( 'SCMU'  )
-         sclfri =     gtipnt ( 'SCLFRI')
-         sclmu  =     gtipnt ( 'SCLMU' )
-         smploc =     gtipnt ( 'SMPLOC')
-         smpns  =     gtrpnt ( 'SMPNS' )
-         wf2    =     gtrpnt ( 'WF2'   )
-
-         call KALMAN   (maxlev ,maxtab ,nbran  ,ngrid ,ngridm ,nnc     ,
-     +        nnm      ,nnn    ,nnode  ,nbrnod ,nns   ,nstru  ,ip(nlev),
-     +        ntabm    ,nnf    ,nnmu   ,nsamp  ,ntsam ,np     ,nosdim  ,
-     +        cpredn   ,lp(lfilt)      ,filstp ,time  ,dtf    ,lsalt   ,
-     +        juer     ,nexres ,nqlat  ,rp(flwpar)    ,rp(kalpar)      ,
-     +dp(abcd1) ,rp(af2)   ,ip(branch),ip(grid)  ,ip(hbdpar),ip(typcr) ,
-     +dp(hpack) ,dp(hlev)  ,dp(kabcd1),dp(kabcd2),dp(kbeta) ,dp(mat)   ,
-     +ip(node)  ,ip(qbdpar),dp(rfv1)  ,dp(rfv2)  ,rp(rho)   ,dp(rhsvv) ,
-     +rp(wft)   ,rp(aft)   ,rp(wf2)   ,ip(wfrict),rp(of)    ,ip(bfrict),
-     +rp(bfricp),dp(qpack) ,ip(ntab)  ,rp(table) ,rp(sectc) ,rp(sectv) ,
-     +rp(grsize),rp(engpar),rp(x)     ,rp(exres) ,rp(prslot),rp(waoft) ,
-     +rp(cpack) ,rp(rpack) ,rp(alfab) ,rp(deriva),ip(strtyp),rp(strpar),
-     +rp(qltpar),rp(qlat)  ,lp(strclo),rp(qlatac),rp(tauwi) ,rp(arex)  ,
-     +ip(arexcn),ip(arexop),ip(sclnod),ip(scnode),rp(snnode),
-     +ip(scifri),ip(scimu) ,rp(snceq) ,rp(snmeq) ,rp(snqhs) ,
-     +rp(snfric),rp(snmu)  ,rp(snwind),ip(sclceq),ip(sclmeq),ip(sclqhs),
-     +ip(sclfri),ip(sclmu) ,ip(scceq) ,ip(scmeq) ,ip(scqhs) ,ip(scfric),
-     +ip(scmu)  ,ip(smploc),rp(p1)    ,rp(p2)    ,rp(pcol)  ,rp(rescov),
-     +rp(sample),rp(scares),rp(smpns) ,ip(indx)  ,ip(brnode),rp(rhsm)  ,
-     +rp(pfa)   ,rp(pmua)  ,rp(pw)    ,rp(res)   ,rp(kgain) ,   ker    ,
-     +rp(psltvr) )
-        endif
+c         af2    =     gtrpnt ( 'AF2'   )
+c         deriva =     gtrpnt ( 'DERIVA')
+c         kabcd1 =     gtdpnt ( 'KABCD1')
+c         kabcd2 =     gtdpnt ( 'KABCD2')
+c         kalpar =     gtrpnt ( 'KALPAR')
+c         kbeta  =     gtdpnt ( 'KBETA' )
+c         kgain  =     gtrpnt ( 'KGAIN' )
+c         lfilt  =     gtlpnt ( 'LFILT' )
+c         np     = ip (gtipnt ( 'NP'    ))
+c         nsamp  = ip (gtipnt ( 'NSAMP' ))
+c         ntsam  = ip (gtipnt ( 'NTSAM' ))
+c         p1     =     gtrpnt ( 'P1'    )
+c         p2     =     gtrpnt ( 'P2'    )
+c         pcol   =     gtrpnt ( 'PCOL'  )
+c         qlatac =     gtrpnt ( 'QLATAC')
+c         res    =     gtrpnt ( 'RES'   )
+c         rescov =     gtrpnt ( 'RESCOV')
+c         sample =     gtrpnt ( 'SAMPLE')
+c         scares =     gtrpnt ( 'SCARES')
+c         scfric =     gtipnt ( 'SCFRIC')
+c         scmu   =     gtipnt ( 'SCMU'  )
+c         sclfri =     gtipnt ( 'SCLFRI')
+c         sclmu  =     gtipnt ( 'SCLMU' )
+c         smploc =     gtipnt ( 'SMPLOC')
+c         smpns  =     gtrpnt ( 'SMPNS' )
+c         wf2    =     gtrpnt ( 'WF2'   )
 c
-      endif
+c         call KALMAN   (maxlev ,maxtab ,nbran  ,ngrid ,ngridm ,nnc     ,
+c     +        nnm      ,nnn    ,nnode  ,nbrnod ,nns   ,nstru  ,ip(nlev),
+c     +        ntabm    ,nnf    ,nnmu   ,nsamp  ,ntsam ,np     ,nosdim  ,
+c     +        cpredn   ,lp(lfilt)      ,filstp ,time  ,dtf    ,lsalt   ,
+c     +        juer     ,nexres ,nqlat  ,rp(flwpar)    ,rp(kalpar)      ,
+c     +dp(abcd1) ,rp(af2)   ,ip(branch),ip(grid)  ,ip(hbdpar),ip(typcr) ,
+c     +dp(hpack) ,dp(hlev)  ,dp(kabcd1),dp(kabcd2),dp(kbeta) ,dp(mat)   ,
+c     +ip(node)  ,ip(qbdpar),dp(rfv1)  ,dp(rfv2)  ,rp(rho)   ,dp(rhsvv) ,
+c     +rp(wft)   ,rp(aft)   ,rp(wf2)   ,ip(wfrict),rp(of)    ,ip(bfrict),
+c     +rp(bfricp),dp(qpack) ,ip(ntab)  ,rp(table) ,rp(sectc) ,rp(sectv) ,
+c     +rp(grsize),rp(engpar),rp(x)     ,rp(exres) ,rp(prslot),rp(waoft) ,
+c     +rp(cpack) ,rp(rpack) ,rp(alfab) ,rp(deriva),ip(strtyp),rp(strpar),
+c     +rp(qltpar),rp(qlat)  ,lp(strclo),rp(qlatac),rp(tauwi) ,rp(arex)  ,
+c     +ip(arexcn),ip(arexop),ip(sclnod),ip(scnode),rp(snnode),
+c     +ip(scifri),ip(scimu) ,rp(snceq) ,rp(snmeq) ,rp(snqhs) ,
+c     +rp(snfric),rp(snmu)  ,rp(snwind),ip(sclceq),ip(sclmeq),ip(sclqhs),
+c     +ip(sclfri),ip(sclmu) ,ip(scceq) ,ip(scmeq) ,ip(scqhs) ,ip(scfric),
+c     +ip(scmu)  ,ip(smploc),rp(p1)    ,rp(p2)    ,rp(pcol)  ,rp(rescov),
+c     +rp(sample),rp(scares),rp(smpns) ,ip(indx)  ,ip(brnode),rp(rhsm)  ,
+c     +rp(pfa)   ,rp(pmua)  ,rp(pw)    ,rp(res)   ,rp(kgain) ,   ker    ,
+c     +rp(psltvr) )
+c        endif
+c
+c      endif
 c
 c     Calculate variables for time level n+1
 c
@@ -507,9 +507,9 @@ c
 c ====  shared memory  ====
 c ====  niet voor SRS BOS
 c einde tijdsproces; Mozart-koppeling afsluiten
-      if (lmoza .and. nqlat .gt. 0 .and. 
-     +    istep .eq. nstep) call ENDCT (idmoz, istcnt)
+c      if (lmoza .and. nqlat .gt. 0 .and. 
+c     +    istep .eq. nstep) call ENDCT (idmoz, istcnt)
 #endif    
-      return
+c      return
 
       end

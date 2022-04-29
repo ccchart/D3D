@@ -47,10 +47,36 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if successful. DFM
 
 integer :: N, L
 
+!SRE variables
+integer                       :: istep
+integer                       :: filstp
+integer                       :: cpredn
+integer, dimension(2)         :: itim
+
+logical                       :: steady
+logical                       :: lsalt
+logical                       :: lkalm
+
+real(fp)                      :: time
+real(fp)                      :: dtf
+
+istep=1
+filstp=1
+cpredn=1
+itim(1)=20000101
+itim(2)=00000000
+steady=.true.
+lsalt=.false.
+lkalm=.false.
+time=1.0d0
+dtf=1.0d0
+
  iresult = DFM_GENERICERROR
 
  if (itstep >= 2) then
     call timstrt('step_reduce', handle_extra(51)) ! step_reduce
+    call SOFLOW( istep  ,time   ,itim   ,dtf    ,filstp , &
+               &         cpredn ,steady ,lsalt  ,lkalm  )
     call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
     call timstop(handle_extra(51)) ! step_reduce
 
