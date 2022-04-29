@@ -184,15 +184,31 @@ c      include 'errcod.i'
 c
 c     Extract parameters from flwpar
 c
-      flwpar = gtrpnt ( 'FLWPAR' )
-c
+c      flwpar = gtrpnt ( 'FLWPAR' )
+      
+      g      =  flwpar( 1 )
+      psi    =  flwpar( 2 )
+      theta  =  flwpar( 3 )
+      rhow   =  flwpar( 6 )
+      omega  =  flwpar( 8 )
+      lambda =  flwpar(10 )
+      relstr =  flwpar(11 )
+      dhstru =  flwpar(12 )
+      cflpse =  flwpar(13 )
+      iterbc =  int (flwpar(14 ))
+      resid  =  dble(flwpar(15 ))
+      overlp =  flwpar(16 )
+      omcfl  =  flwpar(18 )
+      dhtyp  =  flwpar(19 )
+      exrstp =  int (flwpar(20 ))
+      
+
       epsh   = sorpar ( rp(flwpar), 4 )
       epsq   = sorpar ( rp(flwpar), 5 )
       epsqrl = sorpar ( rp(flwpar), 9 )
       flitmx = soipar ( rp(flwpar), 7 )
       lconv  = soipar ( rp(flwpar), 17) .eq. 1
-      overlp = sorpar ( rp(flwpar), 16)
-      dhtyp  = sorpar ( rp(flwpar), 19)
+
 c
 c     Find starting addresses of working arrays
 c
