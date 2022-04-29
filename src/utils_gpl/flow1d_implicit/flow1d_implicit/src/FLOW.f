@@ -463,34 +463,36 @@ c          mozart parameters plus groundwater switch
      +     stdbq  ,nstdb  )
 c
       if (ker .eq. fatal) goto 1000
-c
-      call FLCHKH (ngrid  ,nbran  ,branch ,typcr  ,maxlev ,hlev   ,
-     +             hp(1,3),juer   ,ker    ,prslot ,psltvr )
-c
-c     Fill buffers
-c
-      ibuf1 = ibuf(1)
-      do 1010 istru = 1 , nstru
-         strbuf(ibuf1,1,istru) = strhis(4,istru)
-         if (strtyp(2,istru) .eq. cstbra) then
-            strbuf(ibuf1,2,istru) = hp(strtyp(3,istru),3)-
-     +                              hp(strtyp(4,istru),3)
-         else
-            strbuf(ibuf1,2,istru) = -999.
-         endif
+cc
+cc Check done in FM
+cc
+c      call FLCHKH (ngrid  ,nbran  ,branch ,typcr  ,maxlev ,hlev   ,
+c     +             hp(1,3),juer   ,ker    ,prslot ,psltvr )
+cc
+cc     Fill buffers
+cc
+c      ibuf1 = ibuf(1)
+c      do 1010 istru = 1 , nstru
+c         strbuf(ibuf1,1,istru) = strhis(4,istru)
+c         if (strtyp(2,istru) .eq. cstbra) then
+c            strbuf(ibuf1,2,istru) = hp(strtyp(3,istru),3)-
+c     +                              hp(strtyp(4,istru),3)
+c         else
+c            strbuf(ibuf1,2,istru) = -999.
+c         endif
  1010 continue
-      ibuf2 = ibuf(2)
-      do 1020 igrid = 1 , ngrid
-         solbuf(ibuf2,1,igrid) = hp(igrid,3)
-         solbuf(ibuf2,2,igrid) = qp(igrid,3)
-         solbuf(ibuf2,3,igrid) = hp(igrid,3)-psltvr(5,igrid)
-         solbuf(ibuf2,4,igrid) = waoft(igrid,1)
-         solbuf(ibuf2,5,igrid) = waoft(igrid,2)
-         solbuf(ibuf2,6,igrid) = 1/waoft(igrid,8)
+cc      ibuf2 = ibuf(2)
+cc      do 1020 igrid = 1 , ngrid
+cc         solbuf(ibuf2,1,igrid) = hp(igrid,3)
+cc         solbuf(ibuf2,2,igrid) = qp(igrid,3)
+cc         solbuf(ibuf2,3,igrid) = hp(igrid,3)-psltvr(5,igrid)
+cc         solbuf(ibuf2,4,igrid) = waoft(igrid,1)
+cc         solbuf(ibuf2,5,igrid) = waoft(igrid,2)
+cc         solbuf(ibuf2,6,igrid) = 1/waoft(igrid,8)
  1020 continue
-c
-c        Set minus sign to define that buffer data has been stored
-         ibuf(1) = -ibuf(1)
+cc
+cc        Set minus sign to define that buffer data has been stored
+c         ibuf(1) = -ibuf(1)
  1000 continue
 
 c      if (ker .ne. ok) then
