@@ -1,5 +1,7 @@
-      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
-     +                    cpredn ,steady ,lsalt  ,lkalm  )
+      subroutine SOFLOW (g)
+      
+c      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
+c     +                    cpredn ,steady ,lsalt  ,lkalm  )
 c                         mozart parameters
 c     +                    lmoza  ,lgrwt  ,lrest  ,nstep  , 
 c     +                    juresi ,jufrou ,juresd ,justrd ,juer   ,ker  ,
@@ -186,28 +188,16 @@ c     Extract parameters from flwpar
 c
 c      flwpar = gtrpnt ( 'FLWPAR' )
       
-      g      =  flwpar( 1 )
-      psi    =  flwpar( 2 )
-      theta  =  flwpar( 3 )
-      rhow   =  flwpar( 6 )
-      omega  =  flwpar( 8 )
-      lambda =  flwpar(10 )
-      relstr =  flwpar(11 )
-      dhstru =  flwpar(12 )
-      cflpse =  flwpar(13 )
-      iterbc =  int (flwpar(14 ))
-      resid  =  dble(flwpar(15 ))
-      overlp =  flwpar(16 )
-      omcfl  =  flwpar(18 )
-      dhtyp  =  flwpar(19 )
-      exrstp =  int (flwpar(20 ))
-      
+      integer iterbc ,exrstp ,istru, igrid
+      real    theta2 ,omalfa ,omc    ,omr    ,omw    ,omboun ,omqlat
+      real    g      ,psi    ,theta  ,rhow   ,omega  ,lambda ,relstr
+      double precision        resid
 
-      epsh   = sorpar ( rp(flwpar), 4 )
-      epsq   = sorpar ( rp(flwpar), 5 )
-      epsqrl = sorpar ( rp(flwpar), 9 )
-      flitmx = soipar ( rp(flwpar), 7 )
-      lconv  = soipar ( rp(flwpar), 17) .eq. 1
+c      epsh   = sorpar ( rp(flwpar), 4 )
+c      epsq   = sorpar ( rp(flwpar), 5 )
+c      epsqrl = sorpar ( rp(flwpar), 9 )
+c      flitmx = soipar ( rp(flwpar), 7 )
+c      lconv  = soipar ( rp(flwpar), 17) .eq. 1
 
 c
 c     Find starting addresses of working arrays
@@ -519,13 +509,13 @@ c
      +             jufrou    , rp(solbuf), ker       ,
      +             conv      , lfrou     , frobuf    )
 c
-#if !  defined (SHR_MEM)
+c #if !  defined (SHR_MEM)
 c ====  shared memory  ====
 c ====  niet voor SRS BOS
 c einde tijdsproces; Mozart-koppeling afsluiten
 c      if (lmoza .and. nqlat .gt. 0 .and. 
 c     +    istep .eq. nstep) call ENDCT (idmoz, istcnt)
-#endif    
+c #endif    
 c      return
 
       end

@@ -277,7 +277,7 @@ c      !DEC$ IF DEFINED (_DLL)
 c      use SobekRE_OpenMI
 c      !DEC$ ENDIF
 
-c      include '..\include\sobdim.i'
+      include '..\include\sobdim.i'
 c      include '..\include\mempool.i'
 
 c

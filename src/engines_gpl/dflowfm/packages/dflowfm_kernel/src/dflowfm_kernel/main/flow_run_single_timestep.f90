@@ -40,6 +40,7 @@ use unstruc_netcdf
 use m_timer
 use unstruc_display, only : jaGUI
 use dfm_error
+!use m_f1dimp !useful to get the logical for doing it or not? or storing that logical in a different structure?
 implicit none
 
 integer :: key
@@ -47,36 +48,12 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if successful. DFM
 
 integer :: N, L
 
-!SRE variables
-integer                       :: istep
-integer                       :: filstp
-integer                       :: cpredn
-integer, dimension(2)         :: itim
-
-logical                       :: steady
-logical                       :: lsalt
-logical                       :: lkalm
-
-real(fp)                      :: time
-real(fp)                      :: dtf
-
-istep=1
-filstp=1
-cpredn=1
-itim(1)=20000101
-itim(2)=00000000
-steady=.true.
-lsalt=.false.
-lkalm=.false.
-time=1.0d0
-dtf=1.0d0
-
  iresult = DFM_GENERICERROR
 
  if (itstep >= 2) then
     call timstrt('step_reduce', handle_extra(51)) ! step_reduce
-    call SOFLOW( istep  ,time   ,itim   ,dtf    ,filstp , &
-               &         cpredn ,steady ,lsalt  ,lkalm  )
+    !ADD if do SRE solver then
+    call SOFLOW_wrap()
     call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
     call timstop(handle_extra(51)) ! step_reduce
 
