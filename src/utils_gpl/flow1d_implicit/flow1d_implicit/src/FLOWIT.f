@@ -361,16 +361,16 @@ c     Include sobek error codes:
 c
       include '..\include\errcod.i'
 
-      !DEC$ IF DEFINED (_DLL)
+c      !DEC$ IF DEFINED (_DLL)
 
-      if (initdone .and. OpenMIactive()) then
-         ! Fill structure changes
-
-         strunm   =    gtcpnt('STRUNM')         
-
-         call GetStruct(strtyp, cp(strunm), strpar, nstru)
-      endif
-      !DEC$ ENDIF
+c      if (initdone .and. OpenMIactive()) then
+c         ! Fill structure changes
+c
+c         strunm   =    gtcpnt('STRUNM')         
+c
+c         call GetStruct(strtyp, cp(strunm), strpar, nstru)
+c      endif
+c      !DEC$ ENDIF
 c
 c     Calculate water level dependent hydraulic parameters
 c
