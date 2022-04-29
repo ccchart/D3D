@@ -273,12 +273,12 @@ c***********************************************************************
 c
 c     Include constants for array dimensions
 c
-      !DEC$ IF DEFINED (_DLL)
+c      !DEC$ IF DEFINED (_DLL)
 c      use SobekRE_OpenMI
-      !DEC$ ENDIF
+c      !DEC$ ENDIF
 
-      include '..\include\sobdim.i'
-      include '..\include\mempool.i'
+c      include '..\include\sobdim.i'
+c      include '..\include\mempool.i'
 
 c
 c     Declaration of parameters:
@@ -359,7 +359,7 @@ c
 c
 c     Include sobek error codes:
 c
-      include '..\include\errcod.i'
+c      include '..\include\errcod.i'
 
 c      !DEC$ IF DEFINED (_DLL)
 
@@ -392,11 +392,11 @@ c
 c
 c     Implement effect of correction parameters.
 c
-      if ( lkalm ) then
-         call FLKAPA (istep  ,ngrid  ,nnf    ,nstru  ,nnmu   ,nbran  ,
-     +                cpa(1,1),scifri ,pfa   ,strpar ,scimu  ,pmua   ,
-     +                branch ,wfrict ,tauwi  ,pw     )
-      endif
+c      if ( lkalm ) then
+c         call FLKAPA (istep  ,ngrid  ,nnf    ,nstru  ,nnmu   ,nbran  ,
+c     +                cpa(1,1),scifri ,pfa   ,strpar ,scimu  ,pmua   ,
+c     +                branch ,wfrict ,tauwi  ,pw     )
+c      endif
 
 c     Determine boundary conditions at the new time level t(n+1)
 c     Only the conditions which are defined as a function of time
@@ -421,29 +421,29 @@ c     mozart parameters
 c
       if (ker .eq. fatal) goto 1000
 
-      if (lgrwt) then
+c      if (lgrwt) then
+cc
+cc     Compute lateral discharge caused by flux with groundwater
+cc
+c         mugr   =     gtrpnt ( 'MU' )
+c         kdgr   =     gtrpnt ( 'KD' )
+c         grcgr  =     gtrpnt ( 'GRC' )
+c         grwpar =     gtrpnt ( 'GRWPAR' )
+c         hbal   =     gtrpnt ( 'HBAL' ) 
 c
-c     Compute lateral discharge caused by flux with groundwater
+c         grdh = sorpar(rp(grwpar),2)
+c         plrec = soipar(rp(grwpar),3)
+c         pllrec = soipar(rp(grwpar),4)
+c         plave = soipar(rp(grwpar),5)
+c         plold = soipar(rp(grwpar),6)
+c         pbal = soipar(rp(grwpar),7)
 c
-         mugr   =     gtrpnt ( 'MU' )
-         kdgr   =     gtrpnt ( 'KD' )
-         grcgr  =     gtrpnt ( 'GRC' )
-         grwpar =     gtrpnt ( 'GRWPAR' )
-         hbal   =     gtrpnt ( 'HBAL' ) 
-
-         grdh = sorpar(rp(grwpar),2)
-         plrec = soipar(rp(grwpar),3)
-         pllrec = soipar(rp(grwpar),4)
-         plave = soipar(rp(grwpar),5)
-         plold = soipar(rp(grwpar),6)
-         pbal = soipar(rp(grwpar),7)
-
-         call FLQLGR(iter,istep,dt1,ngrid,rp(mugr),rp(kdgr),
-     +                  rp(grcgr),grhis, qlatgr,
-     +                  x,  hp, grdh, plrec, pllrec, plave,
-     +                  plold,pbal,rp(hbal),juer,ker)
-
-      endif
+c         call FLQLGR(iter,istep,dt1,ngrid,rp(mugr),rp(kdgr),
+c     +                  rp(grcgr),grhis, qlatgr,
+c     +                  x,  hp, grdh, plrec, pllrec, plave,
+c     +                  plold,pbal,rp(hbal),juer,ker)
+c
+c      endif
 c
 c     Calculate ABCDE coefficients
 c
