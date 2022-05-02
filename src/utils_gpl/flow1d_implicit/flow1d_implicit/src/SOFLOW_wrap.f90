@@ -40,29 +40,36 @@ implicit none
 !pointer
 !
 
-logical                          , pointer :: lconv                   
+logical                                  , pointer :: lconv                   
+                                         
+integer                                  , pointer :: flitmx                 
+integer                                  , pointer :: iterbc                 
+integer                                  , pointer :: ngrid   
+integer                                  , pointer :: ngridm   
+integer                                  , pointer :: nbran   
+integer                                  , pointer :: maxlev
+integer, dimension(:,:)     , pointer :: branch
 
-integer                          , pointer :: flitmx                 
-integer                          , pointer :: iterbc                 
-
-real                             , pointer :: g
-real                             , pointer :: psi                    
-real                             , pointer :: theta                  
-real                             , pointer :: epsh                   
-real                             , pointer :: epsq                   
-real                             , pointer :: rhow                   
-real                             , pointer :: omega                  
-real                             , pointer :: epsqrl                 
-real                             , pointer :: lambda                 
-real                             , pointer :: relstr                 
-real                             , pointer :: dhstru                 
-real                             , pointer :: cflpse                               
-real                             , pointer :: overlp                 
-real                             , pointer :: omcfl                  
-real                             , pointer :: dhtyp                  
-real                             , pointer :: exrstp     
-
-double precision                 , pointer :: resid
+real                                     , pointer :: g
+real                                     , pointer :: psi                    
+real                                     , pointer :: theta                  
+real                                     , pointer :: epsh                   
+real                                     , pointer :: epsq                   
+real                                     , pointer :: rhow                   
+real                                     , pointer :: omega                  
+real                                     , pointer :: epsqrl                 
+real                                     , pointer :: lambda                 
+real                                     , pointer :: relstr                 
+real                                     , pointer :: dhstru                 
+real                                     , pointer :: cflpse                               
+real                                     , pointer :: overlp                 
+real                                     , pointer :: omcfl                  
+real                                     , pointer :: dhtyp                  
+real                                     , pointer :: exrstp     
+                                         
+double precision                         , pointer :: time
+double precision                         , pointer :: dtf
+double precision                         , pointer :: resid
       
 
 
@@ -74,12 +81,12 @@ double precision                 , pointer :: resid
 !#BEGIN# MOVE TO INITIALIZATION PARAMETERS
 
 !<flwpar>
-f1dimppar%g=9.81d0
+f1dimppar%g=9.81d0 !read from FM
 f1dimppar%psi=0.5d0
 f1dimppar%theta=1.0d0 !I think it is rewriten if steady flow is chosen anyhow
 f1dimppar%epsh=1.0d-10 
 f1dimppar%epsq=1.0d-10 
-f1dimppar%rhow=1000.0d0 
+f1dimppar%rhow=1000.0d0 !read from FM
 f1dimppar%flitmx=10
 f1dimppar%omega=0.5d0 !check sensible value
 f1dimppar%epsqrl=1.0d-10
@@ -98,12 +105,24 @@ f1dimppar%exrstp=0.0d0 !default in SRE
 !<SOFLOW> input
 f1dimppar%steady=.true.
 
+!dimensions
+f1dimppar%ngrid=10 !read from FM
+f1dimppar%ngridm=10 !for one branch it is fine if it is the same as <ngrid>. Otherwise compute.
+f1dimppar%nbran=1 !Fine if there is only one branch. Otherwise compute.
+f1dimppar%maxlev=20 !Properly compute based on cross-section data. 
+
+!network
+!f1dimppar%branch(1)=1
+!f1dimppar%branch(2)=2
+!f1dimppar%branch(3)=1
+!f1dimppar%branch(4)=100
+
 !#END# MOVE TO INITIALIZATION PARAMETERS
 
 !#BEGIN# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
 !<SOFLOW> input
-f1dimppar%istep=1
+f1dimppar%istep=1 
 !<itim> only used for writing to file when error
 !f1dimppar%itim(1)=20000101 
 !f1dimppar%itim(2)=00000000
@@ -135,14 +154,28 @@ exrstp => f1dimppar%exrstp
 time   => f1dimppar%time
 dtf    => f1dimppar%dtf
 
+!dimensions
+ngrid  => f1dimppar%ngrid
+ngridm => f1dimppar%ngridm
+nbran  => f1dimppar%nbran
+maxlev => f1dimppar%maxlev
+
+!network
+branch => f1dimppar%branch
+allocate(branch(4,nbran))
+
 call SOFLOW( &
 !<flwpar> input
         &   g      , psi    , theta  , epsh   , epsq   , &
         &   rhow   , omega  , epsqrl , lambda , relstr , &
         &   dhstru , cflpse , resid  , overlp , omcfl  , &
-        &   dhtyp  , exrstp ,                            &
+        &   dhtyp  , exrstp                            , &
 !<SOFLOW> input
-        &   time   , dtf                                 &
+        &   time   , dtf                               , &
+!dimensions 
+        &   ngrid  , ngridm , nbran  , maxlev          , &
+! network
+        &   branch                                       &
 !close
         &)
     

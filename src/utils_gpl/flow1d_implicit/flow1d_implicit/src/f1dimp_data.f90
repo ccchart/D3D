@@ -83,9 +83,27 @@ module m_f1dimp_data
       !                                                               !– itim(1) = YYYYMMDD (year,month,day)
       !                                                               !– itim(2) = HHMMSSHH (hour,minute,second, hundredth of a second)
       
-      real                            :: time                   !<  Actual time level (at t n+1 ) in seconds.
-      real                            :: dtf                    !<  Flow time step in seconds.     
+      double precision                :: time                   !<  Actual time level (at t n+1 ) in seconds.
+      double precision                :: dtf                    !<  Flow time step in seconds.     
 
+      !
+      !dimensions
+      !
+      
+      integer                          :: ngrid                 !< Number of cells in network.
+      integer                          :: ngridm                 !< Maximum number of cells in a branch
+      integer                          :: nbran                 !<  Maximum number of connected branches to one node.
+      integer                          :: maxlev                 !<  Maximum+1 number of nlev(1:ngrid).
+      
+      !
+      !network
+      !
+      integer, allocatable, dimension(:,:) :: branch                !< branch : P, double(4, nbran ). Branch information.     
+                                                                  !- branch(1,i) : integer. Node number n1 at begin of branch i.
+                                                                  !- branch(2,i) : integer. Node number n2 at end of branch i.
+                                                                  !- branch(3,i) : integer. Grid point i1 at begin of branch i.
+                                                                  !- branch(4,i) : integer. Grid point i2 at end of branch i.
+      
       !character(256)                   :: flbdfh                 !< File specifying Bedform-height
       !real(fp)      , dimension(:)    , pointer :: bedformD50    !< 50-percentile of sediment diameters (if no sediment simulated)
 

@@ -1,7 +1,12 @@
-      subroutine SOFLOW(g      , psi    , theta  , epsh   , epsq   , 
+      subroutine SOFLOW(
+     +                  g      , psi    , theta  , epsh   , epsq   , 
      +                  rhow   , omega  , epsqrl , lambda , relstr , 
      +                  dhstru , cflpse , resid  , overlp , omcfl  , 
-     +                  dhtyp  , exrstp )
+     +                  dhtyp  , exrstp                            ,
+     +                  time   , dtf                               ,
+     +                  ngrid  , ngridm , nbran, maxlev            ,
+     +                  branch
+     +                  )
       
 c      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
 c     +                    cpredn ,steady ,lsalt  ,lkalm  )
@@ -137,19 +142,32 @@ c     mozart declaration plus groundwater switch
 c
 c     Local variables (pointers to arrays)
 c
-      integer a1m   ,abcd1 ,abcd2 ,af2   ,aft   ,afwfqs,alfab ,
-     +        arex  ,arexcn,arexop,att   ,bfricp,bfrict,branch,
+c      integer a1m   ,abcd1 ,abcd2 ,af2   ,aft   ,afwfqs,alfab ,
+c     +        arex  ,arexcn,arexop,att   ,bfricp,bfrict,branch,
+c     +        brnode,buflag,cnpflg,cnstrl,conhis,contrl,cpack ,
+c     +        delh  ,deriva,
+c     +        engpar,exres ,flwpar,gangle,grid  ,grsize,hpack ,
+c     +        hbdpar,hlev  ,hstat ,indx  ,izwft ,kabcd1,kabcd2,
+c     +        kalpar,kbeta ,kgain ,ksi   ,lagstm,lfilt ,mat   ,
+c     +        maxlev,maxtab,nbran ,nbrnod,ncontr,ncsrel,nexres,
+c     +        ngrid ,ngridm,nhstat,nlev  ,nlags ,nnc   ,nnf   ,
+c     +        nnm   ,nnmu  ,nnn   ,nnode ,nns   ,node  ,nosdim,
+c     +        np    ,nqlat ,nqstat,nsamp ,nstdb ,nstru ,ntab  ,
+c     +        ntabm ,ntcrel,nodnod,ntrigr,
+c     +        ntsam ,numnod,of    ,pfa   ,pmua
+      integer af2   ,afwfqs,alfab ,
+     +        arex  ,arexcn,arexop,att   ,bfricp,bfrict,
      +        brnode,buflag,cnpflg,cnstrl,conhis,contrl,cpack ,
      +        delh  ,deriva,
      +        engpar,exres ,flwpar,gangle,grid  ,grsize,hpack ,
      +        hbdpar,hlev  ,hstat ,indx  ,izwft ,kabcd1,kabcd2,
      +        kalpar,kbeta ,kgain ,ksi   ,lagstm,lfilt ,mat   ,
      +        maxlev,maxtab,nbran ,nbrnod,ncontr,ncsrel,nexres,
-     +        ngrid ,ngridm,nhstat,nlev  ,nlags ,nnc   ,nnf   ,
+     +        nhstat,nlev  ,nlags ,nnc   ,nnf   ,
      +        nnm   ,nnmu  ,nnn   ,nnode ,nns   ,node  ,nosdim,
      +        np    ,nqlat ,nqstat,nsamp ,nstdb ,nstru ,ntab  ,
      +        ntabm ,ntcrel,nodnod,ntrigr,
-     +        ntsam ,numnod,of    ,pfa   ,pmua
+     +        ntsam ,numnod, pfa   ,pmua
       integer prslot,psltvr,pw    ,p1    ,p2    ,pcol  ,qpack ,
      +        qbdpar,qlat  ,qlatac,qlatgr,qltpar,qstat ,res   ,
      +        rescov,rpack ,rfv1  ,rfv2  ,rho   ,rhsm  ,rhsvv ,
@@ -158,8 +176,8 @@ c
      +        sclnod,sclqhs,sectc ,sectv ,smploc,smpns ,snceq ,
      +        snfric,snmeq ,snmu  ,snnode,snqhs ,snwind,stdbq ,
      +        strclo,strhis,strpar,strtyp,table ,
-     +        tauwi ,trcnrl,triger,typcr ,waoft ,wfrict,wft   ,
-     +        wf2   ,wndpar,work  ,wshld ,wtt   ,x     ,
+     +        tauwi ,trcnrl,triger,typcr ,waoft ,wfrict  ,
+     +        wf2   ,wndpar,work  ,wshld ,x     ,
      +        ibuf  ,resbuf,strbuf,solbuf, grhis
       integer h2    ,q2    ,
 c     mozart pointer, (Id's,names,storageWidth)
@@ -208,27 +226,55 @@ c
                     
       double precision           resid
 
+      integer ngrid, ngridm
 
 
 c
-c     Find starting addresses of working arrays
+c     Using <gtdpnt> and <gtrpnt> one finds the starting addresses of working arrays.
+c     This is changed into directly allocating memory for each variable. The ones that 
+c     are used are passed to <SOFLOW>. The ones that are not used are allocated here.
 c
 c     Single variables are read from the memory pool to simplify the
 c     call for the Microsoft Fortran compiler v5
 c
-      a1m    =     gtrpnt ( 'A1M'   )
-      abcd1  =     gtdpnt ( 'ABCD1' )
-      abcd2  =     gtdpnt ( 'ABCD2' )
-      aft    =     gtrpnt ( 'AFT'   )
+c
+c      a1m    =     gtrpnt ( 'A1M'   ) 
+c     only used in case of salinity
+      real    a1m(ngrid)
+      
+c      abcd1  =     gtdpnt ( 'ABCD1' )
+c     output      
+      double precision abcd1(ngridm,5)
+      
+c      abcd2  =     gtdpnt ( 'ABCD2' )
+c     output
+      double precision abcd2(ngridm,5)
+      
+c      aft    =     gtrpnt ( 'AFT'   )
+c     output if hydraulic parameters computed inside      
+      real aft(ngrid,maxlev)
+      
       afwfqs =     gtrpnt ( 'AFWFQS')
       alfab  =     gtrpnt ( 'ALFAB' )
       arex   =     gtrpnt ( 'AREX'  )
-      arexcn =     gtipnt ( 'AREXCN')
-      arexop =     gtipnt ( 'AREXOP')
-      att    =     gtrpnt ( 'ATT'   )
+      
+c      arexcn =     gtipnt ( 'AREXCN')
+c     output
+      integer arexcn(ngrid,2)
+      
+c      arexop =     gtipnt ( 'AREXOP')
+      integer arexop(2)
+           
+c      att    =     gtrpnt ( 'ATT'   )
+c     output if hydraulic parameters computed inside      
+      real att(ngrid,maxlev)
+      
       bfricp =     gtrpnt ( 'BFRICP')
       bfrict =     gtipnt ( 'BFRICT')
-      branch =     gtipnt ( 'BRANCH')
+      
+c      branch =     gtipnt ( 'BRANCH')
+      integer branch(4,nbran)
+      
       brnode =     gtipnt ( 'BRNODE')
       buflag =     gtrpnt ( 'BUFLAG')
       cnpflg =     gtipnt ( 'CNPFLG')
@@ -254,13 +300,13 @@ c
       mat    =     gtdpnt ( 'MAT'   )
       maxlev = ip (gtipnt ( 'MAXLEV'))
       maxtab = ip (gtipnt ( 'MAXTAB'))
-      nbran  = ip (gtipnt ( 'NBRAN' ))
+c      nbran  = ip (gtipnt ( 'NBRAN' ))
       nbrnod = ip (gtipnt ( 'NBRNOD'))
       ncontr = ip (gtipnt ( 'NCONTR'))
       ncsrel = ip (gtipnt ( 'NCSREL'))
       nexres = ip (gtipnt ( 'NEXRES'))
-      ngrid  = ip (gtipnt ( 'NGRID' ))
-      ngridm = ip (gtipnt ( 'NGRIDM'))
+c      ngrid  = ip (gtipnt ( 'NGRID' ))      
+c      ngridm = ip (gtipnt ( 'NGRIDM'))      
       nhstat = ip (gtipnt ( 'NHSTAT'))
       nlags  = ip (gtipnt ( 'NLAGS' ))
       nlev   =     gtipnt ( 'NLEV'  )
@@ -288,7 +334,11 @@ c
       ntcrel = ip (gtipnt ( 'NTCREL'))
       ntrigr = ip (gtipnt ( 'NTRIGR'))
       numnod =     gtipnt ( 'NUMNOD')
-      of     =     gtrpnt ( 'OF'    )
+      
+c      of     =     gtrpnt ( 'OF'    )
+c     output if hydraulic parameters computed inside      
+      real of(ngrid,maxlev)
+      
       pfa    =     gtrpnt ( 'PFA'   )
       pmua   =     gtrpnt ( 'PMUA'  )
       prslot =     gtrpnt ( 'PRSLOT')
@@ -346,10 +396,18 @@ c     Mozart pointer
       typcr  =     gtipnt ( 'TYPCR' )
       waoft  =     gtrpnt ( 'WAOFT' )
       wfrict =     gtipnt ( 'WFRICT')
-      wft    =     gtrpnt ( 'WFT'   )
+      
+c      wft    =     gtrpnt ( 'WFT'   )
+c     output if hydraulic parameters computed inside      
+      real wft(ngrid,maxlev)
+      
       wndpar =     gtrpnt ( 'WNDPAR')
       wshld  =     gtrpnt ( 'WSHLD' )
-      wtt    =     gtrpnt ( 'WTT'   )
+      
+c      wtt    =     gtrpnt ( 'WTT'   )
+c     output if hydraulic parameters computed inside      
+      real wtt(ngrid,maxlev)
+      
       work   =     gtdpnt ( 'WORK'  )
       x      =     gtrpnt ( 'X'     )
       grhis  =     gtrpnt ( 'GRHIS' )
@@ -397,9 +455,9 @@ c
 c     Mozart parameters plus groundwater switch
      +  lmoza   ,  istmoz  ,cp(qlatid), cp(qlatnm), lgrwt   ,
      +  lrest   ,rp(flwpar),rp(contrl),
-     +ip(branch),ip(typcr),maxlev,ip(nlev),dp(hlev) ,rp(wft),rp(aft)   ,
-     +rp(wtt)   ,rp(att)   ,rp(arex)  ,ip(arexcn),ip(arexop),rp(of)    ,
-     +ip(bfrict),rp(bfricp),   maxtab ,ntabm  ,  ip(ntab)   ,rp(table) ,
+     +branch    ,ip(typcr),maxlev,ip(nlev),dp(hlev) ,wft, aft   ,
+     +wtt       ,att      ,rp(arex)  ,arexcn  ,arexop, of    ,
+     +ip(bfrict),rp(bfricp),maxtab    ,ntabm     ,  ip(ntab),rp(table) ,
      +rp(sectc) ,rp(sectv) ,rp(grsize),rp(engpar),rp(gangle),rp(wndpar),
      +ip(wfrict),rp(wshld) ,rp(snceq) ,rp(snmeq) ,rp(snqhs) ,rp(snfric),
      +rp(snmu)  ,rp(snwind),ip(sclceq),ip(sclmeq),ip(sclqhs),ip(scceq) ,
@@ -531,16 +589,16 @@ c     Calculate variables for time level n+1
 c
       if ( ker.ne.fatal ) then
          call flnp1 (   lkalm  ,   nbran  ,   ngrid  ,   nnf    ,
-     +               ip(branch),ip(typcr) ,ip(bfrict),rp(bfricp),
+     +               branch,ip(typcr) ,ip(bfrict),rp(bfricp),
      +               dp(h2 )   ,dp(q2)    ,   maxlev ,ip(nlev)  ,
-     +               dp(hlev)  ,rp(wft),rp(aft)   ,   overlp ,
-     +               rp(arex)  ,ip(arexcn),ip(arexop),rp(of)    ,
+     +               dp(hlev)  ,wft,aft   ,   overlp ,
+     +               rp(arex)  ,ip(arexcn),ip(arexop),of    ,
      +                  maxtab ,   ntabm  ,ip(ntab)  ,rp(table) ,
      +               rp(sectc) ,rp(sectv) ,rp(prslot),rp(psltvr),
      +               rp(waoft) ,rp(grsize),rp(engpar),ip(scifri),
      +               rp(pfa)   ,   juer   ,rp(cpack) ,rp(rpack) ,
      +               rp(afwfqs),rp(alfab) ,
-     +               rp(wtt)   ,rp(att)   ,ker    )
+     +               wtt   ,att   ,ker    )
       endif
 c
 c SObek WRite BuFfer
