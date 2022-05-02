@@ -45,18 +45,28 @@
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl"/>
 		<Filter Name="src">
+		<File RelativePath=".\src\BICGST.f"/>
 		<File RelativePath=".\src\f1dimp_data.f90"/>
 		<File RelativePath=".\src\flabcd.f"/>
 		<File RelativePath=".\src\FLARWI.f"/>
 		<File RelativePath=".\src\FLBOCH.f"/>
+		<File RelativePath=".\src\FLBOUN.f"/>
+		<File RelativePath=".\src\FLBRAN.f"/>
 		<File RelativePath=".\src\FLDSCO.f"/>
 		<File RelativePath=".\src\FLHYPA.f"/>
 		<File RelativePath=".\src\FLINAW.f"/>
 		<File RelativePath=".\src\FLINS.f"/>
 		<File RelativePath=".\src\flnorm.f"/>
+		<File RelativePath=".\src\FLNP1.f"/>
 		<File RelativePath=".\src\FLOW.f"/>
 		<File RelativePath=".\src\FLOWIT.f"/>
+		<File RelativePath=".\src\FLPERI.f"/>
+		<File RelativePath=".\src\FLSBRA.f"/>
+		<File RelativePath=".\src\FLSOEQ.f"/>
+		<File RelativePath=".\src\FLWETP.f"/>
 		<File RelativePath=".\src\INDWGH.f"/>
+		<File RelativePath=".\src\LUBKSB.f"/>
+		<File RelativePath=".\src\LUDCMP.f"/>
 		<File RelativePath=".\src\m_f1dimp.f90"/>
 		<File RelativePath=".\src\SOCONV.f"/>
 		<File RelativePath=".\src\SOFLOW.f"/>
