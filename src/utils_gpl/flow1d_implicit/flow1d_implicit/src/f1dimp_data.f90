@@ -72,9 +72,9 @@ module m_f1dimp_data
       
       double precision                 :: resid                  !< Allowable convergence measure for BICGST
       
-      !
+      !*******
       !input variables to <SOFLOW>
-      !
+      !*******
       
       logical                          :: steady                 !<  steady state flag
       
@@ -86,27 +86,127 @@ module m_f1dimp_data
       double precision                :: time                   !<  Actual time level (at t n+1 ) in seconds.
       double precision                :: dtf                    !<  Flow time step in seconds.     
 
-      !
+      !*******
       !dimensions
-      !
+      !*******
       
       integer                          :: ngrid                 !< Number of cells in network.
-      integer                          :: ngridm                 !< Maximum number of cells in a branch
-      integer                          :: nbran                 !<  Maximum number of connected branches to one node.
-      integer                          :: maxlev                 !<  Maximum+1 number of nlev(1:ngrid).
+      integer                          :: ngridm                !< Maximum number of cells in a branch
+      integer                          :: nbran                 !< Maximum number of connected branches to one node.
+      integer                          :: maxlev                !< Maximum+1 number of nlev(1:ngrid).
+      integer                          :: nnode                 !< Number of nodes.
+      integer                          :: nhstat                !< Number of h-boundary stations.
+      integer                          :: nqstat                !< Number of q-boundary stations.
+      integer                          :: ntabm                 !< Maximum size of table 
+      integer                          :: maxtab                !< Maximum number of defined tables.
       
-      !
-      !network
-      !
+      !*******
+      !dependent on branch
+      !*******
+      
       integer, allocatable, dimension(:,:) :: branch                !< branch : P, double(4, nbran ). Branch information.     
                                                                   !- branch(1,i) : integer. Node number n1 at begin of branch i.
                                                                   !- branch(2,i) : integer. Node number n2 at end of branch i.
                                                                   !- branch(3,i) : integer. Grid point i1 at begin of branch i.
                                                                   !- branch(4,i) : integer. Grid point i2 at end of branch i.
+      integer, allocatable, dimension(:,:) :: bfrict              !  <bfrict(3,nbran)>: P, double(3,<nbranch>): Bed friction in sections of branch:
+                                                                  !	  <bfrict(1,i)>: Friction type in main section in branch i:
+                                                                  !		  <bfrict(1,i)=cfrchc> (1) : Ch\'ezy constant
+                                                                  !		  <bfrict(1,i)=cfrchq> (2) : Ch\'ezy function of discharge
+                                                                  !		  <bfrict(1,i)=cfrchh> (3) : Ch\'ezy function of water level
+                                                                  !		  <bfrict(1,i)=cfrman> (4) : Manning constant
+                                                                  !		  <bfrict(1,i)=cfrskn> (5) : Strickler 1 constant ($k_n$)
+                                                                  !		  <bfrict(1,i)=cfrsks> (6) : Strickler 2 constant ($k_s$)
+                                                                  !		  <bfrict(1,i)=cfrnik> (7) : Nikuradze constant
+                                                                  !		  <bfrict(1,i)=cfreng> (8) : Engelund predictor
+                                                                  !	  <bfrict(2,i)> : Friction type in sub section 1 in branch i
+                                                                  !		  <bfrict(2,i)=cfrchc>(1) : Ch\'ezy constant
+                                                                  !		  <bfrict(2,i)=cfrman>(4) : Manning constant
+                                                                  !		  <bfrict(2,i)=cfrskn>(5) : Strickler 1 constant (k s )
+                                                                  !		  <bfrict(2,i)=cfrsks>(6) : Strickler 2 constant (k s )
+                                                                  !		  <bfrict(2,i)=cfrnik>(7) : Nikuradze constant
+                                                                  !	  <bfrict(3,i)> Friction type in sub section 2 in branch i.
+                                                                  !		  <bfrict(3,i)=cfrchc >(1): Ch\'ezy constant.
+                                                                  !		  <bfrict(3,i)=cfrinan>(4): Manning constant.
+                                                                  !		  <bfrict(3,i)=cfrskn >(5): Strickler 1 constant ($k_n$)
+                                                                  !		  <bfrict(3,i)=cfrsks >(6): Strickler 2 constant ($k_s$)
+                                                                  !		  <bfrict(3,i)=cfrnik >(7): Nikuradze constant
       
-      !character(256)                   :: flbdfh                 !< File specifying Bedform-height
-      !real(fp)      , dimension(:)    , pointer :: bedformD50    !< 50-percentile of sediment diameters (if no sediment simulated)
+      !*******
+      !dependent on gridpoints 
+      !*******
+      
+      real   , allocatable, dimension(:,:) :: bfricp             ! <bfricp>: P, double(6,<ngrid>): Bed friction parameters.
+                                                                 !	 <bfricp(1,i)>: Parameter for positive flow direction in main section (depending on friction type)
+                                                                 !		 = Ch\'ezy constant value.
+                                                                 !		 = Table pointer (Q or h table).
+                                                                 !		 = Nikuradse parameter $k_n$ for Nikuradse formula.
+                                                                 !		 = Manning parameter $n_m$ for Manning formula.
+                                                                 !		 = Strickler coefficient $k_s$ for Strickler formula.
+                                                                 !	 <bfricp(2,i)> Parameter for negative flow direction in main section (depending on friction type). Same definitions as <bfricp(l,i)>.
+                                                                 !	 <bfricp(3,i)> Parameter for positive flow direction in subsec 1 (depending on friction type).
+                                                                 !		 = Ch\'ezy constant value.
+                                                                 !		 = Nikuradse parameter $k_n$ for Nikuradse formula.
+                                                                 !		 = Manning parameter $n_m$ for Manning formula.
+                                                                 !		 = Strickler coefficient $k_s$ for Strickler formula.
+                                                                 !	 <bfricp(4,i)> Parameter for negative flow direction in sub sec 1 (depending on friction type). Same definition as <bfricp (3,1)>.
+                                                                 !	 <bfricp(5,i)> Parameter for positive flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
+                                                                 !	 <bfricp(6,i)> Parameter for negative flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
+      double precision, allocatable, dimension(:,:)    :: hpack  !<hpack>: I, double(<ngrid,3>). Water level:
+                                                                 ! <hpack(i,1)>: at time $n$.
+                                                                 ! <hpack(i,2)>: at time $*$.
+                                                                 ! <hpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
+      double precision, allocatable, dimension(:,:)    :: qpack  !<qpack>: I, double(<ngrid,3>). Water discharge:
+                                                                 ! <qpack(i,1)>: at time $n$.
+                                                                 ! <qpack(i,2)>: at time $*$.
+                                                                 ! <qpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
+      !*******
+      !cross-sectional information
+      !*******      
+      real            , allocatable, dimension(:,:)                :: wft   ! Flow width at h = hlev (i,j) for grid-point i.
+      real            , allocatable, dimension(:,:)                :: aft   ! Flow area at h = hlev (i,j) for grid-point i.
+      real            , allocatable, dimension(:,:)                :: wtt   ! Total width at h = hlev (i,j) for grid-point i.
+      real            , allocatable, dimension(:,:)                :: att   ! Total area at h = hlev (i,j) for grid-point i.
+      real            , allocatable, dimension(:,:)                :: of    ! Actual wetted perimeter at every cross section.
+      double precision, allocatable, dimension(:,:)                :: hlev  ! j-th water level in table for grid point i.
 
+      !*******
+      !boundary conditions
+      !*******
+      integer, allocatable, dimension(:,:) :: hbdpar             !hbdpar(3,nhstat)  Hydrodynamic conditions for H-stations:
+                                                                 !    (1,i) = Location [grid point] for H-station.
+                                                                 !    (2,i) = Type of condition
+                                                                 !            cbftim (1) : h = f(t)
+                                                                 !            cbfqoh (2) : h = h(Q)
+                                                                 !            cbfour (3) : h = fourier
+                                                                 !            cbtidl (4) : h = tidal components
+                                                                 !    (3,i) = Table number for f(t), h(Q), fourier
+                                                                 !            or tidal components table.
+      
+      integer, allocatable, dimension(:,:) :: qbdpar             !qbdpar(3,nqstat)  I  Hydrodynamic conditions for Q-stations:
+                                                                 !    (1,i) = Location [grid point] for Q-station.
+                                                                 !    (2,i) = Type of condition
+                                                                 !            cbftim (1) : Q = f(t)
+                                                                 !            cbfqoh (2) : Q = Q(h)
+                                                                 !            cbfour (3) : Q = fourier
+                                                                 !            cbtidl (4) : Q = tidal components
+                                                                 !    (3,i) = Table number for f(t), Q(h), fourier
+                                                                 !            or tidal components table.
+      !*******
+      !tables
+      !*******
+      real   , allocatable, dimension(:)      :: table           ! Contains all table values.
+      integer, allocatable, dimension (:,:)   :: ntab            ! Table descriptor:
+	                                                             ! <ntab(1,k)>: length of table $k$.
+	                                                             ! <ntab(2,k)>: Start address $X$ in table table $k$.
+	                                                             ! <ntab(3,k)>: Start address $Y$ in table table $k$.
+	                                                             ! <ntab(4,k)>: Access method and period control: $xy$
+	                                                             ! 	x = ctbnpf> (0) : No period defined
+	                                                             ! 	x = ctbpfu> (1) : Period defined
+	                                                             ! 	y = ctbico> (0) : Continue interpolation
+	                                                             ! 	y = ctbidi> (1) : Discrete
+      
+      
    end type f1dimppar_type
    
 end module m_f1dimp_data

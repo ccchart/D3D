@@ -48,7 +48,17 @@ integer                                  , pointer :: ngrid
 integer                                  , pointer :: ngridm   
 integer                                  , pointer :: nbran   
 integer                                  , pointer :: maxlev
-integer, dimension(:,:)     , pointer :: branch
+integer                                  , pointer :: nnode
+integer                                  , pointer :: nhstat
+integer                                  , pointer :: nqstat
+integer                                  , pointer :: maxtab
+integer                                  , pointer :: ntabm
+
+integer, dimension(:,:)                  , pointer :: branch
+integer, dimension(:,:)                  , pointer :: bfrict
+integer, dimension(:,:)                  , pointer :: hbdpar
+integer, dimension(:,:)                  , pointer :: qbdpar
+integer, dimension(:,:)                  , pointer :: ntab
 
 real                                     , pointer :: g
 real                                     , pointer :: psi                    
@@ -66,14 +76,25 @@ real                                     , pointer :: overlp
 real                                     , pointer :: omcfl                  
 real                                     , pointer :: dhtyp                  
 real                                     , pointer :: exrstp     
-                                         
+
+real, dimension(:)                       , pointer :: table
+
+real, dimension(:,:)                     , pointer :: bfricp
+real, dimension(:,:)                     , pointer :: wft
+real, dimension(:,:)                     , pointer :: aft
+real, dimension(:,:)                     , pointer :: wtt
+real, dimension(:,:)                     , pointer :: att
+real, dimension(:,:)                     , pointer :: of
+
+
 double precision                         , pointer :: time
 double precision                         , pointer :: dtf
 double precision                         , pointer :: resid
+
+double precision, dimension(:,:)         , pointer :: hpack
+double precision, dimension(:,:)         , pointer :: qpack
+double precision, dimension(:,:)         , pointer :: hlev
       
-
-
-!real(fp)      , dimension(:)         , pointer :: sedd50
 !
 !f1dimp variables
 !
@@ -110,12 +131,36 @@ f1dimppar%ngrid=10 !read from FM
 f1dimppar%ngridm=10 !for one branch it is fine if it is the same as <ngrid>. Otherwise compute.
 f1dimppar%nbran=1 !Fine if there is only one branch. Otherwise compute.
 f1dimppar%maxlev=20 !Properly compute based on cross-section data. 
+f1dimppar%nnode=2 !Properly compute based on cross-section data. 
+f1dimppar%nhstat=1 !Properly compute based on cross-section data. 
+f1dimppar%nqstat=1 !Properly compute based on cross-section data. 
+f1dimppar%ntabm=10 !Properly compute based on cross-section data. 
+f1dimppar%maxtab=2 !Properly compute based on cross-section data. 
 
-!network
-!f1dimppar%branch(1)=1
-!f1dimppar%branch(2)=2
-!f1dimppar%branch(3)=1
-!f1dimppar%branch(4)=100
+!dependent on branch
+allocate(f1dimppar%branch(4,nbran)) !deal with allocate and deallocate properly
+allocate(f1dimppar%bfrict(3,nbran)) 
+
+!dependent on gridpoints 
+allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !deal with allocate and deallocate properly
+allocate(f1dimppar%hpack(3,f1dimppar%ngrid)) 
+allocate(f1dimppar%qpack(3,f1dimppar%ngrid)) 
+
+!cross-sectional information
+allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%aft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%wtt(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%att(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%of(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%hlev(f1dimppar%ngrid,f1dimppar%maxlev)) 
+ 
+!boundary conditions
+allocate(f1dimppar%hbdpar(3,f1dimppar%nhstat)) !deal with allocate and deallocate properly
+allocate(f1dimppar%qbdpar(3,f1dimppar%nqstat)) 
+
+!tables
+allocate(f1dimppar%table(f1dimppar%ntabm)) 
+allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
 
 !#END# MOVE TO INITIALIZATION PARAMETERS
 
@@ -128,6 +173,10 @@ f1dimppar%istep=1
 !f1dimppar%itim(2)=00000000
 f1dimppar%time=1.0d0
 f1dimppar%dtf=1.0d0
+
+!deal with 
+!hpack
+!qpack
 
 !#END# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
@@ -159,10 +208,36 @@ ngrid  => f1dimppar%ngrid
 ngridm => f1dimppar%ngridm
 nbran  => f1dimppar%nbran
 maxlev => f1dimppar%maxlev
+nnode  => f1dimppar%nnode 
+nhstat => f1dimppar%nhstat 
+nqstat => f1dimppar%nqstat
+maxtab => f1dimppar%maxtab
+ntabm  => f1dimppar%ntabm
 
-!network
+!dependent on branch
 branch => f1dimppar%branch
-allocate(branch(4,nbran))
+bfrict => f1dimppar%bfrict
+
+!dependent on gridpoints 
+bfricp => f1dimppar%bfricp
+hpack  => f1dimppar%hpack
+qpack  => f1dimppar%qpack
+
+!cross-sectional shape
+wft  => f1dimppar%wft 
+aft  => f1dimppar%aft 
+wtt  => f1dimppar%wtt 
+att  => f1dimppar%att 
+of   => f1dimppar%of  
+hlev => f1dimppar%hlev
+
+!boundary conditions
+hbdpar => f1dimppar%hbdpar
+qbdpar => f1dimppar%qbdpar
+
+!tables
+table  => f1dimppar%table
+ntab   => f1dimppar%ntab
 
 call SOFLOW( &
 !<flwpar> input
@@ -173,9 +248,19 @@ call SOFLOW( &
 !<SOFLOW> input
         &   time   , dtf                               , &
 !dimensions 
-        &   ngrid  , ngridm , nbran  , maxlev          , &
-! network
-        &   branch                                       &
+        &   ngrid  , ngridm , nbran  , maxlev , nnode  , &
+        &   nhstat , nqstat , maxtab , ntabm           , &
+!dependent on branch
+        &   branch , bfrict                            , &
+!dependent on gridpoints 
+        &   bfricp , hpack  , qpack                    , & 
+!cross-sectional shape
+        &   wft    , aft    ,wtt     ,att     , of     , & 
+        &   hlev                                       , &
+!boundary conditions
+        &   hbdpar , qbdpar                            , &
+!tables
+        &   table  , ntab                                &
 !close
         &)
     
