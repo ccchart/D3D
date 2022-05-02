@@ -46,15 +46,19 @@
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl"/>
 		<Filter Name="src">
 		<File RelativePath=".\src\f1dimp_data.f90"/>
-		<File RelativePath=".\src\FLCHKH.f"/>
-		<File RelativePath=".\src\FLCSTR.f"/>
+		<File RelativePath=".\src\flabcd.f"/>
+		<File RelativePath=".\src\FLARWI.f"/>
+		<File RelativePath=".\src\FLBOCH.f"/>
+		<File RelativePath=".\src\FLDSCO.f"/>
+		<File RelativePath=".\src\FLHYPA.f"/>
+		<File RelativePath=".\src\FLINAW.f"/>
 		<File RelativePath=".\src\FLINS.f"/>
+		<File RelativePath=".\src\flnorm.f"/>
 		<File RelativePath=".\src\FLOW.f"/>
 		<File RelativePath=".\src\FLOWIT.f"/>
+		<File RelativePath=".\src\INDWGH.f"/>
 		<File RelativePath=".\src\m_f1dimp.f90"/>
 		<File RelativePath=".\src\SOCONV.f"/>
 		<File RelativePath=".\src\SOFLOW.f"/>
-		<File RelativePath=".\src\SOFLOW_wrap.f90"/>
-		<File RelativePath=".\src\SOIPAR.f"/>
-		<File RelativePath=".\src\SORPAR.f"/></Filter></Files>
+		<File RelativePath=".\src\SOFLOW_wrap.f90"/></Filter></Files>
 	<Globals/></VisualStudioProject>
