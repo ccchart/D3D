@@ -338,9 +338,9 @@ c
 c***********************************************************************
 c
 
-      !DEC$ IF DEFINED (_DLL)
-      use SobekRE_OpenMI
-      !DEC$ ENDIF
+c      !DEC$ IF DEFINED (_DLL)
+c      use SobekRE_OpenMI
+c      !DEC$ ENDIF
 c
 c     Function declaration
 c
@@ -953,12 +953,12 @@ C JC 12/4/2000: ook in iteratie
       endif
 c
 c
-      !DEC$ IF DEFINED (_DLL)
-      if (OpenMIactive()) then
-         qlatnm = max(1,gtcpnt ('QLATNM'))
-         ires = GetLaterals(qlat, cp(qlatnm), qltpar, nqlat)
-      endif
-      !DEC$ ENDIF
+c      !DEC$ IF DEFINED (_DLL)
+c      if (OpenMIactive()) then
+c         qlatnm = max(1,gtcpnt ('QLATNM'))
+c         ires = GetLaterals(qlat, cp(qlatnm), qltpar, nqlat)
+c      endif
+c      !DEC$ ENDIF
 c
 c     *****************************************
 c     * Distribution of Qlat over grid points *
