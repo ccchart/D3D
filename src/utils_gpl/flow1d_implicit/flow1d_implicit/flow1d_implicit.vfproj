@@ -64,10 +64,14 @@
 		<File RelativePath=".\src\FLSBRA.f"/>
 		<File RelativePath=".\src\FLSOEQ.f"/>
 		<File RelativePath=".\src\FLWETP.f"/>
+		<File RelativePath=".\src\GETBRK.f"/>
 		<File RelativePath=".\src\INDWGH.f"/>
 		<File RelativePath=".\src\LUBKSB.f"/>
 		<File RelativePath=".\src\LUDCMP.f"/>
 		<File RelativePath=".\src\m_f1dimp.f90"/>
+		<File RelativePath=".\src\MATVC1.f"/>
+		<File RelativePath=".\src\MATVC2.f"/>
+		<File RelativePath=".\src\PSOLVE.f"/>
 		<File RelativePath=".\src\SOCONV.f"/>
 		<File RelativePath=".\src\SOFLOW.f"/>
 		<File RelativePath=".\src\SOFLOW_wrap.f90"/></Filter></Files>
