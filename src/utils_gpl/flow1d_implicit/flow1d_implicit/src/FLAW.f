@@ -264,8 +264,8 @@ c     Determine crest height, total net width and number of piers
 c     Determine P, H0, Kp and Ka (flow direction dependent)
 c
 c
-      call KAAWAR(istru  ,strpar ,teken  ,h0     ,ka     ,kp     ,
-     +            n      ,p      ,wn     ,zs     )
+c      call KAAWAR(istru  ,strpar ,teken  ,h0     ,ka     ,kp     ,
+c     +            n      ,p      ,wn     ,zs     )
 c
       dh = 0.001
 c
