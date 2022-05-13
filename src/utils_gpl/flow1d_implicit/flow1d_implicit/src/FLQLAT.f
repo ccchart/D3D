@@ -931,12 +931,12 @@ C             qlat(istat,1) houdt vorige waarde, init = 0
 c
 c lees q-lat van file
 c
-#if !  defined (SHR_MEM)
-c ====  shared memory  ====
-c ====  niet voor SRS BOS
-              Call MOZREADQ (qlat   ,nqlat  ,
-     +                       qlatid ,qltpar ,juer   )
-#endif
+c#if !  defined (SHR_MEM)
+cc ====  shared memory  ====
+cc ====  niet voor SRS BOS
+c              Call MOZREADQ (qlat   ,nqlat  ,
+c     +                       qlatid ,qltpar ,juer   )
+c#endif
           else
 c
 c JC 12/4/2000: Qlat al gelezen,

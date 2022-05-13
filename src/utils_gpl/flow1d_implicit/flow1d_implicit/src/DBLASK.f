@@ -83,55 +83,59 @@ c
    50 continue
       return
       end
-      subroutine  dcopy(n,dx,incx,dy,incy)
 c
-c     copies a vector, x, to a vector, y.
-c     uses unrolled loops for increments equal to one.
-c     jack dongarra, linpack, 3/11/78.
-c
-      double precision dx(*),dy(*)
-      integer i,incx,incy,ix,iy,m,mp1,n
-c
-      if(n.le.0)return
-      if(incx.eq.1.and.incy.eq.1)go to 20
-c
-c        code for unequal increments or equal increments
-c          not equal to 1
-c
-      ix = 1
-      iy = 1
-      if(incx.lt.0)ix = (-n+1)*incx + 1
-      if(incy.lt.0)iy = (-n+1)*incy + 1
-      do 10 i = 1,n
-        dy(iy) = dx(ix)
-        ix = ix + incx
-        iy = iy + incy
-   10 continue
-      return
-c
-c        code for both increments equal to 1
+c DCOPY already defined in dflowfm_kernel.lib(saadf.obj)
 c
 c
-c        clean-up loop
-c
-   20 m = mod(n,7)
-      if( m .eq. 0 ) go to 40
-      do 30 i = 1,m
-        dy(i) = dx(i)
-   30 continue
-      if( n .lt. 7 ) return
-   40 mp1 = m + 1
-      do 50 i = mp1,n,7
-        dy(i) = dx(i)
-        dy(i + 1) = dx(i + 1)
-        dy(i + 2) = dx(i + 2)
-        dy(i + 3) = dx(i + 3)
-        dy(i + 4) = dx(i + 4)
-        dy(i + 5) = dx(i + 5)
-        dy(i + 6) = dx(i + 6)
-   50 continue
-      return
-      end
+c      subroutine  dcopy(n,dx,incx,dy,incy)
+cc
+cc     copies a vector, x, to a vector, y.
+cc     uses unrolled loops for increments equal to one.
+cc     jack dongarra, linpack, 3/11/78.
+cc
+c      double precision dx(*),dy(*)
+c      integer i,incx,incy,ix,iy,m,mp1,n
+cc
+c      if(n.le.0)return
+c      if(incx.eq.1.and.incy.eq.1)go to 20
+cc
+cc        code for unequal increments or equal increments
+cc          not equal to 1
+cc
+c      ix = 1
+c      iy = 1
+c      if(incx.lt.0)ix = (-n+1)*incx + 1
+c      if(incy.lt.0)iy = (-n+1)*incy + 1
+c      do 10 i = 1,n
+c        dy(iy) = dx(ix)
+c        ix = ix + incx
+c        iy = iy + incy
+c   10 continue
+c      return
+cc
+cc        code for both increments equal to 1
+cc
+cc
+cc        clean-up loop
+cc
+c   20 m = mod(n,7)
+c      if( m .eq. 0 ) go to 40
+c      do 30 i = 1,m
+c        dy(i) = dx(i)
+c   30 continue
+c      if( n .lt. 7 ) return
+c   40 mp1 = m + 1
+c      do 50 i = mp1,n,7
+c        dy(i) = dx(i)
+c        dy(i + 1) = dx(i + 1)
+c        dy(i + 2) = dx(i + 2)
+c        dy(i + 3) = dx(i + 3)
+c        dy(i + 4) = dx(i + 4)
+c        dy(i + 5) = dx(i + 5)
+c        dy(i + 6) = dx(i + 6)
+c   50 continue
+c      return
+c      end
       double precision function ddot(n,dx,incx,dy,incy)
 c
 c     forms the dot product of two vectors.
