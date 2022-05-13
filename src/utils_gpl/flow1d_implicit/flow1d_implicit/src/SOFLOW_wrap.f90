@@ -55,8 +55,8 @@ integer                                  , pointer :: nqstat
 integer                                  , pointer :: maxtab
 integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
-integer                                  , pointer :: nlev
 
+integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
 
 integer, dimension(:,:)                  , pointer :: branch
@@ -144,7 +144,6 @@ f1dimppar%nqstat=1 !Properly compute based on cross-section data.
 f1dimppar%ntabm=10 !Properly compute based on cross-section data. 
 f1dimppar%maxtab=2 !Properly compute based on cross-section data. 
 f1dimppar%nbrnod=3
-f1dimppar%nlev=10
 
 !dependent on branch
 allocate(f1dimppar%branch(4,nbran)) !deal with allocate and deallocate properly
@@ -155,6 +154,7 @@ allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !deal with allocate and deallocate
 allocate(f1dimppar%hpack(3,f1dimppar%ngrid)) 
 allocate(f1dimppar%qpack(3,f1dimppar%ngrid)) 
 allocate(f1dimppar%x(f1dimppar%ngrid)) 
+allocate(f1dimppar%nlev(f1dimppar%ngrid)) 
 
 !cross-sectional information
 allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
@@ -212,6 +212,7 @@ overlp => f1dimppar%overlp
 omcfl  => f1dimppar%omcfl
 dhtyp  => f1dimppar%dhtyp
 exrstp => f1dimppar%exrstp
+flitmx => f1dimppar%flitmx
 
 !<SOFLOW> variables
 time   => f1dimppar%time
@@ -266,7 +267,7 @@ call SOFLOW( &
         &   g      , psi    , theta  , epsh   , epsq   , &
         &   rhow   , omega  , epsqrl , lambda , relstr , &
         &   dhstru , cflpse , resid  , overlp , omcfl  , &
-        &   dhtyp  , exrstp                            , &
+        &   dhtyp  , exrstp , flitmx                   , &
 !<SOFLOW> input
         &   time   , dtf    , steady                   , &
 !dimensions 

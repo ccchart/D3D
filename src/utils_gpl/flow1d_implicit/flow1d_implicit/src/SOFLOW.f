@@ -2,7 +2,7 @@
      +                  g      , psi    , theta  , epsh   , epsq   , 
      +                  rhow   , omega  , epsqrl , lambda , relstr , 
      +                  dhstru , cflpse , resid  , overlp , omcfl  , 
-     +                  dhtyp  , exrstp                            ,
+     +                  dhtyp  , exrstp , flitmx                   ,
      +                  time   , dtf    , steady                   ,
      +                  ngrid  , ngridm , nbran  , maxlev , nnode  ,
      +                  nhstat , nqstat , maxtab , ntabm  , nbrnod ,
@@ -15,128 +15,130 @@
      +                  table  , ntab                              ,
      +                  node   , numnod
      +                  )
-      
-c      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
-c     +                    cpredn ,steady ,lsalt  ,lkalm  )
-c                         mozart parameters
-c     +                    lmoza  ,lgrwt  ,lrest  ,nstep  , 
-c     +                    juresi ,jufrou ,juresd ,justrd ,juer   ,ker  ,
-c     +                    inocon ,jusold ,lfrou  ,itstat ,frobuf )
-
-c=======================================================================
-c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS
-c                One Dimensional Modelling System
-c                           S O B E K
-c-----------------------------------------------------------------------
-c Subsystem:          Main module
+c*******
+c    BEGIN original interface    
+c*******
+cc      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
+cc     +                    cpredn ,steady ,lsalt  ,lkalm  )
+cc                         mozart parameters
+cc     +                    lmoza  ,lgrwt  ,lrest  ,nstep  , 
+cc     +                    juresi ,jufrou ,juresd ,justrd ,juer   ,ker  ,
+cc     +                    inocon ,jusold ,lfrou  ,itstat ,frobuf )
 c
-c Programmer:         S.L. van der Woude
-c
-c Module:             SOFLOW (SObek FLOW main routine)
-c
-c Module description: Subroutine SOFLOW computes the waterlevels and
-c                     discharges for the next time level. If the Kalman
-c                     filter module is active also the uncertain model
-c                     parameters and covariances will be calculated.
-c
-c                     First the flow module is iterated until convergence
-c                     is reached. After convergence is reached, routine
-c                     KALMAN performs the filter step if requested.
-c
-c-----------------------------------------------------------------------
-c Parameters:
-c NR NAME              IO DESCRIPTION
-c  6 cpredn            P  -
-c  4 dtf               P  -
-c  5 filstp            P  -
-c 16 inocon            P  -
-c  1 istep             I  Current time step number (t(n+1)).
-c  3 itim              P  -
-c 19 itstat            P  -
-c 14 juer              P  -
-c 11 jufrou            I  Unit number of file froude
-c 10 juresi            P  -
-c 17 jusold            P  -
-c 12 justru            P  -
-c 15 ker               IO Error code:
-c                         ok     (0) : No error
-c                         info   (1) : Informative message
-c                         warnng (2) : Warning
-c                         fatal  (3) : Fatal error (processing stops)
-c 18 lfrou             P  -
-c  9 lkalm             I  -
-c  8 lsalt             P  -
-c  7 steady            P  -
-c  2 time              P  -
-c    conv                 Switch to indicate convergented solution
-c                         = 0 nog niet geconvergeerd
-c                         = 1 geconvergeerd
-c                         = 2 niet geconvergeerd, alle iteraties
-c                             verbruikt en doorgaan
-c-----------------------------------------------------------------------
-c Subprogram calls:
-c NAME    DESCRIPTION
-c error   write an ERROR to the error file.
-c flnp1   FLow results on time N + 1
-c flow    FLOW module
-c gtdpnt  GeT Double PoiNTer
-c gtipnt  GeT Integer PoiNTer
-c gtlpnt  GeT Logical PoiNTer
-c gtrpnt  GeT Real PoiNTer
-c kalman  KALman main routine
-c soconv  SObek CONVergence
-c soipar  SObek Integer PARameter
-c sorpar  SObek Real PARameter
-c sowrbf  SObel WRite BuFfer
-c=======================================================================
-c
-c
-c
-c**********************************************************************
-c CVS log information:
-c
-c $Id$
-c
-c History:
-c $Log: soflow.pf,v $
-c Revision 1.11  1999/03/15  15:03:29  kuipe_j
-c Improve Froude file and Dumpfiles
-c
-c Revision 1.10  1998/06/24  11:10:34  kuipe_j
-c Try direct solver if BICGST fails
-c
-c Revision 1.9  1998/06/11  11:47:41  kuipe_j
-c Estuary special integrated
-c
-c Revision 1.8  1998/06/08  13:15:36  kuipe_j
-c time lag hydr controller
-c
-c Revision 1.7  1998/04/10  09:22:23  kuipe_j
-c total area recalculated
-c
-c Revision 1.6  1997/05/26  07:37:00  kuipe_j
-c statistic of iteration improved
-c
-c Revision 1.5  1997/01/23  08:30:11  kuipe_j
-c Make flow module robust
-c
-c Revision 1.4  1996/12/02  10:03:48  kuipe_j
-c avoid negative pointers
-c
-c Revision 1.3  1996/09/03  14:33:42  kuipe_j
-c frequency time hist, run in time est. morp
-c
-c Revision 1.2  1996/04/12  13:06:05  kuipe_j
-c headers, minor changes
-c
-c Revision 1.1  1996/04/11  08:16:31  kuipe_j
-c Kalman module added
-c
-c
-c**********************************************************************
-c
-c     Parameters
-c
+cc=======================================================================
+cc            Rijkswaterstaat/RIZA and DELFT HYDRAULICS
+cc                One Dimensional Modelling System
+cc                           S O B E K
+cc-----------------------------------------------------------------------
+cc Subsystem:          Main module
+cc
+cc Programmer:         S.L. van der Woude
+cc
+cc Module:             SOFLOW (SObek FLOW main routine)
+cc
+cc Module description: Subroutine SOFLOW computes the waterlevels and
+cc                     discharges for the next time level. If the Kalman
+cc                     filter module is active also the uncertain model
+cc                     parameters and covariances will be calculated.
+cc
+cc                     First the flow module is iterated until convergence
+cc                     is reached. After convergence is reached, routine
+cc                     KALMAN performs the filter step if requested.
+cc
+cc-----------------------------------------------------------------------
+cc Parameters:
+cc NR NAME              IO DESCRIPTION
+cc  6 cpredn            P  -
+cc  4 dtf               P  -
+cc  5 filstp            P  -
+cc 16 inocon            P  -
+cc  1 istep             I  Current time step number (t(n+1)).
+cc  3 itim              P  -
+cc 19 itstat            P  -
+cc 14 juer              P  -
+cc 11 jufrou            I  Unit number of file froude
+cc 10 juresi            P  -
+cc 17 jusold            P  -
+cc 12 justru            P  -
+cc 15 ker               IO Error code:
+cc                         ok     (0) : No error
+cc                         info   (1) : Informative message
+cc                         warnng (2) : Warning
+cc                         fatal  (3) : Fatal error (processing stops)
+cc 18 lfrou             P  -
+cc  9 lkalm             I  -
+cc  8 lsalt             P  -
+cc  7 steady            P  -
+cc  2 time              P  -
+cc    conv                 Switch to indicate convergented solution
+cc                         = 0 nog niet geconvergeerd
+cc                         = 1 geconvergeerd
+cc                         = 2 niet geconvergeerd, alle iteraties
+cc                             verbruikt en doorgaan
+cc-----------------------------------------------------------------------
+cc Subprogram calls:
+cc NAME    DESCRIPTION
+cc error   write an ERROR to the error file.
+cc flnp1   FLow results on time N + 1
+cc flow    FLOW module
+cc gtdpnt  GeT Double PoiNTer
+cc gtipnt  GeT Integer PoiNTer
+cc gtlpnt  GeT Logical PoiNTer
+cc gtrpnt  GeT Real PoiNTer
+cc kalman  KALman main routine
+cc soconv  SObek CONVergence
+cc soipar  SObek Integer PARameter
+cc sorpar  SObek Real PARameter
+cc sowrbf  SObel WRite BuFfer
+cc=======================================================================
+cc
+cc
+cc
+cc**********************************************************************
+cc CVS log information:
+cc
+cc $Id$
+cc
+cc History:
+cc $Log: soflow.pf,v $
+cc Revision 1.11  1999/03/15  15:03:29  kuipe_j
+cc Improve Froude file and Dumpfiles
+cc
+cc Revision 1.10  1998/06/24  11:10:34  kuipe_j
+cc Try direct solver if BICGST fails
+cc
+cc Revision 1.9  1998/06/11  11:47:41  kuipe_j
+cc Estuary special integrated
+cc
+cc Revision 1.8  1998/06/08  13:15:36  kuipe_j
+cc time lag hydr controller
+cc
+cc Revision 1.7  1998/04/10  09:22:23  kuipe_j
+cc total area recalculated
+cc
+cc Revision 1.6  1997/05/26  07:37:00  kuipe_j
+cc statistic of iteration improved
+cc
+cc Revision 1.5  1997/01/23  08:30:11  kuipe_j
+cc Make flow module robust
+cc
+cc Revision 1.4  1996/12/02  10:03:48  kuipe_j
+cc avoid negative pointers
+cc
+cc Revision 1.3  1996/09/03  14:33:42  kuipe_j
+cc frequency time hist, run in time est. morp
+cc
+cc Revision 1.2  1996/04/12  13:06:05  kuipe_j
+cc headers, minor changes
+cc
+cc Revision 1.1  1996/04/11  08:16:31  kuipe_j
+cc Kalman module added
+cc
+cc
+cc**********************************************************************
+cc
+cc     Parameters
+cc
 c      integer  itim(2),istep  ,filstp, cpredn ,
 c     +         juresi ,jufrou ,juresd ,justrd ,
 c     +         juer   ,ker    ,inocon ,jusold ,
@@ -147,9 +149,9 @@ c     +         lmoza, lgrwt
 c      integer  nstep
 c      double   precision       time   ,dtf
 c      real     frobuf(8)
-c
-c     Local variables (pointers to arrays)
-c
+cc
+cc     Local variables (pointers to arrays)
+cc
 c      integer a1m   ,abcd1 ,abcd2 ,af2   ,aft   ,afwfqs,alfab ,
 c     +        arex  ,arexcn,arexop,att   ,bfricp,bfrict,branch,
 c     +        brnode,buflag,cnpflg,cnstrl,conhis,contrl,cpack ,
@@ -175,7 +177,7 @@ c     +        tauwi ,trcnrl,triger,typcr ,waoft ,wfrict  ,
 c     +        wf2   ,wndpar,work  ,wshld ,x     ,
 c     +        ibuf  ,resbuf,strbuf,solbuf, grhis
 c
-c     mozart pointer, (Id's,names,storageWidth)
+cc     mozart pointer, (Id's,names,storageWidth)
 c     +        qlatid,qlatnm, gridnm, nodenm
 cc
 cc     Single variables
@@ -195,16 +197,21 @@ c      real     sorpar
 c      logical  equal
 c      external gtdpnt, gtipnt, gtlpnt, gtrpnt, gtcpnt, soipar,
 c     +         sorpar, equal
-c
-c     Include memory pool
-c
+cc
+cc     Include memory pool
+cc
 c      include 'mempool.i'
 c      include 'errcod.i'
 c
+c*******
+c    END old interface
+c*******
+c
 c     Include constants for array dimensions
 c
-c     Maybe better is to copy the code here. But be aware
-c     that this statement is in several parts of the code
+c     Maybe better is to copy the code in <sobdim.i> here. But be aware
+c     that this statement is in several parts of the code. 
+c
       include '..\include\sobdim.i'
 c
 c     Extract parameters from flwpar
@@ -228,15 +235,21 @@ c
                     
       double precision  dtf    , resid  , time
 
-      integer  ngrid  , ngridm , nbran  , maxlev   , nnode  ,
-     +                  nhstat , nqstat , maxtab
-      
-      logical lkalm, lmoza, lsalt, lfrou, steady, lgrwt
+      integer  ngrid  , ngridm , nbran  , maxlev , nnode  ,
+     +                  nhstat , nqstat , maxtab , flitmx
+c      
+c    Originally input but currently parameters
+c      
+      logical lkalm, lmoza, lsalt, lfrou, steady, lgrwt, lrest, bicg
+      logical lconv
+      integer conv
+      integer itstat(4), itim(2)
 c     
-c     Internal variables
+c     internal
 c
       integer kgrid, kbran
-
+c
+c     Originally read from memory pool
 c
 c     Using <gtdpnt> and <gtrpnt> one finds the starting addresses of working arrays.
 c     This is changed into directly allocating memory for each variable. The ones that 
@@ -247,7 +260,7 @@ c     call for the Microsoft Fortran compiler v5
 c
 c
 c      a1m    =     gtrpnt ( 'A1M'   ) 
-c     only used in case of salinity
+c     used for salinity
       real    a1m(ngrid)
       
 c      abcd1  =     gtdpnt ( 'ABCD1' )
@@ -276,7 +289,7 @@ c     output
       real alfab(ngrid)
 
 c      arex   =     gtrpnt ( 'AREX'  )
-c      make input when including summerdikes
+c     used for summerdikes
       real arex(ngrid,4)
       
 c      arexcn =     gtipnt ( 'AREXCN')
@@ -300,10 +313,10 @@ c      branch =     gtipnt ( 'BRANCH')
       integer branch(4,nbran)
       
 c      brnode =     gtipnt ( 'BRNODE')
-c     only used for Kalman
+c     used for Kalman
       
 c      buflag =     gtrpnt ( 'BUFLAG')
-c     only used for structures
+c     used for structures
 c      real    buflag(lagstm,nlags)
       real    buflag(1,1)
       
@@ -343,7 +356,6 @@ c      grid   =     gtipnt ( 'GRID'  )
       integer grid(ngrid)
       
 c      grsize =     gtrpnt ( 'GRSIZE')
-c      real grsize(4,ngrid,*)
       real grsize(4,ngrid,1)
             
 c      hpack  =     gtdpnt ( 'HPACK')
@@ -361,7 +373,7 @@ c     output
       real hstat(nhstat)
       
 c      ibuf   =     gtipnt ( 'IBUF'  )
-      integer ibuf 
+      integer ibuf(3) 
       
 c      indx   =     gtipnt ( 'INDX'  )
       integer indx(nnode)
@@ -407,26 +419,35 @@ c      nlags  = ip (gtipnt ( 'NLAGS' ))
       integer nlags
       
 c      nlev   =     gtipnt ( 'NLEV'  )
+      integer nlev(ngrid)
       
 c      nnc    = ip (gtipnt ( 'NNC'   ))
-c     we set it as parameter because it is needed for allocating
+c     set as parameter because needed for allocating
       integer nnc
       parameter (nnc=1)
       
 c      nnf    = ip (gtipnt ( 'NNF'   ))
+c     set as parameter because needed for allocating
       integer nnf
+      parameter (nnf=1)
       
 c      nnm    = ip (gtipnt ( 'NNM'   ))
+c     set as parameter because needed for allocating
       integer nnm
+      parameter (nnm=1)
       
 c      nnmu   = ip (gtipnt ( 'NNMU'  ))
+c     set as parameter because needed for allocating
       integer nnmu
+      parameter (nnmu=1)
       
 c      nnn    = ip (gtipnt ( 'NNN'   ))
+c     set as parameter because needed for allocating
       integer nnn
+      parameter (nnn=1)
       
 c      nns    = ip (gtipnt ( 'NNS'   ))
-c     we set it as parameter because it is needed for allocating
+c     set as parameter because needed for allocating
       integer nns
       parameter (nns=1)
       
@@ -440,12 +461,14 @@ c      nodnod =     gtipnt ( 'NODNOD')
       integer nodnod(nnode,nbrnod+1)
       
 c      nosdim = ip (gtipnt ( 'NOSDIM'))
-c     we set it as parameter because it is needed for allocating
+c     set as parameter because needed for allocating
       integer nosdim
       parameter (nosdim=1)
       
 c      nqlat  = ip (gtipnt ( 'NQLAT' ))
+c     set as parameter because needed for allocating
       integer nqlat
+      parameter (nqlat=0)
       
 c      nqstat = ip (gtipnt ( 'NQSTAT'))
       
@@ -455,10 +478,14 @@ c         nstdb = ip(nstdb)
 c      else
 c         nstdb = 0
 c      endif   
+c     set as parameter because needed for allocating
       integer nstdb
+      parameter (nstdb=0)
       
 c      nstru  = ip (gtipnt ( 'NSTRU' ))
+c     set as parameter because needed for allocating
       integer nstru
+      parameter (nstru=0)
       
 c      ntab   =     gtipnt ( 'NTAB'  )
       integer ntab(4,maxtab)
@@ -472,7 +499,6 @@ c      ntrigr = ip (gtipnt ( 'NTRIGR'))
       integer ntrigr
       
 c      numnod =     gtipnt ( 'NUMNOD')
-c     Indicates the maximum number of nodes connected with node i 
       integer numnod(nnode)
       
 c      of     =     gtrpnt ( 'OF'    )
@@ -480,12 +506,12 @@ c     output if hydraulic parameters computed inside
       real of(ngrid,maxlev)
       
 c      pfa    =     gtrpnt ( 'PFA'   )
-c      real    pfa(nnf)
-      real pfa
+      real    pfa(nnf)
+c      real pfa
       
 c      pmua   =     gtrpnt ( 'PMUA'  )
-c      real    pmua(nnmu)
-      real pmua
+      real    pmua(nnmu)
+c      real pmua
       
 c      prslot =     gtrpnt ( 'PRSLOT')
       real prslot(3,nbran)
@@ -494,7 +520,7 @@ c      psltvr =     gtrpnt ( 'PSLTVR')
       real psltvr(7,ngrid)
       
 c      pw     =     gtrpnt ( 'PW'    )
-      real pw
+      real pw(1)
       
 c     qpack  =     gtdpnt ( 'QPACK' )
       double precision qpack(ngrid,3)
@@ -503,15 +529,13 @@ c      qbdpar =     gtipnt ( 'QBDPAR')
       integer qbdpar(3,nqstat)
       
 c      qlat   =     gtrpnt ( 'QLAT'  )
-      real qlat 
+      real qlat(1) 
       
 c      qlatgr =     gtrpnt ( 'QLATGR')
       real qlatgr(ngrid)
       
-c     Nodenm pointer
 c      nodenm =     gtcpnt ('NODENM')
       
-c     Mozart pointer
 c      qlatid =     max(1,gtcpnt ('QLATID'))
       character*40  qlatid
       
@@ -547,62 +571,52 @@ c      rpack  =     gtrpnt ( 'RPACK' )
       real    rpack(ngrid,4)
       
 c      scnode =     gtipnt ( 'SCNODE')
-      integer scnode
+      integer scnode(1)
       
 c      scceq  =     gtipnt ( 'SCCEQ' )
-      integer scceq
+      integer scceq(1)
       
 c      scifri =     gtipnt ( 'SCIFRI')
       integer scifri(ngrid)
       
 c      scimu  =     gtipnt ( 'SCIMU' )
-c      integer scimu(nstru)
-      integer scimu
+      integer scimu(nstru)
       
 c      scmeq  =     gtipnt ( 'SCMEQ' )
-      integer scmeq
+      integer scmeq(1)
       
 c      scqhs  =     gtipnt ( 'SCQHS' )
-      integer scqhs
+      integer scqhs(1)
       
 c      sclceq =     gtipnt ( 'SCLCEQ')
-c      integer sclceq(nnc+1)         
-      integer sclceq
+      integer sclceq(nnc+1)         
       
 c      sclmeq =     gtipnt ( 'SCLMEQ')
-c      integer sclmeq(nnm+1)
-      integer sclmeq
+      integer sclmeq(nnm+1)
       
 c      sclnod =     gtipnt ( 'SCLNOD')
-      integer sclnod
+      integer sclnod(1)
             
 c      sclqhs =     gtipnt ( 'SCLQHS')
-c      integer sclqhs(nns+1)
-      integer sclqhs
+      integer sclqhs(nns+1)
       
 c      snceq  =     gtrpnt ( 'SNCEQ' )
       real    snceq(nosdim,nnc)
-c      real snceq(*)
       
 c      snfric =     gtrpnt ( 'SNFRIC')
-c      real    snfric(2,nnf)
-      real snfric(2)
+      real    snfric(2,nnf)
       
 c      snmeq  =     gtrpnt ( 'SNMEQ' )
-c      real snmeq(nosdim,nnm)
-      real snmeq
+      real snmeq(nosdim,nnm)
       
 c      snmu   =     gtrpnt ( 'SNMU'  )
-c      real snmu(2,nnmu)
-      real snmu(2)
+      real snmu(2,nnmu)
       
 c      snnode =     gtrpnt ( 'SNNODE')
-c      real snnode(nosdim,nnn)
-      real snnode
+      real snnode(nosdim,nnn)
       
 c      snqhs  =     gtrpnt ( 'SNQHS' )
       real snqhs(nosdim,nns)
-c      real snqhs(*,*)
       
 c      snwind =     gtrpnt ( 'SNWIND')
       real snwind(2)
@@ -617,15 +631,14 @@ c      solbuf =     gtrpnt ( 'SOLBUF')
       real solbuf(dmbuf2,7,ngrid)
       
 c      stdbq  =     max(gtrpnt ( 'STDBQ'),1)
-c      real    stdbq(nstdb)
-      real stdbq
+      real    stdbq(nstdb)
       
 c      strbuf =     gtrpnt ( 'STRBUF')
 c      real    strbuf(dmbuf1,2,*)
       real strbuf(dmbuf1,2)
       
 c      strclo =     gtlpnt ( 'STRCLO')
-      logical strclo
+      logical strclo(1)
       
 c      strhis =     gtrpnt ( 'STRHIS')
 c      real    strhis(dmstrh,*)
@@ -682,25 +695,25 @@ c      x      =     gtrpnt ( 'X'     )
       real x(ngrid)
       
 c      grhis  =     gtrpnt ( 'GRHIS' )
-      real grhis     
+      real grhis(1)     
       
       double precision h2(ngrid)
       double precision q2(ngrid)
       
-c     *******
-c     END ALLOCATE
-c     *******
-      
-c     Pointers to h and q:
-c     not needed any more?
+c*******
+c    END allocate
+c*******
+c       
+cc     Pointers to h and q:
+cc     not needed any more?
 c      h2 = hpack + ngrid * 2
 c      q2 = qpack + ngrid * 2
-c     storage width = waoft(,2)
-c     not used?
+cc     storage width = waoft(,2)
+cc     not used?
 c      storWidth = waoft + ngrid
 c
 c
-c     make input when including summerdikes
+c    summerdikes input (not used)
 c
       arexop(1)=0
       arexop(2)=0
@@ -713,58 +726,53 @@ c
       do kgrid=1,ngrid
           grid(kgrid)=1
       enddo
-      nstdb=0
-      nstru=0
 c
 c    extra resistance parameters (not used)
 c
       nexres=0
-      
-c    kalman filter
+c     
+c    Kalman filter parameters (not used)
+c
       lkalm=.false.
-c    dimensions need to be one for allocating reasons      
-      nnf=1
-c      nnc=1
-      nnm=1
-      nnn=1
-      nnmu=1
-c      nosdim=1
-      
-c     lateral BC
-      nqlat=0
-
-c     salt
+c     
+c    Salt parameters (not used)
+c
       lsalt=.false.
-      
-c     control      
+c      
+c     Control parameters (not used)      
+c
       ntcrel=0
-      
-c      Mozart
+c      
+c      Mozart parameters (not used)      
+c
       lmoza=.false.
-      
-c     salt
-      lsalt=.false.
-      
-c     cross-section type
+c
+c      Groundwater parameters (not used)
+c      
+      lgrwt=.false.
+c 
+c     Cross-section type
+c
       do kbran=1,nbran
           typcr(kbran)=1
       enddo
-      
-c      other
-      lfrou=.false.
-      
-c      groundwater
-      lgrwt=.false.
+c      
+c      Other
 c
-c     create flwpar
+      lfrou=.false.
+      lrest=.false.
+c
+c     Create flwpar
 c     
 c     I am not sure we can do this because of the different type
-c     of array. THe solution is to pass all variables or to change the 
+c     of array. The solution is to pass all variables or to change the 
 c     type of array to <real> for all variables. 
+c
       flwpar( 1 )      =g      
       flwpar( 2 )      =psi    
       flwpar( 3 )      =theta  
       flwpar( 6 )      =rhow   
+      flwpar( 7 )      =flitmx
       flwpar( 8 )      =omega  
       flwpar(10 )      =lambda 
       flwpar(11 )      =relstr 
@@ -820,7 +828,7 @@ c     Mozart parameters plus groundwater switch
      +lrest ,flwpar,contrl,
      +branch,typcr ,maxlev,nlev  ,hlev  ,wft   ,aft   ,
      +wtt   ,att   ,arex  ,arexcn,arexop, of   ,
-     +bfrict,bfricp,maxtab,ntabm ,intab ,table ,
+     +bfrict,bfricp,maxtab,ntabm ,ntab  ,table ,
      +sectc ,sectv ,grsize,engpar,gangle,wndpar,
      +wfrict,wshld ,snceq ,snmeq ,snqhs ,snfric,
      +snmu  ,snwind,sclceq,sclmeq,sclqhs,scceq ,

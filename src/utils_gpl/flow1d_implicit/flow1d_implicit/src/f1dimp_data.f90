@@ -100,7 +100,6 @@ module m_f1dimp_data
       integer                          :: ntabm                 !< Maximum size of table 
       integer                          :: maxtab                !< Maximum number of defined tables.
       integer                          :: nbrnod                !< Maximum number of connected branches to one node.
-      integer                          :: nlev                  !< Number of h-levels for every cross-section.
       
       !*******
       !dependent on branch
@@ -137,7 +136,10 @@ module m_f1dimp_data
       !*******
       !dependent on gridpoints 
       !*******
+      integer, allocatable, dimension(:)               :: nlev   !< Number of h-levels for every cross-section.
+      
       real   , allocatable, dimension(:)               :: x      !  x-coordinate for each grid point.
+      
       
       real   , allocatable, dimension(:,:)             :: bfricp ! <bfricp>: P, double(6,<ngrid>): Bed friction parameters.
                                                                  !	 <bfricp(1,i)>: Parameter for positive flow direction in main section (depending on friction type)
