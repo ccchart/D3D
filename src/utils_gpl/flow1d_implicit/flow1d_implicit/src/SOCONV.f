@@ -283,27 +283,27 @@ c
             call error (juer,'SOFLOW No convergence', eflncv, ker)
             juis = juer
          endif
-         write(juis,100) itstat(4)+1        
-         call getbrn (ibrh,branam,lbrnam)
-         l1 = max(1,lbrnam-29)
-         l2 = l1+29         
-         write(juis,101) branam(l1:l2),xh,afwh
-         call getbrn (ibrq,branam,lbrnam)
-         l1 = max(1,lbrnam-29)
-         l2 = l1+29 
-         write(juis,102) branam(l1:l2),xq,afwq
-         if (hcrit .and.
-     +        abs(afwh) .ge. epsh ) then
-            write(juis,104) abs(afwh)-epsh
-            write(juis,105) abs(afwh)/epsh
-         endif
-         if (qcrit2 .and.
-     +        abs(afwq) .ge. epsq2 ) then
-            write(juis,106) abs(afwq)-epsq2
-            if (ker.ne.fatal)
-c           fatal means epsq2=0 in this case
-     +      write(juis,107) abs(afwq)/epsq2
-         endif
+c         write(juis,100) itstat(4)+1        
+c         call getbrn (ibrh,branam,lbrnam)
+c         l1 = max(1,lbrnam-29)
+c         l2 = l1+29         
+c         write(juis,101) branam(l1:l2),xh,afwh
+c         call getbrn (ibrq,branam,lbrnam)
+c         l1 = max(1,lbrnam-29)
+c         l2 = l1+29 
+c         write(juis,102) branam(l1:l2),xq,afwq
+c         if (hcrit .and.
+c     +        abs(afwh) .ge. epsh ) then
+c            write(juis,104) abs(afwh)-epsh
+c            write(juis,105) abs(afwh)/epsh
+c         endif
+c         if (qcrit2 .and.
+c     +        abs(afwq) .ge. epsq2 ) then
+c            write(juis,106) abs(afwq)-epsq2
+c            if (ker.ne.fatal)
+cc           fatal means epsq2=0 in this case
+c     +      write(juis,107) abs(afwq)/epsq2
+c         endif
       endif
 c
 c     Always a minimum number of iterations will be

@@ -731,23 +731,25 @@ c
                   c(i) = sqrt ( c2r / r(i) )
                endif
   100       continue
-         endif
-c
-         loop = .true.
-         do 130 i = i1,i2
-            if (loop .and.
-     +         (c(i) .lt. 1. .or. c(i) .gt. 1000. .or.
-     +          r(i) .lt. .001 .or. r(i) .gt. 1000.)) then
-               loop = .false.
-               ker  = warnng
-               call getloc (i,ibr,xc)
-               write (xtxt,'(f10.2)') xc
-               call getbrn (ibr,branam,lbrnam)
-               call error (juer ,
-     +           'FLBOCH roughness or hydraulic radius out of limit'//
-     +           ' at branch @'//branam(:lbrnam)//'@ X= @' //xtxt//'@',
-     +           eflcrl , ker )
             endif
+c
+c remove writing to file
+c
+c         loop = .true.
+c         do 130 i = i1,i2
+c            if (loop .and.
+c     +         (c(i) .lt. 1. .or. c(i) .gt. 1000. .or.
+c     +          r(i) .lt. .001 .or. r(i) .gt. 1000.)) then
+c               loop = .false.
+c               ker  = warnng
+c               call getloc (i,ibr,xc)
+c               write (xtxt,'(f10.2)') xc
+c               call getbrn (ibr,branam,lbrnam)
+c               call error (juer ,
+c     +           'FLBOCH roughness or hydraulic radius out of limit'//
+c     +           ' at branch @'//branam(:lbrnam)//'@ X= @' //xtxt//'@',
+c     +           eflcrl , ker )
+c            endif
   130    continue
 c
 cmb - replace underrelaxation of r by underrelaxation of c2r
