@@ -295,14 +295,14 @@ c
             hstr  = max(hstr,hcrit)
             astr  = min(hstr,sngl(dg))*wstr
             if (astr.gt.abran*1.01) then
-               nrerperr(neragenstr) = nrerperr(neragenstr) + 1 
-               call getstr(istru,strnam,lstnam)
-               ker = warnng
-               write (abrtxt,'(f8.0)') abran
-               write (astrtxt,'(f8.0)') astr
-               call error (juer,'FLGS Area in gen structure @'//
-     &            strnam(:lstnam)//'@(@'//astrtxt//'@ > area branch (@'
-     &            //abrtxt//'@)',eflgsa, ker)
+c               nrerperr(neragenstr) = nrerperr(neragenstr) + 1 
+c               call getstr(istru,strnam,lstnam)
+c               ker = warnng
+c               write (abrtxt,'(f8.0)') abran
+c               write (astrtxt,'(f8.0)') astr
+c               call error (juer,'FLGS Area in gen structure @'//
+c     &            strnam(:lstnam)//'@(@'//astrtxt//'@ > area branch (@'
+c     &            //abrtxt//'@)',eflgsa, ker)
             endif
          endif   
       endif

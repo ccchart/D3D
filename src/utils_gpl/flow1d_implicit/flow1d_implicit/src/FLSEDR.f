@@ -99,10 +99,10 @@ c
 c     Check if water level > bottom in main and subsection
 c
       if ( h .lt. zbmain .or. h .lt. zbsub1 ) then
-         ker = fatal
-         call getbrn (ibr,branam,lbrnam)
-         call ERROR (juer,'FLSEDR  branch @'//branam(:lbrnam)//
-     &               '@',eflhse,ker)
+c         ker = fatal
+c         call getbrn (ibr,branam,lbrnam)
+c         call ERROR (juer,'FLSEDR  branch @'//branam(:lbrnam)//
+c     &               '@',eflhse,ker)
          goto 1000
       else
          af = (h-zbmain)*wmain + (h-zbsub1)*wsub1

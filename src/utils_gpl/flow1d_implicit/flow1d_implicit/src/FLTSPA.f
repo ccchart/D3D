@@ -207,18 +207,18 @@ c
 c     Warning if discharge is not zero at sill
 c
       if (initial .and. .not.zero) then
-         call getstr(istru,strnam,lstnam)
-         ker = warnng
-         call error (juer,'FLTSPA Q not zero in structure @'
-     +               //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)         
+c         call getstr(istru,strnam,lstnam)
+c         ker = warnng
+c         call error (juer,'FLTSPA Q not zero in structure @'
+c     +               //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)         
       endif   
       if (inidb .and. .not.zero) then
-         call getstr(sdbdef,strnam,lstnam)
+c         call getstr(sdbdef,strnam,lstnam)
          if (sdbdef.ne.istru) then   
-            call getstr(sdbdef,strnam,lstnam)
-            ker = warnng
-            call error (juer,'FLTSPA Q not zero in structure @'
-     +                  //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)
+c            call getstr(sdbdef,strnam,lstnam)
+c            ker = warnng
+c            call error (juer,'FLTSPA Q not zero in structure @'
+c     +                  //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)
          endif
       endif
 c   

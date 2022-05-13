@@ -267,8 +267,8 @@ c     buffers are written
       if (ibuf(1) .eq. 21) ibuf(1) = 1
       ibuf(2) = ibuf(2) + 1
       if (ibuf(2) .eq. 5) ibuf(2) = 1
-      call getloc (igph,ibrh,xh)
-      call getloc (igpq,ibrq,xq)
+c      call getloc (igph,ibrh,xh)
+c      call getloc (igpq,ibrq,xq)
 c
 c     Write maximum residuals to file DUMPRES
 c
