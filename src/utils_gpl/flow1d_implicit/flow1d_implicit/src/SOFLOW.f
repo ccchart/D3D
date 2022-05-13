@@ -3,15 +3,17 @@
      +                  rhow   , omega  , epsqrl , lambda , relstr , 
      +                  dhstru , cflpse , resid  , overlp , omcfl  , 
      +                  dhtyp  , exrstp                            ,
-     +                  time   , dtf                               ,
+     +                  time   , dtf    , steady                   ,
      +                  ngrid  , ngridm , nbran  , maxlev , nnode  ,
-     +                  nhstat , nqstat , maxtab , ntabm           ,
+     +                  nhstat , nqstat , maxtab , ntabm  , nbrnod ,
+     +                  nlev                                       ,
      +                  branch , bfrict                            ,
      +                  bfricp , hpack  , qpack                    ,
      +                  wft    , aft    ,wtt     ,att     , of     , 
      +                  hlev                                       , 
      +                  hbdpar , qbdpar                            , 
-     +                  table  , ntab
+     +                  table  , ntab                              ,
+     +                  node   , numnod
      +                  )
       
 c      subroutine SOFLOW ( istep  ,time   ,itim   ,dtf    ,filstp ,
@@ -199,9 +201,16 @@ c
 c      include 'mempool.i'
 c      include 'errcod.i'
 c
+c     Include constants for array dimensions
+c
+c     Maybe better is to copy the code here. But be aware
+c     that this statement is in several parts of the code
+      include '..\include\sobdim.i'
+c
 c     Extract parameters from flwpar
 c
 c      flwpar = gtrpnt ( 'FLWPAR' )
+      real flwpar(20)
 c      
 c      epsh   = sorpar ( rp(flwpar), 4 )
 c      epsq   = sorpar ( rp(flwpar), 5 )
@@ -217,14 +226,16 @@ c
      +         dhstru , cflpse ,          overlp , omcfl,  
      +         dhtyp  , exrstp 
                     
-      double precision           resid
+      double precision  dtf    , resid  , time
 
       integer  ngrid  , ngridm , nbran  , maxlev   , nnode  ,
      +                  nhstat , nqstat , maxtab
+      
+      logical lkalm, lmoza, lsalt, lfrou, steady, lgrwt
 c     
 c     Internal variables
 c
-      integer kgrid
+      integer kgrid, kbran
 
 c
 c     Using <gtdpnt> and <gtrpnt> one finds the starting addresses of working arrays.
@@ -373,8 +384,10 @@ c      maxtab = ip (gtipnt ( 'MAXTAB'))
       
 c      nbran  = ip (gtipnt ( 'NBRAN' ))
       
-      nbrnod = ip (gtipnt ( 'NBRNOD'))
-      ncontr = ip (gtipnt ( 'NCONTR'))
+c      nbrnod = ip (gtipnt ( 'NBRNOD'))
+      
+c      ncontr = ip (gtipnt ( 'NCONTR'))
+      integer ncontr
       
 c      ncsrel = ip (gtipnt ( 'NCSREL'))
       integer ncsrel
@@ -393,50 +406,95 @@ c      nhstat = ip (gtipnt ( 'NHSTAT'))
 c      nlags  = ip (gtipnt ( 'NLAGS' ))
       integer nlags
       
-      nlev   =     gtipnt ( 'NLEV'  )
-      nnc    = ip (gtipnt ( 'NNC'   ))
-      nnf    = ip (gtipnt ( 'NNF'   ))
-      nnm    = ip (gtipnt ( 'NNM'   ))
-      nnmu   = ip (gtipnt ( 'NNMU'  ))
-      nnn    = ip (gtipnt ( 'NNN'   ))
-      nns    = ip (gtipnt ( 'NNS'   ))
+c      nlev   =     gtipnt ( 'NLEV'  )
+      
+c      nnc    = ip (gtipnt ( 'NNC'   ))
+c     we set it as parameter because it is needed for allocating
+      integer nnc
+      parameter (nnc=1)
+      
+c      nnf    = ip (gtipnt ( 'NNF'   ))
+      integer nnf
+      
+c      nnm    = ip (gtipnt ( 'NNM'   ))
+      integer nnm
+      
+c      nnmu   = ip (gtipnt ( 'NNMU'  ))
+      integer nnmu
+      
+c      nnn    = ip (gtipnt ( 'NNN'   ))
+      integer nnn
+      
+c      nns    = ip (gtipnt ( 'NNS'   ))
+c     we set it as parameter because it is needed for allocating
+      integer nns
+      parameter (nns=1)
       
 c      nnode  = ip (gtipnt ( 'NNODE' ))
 c     input
       
-      node   =     gtipnt ( 'NODE'  )
-      nodnod =     gtipnt ( 'NODNOD')
-      nosdim = ip (gtipnt ( 'NOSDIM'))
-      nqlat  = ip (gtipnt ( 'NQLAT' ))
+c      node   =     gtipnt ( 'NODE'  )
+      integer node(4,nnode)
+      
+c      nodnod =     gtipnt ( 'NODNOD')
+      integer nodnod(nnode,nbrnod+1)
+      
+c      nosdim = ip (gtipnt ( 'NOSDIM'))
+c     we set it as parameter because it is needed for allocating
+      integer nosdim
+      parameter (nosdim=1)
+      
+c      nqlat  = ip (gtipnt ( 'NQLAT' ))
+      integer nqlat
       
 c      nqstat = ip (gtipnt ( 'NQSTAT'))
       
-      nstdb  =     gtipnt ( 'NSTDB ')
-      if (nstdb.gt.0) then
-         nstdb = ip(nstdb)
-      else
-         nstdb = 0
-      endif   
-      nstru  = ip (gtipnt ( 'NSTRU' ))
+c      nstdb  =     gtipnt ( 'NSTDB ')
+c      if (nstdb.gt.0) then
+c         nstdb = ip(nstdb)
+c      else
+c         nstdb = 0
+c      endif   
+      integer nstdb
+      
+c      nstru  = ip (gtipnt ( 'NSTRU' ))
+      integer nstru
       
 c      ntab   =     gtipnt ( 'NTAB'  )
       integer ntab(4,maxtab)
       
 c      ntabm  = ip (gtipnt ( 'NTABM' ))
       
-      ntcrel = ip (gtipnt ( 'NTCREL'))
-      ntrigr = ip (gtipnt ( 'NTRIGR'))
-      numnod =     gtipnt ( 'NUMNOD')
+c      ntcrel = ip (gtipnt ( 'NTCREL'))
+      integer ntcrel
+      
+c      ntrigr = ip (gtipnt ( 'NTRIGR'))
+      integer ntrigr
+      
+c      numnod =     gtipnt ( 'NUMNOD')
+c     Indicates the maximum number of nodes connected with node i 
+      integer numnod(nnode)
       
 c      of     =     gtrpnt ( 'OF'    )
 c     output if hydraulic parameters computed inside      
       real of(ngrid,maxlev)
       
-      pfa    =     gtrpnt ( 'PFA'   )
-      pmua   =     gtrpnt ( 'PMUA'  )
-      prslot =     gtrpnt ( 'PRSLOT')
-      psltvr =     gtrpnt ( 'PSLTVR')
-      pw     =     gtrpnt ( 'PW'    )
+c      pfa    =     gtrpnt ( 'PFA'   )
+c      real    pfa(nnf)
+      real pfa
+      
+c      pmua   =     gtrpnt ( 'PMUA'  )
+c      real    pmua(nnmu)
+      real pmua
+      
+c      prslot =     gtrpnt ( 'PRSLOT')
+      real prslot(3,nbran)
+      
+c      psltvr =     gtrpnt ( 'PSLTVR')
+      real psltvr(7,ngrid)
+      
+c      pw     =     gtrpnt ( 'PW'    )
+      real pw
       
 c     qpack  =     gtdpnt ( 'QPACK' )
       double precision qpack(ngrid,3)
@@ -444,76 +502,187 @@ c     qpack  =     gtdpnt ( 'QPACK' )
 c      qbdpar =     gtipnt ( 'QBDPAR')
       integer qbdpar(3,nqstat)
       
-      qlat   =     gtrpnt ( 'QLAT'  )
-      qlatgr =     gtrpnt ( 'QLATGR')
+c      qlat   =     gtrpnt ( 'QLAT'  )
+      real qlat 
+      
+c      qlatgr =     gtrpnt ( 'QLATGR')
+      real qlatgr(ngrid)
+      
 c     Nodenm pointer
-      nodenm =     gtcpnt ('NODENM')
+c      nodenm =     gtcpnt ('NODENM')
+      
 c     Mozart pointer
-      qlatid =     max(1,gtcpnt ('QLATID'))
-      qlatnm =     max(1,gtcpnt ('QLATNM'))
-      gridnm =     gtcpnt ( 'GRIDNM')      
-      qltpar =     gtrpnt ( 'QLTPAR')
+c      qlatid =     max(1,gtcpnt ('QLATID'))
+      character*40  qlatid
+      
+c      qlatnm =     max(1,gtcpnt ('QLATNM'))
+      character*40  qlatnm
+      
+c      gridnm =     gtcpnt ( 'GRIDNM')      
+      
+c      qltpar =     gtrpnt ( 'QLTPAR')
+      real    qltpar(9)
       
 c      qstat  =     gtrpnt ( 'QSTAT' )
       real qstat(nhstat)
       
-      resbuf =     gtrpnt ( 'RESBUF')
-      rfv1   =     gtdpnt ( 'RFV1'  )
-      rfv2   =     gtdpnt ( 'RFV2'  )
-      rho    =     gtrpnt ( 'RHO'   )
-      rhsvv  =     gtdpnt ( 'RHSVV' )
-      rhsm   =     gtrpnt ( 'RHSM'  )
-      rpack  =     gtrpnt ( 'RPACK' )
-      scnode =     gtipnt ( 'SCNODE')
-      scceq  =     gtipnt ( 'SCCEQ' )
-      scifri =     gtipnt ( 'SCIFRI')
-      scimu  =     gtipnt ( 'SCIMU' )
-      scmeq  =     gtipnt ( 'SCMEQ' )
-      scqhs  =     gtipnt ( 'SCQHS' )
-      sclceq =     gtipnt ( 'SCLCEQ')
-      sclmeq =     gtipnt ( 'SCLMEQ')
-      sclnod =     gtipnt ( 'SCLNOD')
-      sclqhs =     gtipnt ( 'SCLQHS')
-      snceq  =     gtrpnt ( 'SNCEQ' )
-      snfric =     gtrpnt ( 'SNFRIC')
-      snmeq  =     gtrpnt ( 'SNMEQ' )
-      snmu   =     gtrpnt ( 'SNMU'  )
-      snnode =     gtrpnt ( 'SNNODE')
-      snqhs  =     gtrpnt ( 'SNQHS' )
-      snwind =     gtrpnt ( 'SNWIND')
-      sectc  =     gtrpnt ( 'SECTC' )
-      sectv  =     gtrpnt ( 'SECTV' )
-      solbuf =     gtrpnt ( 'SOLBUF')
-      stdbq  =     max(gtrpnt ( 'STDBQ'),1)
-      strbuf =     gtrpnt ( 'STRBUF')
-      strclo =     gtlpnt ( 'STRCLO')
-      strhis =     gtrpnt ( 'STRHIS')
-      strpar =     gtrpnt ( 'STRPAR')
-      strtyp =     gtipnt ( 'STRTYP')
+c      resbuf =     gtrpnt ( 'RESBUF')
+      real     resbuf(dmbuf1,6)
+      
+c      rfv1   =     gtdpnt ( 'RFV1'  )
+      double precision rfv1(ngrid,3)  
+      
+c      rfv2   =     gtdpnt ( 'RFV2'  )
+      double precision rfv2(ngrid,3)
+      
+c      rho    =     gtrpnt ( 'RHO'   )
+      real    rho(ngrid)
+      
+c      rhsvv  =     gtdpnt ( 'RHSVV' )
+      double precision rhsvv(nnode)
+      
+c      rhsm   =     gtrpnt ( 'RHSM'  )
+      
+c      rpack  =     gtrpnt ( 'RPACK' )
+      real    rpack(ngrid,4)
+      
+c      scnode =     gtipnt ( 'SCNODE')
+      integer scnode
+      
+c      scceq  =     gtipnt ( 'SCCEQ' )
+      integer scceq
+      
+c      scifri =     gtipnt ( 'SCIFRI')
+      integer scifri(ngrid)
+      
+c      scimu  =     gtipnt ( 'SCIMU' )
+c      integer scimu(nstru)
+      integer scimu
+      
+c      scmeq  =     gtipnt ( 'SCMEQ' )
+      integer scmeq
+      
+c      scqhs  =     gtipnt ( 'SCQHS' )
+      integer scqhs
+      
+c      sclceq =     gtipnt ( 'SCLCEQ')
+c      integer sclceq(nnc+1)         
+      integer sclceq
+      
+c      sclmeq =     gtipnt ( 'SCLMEQ')
+c      integer sclmeq(nnm+1)
+      integer sclmeq
+      
+c      sclnod =     gtipnt ( 'SCLNOD')
+      integer sclnod
+            
+c      sclqhs =     gtipnt ( 'SCLQHS')
+c      integer sclqhs(nns+1)
+      integer sclqhs
+      
+c      snceq  =     gtrpnt ( 'SNCEQ' )
+      real    snceq(nosdim,nnc)
+c      real snceq(*)
+      
+c      snfric =     gtrpnt ( 'SNFRIC')
+c      real    snfric(2,nnf)
+      real snfric(2)
+      
+c      snmeq  =     gtrpnt ( 'SNMEQ' )
+c      real snmeq(nosdim,nnm)
+      real snmeq
+      
+c      snmu   =     gtrpnt ( 'SNMU'  )
+c      real snmu(2,nnmu)
+      real snmu(2)
+      
+c      snnode =     gtrpnt ( 'SNNODE')
+c      real snnode(nosdim,nnn)
+      real snnode
+      
+c      snqhs  =     gtrpnt ( 'SNQHS' )
+      real snqhs(nosdim,nns)
+c      real snqhs(*,*)
+      
+c      snwind =     gtrpnt ( 'SNWIND')
+      real snwind(2)
+      
+c      sectc  =     gtrpnt ( 'SECTC' )
+      real sectc(ngrid,3)
+      
+c      sectv  =     gtrpnt ( 'SECTV' )
+      real sectv(ngrid,dmsecv)
+      
+c      solbuf =     gtrpnt ( 'SOLBUF')
+      real solbuf(dmbuf2,7,ngrid)
+      
+c      stdbq  =     max(gtrpnt ( 'STDBQ'),1)
+c      real    stdbq(nstdb)
+      real stdbq
+      
+c      strbuf =     gtrpnt ( 'STRBUF')
+c      real    strbuf(dmbuf1,2,*)
+      real strbuf(dmbuf1,2)
+      
+c      strclo =     gtlpnt ( 'STRCLO')
+      logical strclo
+      
+c      strhis =     gtrpnt ( 'STRHIS')
+c      real    strhis(dmstrh,*)
+      real    strhis(dmstrh)
+      
+c      strpar =     gtrpnt ( 'STRPAR')
+c      real    strpar(dmstrpar,*)
+      real    strpar(dmstrpar)
+      
+c      strtyp =     gtipnt ( 'STRTYP')
+c      integer strtyp(10,*)
+      integer strtyp(10)
       
 c      table  =     gtrpnt ( 'TABLE' )
       real    table(ntabm)
       
-      tauwi  =     gtrpnt ( 'TAUWI' )
-      trcnrl =     gtipnt ( 'TRCNRL')
-      triger =     gtipnt ( 'TRIGER')
-      typcr  =     gtipnt ( 'TYPCR' )
-      waoft  =     gtrpnt ( 'WAOFT' )
-      wfrict =     gtipnt ( 'WFRICT')
+c      tauwi  =     gtrpnt ( 'TAUWI' )
+      real    tauwi(ngrid)
+      
+c      trcnrl =     gtipnt ( 'TRCNRL')
+c      integer trcnrl(5,ntcrel)
+      integer trcnrl(5)
+      
+c      triger =     gtipnt ( 'TRIGER')
+c      integer triger(10,ntrigr)
+      integer triger(10)
+      
+c      typcr  =     gtipnt ( 'TYPCR' )
+      integer typcr(nbran)
+      
+c      waoft  =     gtrpnt ( 'WAOFT' )
+c      real    waoft(ngrid,*)
+      real    waoft(ngrid,6)
+      
+c      wfrict =     gtipnt ( 'WFRICT')
+      integer wfrict(3,nbran)
       
 c      wft    =     gtrpnt ( 'WFT'   )
       real wft(ngrid,maxlev)
       
-      wndpar =     gtrpnt ( 'WNDPAR')
-      wshld  =     gtrpnt ( 'WSHLD' )
+c      wndpar =     gtrpnt ( 'WNDPAR')
+      real wndpar(3)
+      
+c      wshld  =     gtrpnt ( 'WSHLD' )
+      real    wshld(ngrid)
       
 c      wtt    =     gtrpnt ( 'WTT'   )      
       real wtt(ngrid,maxlev)
       
-      work   =     gtdpnt ( 'WORK'  )
-      x      =     gtrpnt ( 'X'     )
-      grhis  =     gtrpnt ( 'GRHIS' )
+c      work   =     gtdpnt ( 'WORK'  )
+      double precision work(nnode,7)
       
+c      x      =     gtrpnt ( 'X'     )
+      real x(ngrid)
+      
+c      grhis  =     gtrpnt ( 'GRHIS' )
+      real grhis     
       
       double precision h2(ngrid)
       double precision q2(ngrid)
@@ -538,15 +707,75 @@ c
 c
 c     structures input (not used)
 c
+      ncontr=0
       nlags=1
       ncsrel=1
       do kgrid=1,ngrid
           grid(kgrid)=1
       enddo
+      nstdb=0
+      nstru=0
 c
 c    extra resistance parameters (not used)
 c
       nexres=0
+      
+c    kalman filter
+      lkalm=.false.
+c    dimensions need to be one for allocating reasons      
+      nnf=1
+c      nnc=1
+      nnm=1
+      nnn=1
+      nnmu=1
+c      nosdim=1
+      
+c     lateral BC
+      nqlat=0
+
+c     salt
+      lsalt=.false.
+      
+c     control      
+      ntcrel=0
+      
+c      Mozart
+      lmoza=.false.
+      
+c     salt
+      lsalt=.false.
+      
+c     cross-section type
+      do kbran=1,nbran
+          typcr(kbran)=1
+      enddo
+      
+c      other
+      lfrou=.false.
+      
+c      groundwater
+      lgrwt=.false.
+c
+c     create flwpar
+c     
+c     I am not sure we can do this because of the different type
+c     of array. THe solution is to pass all variables or to change the 
+c     type of array to <real> for all variables. 
+      flwpar( 1 )      =g      
+      flwpar( 2 )      =psi    
+      flwpar( 3 )      =theta  
+      flwpar( 6 )      =rhow   
+      flwpar( 8 )      =omega  
+      flwpar(10 )      =lambda 
+      flwpar(11 )      =relstr 
+      flwpar(12 )      =dhstru 
+      flwpar(13 )      =cflpse 
+      flwpar(14 )      =iterbc 
+      flwpar(15 )      =resid  
+      flwpar(16 )      =overlp 
+      flwpar(18 )      =omcfl  
+      flwpar(19 )      =dhtyp  
+      flwpar(20 )      =exrstp 
       
 #if !  defined (SHR_MEM)
 c ====  shared memory  ====
@@ -587,28 +816,32 @@ c
      +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,nnm   ,nnn    ,nns     ,
      +nnf   ,nnmu  ,nosdim,lagstm,nlags ,juer  ,
 c     Mozart parameters plus groundwater switch
-     +  lmoza   ,  istmoz  ,cp(qlatid), cp(qlatnm), lgrwt   ,
-     +  lrest   ,rp(flwpar),contrl,
-     +branch    ,ip(typcr),maxlev,ip(nlev),hlev ,wft, aft   ,
-     +wtt       ,att      ,arex  ,arexcn  ,arexop, of    ,
-     +bfrict,bfricp,maxtab    ,ntabm     ,  ip(ntab),rp(table) ,
-     +rp(sectc) ,rp(sectv) ,grsize,engpar,gangle,rp(wndpar),
-     +ip(wfrict),rp(wshld) ,rp(snceq) ,rp(snmeq) ,rp(snqhs) ,rp(snfric),
-     +rp(snmu)  ,rp(snwind),ip(sclceq),ip(sclmeq),ip(sclqhs),ip(scceq) ,
-     +ip(scmeq) ,ip(scqhs) ,ip(scifri),ip(scimu) ,ip(scnode),rp(snnode),
-     +ip(sclnod),rp(pfa)   ,rp(pmua)  ,rp(pw)    ,   nexres ,exres ,
-     +   lsalt  ,izwft ,   nhstat ,hbdpar,   nqstat ,ip(qbdpar),
-     +   nstru  ,ip(strtyp),rp(strpar),   nqlat  ,rp(qltpar),ip(grid)  ,
-     +rp(x)     ,rp(grhis) ,
-     +rp(rho)   ,   ngridm ,   nnode  ,ip(node)  ,   nbrnod ,
-     +ip(nodnod),ip(numnod),rp(prslot),rp(psltvr),conhis,rp(waoft) ,
-     +cpack ,rp(rpack) ,alfab ,rp(tauwi) ,ksi   ,rp(a1m)   ,
-     +hstat ,rp(qstat) ,rp(qlat)  ,rp(qlatgr),lp(strclo),dp(rfv1)  ,
-     +dp(rfv2)  ,dp(abcd1) ,dp(abcd2 ),mat   ,dp(rhsvv) ,hpack ,
-     +qpack ,delh  ,dp(work)  ,cnstrl,rp(strhis),ip(trcnrl),
-     +ip(triger),cnpflg,ker       ,qtyp      ,  lfrou   ,rp(strbuf),
-     +ip(ibuf)  ,rp(solbuf),buflag,indx  ,   bicg   ,rp(stdbq) ,
-     +   nstdb  )
+     +lmoza ,istmoz,qlatid,qlatnm,lgrwt ,
+     +lrest ,flwpar,contrl,
+     +branch,typcr ,maxlev,nlev  ,hlev  ,wft   ,aft   ,
+     +wtt   ,att   ,arex  ,arexcn,arexop, of   ,
+     +bfrict,bfricp,maxtab,ntabm ,intab ,table ,
+     +sectc ,sectv ,grsize,engpar,gangle,wndpar,
+     +wfrict,wshld ,snceq ,snmeq ,snqhs ,snfric,
+     +snmu  ,snwind,sclceq,sclmeq,sclqhs,scceq ,
+     +scmeq ,scqhs ,scifri,scimu ,scnode,snnode,
+     +sclnod,pfa   ,pmua  ,pw    ,nexres,exres ,
+     +lsalt ,izwft ,nhstat,hbdpar,nqstat,qbdpar,
+     +nstru ,strtyp,strpar,nqlat ,qltpar,grid  ,
+     +x     ,grhis ,
+     +rho   ,ngridm,nnode ,node  ,   nbrnod    ,
+     +nodnod,numnod,prslot,psltvr,conhis,waoft ,
+     +cpack ,rpack ,alfab ,tauwi ,ksi   ,a1m   ,
+     +hstat ,qstat ,qlat  ,qlatgr,strclo,rfv1  ,
+     +rfv2  ,abcd1 ,abcd2 ,mat   ,rhsvv ,hpack ,
+     +qpack ,delh  ,work  ,cnstrl,strhis,trcnrl,
+     +triger,cnpflg,ker   ,qtyp  ,lfrou ,strbuf,
+     +ibuf  ,solbuf,buflag,indx  ,bicg  ,stdbq ,
+     +nstdb  )
+      
+
+
+      
 c     
 c    original call
 c
@@ -644,11 +877,11 @@ c        Check for convergence
 c
 c        Program stops at the moment in case of no convergence
 c
-      call soconv (   ngrid  ,   epsh   ,   epsq   ,hpack ,
-     +             qpack ,   miniter,   conv   ,   juresi ,
-     +                iter   ,   epsqrl ,   qtyp   ,   juer   ,
-     +                ker    ,   flitmx ,   lconv  ,   inocon ,
-     +             ip(ibuf)  ,rp(resbuf),   itstat )
+      call soconv (ngrid ,epsh   ,epsq   ,hpack  ,
+     +             qpack ,miniter,conv   ,juresi ,
+     +             iter  ,epsqrl ,qtyp   ,juer   ,
+     +             ker   ,flitmx ,lconv  ,inocon ,
+     +             ibuf  ,resbuf ,itstat )
   
 c
 c     If convergence has not been reached try again
@@ -722,15 +955,15 @@ c
 c     Calculate variables for time level n+1
 c
       if ( ker.ne.fatal ) then
-         call flnp1 (   lkalm  ,   nbran  ,   ngrid  ,   nnf    ,
-     +               branch,ip(typcr) ,bfrict,bfricp,
-     +               h2   ,q2    ,   maxlev ,ip(nlev)  ,
-     +               hlev  ,wft,aft   ,   overlp ,
+         call flnp1 (lkalm ,nbran ,ngrid ,nnf   ,
+     +               branch,typcr ,bfrict,bfricp,
+     +               h2    ,q2    ,maxlev,nlev  ,
+     +               hlev  ,wft   ,aft   ,overlp,
      +               arex  ,arexcn,arexop,of    ,
-     +                  maxtab ,   ntabm  ,ntab  ,table ,
-     +               rp(sectc) ,rp(sectv) ,rp(prslot),rp(psltvr),
-     +               rp(waoft) ,grsize,engpar,ip(scifri),
-     +               rp(pfa)   ,   juer   ,cpack ,rp(rpack) ,
+     +               maxtab,ntabm ,ntab  ,table ,
+     +               sectc ,sectv ,prslot,psltvr,
+     +               waoft ,grsize,engpar,scifri,
+     +               pfa   ,juer  ,cpack ,rpack ,
      +               afwfqs,alfab ,
      +               wtt   ,att   ,ker    )
       endif

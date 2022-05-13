@@ -41,6 +41,7 @@ implicit none
 !
 
 logical                                  , pointer :: lconv                   
+logical                                  , pointer :: steady    
                                          
 integer                                  , pointer :: flitmx                 
 integer                                  , pointer :: iterbc                 
@@ -53,12 +54,17 @@ integer                                  , pointer :: nhstat
 integer                                  , pointer :: nqstat
 integer                                  , pointer :: maxtab
 integer                                  , pointer :: ntabm
+integer                                  , pointer :: nbrnod
+integer                                  , pointer :: nlev
+
+integer, dimension(:)                    , pointer :: numnod
 
 integer, dimension(:,:)                  , pointer :: branch
 integer, dimension(:,:)                  , pointer :: bfrict
 integer, dimension(:,:)                  , pointer :: hbdpar
 integer, dimension(:,:)                  , pointer :: qbdpar
 integer, dimension(:,:)                  , pointer :: ntab
+integer, dimension(:,:)                  , pointer :: node
 
 real                                     , pointer :: g
 real                                     , pointer :: psi                    
@@ -78,6 +84,7 @@ real                                     , pointer :: dhtyp
 real                                     , pointer :: exrstp     
 
 real, dimension(:)                       , pointer :: table
+real, dimension(:)                       , pointer :: x
 
 real, dimension(:,:)                     , pointer :: bfricp
 real, dimension(:,:)                     , pointer :: wft
@@ -136,6 +143,8 @@ f1dimppar%nhstat=1 !Properly compute based on cross-section data.
 f1dimppar%nqstat=1 !Properly compute based on cross-section data. 
 f1dimppar%ntabm=10 !Properly compute based on cross-section data. 
 f1dimppar%maxtab=2 !Properly compute based on cross-section data. 
+f1dimppar%nbrnod=3
+f1dimppar%nlev=10
 
 !dependent on branch
 allocate(f1dimppar%branch(4,nbran)) !deal with allocate and deallocate properly
@@ -145,6 +154,7 @@ allocate(f1dimppar%bfrict(3,nbran))
 allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !deal with allocate and deallocate properly
 allocate(f1dimppar%hpack(3,f1dimppar%ngrid)) 
 allocate(f1dimppar%qpack(3,f1dimppar%ngrid)) 
+allocate(f1dimppar%x(f1dimppar%ngrid)) 
 
 !cross-sectional information
 allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
@@ -161,6 +171,10 @@ allocate(f1dimppar%qbdpar(3,f1dimppar%nqstat))
 !tables
 allocate(f1dimppar%table(f1dimppar%ntabm)) 
 allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
+
+!nodes
+allocate(f1dimppar%node(4,f1dimppar%nnode))
+allocate(f1dimppar%numnod(f1dimppar%nnode))
 
 !#END# MOVE TO INITIALIZATION PARAMETERS
 
@@ -202,6 +216,7 @@ exrstp => f1dimppar%exrstp
 !<SOFLOW> variables
 time   => f1dimppar%time
 dtf    => f1dimppar%dtf
+steady => f1dimppar%steady
 
 !dimensions
 ngrid  => f1dimppar%ngrid
@@ -213,6 +228,8 @@ nhstat => f1dimppar%nhstat
 nqstat => f1dimppar%nqstat
 maxtab => f1dimppar%maxtab
 ntabm  => f1dimppar%ntabm
+nbrnod => f1dimppar%nbrnod
+nlev   => f1dimppar%nlev
 
 !dependent on branch
 branch => f1dimppar%branch
@@ -222,6 +239,7 @@ bfrict => f1dimppar%bfrict
 bfricp => f1dimppar%bfricp
 hpack  => f1dimppar%hpack
 qpack  => f1dimppar%qpack
+x      => f1dimppar%x
 
 !cross-sectional shape
 wft  => f1dimppar%wft 
@@ -239,6 +257,10 @@ qbdpar => f1dimppar%qbdpar
 table  => f1dimppar%table
 ntab   => f1dimppar%ntab
 
+!dependent on node
+node   => f1dimppar%ntab
+numnod => f1dimppar%numnod
+
 call SOFLOW( &
 !<flwpar> input
         &   g      , psi    , theta  , epsh   , epsq   , &
@@ -246,10 +268,11 @@ call SOFLOW( &
         &   dhstru , cflpse , resid  , overlp , omcfl  , &
         &   dhtyp  , exrstp                            , &
 !<SOFLOW> input
-        &   time   , dtf                               , &
+        &   time   , dtf    , steady                   , &
 !dimensions 
         &   ngrid  , ngridm , nbran  , maxlev , nnode  , &
-        &   nhstat , nqstat , maxtab , ntabm           , &
+        &   nhstat , nqstat , maxtab , ntabm  , nbrnod , &
+        &   nlev                                       , &
 !dependent on branch
         &   branch , bfrict                            , &
 !dependent on gridpoints 
@@ -260,7 +283,9 @@ call SOFLOW( &
 !boundary conditions
         &   hbdpar , qbdpar                            , &
 !tables
-        &   table  , ntab                                &
+        &   table  , ntab                              , &
+!dependent on node
+        &   node   , numnod                              &
 !close
         &)
     

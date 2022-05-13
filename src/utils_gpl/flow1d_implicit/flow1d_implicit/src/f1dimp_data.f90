@@ -99,12 +99,14 @@ module m_f1dimp_data
       integer                          :: nqstat                !< Number of q-boundary stations.
       integer                          :: ntabm                 !< Maximum size of table 
       integer                          :: maxtab                !< Maximum number of defined tables.
+      integer                          :: nbrnod                !< Maximum number of connected branches to one node.
+      integer                          :: nlev                  !< Number of h-levels for every cross-section.
       
       !*******
       !dependent on branch
       !*******
       
-      integer, allocatable, dimension(:,:) :: branch                !< branch : P, double(4, nbran ). Branch information.     
+      integer, allocatable, dimension(:,:) :: branch              !< branch : P, double(4, nbran ). Branch information.     
                                                                   !- branch(1,i) : integer. Node number n1 at begin of branch i.
                                                                   !- branch(2,i) : integer. Node number n2 at end of branch i.
                                                                   !- branch(3,i) : integer. Grid point i1 at begin of branch i.
@@ -135,8 +137,9 @@ module m_f1dimp_data
       !*******
       !dependent on gridpoints 
       !*******
+      real   , allocatable, dimension(:)               :: x      !  x-coordinate for each grid point.
       
-      real   , allocatable, dimension(:,:) :: bfricp             ! <bfricp>: P, double(6,<ngrid>): Bed friction parameters.
+      real   , allocatable, dimension(:,:)             :: bfricp ! <bfricp>: P, double(6,<ngrid>): Bed friction parameters.
                                                                  !	 <bfricp(1,i)>: Parameter for positive flow direction in main section (depending on friction type)
                                                                  !		 = Ch\'ezy constant value.
                                                                  !		 = Table pointer (Q or h table).
@@ -152,6 +155,7 @@ module m_f1dimp_data
                                                                  !	 <bfricp(4,i)> Parameter for negative flow direction in sub sec 1 (depending on friction type). Same definition as <bfricp (3,1)>.
                                                                  !	 <bfricp(5,i)> Parameter for positive flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
                                                                  !	 <bfricp(6,i)> Parameter for negative flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
+      
       double precision, allocatable, dimension(:,:)    :: hpack  !<hpack>: I, double(<ngrid,3>). Water level:
                                                                  ! <hpack(i,1)>: at time $n$.
                                                                  ! <hpack(i,2)>: at time $*$.
@@ -160,6 +164,8 @@ module m_f1dimp_data
                                                                  ! <qpack(i,1)>: at time $n$.
                                                                  ! <qpack(i,2)>: at time $*$.
                                                                  ! <qpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
+      
+      
       !*******
       !cross-sectional information
       !*******      
@@ -168,6 +174,7 @@ module m_f1dimp_data
       real            , allocatable, dimension(:,:)                :: wtt   ! Total width at h = hlev (i,j) for grid-point i.
       real            , allocatable, dimension(:,:)                :: att   ! Total area at h = hlev (i,j) for grid-point i.
       real            , allocatable, dimension(:,:)                :: of    ! Actual wetted perimeter at every cross section.
+      
       double precision, allocatable, dimension(:,:)                :: hlev  ! j-th water level in table for grid point i.
 
       !*******
@@ -196,6 +203,7 @@ module m_f1dimp_data
       !tables
       !*******
       real   , allocatable, dimension(:)      :: table           ! Contains all table values.
+      
       integer, allocatable, dimension (:,:)   :: ntab            ! Table descriptor:
 	                                                             ! <ntab(1,k)>: length of table $k$.
 	                                                             ! <ntab(2,k)>: Start address $X$ in table table $k$.
@@ -205,6 +213,21 @@ module m_f1dimp_data
 	                                                             ! 	x = ctbpfu> (1) : Period defined
 	                                                             ! 	y = ctbico> (0) : Continue interpolation
 	                                                             ! 	y = ctbidi> (1) : Discrete
+      !*******
+      !dependent on nodes
+      !*******
+      integer, allocatable, dimension(:)     :: numnod           ! Indicates the maximum number of nodes connected with node i 
+      
+      integer, allocatable, dimension(:,:)   :: node             ! Definition of nodes.
+                                                                 !<node(1,i)>: I, integer. Type of node.
+                                                                 !	<cintnd>(1) : Internal node.
+                                                                 !	<chbou >(2) : H-boundary.
+                                                                 !	<cqbou >(3) : Q-boundary.
+                                                                 !	<cqhbou>(4) : QH-boundary.
+                                                                 !	<chqbou>(5) : HQ-boundary.
+                                                                 !<node(2,i)>: I, integer. Gridpoint in case of boundary, else undefined
+                                                                 !<node(3,i)>: I, integer. Station number for boundary, undefined for internal nodes.
+                                                                 !<node(4,i)>: I, integer. Boundary number in case of boundary.
       
       
    end type f1dimppar_type
