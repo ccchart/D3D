@@ -9208,7 +9208,7 @@ src/third_party_open/fortrangis/sourceforge/index.php -text
 src/third_party_open/fortrangis/sourceforge/projnews.html -text
 src/third_party_open/fortrangis/sourceforge/style.css -text
 src/third_party_open/fortrangis/sourceforge/update.sh -text
-src/third_party_open/icepack/CMakeLists.txt -text
+src/third_party_open/icepack/cmake_deltares/CMakeLists.txt -text
 src/third_party_open/icepack/src/icepack_aerosol.F90 -text
 src/third_party_open/icepack/src/icepack_age.F90 -text
 src/third_party_open/icepack/src/icepack_algae.F90 -text

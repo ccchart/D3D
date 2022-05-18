@@ -173,7 +173,7 @@ endif()
 
 # icepack
 if(NOT TARGET icepack)
-    add_subdirectory(${checkout_src_root}/${deltares_common_module} icepack)
+    add_subdirectory(${checkout_src_root}/${icepack_module} icepack)
 endif()
 
 if(NOT WITH_INTERACTER)
