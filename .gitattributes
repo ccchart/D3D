@@ -611,12 +611,12 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_flowgeom.f90 
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_flowparameters.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_flowtimes.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_fm_erosed.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_fm_icecover.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_fm_wq_processes.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_grid.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_gridsettings.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_grw.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_heatfluxes.f90 -text
-src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_ice.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_inverse_map.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_isoscaleunit.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_data/m_jacobi.f90 -text
@@ -18682,6 +18682,7 @@ src/utils_gpl/flow1d/packages/flow1d_io/src/readStorageNodes.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/read_roughness.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/read_table.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/readspatialdata.f90 -text
+src/utils_gpl/ice/packages/ice_data/src/icecover_module.f90 -text
 src/utils_gpl/morphology/Makefile.am -text
 src/utils_gpl/morphology/include/Makefile.am -text
 src/utils_gpl/morphology/include/RF.inc -text
