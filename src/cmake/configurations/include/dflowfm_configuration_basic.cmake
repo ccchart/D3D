@@ -33,6 +33,10 @@ if(NOT TARGET flow1d)
     add_subdirectory(${checkout_src_root}/${flow1d_module} flow1d)
 endif()
 
+if(NOT TARGET flow1d_implicit)
+    add_subdirectory(${checkout_src_root}/${flow1d_implicit_module} flow1d_implicit)
+endif()
+
 # Waq
 if(NOT TARGET waq_utils_c)
     add_subdirectory(${checkout_src_root}/${waq_utils_c_module} waq_utils_c)
