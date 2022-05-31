@@ -72,7 +72,7 @@
          k2 = ln(2,Lf)
 
          do l=1,lsedtot
-            if (stmpar%sedpar%sedtyp(l) == SEDTYP_COHESIVE) cycle   ! conform with d3d
+            if (.not.btest(tratyp(l), TRA_BEDLOAD)) cycle   ! cycle if this fraction doesn't include bedload
 
             if (pure1d_mor .and. abs(kcu(Lf)) == 1) then
                ! on 1D links use the x-component which is the full vector

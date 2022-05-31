@@ -131,7 +131,7 @@
    integer                       :: klc
    integer                       :: kmaxlc
    integer                       :: k1, k2, k3, k4
-   logical                       :: suspfrac  ! suspended component sedtyp(l)/=SEDTYP_NONCOHESIVE_TOTALLOAD
+   logical                       :: suspfrac  ! includes suspended transport via advection-diffusion equation
    real(fp)                      :: sigdif    ! Prandtl-Schmidt; to do: change to array
    real(fp)                      :: afluff
    real(fp)                      :: aks_ss3d
@@ -894,19 +894,16 @@
          !
          if (l <= lsed) then
             sigdif = tpsnumber(l)      ! has different meaning here, not to confuse with sigdif in m_turbulence
-            endif
+         endif
          !
-         if (sedtyp(l) == SEDTYP_COHESIVE) then
+         if (iform(l) == -3) then
             !
-            ! sediment type COHESIVE
+            ! sediment transport governed by Partheniades-Krone
             !
             dll_reals(RP_D50  ) = 0.0_hp
             dll_reals(RP_DSS  ) = 0.0_hp
             dll_reals(RP_DSTAR) = 0.0_hp
             dll_reals(RP_SETVL) = real(ws(kb, l)  ,hp)
-            !!             if (flmd2l) then           ! 2 layer fluid mud
-            !!                 par(11,l) = entr(nm)
-            !!             endif
             !
             if (kmx > 0) then
                klc = 0
@@ -981,9 +978,9 @@
             cycle
          endif
          !
-         ! sediment type NONCOHESIVE_SUSPENDED or NONCOHESIVE_TOTALLOAD
+         ! sediment transport not governed by Partheniades-Krone
          !
-         suspfrac = sedtyp(l)/=SEDTYP_NONCOHESIVE_TOTALLOAD
+         suspfrac = btest(tratyp(l), TRA_ADVDIFF)
          !
          tsd  = -999.0_fp
          di50 = sedd50(l)
@@ -1226,7 +1223,7 @@
    call fm_red_soursin()
 
    do l = 1,lsedtot                                   ! this is necessary for next calls to upwbed
-      if (sedtyp(l)/=SEDTYP_COHESIVE) then
+      if (btest(tratyp(l), TRA_BEDLOAD)) then
          do nm = 1, ndx
             sxtot(nm, l) = sbcx(nm, l) + sbwx(nm, l) + sswx(nm, l)
             sytot(nm, l) = sbcy(nm, l) + sbwy(nm, l) + sswy(nm, l)
@@ -1459,7 +1456,7 @@
    e_sbn = 0d0
    e_sbt = 0d0
    do l = 1,lsedtot
-      if (sedtyp(l)/=SEDTYP_COHESIVE) then
+      if (btest(tratyp(l), TRA_BEDLOAD)) then
          do nm = 1, lnx
             e_sbn(nm, l) = e_sbcn(nm, l) + e_sbwn(nm, l) + e_sswn(nm, l)
             e_sbt(nm, l) = e_sbct(nm, l) + e_sbwt(nm, l) + e_sswt(nm, l)

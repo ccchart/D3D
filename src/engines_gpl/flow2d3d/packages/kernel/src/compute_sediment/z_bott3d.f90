@@ -364,7 +364,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
        if (kmax > 1) then
           do l = 1, lsed
              ll = lstart + l
-             if (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
+             if (tratyp(l) == TRA_COMBINE) then
                 do nm = 1, nmmax
                    nmu = nm + icx
                    num = nm + icy
@@ -561,7 +561,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
                       endif
                    endif
                 enddo ! nm
-             endif    ! sedtyp = SEDTYP_NONCOHESIVE_SUSPENDED
+             endif    ! tratyp = TRA_COMBINE
           enddo       ! l
        endif          ! kmax>1
        !
@@ -670,9 +670,9 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
                 lsedbed = lsedtot - nmudfrac
                 do l = 1, lsedtot
                    !
-                   ! bed load transport always zero for mud fractions
+                   ! bed load transport only for fractions with bedload component
                    !
-                   if (sedtyp(l) == SEDTYP_COHESIVE) cycle
+                   if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
                    li = li + 1
                    !
                    if (morbnd(jb)%ibcmt(3) == lsedbed) then
@@ -720,7 +720,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
        !
        bedchangemesscount = 0
        do l = 1, lsedtot
-          bedload = sedtyp(l)==SEDTYP_NONCOHESIVE_TOTALLOAD
+          bedload = tratyp(l) == TRA_BEDLOAD
           ll = lstart + l
           do nm = 1, nmmax
              !
@@ -757,7 +757,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
                    !
                    ! mass balance includes entrainment and deposition
                    !
-                   if (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
+                   if (tratyp(l) == TRA_COMBINE) then
                       !
                       ! l runs from 1 to lsedtot, kmxsed is defined for 1:lsed
                       ! The first lsed fractions are the suspended fractions,
@@ -1171,7 +1171,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
        do nm = 1, nmmax
           depchg(nm) = 0.0_fp
        enddo
-    endif
+    endif ! nst >= itmor
     !
     ! Update bottom elevations
     !

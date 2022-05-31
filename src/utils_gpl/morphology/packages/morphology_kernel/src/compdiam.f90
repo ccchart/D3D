@@ -108,7 +108,7 @@ subroutine compdiam(frac      ,seddm     ,sedd50    ,sedtyp    ,lsedtot   , &
 !
 !! executable statements -------------------------------------------------------
 !
-    if (lsedtot==1 .and. seddm(1)<0.0_fp .and. sedtyp(1) /= SEDTYP_COHESIVE) then
+    if (lsedtot==1 .and. seddm(1)<0.0_fp .and. sedtyp(1) <= max_mud_sedtyp) then
        !
        ! Handle case with spatially varying sediment diameter
        ! separately using the same approximation of the lognormal
@@ -163,13 +163,13 @@ subroutine compdiam(frac      ,seddm     ,sedd50    ,sedtyp    ,lsedtot   , &
           dgsd(nm)   = 0.0_fp
           !
           do l = 1, lsedtot
-             if (sedtyp(l) /= SEDTYP_COHESIVE) then
+             if (sedtyp(l) >= min_dxx_sedtyp) then
                 fracnonmud = fracnonmud + frac(nm,l)
              endif
           enddo
           if (fracnonmud > 0.0_fp) then
              do l = 1, lsedtot
-                if (sedtyp(l) /= SEDTYP_COHESIVE) then
+                if (sedtyp(l) >= min_dxx_sedtyp) then
                    dm(nm)     = dm(nm) + (frac(nm,l) / fracnonmud) * seddm(l)
                    dg(nm)     = dg(nm) * (sedd50(l)**(frac(nm,l)/fracnonmud))
                 endif
@@ -182,7 +182,7 @@ subroutine compdiam(frac      ,seddm     ,sedd50    ,sedtyp    ,lsedtot   , &
              ! separate loop required as dg needs to be calculated first
              !
              do l = 1, lsedtot
-                if ((sedtyp(l) /= SEDTYP_COHESIVE) .and. (comparereal(frac(nm,l),0.0_fp) == 1)) then
+                if ((sedtyp(l) sedtyp(l) >= min_dxx_sedtyp) .and. (frac(nm,l) > 0.0_fp)) then
                    dgsd(nm) = dgsd(nm) + (frac(nm,l)/fracnonmud)*(log(sedd50(l))-log(dg(nm)))**2
                 endif
              enddo

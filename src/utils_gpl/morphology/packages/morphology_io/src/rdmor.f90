@@ -1829,7 +1829,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (sedtyp(l) /= SEDTYP_COHESIVE) then
+                      if (btest(tratyp(l), TRA_BEDLOAD)) then
                          i = i + 1
                          parnames(i) = trim(parname) // ' ' // trim(namsed(l))
                       endif
@@ -1856,7 +1856,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (sedtyp(l) /= SEDTYP_COHESIVE) then
+                      if (btest(tratyp(l), TRA_BEDLOAD)) then
                          i = i + 1
                          parnames(i)      = trim(parname) // ' ' // trim(namsed(l)) // ' end A'
                          parnames(nval+i) = trim(parname) // ' ' // trim(namsed(l)) // ' end B'
@@ -1906,7 +1906,7 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
-    use sediment_basics_module, only: SEDTYP_COHESIVE
+    use sediment_basics_module, only: SEDTYP_CLAY, SEDTYP_SILT
     use morphology_data_module
     use message_module, only: write_error !, write_warning, FILE_NOT_FOUND, FILE_READ_ERROR, PREMATURE_EOF
     use grid_dimens_module, only: griddimtype
@@ -1982,7 +1982,7 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
     mflfil = ' '
     do l = 1,lsed
         sedblock_ptr => sedpar%sedblock(l)
-        if (sedpar%sedtyp(l) == SEDTYP_COHESIVE) then
+        if (sedpar%sedtyp(l) <= sedpar%max_mud_sedtyp) then
             call prop_get(sedblock_ptr, '*', 'IniFluffMass', mflfil(l))
             !
             ! Intel 7.0 crashes on an inquire statement when file = ' '

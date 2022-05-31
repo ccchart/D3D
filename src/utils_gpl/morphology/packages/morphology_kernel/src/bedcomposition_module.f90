@@ -1394,7 +1394,6 @@ subroutine detthcmud(this, thcmud)
 !
 !!--declarations----------------------------------------------------------------
     use precision
-    use sediment_basics_module
     !
     implicit none
 !
@@ -1418,7 +1417,7 @@ subroutine detthcmud(this, thcmud)
     do nm = this%settings%nmlb,this%settings%nmub
        thcmud (nm) = 0.0
         do l = 1, this%settings%nfrac
-           if (this%settings%sedtyp(l) == SEDTYP_COHESIVE) then
+           if (this%settings%sedtyp(l) <= max_mud_sedtyp) then
               thcmud(nm) = thcmud(nm) + real(bodsed(l, nm),fp)/rhofrac(l)
            endif
         enddo
@@ -1504,7 +1503,6 @@ subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto)
 !
 !!--declarations----------------------------------------------------------------
     use precision 
-    use sediment_basics_module
     !
     implicit none
     !
@@ -1544,7 +1542,7 @@ subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto)
        !
        mudfrac = 0.0
        do l = 1, this%settings%nfrac
-          if (this%settings%sedtyp(l) == SEDTYP_COHESIVE) then
+          if (this%settings%sedtyp(l) <= max_mud_sedtyp) then
              do nm = nmfrom, nmto
                 mudfrac(nm) = mudfrac(nm) + frac(nm,l)
              enddo

@@ -99,6 +99,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     real(fp)         , dimension(:)      , pointer :: pmcrit
     integer          , dimension(:)      , pointer :: nseddia
     integer          , dimension(:)      , pointer :: sedtyp
+    integer          , dimension(:)      , pointer :: tratyp
     logical                              , pointer :: anymud
     real(fp)                             , pointer :: thresh
     real(fp)                             , pointer :: bed
@@ -317,7 +318,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     logical                         :: error
     integer                         :: klc
     integer                         :: kmaxlc    
-    logical                         :: suspfrac  ! suspended component sedtyp(l)/=SEDTYP_NONCOHESIVE_TOTALLOAD
+    logical                         :: suspfrac  ! includes suspended transport via advection-diffusion equation
     real(fp)                        :: afluff
     real(fp)                        :: aks_ss3d
     real(fp)                        :: caks
@@ -414,6 +415,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     pmcrit              => gdp%gdsedpar%pmcrit
     nseddia             => gdp%gdsedpar%nseddia
     sedtyp              => gdp%gdsedpar%sedtyp
+    tratyp              => gdp%gdsedpar%tratyp
     anymud              => gdp%gdsedpar%anymud
     sedtrcfac           => gdp%gdsedpar%sedtrcfac
     thresh              => gdp%gdmorpar%thresh
@@ -1022,15 +1024,15 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           dll_integers(IP_ISED ) = l
           dll_strings(SP_USRFL)  = dll_usrfil(l)
           !
-          if (sedtyp(l) == SEDTYP_COHESIVE) then
+          if (iform(l) == -3) then
              !
-             ! sediment type COHESIVE
+             ! sediment transport governed by Partheniades-Krone
              !
              dll_reals(RP_D50  ) = 0.0_hp
              dll_reals(RP_DSS  ) = 0.0_hp
              dll_reals(RP_DSTAR) = 0.0_hp
              !
-             ! Assumption: l <= lsed (which should hold for SEDTYP_COHESIVE)
+             ! l <= lsed for fractions with advection-diffusion transport
              !
              dll_reals(RP_SETVL) = real(ws(nm, kbed, l)  ,hp) ! Vertical velocity near bedlevel
              if (flmd2l) then
@@ -1104,9 +1106,9 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
              cycle
           endif
           !
-          ! sediment type NONCOHESIVE_SUSPENDED or NONCOHESIVE_TOTALLOAD
+          ! sediment transport not governed by Partheniades-Krone
           !
-          suspfrac = sedtyp(l)/=SEDTYP_NONCOHESIVE_TOTALLOAD
+          suspfrac = btest(tratyp(l), TRA_ADVDIFF)
           !
           ! (Re)set of Prandtl-Schmidt number moved to TKECOF
           tsd  = -999.0_fp
@@ -1345,7 +1347,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     ! Fill sutot and svtot
     !
     do l = 1,lsedtot
-       if (sedtyp(l)/=SEDTYP_COHESIVE) then
+       if (btest(tratyp(l), TRA_BEDLOAD)) then
           do nm = 1, nmmax
              sutot(nm, l) = sbcu(nm, l) + sbwu(nm, l) + sswu(nm, l)
              svtot(nm, l) = sbcv(nm, l) + sbwv(nm, l) + sswv(nm, l)
@@ -1433,7 +1435,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     ! Summation of current-related and wave-related transports
     !
     do l = 1,lsedtot
-       if (sedtyp(l)/=SEDTYP_COHESIVE) then
+       if (btest(tratyp(l), TRA_BEDLOAD)) then
           do nm = 1, nmmax
              sbuu(nm, l) = sbcuu(nm, l) + sbwuu(nm, l) + sswuu(nm, l)
              sbvv(nm, l) = sbcvv(nm, l) + sbwvv(nm, l) + sswvv(nm, l)

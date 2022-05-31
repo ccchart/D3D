@@ -980,7 +980,7 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
     use grid_dimens_module, only: griddimtype
     use message_module, only: FILE_NOT_FOUND, FILE_READ_ERROR, PREMATURE_EOF
     use MessageHandling
-    use sediment_basics_module, only: SEDTYP_COHESIVE
+    use sediment_basics_module, only: SEDTYP_CLAY, SEDTYP_SILT
     use morphology_data_module, only: sedpar_type, morpar_type
     use m_depfil_stm
     !
@@ -1088,7 +1088,7 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
        mfluff = 0.0_fp
        !
        do ised = 1, lsed
-           if (sedpar%sedtyp(ised) /= SEDTYP_COHESIVE) cycle
+           if (sedpar%sedtyp(ised) > sedpar%max_mud_setyp) cycle ! check for IFORM == -3 instead?
            inquire (file = mflfil(ised), exist = ex)
            if (ex) then
                call depfil_stm(lundia    ,error     ,mflfil(ised)         , &

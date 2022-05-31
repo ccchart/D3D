@@ -45,7 +45,6 @@ subroutine initsedtra(sedtra, sedpar, trapar, morpar, morlyr, rhow, ag, vicmol, 
     use precision
     use morphology_data_module, only: sedtra_type, sedpar_type, trapar_type, morpar_type
     use bedcomposition_module, only: getfrac, bedcomp_data
-    use sediment_basics_module, only: SEDTYP_COHESIVE
     !
     implicit none
     !
@@ -139,7 +138,7 @@ subroutine initsedtra(sedtra, sedpar, trapar, morpar, morlyr, rhow, ag, vicmol, 
     !
     if (lsedtot/=1 .or. sedpar%flsdia==' ') then
        do ll = 1, lsedtot
-          if (sedpar%sedtyp(ll) /= SEDTYP_COHESIVE) then
+          if (sedd50(ll) > 0.0_fp) then
               drho      = (sedpar%rhosol(ll)-rhow) / rhow
               dstar(ll) = sedd50(ll) * (drho*ag/vicmol**2)**0.3333_fp
               if (dstar(ll) < 1.0_fp) then

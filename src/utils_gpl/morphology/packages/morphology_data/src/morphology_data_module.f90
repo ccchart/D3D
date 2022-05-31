@@ -142,6 +142,22 @@ integer, parameter, public :: SP_RUNID =  1     ! ID of simulation
 integer, parameter, public :: SP_USRFL =  2     ! name of user specified input file
 integer, parameter, public :: MAX_SP   =  2     ! maximum number of strings
 
+integer, parameter, public :: FLOC_NONE                 = 0
+integer, parameter, public :: FLOC_MANNING_DYER         = 1
+integer, parameter, public :: FLOC_CHASSAGNE_SAFAR      = 2
+integer, parameter, public :: FLOC_PBM                  = 3
+
+integer, parameter, public :: WS_FORM_FUNCTION_SALINITY     = 1
+integer, parameter, public :: WS_FORM_FUNCTION_DSS          = 2
+integer, parameter, public :: WS_FORM_FUNCTION_DSS_2004     = -2
+integer, parameter, public :: WS_FORM_MANNING_DYER_MACRO    = 3
+integer, parameter, public :: WS_FORM_MANNING_DYER_MICRO    = 4
+integer, parameter, public :: WS_FORM_MANNING_DYER          = 5
+integer, parameter, public :: WS_FORM_CHASSAGNE_SAFAR_MACRO = 6
+integer, parameter, public :: WS_FORM_CHASSAGNE_SAFAR_MICRO = 7
+integer, parameter, public :: WS_FORM_CHASSAGNE_SAFAR       = 8
+integer, parameter, public :: WS_FORM_USER_ROUTINE          = 15
+
 integer, parameter, public :: WS_RP_TIME  =  1
 integer, parameter, public :: WS_RP_ULOC  =  2
 integer, parameter, public :: WS_RP_VLOC  =  3
@@ -538,8 +554,11 @@ type sedpar_type
     !
     ! integers
     !
-    integer  :: nmudfrac  !  number of simulated mud fractions
-    integer  :: sc_mudfac !  formulation used for determining bed roughness length for Soulsby & Clarke (2005): SC_MUDFRAC, or SC_MUDTHC
+    integer  :: flocmod        !  flocculation model applied to mud fractions
+    integer  :: nmudfrac       !  number of simulated mud fractions
+    integer  :: sc_mudfac      !  formulation used for determining bed roughness length for Soulsby & Clarke (2005): SC_MUDFRAC, or SC_MUDTHC
+    integer  :: max_mud_sedtyp !  largest sediment type associated with mud
+    integer  :: min_dxx_sedtyp !  smallest sediment type included in computation of characteristic sediment diameters
     !
     ! pointers
     !
@@ -573,7 +592,8 @@ type sedpar_type
                                                             !  is not included simulation)
     real(fp)      , dimension(:)    , pointer :: pmcrit     !  Critical mud fraction for non-cohesive behaviour
     integer       , dimension(:)    , pointer :: nseddia    !  Number of characteristic sediment diameters
-    integer       , dimension(:)    , pointer :: sedtyp     !  Sediment type: 0=total/1=noncoh/2=coh
+    integer       , dimension(:)    , pointer :: sedtyp     !  Sediment type: SEDTYP_CLAY, SEDTYP_SILT, SEDTYP_SAND, SEDTYP_GRAVEL
+    integer       , dimension(:)    , pointer :: tratyp     !  Transport method type: TRA_BEDLOAD, TRA_ADVDIFF, TRA_COMBINE
     character(10) , dimension(:)    , pointer :: inisedunit !  'm' or 'kg/m2' : Initial sediment at bed specified as thickness ([m]) or density ([kg/m2])
     character(20) , dimension(:)    , pointer :: namsed     !  Names of all sediment fractions
     character(256), dimension(:)    , pointer :: flsdbd     !  File name containing initial sediment mass at bed
@@ -582,17 +602,17 @@ type sedpar_type
     ! 
     ! logicals
     !
-    logical :: anymud     ! Flag to indicate whether a mud fraction
-                          ! is included in the simulation.
-    logical :: bsskin     ! Flag to indicate whether a bed stress should be computed
-                          ! according to soulsby 2004
+    ?logical :: anyclay    ! Flag to indicate whether a clay fraction is included in the simulation.
+    ?logical :: anysilt    ! Flag to indicate whether a silt fraction is included in the simulation.
+    ?logical :: anysand    ! Flag to indicate whether a sand fraction is included in the simulation.
+    ?logical :: anygravel  ! Flag to indicate whether a gravel fraction is included in the simulation.
+    ?logical :: anymud     ! Flag to indicate whether a mud fraction is included in the simulation.
+    logical :: bsskin     ! Flag to indicate whether a bed stress should be computed according to Soulsby 2004
     !
     ! characters
     !
-    character(256) :: flsdia     ! spatial sediment diameter file (in case of one sediment
-                                 ! fraction only)
-    character(256) :: flsmdc     ! mud content / mud fraction file (only if mud is not
-                                 ! included in simulation)
+    character(256) :: flsdia     ! spatial sediment diameter file (in case of one sediment fraction only)
+    character(256) :: flsmdc     ! mud content / mud fraction file (only if mud is not included in simulation)
     character(256) :: flspmc     ! critical mud fraction for non-cohesive behaviour file
 end type sedpar_type
 
@@ -1179,11 +1199,18 @@ subroutine nullsedpar(sedpar)
     sedpar%kssand   = 0.0_fp
     sedpar%version  = 2.0_fp
     !
-    sedpar%nmudfrac = 0
-    sedpar%sc_mudfac= SC_MUDTHC
+    sedpar%flocmod        = TODO
+    sedpar%nmudfrac       = 0
+    sedpar%sc_mudfac      = SC_MUDTHC
+    sedpar%max_mud_sedtyp = SEDTYP_SILT
+    sedpar%min_dxx_sedtyp = SEDTYP_SAND
     !
-    sedpar%anymud   = .false.
-    sedpar%bsskin   = .false.
+    ?sedpar%anyclay   = .false.
+    ?sedpar%anysilt   = .false.
+    ?sedpar%anysand   = .false.
+    ?sedpar%anygravel = .false.
+    ?sedpar%anymud    = .false.
+    sedpar%bsskin    = .false.
     !
     sedpar%flsdia   = ' '
     sedpar%flsmdc   = ' '
@@ -1215,6 +1242,7 @@ subroutine nullsedpar(sedpar)
     !
     nullify(sedpar%nseddia)
     nullify(sedpar%sedtyp)
+    nullify(sedpar%tratyp)
     !
     nullify(sedpar%inisedunit)
     nullify(sedpar%namsed)
@@ -1260,6 +1288,7 @@ subroutine clrsedpar(istat     ,sedpar  )
     !
     if (associated(sedpar%nseddia))    deallocate(sedpar%nseddia,    STAT = istat)
     if (associated(sedpar%sedtyp))     deallocate(sedpar%sedtyp,     STAT = istat)
+    if (associated(sedpar%tratyp))     deallocate(sedpar%tratyp,     STAT = istat)
     !
     if (associated(sedpar%inisedunit)) deallocate(sedpar%inisedunit, STAT = istat)
     if (associated(sedpar%namsed))     deallocate(sedpar%namsed,     STAT = istat)

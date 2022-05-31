@@ -185,7 +185,7 @@
          !
          do l = 1, lsed
             ll = ised1-1 + l
-            if (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
+            if (tratyp(l) == TRA_COMBINE) then
                !
                ! Determine aks
                !
@@ -341,7 +341,7 @@
                      e_scrn(Lx,l) = 0.0d0
                   endif
                enddo ! nm
-            endif    ! sedtyp = SEDTYP_NONCOHESIVE_SUSPENDED
+            endif    ! tratyp == TRA_COMBINE
          enddo       ! l
       endif          ! kmx>0; end of correction for bed/total load
       !       !
@@ -410,9 +410,9 @@
             do l = 1, lsedtot
                sbsum = 0d0
                !
-               ! bed load transport always zero for mud fractions
+               ! bed load transport only for fractions with bedload component
                !
-               if (sedtyp(l) == SEDTYP_COHESIVE) cycle
+               if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
                li = li + 1
                !
                do ib = 1, morbnd(jb)%npnt
@@ -459,9 +459,9 @@
                lsedbed = lsedtot - nmudfrac
                do l = 1, lsedtot
                   !
-                  ! bed load transport always zero for mud fractions
+                  ! bed load transport only for fractions with bedload component
                   !
-                  if (sedtyp(l) == SEDTYP_COHESIVE) cycle
+                  if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
                   li = li + 1
                   !
                   if (morbnd(jb)%ibcmt(3) == lsedbed) then
@@ -511,7 +511,7 @@
       !
       bedchangemesscount = 0
       do l = 1, lsedtot
-         bedload = sedtyp(l)==SEDTYP_NONCOHESIVE_TOTALLOAD
+         bedload = tratyp(l) == TRA_BEDLOAD
          j = lstart + l   ! constituent index
          !
          ! loop over internal (ndxi) nodes - don't update the boundary nodes
@@ -563,7 +563,7 @@
                   !
                   ! mass balance includes entrainment and deposition
                   !
-                  if (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
+                  if (tratyp(l) == TRA_COMBINE) then
                      !
                      ! l runs from 1 to lsedtot, kmxsed is defined for 1:lsed
                      ! The first lsed fractions are the suspended fractions,

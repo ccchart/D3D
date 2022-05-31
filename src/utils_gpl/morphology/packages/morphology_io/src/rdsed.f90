@@ -103,6 +103,8 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     character(256)   , dimension(:)    , pointer :: flstcg
     logical                            , pointer :: anymud
     logical                            , pointer :: bsskin
+    character(256)                     , pointer :: floc_str
+    character(256)                     , pointer :: settle_str
     character(256)                     , pointer :: flsdia
     character(256)                     , pointer :: flsmdc
     character(256)                     , pointer :: flspmc
@@ -303,7 +305,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     !
     do i = 1,lsedtot
        sedpar%sedblock(i)%node_name => null()
-       if (sedtyp(i) == SEDTYP_COHESIVE) then
+       if (sedtyp(i) <= sedpar%max_mud_sedtyp) then
            tpsnumber(i) = 0.7_fp
        else
            tpsnumber(i) = 1.0_fp
@@ -366,7 +368,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
        tpsmud  = 0.7_fp
        call prop_get(sed_ptr, 'SedimentOverall', 'MudTPS', tpsmud)
        do i = 1,lsed
-          if (sedtyp(i) == SEDTYP_COHESIVE) then
+          if (sedtyp(i) == sedpar%max_mud_sedtyp) then
               tpsnumber(i) = tpsmud
           endif
        enddo
@@ -375,6 +377,25 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
        call prop_get_integer(sed_ptr, 'SedimentOverall', 'IopSus', iopsus)
        !
        call prop_get_string(sed_ptr, 'SedimentOverall', 'MudCnt', flsmdc)
+       !
+       floc_str = 'none'
+       call prop_get_string(sed_ptr, 'SedimentOverall', 'FlocModel', floc_str)
+       call strlower(floc_str)
+       select case (floc_str)
+       case ('none')
+          sedpar%flocmod = FLOC_NONE
+       case ('manning_dyer')
+           sedpar%flocmod = FLOC_MANNNG_DYER
+       case ('chassagne_safar')
+           sedpar%flocmod = FLOC_CHASSAGNE_SAFAR
+       case ('population_balance')
+           sedpar%flocmod = FLOC_PBM
+       case default
+           errmsg = 'Unknown flocculation model "'//trim(floc_str)//'" specified.'
+           call write_error(errmsg, unit=lundia)
+           error = .true.
+           return
+       end select
        !
        sedpar%flnrd(0) = ' '
        call prop_get_string(sed_ptr, 'SedimentOverall', 'NodeRelations', sedpar%flnrd(0))
@@ -628,6 +649,15 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
           endif
           !
           if (l <= lsed) then
+             !
+             ! set default settling formula
+             !
+             if (sedtyp(l) <= sedpar%max_mud_sedtyp) then
+                iform_settle(l) = WS_FORM_FUNCTION_SALINITY
+             else
+                iform_settle(l) = WS_FORM_FUNCTION_DSS
+             endif
+             !
              rec = ' '
              call prop_get(sedblock_ptr, '*', 'SettleLib', rec)
              dll_name_settle(l) = rec
@@ -646,28 +676,34 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                 !
                 call prop_get_string(sedblock_ptr, '*', 'SettleFunction', dll_function_settle(l))
                 call prop_get_string(sedblock_ptr, '*', 'SettleInput'   , dll_usrfil_settle(l))
-                iform_settle(l) = 15
-             elseif (sedtyp(l) == SEDTYP_COHESIVE) then
-                iform_settle(l) = 1
-                call prop_get(sedblock_ptr, '*', 'SettleFrm', iform_settle(l))
-                if (iform_settle(l) /= 1 .and. &
-                    iform_settle(l) /= 3 .and. &
-                    iform_settle(l) /= 4) then
-                   write(errmsg,'(a,i0,3a)') 'Incorrect SettleFrm = ',iform_settle(l),' specified for ', trim(sedname),'. Should be 1,3 or 4.'
+                iform_settle(l) = WS_FORM_USER_ROUTINE
+             else
+                call prop_get(sedblock_ptr, '*', 'SettleFrm', settle_str)
+                call lower(settle_str)
+                select case (settle_str)
+                case ('1','function_of_salinity')
+                   iform_settle(l) = WS_FORM_FUNCTION_SALINITY
+                case ('2','function_of_diameter')
+                   iform_settle(l) = WS_FORM_FUNCTION_DSS
+                case ('3','manning_dyer')
+                   iform_settle(l) = WS_FORM_MANNING_DYER
+                case ('4','chassagne_safar')
+                   iform_settle(l) = WS_FORM_CHASSAGNE_SAFAR
+                case default
+                   write(errmsg,'(5a)') 'Invalid SettleFrm = ',settle_str,' specified for ', trim(sedname),'.'
                    call write_error(errmsg, unit=lundia)
                    error = .true.
                    return
-                endif
-             elseif (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
-                iform_settle(l) = 2
+                end select
              endif
              !
              par_settle(:,l) = rmissval
-             if (iform_settle(l) == 1) then
+             select case (iform_settle(l))
+             case (WS_FORM_FUNCTION_SALINITY)
                 call prop_get(sedblock_ptr, '*', 'SalMax', par_settle(1,l))
                 call prop_get(sedblock_ptr, '*', 'WS0'   , par_settle(2,l))
                 call prop_get(sedblock_ptr, '*', 'WSM'   , par_settle(3,l))
-             elseif (iform_settle(l) == 2) then
+             case (WS_FORM_FUNCTION_DSS)
                 !
                 ! These parameters will only be used for iform = -2, but unfortunately iform hasn't been determined yet.
                 ! In the future we may have to read the parameters in a different order.
@@ -675,7 +711,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                 call prop_get(sedblock_ptr, '*', 'SalMax', par_settle(1,l))
                 par_settle(2,l) = 1.0_fp
                 call prop_get(sedblock_ptr, '*', 'GamFloc', par_settle(2,l))
-             endif
+             end select
              !
              ! Tracer calibration factor
              !
@@ -772,10 +808,10 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
        if (error) return
        !
        do l = 1, lsed
-          if (sedtyp(l) == SEDTYP_COHESIVE) then
-             iform_settle(l) = 1
+          if (sedtyp(l) <= sedpar%max_mud_sedtyp) then ? can we set iform at the same time for consistency?
+             iform_settle(l) = WS_FORM_FUNCTION_SALINITY
           elseif (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
-             iform_settle(l) = 2
+             iform_settle(l) = WS_FORM_FUNCTION_DSS
              par_settle(2,l) = 1.0_fp ! gamflc default
           endif
        enddo
@@ -875,9 +911,9 @@ subroutine rdsed01(lsed      ,luninp    ,lundia    ,csoil     ,iopsus    , &
        if (iocond == 0) then
           call small(sedtype, lenc)
           if (index(sedtype, 'sand') == 1) then
-              sedtyp(l) = SEDTYP_NONCOHESIVE_SUSPENDED
+              sedtyp(l) = SEDTYP_SAND
           elseif (index(sedtype, 'mud') == 1) then
-              sedtyp(l) = SEDTYP_COHESIVE
+              sedtyp(l) = SEDTYP_CLAY
           else
              errmsg = 'Invalid suspended sediment type (must start with sand or mud)'
              call write_error(errmsg, unit=lundia)
@@ -1060,6 +1096,7 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
     logical        , external :: stringsequalinsens
     character(45)             :: txtput1
     character(10)             :: txtput2
+    character(100)            :: txtput3
     character(256)            :: errmsg
 !
 !! executable statements -------------------------------------------------------
@@ -1188,15 +1225,28 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        write (lundia, '(2a,i12)') txtput1, ':', l
        txtput1 = '  Name'
        write (lundia, '(3a)') txtput1, ': ', trim(namsed(l))
-       txtput1 = '  Type'
+       txtput1 = '  Sediment Type'
        select case (sedtyp(l))
-          case (SEDTYP_NONCOHESIVE_TOTALLOAD)
-             write (lundia, '(2a,a12)') txtput1, ':', 'bedload'
-          case (SEDTYP_NONCOHESIVE_SUSPENDED)
-             write (lundia, '(2a,a12)') txtput1, ':', 'sand'
-          case (SEDTYP_COHESIVE)
-             write (lundia, '(2a,a12)') txtput1, ':', 'mud'
+          case (SEDTYP_CLAY)
+             txtput2 = 'clay'
+          case (SEDTYP_SILT)
+             txtput2 = 'silt'
+          case (SEDTYP_SAND)
+             txtput2 = 'silt'
+          case (SEDTYP_GRAVEL)
+             txtput2 = 'gravel'
        end select
+       write (lundia, '(2a,a12)') txtput1, ':', trim(txtput2)
+       txtput1 = '  Transport Type'
+       select case (tratyp(l))
+          case (TRA_COMBINE)
+             txtput3 = 'algebraic formulae + advection-diffusion equation'
+          case (TRA_ADVDIFF)
+             txtput3 = 'advection-diffusion equation only'
+          case (TRA_BEDLOAD)
+             txtput3 = 'algebraic formulae only (total load)'
+       end select
+       write (lundia, '(2a,a12)') txtput1, ':', trim(txtput3)
        if (sedtrcfac(l)>0.0_fp) then
            txtput1 = '  Tracer calibration factor '
            write (lundia, '(2a,e12.4)') txtput1, ':', sedtrcfac(l)
@@ -1228,7 +1278,7 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
           write (lundia, '(2a,e12.4)') txtput1, ':', exp(logsedsig(l))
           txtput1 = '  SedD50'
           write (lundia, '(3a)') txtput1, ':  ', trim(flsdia)
-       elseif (sedtyp(l) /= SEDTYP_COHESIVE) then
+       elseif (nseddia(l) > 0) then
           !
           ! Determine various sediment diameters in case of
           ! sand or bedload.
@@ -1582,7 +1632,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        call echotrafrm(lundia      ,trapar     ,l         )
        !
-       if (iform_settle(l) == 1) then
+       select case (iform_settle(l))
+       case (WS_FORM_FUNCTION_SALINITY)
           txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ': fresh/saline constants'
           txtput1 = '  SALMAX'
@@ -1591,23 +1642,27 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
           txtput1 = '  WSM'
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(3,l)
-       elseif (iform_settle(l) == 2) then
+
+       case (WS_FORM_FUNCTION_DSS)
           txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ': computed from grain size'
           if (iform(l) == -2 .or. iform(l) == -4) then
-             iform_settle(l) = -2
+             iform_settle(l) = WS_FORM_FUNCTION_DSS_2004
              txtput1 = '  SALMAX'
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
              txtput1 = '  Flocculation factor GamFloc'
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
           endif
-       elseif (iform_settle(l) == 3) then
+
+       case (WS_FORM_MANNING_DYER)
           txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ': Manning & Dyer'
-       elseif (iform_settle(l) == 4) then
+
+       case (WS_FORM_CHASSAGNE_SAFAR)
           txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ': Chassagne & Safar'
-       elseif (iform_settle(l) == 15) then
+
+       case (WS_FORM_USER_ROUTINE)
           txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ': user specified library'
           !
@@ -1621,7 +1676,12 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
              txtput1 = '  Input for Settle function'
              write (lundia, '(3a)') txtput1, ': ', trim(dll_usrfil_settle(l))
           endif
-       endif
+
+       case default
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': UNKNOWN'
+       end select
+
        if (sedpar%flnrd(l) /= ' ') then
           txtput1 = '  1D nodal relations for bed/total load'
           write (lundia, '(3a)') txtput1, ':  ', trim(sedpar%flnrd(l))
@@ -1665,8 +1725,10 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
     integer                                                :: istat
     integer                                                :: j
     integer                                                :: lsedbl        ! Number of bedload fractions
-    integer                                                :: sedtypnr
-    integer         , dimension(:) , allocatable           :: typsedim      ! Type of the sediments
+    integer                                                :: sedtypnr      ! Local sediment type number
+    integer                                                :: tratypnr      ! Local transport type number
+    integer         , dimension(:) , allocatable           :: typsedim      ! Type of the sediments - sorted by order of sediment blocks
+    integer         , dimension(:) , allocatable           :: typtrans      ! (Initial) transport type - sorted by order of sediment blocks (TRA_BEDLOAD or TRA_COMBINE)
     logical                                                :: found
     character(20)                                          :: versionstring
     character(20)   , dimension(:) , allocatable           :: namsedim      ! Names of the sediments as read from sed-file
@@ -1729,8 +1791,10 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        allocate(namsedim(size(sed_ptr%child_nodes)))
        allocate(typsedim(size(sed_ptr%child_nodes)))
+       allocate(typtrans(size(sed_ptr%child_nodes)))
        namsedim = ' '
        typsedim = -999
+       typetran = TRA_NONE
        !
        do j = 1, size(sed_ptr%child_nodes)
           !
@@ -1760,28 +1824,55 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
              !
              ! Determine sediment type
              !
+             tratypnr = TRA_COMBINE
              sedtyptmp = ' '
              call prop_get_string(asedblock_ptr, '*', 'SedTyp', sedtyptmp)
              call small(sedtyptmp, 999)
              !
-             if (index(sedtyptmp, 'mud') == 1) then
-                sedtypnr = SEDTYP_COHESIVE
-                lsed = lsed+1
+             if (index(sedtyptmp, 'clay') == 1) then
+                sedtypnr = SEDTYP_CLAY
+             elseif (index(sedtyptmp, 'silt') == 1) then
+                sedtypnr = SEDTYP_SILT
              elseif (index(sedtyptmp, 'sand') == 1) then
-                sedtypnr = SEDTYP_NONCOHESIVE_SUSPENDED
-                lsed = lsed+1
+                sedtypnr = SEDTYP_SAND
+             elseif (index(sedtyptmp, 'gravel') == 1) then
+                sedtypnr = SEDTYP_GRAVEL
+             elseif (index(sedtyptmp, 'mud') == 1) then
+                sedtypnr = SEDTYP_CLAY
+                ! TODO: WARN DEPRECATED
              elseif (index(sedtyptmp,'bedload') == 1) then
-                sedtypnr = SEDTYP_NONCOHESIVE_TOTALLOAD
-                lsedbl = lsedbl+1
+                sedtypnr = SEDTYP_SAND
+                tratypnr = TRA_BEDLOAD
+                ! TODO: WARN DEPRECATED
              else
                 message = 'Sediment type of '//trim(parname)//' invalid: '//trim(sedtyptmp)
                 call write_error(message,unit=lundia)
                 error = .true.
                 return
              endif
+             lsed = lsed+1
+             !
+             ! Determine sediment type
+             !
+             isbedload = .false.
+             call prop_get_logical(asedblock_ptr, '*', 'TotalLoad', isbedload)
+             if (isbedload) tratypnr = TRA_BEDLOAD
+             !
+             if (tratypnr == TRA_BEDLOAD) then
+                 ! change transport type from combined to bedload if possible
+                 if (sedtypnr <= SEDTYP_SILT) then
+                    message = 'Sediment '//trim(parname)//': silt and clay fractions can''t be modelled using total load'
+                    call write_error(message,unit=lundia)
+                    error = .true.
+                    return
+                 endif
+                 lsed = lsed - 1
+                 lsedbl = lsedbl + 1
+             endif
              !
              namsedim(j) = parname
              typsedim(j) = sedtypnr
+             typtrans(j) = tratypnr
           endif
        enddo
     else
@@ -1807,6 +1898,7 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
                     allocate (sedpar%rhosol(lsedtot), stat = istat)
     if (istat == 0) allocate (sedpar%namsed(lsedtot), stat = istat)
     if (istat == 0) allocate (sedpar%sedtyp(lsedtot), stat = istat)
+    if (istat == 0) allocate (sedpar%tratyp(lsedtot), stat = istat)
     if (istat == 0) allocate (sedpar%flnrd(0:lsedtot), stat = istat)
     if (istat /= 0) then
        call write_error('Memory allocation error in COUNT_SED', unit=lundia)
@@ -1814,23 +1906,24 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
     !
     i   = 1
     ibl = lsed+1
-    do j = 1,size(typsedim)
-       select case (typsedim(j)) 
-          case (SEDTYP_NONCOHESIVE_TOTALLOAD)
+    do j = 1,size(typtrans)
+       select case (typtrans(j)) 
+          case (TRA_NONE)
+             ! not a sediment block, so continue
+          case (TRA_BEDLOAD)
              sedpar%namsed(ibl) = namsedim(j)
              sedpar%sedtyp(ibl) = typsedim(j)
              ibl = ibl+1
-          case (SEDTYP_NONCOHESIVE_SUSPENDED, SEDTYP_COHESIVE)
+          case default ! just TRA_COMBINE since TRA_ADVDIFF will only be set later on depending on iform
              sedpar%namsed(i) = namsedim(j)
              sedpar%sedtyp(i) = typsedim(j)
              i = i+1
-          case default
-             ! not a sediment block, so continue
        end select
     enddo
     !
     deallocate(namsedim)
     deallocate(typsedim)
+    deallocate(typtrans)
 end subroutine count_sed
 
 
