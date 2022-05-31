@@ -163,7 +163,10 @@ integer, parameter, public :: WS_RP_WDEPT = 18
 integer, parameter, public :: WS_RP_UMEAN = 19
 integer, parameter, public :: WS_RP_VMEAN = 20
 integer, parameter, public :: WS_RP_CHEZY = 21
-integer, parameter, public :: WS_MAX_RP   = 21
+integer, parameter, public :: WS_RP_DZB   = 22
+integer, parameter, public :: WS_RP_TAUB  = 23
+integer, parameter, public :: WS_RP_VNKAR = 24
+integer, parameter, public :: WS_MAX_RP   = 24
 !
 integer, parameter, public :: WS_IP_NM    =  1
 integer, parameter, public :: WS_IP_N     =  2

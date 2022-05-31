@@ -45,6 +45,7 @@ libMorphologyKernel_la_SOURCES = \
          erosilt.f90 \
          factor3d2d.f90 \
          fgyint.f90 \
+         flocculation.f90 \
          fluff_burial.f90 \
          getfixfac.f90 \
          initmerge.f90 \

@@ -40,6 +40,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     use mathconsts, only: pi, ee
     use sediment_basics_module, only: dgravel, dsand, SEDTYP_COHESIVE, SEDTYP_NONCOHESIVE_SUSPENDED
     use morphology_data_module
+    use flocculation, only: floc_manning, floc_chassagne
     use message_module, only: write_error
     use iso_c_binding, only: c_char
     !
@@ -85,7 +86,17 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     real(fp)                    :: d50
     real(fp)                    :: ctot
     real(fp)                    :: csoil
+    real(fp)                    :: dzb
+    real(fp)                    :: h
     real(fp)                    :: s
+    real(fp)                    :: spm
+    real(fp)                    :: taub
+    real(fp)                    :: tke
+    real(fp)                    :: vonkar
+    real(fp)                    :: settling_flux
+    real(fp)                    :: floc_ratio
+    real(fp)                    :: ws_macro
+    real(fp)                    :: ws_micro
     real(fp)                    :: vcmol
     real(fp)                    :: coefw
     real(fp)                    :: ffloc
@@ -190,10 +201,39 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
           hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil)) 
        endif
        wsloc = ffloc * wsloc * hinset**5
+    elseif (iform_settle == 3) then
+       !
+       ! Settling velocity based on flocculation model by Manning and Dyer
+       !
+       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       tke    = real(dll_reals(WS_RP_KTUR ),fp)
+       call floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro )
+       wsloc  = (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+       !
+       ! hindered settling Richardson and Zaki/Mehta
+       !
+       hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil))
+       wsloc = wsloc * hinset**5
+    elseif (iform_settle == 4) then
+       !
+       ! Settling velocity based on flocculation model by Chassagne and Safar
+       !
+       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       ag     = real(dll_reals(WS_RP_GRAV ),fp)
+       taub   = real(dll_reals(WS_RP_TAUB ),fp)
+       h      = real(dll_reals(WS_RP_WDEPT),fp)
+       dzb    = real(dll_reals(WS_RP_DZB  ),fp)
+       vonkar = real(dll_reals(WS_RP_VNKAR),fp)
+       call floc_chassagne( spm, taub, h, h-dzb, ag, vonkar, settling_flux, floc_ratio, ws_macro, ws_micro )
+       wsloc  = (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+       !
+       ! hindered settling Richardson and Zaki/Mehta
+       !
+       hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil))
+       wsloc = wsloc * hinset**5
     elseif (iform_settle == 15) then
        !
        ! Settling velocity routine supplied by the user in a DLL
-       !
        !
        ! Initialisation of output variables of user defined settling velocity routine
        !

@@ -649,6 +649,15 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                 iform_settle(l) = 15
              elseif (sedtyp(l) == SEDTYP_COHESIVE) then
                 iform_settle(l) = 1
+                call prop_get(sedblock_ptr, '*', 'SettleFrm', iform_settle(l))
+                if (iform_settle(l) /= 1 .and. &
+                    iform_settle(l) /= 3 .and. &
+                    iform_settle(l) /= 4) then
+                   write(errmsg,'(a,i0,3a)') 'Incorrect SettleFrm = ',iform_settle(l),' specified for ', trim(sedname),'. Should be 1,3 or 4.'
+                   call write_error(errmsg, unit=lundia)
+                   error = .true.
+                   return
+                endif
              elseif (sedtyp(l) == SEDTYP_NONCOHESIVE_SUSPENDED) then
                 iform_settle(l) = 2
              endif
@@ -1574,6 +1583,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        call echotrafrm(lundia      ,trapar     ,l         )
        !
        if (iform_settle(l) == 1) then
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': fresh/saline constants'
           txtput1 = '  SALMAX'
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
           txtput1 = '  WS0'
@@ -1581,6 +1592,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
           txtput1 = '  WSM'
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(3,l)
        elseif (iform_settle(l) == 2) then
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': computed from grain size'
           if (iform(l) == -2 .or. iform(l) == -4) then
              iform_settle(l) = -2
              txtput1 = '  SALMAX'
@@ -1588,7 +1601,15 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
              txtput1 = '  Flocculation factor GamFloc'
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
           endif
+       elseif (iform_settle(l) == 3) then
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': Manning & Dyer'
+       elseif (iform_settle(l) == 4) then
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': Chassagne & Safar'
        elseif (iform_settle(l) == 15) then
+          txtput1 = '  Settling velocity formula'
+          write (lundia, '(2a)') txtput1, ': user specified library'
           !
           ! User defined settling velocity function
           !

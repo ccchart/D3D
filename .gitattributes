@@ -18688,6 +18688,7 @@ src/utils_gpl/morphology/packages/morphology_kernel/src/eqtran.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/erosilt.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/factor3d2d.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/fgyint.f90 -text
+src/utils_gpl/morphology/packages/morphology_kernel/src/flocculation.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/fluff_burial.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/getfixfac.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/initmerge.f90 -text

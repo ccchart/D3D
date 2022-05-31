@@ -138,11 +138,13 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     integer                     :: m
     logical                     :: error
     real(fp)                    :: chezy
+    real(fp)                    :: dzb
     real(fp)                    :: h0
     real(fp)                    :: kn
     real(fp)                    :: rhoint
     real(fp)                    :: sag
     real(fp)                    :: salint
+    real(fp)                    :: taub
     real(fp)                    :: temint
     real(fp)                    :: tka
     real(fp)                    :: tkb
@@ -261,11 +263,13 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
                 kbe = max(k, kfsmn0(nm))
                 tka = dzs0(nm,kab)
                 tkb = dzs0(nm,kbe)
+                dzb = 0.0_fp
              else
                 kab = k
                 kbe = min(k + 1, kmax)
                 tka = thick(kab)
                 tkb = thick(kbe)
+                dzb = 0.0_fp * h0
              endif
              tkt = tka + tkb
              !
@@ -333,6 +337,9 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              dll_reals(WS_RP_UMEAN) = real(um        ,hp)
              dll_reals(WS_RP_VMEAN) = real(vm        ,hp)
              dll_reals(WS_RP_CHEZY) = real(chezy     ,hp)
+             dll_reals(WS_RP_DZB  ) = real(dzb       ,hp)
+             dll_reals(WS_RP_TAUB ) = real(taub      ,hp)
+             dll_reals(WS_RP_VNKAR) = real(vonkar    ,hp)
              !
              if (max_integers < WS_MAX_IP) then
                 write(errmsg,'(a,a,a)') 'Insufficient space to pass integer values to settling routine.'
