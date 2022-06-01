@@ -129,7 +129,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
     integer                              , pointer :: nmudfrac
     real(fp)      , dimension(:)         , pointer :: rhosol
     real(fp)      , dimension(:)         , pointer :: cdryb
-    integer       , dimension(:)         , pointer :: sedtyp
+    integer       , dimension(:)         , pointer :: tratyp
     integer                              , pointer :: julday
     integer                              , pointer :: ntstep
     real(fp), dimension(:,:,:)           , pointer :: fluxu
@@ -320,7 +320,7 @@ subroutine z_bott3d(nmmax     ,kmax      ,lsed      ,lsedtot   , &
     nmudfrac            => gdp%gdsedpar%nmudfrac
     rhosol              => gdp%gdsedpar%rhosol
     cdryb               => gdp%gdsedpar%cdryb
-    sedtyp              => gdp%gdsedpar%sedtyp
+    tratyp              => gdp%gdsedpar%tratyp
     julday              => gdp%gdinttim%julday
     ntstep              => gdp%gdinttim%ntstep
     fluxu               => gdp%gdflwpar%fluxu

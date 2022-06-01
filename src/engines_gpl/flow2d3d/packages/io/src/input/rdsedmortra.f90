@@ -187,7 +187,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                 & ipardef   ,rpardef   ,NPARDEF   ,gdp%gdtrapar, &
                 & gdp%gdmorpar%moroutput%sedpar, &
                 & gdp%gdsedpar%sedtyp  ,gdp%gdsedpar%sedblock  , &
-                & gdp%griddim)
+                & gdp%griddim, gdp%gdsedpar%max_mud_sedtyp)
     if (error) goto 999
     !
     !--------------------------------------------------------------------------
