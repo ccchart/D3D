@@ -1,6 +1,6 @@
-subroutine compsandfrac(frac      ,seddm     ,nmmax     ,lsedtot   , &
-                      & sedtyp    ,sandfrac  ,sedd50fld , &
-                      & nmlb      ,nmub      )
+subroutine compsandfrac(frac, seddm, nmmax, lsedtot, sedtyp, &
+                      & max_mud_sedtyp, sandfrac, sedd50fld, &
+                      & nmlb, nmub )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2022.                                

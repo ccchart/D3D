@@ -215,7 +215,7 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
                 & ipardef, rpardef, NPARDEF, stm%trapar, &
                 & stm%morpar%moroutput%sedpar, &
                 & stm%sedpar%sedtyp, stm%sedpar%sedblock, &
-                & griddim)
+                & griddim, stm%sedpar%max_mud_sedtyp)
     if (error) goto 999
     !--------------------------------------------------------------------------
     !

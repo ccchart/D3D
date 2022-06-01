@@ -40,7 +40,8 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     use mathconsts, only: pi, ee
     use sediment_basics_module, only: dgravel, dsand
     use morphology_data_module
-    use flocculation, only: floc_manning, floc_chassagne
+    use flocculation, only: macro_floc_settling_manning, micro_floc_settling_manning, floc_manning, &
+        & macro_floc_settling_chassagne, micro_floc_settling_chassagne, floc_chassagne
     use message_module, only: write_error
     use iso_c_binding, only: c_char
     !
@@ -78,7 +79,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     integer                     :: i
     integer                     :: l = 0
     logical                     :: apply_hinset
-    real(fp)                    :: rhoint
+    real(fp)                    :: rhow
     real(fp)                    :: rhosol
     real(fp)                    :: temint
     real(fp)                    :: salint
@@ -135,7 +136,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        endif
 
     case (WS_FORM_FUNCTION_DSS, WS_FORM_FUNCTION_DSS_2004)
-       rhoint = real(dll_reals(WS_RP_RHOWT),fp)
+       rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        rhosol = real(dll_reals(WS_RP_RHOSL),fp)
        temint = real(dll_reals(WS_RP_TEMP ),fp)
        salint = real(dll_reals(WS_RP_SALIN),fp)
@@ -147,7 +148,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        salmax = parloc(1)
        gamflc = parloc(2)
        !
-       s = rhosol / rhoint
+       s = rhosol / rhow
        !
        ! Molecular viscosity vcmol computed according to Van Rijn (2004) sediment tranport
        ! vicmol only matches this value if temperature is not explicitly modeled.

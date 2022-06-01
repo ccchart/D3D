@@ -1088,7 +1088,7 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
        mfluff = 0.0_fp
        !
        do ised = 1, lsed
-           if (sedpar%sedtyp(ised) > sedpar%max_mud_setyp) cycle ! check for IFORM == -3 instead?
+           if (sedpar%sedtyp(ised) > sedpar%max_mud_sedtyp) cycle ! check for IFORM == -3 instead?
            inquire (file = mflfil(ised), exist = ex)
            if (ex) then
                call depfil_stm(lundia    ,error     ,mflfil(ised)         , &

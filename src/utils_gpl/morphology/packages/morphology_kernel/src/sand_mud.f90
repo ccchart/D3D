@@ -40,7 +40,6 @@ subroutine sand_mud(nfrac, E, frac, mudfrac, sedtyp, max_mud_sedtyp, pmcrit)
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use sediment_basics_module, only: SEDTYP_COHESIVE
     !
     implicit none
     !

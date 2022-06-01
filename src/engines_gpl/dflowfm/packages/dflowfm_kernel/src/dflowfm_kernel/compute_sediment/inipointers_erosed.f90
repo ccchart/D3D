@@ -56,6 +56,7 @@
    lsedtot             => stmpar%lsedtot
    ! sedpar
    nmudfrac            => stmpar%sedpar%nmudfrac
+   max_mud_sedtyp      => stmpar%sedpar%max_mud_sedtyp
    rhosol              => stmpar%sedpar%rhosol
    cdryb               => stmpar%sedpar%cdryb
    logseddia           => stmpar%sedpar%logseddia
@@ -71,6 +72,7 @@
    pmcrit              => stmpar%sedpar%pmcrit
    nseddia             => stmpar%sedpar%nseddia
    sedtyp              => stmpar%sedpar%sedtyp
+   tratyp              => stmpar%sedpar%tratyp
    anymud              => stmpar%sedpar%anymud
    sedtrcfac           => stmpar%sedpar%sedtrcfac
    bsskin              => stmpar%sedpar%bsskin

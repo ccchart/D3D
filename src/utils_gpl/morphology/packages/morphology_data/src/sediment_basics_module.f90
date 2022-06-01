@@ -48,7 +48,8 @@ public SEDTYP_SAND
 public SEDTYP_SILT
 public SEDTYP_CLAY
 
-public TRA_BEDLOAD ! transport given by an algebraic expression (typically bed load or total load)
+public TRA_NONE     ! no transpor method given
+public TRA_BEDLOAD  ! transport given by an algebraic expression (typically bed load or total load)
 public TRA_ADVDIFF  ! transport determined via advection diffusion equation
 public TRA_COMBINE  ! transport determined via algebraic expression plus advection diffusion equation
 

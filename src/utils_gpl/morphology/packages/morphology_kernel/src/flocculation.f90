@@ -167,12 +167,12 @@ subroutine floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro
     !
     ! Settling velocity of macro flocs
     !
-    call macro_floc_setting_manning( spm, tke, ws_micro )
+    call macro_floc_settling_manning( spm, tke, ws_macro )
 
     !
     ! Settling velocity of micro flocs
     !
-    call micro_floc_setting_manning( tke, ws_micro )
+    call micro_floc_settling_manning( tke, ws_micro )
 
     !
     ! Mass ratio for macro/micro flocs

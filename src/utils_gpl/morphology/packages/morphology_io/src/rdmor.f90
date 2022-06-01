@@ -1237,6 +1237,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     integer                                , pointer :: nxx
     integer                                , pointer :: nmudfrac
     integer                , dimension(:)  , pointer :: sedtyp
+    integer                , dimension(:)  , pointer :: tratyp
     real(fp)                               , pointer :: morfac
     real(fp)                               , pointer :: thresh
     real(fp)                               , pointer :: aksfac
@@ -1396,6 +1397,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     nmudfrac            => sedpar%nmudfrac
     namsed              => sedpar%namsed
     sedtyp              => sedpar%sedtyp
+    tratyp              => sedpar%tratyp
     pangle              => morpar%pangle
     fpco                => morpar%fpco
     factcr              => morpar%factcr

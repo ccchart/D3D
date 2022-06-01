@@ -94,6 +94,7 @@
 
    !     sedpar
    integer                              , pointer :: nmudfrac
+   integer                              , pointer :: max_mud_sedtyp
    real(fp)         , dimension(:)      , pointer :: rhosol
    real(fp)         , dimension(:)      , pointer :: cdryb
    real(fp)         , dimension(:,:,:)  , pointer :: logseddia
@@ -109,6 +110,7 @@
    real(fp)         , dimension(:)      , pointer :: pmcrit
    integer          , dimension(:)      , pointer :: nseddia
    integer          , dimension(:)      , pointer :: sedtyp
+   integer          , dimension(:)      , pointer :: tratyp
    logical                              , pointer :: anymud
    real(fp)         , dimension(:)      , pointer :: sedtrcfac
    logical                              , pointer :: bsskin

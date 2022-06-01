@@ -227,14 +227,14 @@ end subroutine initrafrm
 
 subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
                   & ipardef   ,rpardef   ,npardef   ,trapar    , &
-                  & sedparout ,sedtyp    ,sedblock  ,dims      )
+                  & sedparout ,sedtyp    ,sedblock  ,dims      , &
+                  & max_mud_sedtyp)
 !!--description-----------------------------------------------------------------
 !
 ! Reads transport formula and parameters
 !
 !!--declarations----------------------------------------------------------------
     use precision
-    use sediment_basics_module, only: SEDTYP_COHESIVE
     use morphology_data_module
     use properties, only: tree_data
     use grid_dimens_module 
@@ -255,6 +255,7 @@ subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
     integer, dimension(:)        , intent(in)   :: sedtyp
     type(tree_data), dimension(:), intent(in)   :: sedblock
     type (griddimtype), target   , intent(in)   :: dims    !  grid dimensions
+    integer                      , intent(in)   :: max_mud_sedtyp
 !
 ! Local variables
 !
@@ -332,7 +333,7 @@ subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
     ! for cohesive sediment fractions formula -3 (Partheniades-Krone) is the default formula
     !
     do ll=1, lsedtot
-       if (sedtyp(ll)==SEDTYP_COHESIVE .and. iform(ll)==-999) iform(ll) = -3
+       if (sedtyp(ll) <= max_mud_sedtyp .and. iform(ll)==-999) iform(ll) = -3
     enddo
     !
     ! back=up value of iform(1) because the first index will be used to load

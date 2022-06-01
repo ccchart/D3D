@@ -37,7 +37,7 @@
    use unstruc_messages
    use m_sediment, only: stmpar, jabndtreatment  ! debug
    use sediment_basics_module
-   use m_fm_erosed, only: link1, link1sign
+   use m_fm_erosed, only: link1, link1sign, tratyp
    implicit none
 
    integer,                                  intent(in)  :: lsedtot        !< number of sediment fractions

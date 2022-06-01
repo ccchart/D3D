@@ -34,6 +34,7 @@ module morphology_data_module
 !
 !!--module declarations---------------------------------------------------------
 use precision
+use sediment_basics_module, only: SEDTYP_SAND, SEDTYP_SILT
 use handles, only:handletype
 use properties, only:tree_data
 use m_tables, only:t_table
@@ -602,11 +603,7 @@ type sedpar_type
     ! 
     ! logicals
     !
-    ?logical :: anyclay    ! Flag to indicate whether a clay fraction is included in the simulation.
-    ?logical :: anysilt    ! Flag to indicate whether a silt fraction is included in the simulation.
-    ?logical :: anysand    ! Flag to indicate whether a sand fraction is included in the simulation.
-    ?logical :: anygravel  ! Flag to indicate whether a gravel fraction is included in the simulation.
-    ?logical :: anymud     ! Flag to indicate whether a mud fraction is included in the simulation.
+    logical :: anymud     ! Flag to indicate whether a mud fraction is included in the simulation.
     logical :: bsskin     ! Flag to indicate whether a bed stress should be computed according to Soulsby 2004
     !
     ! characters
@@ -1199,17 +1196,13 @@ subroutine nullsedpar(sedpar)
     sedpar%kssand   = 0.0_fp
     sedpar%version  = 2.0_fp
     !
-    sedpar%flocmod        = TODO
+    sedpar%flocmod        = FLOC_NONE
     sedpar%nmudfrac       = 0
     sedpar%sc_mudfac      = SC_MUDTHC
     sedpar%max_mud_sedtyp = SEDTYP_SILT
     sedpar%min_dxx_sedtyp = SEDTYP_SAND
     !
-    ?sedpar%anyclay   = .false.
-    ?sedpar%anysilt   = .false.
-    ?sedpar%anysand   = .false.
-    ?sedpar%anygravel = .false.
-    ?sedpar%anymud    = .false.
+    sedpar%anymud    = .false.
     sedpar%bsskin    = .false.
     !
     sedpar%flsdia   = ' '
