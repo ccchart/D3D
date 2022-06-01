@@ -70,6 +70,7 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
 !
 !!--declarations----------------------------------------------------------------
     use grid_dimens_module
+    use sediment_basics_module, only: TRA_ADVDIFF
     use properties ! includes tree_structures
     use m_ini_noderel ! for node relation definitions
     !
@@ -139,98 +140,120 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     !
     call count_sed(lundia, error, stm%lsedsus, stm%lsedtot, filsed, &
                  & stm%sedpar, sedfil_tree)
-    if (error) goto 999
-    !
-    lstsci = max(0,lsal,ltem) + stm%lsedsus
-    !
-    allocate(stm%facdss(stm%lsedsus), stat = istat)
-    allocate(stm%namcon(lstsci+ltur), stat = istat)
-    !
-    if (lsal>0) then
-       stm%namcon(lsal) = 'SALINITY'
+    if (.not.error) then
+       !
+       lstsci = max(0,lsal,ltem) + stm%lsedsus
+       !
+       allocate(stm%facdss(stm%lsedsus), stat = istat)
+       allocate(stm%namcon(lstsci+ltur), stat = istat)
+       !
+       if (lsal>0) then
+          stm%namcon(lsal) = 'SALINITY'
+       endif
+       if (ltem>0) then
+          stm%namcon(ltem) = 'TEMPERATURE'
+       endif
+       do l = 1, stm%lsedsus
+          stm%namcon(max(0,lsal,ltem) + l) = stm%sedpar%namsed(l)
+       enddo
+       !
+       ! Read sediment and transport parameters
+       !
+       ! facdss set by rdsed
+       ! iopsus set by rdsed
+       ! sedpar filled by rdsed
+       ! trapar set by rdtrafrm
+       ! sedfil_tree NEEDS TO BE SET
+       !
+       ! Sediment input has been placed in input_tree in subroutine count_sed
+       ! get pointer
+       !
+       call initrafrm(lundia, error, stm%lsedtot, stm%trapar)
     endif
-    if (ltem>0) then
-       stm%namcon(ltem) = 'TEMPERATURE'
+    if (.not.error) then
+       !
+       call rdsed  (lundia, error, lsal, ltem, stm%lsedsus, &
+                  & stm%lsedtot, lstsci, ltur, stm%namcon, &
+                  & stm%iopsus, nmlb, nmub, filsed, &
+                  & sedfil_tree, stm%sedpar, stm%trapar, griddim)
     endif
-    do l=1,stm%lsedsus
-       stm%namcon(max(0,lsal,ltem) + l) = stm%sedpar%namsed(l)
-    enddo
-    !
-    ! Read sediment and transport parameters
-    !
-    ! facdss set by rdsed
-    ! iopsus set by rdsed
-    ! sedpar filled by rdsed
-    ! trapar set by rdtrafrm
-    ! sedfil_tree NEEDS TO BE SET
-    !
-    ! Sediment input has been placed in input_tree in subroutine count_sed
-    ! get pointer
-    !
-    call initrafrm(lundia, error, stm%lsedtot, stm%trapar)
-    if (error) goto 999
-    !
-    call rdsed  (lundia, error, lsal, ltem, stm%lsedsus, &
-               & stm%lsedtot, lstsci, ltur, stm%namcon, &
-               & stm%iopsus, nmlb, nmub, filsed, &
-               & sedfil_tree, stm%sedpar, stm%trapar, griddim)
-    if (error) goto 999
-    ! 
-    !  For 1D branches read the node relation definitions
-    !
-    call ini_noderel(stm%nrd, stm%sedpar, stm%lsedtot)
-    !     
-    ! Read morphology parameters
-    !
-    ! morpar filled by rdmor
-    ! morlyr filled by rdmor
-    ! morfil_tree set by rdmor
-    ! fwfac set by rdmor
-    !
-    call rdmor  (lundia, error, filmor, lsec, stm%lsedtot, &
-               & stm%lsedsus, nmaxus, nto, lfbedfrm, nambnd, julrefday, morfil_tree, &
-               & stm%sedpar, stm%morpar, stm%fwfac, stm%morlyr, &
-               & griddim)
-    if (error) goto 999
-    !
-    ! Some other parameters are transport formula specific. Use the value
-    ! historically specified in mor file as default.
-    !
-    ipardef = 0
-    rpardef = 0.0_fp
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 1, stm%morpar%iopsus)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 2, stm%morpar%aksfac)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 3, stm%morpar%rwave)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 4, stm%morpar%rdc)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 5, stm%morpar%rdw)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 6, stm%morpar%iopkcw)
-    call setpardef(ipardef, rpardef, NPARDEF, -1, 7, stm%morpar%epspar)
-    call setpardef(ipardef, rpardef, NPARDEF, -2, 1, stm%morpar%iopsus)
-    call setpardef(ipardef, rpardef, NPARDEF, -2, 2, stm%morpar%pangle)
-    call setpardef(ipardef, rpardef, NPARDEF, -2, 3, stm%morpar%fpco)
-    call setpardef(ipardef, rpardef, NPARDEF, -2, 4, stm%morpar%subiw)
-    call setpardef(ipardef, rpardef, NPARDEF, -2, 5, stm%morpar%epspar)
-    !
-    call rdtrafrm(lundia, error, filtrn, stm%lsedtot, &
-                & ipardef, rpardef, NPARDEF, stm%trapar, &
-                & stm%morpar%moroutput%sedpar, &
-                & stm%sedpar%sedtyp, stm%sedpar%sedblock, &
-                & griddim, stm%sedpar%max_mud_sedtyp)
-    if (error) goto 999
-    !--------------------------------------------------------------------------
-    !
-    ! Echo sediment and transport parameters
-    !
-    call echosed(lundia, error, stm%lsedsus, stm%lsedtot, &
-               & stm%iopsus, stm%sedpar, stm%trapar)
-    if (error) goto 999
-    !
-    ! Echo morphology parameters
-    !
-    call echomor(lundia, error, lsec, stm%lsedtot, nto, &
-               & nambnd, stm%sedpar, stm%morpar, dtunit)
-    !
-999 continue
+    if (.not.error) then
+       ! 
+       !  For 1D branches read the node relation definitions
+       !
+       call ini_noderel(stm%nrd, stm%sedpar, stm%lsedtot)
+       !     
+       ! Read morphology parameters
+       !
+       ! morpar filled by rdmor
+       ! morlyr filled by rdmor
+       ! morfil_tree set by rdmor
+       ! fwfac set by rdmor
+       !
+       call rdmor  (lundia, error, filmor, lsec, stm%lsedtot, &
+                  & stm%lsedsus, nmaxus, nto, lfbedfrm, nambnd, julrefday, morfil_tree, &
+                  & stm%sedpar, stm%morpar, stm%fwfac, stm%morlyr, &
+                  & griddim)
+    endif
+    if (.not.error) then
+       !
+       ! Some other parameters are transport formula specific. Use the value
+       ! historically specified in mor file as default.
+       !
+       ipardef = 0
+       rpardef = 0.0_fp
+       ! Van Rijn (1993)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 1, stm%morpar%iopsus)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 2, stm%morpar%aksfac)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 3, stm%morpar%rwave)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 4, stm%morpar%rdc)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 5, stm%morpar%rdw)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 6, stm%morpar%iopkcw)
+       call setpardef(ipardef, rpardef, NPARDEF, -1, 7, stm%morpar%epspar) ! explicitly not for Delft3D-FLOW ... ?
+       ! Van Rijn (2007)
+       call setpardef(ipardef, rpardef, NPARDEF, -2, 1, stm%morpar%iopsus)
+       call setpardef(ipardef, rpardef, NPARDEF, -2, 2, stm%morpar%pangle)
+       call setpardef(ipardef, rpardef, NPARDEF, -2, 3, stm%morpar%fpco)
+       call setpardef(ipardef, rpardef, NPARDEF, -2, 4, stm%morpar%subiw)
+       call setpardef(ipardef, rpardef, NPARDEF, -2, 5, stm%morpar%epspar)
+       ! SANTOSS copy of Van Rijn (2007)
+       call setpardef(ipardef, rpardef, NPARDEF, -4, 1, stm%morpar%iopsus)
+       call setpardef(ipardef, rpardef, NPARDEF, -4, 2, stm%morpar%pangle)
+       call setpardef(ipardef, rpardef, NPARDEF, -4, 3, stm%morpar%fpco)
+       call setpardef(ipardef, rpardef, NPARDEF, -4, 4, stm%morpar%subiw)
+       call setpardef(ipardef, rpardef, NPARDEF, -4, 5, stm%morpar%epspar)
+       !
+       call rdtrafrm(lundia, error, filtrn, stm%lsedtot, &
+                   & ipardef, rpardef, NPARDEF, stm%trapar, &
+                   & stm%morpar%moroutput%sedpar, &
+                   & stm%sedpar%sedtyp, stm%sedpar%sedblock, &
+                   & griddim, stm%sedpar%max_mud_sedtyp)
+    endif
+    if (.not.error) then
+       !
+       ! update tratyp based on the transport formula selected
+       ! switch off the bed load component when Partheniades-Krone is used.
+       !
+       do l = 1, stm%lsedsus
+          if (stm%trapar%iform(l) == -3) then
+             stm%sedpar%tratyp(l) = TRA_ADVDIFF
+          endif     
+       enddo    
+       !--------------------------------------------------------------------------
+       !
+       ! Echo sediment and transport parameters
+       !
+       call echosed(lundia, error, stm%lsedsus, stm%lsedtot, &
+                  & stm%iopsus, stm%sedpar, stm%trapar)
+    endif
+    if (.not.error) then
+       !
+       ! Echo morphology parameters
+       !
+       call echomor(lundia, error, lsec, stm%lsedtot, nto, &
+                  & nambnd, stm%sedpar, stm%morpar, dtunit)
+       !
+    endif
     !
     ! we should deallocate sedfil_tree, morfil_tree but
     ! we can't deallocate sedfil_tree since parts are referenced from stm%sedpar

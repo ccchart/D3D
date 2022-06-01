@@ -148,7 +148,7 @@ integer, parameter, public :: FLOC_MANNING_DYER         = 1
 integer, parameter, public :: FLOC_CHASSAGNE_SAFAR      = 2
 integer, parameter, public :: FLOC_PBM                  = 3
 
-integer, parameter, public :: WS_FORM_FUNCTION_SALINITY     = 1
+integer, parameter, public :: WS_FORM_FUNCTION_SALTEMCON    = 1
 integer, parameter, public :: WS_FORM_FUNCTION_DSS          = 2
 integer, parameter, public :: WS_FORM_FUNCTION_DSS_2004     = -2
 integer, parameter, public :: WS_FORM_MANNING_DYER_MACRO    = 3
@@ -555,7 +555,9 @@ type sedpar_type
     !
     ! integers
     !
-    integer  :: flocmod        !  flocculation model applied to mud fractions
+    integer  :: flocmod        !  flocculation model applied to clay fractions
+    integer  :: nflocpop       !  number of floc populations (groups of clay fractions that exchange mass)
+    integer  :: nflocsizes     !  number of floc sizes distinguished in the flocculation model
     integer  :: nmudfrac       !  number of simulated mud fractions
     integer  :: sc_mudfac      !  formulation used for determining bed roughness length for Soulsby & Clarke (2005): SC_MUDFRAC, or SC_MUDTHC
     integer  :: max_mud_sedtyp !  largest sediment type associated with mud
@@ -595,8 +597,12 @@ type sedpar_type
     integer       , dimension(:)    , pointer :: nseddia    !  Number of characteristic sediment diameters
     integer       , dimension(:)    , pointer :: sedtyp     !  Sediment type: SEDTYP_CLAY, SEDTYP_SILT, SEDTYP_SAND, SEDTYP_GRAVEL
     integer       , dimension(:)    , pointer :: tratyp     !  Transport method type: TRA_BEDLOAD, TRA_ADVDIFF, TRA_COMBINE
+    integer       , dimension(:)    , pointer :: flocsize   !  Floc size within floc population
+    integer       , dimension(:,:)  , pointer :: floclist   !  Table of groups of clay fractions that belong together (flocculation)
     character(10) , dimension(:)    , pointer :: inisedunit !  'm' or 'kg/m2' : Initial sediment at bed specified as thickness ([m]) or density ([kg/m2])
     character(20) , dimension(:)    , pointer :: namsed     !  Names of all sediment fractions
+    character(20) , dimension(:)    , pointer :: namclay    !  Label of clay floc population to which the sediment fraction belongs
+    character(20) , dimension(:)    , pointer :: namflocpop !  Clay floc population labels
     character(256), dimension(:)    , pointer :: flsdbd     !  File name containing initial sediment mass at bed
     character(256), dimension(:)    , pointer :: flstcg     !  File name calibration factor on critical shear stress in Van Rijn (2004) uniform values
     character(256), dimension(:)    , pointer :: flnrd      !  File names of Node Relation Data (NRD-Files) for bifurcation points in 1D morphology
@@ -1197,6 +1203,8 @@ subroutine nullsedpar(sedpar)
     sedpar%version  = 2.0_fp
     !
     sedpar%flocmod        = FLOC_NONE
+    sedpar%nflocpop       = 1
+    sedpar%nflocsizes     = 1
     sedpar%nmudfrac       = 0
     sedpar%sc_mudfac      = SC_MUDTHC
     sedpar%max_mud_sedtyp = SEDTYP_SILT
@@ -1236,6 +1244,11 @@ subroutine nullsedpar(sedpar)
     nullify(sedpar%nseddia)
     nullify(sedpar%sedtyp)
     nullify(sedpar%tratyp)
+    !
+    nullify(sedpar%namclay)
+    nullify(sedpar%namflocpop)
+    nullify(sedpar%flocsize)
+    nullify(sedpar%floclist)
     !
     nullify(sedpar%inisedunit)
     nullify(sedpar%namsed)
@@ -1282,6 +1295,11 @@ subroutine clrsedpar(istat     ,sedpar  )
     if (associated(sedpar%nseddia))    deallocate(sedpar%nseddia,    STAT = istat)
     if (associated(sedpar%sedtyp))     deallocate(sedpar%sedtyp,     STAT = istat)
     if (associated(sedpar%tratyp))     deallocate(sedpar%tratyp,     STAT = istat)
+    !
+    if (associated(sedpar%namclay))    deallocate(sedpar%namclay,    STAT = istat)
+    if (associated(sedpar%namflocpop)) deallocate(sedpar%namflocpop, STAT = istat)
+    if (associated(sedpar%flocsize))   deallocate(sedpar%flocsize,   STAT = istat)
+    if (associated(sedpar%floclist))   deallocate(sedpar%floclist,   STAT = istat)
     !
     if (associated(sedpar%inisedunit)) deallocate(sedpar%inisedunit, STAT = istat)
     if (associated(sedpar%namsed))     deallocate(sedpar%namsed,     STAT = istat)

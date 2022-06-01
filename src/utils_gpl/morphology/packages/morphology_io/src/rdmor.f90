@@ -1908,7 +1908,6 @@ subroutine rdflufflyr(lundia   ,error    ,filmor   ,lsed     ,mor_ptr ,flufflyr,
 !!--declarations----------------------------------------------------------------
     use precision
     use properties
-    use sediment_basics_module, only: SEDTYP_CLAY, SEDTYP_SILT
     use morphology_data_module
     use message_module, only: write_error !, write_warning, FILE_NOT_FOUND, FILE_READ_ERROR, PREMATURE_EOF
     use grid_dimens_module, only: griddimtype

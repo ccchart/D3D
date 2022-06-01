@@ -123,7 +123,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     error = .false.
     apply_hinset = .true.
     select case (iform_settle)
-    case (WS_FORM_FUNCTION_SALINITY)
+    case (WS_FORM_FUNCTION_SALTEMCON)
        salint = real(dll_reals(WS_RP_SALIN),fp)
        temint = real(dll_reals(WS_RP_TEMP ),fp)
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)

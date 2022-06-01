@@ -182,8 +182,8 @@ subroutine initsedtra(sedtra, sedpar, trapar, morpar, morlyr, rhow, ag, vicmol, 
     !
     call compdiam(frac      ,sedd50    ,sedd50    ,sedtyp    ,lsedtot   , &
                 & logsedsig ,nseddia   ,logseddia ,nmmax     ,nmlb      , &
-                & nmub      ,xx        ,nxx       ,sedd50fld ,dm        , &
-                & dg        ,dxx       ,dgsd      )
+                & nmub      ,xx        ,nxx       ,sedpar%max_mud_sedtyp, sedpar%min_dxx_sedtyp, &
+                & sedd50fld ,dm        ,dg        ,dxx       ,dgsd      )
     !
     ! Determine hiding & exposure factors
     !

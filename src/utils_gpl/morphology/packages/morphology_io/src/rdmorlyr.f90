@@ -980,7 +980,6 @@ subroutine rdinimorlyr(lsedtot   ,lsed      ,lundia    ,error     , &
     use grid_dimens_module, only: griddimtype
     use message_module, only: FILE_NOT_FOUND, FILE_READ_ERROR, PREMATURE_EOF
     use MessageHandling
-    use sediment_basics_module, only: SEDTYP_CLAY, SEDTYP_SILT
     use morphology_data_module, only: sedpar_type, morpar_type
     use m_depfil_stm
     !
