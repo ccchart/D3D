@@ -702,12 +702,18 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
              par_settle(:,l) = rmissval
              select case (iform_settle(l))
              case (WS_FORM_FUNCTION_SALINITY)
-                call prop_get(sedblock_ptr, '*', 'SalMax', par_settle(1,l))
-                call prop_get(sedblock_ptr, '*', 'WS0'   , par_settle(2,l))
-                call prop_get(sedblock_ptr, '*', 'WSM'   , par_settle(3,l))
-             case (WS_FORM_FUNCTION_DSS)
-                !
-                ! These parameters will only be used for iform = -2, but unfortunately iform hasn't been determined yet.
+                call prop_get(sedblock_ptr, '*', 'SalMax' , par_settle(1,l)) ! ppt
+                call prop_get(sedblock_ptr, '*', 'WS0'    , par_settle(2,l)) ! m/s
+                call prop_get(sedblock_ptr, '*', 'WSM'    , par_settle(3,l)) ! m/s
+                par_settle(4,l) = 1.0_fp 
+                call prop_get(sedblock_ptr, '*', 'TCoefWS', par_settle(4,l)) ! -
+                par_settle(5,l) = 0.1_fp
+                call prop_get(sedblock_ptr, '*', 'CFlocCr', par_settle(5,l)) ! kg/m3
+                par_settle(6,l) = 0.0_fp
+                call prop_get(sedblock_ptr, '*', 'CPowWS' , par_settle(6,l)) ! -
+             case (WS_FORM_FUNCTION_DSS) 
+                ! 
+                ! These parameters will  only be used for iform = -2, but unfortunately iform hasn't been determined yet.
                 ! In the future we may have to read the parameters in a different order.
                 !
                 call prop_get(sedblock_ptr, '*', 'SalMax', par_settle(1,l))

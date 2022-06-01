@@ -109,10 +109,14 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     real(fp)                    :: ffloc0
     real(fp)                    :: a
     real(fp)                    :: b
+    real(fp)                    :: cflocc
+    real(fp)                    :: enhfac ! settling enhancement factor in salinity function
     real(fp)                    :: ws0
     real(fp)                    :: wsm
     real(fp)                    :: salmax
+    real(fp)                    :: sedtc
     real(fp)                    :: gamflc
+    real(fp)                    :: npow
 !
 !! executable statements -------------------------------------------------------
 !
@@ -121,19 +125,36 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     select case (iform_settle)
     case (WS_FORM_FUNCTION_SALINITY)
        salint = real(dll_reals(WS_RP_SALIN),fp)
+       temint = real(dll_reals(WS_RP_TEMP ),fp)
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)
        csoil  = real(dll_reals(WS_RP_CSOIL),fp)
        salmax = parloc(1)
        ws0    = parloc(2)
        wsm    = parloc(3)
+       sedtc  = parloc(4)
+       cflocc = parloc(5)
+       npow   = parloc(6)
+       !
+       ! salinity effect
        !
        if (salint<salmax .and. salmax>0.0_fp) then
-          a = 1.0_fp + wsm/ws0
-          b = a - 2.0_fp
+          enhfac = wsm/ws0
+          a = 1.0_fp + enhfac
+          b = enhfac - 1.0_fp
           wsloc = 0.5_fp * ws0 * (a-b*cos(pi*salint/salmax))
        else
           wsloc = wsm
        endif
+       !
+       ! temperature effect
+       !
+       wsloc = wsloc * sedtc**(temint - 20.0_fp)
+       !
+       ! simple flocculation effect
+       !
+       wsloc = wsloc * min((ctot/cflocc)**npow, 1.0_fp)
+       cflocc = 0.1 ! kg/m3
+       npow = 0.0
 
     case (WS_FORM_FUNCTION_DSS, WS_FORM_FUNCTION_DSS_2004)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
