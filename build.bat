@@ -170,9 +170,10 @@ rem =================================
     echo.
     echo "Get environment variables ..."
     rem # Check combinations!
-    rem # VISUAL STUDIO: First try the official version (2017), then newer (2019) then older (2015), stop on success
+    rem # VISUAL STUDIO: First try the official version (2017), then newer (2019, 2022) then older (2015), stop on success
     rem # IFORT: Order (overwriting when already found) in VS17: IFORT21, IFORT19, IFORT18(=official combination)
     rem #                                               in VS19: IFORT21, IFORT19
+    rem #                                               in VS22: IFORT22
     rem #                                               in VS15: IFORT21, IFORT19, IFORT18, IFORT16(=previous official combination)
     rem # On TeamCity VS2019 is installed without IFORT
 
@@ -205,6 +206,15 @@ rem =================================
         if NOT "%IFORT_COMPILER19%" == "" (
             set ifort=19
             echo Found: Intel Fortran 2019
+        )
+        goto :endfun
+    )
+    if NOT "%VS2022INSTALLDIR%" == "" (
+        set vs=2022
+        echo Found: VisualStudio 17 2022
+        if NOT "%IFORT_COMPILER22%" == "" (
+            set ifort=22
+            echo Found: Intel Fortran 2022
         )
         goto :endfun
     )
@@ -310,6 +320,9 @@ rem =======================
     if "!vs!" == "2019" (
         set generator="Visual Studio 16 2019"
     )
+    if "!vs!" == "2022" (
+        set generator="Visual Studio 17 2022"
+    )
     goto :endproc
 
 
@@ -355,6 +368,10 @@ rem =================
     if !generator! == "Visual Studio 16 2019" (
         echo "Calling vcvarsall.bat for VisualStudio 2019 ..."
         call "%VS2019INSTALLDIR%\VC\Auxiliary\Build\vcvarsall.bat" amd64
+    )
+    if !generator! == "Visual Studio 17 2022" (
+        echo "Calling vcvarsall.bat for VisualStudio 2022 ..."
+        call "%VS2022INSTALLDIR%\VC\Auxiliary\Build\vcvarsall.bat" amd64
     )
     
     rem # Execution of vcvarsall results in a jump to the C-drive. Jump back to the script directory
