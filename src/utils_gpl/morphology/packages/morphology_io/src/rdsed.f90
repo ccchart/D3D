@@ -430,8 +430,8 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
        case ('chassagne_safar')
           flocmod = FLOC_CHASSAGNE_SAFAR
           nflocsizes = 2
-       case ('population_balance')
-          flocmod = FLOC_PBM
+       case ('verney_etal')
+          flocmod = FLOC_VERNEY_ETAL
           nflocsizes = -999
           call prop_get_integer(sed_ptr, 'SedimentOverall', 'NFlocSizes', nflocsizes)
           if (nflocsizes == -999) then
@@ -460,6 +460,8 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
              error = .true.
              return
           endif
+          !
+          call prop_get(sed_ptr, 'SedimentOverall', 'TFloc', sedpar%tfloc)
        endif
        !
        sedpar%flnrd(0) = ' '
@@ -736,7 +738,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                      else
                         iform_settle(l) = WS_FORM_CHASSAGNE_SAFAR_MACRO
                      endif
-                 case (FLOC_PBM) ! TODO: check what is appropriate ...
+                 case (FLOC_VERNEY_ETAL) ! TODO: check what is appropriate ...
                      iform_settle(l) = WS_FORM_FUNCTION_SALTEMCON
                  end select
              elseif (sedtyp(l) <= sedpar%max_mud_sedtyp) then
@@ -1352,10 +1354,13 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
            txtput3 = 'Manning & Dyer'
        case (FLOC_CHASSAGNE_SAFAR)
            txtput3 = 'Chassagne & Safar'
-       case (FLOC_PBM)
-           txtput3 = 'population balance'
+       case (FLOC_VERNEY_ETAL)
+           txtput3 = 'Verney et al'
        end select
        write (lundia, '(3a)') txtput1, ':  ', trim(txtput3)
+       !
+       txtput1 = 'Flocculation time scale'
+       write (lundia, '(2a,e12.4)') txtput1, ':', sedpar%tfloc
     endif
     if (bsskin) then
        txtput1 = 'Skin friction Soulsby 2004'

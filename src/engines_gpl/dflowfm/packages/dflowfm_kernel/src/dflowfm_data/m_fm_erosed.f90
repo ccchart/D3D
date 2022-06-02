@@ -118,6 +118,12 @@
    real(fp)         , dimension(:)      , pointer :: tpsnumber
    real(fp)         , dimension(:, :)   , pointer :: dss     !  Description and declaration in esm_alloc_real.f90
 
+   integer                              , pointer :: flocmod
+   integer                              , pointer :: nflocpop
+   integer                              , pointer :: nflocsizes
+   integer          , dimension(:, :)   , pointer :: floclist
+   real(fp)                             , pointer :: tfloc
+
    ! morpar
    real(fp)                             , pointer :: thresh
    real(fp)                             , pointer :: sus

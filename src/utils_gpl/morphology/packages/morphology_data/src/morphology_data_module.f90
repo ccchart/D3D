@@ -146,7 +146,7 @@ integer, parameter, public :: MAX_SP   =  2     ! maximum number of strings
 integer, parameter, public :: FLOC_NONE                 = 0
 integer, parameter, public :: FLOC_MANNING_DYER         = 1
 integer, parameter, public :: FLOC_CHASSAGNE_SAFAR      = 2
-integer, parameter, public :: FLOC_PBM                  = 3
+integer, parameter, public :: FLOC_VERNEY_ETAL          = 3
 
 integer, parameter, public :: WS_FORM_FUNCTION_SALTEMCON    = 1
 integer, parameter, public :: WS_FORM_FUNCTION_DSS          = 2
@@ -548,6 +548,7 @@ type sedpar_type
     real(fp) :: sc_cmf1   !  lower critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
     real(fp) :: sc_cmf2   !  upper critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
     real(fp) :: sc_flcf   !  fraction of ParFluff0/ParFluff1 when the fluff layer fully covers the bed for Soulsby & Clarke (2005)
+    real(fp) :: tfloc     !  relaxation time scale for flocculation [s]
     real(fp) :: version   !  interpreter version
     !
     ! reals
@@ -1201,6 +1202,7 @@ subroutine nullsedpar(sedpar)
     sedpar%sc_flcf  = 0.5_fp
     sedpar%kssand   = 0.0_fp
     sedpar%version  = 2.0_fp
+    sedpar%tfloc    = 0.0_fp
     !
     sedpar%flocmod        = FLOC_NONE
     sedpar%nflocpop       = 1

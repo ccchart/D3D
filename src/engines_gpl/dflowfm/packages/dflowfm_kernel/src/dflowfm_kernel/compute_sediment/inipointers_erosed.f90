@@ -79,6 +79,13 @@
    thcmud              => stmpar%sedpar%thcmud
    tpsnumber           => stmpar%sedpar%tpsnumber
    dss                 => stmpar%sedpar%dss
+   !
+   flocmod             => stmpar%sedpar%flocmod
+   nflocpop            => stmpar%sedpar%nflocpop
+   nflocsizes          => stmpar%sedpar%nflocsizes
+   floclist            => stmpar%sedpar%floclist
+   tfloc               => stmpar%sedpar%tfloc
+
    ! morpar
    thresh              => stmpar%morpar%thresh
    sus                 => stmpar%morpar%sus
