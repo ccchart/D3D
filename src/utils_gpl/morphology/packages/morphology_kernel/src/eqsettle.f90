@@ -127,7 +127,6 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        salint = real(dll_reals(WS_RP_SALIN),fp)
        temint = real(dll_reals(WS_RP_TEMP ),fp)
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)
-       csoil  = real(dll_reals(WS_RP_CSOIL),fp)
        salmax = parloc(1)
        ws0    = parloc(2)
        wsm    = parloc(3)
@@ -165,7 +164,6 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        d50    = real(dll_reals(WS_RP_D50  ),fp)
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)
-       csoil  = real(dll_reals(WS_RP_CSOIL),fp)
        salmax = parloc(1)
        gamflc = parloc(2)
        !
@@ -339,6 +337,8 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! hindered settling Richardson and Zaki/Mehta
        !
+       ctot   = real(dll_reals(WS_RP_CTOT ),fp)
+       csoil  = real(dll_reals(WS_RP_CSOIL),fp) ! TODO: change to cgel, local renaming is easy, but also check manual
        hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil))
        wsloc = wsloc * hinset**5
     endif

@@ -722,7 +722,24 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
              !
              ! set default settling formula
              !
-             if (sedtyp(l) <= sedpar%max_mud_sedtyp) then
+             if (flocmod /= FLOC_NONE .and. sedtyp(l) == SEDTYP_CLAY) then
+                 select case (flocmod)
+                 case (FLOC_MANNING_DYER)
+                     if (flocsize(l) == 1) then
+                        iform_settle(l) = WS_FORM_MANNING_DYER_MICRO
+                     else
+                        iform_settle(l) = WS_FORM_MANNING_DYER_MACRO
+                     endif
+                 case (FLOC_CHASSAGNE_SAFAR)
+                     if (flocsize(l) == 1) then
+                        iform_settle(l) = WS_FORM_CHASSAGNE_SAFAR_MICRO
+                     else
+                        iform_settle(l) = WS_FORM_CHASSAGNE_SAFAR_MACRO
+                     endif
+                 case (FLOC_PBM) ! TODO: check what is appropriate ...
+                     iform_settle(l) = WS_FORM_FUNCTION_SALTEMCON
+                 end select
+             elseif (sedtyp(l) <= sedpar%max_mud_sedtyp) then
                 iform_settle(l) = WS_FORM_FUNCTION_SALTEMCON
              else
                 iform_settle(l) = WS_FORM_FUNCTION_DSS
@@ -1780,9 +1797,9 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        call echotrafrm(lundia      ,trapar     ,l         )
        !
+       txtput1 = '  Settling velocity formula'
        select case (iform_settle(l))
        case (WS_FORM_FUNCTION_SALTEMCON)
-          txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ':  function of salinity, temperature and concentration'
           txtput1 = '  SALMAX'
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
@@ -1798,7 +1815,6 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
           write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(6,l)
 
        case (WS_FORM_FUNCTION_DSS)
-          txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ':  computed from grain size'
           if (iform(l) == -2 .or. iform(l) == -4) then
              iform_settle(l) = WS_FORM_FUNCTION_DSS_2004
@@ -1808,16 +1824,25 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
           endif
 
+       case (WS_FORM_MANNING_DYER_MACRO)
+          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro flocs)'
+
+       case (WS_FORM_MANNING_DYER_MICRO)
+          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (micro flocs)'
+
        case (WS_FORM_MANNING_DYER)
-          txtput1 = '  Settling velocity formula'
-          write (lundia, '(2a)') txtput1, ':  Manning & Dyer'
+          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro/micro floc equilibrium)'
+
+       case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
+          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro flocs)'
+
+       case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
+          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (micro flocs)'
 
        case (WS_FORM_CHASSAGNE_SAFAR)
-          txtput1 = '  Settling velocity formula'
-          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar'
+          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro/micro floc equilibrium)'
 
        case (WS_FORM_USER_ROUTINE)
-          txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ':  user specified library'
           !
           ! User defined settling velocity function
@@ -1832,7 +1857,6 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
           endif
 
        case default
-          txtput1 = '  Settling velocity formula'
           write (lundia, '(2a)') txtput1, ':  UNKNOWN'
        end select
 
