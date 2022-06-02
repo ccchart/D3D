@@ -770,7 +770,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                 call prop_get(sedblock_ptr, '*', 'SettleFrm', settle_str)
                 call str_lower(settle_str)
                 select case (settle_str)
-                case ('1','function_of_salinity')
+                case ('1','function_of_conditions')
                    iform_settle(l) = WS_FORM_FUNCTION_SALTEMCON
                 case ('2','function_of_diameter')
                    iform_settle(l) = WS_FORM_FUNCTION_DSS
