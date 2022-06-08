@@ -277,7 +277,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
                   ! if breaching condition is satisfied, break completely
                   network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelMin
                   network%sts%struct(istru)%dambreak%width = maximumDambreakWidths(n)
-            endif
+               endif
 
             else if(network%sts%struct(istru)%dambreak%algorithm == ST_DB_PRESCRIBED .and. startTime > network%sts%struct(istru)%dambreak%t0) then
                ! Time in the tim file is relative to the start time

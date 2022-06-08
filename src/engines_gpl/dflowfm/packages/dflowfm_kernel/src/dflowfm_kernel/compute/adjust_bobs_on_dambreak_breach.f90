@@ -75,7 +75,7 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
       elseif (dambreakWidening == DBW_PROP) then
          ! proportional
          remainder = width - dambreakLinksEffectiveLength(startingLink)
-         leftfrac  = leftside / (maxwidth - dambreakLinksEffectiveLength(startingLink))
+         leftfrac  = leftside / (leftside +  rightside)
          leftBreachWidth = leftfrac * remainder
          rightBreachWidth = (1.0d0 - leftfrac) * remainder
       elseif (dambreakWidening == DBW_SYMM_ASYMM) then
@@ -125,7 +125,7 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
             exit
          endif
       enddo
-      if (leftBreachWidth > 1.0d-6 * leftside .or. rightBreachWidth > 1.0d-6 * rightside) then
+      if (leftBreachWidth > 1.0d-6 * maxwidth .or. rightBreachWidth > 1.0d-6 * maxwidth) then
          write (msgbuf, '(3a)' ) 'The breach width of dam ''', trim(strucid), ''' is wider than the actual dam width.'
          call SetMessage(LEVEL_WARN, msgbuf)
       end if
