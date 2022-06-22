@@ -43,7 +43,7 @@ contains
 subroutine rd_icecover(icecover, md_ptr, chapter, error)
 !!--declarations----------------------------------------------------------------
     use precision
-    use icecover_module, only: icecover_type, alloc_icecover, select_icecover_model, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER
+    use icecover_module, only: icecover_type, alloc_icecover, select_icecover_model, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF
     use MessageHandling, only: mess, LEVEL_ERROR
     use properties
     !
@@ -55,8 +55,6 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     type (icecover_type)         , intent(inout) :: icecover !> ice cover data structure containing the data read
     type(tree_data)              , pointer       :: md_ptr   !> pointer to the input file
     character(len=*)             , intent(in)    :: chapter  !> chapter name of the ice section
-!    integer                      , intent(in)    :: nmlb     !> lower bound index for spatial data arrays
-!    integer                      , intent(in)    :: nmub     !> upper bound index for spatial data arrays
     logical                      , intent(out)   :: error    !> flag indicating an execution error
 !
 ! Local variables
@@ -87,7 +85,7 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     case default
        call mess(LEVEL_ERROR, 'invalid ice cover model "'//trim(tmp)//'"')
        error = .true.
-       ! still wan't to properly initialize the icecover module, so don't return immediately
+       ! still want to properly initialize the icecover module, so don't return immediately
     end select
     istat = select_icecover_model(icecover, model)
     if (error) return
@@ -103,6 +101,20 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     ! Parameters
     !
     call prop_get(md_ptr,chapter,'IceDensity',icecover%dens_ice)
+    !
+    tmp = ' '
+    call prop_get(md_ptr,chapter,'IceFricType',tmp)
+    call str_lower(tmp,len(tmp))
+    select case (tmp)
+    case ('cdrag', ' ')
+       ! default selected
+       icecover%frict_type = FRICT_AS_DRAG_COEFF
+    case default
+       call mess(LEVEL_ERROR, 'invalid ice cover friction type "'//trim(tmp)//'", only "cdrag" supported.')
+       error = .true.
+       return
+    end select
+    call prop_get(md_ptr,chapter,'IceFricValue',icecover%frict_val)
     !
     select case (icecover%modeltype)
     case (ICECOVER_EXT)
@@ -129,7 +141,7 @@ end subroutine rd_icecover
 function echo_icecover(icecover, lundia) result (error)
 !!--declarations----------------------------------------------------------------
     use precision
-    use icecover_module, only: icecover_type, alloc_icecover, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER
+    use icecover_module, only: icecover_type, alloc_icecover, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF
     use MessageHandling, only: mess, LEVEL_ERROR
     !
     implicit none
@@ -208,7 +220,18 @@ function echo_icecover(icecover, lundia) result (error)
     ! parameters
     !
     txtput1 = '  Ice Density'
-    write (lundia, '(2a,e20.4)') txtput1, ':', icecover%dens_ice
+    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%dens_ice
+
+    txtput1 = '  Ice Cover Friction Type'
+    select case (icecover%frict_type)
+    case (FRICT_AS_DRAG_COEFF)
+        txtput2 = 'drag coefficient'
+    case default
+        txtput2 = 'unknown'
+    end select
+    write (lundia, '(3a)') txtput1, ': ', txtput2
+    txtput1 = '  Ice Cover Friction Value'
+    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%frict_val
 
     !
     ! output flags
