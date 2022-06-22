@@ -280,6 +280,7 @@ subroutine resetModel()
 use m_trachy, only: trtdef_ptr
 use unstruc_netcdf, only: UNC_CONV_UGRID
 use unstruc_channel_flow
+use m_fm_icecover, only: fm_ice_null
 
     call tree_destroy(md_ptr)
     nullify(trtdef_ptr) ! trtdef_ptr was only pointing to subtree of md_ptr, so is now a dangling pointer: model's responsibility to nullify it here.
@@ -410,6 +411,7 @@ use unstruc_channel_flow
     !md_findcells       = 0      !< If it is not zero, then the codes call findcells
     !md_pressakey       = 0      !< press a key (1) or not (0)
     !md_jasavenet = 0
+    call fm_ice_null()
 
 end subroutine resetModel
 
@@ -735,7 +737,7 @@ subroutine readMDUFile(filename, istat)
     use m_commandline_option, only: iarg_usecaching
     use m_subsidence, only: sdu_update_s1
     use unstruc_channel_flow
-
+    use m_fm_icecover, only: fm_ice_read
     use m_sediment
     use m_waves, only: hwavuni, twavuni, phiwavuni
 
@@ -1290,6 +1292,9 @@ subroutine readMDUFile(filename, istat)
     call prop_get_double (md_ptr, 'physics', 'Backgroundsalinity', Backgroundsalinity)
     call prop_get_double (md_ptr, 'physics', 'Backgroundwatertemperature', Backgroundwatertemperature)
 
+    ierror = DFM_NOERR
+    call fm_ice_read(md_ptr, ierror)
+    
     call prop_get_integer(md_ptr, 'veg',     'Vegetationmodelnr', javeg) ! Vegetation model nr, (0=no, 1=Baptist DFM)
     if( japillar == 2 ) then
        javeg = 1

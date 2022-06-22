@@ -44,7 +44,7 @@
  use m_sobekdfm
  use unstruc_channel_flow
  use unstruc_display, only : ntek, jaGUI
- use m_fm_icecover, only : ja_icecover, ice_p, ICECOVER_NONE
+ use m_fm_icecover, only : ice_apply_pressure, ice_p
 
  implicit none
 
@@ -243,7 +243,7 @@
           zb = zb - ( patm(kb) - PavBnd )/(ag*rhomean)
        endif
 
-       if (ja_icecover /= ICECOVER_NONE) then
+       if (ice_apply_pressure) then
           zb = zb - ice_p(kb) /(ag*rhomean)
        endif
 

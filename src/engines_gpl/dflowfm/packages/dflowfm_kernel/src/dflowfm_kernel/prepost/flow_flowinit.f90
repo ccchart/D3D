@@ -65,7 +65,7 @@
  use unstruc_channel_flow, only: useVolumeTables
  use m_VolumeTables
  use timers
- use m_fm_icecover, only: ja_icecover, ice_p, ICECOVER_NONE, fm_update_icepress
+ use m_fm_icecover, only: ice_apply_pressure, ice_p, fm_ice_update_press
 
  implicit none
 
@@ -1147,8 +1147,8 @@ end if
  end if
 
  if (len_trim(md_restartfile) == 0 ) then
-     if (ja_icecover /= ICECOVER_NONE) then
-        call fm_update_icepress(ag)
+     if (ice_apply_pressure) then
+        call fm_ice_update_press(ag)
         s1 = s1 - ice_p / (ag*rhomean)
         s0 = s1
         hs     = s0 - bl

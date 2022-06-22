@@ -62,6 +62,7 @@
  use m_fm_update_crosssections, only: fm_update_mor_width_area, fm_update_mor_width_mean_bedlevel
  use unstruc_netcdf_map_class
  use unstruc_caching
+ use m_fm_icecover, only: fm_ice_alloc, fm_ice_echo
 
  !use m_mormerge
  !
@@ -311,12 +312,22 @@
  call flow_obsinit()                                 ! initialise stations and cross sections on flow grid + structure his (1st call required for call to flow_trachy_update)
  call timstop(handle_extra(21)) ! end observations init
 
+ call timstrt('Ice init', handle_extra(84)) ! ice
+ call fm_ice_alloc(ndx) ! needs to happen after flow_geominit to know ndx, but before flow_flowinit where we need the arrays for the external forcings
+ call timstop(handle_extra(84)) ! End ice
+
  call timstrt('Flow init           ', handle_extra(23)) ! flow init
  iresult = flow_flowinit()                           ! initialise flow arrays and time dependent params for a given user time
  if (iresult /= DFM_NOERR) then
     goto 1234
  end if
  call timstop(handle_extra(23)) ! end flow init
+
+ ! report on final configuration of ice module; needs to happen after flow_flowinit where external forcings are initialized
+ call timstrt('Ice init', handle_extra(84)) ! ice
+ call fm_ice_echo(mdia)
+ call timstop(handle_extra(84)) ! End ice
+
 
  if (jadhyd == 1) then
     call init_hydrology()                          ! initialise the hydrology module (after flow_flowinit())
@@ -446,6 +457,5 @@
    !call dum_makesal()
    !call dum_makeflowfield()
 !  END DEBUG
-
 
 end function flow_modelinit

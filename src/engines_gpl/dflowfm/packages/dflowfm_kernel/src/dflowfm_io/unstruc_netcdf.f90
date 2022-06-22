@@ -4604,7 +4604,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    use m_hydrology_data, only : jadhyd, ActEvap, PotEvap, interceptionmodel, DFM_HYD_NOINTERCEPT, InterceptHs
    use m_subsidence, only: jasubsupl, subsout, subsupl, subsupl_t0
    use Timers
-   use m_fm_icecover, only: ja_icecover, ice_af, ice_h, ice_p, ICECOVER_NONE
+   use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p
    implicit none
 
    type(t_unc_mapids), intent(inout) :: mapids   !< Set of file and variable ids for this map-type file.
@@ -5001,7 +5001,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm,  nf90_double, UNC_LOC_S, 'Patm',  'surface_air_pressure', 'Atmospheric pressure near surface', 'N m-2', jabndnd=jabndnd_)
       end if
 
-      if (ja_icecover /= ICECOVER_NONE) then
+      if (ice_mapout) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice,  nf90_double, UNC_LOC_S, 'aice',  'sea_ice_area_fraction', 'Fraction of surface area covered by floating ice', '1', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice,  nf90_double, UNC_LOC_S, 'hice',  'sea_ice_area_fraction', 'Thickness of the floating ice cover', 'm', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice,  nf90_double, UNC_LOC_S, 'pice',  '', 'Pressure excerted by the floating ice cover', 'N m-2', jabndnd=jabndnd_)
@@ -6708,7 +6708,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm  , UNC_LOC_S, patm, jabndnd=jabndnd_)
    endif
 
-   if (ja_icecover /= ICECOVER_NONE) then
+   if (ice_mapout) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice  , UNC_LOC_S, ice_af, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice  , UNC_LOC_S, ice_h, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice  , UNC_LOC_S, ice_p, jabndnd=jabndnd_)
@@ -6973,7 +6973,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
     use m_partitioninfo, only: jampi
     use string_module, only: replace_multiple_spaces_by_single_spaces
     use netcdf_utils, only: ncu_append_atts
-    use m_fm_icecover, only: ja_icecover, ice_af, ice_h, ice_p, ICECOVER_NONE
+    use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p
 
     implicit none
 
@@ -8275,7 +8275,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
             call definencvar(imapfile,id_patm(iid)   ,nf90_double,idims,2, 'Patm'  , 'Atmospheric Pressure', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
         endif
 
-        if (ja_icecover /= ICECOVER_NONE) then
+        if (ice_mapout) then
             call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'aice'  , 'Fraction of the surface area covered by floating ice', '1', 'FlowElem_xcc FlowElem_ycc')
             call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'hice'  , 'Thickness of floating ice cover', 'm', 'FlowElem_xcc FlowElem_ycc')
             call definencvar(imapfile,id_pice(iid)   ,nf90_double,idims,2, 'pice'  , 'Pressure excerted by the floating ice cover', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
@@ -9664,7 +9664,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
        ierr = nf90_put_var(imapfile, id_patm(iid)  , Patm, (/ 1, itim /), (/ ndxndxi, 1 /))
     endif
 
-    if (ja_icecover /= ICECOVER_NONE) then
+    if (ice_mapout) then
        ierr = nf90_put_var(imapfile, id_aice(iid)  , ice_af, (/ 1, itim /), (/ ndxndxi, 1 /))
        ierr = nf90_put_var(imapfile, id_hice(iid)  , ice_h, (/ 1, itim /), (/ ndxndxi, 1 /))
        ierr = nf90_put_var(imapfile, id_pice(iid)  , ice_p, (/ 1, itim /), (/ ndxndxi, 1 /))

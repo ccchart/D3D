@@ -73,7 +73,7 @@
  use unstruc_inifields, only: initInitialFields
  use Timers
  use m_subsidence
- use m_fm_icecover, only: ja_icecover, ja_aice_read, ja_hice_read, fm_clr_icecover, fm_alloc_icecover, ICECOVER_EXT
+ use m_fm_icecover, only: ja_aice_read, ja_hice_read, fm_ice_activate_by_ext_forces
 
  ! use m_vegetation
 
@@ -202,7 +202,6 @@
  if (allocated(ec_pwxwy_y))   deallocate(ec_pwxwy_y)
  if (allocated(kcw))          deallocate(kcw)
  if (allocated(patm))         deallocate(patm)
- call fm_clr_icecover()
  if (allocated(kbndz))        deallocate(xbndz,ybndz,xy2bndz,zbndz,kbndz,zbndz0)
  if (allocated(zkbndz))       deallocate(zkbndz)
  id_first_wind =  huge(id_first_wind)
@@ -1505,7 +1504,9 @@ if (mext /= 0) then
         else if (qid == 'sea_ice_area_fraction' .or. qid == 'sea_ice_thickness') then
 
            ! if ice properties not yet read before, initialize ...
-           if (.not. (ja_aice_read .or. ja_hice_read)) call fm_alloc_icecover(ndx)
+           if (.not. (ja_aice_read .or. ja_hice_read)) then
+               call fm_ice_activate_by_ext_forces(ndx)
+           endif
            ! add the EC link
            if (len_trim(sourcemask)>0)  then
               success = ec_addtimespacerelation(qid, xz, yz, kcs, kx, filename, filetype, method, operand, srcmaskfile=sourcemask, varname=varname)
@@ -1516,8 +1517,6 @@ if (mext /= 0) then
            if (success) then
                if (qid == 'sea_ice_area_fraction') ja_aice_read = 1
                if (qid == 'sea_ice_thickness') ja_hice_read = 1
-               ! activate the ice cover only if both quantities have been read
-               if (ja_aice_read .and. ja_hice_read) ja_icecover = ICECOVER_EXT
            endif
 
         else if (qid == 'airpressure_windx_windy' .or. &

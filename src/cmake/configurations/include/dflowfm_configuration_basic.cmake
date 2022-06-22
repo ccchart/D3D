@@ -16,9 +16,9 @@ if(NOT TARGET ice_data)
     add_subdirectory(${checkout_src_root}/${ice_data_module} ice_data)
 endif()
 
-#if(NOT TARGET ice_io)
-#    add_subdirectory(${checkout_src_root}/${ice_io_module} ice_io)
-#endif()
+if(NOT TARGET ice_io)
+    add_subdirectory(${checkout_src_root}/${ice_io_module} ice_io)
+endif()
 
 # Trachytopes
 if(NOT TARGET trachytopes_kernel)

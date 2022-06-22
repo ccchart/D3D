@@ -39,7 +39,7 @@ use unstruc_model
 use m_flowtimes
 use m_heatfluxes
 use m_transport, only: constituents, itemp
-use m_fm_icecover, only: ja_icecover, ice_af
+use m_fm_icecover, only: ja_icecover, ice_af, ICECOVER_NONE
 
 implicit none
 
@@ -63,7 +63,7 @@ double precision :: qsunsoil, qwatsoil, watsoiltransfer, rdtsdz, soiltemprev, pv
 
 double precision :: afrac
 
-if (ja_icecover > 0) then
+if (ja_icecover /= ICECOVER_NONE) then
     afrac = 1d0 - ice_af(n)
 else
     afrac = 1d0

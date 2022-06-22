@@ -18682,7 +18682,10 @@ src/utils_gpl/flow1d/packages/flow1d_io/src/readStorageNodes.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/read_roughness.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/read_table.f90 -text
 src/utils_gpl/flow1d/packages/flow1d_io/src/readspatialdata.f90 -text
+src/utils_gpl/ice/packages/ice_data/CMakeLists.txt -text
 src/utils_gpl/ice/packages/ice_data/src/icecover_module.f90 -text
+src/utils_gpl/ice/packages/ice_io/CMakeLists.txt -text
+src/utils_gpl/ice/packages/ice_io/src/rd_icecover.f90 -text
 src/utils_gpl/morphology/Makefile.am -text
 src/utils_gpl/morphology/include/Makefile.am -text
 src/utils_gpl/morphology/include/RF.inc -text

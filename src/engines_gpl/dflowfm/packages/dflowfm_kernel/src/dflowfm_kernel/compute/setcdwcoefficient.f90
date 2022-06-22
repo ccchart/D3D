@@ -38,7 +38,6 @@
  use m_waves    , only: twav
  use m_physcoef
  use m_missing
- use m_fm_icecover, only: ja_icecover, ice_af
 
  implicit none
  integer, intent (in) :: L
@@ -164,11 +163,5 @@
         awin = max(0.1d0,uwi)
         cd10 = max(cd10, 0.0044d0 / awin**1.15d0)
     endif
- endif
- 
- if (ja_icecover > 0) then
-     k1    = ln(1,L)
-     k2    = ln(2,L)
-     cd10  = cd10 * (1d0 - (ice_af(k1) + ice_af(k2))/2d0)
  endif
  end subroutine setcdwcoefficient
