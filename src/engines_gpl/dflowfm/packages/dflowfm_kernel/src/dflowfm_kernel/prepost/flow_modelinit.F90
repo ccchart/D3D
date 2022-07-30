@@ -48,7 +48,7 @@
  use unstruc_files, only: mdia
  use unstruc_netcdf
  use MessageHandling
- use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves
+ use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves, FlowSolver
  use dfm_error
  use m_fm_wq_processes, only: jawaqproc
  use m_vegetation
@@ -420,6 +420,10 @@
  endif
  call timstop(handle_extra(33)) ! end Fourier init
 
+ !Initialize flow1d_implicit
+ if (FlowSolver==1) then
+     call initialize_flow1d_implicit()
+ endif
  
  call timstrt('MDU file pointer    ', handle_extra(34)) ! writeMDUFilepointer
  call mess(LEVEL_INFO, '** Model initialization was successful **')

@@ -357,6 +357,8 @@
  integer                           :: jastructurelayersactive = 0 !< 0=general structure over all layers , 1=only through open layers
 
  integer                           :: jaZerozbndinflowadvection=0 !< set zero advection velocity on inflow at z boundaries 0=no, 1=yes
+ 
+ integer                           :: FlowSolver !< 1=stepreduce, 2=1d implicit
 
  integer                           :: jabaroctimeint    !< time integration baroclini pressure, 1 = Euler, abs() = 2; rho at n+1/2, 3: AdamsB
 
@@ -861,7 +863,8 @@ subroutine default_flowparameters()
     JaZlayercenterbedvel      = 1
     jastructurelayersactive   = 1
     JaZerozbndinflowadvection = 0
-
+    FlowSolver = 1       !< 1=stepreduce, 2=1d implicit
+    
     jabaroctimeint = -4  !< time integration baroclini pressure, 1 = expl., 2=AB rho , 3 = AB barocterm, 4=3dryfloodproof 5 = advect rho (n+1/2)
     jabarocterm    = 4   !  revised baroc term
     jaorgbarockeywords = 0
