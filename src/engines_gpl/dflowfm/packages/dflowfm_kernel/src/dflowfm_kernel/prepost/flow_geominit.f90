@@ -67,6 +67,7 @@
  use Timers
  use m_structures
  use unstruc_messages
+ use m_CrossSections
 
  implicit none
 
@@ -113,10 +114,13 @@
 
  double precision        :: xh, yh
 
- integer                 :: jaidomain, jaiglobal_s
+ integer                 :: jaidomain, jaiglobal_s, ierror
 
  double precision, external    :: cosphiu
  integer :: ndraw
+ logical, dimension(2)  :: hyst_dummy
+ double precision       :: area, wetperimeter, flowwidth
+
  COMMON /DRAWTHIS/ ndraw(50)
 
  if (numk <= 2 .or. numl <= 1 ) return               ! only do this for sufficient network
@@ -662,7 +666,7 @@
 !    if(allocated(nd(k)%ln)) deallocate(nd(k)%ln)
 
     allocate ( nd(k)%ln ( nd(k)%lnx ) ,stat=ierr)
-    call aerr('nd(k)%ln ( nd(k)%lnx',ierr, nd(k)%lnx )
+    call aerr('nd(k)%ln ( nd(k)%lnx)',ierr, nd(k)%lnx )
     nd(k)%ln  = 0                                    ! set to zero for recount
     nd(k)%lnx = 0
  enddo
@@ -807,6 +811,8 @@
     call load1D2DLinkFile(md_1d2dlinkfile)
  end if
 
+ call set_1d_indices_in_network()
+
  IF (ALLOCATED (prof1D) ) deallocate( prof1D)
  allocate  ( prof1D(3,lnx1D) , stat= ierr)
  call aerr ('prof1D(3,lnx1D)', ierr, 2*lnx1D)
@@ -866,7 +872,11 @@
        else if (kcu(L) == 3) then                         ! 1D2D internal link 3  flows over side of attached 1D channel
           call getdxofconnectedkcu1(L,wu(L))              !  dbdistance ( xk(k3), yk(k3), xk(k4), yk(k4) )  ! set 2D link width
        else
-          IF ( prof1D(1,LL) >= 0) THEN
+          if (kcu(L) == 1 .and. network%loaded) then
+              ! Calculate maximal total area by using a water depth of 1000 m.
+              hyst_dummy = .false.
+              call GetCSParsFlow(network%adm%line2cross(L,2), network%crs%cross, 1d3, area, wetPerimeter, flowWidth, maxFlowWidth = wu(L))
+          else IF ( prof1D(1,LL) >= 0) THEN
              wu(L) = prof1d(1,LL)                         ! todo, wu1DUNI from max width of profile interpolations
           ELSE
              KA    = -PROF1D(1,LL); KB = -PROF1D(2,LL); ALFA  = PROF1D(3,LL)
@@ -882,7 +892,7 @@
        wu(L)  = dbdistance ( xk(k3), yk(k3), xk(k4), yk(k4), jsferic, jasfer3D, dmiss)  ! set 2D link width
     endif
  enddo
-
+ 
  do L = lnxi+1,Lnx
     k1 = ln(1,L) ; k2 = ln(2,L)
     ba(k1) = ba(k2)                                        ! set bnd ba to that of inside point
@@ -1053,8 +1063,6 @@
  else
     jaupdbobbl1d = 0
  endif
-
- call set_1d_indices_in_network()
 
  if (jampi > 0) then
     ! MPI communication of nonLin, nonLin1D and nonLin2D
