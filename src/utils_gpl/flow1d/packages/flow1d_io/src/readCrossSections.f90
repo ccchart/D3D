@@ -79,6 +79,7 @@ module m_readCrossSections
    subroutine readCrossSectionLocationFile(network, CrossSectionfile)
       use m_CrossSections
       use m_network
+      use ModelParameters
       type(t_network), intent(inout) :: network                 !< Network structure
       character(len=*), intent(in)   :: CrossSectionFile        !< name of the crossection location input file 
 
@@ -98,6 +99,7 @@ module m_readCrossSections
       logical                        :: file_exist
       integer                        :: pos, ibin
       integer                        :: numcrs
+      integer                        :: maxErrorLevel
 
 
       
@@ -164,7 +166,13 @@ module m_readCrossSections
          pCrs%bedLevel = 0.0d0
          call prop_get_double(md_ptr%child_nodes(i)%node_ptr, '', 'shift', pCrs%shift, success)
          if (.not. success) pCrs%shift = 0.0d0
-         
+
+         ! Stop in case of errors
+         maxErrorLevel = getMaxErrorLevel()
+         if (maxErrorLevel >= LEVEL_ERROR) then
+            call LogAllParameters()
+            call SetMessage(LEVEL_FATAL, 'Error(s) during reading model data from files')
+         endif
         call finalizeCrs(network,pCrs,iref,inext)
          
       end do
@@ -310,7 +318,7 @@ module m_readCrossSections
       type(t_CSType), pointer       :: pCS
       character(len=IdLen), allocatable :: fricTypes(:)
       integer                       :: maxnumsections ! Max number of friction sections, to realloc some arrays
-      
+      integer                       :: jaFricId
       numstr = 0
       if (associated(md_ptr%child_nodes)) then
          numstr = size(md_ptr%child_nodes)
@@ -488,7 +496,19 @@ module m_readCrossSections
                   pCS%frictionSectionID(j) = ''
                enddo
             endif
-               
+         else
+            jaFricId = 0
+            do j = 1, pCs%frictionSectionsCount
+               if (len_trim(pCS%frictionSectionID(j)) > 1) then
+                  jaFricId = 1
+                  exit
+               end if
+            end do
+            if (jaFricId == 0) then
+               write(msgbuf, '(a,i0,a)') 'Incorrect CrossSection input for CrossSection Definition with type '//trim(typestr)//' and id: '//trim(id)// &
+                                               '. frictionId (or frictionIds)is not specified in section #', j, '.'
+               call err_flush()
+            end if
          endif
          success = .true.
          

@@ -303,25 +303,23 @@ subroutine prop_inifile_pointer(lu, tree)
                 if (mod(num_bs, 2) == 1) then ! Odd nr of backslashes, indeed line continuation
                     multiple_lines = .true.
                     lcend = lcend-1 ! Strip off single line cont character
-                    goto 700
+                    line = line(1:lend)//' '//linecont(1:lcend)
+                    lend = lend + lcend + 1
+                    ! Line continuation, proceed to next line
                 else
                     if (.not. multiple_lines) then
                         ! No continuation, so leave possible comment as well
                         lcend = len_trim(linecont)
                     end if
-                    goto 800
+                    line = line(1:lend)//' '//linecont(1:lcend)
+                    lend = lend + lcend + 1
+                    exit  ! No further lines for this value
                 end if
             else
                 ! Empty line, leave continuation loop
                 exit
             end if
 
-        700 line = line(1:lend)//' '//linecont(1:lcend)
-            lend = lend + lcend + 1
-            cycle ! Line continuation, proceed to next line
-        800 line = line(1:lend)//' '//linecont(1:lcend)
-            lend = lend + lcend + 1
-            exit  ! No further lines for this value
         end do
 
        if (eof/=0) exit
@@ -1748,21 +1746,21 @@ subroutine prop_set_integers(tree, chapter, key, value, anno, success)
 
     strvalue = ' '
     n = size(value)
-    if (n==0) goto 10
+    if (n > 0) then
+        ! Pretty print all integers into strvalue, separated by single spaces
+        write(strvalue, *) value(1)
+        strvalue = adjustl(strvalue)
+        iv = len_trim(strvalue)
+        do i=2,n
+            write(strscalar,*) value(i)
+            strscalar = adjustl(strscalar)
+            is = len_trim(strscalar)
+            strvalue(iv+2:iv+is+1) = strscalar(1:is)
+            iv  = iv+is+1
+        end do
+    end if
 
-    ! Pretty print all integers into strvalue, separated by single spaces
-    write(strvalue, *) value(1)
-    strvalue = adjustl(strvalue)
-    iv = len_trim(strvalue)
-    do i=2,n
-        write(strscalar,*) value(i)
-        strscalar = adjustl(strscalar)
-        is = len_trim(strscalar)
-        strvalue(iv+2:iv+is+1) = strscalar(1:is)
-        iv  = iv+is+1
-    end do
-
- 10 continue ! Put the string representation into the tree
+    ! Put the string representation into the tree
     if (present(anno)) then
         call prop_set_data(tree, chapter, key, transfer(trim(strvalue), node_value), 'STRING', anno = anno, success = success_)
     else
@@ -2029,16 +2027,14 @@ end subroutine count_occurrences
     integer                 , intent(  out), optional       :: minor          !< Minor number of the fileVersion
     character(len=*)        , intent(  out), optional       :: versionstring  !< Version string
     logical                 , intent(  out), optional       :: success        !< Returns whether fileVersion is found
-    
+
     character(len=IdLen)      :: chapterin_
     character(len=IdLen)      :: keyin_
     character(len=IdLen)      :: string
-    logical                   :: success_
     logical                   :: isnum
     integer                   :: idot
     integer                   :: iend
-    
-    
+
     if (present(chapterin)) then
        chapterin_ = chapterin
     else

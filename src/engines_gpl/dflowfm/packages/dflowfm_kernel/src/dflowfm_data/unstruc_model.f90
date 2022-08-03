@@ -515,7 +515,9 @@ subroutine loadModel(filename)
           call loadLongCulvertsAsNetwork(fnames(ifil), 1, istat)
         end do
         deallocate(fnames)
-        if (.not. newculverts) call finalizeLongCulvertsInNetwork()
+        if (.not. newculverts .and. nlongculvertsg > 0) then
+           call finalizeLongCulvertsInNetwork()
+        end if
       endif
     endif
     call timstop(timerHandle)
@@ -816,15 +818,6 @@ subroutine readMDUFile(filename, istat)
     md_1dfiles%roughnessdir = ' '
     call prop_get_string ( md_ptr, 'geometry', 'NetFile',          md_netfile,      success)
     call prop_get_string ( md_ptr, 'geometry', 'GridEnclosureFile',md_encfile,      success)
-    tmpstr = ''
-    call prop_get_string ( md_ptr, 'geometry', 'BathymetryFile',   tmpstr,      success)
-    if (success .and. len_trim(tmpstr) > 0) then
-        istat = -1
-        call mess(LEVEL_ERROR, 'Error while reading '''//trim(filename)//''': keyword [geometry] BathmetryFile is not longer supported. Place bedlevel in IniFieldFile or ExtFile instead.')
-        return
-    end if
-
-       
     call prop_get_string ( md_ptr, 'geometry', 'DryPointsFile',    md_dryptsfile,   success)
     call prop_get_string ( md_ptr, 'geometry', 'WaterLevIniFile',  md_s1inifile,    success)
     call prop_get_string ( md_ptr, 'geometry', 'LandBoundaryFile', md_ldbfile,      success)
@@ -2256,13 +2249,7 @@ subroutine readMDUFile(filename, istat)
    !   jarstbnd=1
    !endif
 
-   call list_ignored_md (md_ptr,LEVEL_WARN, ierror, prefix='readMDUFile')
-
-   ! If unused entries were in MDU, return with that error code.
-   ! NOTE: too strong now, disabled.
-   !if (ierror /= DFM_NOERR) then
-   !   istat = ierror
-   !end if
+   call final_check_of_mdu_keywords (md_ptr, prefix='While reading '''//trim(filename)//'''')
 
 end subroutine readMDUFile
 
@@ -2328,40 +2315,93 @@ subroutine createDirectionClasses(map_classes_ucdir, map_classes_ucdirstep)
    enddo
 end subroutine createDirectionClasses
 
-!> Present a list of all MDU entries (tree struct) that were not read from unstruc or read more than once.
-!> Present a list of all MDU entries (tree struct) ignored by unstruc or read more than once.
-subroutine list_ignored_md(md_tree, error_level, istat, prefix)
+!> Check if a keyword is deprecated (but still supported).
+logical function isdeprecated(chap, key)
+   character(len=*)                           :: chap  !< chapter name
+   character(len=*)                           :: key   !< keyword name
+   
+   isdeprecated = .false.
+   select case (chap)
+   case (' ') ! just template code for the time being
+      select case (key)
+      case (' ')
+         isdeprecated = .true.
+      end select
+   end select
+end function isdeprecated
+
+!> Check if a keyword is removed (and hence no longer supported).
+logical function isremoved(chap, key)
+   character(len=*)                           :: chap  !< chapter name
+   character(len=*)                           :: key   !< keyword name
+   
+   isremoved = .false.
+   select case (chap)
+   case ('geometry')
+      select case (key)
+      case ('bathymetryfile','bedlevelfile','botlevuni','botlevtype','ithindykescheme','manholefile','nooptimizedpolygon')
+         isremoved = .true.
+      end select
+   case ('numerics')
+      select case (key)
+      case ('hkad','ithindykescheme','thindykecontraction')
+         isremoved = .true.
+      end select
+   case ('output')
+      select case (key)
+      case ('writebalancefile')
+         isremoved = .true.
+      end select
+   end select
+end function isremoved
+    
+!> Present a list of all MDU entries (tree struct) that were not read D-Flow FM or read more than once.
+!> Show errors if obsolete (removed) keywords are used and stop.
+!> Show warnings if deprecated (but not yet removed) keywords are used.
+subroutine final_check_of_mdu_keywords(md_tree, prefix)
    use MessageHandling
    use dfm_error
    implicit none
    type (TREE_DATA), pointer  :: md_tree           !< MDU-tree
-   integer, intent(in)        :: error_level       !< Level for the Message handling
-   integer, intent(out)       :: istat             !< Results status (DFM_NOERR if no ignored entries)
    character(len=*), optional :: prefix            !< Optional message string prefix, default empty
 
-
    type (TREE_DATA), pointer  :: achapter, anode
-   integer  :: inode, nnode, ichapter, nchapter, i
-   character(len=30) :: nodename, chaptername
-   character(len=5)  :: node_visit_str
-   character(len=100):: nodestring
-   logical           :: success
-   integer :: numerr
-   integer, parameter :: numignore = 1
-   character(len=16), dimension(numignore) :: ignorechaps !< which chapters to skip while checking
+   integer                                        :: inode                   !< index of the keyword being processed
+   integer                                        :: nnode                   !< number of keywords in the chapter
+   integer                                        :: ichapter                !< index of the chapter being processed
+   integer                                        :: nchapter                !< number of chapters in the file
+   integer                                        :: i                       !< loop variable
+   integer, parameter                             :: strlen = 30             !< maximum length of chapter and keyword/node names
+   character(len=strlen)                          :: nodename                !< name of the keyword
+   character(len=strlen)                          :: chaptername             !< name of the chapter
+   character(len=5)                               :: node_visit_str          !< temporary string containing the number of times a keyword was accessed
+   character(len=100)                             :: nodestring              !< string containing the keyword value
+   logical                                        :: ismatch                 !< flag indicating whether the chapter/keyword matches a certain condition
+   integer                                        :: threshold_abort_current !< backup variable for default abort threshold level (temporarily overruled)
+   logical                                        :: success                 !< flag indicating successful completion of a call
+   integer                                        :: num_removed             !< count the number of removed keywords
+   integer                                        :: num_deprecated          !< count the number of deprecated keywords
+   integer                                        :: num_doubleaccess        !< count the number of keywords accessed multiple times
+   integer                                        :: num_unused              !< count the number of unused (but not old removed) keywords
+   integer, parameter                             :: numignore = 1           !< number of ignored chapters
+   character(len=strlen), dimension(numignore)    :: ignorechaps             !< which chapters to skip while checking
 
    ignorechaps(:) = ' '
    ignorechaps(1) = 'model'
 
-   istat = DFM_NOERR
-   numerr = 0
+   num_deprecated = 0
+   num_doubleaccess = 0
+   num_removed = 0
+   num_unused = 0
+
+   threshold_abort_current = threshold_abort
+   threshold_abort = LEVEL_FATAL
 
    nchapter = size(md_tree%child_nodes)
 ch:do ichapter = 1, nchapter
       achapter => md_tree%child_nodes(ichapter)%node_ptr
       chaptername = tree_get_name(achapter)
-
-      do i=1,numignore
+      do i = 1,numignore
          if (trim(ignorechaps(i)) == trim(chaptername)) then
             cycle ch
          end if
@@ -2380,24 +2420,48 @@ ch:do ichapter = 1, nchapter
          if (success) then
             if (size(anode%node_data) > 0) then
                if (anode%node_visit < 1) then
-                  numerr = numerr + 1
-                  call mess(error_level, prefix//': ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was in file, but not used. Check possible typo.')
+                  ! report any unused keyword
+                  if (isremoved(trim(chaptername), trim(nodename))) then
+                      ! keyword is known, but no longer supported
+                      num_removed = num_removed + 1
+                      call mess(LEVEL_ERROR, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//' is no longer supported.')
+                  else
+                      ! keyword unknown, or known keyword that was not accessed because of the reading was switched off by the value of another keyword
+                      num_unused = num_unused + 1
+                      call mess(LEVEL_WARN, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was in file, but not used. Check possible typo.')
+               endif
+               else
+                   ! keyword is known and used
+                  
+                  if (isdeprecated(trim(chaptername), trim(nodename))) then
+                      ! keyword is used, but deprecated
+                      num_deprecated = num_deprecated + 1
+                      call mess(LEVEL_WARN, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//' is deprecated and may be removed in a future release.')
+                  endif
                endif
                if (anode%node_visit > 1) then
-                  numerr = numerr + 1
                   write(node_visit_str,'(i0)') anode%node_visit
-!                 call mess(error_level, prefix//': ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was accessed more than once ('//trim(node_visit_str)//' times). Please contact support.')
+                  num_doubleaccess = num_doubleaccess + 1
+!                 call mess(LEVEL_WARN, prefix//': ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was accessed more than once ('//trim(node_visit_str)//' times). Please contact support.')
                endif
             endif
          endif
       enddo
    enddo ch
 
-   if (numerr > 0) then
-      istat = DFM_WRONGINPUT
+   if (num_deprecated > 0) then
+      ! to bring this message to the attention of the user, we write an error but continue ..
+      call mess(LEVEL_ERROR, prefix//': Deprecated keywords used: Check Section "Overview of deprecated and removed keywords" in the User Manual for information on how to update the input file.')
    end if
 
-end subroutine list_ignored_md
+   threshold_abort = threshold_abort_current
+
+   if (num_removed > 0) then
+      ! this is a fatal error that we want to stop at.
+      call mess(LEVEL_ERROR, prefix//': Old unsupported keywords used: Check Section "Overview of deprecated and removed keywords" in the User Manual for information on how to update the input file.')
+   end if
+
+end subroutine final_check_of_mdu_keywords
 
 
 !> Write a model definition to a file.
@@ -2446,6 +2510,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     use m_structures, only: jahiscgen, jahiscdam, jahispump, jahisgate, jahisweir, jahisorif, jahisbridge, jahisculv, jahisdambreak, jahisuniweir, jahiscmpstru, jahislongculv
     use m_sobekdfm,              only : sbkdfm_umin, sbkdfm_umin_method, minimal_1d2d_embankment, sbkdfm_relax
     use m_subsidence, only: sdu_update_s1
+    use m_xbeach_data, only: swave
     use unstruc_channel_flow
     use m_sedtrails_data
 
@@ -2778,10 +2843,13 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
 !   call prop_set_integer(prop_ptr, 'numerics', 'numoverlap', numoverlap, ' ')
 
     if (writeall .or. Limtyphu .ne. 0) then
-       call prop_set(prop_ptr, 'numerics', 'Limtyphu',  limtyphu,   'Limiter type for waterdepth in continuity eqn. (0: none, 1: minmod, 2: van Leer, 3: Kooren, 4: monotone central)')
+       call prop_set(prop_ptr, 'numerics', 'Limtyphu',  limtyphu,   'Limiter type for waterdepth in continuity eqn. (0: none, 1: minmod, 2: van Leer, 3: Koren, 4: monotone central)')
     endif
-    call prop_set(prop_ptr, 'numerics', 'Limtypmom',    limtypmom,  'Limiter type for cell center advection velocity (0: none, 1: minmod, 2: van Leer, 3: Kooren, 4: monotone central)')
-    call prop_set(prop_ptr, 'numerics', 'Limtypsa',     limtypsa,   'Limiter type for salinity transport (0: none, 1: minmod, 2: van Leer, 3: Kooren, 4: monotone central)')
+    call prop_set(prop_ptr, 'numerics', 'Limtypmom',    limtypmom,  'Limiter type for cell center advection velocity (0: none, 1: minmod, 2: van Leer, 3: Koren, 4: monotone central)')
+    call prop_set(prop_ptr, 'numerics', 'Limtypsa',     limtypsa,   'Limiter type for salinity transport (0: none, 1: minmod, 2: van Leer, 3: Koren, 4: monotone central)')
+    if (writeall .or. (jawave.eq.4 .and. jajre.eq.1 .and. (.not. flowWithoutWaves) .and. swave.eq.1)) then
+       call prop_set(prop_ptr, 'numerics', 'Limtypw'         , limtypw, 'Limiter type for wave action transport (0: none, 1: minmod, 2: van Leer, 3: Koren, 4: monotone central)')
+    end if
 
     call prop_set(prop_ptr, 'numerics', 'TransportMethod', jatransportmodule,   'Transport method (0: Herman''s method, 1: transport module)')
     if (writeall .or. jatransportmodule == 1) then
@@ -2825,6 +2893,9 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
 
     if (writeall .or. jaPure1D > 0) then
        call prop_set(prop_ptr, 'numerics', 'Pure1D'        , jaPure1D, 'along 1D channels: 0 = 2D Perot, 1 = 1D Perot using vol1_f, 2 = 1D Perot using vol1, 3 and 4 = 1D links')
+       if (jaPure1D > 2) then
+           call mess(LEVEL_WARN, 'Pure1D options > 2 temporarily not supported.')
+       endif
        call prop_set(prop_ptr, 'numerics', 'Junction1D'    , jaJunction1D, 'at 1D junctions: 0 = org 1D advec, 1 = same as along 1D channels')
     endif
 

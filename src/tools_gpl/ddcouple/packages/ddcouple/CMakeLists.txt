@@ -11,6 +11,7 @@ add_executable(${executable_name} ${source_files})
 # Add dependencies
 set(oss_dependencies deltares_common
                      deltares_common_c
+                     io_hyd
                      waq_utils_f
                      ddcouple_version_number)
 
@@ -28,8 +29,8 @@ endif(UNIX)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_files})
 set_target_properties (${executable_name} PROPERTIES FOLDER tools_gpl/ddcouple)
 
-target_compile_options(${executable_name} PRIVATE "${traceback_flag}")
-target_compile_options(${executable_name} PRIVATE "$<$<CONFIG:Debug>:${floating_point_exeption_flag}>")
+target_compile_options(${executable_name} PRIVATE "${waq_default_flags}")
+target_compile_options(${executable_name} PRIVATE "$<$<CONFIG:Debug>:${waq_debug_flags}>")
 
 # Set post-build step
 set(install_dir ${CMAKE_BINARY_DIR})

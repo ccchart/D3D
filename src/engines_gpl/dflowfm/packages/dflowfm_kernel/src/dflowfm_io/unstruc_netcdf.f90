@@ -11917,6 +11917,43 @@ subroutine md5_net_file(numlstart, numlcount)
 
 end subroutine md5_net_file
 
+!> Assigns the information, that has been read from a restart file and stored in array1, to a 2D array2.
+subroutine assign_restart_data_to_local_array(array1, array2, iloc, kmx, loccount, jamergedmap, iloc_own, jaWaqbot, wqbot3D_output)
+   double precision, allocatable, intent(in   ) :: array1(:)      !< Array that contains information read from a restart file
+   double precision, allocatable, intent(inout) :: array2(:,:)    !< Target 2D array
+   integer,                       intent(in   ) :: iloc           !< Index of one dimension of the 2D array
+   integer,                       intent(in   ) :: kmx            !< Number of layers
+   integer,                       intent(in   ) :: loccount       !< Spatial count in file to read (e.g. ndxi_own)
+   integer,                       intent(in   ) :: jamergedmap    !< Whether input is from a merged map file (i.e. needs shifting or not) (1/0)
+   integer,                       intent(in   ) :: iloc_own(:)    !< Mapping array from the unique own (i.e. non-ghost) nodes/links to the actual ndxi/lnx numbering. Should be filled from index 1:loccount (e.g. 1:ndxi_own).
+   integer,                       intent(in   ) :: jaWaqbot       !< It is a waq bottom variable (1) or not(0)
+   integer,                       intent(in   ) :: wqbot3D_output !< Read 3D waq bottom variable (1) or not(0)
+
+   integer :: kk, kloc, k, kb, kt
+
+   do kk = 1, loccount
+      if (jamergedmap == 1) then
+         kloc = iloc_own(kk)
+      else
+         kloc = kk
+      end if
+
+      if (jaWaqbot == 0 .or. wqbot3D_output > 0) then ! It is not a 2D waq bottom variable
+         if (kmx > 0) then
+            call getkbotktop(kloc, kb, kt)
+            do k = kb, kt
+               array2(iloc,k) = array1(k)
+            end do
+         else
+            array2(iloc,kloc) = array1(kk)
+         end if
+      else ! It is a 2D waq bottom variable
+         call getkbotktop(kloc,kb,kt)
+         array2(iloc,kb) = array1(kk)
+      end if
+   enddo
+end subroutine assign_restart_data_to_local_array
+
 !> Reads a single array variable from a map file, and optionally,
 !! if it was a merged map file from parallel run, reshift the read
 !! values to the actual own 1:ndxi / 1:lnx numbering.
@@ -12065,8 +12102,7 @@ end function get_var_and_shift
 !> Reads the flow data from a map or a rst file.
 !! Processing is done elsewhere.
 !subroutine unc_read_map(filename, numk_keep, numl_keep, numk_read, numl_read, ierr)
-!TODO:JZ modify the name of this subroutine, since it also reads rst files. 
-subroutine unc_read_map(filename, ierr)
+subroutine unc_read_map_or_rst(filename, ierr)
     use m_flow
     use m_flowtimes
     use m_transport, only: NUMCONST, ISALT, ITEMP, ISED1, ISEDN, ITRA1, ITRAN, constituents, itrac2const, const_names
@@ -12137,7 +12173,7 @@ subroutine unc_read_map(filename, ierr)
     logical :: file_exists
     double precision, allocatable        :: max_threttim(:)
     double precision, allocatable        :: tmpvar(:,:)
-    double precision, allocatable        :: tmpvar1(:)
+    double precision, allocatable        :: tmpvar1(:), tmpvar1D(:)
     double precision, allocatable        :: tmpvar2(:,:,:)
     double precision, allocatable        :: tmp_s1(:), tmp_bl(:), tmp_s0(:)
     double precision, allocatable        :: rst_bodsed(:,:), rst_mfluff(:,:), rst_thlyr(:,:)
@@ -12147,11 +12183,12 @@ subroutine unc_read_map(filename, ierr)
     integer :: numpart,  lmerge = 0, lugrid = 0
     integer :: kstart, lstart, kstart_bnd
     integer :: jamergedmap_same_bu
-    
+    integer :: tmp_loc
+
     character(len=8)::numformat
     character(len=2)::numtrastr, numsedfracstr
-    character(len=255) :: tmpstr
-    
+    character(len=255) :: tmpstr, tmpstr1
+
     integer                                       :: jmax, ndx1d, nCrs
     double precision, dimension(:,:), allocatable :: work1d_z, work1d_n
     
@@ -12654,132 +12691,89 @@ subroutine unc_read_map(filename, ierr)
     endif
     call readyy('Reading map data', 0.80d0)
 
-    
+
     ! Read the salinity (flow elem)
-    if (jasal > 0) then 
-        ierr = get_var_and_shift(imapfile, 'sa1', sa1, tmpvar1, UNC_LOC_S3D, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
+    if (jasal > 0) then
+       if (kmx > 0) then
+          tmp_loc = UNC_LOC_S3D
+       else
+          tmp_loc = UNC_LOC_S
+       end if
+       ierr = get_var_and_shift(imapfile, 'sa1', sa1, tmpvar1, tmp_loc, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
                                  um%inode_own, um%inode_merge)
-        do kk = 1,um%ndxi_own
-           do k = kbot(kk), ktop(kk)
-              constituents(isalt,k) = sa1(k)
-           enddo
-        enddo
-        call check_error(ierr, 'salinity')
+       if (ierr /= nf90_noerr) then
+          call mess(LEVEL_WARN, 'unc_read_map_or_rst: cannot read variable sa1 from the specified restart file. Skip reading this variable.')
+       else
+          call assign_restart_data_to_local_array(sa1, constituents, isalt, kmx, um%ndxi_own, um%jamergedmap, um%inode_own, 0, 0)
+       end if
     endif
+
     call readyy('Reading map data',0.90d0)
+
     ! Read the temperature (flow elem)
     if (jatem > 0) then
-        
-        ierr = get_var_and_shift(imapfile, 'tem1', tem1, tmpvar1, UNC_LOC_S3D, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
+       if (kmx > 0) then
+          tmp_loc = UNC_LOC_S3D
+       else
+          tmp_loc = UNC_LOC_S
+       end if
+       ierr = get_var_and_shift(imapfile, 'tem1', tem1, tmpvar1, tmp_loc, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
                                  um%inode_own, um%inode_merge)
-        call check_error(ierr, 'temperature')
-        ! TODO: [TRUNKMERGE]: HK: fill this tem1 into constituents (because below the updateghost will not work now for tem)
-        do kk = 1,um%ndxi_own
-           do k = kbot(kk), ktop(kk)
-              constituents(itemp,k) = tem1(k)
-           enddo
-        enddo
-   
+       if (ierr /= nf90_noerr) then
+          call mess(LEVEL_WARN, 'unc_read_map_or_rst: cannot read variable tem1 from the specified restart file. Skip reading this variable.')
+       else
+          call assign_restart_data_to_local_array(tem1, constituents, itemp, kmx, um%ndxi_own, um%jamergedmap, um%inode_own, 0, 0)
+       end if
     endif
-    
-    
+
+
     ! Read the tracers
     if(ITRA1 > 0) then
-       if(.not.allocated(id_tr1)) then
-          allocate(id_tr1(ITRAN-ITRA1+1))
-       endif
-       if (allocated(tmpvar)) deallocate(tmpvar)
-       allocate(tmpvar(max(1,kmx), ndxi))
+       call realloc(tmpvar1D, ndkx, keepExisting = .false.,fill = 0.0d0)
        do iconst = ITRA1,ITRAN
           i = iconst - ITRA1 + 1
           tmpstr = const_names(iconst)
           ! Forbidden chars in NetCDF names: space, /, and more.
-          call replace_char(tmpstr,32,95) 
-          call replace_char(tmpstr,47,95) 
-          ierr = nf90_inq_varid(imapfile, trim(tmpstr), id_tr1(i))
-          if ( ierr.eq.NF90_NOERR ) then
+          call replace_char(tmpstr,32,95)
+          call replace_char(tmpstr,47,95)
 !            tracer exists in restart file             
-             if(kmx > 0) then
-                ierr = nf90_get_var(imapfile, id_tr1(i), tmpvar(1:kmx,1:um%ndxi_own), start=(/ 1, kstart, it_read /), &
-                                    count=(/ kmx, um%ndxi_own, 1 /))
-                do kk = 1, um%ndxi_own
-                   if (um%jamergedmap == 1) then
-                      kloc = um%inode_own(kk)
+          if (kmx > 0) then
+             tmp_loc = UNC_LOC_S3D
                    else
-                      kloc = kk
+             tmp_loc = UNC_LOC_S
                    end if
-
-                   call getkbotktop(kloc, kb, kt)
-                   call getlayerindices(kloc, nlayb, nrlay)
-                   do k = kb, kt
-                      constituents(iconst,k) = tmpvar(k-kb+nlayb,kk)
-                   end do
-                enddo
+          ierr = get_var_and_shift(imapfile, trim(tmpstr), tmpvar1D, tmpvar1, tmp_loc, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
+                              um%inode_own, um%inode_merge)
+          if (ierr /= nf90_noerr) then
+             call mess(LEVEL_WARN, 'unc_read_map_or_rst: cannot read variable '''//trim(tmpstr)//''' from the specified restart file. Skip reading this variable.')
              else
-                ierr = nf90_get_var(imapfile, id_tr1(i), tmpvar(1,1:um%ndxi_own), start = (/ kstart, it_read/), count = (/ndxi,1/))
-                do kk = 1, ndxi
-                   if (um%jamergedmap == 1) then
-                      kloc = um%inode_own(kk)
-                   else
-                      kloc = kk
+             call assign_restart_data_to_local_array(tmpvar1D, constituents, iconst, kmx, um%ndxi_own, um%jamergedmap, um%inode_own, 0, 0)
                    end if
-                   constituents(iconst, kloc) = tmpvar(1,kk)
-                end do
-             end if
-          endif
-          call check_error(ierr, const_names(iconst))
        enddo
     endif
 
 !   Read the water quality bottom variables
     if(numwqbots > 0) then
-       call realloc(id_rwqb, numwqbots, keepExisting = .false., fill = 0)
-       if (wqbot3D_output == 1) then
-          call realloc(tmpvar, [max(1,kmx), ndxi], keepExisting = .false., fill = 0.0d0)
-       else
-          call realloc(tmpvar, [1, ndxi], keepExisting = .false., fill = 0.0d0)
-       endif
+       call realloc(tmpvar1D, ndkx, keepExisting = .false.,fill = 0.0d0)
        do iwqbot = 1, numwqbots
           tmpstr = wqbotnames(iwqbot)
           ! Forbidden chars in NetCDF names: space, /, and more.
-          call replace_char(tmpstr,32,95) 
-          call replace_char(tmpstr,47,95) 
+          call replace_char(tmpstr,32,95)
+          call replace_char(tmpstr,47,95)
           if (wqbot3D_output == 1) then
-             ierr = nf90_inq_varid(imapfile, trim(tmpstr)//'_3D', id_rwqb(iwqbot))
-             if ( ierr.eq.NF90_NOERR ) then
-!            3D water quality bottom variable exists in restart file
-                ierr = nf90_get_var(imapfile, id_rwqb(iwqbot), tmpvar(1:kmx,1:um%ndxi_own), start=(/ 1, kstart, it_read /), &
-                                    count=(/ kmx, um%ndxi_own, 1 /))
-                do kk = 1, um%ndxi_own
-                   if (um%jamergedmap == 1) then
-                      kloc = um%inode_own(kk)
+             tmp_loc = UNC_LOC_S3D
+             tmpstr1 = trim(tmpstr)//'_3D'
                    else
-                      kloc = kk
+             tmp_loc = UNC_LOC_S
+             tmpstr1 = tmpstr
                    end if
-                   call getkbotktop(kloc, kb, kt)
-                   call getlayerindices(kloc, nlayb, nrlay)
-                   do k = kb, kt
-                      wqbot(iwqbot, k) = tmpvar(k-kb+nlayb,kk)
-                   end do
-                enddo
-             endif
+          ierr = get_var_and_shift(imapfile, trim(tmpstr1), tmpvar1D, tmpvar1, tmp_loc, kmx, kstart, um%ndxi_own, it_read, um%jamergedmap, &
+                              um%inode_own, um%inode_merge)
+          if (ierr /= nf90_noerr) then
+             call mess(LEVEL_WARN, 'unc_read_map_or_rst: cannot read variable '''//trim(tmpstr1)//''' from the specified restart file. Skip reading this variable.')
           else
-             ierr = nf90_inq_varid(imapfile, trim(tmpstr), id_rwqb(iwqbot))
-             if ( ierr.eq.NF90_NOERR ) then
-   !            2D water quality bottom variable exists in restart file, put it in the bottom layer
-                ierr = nf90_get_var(imapfile, id_rwqb(iwqbot), tmpvar(1,1:um%ndxi_own), start = (/ kstart, it_read/), count = (/ndxi,1/))
-                do kk = 1, ndxi
-                   if (um%jamergedmap == 1) then
-                      kloc = um%inode_own(kk)
-                   else
-                      kloc = kk
+             call assign_restart_data_to_local_array(tmpvar1D, wqbot, iwqbot, kmx, um%ndxi_own, um%jamergedmap, um%inode_own, 1, wqbot3D_output)
                    end if
-                   call getkbotktop(kloc,kb,kt)
-                   wqbot(iwqbot, kb) = tmpvar(1,kk)
-                end do
-             endif
-          endif
-          call check_error(ierr, wqbotnames(iwqbot))
        enddo
     endif
 
@@ -13278,9 +13272,9 @@ subroutine unc_read_map(filename, ierr)
     if(allocated(tmpvar1)) deallocate(tmpvar1)
     if(allocated(tmpvar2)) deallocate(tmpvar2)
     
-end subroutine unc_read_map
+end subroutine unc_read_map_or_rst
 
-!> helper routine for unc_read_map
+!> helper routine for unc_read_map_or_rst
 function unc_read_merged_map(um, imapfile, filename, ierr) result (success)
    use m_alloc               , only : realloc
    use m_samples             , only : Ns

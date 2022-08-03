@@ -43,6 +43,7 @@
       use precision_part  ! flexible size definition
       use timers          ! performance timers
       use partmem         ! <== this is the data-block that is filled by this routine
+      use m_part_modeltypes       ! part model definitions
       use m_part_regular
       use m_partmesh
       use typos           ! derived types
@@ -142,7 +143,6 @@
       open  ( newunit=ilun(i), file=lch(i), iostat=ios) ! File might already be open
       if (ios.ne.0 .and. ios.ne.5004) then
          write ( lun2, * ) ' Error opening PART input file'
-         write ( *   , * ) ' Error opening PART input file'
          call stop_exit(1)
       endif
       rewind (ilun(i))                          ! Be sure to rewind!
@@ -153,9 +153,6 @@
       if ( gettoken( filvers, ierr2 ) .ne. 0 ) goto 4001
       if ( filvers(1:19) .eq. 'delpar_version_3.60' ) filvers(1:19) = 'v3.60.00'
       if ( filvers(2:19) .lt. '3.66.00') then
-         write(*   ,'(2x,a  )') ' Obsolete input file '
-         write(*   ,'(2x,a,a)') ' Version found             : ',filvers(1:19)
-         write(*   ,'(2x,a,a)') ' Lowest version requested  : ','V3.66.00'
          write(lun2,'(2x,a  )') ' Obsolete input file '
          write(lun2,'(2x,a  )') ' Version found             : ',filvers(1:19)
          write(lun2,'(2x,a  )') ' Lowest version requested  : ','V3.66.00'
@@ -215,7 +212,7 @@
          write ( lun2, '(/a)' ) '  Error 1002. Particle tracks interval multiplier is negative!'
          ierr = ierr + 1
       endif
-      oil = modtyp .eq. 4
+      oil = modtyp .eq. model_oil
 
 !     read numerical parameters
 
@@ -228,12 +225,6 @@
       write ( lun2, * ) ' Time step for hydrodynamics : ', ihdel, ' seconds '
       write ( lun2, * ) ' Time step for part. tracking: ', idelt, ' seconds '
       write ( lun2, * ) '   '
-      write ( *   , * ) '   '
-      write ( *   , * ) ' Numerical scheme            : ', ipc
-      write ( *   , * ) '   '
-      write ( *   , * ) ' Time step for hydrodynamics : ', ihdel, ' seconds '
-      write ( *   , * ) ' Time step for part. tracking: ', idelt, ' seconds '
-      write ( *   , * ) '   '
       if ( ihdel .lt. idelt ) then
          write ( lun2, 2023 )
          call stop_exit(1)
@@ -307,14 +298,13 @@
             endif
          case default
             write ( lun2, * ) ' Error: this vert.diff. option is not valid'
-            write ( *   , * ) ' Error: this vert.diff. option is not valid'
             call stop_exit(1)
       end select
       write ( lun2, * ) '   '
 
 !     layer thickness 3d models
 
-      if ( nolayp .gt. 1 .and. modtyp .ne. 2 ) then
+      if ( nolayp .gt. 1 .and. modtyp .ne. model_two_layer_temp ) then
          write ( lun2, 3115 )
          write ( lun2, 3120 ) ( i, tcktot(i), i = 1, nolayp )
       else
@@ -328,10 +318,9 @@
       if ( oil ) then
          if ( gettoken( nfract , ierr2 ) .ne. 0 ) goto 4009
       endif
-      write ( *   , *       ) ' Modelled substances : '
       write ( lun2, '(//a)' ) '  Modelled substances : '
       nosubc = nosubs
-      if ( modtyp .eq. 2 ) then
+      if ( modtyp .eq. model_two_layer_temp ) then
          nolayp = 2
          nosubc = nolayp*nosubs
       endif
@@ -340,11 +329,10 @@
       call alloc ( "mapsub", mapsub, nosub_max )
       do i = 1, nosubs
          if ( gettoken( substi(i), ierr2 ) .ne. 0 ) goto 4009
-         write ( *   , '(12x,a20)' ) substi(i)
          write ( lun2, '(12x,a20)' ) substi(i)
       enddo
 
-!     modtyp = 1 or 2 refers to 2d hydrodynamics
+!     modtyp = 1 (model_tracers) or 2 (model_two_layer_temp) refers to 2d hydrodynamics
 
       mapsub = 0
       select case ( modtyp )
@@ -358,8 +346,6 @@
          case ( 3 )
             write(lun2,*) ' You are trying to use the red tide model, but the '
             write(lun2,*) ' red tide model is obsolete. Please contact Deltares. '
-            write(*,*) ' You are trying to use the red tide model, but the '
-            write(*,*) ' red tide model is obsolete. Please contact Deltares. '
             call stop_exit(1)
          case ( 4 )
             write(*,'(//)')
@@ -369,13 +355,10 @@
             if ( nosubs .lt. 3 ) then
                write ( lun2, * ) ' For oil module at least 3 substances '
                write ( lun2, * ) '(floating, dispersed and sticking oil)'
-               write ( *   , * ) ' For oil module at least 3 substances '
-               write ( *   , * ) '(floating, dispersed and sticking oil)'
                ierr = ierr + 1
             endif
             if ( nfract*3 .gt. nosubs ) then
                write ( lun2, * ) ' For oil module at least 3 subst per fraction'
-               write ( *   , * ) ' For oil module at least 3 subst per fraction'
                ierr = ierr + 1
             endif
             do i = 1, nfract*3
@@ -427,7 +410,6 @@
                   exit
                endif
                if ( jsub .eq. nosubs ) then
-                  write ( *   , * ) ' Error: sticking substance has no source ', substi(is)
                   write ( lun2, * ) ' Error: sticking substance has no source ', substi(is)
                   call stop_exit(1)
                endif
@@ -477,7 +459,7 @@
                                                       !     this overwrites something if nolayp > 1
       do ilay = 1, nolayp                             !     tsja
          do isb = 1, nosubs+1
-            if ( modtyp .eq. 2 ) then
+            if ( modtyp .eq. model_two_layer_temp ) then
                i = (isb-1)*nolayp + ilay
                subst2(i   ) = substi(isb)
             elseif ( ilay .eq. 1 ) then
@@ -710,33 +692,25 @@
                select case (trim(cbuffer))
                case ('no_vertical_bounce')
                   write ( lun2, '(/a)' ) '  Found keyword "no_vertical_bounce": vertical bouncing is switched off.'
-                  write ( *   , '(/a)' ) ' Found keyword "no_vertical_bounce": vertical bouncing is switched off.'
                   vertical_bounce = .false.
                case ('max_wind_drag_depth')
                   write ( lun2, '(/a)' ) ' Found keyword "max_wind_drag_depth".'
-                  write ( *   , '(/a)' ) ' Found keyword "max_wind_drag_depth".'
                   apply_wind_drag = .true.
                   if (gettoken (max_wind_drag_depth, ierr2) .ne. 0 ) goto 9005
                   if (max_wind_drag_depth.lt.0.0) goto 9005
                   write ( lun2, '(/a,f13.4)' ) ' Maximum depth for particles in top layer to be subject to wind drag: ', max_wind_drag_depth
-                  write ( *   , '(/a,f13.4)' ) ' Maximum depth for particles in top layer to be subject to wind drag: ', max_wind_drag_depth
                case ('write_restart_file')
                   write ( lun2, '(/a)' ) '  Found keyword "write_restart_file".'
-                  write ( *   , '(/a)' ) ' Found keyword "write_restart_file".'
                   write ( lun2, '(/a,a)' ) '  At the end of a simulation, delpar will write ', &
-                                         'a file containing data for all active particles.'
-                  write ( *   , '(/a,a)' ) ' At the end of a simulation, delpar will write ', &
                                          'a file containing data for all active particles.'
                   write_restart_file = .true.
                case ('max_restart_age')
                   write ( lun2, '(/a)' ) ' Found keyword "max_restart_age".'
-                  write ( *   , '(/a)' ) ' Found keyword "max_restart_age".'
                   if (gettoken (max_restart_age, ierr2) .ne. 0 ) goto 9010
                   if (max_restart_age.eq.0) goto 9011
                   write ( lun2, '(/a,i10)' ) ' Maximum age for particles writen into restart file in seconds: ', max_restart_age
-                  write ( *   , '(/a,i10)' ) ' Maximum age for particles writen into restart file in seconds: ', max_restart_age
                case ('plastics_parameters')
-                  if (modtyp /= 6) goto 9101
+                  if (modtyp /= model_prob_dens_settling) goto 9101
                   write ( *   , 3500 )
                   write ( lun2, 3500 )
                   call alloc ( "plparset", plparset, nosubs )
@@ -808,11 +782,9 @@
                   write (lun2, 3510)
                case ('pldebug')
                   write ( lun2, '(/a)' ) '  Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
-                  write ( *   , '(/a)' ) ' Found keyword "pldebug": will write plastics debug info (e.g. sizes).'
                   pldebug = .true.
                case ('screens')
                   write ( lun2, '(/a)' ) '  Found keyword "screens".'
-                  write ( *   , '(/a)' ) ' Found keyword "screens".'
                   screens = .true.
                   if ( gettoken( permealeft  , ierr2 ) .ne. 0 ) goto 9201   ! leftside permeability of screeens 
                   if ( gettoken( permearight , ierr2 ) .ne. 0 ) goto 9202   ! rightside permeability of screeens
@@ -831,25 +803,20 @@
                      call polpart(fiscreens, nrowsscreens, xpolscreens, ypolscreens, nrowstmp, lun2)
                   else
                      write ( lun2, '(/a)' ) '  Screens polygon doesn''t contain any coordinates'
-                     write ( *   , '(/a)' ) ' Screens polygon doesn''t contain any coordinates'
                      screens = .false.
                   endif
                case ('partinifile')
                   write ( lun2, '(/a)' ) '  Found keyword "partinifile".'
-                  write ( *   , '(/a)' ) ' Found keyword "partinifile".'
                   if ( gettoken( partinifile  , ierr2 ) .ne. 0 ) goto 9301   ! part FM ini file
                case ('partrelfile')
                   write ( lun2, '(/a)' ) '  Found keyword "partrelfile".'
-                  write ( *   , '(/a)' ) ' Found keyword "partrelfile".'
                   if ( gettoken( partrelfile  , ierr2 ) .ne. 0 ) goto 9302   ! part FM ini file
                case ('ibmmodel')
-                  if (modtyp /= 7) goto 9401
+                  if (modtyp /= model_ibm) goto 9401
                   write ( lun2, '(/a)' ) '  Found keyword "ibmmodel".'
-                  write ( *   , '(/a)' ) ' Found keyword "ibmmodel".'
                   ibmmodel = .true.
                   if ( gettoken( ibmmodelname     , ierr2 ) .ne. 0 ) goto 9402   ! IBM model name
                   write ( lun2, '(/a)' ) '  Found IBM model name : ', ibmmodelname
-                  write ( *   , '(/a)' ) ' Found IBM model name : ', ibmmodelname
                   select case (trim(ibmmodelname)) ! Set IBM model
                     case ("test")
                         ibmmt = 0        ! model type none
@@ -871,7 +838,6 @@
                   end select
                   if ( gettoken( ibmstagedev , ierr2 ) .ne. 0 ) goto 9404   ! IBM stage development
                     write ( lun2, '(/a)' ) ' Found IBM stage development name : ', ibmstagedev
-                    write ( *   , '(/a)' ) ' Found IBM stage development name : ', ibmstagedev 
                   ! Set stage development
                   select case (trim(ibmstagedev))
                     case ("dev_fixed")
@@ -887,16 +853,13 @@
                         goto 9405      
                    end select 
                case ('revchron')
-                  if (modtyp /= 7) goto 9406
+                  if (modtyp /= model_ibm) goto 9406
                   write ( lun2, '(/a)' ) '  Found keyword "revchron".'
-                  write ( *   , '(/a)' ) ' Found keyword "revchron".'
                   chronrev = .true.
                   if ( gettoken( selstage     , ierr2 ) .ne. 0 ) goto 9407   ! Give stage for release
                   write ( lun2, '(/a,f10.3)' ) '  Found stage for reversed release : ', selstage
-                  write ( *   , '(/a,f10.3)' ) ' Found stage for reversed release : ', selstage
                case default
                   write ( lun2, '(/a,a)' ) '  Unrecognised keyword: ', trim(cbuffer)
-                  write ( *   , '(/a,a)' ) ' Unrecognised keyword: ', trim(cbuffer)
                   goto 9000
                end select
                if ( gettoken( cbuffer, id, itype, ierr2 ) .ne. 0 ) goto 4021
@@ -998,7 +961,6 @@
       icwste = id*86400 + ih*3600 + im*60 + is
       if ( icwste .le.  0 ) then
          write(lun2, *) ' Error: time step mapfile must be positive '
-         write(*   , *) ' Error: time step mapfile must be positive '
          ierr = ierr + 1
       endif
 
@@ -1038,7 +1000,6 @@
       ihstepp = id*86400 + ih*3600 + im*60 + is
       if ( ihstepp  .le.  0 ) then
          write(lun2, *) ' Error: time step hisfile must be positive '
-         write(*   , *) ' Error: time step hisfile must be positive '
          ierr = ierr + 1
       endif
 
@@ -1269,7 +1230,6 @@
       if ( itype .eq. 1) then
          idp_file = cbuffer
          if ( idp_file .ne. ' ' ) then
-            write ( *, * ) ' Reading number of initial particles from file:', idp_file(1:len_trim(idp_file))
             write ( lun2, * ) ' Reading number of initial particles from file:', idp_file(1:len_trim(idp_file))
             call openfl ( lunfil, idp_file, ftype(2), 0 )
 !           get maximum no. of initial particles (nrespart), don't combine ini_oil with this!
@@ -2060,12 +2020,9 @@
 !     stop when errors occured during reading
 
       if ( ierr .ne. 0 ) then
-         write (  *  , '(A,i3)' ) ' Number of errors in processing input file:', ierr
          write ( lun2, '(A,i3)' ) ' Number of errors in processing input file:', ierr
          call stop_exit(1)
       else
-         write (  *  , '(A   )' ) ' '
-         write (  *  , '(A   )' ) '  Input file succesfully read.'
          write ( lun2, '(A   )' ) ' '
          write ( lun2, '(A   )' ) '  Input file succesfully read.'
          write ( lun2, '(A   )' ) ' '
@@ -2497,76 +2454,52 @@
       call stop_exit(1)
 
 9000  write(lun2,*) ' Error: reading special features '
-      write(*   ,*) ' Error: reading special features '
       call stop_exit(1)
 9005  write(lun2,*) ' Error: reading value of max_wind_drag_depth constant'
-      write(*   ,*) ' Error: reading value of max_wind_drag_depth constant'
       call stop_exit(1)
 9006  write(lun2,*) ' Error: value of max_wind_drag_depth is less than zero'
-      write(*   ,*) ' Error: value of max_wind_drag_depth is less than zero'
       call stop_exit(1)
 9010  write(lun2,*) ' Error: value of max_restart_age constant'
-      write(*   ,*) ' Error: value of max_restart_age constant'
       call stop_exit(1)
 9011  write(lun2,*) ' Error: max_restart_age is zero. Did you specify a value?'
-      write(*   ,*) ' Error: max_restart_age is zero. Did you specify a value?'
       call stop_exit(1)
 
-9101  write(lun2,*) ' Error: found plastics_parameters, but this is not a plastics model (modtype /= 6) '
-      write(*   ,*) ' Error: found plastics_parameters, but this is not a plastics model (modtype /= 6) '
+9101  write(lun2,*) ' Error: found plastics_parameters, but this is not a plastics model (modtye /= 6 (model_prob_dens_settling) '
       call stop_exit(1)
 9103  write(lun2,*) ' Error: expected substance name of a plastic to be specified '
-      write(*   ,*) ' Error: expected substance name of a plastic to be specified '
       call stop_exit(1)
 9104  write(lun2,*) ' Error: could not read plastic parameter correctly for ', trim(cplastic)
-      write(*   ,*) ' Error: could not read plastic parameter correctly for ', trim(cplastic)
       call stop_exit(1)
 9105  write(lun2,*) ' Error: zero or negative mean size specified for ', trim(cplastic)
-      write(*   ,*) ' Error: zero or negative mean size specified for ', trim(cplastic)
       call stop_exit(1)
 9106  write(lun2,*) ' Error: plastic "', trim(cplastic), '" was already defined! '
-      write(*   ,*) ' Error: plastic "', trim(cplastic), '" was already defined! '
       call stop_exit(1)
 9107  write(lun2,'(/A,I3,A)') '  Error: ', plmissing, ' plastic(s) is/are not parametrised! '
-      write(*   ,'(/A,I3,A)')  ' Error: ', plmissing, ' plastic(s) is/are not parametrised! '
       call stop_exit(1)
-9201  write(lun2,*) ' Error: expected leftside permeability of screeens!'
-      write(*   ,*) ' Error: expected leftside permeability of screeens!'
+9201  write(lun2,*) ' Error: expected leftside permeability of screens!'
       call stop_exit(1)
-9202  write(lun2,*) ' Error: expected rightside permeability of screeens!'
-      write(*   ,*) ' Error: expected rightside permeability of screeens!'
+9202  write(lun2,*) ' Error: expected rightside permeability of screens!'
       call stop_exit(1)
-9203  write(lun2,*) ' Error: expected screeens polygon file name!'
-      write(*   ,*) ' Error: expected screeens polygon file name!'
+9203  write(lun2,*) ' Error: expected screens polygon file name!'
 9204  write(lun2,*) ' Error: could not open screens polygon-file: '//trim(fiscreens)
-      write(*,*) ' Error: could not open screens polygon-file: '//trim(fiscreens)
       call stop_exit(1)
 9301  write(lun2,*) ' Error: reading part FM ini file name!'
-      write(*   ,*) ' Error: reading part FM ini file name!'
       call stop_exit(1)
 9302  write(lun2,*) ' Error: reading part FM elease file name!'
-      write(*   ,*) ' Error: reading part FM elease file name!'
       call stop_exit(1)
-9401  write(lun2,*) ' Error: found "IBMmodel" keyword, but this is not a IBM model (modtype /= 7) '
-      write(*   ,*) ' Error: found "IBMmodel" keyword, but this is not a IBM model (modtype /= 7) '
+9401  write(lun2,*) ' Error: found "IBMmodel" keyword, but this is not a IBM model (modtyp /= 7 (model_ibm)) '
       call stop_exit(1)
 9402  write(lun2,*) ' Error: expected ibm model name!'
-      write(*   ,*) ' Error: expected ibm model name!'
       call stop_exit(1)
 9403  write(lun2,*) ' Error: no suitable ibm model name supplied!'
-      write(*   ,*) ' Error: no suitable ibm model name supplied!'
       call stop_exit(1)
 9404  write(lun2,*) ' Error: expected ibm stage development method name!'
-      write(*   ,*) ' Error: expected ibm stage development method name!'
       call stop_exit(1)
 9405  write(lun2,*) ' Error: no suitable stage delelopment method name supplied!'
-      write(*   ,*) ' Error: no suitable stage delelopment method name supplied!'
       call stop_exit(1)
-9406  write(lun2,*) ' Error: found "RevChron" keyword, but this is not a IBM model (modtype /= 7) '
-      write(*   ,*) ' Error: found "RevChron" keyword, but this is not a IBM model (modtype /= 7) '
+9406  write(lun2,*) ' Error: found "RevChron" keyword, but this is not a IBM model (modtyp /= 7 (model_ibm)) '
       call stop_exit(1)
 9407  write(lun2,*) ' Error: expected stage of reversed release!'
-      write(*   ,*) ' Error: expected stage of reversed release!'
       call stop_exit(1)
 
       end
@@ -2615,9 +2548,6 @@
       read(lun,'(a)') line ! get last read line
       len_line = len_trim(line)
       len_file = len_trim(dis_file)
-      write(*     ,'(a,a)')  &
-        '           last line read : ',line(:len_line)
-      write(*     ,'(/a)') ' Please check file !!'
       write(lunlog,'(//a,a)')  &
         ' Error: problem while reading dis-file ',dis_file(:len_file)
       write(lunlog,'(a,a)')    &
@@ -2689,12 +2619,7 @@
 
 !     error handling
 
- 1000 write(*,'(//a,a)')  &
-        ' Error: problem while reading ini-file ',ini_file(:len_file)
-      write(*     ,'(//a,a,a,a)')  &
-        ' Error: could not find key ',key
-      write(*     ,'(/a)') ' Please check file !!'
-      write(lunlog,'(//a,a)')  &
+ 1000 write(lunlog,'(//a,a)')  &
         ' Error: problem while reading ini-file ',ini_file(:len_file)
       write(lunlog,'(//a,a,a,a)')  &
         ' Error: could not find key ',key
@@ -2706,21 +2631,13 @@
       read(lun,'(a)') line ! get last read line
       len_line = len_trim(line)
       len_file = len_trim(ini_file)
-      write(*     ,'(a,a)')  &
-        '           last line read : ',line(:len_line)
-      write(*     ,'(/a)') ' Please check file !!'
       write(lunlog,'(//a,a)')  &
         ' Error: problem while reading ini-file ',ini_file(:len_file)
       write(lunlog,'(a,a)')    &
         '          last line read : ',line(:len_line)
       write(lunlog,'(/a)') ' Please check file !!'
       call stop_exit(1)
- 1020 write(*,'(//a,a)')  &
-        ' Error: problem while reading ini-file ',ini_file(:len_file)
-      backspace lun
-      write(*     ,'(//a)') ' Error: premature end-of-file found'
-      write(*     ,'(/a )') ' Please check file !!'
-      write(lunlog,'(//a,a)')  &
+ 1020write(lunlog,'(//a,a)')  &
         ' Error: problem while reading ini-file ',ini_file(:len_file)
       write(lunlog,'(//a)') ' Error: premature end-of-file found'
       write(lunlog,'(/a )') ' Please check file !!'
@@ -2771,12 +2688,7 @@ subroutine getdim_asc ( lun , asc_file , npart_ini, nrowsmax , &
 
 !     error handling
 
- 1000 write(*,'(//a,a)')  &
-        ' Error: problem while reading ini-file ',asc_file(:len_file)
-      write(*     ,'(//a,a,a,a)')  &
-        ' Error: could not find key ',key
-      write(*     ,'(/a)') ' Please check file !!'
-      write(lunlog,'(//a,a)')  &
+ 1000 write(lunlog,'(//a,a)')  &
         ' Error: problem while reading ini-file ',asc_file(:len_file)
       write(lunlog,'(//a,a,a,a)')  &
         ' Error: could not find key ',key
