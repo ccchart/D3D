@@ -872,10 +872,10 @@
        else if (kcu(L) == 3) then                         ! 1D2D internal link 3  flows over side of attached 1D channel
           call getdxofconnectedkcu1(L,wu(L))              !  dbdistance ( xk(k3), yk(k3), xk(k4), yk(k4) )  ! set 2D link width
        else
-          if (kcu(L) == 1 .and. network%loaded) then
+          if (iabs(kcu(L)) == 1 .and. network%loaded) then
               ! Calculate maximal total area by using a water depth of 1000 m.
               hyst_dummy = .false.
-              call GetCSParsFlow(network%adm%line2cross(L,2), network%crs%cross, 1d3, area, wetPerimeter, flowWidth, maxFlowWidth = wu(L))
+              call GetCSParsFlow(network%adm%line2cross(LL,2), network%crs%cross, 1d3, area, wetPerimeter, flowWidth, maxFlowWidth = wu(L))
           else IF ( prof1D(1,LL) >= 0) THEN
              wu(L) = prof1d(1,LL)                         ! todo, wu1DUNI from max width of profile interpolations
           ELSE
