@@ -35,8 +35,8 @@
       use grids          ! for the storage of contraction grids
       use dlwq_data      ! for definition and storage of data
       use rd_token       ! tokenized reading
-      use partmem        ! for the interface with Delpar (Tau and VertDisp)
-      use timers         ! performance timers
+      use partmem, only: alone, lsettl, layt        ! for the interface with Delpar (Tau and VertDisp)
+      use timers       !   performance timers
       implicit none
 
 !     implicit none

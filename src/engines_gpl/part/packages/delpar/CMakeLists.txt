@@ -36,21 +36,54 @@ prebuild_version_number(${executable_name} ${fortran_version_file}
 set_source_files_properties(${fortran_version_file} ${fortran_version_file}
                             PROPERTIES COMPILE_OPTIONS "${file_preprocessor_flag}")
 
-# Add dependencies
-    set(oss_dependencies    deltares_common
-                            deltares_common_c
-                            nefis
-                            part_data_f
-                            part_io_f
-                            part_kernel_f
-                            part_utils_f)
-    target_link_libraries(${executable_name} ${oss_dependencies})
 
+set(oss_dependencies_general deltares_common
+                             deltares_common_c
+                             nefis
+                             part_data_f
+                             part_utils_f
+                             part_kernel_f
+                             part_io_f
+                             gridgeom
+                             kdtree_wrapper
+                             kdtree2
+                             waq_utils_f
+                             io_netcdf
+                             io_hyd)
+
+
+# Add dependencies
+if (UNIX)
+    # the `pkg_check_modules` function is created with this call
+    find_package(PkgConfig REQUIRED)
+
+    # these calls create special `PkgConfig::<MODULE>` variables
+    pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET netcdf)
+    pkg_check_modules(NETCDF_FTN REQUIRED IMPORTED_TARGET netcdf-fortran)
+
+    set(oss_dependencies ${oss_dependencies_general})
+
+    target_link_libraries(${executable_name}
+         ${oss_dependencies}
+         PkgConfig::NETCDF
+         PkgConfig::NETCDF_FTN)
+    
+endif(UNIX)
+
+if (WIN32)
+    set(oss_dependencies ${oss_dependencies_general}
+                         netcdf4
+                         netcdff)
+
+    target_link_libraries(${executable_name} ${oss_dependencies})
+endif(WIN32)
 oss_include_libraries(${executable_name} oss_dependencies)
 
 
 # Set additional compilation properties
 target_compile_options(${executable_name} PRIVATE "${extend_source132_flag}")
+target_compile_options(${executable_name} PRIVATE "${traceback_flag}")
+target_compile_options(${executable_name} PRIVATE "$<$<CONFIG:Debug>:${floating_point_exeption_flag}>")
 target_compile_options(${executable_name} PRIVATE "$<$<CONFIG:Debug>:${check_bounds_flag}>")
 target_compile_options(${executable_name} PRIVATE "$<$<CONFIG:Debug>:${check_pointer}>")
 

@@ -1713,7 +1713,7 @@ function ug_write_mesh_arrays(ncid, meshids, meshName, dim, dataLocs, numNode, n
             endif
             if (meshids%varids(mid_interfacesigma) > 0) then
                ! sigma-layers (also partly, when in combined ocean_sigma_z)
-               ierr = nf90_put_var(ncid, meshids%varids(mid_interfacesigma), interface_zs(numLayer + 1-nsigma:numlayer+1),start=(/numLayer + 1-nsigma/))               
+               ierr = nf90_put_var(ncid, meshids%varids(mid_interfacesigma), interface_zs(numLayer + 2-nsigma:numlayer+1),start=(/numLayer + 2-nsigma/))               
             endif
          endif ! interface_zs
       endif ! numLayer
@@ -4343,7 +4343,7 @@ function ug_put_mesh_contact(ncid, contactids, mesh1indexes, mesh2indexes, conta
        ierr = convert_start_index(contacts(2,:), imiss, startIndex, 0)
    endif
 
-   ierr = nf90_put_var(ncid, contactids%varids(cid_contacttopo), contacts)
+   ierr = nf90_put_var(ncid, contactids%varids(cid_contacttopo), abs(contacts))
 
    if (present(contactsids)) then
       ierr = nf90_put_var(ncid, contactids%varids(cid_contactids), contactsids)

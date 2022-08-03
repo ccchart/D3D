@@ -246,9 +246,11 @@ implicit none
     integer            :: md_jasavenet       = 0      !< save network after initialization (1) or not (0)
     integer            :: md_cutcells        = 0
     integer            :: npolf              = 0      !< nr of polygonplotfiles saved with n key in editpol
-
     integer            :: md_usecaching      = 1      !< Use the caching file if it exists (1) or not (0)
 
+    integer            :: md_convertlongculverts = 0      !< convert culverts (and exit program) yes (1) or no (0)
+    character(len=128) :: md_culvertprefix   = ' '    !< prefix for generating long culvert files
+    
 !   map file output format
     integer,            parameter             :: NUMFORMATS      = 4
 
@@ -485,21 +487,45 @@ subroutine loadModel(filename)
     network%sferic = jsferic==1
 
     threshold_abort = LEVEL_FATAL
-
-    if (istat == 0 .and. jadoorladen == 0 .and. network%numk > 0 .and. network%numl > 0) then
-
-
+    if (istat == 0 .and. jadoorladen == 0 .and. network%numk > 0 .and. network%numl > 0) then 
       timerHandle = 0
       call timstrt('Read 1d attributes', timerHandle)
       call read_1d_attributes(md_1dfiles, network)
       call timstop(timerHandle)
-
+       
        ! set administration arrays and fill cross section list. So getbobs for 1d can be called.
       timerHandle = 0
       call timstrt('Initialise 1d administration', timerHandle)
       call initialize_1dadmin(network, network%numl)
       call timstop(timerHandle)
+    endif
+    timerHandle = 0
+    call timstrt('Read structures', timerHandle)
+    
+    if (len_trim(md_1dfiles%structures) > 0) then
+      call SetMessage(LEVEL_INFO, 'Reading Structures ...')
+      call readStructures(network, md_1dfiles%structures)
+      call SetMessage(LEVEL_INFO, 'Reading Structures Done')
 
+      if ( md_convertlongculverts == 0) then
+        fnamesstring = md_1dfiles%structures
+        call strsplit(fnamesstring,1,fnames,1)
+        call loadLongCulvertsAsNetwork(fnames(1), 0, istat)
+        do ifil=2,size(fnames)
+          call loadLongCulvertsAsNetwork(fnames(ifil), 1, istat)
+        end do
+        deallocate(fnames)
+        if (.not. newculverts) call finalizeLongCulvertsInNetwork()
+      endif
+    endif
+    call timstop(timerHandle)
+    
+    !if (getMaxErrorLevel() >= LEVEL_ERROR) then
+    !   msgbuf = 'loadModel for '''//trim(filename)//''': Errors were found, please check the diagnostics file.'
+    !   call fatal_flush()
+    !endif
+    
+  
        ! fill bed levels from values based on links
        do L = 1, network%numl
           tempbob = getbobs(network, L)
@@ -516,29 +542,7 @@ subroutine loadModel(filename)
           endif
           zk(k1) = min(zk(k1),tempbob(1))
           zk(k2) = min(zk(k2),tempbob(2))
-       enddo
-
-    endif
-
-    timerHandle = 0
-    call timstrt('Read structures', timerHandle)
-
-    if (len_trim(md_1dfiles%structures) > 0) then
-      call SetMessage(LEVEL_INFO, 'Reading Structures ...')
-      call readStructures(network, md_1dfiles%structures)
-      call SetMessage(LEVEL_INFO, 'Reading Structures Done')
-
-      fnamesstring = md_1dfiles%structures
-      call strsplit(fnamesstring,1,fnames,1)
-      call loadLongCulvertsAsNetwork(fnames(1), 0, istat)
-      do ifil=2,size(fnames)
-         call loadLongCulvertsAsNetwork(fnames(ifil), 1, istat)
-      end do
-      deallocate(fnames)
-
-      call finalizeLongCulvertsInNetwork()
-   endif
-   call timstop(timerHandle)
+       enddo    
 
     ! Load land boundary from file.
     if (len_trim(md_ldbfile) > 0) then
@@ -812,6 +816,15 @@ subroutine readMDUFile(filename, istat)
     md_1dfiles%roughnessdir = ' '
     call prop_get_string ( md_ptr, 'geometry', 'NetFile',          md_netfile,      success)
     call prop_get_string ( md_ptr, 'geometry', 'GridEnclosureFile',md_encfile,      success)
+    tmpstr = ''
+    call prop_get_string ( md_ptr, 'geometry', 'BathymetryFile',   tmpstr,      success)
+    if (success .and. len_trim(tmpstr) > 0) then
+        istat = -1
+        call mess(LEVEL_ERROR, 'Error while reading '''//trim(filename)//''': keyword [geometry] BathmetryFile is not longer supported. Place bedlevel in IniFieldFile or ExtFile instead.')
+        return
+    end if
+
+       
     call prop_get_string ( md_ptr, 'geometry', 'DryPointsFile',    md_dryptsfile,   success)
     call prop_get_string ( md_ptr, 'geometry', 'WaterLevIniFile',  md_s1inifile,    success)
     call prop_get_string ( md_ptr, 'geometry', 'LandBoundaryFile', md_ldbfile,      success)
@@ -2024,7 +2037,7 @@ subroutine readMDUFile(filename, istat)
           jafullgridoutput = 1
        endif
     endif
-
+   
     call prop_get_integer( md_ptr, 'output', 'EulerVelocities', jaeulervel)
     if ((jawave<3 .or. flowWithoutWaves) .and. jaeulervel == 1 ) then    ! also for surfbeat
        call mess(LEVEL_WARN, '''EulerVelocities'' is not compatible with the selected Wavemodelnr. ''EulerVelocities'' is set to zero.')
@@ -2811,7 +2824,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     endif
 
     if (writeall .or. jaPure1D > 0) then
-       call prop_set(prop_ptr, 'numerics', 'Pure1D'        , jaPure1D, 'along 1D channels: 0 = org 1D advec, 1 = pure1D using vol1_f, 2 = pure1D using vol1')
+       call prop_set(prop_ptr, 'numerics', 'Pure1D'        , jaPure1D, 'along 1D channels: 0 = 2D Perot, 1 = 1D Perot using vol1_f, 2 = 1D Perot using vol1, 3 and 4 = 1D links')
        call prop_set(prop_ptr, 'numerics', 'Junction1D'    , jaJunction1D, 'at 1D junctions: 0 = org 1D advec, 1 = same as along 1D channels')
     endif
 
@@ -2850,7 +2863,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        elseif (waquaweirthetaw .lt. 0.0d0) then 
            waquaweirthetaw = 0.0d0
            call mess(LEVEL_INFO, 'WARNING: Fixed weir relaxation coefficient is reset to the minimum value of 0.0', '.')
-       endif    
+    endif
     endif
     if (writeall .or. (izbndpos > 0)) then
        call prop_set(prop_ptr, 'numerics', 'Izbndpos',  Izbndpos,   'Position of z boundary (0: D3Dflow, 1: on net boundary, 2: on specified polyline)')
@@ -3055,7 +3068,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        call prop_set(prop_ptr, 'numerics', 'Oceaneddyyoff'       , Oceaneddyyoff)
        call prop_set(prop_ptr, 'numerics', 'Oceaneddyxoff'       , Oceaneddyxoff)
     endif
-    
+
     call prop_set(prop_ptr, 'numerics', 'Testdryingflooding', testdryflood,   'Test for drying flooding algoritm (0: D-Flow FM, 1: Delft3D-FLOW)')
 
 ! Physics

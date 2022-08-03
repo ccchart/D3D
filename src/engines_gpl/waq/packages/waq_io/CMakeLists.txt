@@ -32,6 +32,8 @@ if(UNIX)
     set(oss_dependencies    deltares_common
                             part_data_f
                             part_io_f
+                            io_hyd
+                            io_netcdf
                             waq_kernel
                             waq_plugin_wasteload
                             waq_utils_c
@@ -60,6 +62,8 @@ oss_include_libraries(${library_name} oss_dependencies)
 
 # Set additional compilation properties
 target_compile_options(${library_name} PRIVATE "${extend_source132_flag}")
+target_compile_options(${library_name} PRIVATE "${traceback_flag}")
+target_compile_options(${library_name} PRIVATE "$<$<CONFIG:Debug>:${floating_point_exeption_flag}>")
 target_compile_options(${library_name} PRIVATE "$<$<CONFIG:Debug>:${check_bounds_flag}>")
 target_compile_options(${library_name} PRIVATE "$<$<CONFIG:Debug>:${check_pointer}>")
 

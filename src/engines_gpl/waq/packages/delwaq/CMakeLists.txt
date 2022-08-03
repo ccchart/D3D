@@ -137,7 +137,10 @@ endif(UNIX)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_files})
 source_group(Resources FILES    ${rc_version_file})
 
-set_target_properties(${library_name} PROPERTIES COMPILE_FLAGS ${openmp_flag})
+target_compile_options(${library_name} PRIVATE "${openmp_flag}")
+target_compile_options(${library_name} PRIVATE "${traceback_flag}")
+target_compile_options(${library_name} PRIVATE "$<$<CONFIG:Debug>:${floating_point_exeption_flag}>")
+
 set_target_properties(${library_name} PROPERTIES FOLDER engines_gpl/waq)
 
 if(UNIX)
@@ -162,7 +165,6 @@ post_build_target (${library_name}
 install(TARGETS ${library_name} DESTINATION lib)
 if (UNIX)
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/../engines_gpl/waq/default/bloom.spe      DESTINATION share/delft3d)
-    install(PROGRAMS ${CMAKE_SOURCE_DIR}/../engines_gpl/waq/default/bloominp.d09   DESTINATION share/delft3d)
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/../engines_gpl/waq/default/proc_def.dat   DESTINATION share/delft3d)
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/../engines_gpl/waq/default/proc_def.def   DESTINATION share/delft3d)
 endif(UNIX)

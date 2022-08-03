@@ -31,7 +31,7 @@
 ! $HeadURL$
 
  subroutine inflowcell(xp,yp,k,jaoutside, iLocTp)                      ! is this point in a flowcell
-
+ !FB TODO: this should be a function not a subroutine, return value (k) is not the last argument in list. booleans should be logical not integer.
  use m_flowgeom
  use m_GlobalParameters, only: INDTP_1D, INDTP_2D, INDTP_ALL
  use m_flow
@@ -41,9 +41,10 @@
 
  implicit none
 
- double precision  :: xp, yp
- integer           :: k, jaoutside
- integer,                         intent(in)     :: iLocTp      !< Node type, one of INDTP_1D/2D/ALL.
+ double precision, intent(in) :: xp, yp
+ integer, intent(inout)       :: k !return value, if flowcell is found k = cell index
+ integer, intent(in)          :: jaoutside
+ integer, intent(in)          :: iLocTp      !< Node type, one of INDTP_1D/2D/ALL.
 
  ! locals
  integer           :: n, nn, in, kb, L, nstart, nend

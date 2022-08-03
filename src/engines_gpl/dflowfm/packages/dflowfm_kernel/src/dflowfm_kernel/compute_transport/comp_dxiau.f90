@@ -32,11 +32,11 @@
 
 ! compute Au/Dx for diffusive flux
 subroutine comp_dxiAu()                          ! or: setdxiau
-   use m_flowgeom ! , only : ln, Lnx, dxi, wu, Lnxi
-   use m_flow     ! , only : hs, zws, kmx, Au, hu, jadiffusiononbnd, chkdifd, ifixedweirsc
-   use m_fixedweirs
-   use m_transport, only : dxiAu, jalimitdtdiff
-   use timers
+   use m_flowgeom  , only : ln, Lnx, dxi, wu, Lnxi, bob
+   use m_flow      , only : hs, zws, kmx, Au, hu, jadiffusiononbnd, chkdifd, ifixedweirscheme, s1
+   use m_fixedweirs, only : nfxw, lnfxw
+   use m_transport , only : dxiAu, jalimitdtdiff
+   use timers      , only : timon, timstrt, timstop
 
    implicit none
 
@@ -103,7 +103,7 @@ subroutine comp_dxiAu()                          ! or: setdxiau
             hh = max( s1(k1), s1(k2) ) - max( bob(1,L), bob(2,L) )
             if (hh > 0) then
                ff = wu(L) * hh / au(L) 
-               call getLbotLtop(LL,Lb,Lt)
+               call getLbotLtop(L,Lb,Lt)
                do L=Lb,Lt
                   dxiAu(L) = dxiAu(L)*ff
                end do

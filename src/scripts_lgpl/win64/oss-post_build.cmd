@@ -505,7 +505,6 @@ rem ==========================
         call :copyFile "!build_dir!\dflowfm_cli_exe\!configuration!\dflowfm-cli.*"                                           !dest_bin!
 
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\bloom.spe"                                             !dest_default!
-        call :copyFile "!checkout_src_root!\engines_gpl\waq\default\bloominp.d09"                                          !dest_default!
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\proc_def.dat"                                          !dest_default!
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\proc_def.def"                                          !dest_default!
         
@@ -549,7 +548,6 @@ rem =================================
         call :copyFile "!build_dir!\dflowfm\!configuration!\dflowfm.exe"                                                   !dest_bin!
 
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\bloom.spe"                                             !dest_default!
-        call :copyFile "!checkout_src_root!\engines_gpl\waq\default\bloominp.d09"                                          !dest_default!
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\proc_def.dat"                                          !dest_default!
         call :copyFile "!checkout_src_root!\engines_gpl\waq\default\proc_def.def"                                          !dest_default!
         
@@ -809,7 +807,6 @@ rem ==========================
 
         rem default
         call :copyFile !checkout_src_root!\engines_gpl\waq\default\bloom.spe                           !dest_default!
-        call :copyFile !checkout_src_root!\engines_gpl\waq\default\bloominp.d09                        !dest_default!
         call :copyFile !checkout_src_root!\engines_gpl\waq\default\proc_def.dat                        !dest_default!
         call :copyFile !checkout_src_root!\engines_gpl\waq\default\proc_def.def                        !dest_default!
 
@@ -893,6 +890,7 @@ rem ==========================
         
         rem copy binaries and dll 
         call :copyFile "!build_dir!\waq_plugin_wasteload\!configuration!\waq_plugin_wasteload.*"       !dest_bin!
+        call :copyFile "!build_dir!\waq_plugin_wasteload\!configuration!\waq_plugin_wasteload.*"       !build_dir!\delwaq2\!configuration!  ! also copy this dll to debug directory of delwaq2
         call :copyFile "!build_dir!\delwaq\!configuration!\delwaq.*"                                   !dest_bin!
         call :copyFile "!build_dir!\delwaq2\!configuration!\delwaq2.*"                                 !dest_bin!
     )

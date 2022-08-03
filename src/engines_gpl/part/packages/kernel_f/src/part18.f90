@@ -33,6 +33,7 @@ use precision_part               ! single/double precision
 !  module procedure(s)
 !
 use partfl_mod              ! explicit interface
+use random_generator
 !
 implicit none               ! force explicit typing
 !
@@ -45,7 +46,7 @@ contains
                           wvelo  , alpha  , nosubc , icvdf2    )
 !
 !
-!                   Deltares (former: Deltares)
+!                   Deltares
 !
 !                        d e l p a r    v3.30
 !
@@ -153,12 +154,6 @@ contains
       real   (sp),dimension(:,:)  :: flres
       real   (sp),dimension(:,:)  :: wpart
 !
-!     note:
-!       random function rnd() must be declared external, as it is an
-!       intrinsic function for the lahey fortran95 compiler under linux
-!
-      external rnd
-!
       logical  ::   first =  .true.
       real(dp) ::   rseed = 0.5d+00
 !
@@ -167,7 +162,7 @@ contains
       integer(ip) ::  i     , ic    , icvdf  , icvdf2 , idelt , layt  , lun2
       integer(ip) ::  mnmaxk, nocons, nofl1  , nofl2  , nolay , nopart
       integer(ip) ::  nosubc, nosubs, npwndw
-      real   (sp) ::  alpha , arand , flux   , pblay  , ptlay , rnd
+      real   (sp) ::  alpha , arand , flux   , pblay  , ptlay
       real   (sp) ::  tflux , vol1  , vol2
       integer(4) ithndl              ! handle to time this subroutine
       data       ithndl / 0 /
