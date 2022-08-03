@@ -47,7 +47,6 @@
  qingrw = 0d0 ; qoutgrw = 0d0; Volgrw = 0d0
 
  if (infiltrationmodel == DFM_HYD_INFILT_HORTON) then  ! Horton's infiltration equation
-    infiltcap0 = infiltcap/mmphr_to_mps
     ierr = infiltration_horton_formula(ndx, HortonMinInfCap, HortonMaxInfCap, HortonDecreaseRate, HortonRecoveryRate, infiltcap0, infiltcap, &
                                        dts, hs, rain, jarain, HortonState)
     infiltcap = infiltcap*mmphr_to_mps

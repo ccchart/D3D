@@ -11536,7 +11536,8 @@ subroutine unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_re
       call realloc(contacttype, ncontacts, keepExisting = .false.)
 
       call realloc(hashlist_contactids%id_list, contactnlinks + ncontacts, keepExisting = .true.) ! Remember contactids for later use.
-      call realloc(contactnetlinks, contactnlinks + ncontacts, keepExisting = .true.) ! Remember contact netlinks for later use.
+      call realloc(contactnetlinks, contactnlinks + ncontacts, keepExisting = .true.) ! Remember contact netlink numbers for later use.
+      call realloc(contact1d2didx, (/ 2, contactnlinks + ncontacts /), keepExisting = .true.) ! Remember contact connectivity table for later use.
 
       ierr = ionc_get_mesh_contact_ugrid(ioncid, im, mesh1indexes, mesh2indexes, hashlist_contactids%id_list(contactnlinks+1:contactnlinks+ncontacts), contactslongnames, contacttype, 1 )
       hashlist_contactids%id_count = contactnlinks + ncontacts
@@ -11569,6 +11570,8 @@ subroutine unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_re
          !      exit
          !   endif
          !enddo
+         contact1d2didx(1,contactnlinks+L) = mesh1indexes(L)
+         contact1d2didx(2,contactnlinks+L) = mesh2indexes(L)
          if (nodesOnBranchVertices == 1) then
             kn(1,numl_last+l) = mesh1dUnmergedToMerged(mesh1indexes(l))
          else
@@ -14423,7 +14426,7 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou)
    ierr = ug_inq_varid(ncid, id_tsp%meshids2d, 'node_z', id_tsp%id_netnodez(2))
    ! ierr = ug_inq_varid(mapids%ncid, mapids%id_tsp%meshids3d, 'node_z', mapids%id_netnodez(3)) ! TODO: AvD: 3D UGRID not yet
 
-!   ierr = unc_def_var_map(mapids, mapids%id_flowelemcontourx(:), nf90_double, UNC_LOC_S, 'FlowElemContour_x', '', '', 'm', (/ id_flowelemcontourptsdim, id_seddim, -1 /).
+!   ierr = unc_def_var_map(mapids, mapids%id_flowelemcontourx(:), nf90_double, UNC_LOC_S, 'FlowElemContour_x', '', '', 'm', (/ id_flowelemcontourptsdim, id_seddim, -1 /)).
 
    ierr = unc_def_var_map(ncid, id_tsp, id_tsp%id_flowelemba(:), nf90_double, UNC_LOC_S, 'flowelem_ba', 'cell_area', '', 'm2', 0, jabndnd=jabndnd_)
    ierr = unc_def_var_map(ncid, id_tsp, id_tsp%id_flowelembl(:), nf90_double, UNC_LOC_S, 'flowelem_bl', 'altitude', 'flow element center bedlevel (bl)', 'm', 0, jabndnd=jabndnd_)
@@ -14714,7 +14717,7 @@ subroutine unc_write_flowgeom_filepointer(igeomfile, jabndnd)
     ! Add grid_mapping reference to all original coordinate and data variables
     ierr = unc_add_gridmapping_att(igeomfile, &
        (/ id_flowelembl /), jsferic)
-!       (/ id_flowelemxcc, id_flowelemycc, id_flowelemcontourx, id_flowelemcontoury, &
+!       (/ id_flowelemxcc, id_flowelemycc, id_flowelemcontourx, id_flowelemcontoury, )&
 
     if (lnx > 0) then
        ierr = unc_add_lonlat_vars(igeomfile, 'FlowLink',        'u' , (/ id_flowlinkdim /),                           id_flowlinklonu,       id_flowlinklatu,       jsferic)
@@ -16626,15 +16629,32 @@ subroutine definencvar(ncid, idq, itype, idims, n, name, desc, unit, namecoord, 
 !! |  0      |  .false.          |  .false.         |
 !! Using this approach, the original 2d array, of size (/2, numl1d/), can be stored in a 1d array work1di.
 subroutine convert_hysteresis_summerdike(logic2int, work1di)
-   use unstruc_channel_flow, only: network
+   use unstruc_channel_flow, only: network, useVolumeTables
+   use m_flowgeom
+   use m_VolumeTables
+
    implicit none
    logical,               intent(in   ) :: logic2int !< true: convert from logic values to integers
                                                      !< false: convert from integers to logic values
    integer, dimension(:), intent(inout) :: work1di   !< array storing integers
 
-   integer :: L, irem
+   integer :: L, irem, k, ndx1d, i
 
    if (logic2int) then
+      if (useVolumeTables) then
+         ndx1d = ndx - ndx2d
+         do k = 1, ndx1d
+            do i = 1, vltb(k)%numberOfSummerDikes
+               L = vltb(k)%linkNumber(i)
+               if (k == ln(1,L)) then
+                  network%adm%hysteresis_for_summerdike(1,L) = vltb(k)%inundationPhase(i)
+               else
+                  network%adm%hysteresis_for_summerdike(2,L) = vltb(k)%inundationPhase(i)
+               endif
+            enddo
+         enddo
+      endif
+
       do L = 1, network%numl
          work1di(L) = 1*merge(1, 0, network%adm%hysteresis_for_summerdike(1,L)) &
                     + 2*merge(1, 0, network%adm%hysteresis_for_summerdike(2,L))
@@ -16646,6 +16666,21 @@ subroutine convert_hysteresis_summerdike(logic2int, work1di)
          network%adm%hysteresis_for_summerdike(1,L) = (irem == 1)
          network%adm%hysteresis_for_summerdike(2,L) = (work1di(L) - irem == 2)
       end do
+
+      if (useVolumeTables) then
+         ndx1d = ndx - ndx2d
+         do k = 1, ndx1d
+            do i = 1, vltb(k)%numberOfSummerDikes
+               L = vltb(k)%linkNumber(i)
+               if (k == ln(1,L)) then
+                  vltb(k)%inundationPhase(i) = network%adm%hysteresis_for_summerdike(1,L) 
+               else
+                  vltb(k)%inundationPhase(i) = network%adm%hysteresis_for_summerdike(2,L) 
+               endif
+            enddo
+         enddo
+      endif
+
    end if
 end subroutine convert_hysteresis_summerdike
 

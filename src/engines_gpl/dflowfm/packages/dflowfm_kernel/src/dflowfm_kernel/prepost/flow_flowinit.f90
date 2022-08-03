@@ -86,6 +86,7 @@
  integer :: ihandle
  double precision :: psi, samp, ct, st, omeg, t, rr, rmx, x0, y0, dxx, dyy, blmn, blmx, dbl, bot, rms, ucmk, phi, dphi
  character(len=255) :: rstfile
+ character(len=Idlen) :: fileName
  character(len=4)   :: EXT
  logical :: jawel, jawelrestart
  integer :: nstrucsg, L0, istru
@@ -967,6 +968,7 @@ end if
 
 
  call adjust_bobs_for_dams_and_structs()
+ call setup_structures_and_weirs_list()
 
  ! Floodfill water levels based on sample file.
  if (len_trim(md_s1inifile) > 0) then
@@ -1371,7 +1373,8 @@ end if
   ihandle = 0
  call timstrt('makeVolumeTables', ihandle)
  if (useVolumeTables) then
-     call makeVolumeTables()
+     filename = defaultFilename('volumeTables')
+     call makeVolumeTables(filename)
  endif
  call timstop(ihandle)
 

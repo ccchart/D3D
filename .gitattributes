@@ -1845,6 +1845,7 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setpo
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setprofs1d.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setstruclink.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setuniformwind.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setup_structures_and_weirs_list.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setupwslopes.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setvelocityfield.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/setwallorientations.f90 -text
@@ -17654,6 +17655,18 @@ src/tools_gpl/lint/packages/lint_version_number/src/Makefile.am -text
 src/tools_gpl/lint/packages/lint_version_number/src/c2c.c -text
 src/tools_gpl/lint/packages/lint_version_number/src/f2c.c -text
 src/tools_gpl/lint/packages/lint_version_number/src/version.c -text
+src/tools_gpl/maptonetcdf/Makefile.am -text
+src/tools_gpl/maptonetcdf/packages/Makefile.am -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/CMakeLists.txt -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/Makefile.am -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/include/maptonetcdf_version.rc.svn -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/include/resource.h -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/include/version_number.ini -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/src/maptonetcdf.f90 -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/src/maptonetcdf_version.F90 -text
+src/tools_gpl/maptonetcdf/packages/maptonetcdf/src/maptonetcdf_version.F90.svn -text
+src/tools_gpl/maptonetcdf/scripts/run_maptonetcdf.bat -text
+src/tools_gpl/maptonetcdf/scripts/run_maptonetcdf.sh -text
 src/tools_gpl/mormerge/Makefile.am -text
 src/tools_gpl/mormerge/packages/Makefile.am -text
 src/tools_gpl/mormerge/packages/mormerge/CMakeLists.txt -text
