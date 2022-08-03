@@ -12,6 +12,11 @@
 # 3. Modify the run_singularity script, see remarks below.
 # 4. Execute the script from the command line.
 #    You can feed the script to a queueing system.
+#    Examples:
+#      On local machine:
+#      > ./run_singularity.sh
+#      Using SGE queueing system:
+#      > qsub ./run_singularity.sh
 #
 # "execute_singularity.sh -p 2": Parent level to mount:
 # If your working folder does not contain all of the input files, then you must set the -p flag.
@@ -28,8 +33,8 @@
 # Set number of partitions (this script only works for one node)
 nPart=3
 
-# Set the path to the folder containing the singularity image
-singularitydir=/p/d-hydro/delft3dfm_containers/pleaseChooseTheContainerYourRequire
+# Set the path to the folder containing the singularity image and the execute_singularity.sh script. For example: 
+singularitydir=/p/d-hydro/delft3dfm_containers/delft3dfm_2022.03
 
 
 # DIMR input file; must already exist!
@@ -71,8 +76,8 @@ else
     # "-p": See above. Arguments after "run_dflowfm.sh" are explained in run_dflowfm.sh
     $singularitydir/execute_singularity.sh -p 2 run_dflowfm.sh --partition:ndomains=$nPart:icgsolver=6 $mduFile
     
-	# Jump back to the dimr config file folder to execute dimr
-    cd ..
+    # Jump back to the dimr config file folder to execute dimr
+    cd path/to/directory/containing/the/dimr_config/file
     # Second: computation
     echo computation...
     # mpiexec is executed inside run_dimr.sh    
@@ -84,5 +89,5 @@ else
     cd path/to/directory/containing/the/dflowfm/output/files
     # "-p": See above. Arguments after "run_dfmoutput.sh" are explained in run_dfmoutput.sh
     $singularitydir/execute_singularity.sh -p 2 run_dfmoutput.sh -- -d mapmerge --infile f34_0000_map.nc f34_0001_map.nc f34_0002_map.nc --outfile f34_map.nc
-    cd ../..
+    cd jump/back
 fi

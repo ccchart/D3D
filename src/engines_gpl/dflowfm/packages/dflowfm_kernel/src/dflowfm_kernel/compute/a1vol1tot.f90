@@ -81,6 +81,7 @@
     volcur(IDX_VOLTOT) = vol1tot
     volcur(IDX_STOR)   = vol1tot
     vol1ini = vol1tot
+
 !   vol1ini needs to be global
     if ( jampi.eq.1 ) then
        call reduce_double_sum(1, (/ vol1ini /), dum)

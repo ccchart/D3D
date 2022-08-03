@@ -24,8 +24,6 @@ function print_usage_info {
     echo "       print this help message and exit"
     echo "-m, --masterfile <filename>"
     echo "       dimr configuration filename, default dimr_config.xml"
-    echo "--dockerparallel"
-    echo "       A parallel run inside docker"
     echo "The following arguments are used when called by submit_dimr.sh:"
     echo "    --D3D_HOME <path>"
     echo "       path to binaries and scripts"
@@ -45,7 +43,6 @@ corespernodedefault=1
 corespernode=$corespernodedefault
 debuglevel=-1
 configfile=dimr_config.xml
-dockerprl=0
 D3D_HOME=
 runscript_extraopts=
 NNODES=1
@@ -75,9 +72,6 @@ case $key in
     -m|--masterfile)
     configfile="$1"
     shift
-    ;;
-    --dockerparallel)
-    dockerprl=1
     ;;
     --D3D_HOME)
     D3D_HOME="$1"
@@ -113,17 +107,18 @@ else
     debugarg="-d $debuglevel"
 fi
 
-# set the number of OpenMP threads equal to max(2,NumberOfPhysicalCores-2)
 if [ -z ${OMP_NUM_THREADS+x} ]; then 
     # If OMP_NUM_THREADS is not already defined:
     # Since OMP_NUM_THREADS is advised to be 1, don't do any smart setting, just set it to 1
-    # export NumberOfPhysicalCores=`cat /proc/cpuinfo | grep "cpu cores" | uniq | awk -F: '{print $2}'` 
-    # export OMP_NUM_THREADS=`expr $NumberOfPhysicalCores - 2`
-    # if [ $OMP_NUM_THREADS -lt 2 ]; then
-    #     export OMP_NUM_THREADS=2
-    # fi
+      # Optionally: set the number of OpenMP threads equal to max(2,NumberOfPhysicalCores-2)
+      # export NumberOfPhysicalCores=`cat /proc/cpuinfo | grep "cpu cores" | uniq | awk -F: '{print $2}'` 
+      # export OMP_NUM_THREADS=`expr $NumberOfPhysicalCores - 2`
+      # if [ $OMP_NUM_THREADS -lt 2 ]; then
+      #     export OMP_NUM_THREADS=2
+      # fi
     export OMP_NUM_THREADS=1
-else echo "OMP_NUM_THREADS is already defined"
+else
+    echo "OMP_NUM_THREADS is already defined"
 fi
 
 export NSLOTS=`expr $NNODES \* $corespernode` 
@@ -148,11 +143,20 @@ export D3D_HOME
 PROC_DEF_DIR=$D3D_HOME/share/delft3d
 export PROC_DEF_DIR
 
-# Always try the following module load
-module load intelmpi/21.2.0 &>/dev/null
 
-export FI_PROVIDER=tcp
- 
+
+# On Deltares systems only:
+if [ -f "/opt/apps/deltares/.nl" ]; then
+    # Try the following module load
+    module load intelmpi/21.2.0 &>/dev/null
+
+    # If not defined yet: Define I_MPI_FABRICS and FI_PROVIDER with proper values for Deltares systems
+    [ ! -z "$I_MPI_FABRICS" ] && echo "I_MPI_FABRICS is already defined" || export I_MPI_FABRICS=shm
+    [ ! -z "$FI_PROVIDER" ] && echo "FI_PROVIDER is already defined" || export FI_PROVIDER=tcp
+fi
+
+
+
 echo "    Configfile       : $configfile"
 echo "    D3D_HOME         : $D3D_HOME"
 echo "    PROC_DEF_DIR     : $PROC_DEF_DIR"
@@ -160,7 +164,6 @@ echo "    Working directory: $workdir"
 echo "    Number of nodes  : $NNODES"
 echo "    Number of slots  : $NSLOTS"
 echo "    OMP_NUM_THREADS  : $OMP_NUM_THREADS"
-echo "    Docker parallel  : $dockerprl"
 echo "    `type mpiexec`"
 echo "    FI_PROVIDER      : $FI_PROVIDER"
 echo "    I_MPI_FABRICS    : $I_MPI_FABRICS"
@@ -210,46 +213,30 @@ if [ $NSLOTS -eq 1 ]; then
     echo "$bindir/dimr $configfile $debugarg"
           $bindir/dimr $configfile $debugarg
 else
-    if [ $dockerprl -eq 1 ]; then
-        #
-        # Parallel in Docker
-        # Assumption: 1 node
-
-        node_number=$NSLOTS
-        while [ $node_number -ge 1 ]; do
-           node_number=`expr $node_number - 1`
-           ln -s /dev/null log$node_number.irlog
-        done
-
-        echo "executing:"
-        echo "mpirun -np $NSLOTS $bindir/dimr $configfile $debugarg"
-              mpirun -np $NSLOTS $bindir/dimr $configfile $debugarg
+    #
+    # Create machinefile using $PE_HOSTFILE
+    if [ $NNODES -eq 1 ]; then
+        echo " ">$(pwd)/machinefile
     else
-        #
-        # Create machinefile using $PE_HOSTFILE
-        if [ $NNODES -eq 1 ]; then
-            echo " ">$(pwd)/machinefile
-        else
-            if [ -n $corespernode ]; then
-                if [ -e $(pwd)/machinefile ]; then
-                    rm -f machinefile
-                fi
-                for (( i = 1 ; i <= $corespernode; i++ )); do
-                    awk '{print $1":"1}' $PE_HOSTFILE >> $(pwd)/machinefile
-                done
-            else
-               awk '{print $1":"2}' $PE_HOSTFILE > $(pwd)/machinefile
+        if [ -n $corespernode ]; then
+            if [ -e $(pwd)/machinefile ]; then
+                rm -f machinefile
             fi
+            for (( i = 1 ; i <= $corespernode; i++ )); do
+                awk '{print $1":"1}' $PE_HOSTFILE >> $(pwd)/machinefile
+            done
+        else
+           awk '{print $1":"2}' $PE_HOSTFILE > $(pwd)/machinefile
         fi
-        echo Contents of machinefile:
-        cat $(pwd)/machinefile
-        echo ----------------------------------------------------------------------
-
-
-        echo "executing:"
-        echo "mpiexec -np $NSLOTS $bindir/dimr $configfile $debugarg"
-              mpiexec -np $NSLOTS $bindir/dimr $configfile $debugarg
     fi
+    echo Contents of machinefile:
+    cat $(pwd)/machinefile
+    echo ----------------------------------------------------------------------
+
+
+    echo "executing:"
+    echo "mpiexec -np $NSLOTS $bindir/dimr $configfile $debugarg"
+          mpiexec -np $NSLOTS $bindir/dimr $configfile $debugarg
 fi
 
 

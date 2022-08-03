@@ -1067,7 +1067,7 @@ subroutine useBranchOrdersCrs(crs, brs)
       crs%cross(minindex) = cross
       ! Check for multiple cross sections at one location.
       if (ics > 1) then
-         if ( (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
+         if ( crs%cross(ics)%branchid > 0 .and. (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
             msgbuf = 'Cross section ''' // trim(crs%cross(ics-1)%csid) // ''' and ''' // trim(crs%cross(ics)%csid) // ''' are exactly at the same location.'
             call err_flush()
          endif
@@ -1440,7 +1440,6 @@ subroutine GetCSParsTotalInterpolate(line2cross, cross, dpt, totalArea, totalWid
    integer, intent(in)                       :: calculationOption 
    logical, intent(in), optional             :: doSummerDike   !< Switch to calculate Summer Dikes or not
    logical, intent(inout), optional          :: hysteresis(2)  !< hysteresis information for summer dikes
-   
    double precision                      :: f              !< cross = (1-f)*cross1 + f*cross2
    double precision                      :: totalArea1
    double precision                      :: totalArea2
@@ -1451,7 +1450,6 @@ subroutine GetCSParsTotalInterpolate(line2cross, cross, dpt, totalArea, totalWid
    type (t_CrossSection), pointer        :: cross2         !< cross section
    integer, save                         :: ihandle   = 0
 
-   
    if (line2cross%c1 <= 0) then
       ! no cross section defined on branch, use default definition
       totalArea = default_width* dpt
@@ -1521,8 +1519,6 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
    integer, intent(in)               :: calculationOption 
    logical, intent(in), optional     :: doSummerDike    !< Switch to calculate Summer Dikes or not
    logical, intent(inout)            :: hysteresis!< Switch to calculate Summer Dikes or not
-
-
    ! Local Variables
    type(t_CSType), pointer           :: crossDef
    double precision                  :: wetperimeter
@@ -1531,6 +1527,7 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
    logical                           :: getSummerDikes
    double precision                  :: af_sub(3), perim_sub(3)
    integer, save                     :: ihandle = 0
+
    if (dpt < 0.0d0) then
       totalArea = 0.0d0
       totalWidth = sl
@@ -1631,7 +1628,7 @@ subroutine TabulatedProfile(dpt, cross, doFlow, getSummerDikes, area, width, max
       
       else
       
-         ! Get Summer Dike Total Data
+         ! Get Summer Dike Total Data   
          call GetSummerDikeTotal(summerdike, wlev, sdArea, sdWidth, hysteresis)
       
       endif
@@ -2314,6 +2311,7 @@ subroutine GetSummerDikeTotal(summerdike, wlev, sdArea, sdWidth, hysteresis)
          hysteresis = .true.
       else
       endif
+
       
       if (hysteresis) then
       

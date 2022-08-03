@@ -167,6 +167,9 @@ module m_readstructures
       call tree_create(trim(structurefile), md_ptr, maxlenpar)
       call prop_file('ini',trim(structurefile),md_ptr,istat)
       
+      msgbuf = 'Reading '//trim(structurefile)//'.'
+      call msg_flush()
+      
       ! check FileVersion
       ierr = 0
       major = 1
@@ -678,6 +681,7 @@ module m_readstructures
          
       icross = AddCrossSection(network%crs, network%CSDefinitions, 0, 0.0d0, CrsDefIndx, 0.0d0, &
                                bedFrictionType, bedFriction, groundFrictionType, groundFriction)
+      network%crs%cross(icross)%csid = 'CS_Culvert_'//trim(st_id)
       network%crs%cross(icross)%branchid = -1
          
       culvert%pcross         => network%crs%cross(icross)
@@ -842,7 +846,8 @@ module m_readstructures
             icross = AddCrossSection(network%crs, network%CSDefinitions, 0, 0.0d0, CrsDefIndx, 0.0d0, &
                                      bridge%bedFrictionType, bridge%bedFriction, groundFrictionType = -1, groundFriction = -1d0)
             network%crs%cross(icross)%branchid = -1
-         
+            network%crs%cross(icross)%csid = 'CS_Bridge_'//trim(st_id)
+
             bridge%useOwnCrossSection = .true.
             bridge%pcross             => network%crs%cross(icross)
             bridge%crosssectionnr     = icross

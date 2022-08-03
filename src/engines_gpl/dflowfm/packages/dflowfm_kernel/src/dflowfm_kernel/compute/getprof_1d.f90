@@ -41,6 +41,8 @@ use m_missing
 use unstruc_channel_flow
 use m_crosssections
 use m_cross_helper
+use unstruc_model, only: md_restartfile
+use precision_basics
 
 implicit none
 integer          :: L, japerim, calcConv

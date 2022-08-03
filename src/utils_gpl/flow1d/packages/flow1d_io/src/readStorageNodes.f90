@@ -45,12 +45,13 @@ module m_readStorageNodes
 
    public readStorageNodes
    
-   ! Storage nodes file current version: 2.00
+   ! Storage nodes file current version: 2.01
    integer, parameter :: storgNodesFileMajorVersion = 2
-   integer, parameter :: storgNodesFileMinorVersion = 0
+   integer, parameter :: storgNodesFileMinorVersion = 1
    
    ! History storage nodes file versions:
 
+   ! 2.01 (2022-05-11): added branchId+chainage as possible location.
    ! 2.00 (2019-08-27): renamed to storage nodes, added x/y as possible location, added storage table option.
    ! 1.00 (2018-08-13): initial "urban" version of storage nodes ('retentions').
 
@@ -65,7 +66,7 @@ module m_readStorageNodes
       character*(*),   intent(in   )                :: storgNodesFile
 
       logical                                       :: success
-      logical                                       :: success1
+      logical                                       :: success1, success2
       type(tree_data), pointer                      :: md_ptr
       type(tree_data), pointer                      :: node_ptr
       integer                                       :: istat
@@ -76,12 +77,13 @@ module m_readStorageNodes
       character(len=IdLen)                          :: fileType
       character(len=IdLen)                          :: storgNodeId
       character(len=IdLen)                          :: storgNodeName
-      character(len=IdLen)                          :: nodeId
+      character(len=IdLen)                          :: nodeId, branchId
       character(len=IdLen)                          :: sStorageType
       integer                                       :: storageType
       logical                                       :: useTable1
       
       double precision                              :: x, y
+      double precision                              :: chainage
       double precision, allocatable, dimension(:)   :: x_tmp, y_tmp
       integer                                       :: branchIdx
       integer                                       :: nodeIdx
@@ -105,6 +107,9 @@ module m_readStorageNodes
 
       call tree_create(trim(storgNodesFile), md_ptr, maxlenpar)
       call prop_file('ini',trim(storgNodesFile),md_ptr, istat)
+
+      msgbuf = 'Reading '//trim(storgNodesFile)//'.'
+      call msg_flush()
       
       ! check FileVersion
       major = 0
@@ -140,7 +145,7 @@ module m_readStorageNodes
             if ((.not. success) .or. (.not. strcmpi(fileType,'storagenodes'))) then
                write(msgbuf, '(5a)') 'Wrong block in file ''', trim(storgNodesFile), ''': [', trim(blockname), ']. Field ''fileType'' is missing or not correct. Support fileType = storagenodes. Ignoring this file'
                call warn_flush()
-               goto 999
+               cycle
             endif
             
             ! read useStreetStorage
@@ -153,6 +158,9 @@ module m_readStorageNodes
             jageneral = 1
             cycle
          else if (strcmpi(blockname,'StorageNode')) then   ! Read [StorageNode] block
+
+            nodeIdx = -1
+            branchIdx = -1
             success = .true.
             jaxy    = 0
             ! read id
@@ -160,34 +168,56 @@ module m_readStorageNodes
             if (.not. success1) then
                write (msgbuf, '(a,i0,a)') 'Error Reading storage node #', network%storS%Count + 1, ', id is missing.'
                call err_flush()
-               success = .false.
+               cycle
             end if
             
             ! read name
             call prop_get_string(node_ptr, '', 'name', storgNodeName, success1)
             success = success .and. check_input(success1, storgNodeId, 'name')
             
-            ! read nodeId
+            ! read location
             call prop_get_string(node_ptr, '', 'nodeId', nodeId, success1)
-            if (.not. success1) then
+            call prop_get_string(node_ptr, '', 'branchId', branchId, success2)
+            if (success1 .and. success2) then
+               ! The input can contain only a nodeId or a branchId, chainage specification.
+               write(msgbuf, '(3a)') 'Inconsistent block in: [', trim(storgNodeId),  &
+                              ']. Either "nodeId" or "branchId, chainage" must be specified (and not both).'
+               call err_flush
+               cycle
+            else if (success1) then
+               ! Location specification by nodeId.
+               nodeIdx = hashsearch(network%nds%hashlist, nodeId)
+               if (nodeIdx <= 0) Then
+                  call SetMessage(LEVEL_ERROR, 'Error Reading Storage Node '''//trim(storgNodeID)//''': node: '''//trim(nodeID)//''' not Found in network.')
+                  cycle
+               endif
+            else if (success2) then
+               ! Location specification by branchId, chainage.
+               branchIdx = hashsearch(network%brs%hashlist, branchId)
+               if (branchIdx <= 0) Then
+                  call SetMessage(LEVEL_ERROR, 'Error Reading Storage Node '''//trim(storgNodeID)//''': branch: '''//trim(branchId)//''' not Found in network.')
+                  cycle
+               endif
+               
+               call prop_get_double(node_ptr, '', 'chainage', chainage, success1)
+               success = check_input(success1, trim(storgNodeId), 'chainage')
+               if (.not. success) then 
+                  cycle
+               endif
+
+            else
                ! read x-, y-coordinates
                call prop_get_double(node_ptr, '', 'x', x, success1)
                success = success .and. success1
                call prop_get_double(node_ptr, '', 'y', y, success1)
                success = success .and. success1
                if (.not. success) then
-                  write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(storgNodesFile), ''': [', trim(blockname), ']. Either "nodeId" or "x, y" must be specified.'
+                  write(msgbuf, '(5a)') 'Incomplete block in file ''', trim(storgNodesFile), ''': [', trim(blockname), ']. Either "nodeId", "branchId, chainage" or "x, y" must be specified.'
                   call err_flush()
+                  cycle
                else
                   jaxy      = 1
-                  gridPoint = -1
                end if
-            else
-               nodeIdx = hashsearch(network%nds%hashlist, nodeId)
-               if (nodeIdx <= 0) Then
-                  call SetMessage(LEVEL_ERROR, 'Error Reading Storage Node '''//trim(storgNodeID)//''': node: '''//trim(nodeID)//''' not Found.')
-                  exit
-               endif
             end if
             
             ! read useTable
@@ -297,13 +327,16 @@ module m_readStorageNodes
             nullify(pSto%storageArea)
             nullify(pSto%streetArea)
 
-            ! Because of the complicated data structure of SOBEK storage in 'connection nodes'
-            ! must be separated from the ordinary gridpoints
             pSto%id        = storgNodeId
             pSto%name      = storgNodeName
-            if (jaxy == 0) then
+            pSto%node_index = -1
+            pSto%branch_index = -1
+            if (nodeIdx > 0) then
                pSto%nodeId    = nodeId
                pSto%node_index= nodeIdx
+            else if (branchIdx > 0) then
+               psto%branch_index = branchIdx
+               pSto%chainage = chainage
             else
                network%storS%Count_xy = network%storS%Count_xy + 1
                pSto%x         = x
@@ -338,7 +371,7 @@ module m_readStorageNodes
          call SetMessage(LEVEL_ERROR, 'Reading storage nodes file: Error Deallocating Arrays')
       endif
       
-      write(msgbuf,'(a,a,i10,a)') 'Done reading storage nodes file,', trim(storgNodesFile), network%storS%Count, ' storage nodes have been read.'
+      write(msgbuf,'(a,a,a,i0,a)') 'Done reading storage nodes file ''', trim(storgNodesFile), ''', ', network%storS%Count, ' storage nodes have been read.'
       call msg_flush()
 
       call fill_hashtable(network%storS)

@@ -235,20 +235,25 @@ scriptdirname=`readlink \-f \$0`
 scriptdir=`dirname $scriptdirname`
 root=$scriptdir
 
-#
-# Dot setenv.sh to load the modules needed
-module list > /dev/null
-if [ $? -ne 0 ]; then
-    echo ". $root/src/setenv_no_modules.sh $compiler"
-          . $root/src/setenv_no_modules.sh $compiler
-else
-    echo ". $root/src/setenv.sh $compiler"
-          . $root/src/setenv.sh $compiler
+# On Deltares systems only:
+if [ -f "/opt/apps/deltares/.nl" ]; then
+    # Check if modules exist
+    module list > /dev/null
+    if [ $? -ne 0 ]; then
+        # No, modules do not exist: "Dot" setenv.sh version without modules
+        echo ". $root/src/setenv_no_modules.sh $compiler"
+              . $root/src/setenv_no_modules.sh $compiler
+    else
+        # Yes, modules do exist: "Dot" setenv.sh to load the modules needed
+        echo ". $root/src/setenv.sh $compiler"
+              . $root/src/setenv.sh $compiler
+    fi
+    if [ $? -ne 0 ]; then
+        echo "Setenv.sh resulted in an error. Check log files."
+        exit 1
+    fi
 fi
-if [ $? -ne 0 ]; then
-    echo "Setenv.sh resulted in an error. Check log files."
-    exit 1
-fi
+
 
 CreateCMakedir ${config} ${buildDirExtension}
 

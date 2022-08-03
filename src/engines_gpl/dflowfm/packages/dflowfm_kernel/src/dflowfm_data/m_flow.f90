@@ -283,11 +283,7 @@
  double precision, allocatable     :: tidep (:,:) !< tidal potential (m2/s2)
  double precision, allocatable     :: tidef (:)   !< tidal force (m/s2)
  double precision, allocatable     :: s1init (:)   !< initial water level, for correction in SAL
-
- double precision, allocatable     :: steric(:,:) !< sal and temp for steric correction in 1,* and 2,*
- double precision                  :: rhosteric   !< later maybe in spatial refdensity
- integer                           :: jasteric=0  !< use steric correction on open waterlevel bnds yes/no
-
+ 
  double precision, allocatable     :: vih   (:)   !< horizontal eddy viscosity in cell center (m2/s)
  double precision, allocatable     :: qin   (:)   !< rain, evap, qlat and src netto inloop (m3/s)
 
@@ -333,6 +329,7 @@
  double precision, allocatable     :: Windspeedfac(:) !< Wind friction coefficient at u point set by initial fields ( todo mag later ook single real worden)
  double precision, allocatable     :: z0ucur(:)   !< current related roughness, moved from waves, always needed
  double precision, allocatable     :: z0urou(:)   !< current and wave related roughness
+ double precision, allocatable, target :: sul(:)  !< water level on flow links (needed in fourier_analysis)
 
  double precision, allocatable     :: frcuroofs(:)!< temp
 

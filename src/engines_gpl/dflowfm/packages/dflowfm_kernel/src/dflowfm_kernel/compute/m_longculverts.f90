@@ -394,6 +394,9 @@ contains
 
        nlongculvertsg0 = nlongculvertsg ! Remember any old longculvert count
 
+       msgbuf = 'Reading long culverts from '//trim(structurefile)//'.'
+       call msg_flush()
+       
        if (jaKeepExisting == 0) then
           nlongculvertsg = 0
           if (allocated(longculverts)) then
@@ -666,69 +669,76 @@ contains
          enddo
       endif
 
-if (newculverts) then
-      do ilongc = 1, nlongculvertsg
-         do i = 2, longculverts(ilongc)%numlinks-1
-            Lf = abs(longculverts(ilongc)%flowlinks(i))         
-            k1 = ln(1,Lf)
-            k2 = ln(2,Lf)
-            bob(1, Lf) = longculverts(ilongc)%bl(i-1)
-            bob(2, Lf) = longculverts(ilongc)%bl(i)
-            if (k1 > ndx2d) then !if 1d link
-               bl(k1) = bob(1,Lf)
-            else
-               bl(k1) = min(bl(k1), bob(1,Lf)) 
+      if (newculverts) then
+         do ilongc = 1, nlongculvertsg
+            do i = 2, longculverts(ilongc)%numlinks-1
+               Lf = abs(longculverts(ilongc)%flowlinks(i))
+               if (Lf > 0) then
+                  k1 = ln(1,Lf)
+                  k2 = ln(2,Lf)
+                  bob(1, Lf) = longculverts(ilongc)%bl(i-1)
+                  bob(2, Lf) = longculverts(ilongc)%bl(i)
+                  if (k1 > ndx2d) then !if 1d link
+                     bl(k1) = bob(1,Lf)
+                  else
+                     bl(k1) = min(bl(k1), bob(1,Lf)) 
+                  end if
+                  if (k2 > ndx2d) then
+                     bl(k2) = bob(2,Lf)
+                  else
+                     bl(k2) = min(bl(k2), bob(2,Lf))
+                  end if
+               end if
+            enddo
+            Lf = abs(longculverts(ilongc)%flowlinks(1))
+            if (Lf > 0) then
+               wu(Lf) = longculverts(ilongc)%width
+               prof1D(1,Lf)  = wu(Lf)
+               prof1D(2,Lf)  = longculverts(ilongc)%height
+               prof1D(3,Lf)  =  -2 
+               bob(1, Lf) = longculverts(ilongc)%bl(1)
+               bob(2, Lf) = bl(ln(2,Lf))
             end if
-            if (k2 > ndx2d) then
-               bl(k2) = bob(2,Lf)
-            else
-               bl(k2) = min(bl(k2), bob(2,Lf))
-            end if
-         
-         enddo
-         Lf = abs(longculverts(ilongc)%flowlinks(1))
-         wu(Lf) = longculverts(ilongc)%width
-         prof1D(1,Lf)  = wu(Lf)
-         prof1D(2,Lf)  = longculverts(ilongc)%height
-         prof1D(3,Lf)  =  -2 
-         
-         Lf = abs(longculverts(ilongc)%flowlinks(longculverts(ilongc)%numlinks))
-         wu(Lf) = longculverts(ilongc)%width
-         prof1D(1,Lf)  = wu(Lf)
-         prof1D(2,Lf)  = longculverts(ilongc)%height
-         prof1D(3,Lf)  =  -2 
-      enddo
-else !voor nu houden we de oude implementatie intact
-  do ilongc = 1, nlongculvertsg
-         do i = 1, longculverts(ilongc)%numlinks
-            Lf = abs(longculverts(ilongc)%flowlinks(i))
-            !if (kcu(lf) == 1) then ! TODO: UNST-5433: change when 1d2d links are *extra* in addition to culvert polyline
-            k1 = ln(1,Lf)
-            k2 = ln(2,Lf)
-            
-            bob(1, Lf) = longculverts(ilongc)%bl(i)
-            bob(2, Lf) = longculverts(ilongc)%bl(i+1)
-            if (k1 > ndx2d) then
-               bl(k1) = bob(1,Lf)
-            else
-            bl(k1) = min(bl(k1), bob(1,Lf))
-            end if
-            if (k2 > ndx2d) then
-               bl(k2) = bob(2,Lf)
-            else
-            bl(k2) = min(bl(k2), bob(2,Lf))
-            end if
-         
       
-            wu(Lf) = longculverts(ilongc)%width
-            prof1D(1,Lf)  = wu(Lf)
-            prof1D(2,Lf)  = longculverts(ilongc)%height
-            prof1D(3,Lf)  =  2                                      ! for now, simple rectan
-
-            !endif
+            Lf = abs(longculverts(ilongc)%flowlinks(longculverts(ilongc)%numlinks))
+            if (Lf > 0) then
+               wu(Lf) = longculverts(ilongc)%width
+               prof1D(1,Lf)  = wu(Lf)
+               prof1D(2,Lf)  = longculverts(ilongc)%height
+               prof1D(3,Lf)  =  -2 
+               bob(1, Lf) = longculverts(ilongc)%bl(longculverts(ilongc)%numlinks-1)
+               bob(2, Lf) = bl(ln(2,Lf))
+            end if
          enddo
-      enddo
-endif
+      else !voor nu houden we de oude implementatie intact
+         do ilongc = 1, nlongculvertsg
+            do i = 1, longculverts(ilongc)%numlinks
+               Lf = abs(longculverts(ilongc)%flowlinks(i))
+               !if (kcu(lf) == 1) then ! TODO: UNST-5433: change when 1d2d links are *extra* in addition to culvert polyline
+               k1 = ln(1,Lf)
+               k2 = ln(2,Lf)
+               
+               bob(1, Lf) = longculverts(ilongc)%bl(i)
+               bob(2, Lf) = longculverts(ilongc)%bl(i+1)
+               if (k1 > ndx2d) then
+                  bl(k1) = bob(1,Lf)
+               else ! k1 = 2d point
+               bl(k1) = min(bl(k1), bob(1,Lf))
+               end if
+               
+               if (k2 > ndx2d) then
+                  bl(k2) = bob(2,Lf)
+               else
+               bl(k2) = min(bl(k2), bob(2,Lf))
+               end if
+                
+               wu(Lf) = longculverts(ilongc)%width
+               prof1D(1,Lf)  = wu(Lf)
+               prof1D(2,Lf)  = longculverts(ilongc)%height
+               prof1D(3,Lf)  =  -2                                      ! for now, simple rectan            
+            enddo
+         enddo
+      endif
 
    end subroutine longculvertsToProfs
 
@@ -742,16 +752,13 @@ endif
       do ilongc = 1, nlongculvertsg
          do LL = 1, longculverts(ilongc)%numlinks
             Lf = abs(longculverts(ilongc)%flowlinks(LL))
+            if (Lf > 0) then
                if (longculverts(ilongc)%ifrctyp > 0) then
                   ifrcutp(Lf) = longculverts(ilongc)%ifrctyp
-               if (longculverts(ilongc)%friction_value > 0) then             
-                  if(newculverts .and. (LL == 1 .or. LL == longculverts(ilongc)%numlinks)) then
-                    frcu(Lf) = 0.0
-                    ifrcutp(Lf) = 0
-                  else
-                    frcu(Lf) = longculverts(ilongc)%friction_value
+                  if (longculverts(ilongc)%friction_value > 0) then
+                     frcu(Lf) = longculverts(ilongc)%friction_value
                   endif
-               endif
+               end if
             end if
          enddo
       enddo
@@ -774,7 +781,9 @@ endif
            else
               L = abs(longculverts(i)%flowlinks(1))
            endif
+           if (L > 0) then
               au(L) = longculverts(i)%valve_relative_opening * au(L)
+           end if
          end if
       enddo
 
@@ -1112,13 +1121,13 @@ endif
 
    end subroutine addlongculvertcrosssections
 
-   !> Fills in flowlink numbers for a giving longculvert.
+   !> Fills in flowlink numbers for a given longculvert.
    !! Note 1: This long culvert is considered invalid if its starting node, or ending node, is outside the global network.
    !! Note 2: In a parallel simulation, the flowlink number gets 0 if the flowlink is not on the current subdomain.
    !! Note 3: In a parallel simulation, it can happen that the starting (ending) node of the polylin of the long culvert is
    !! not on the current subdomain. In this case, the starting (ending) node ON the current subdomain is
    !! found firstly, and then search flowlinks for the interior polyline points.
-   !! TODO: currently it does not support the situation when, in a parallel simulation, the polyline enters
+   !! TODO (UNST-6073): currently it does not support the situation when, in a parallel simulation, the polyline enters
    !! one subdomain, then leaves, and then enters again.
    subroutine find1d2dculvertlinks(network,longculvert, numcoords)
 
@@ -1152,7 +1161,7 @@ endif
      call inflowcell(xpl(is), ypl(is), inode(1), 0, INDTP_ALL)
      call inflowcell(xpl(ie), ypl(ie), inode(2), 0, INDTP_ALL)
 
-     inodeGlob = inode
+     inodeGlob(1:2) = inode(1:2)
      if (jampi > 0) then
         ! Communicate inode in parallel run to get inodeGlob
         call reduce_int_max(2, inodeGlob)
@@ -1161,6 +1170,7 @@ endif
      if (inodeGlob(1) <= 0 .or. inodeGlob(2) <= 0) then 
         ! The long culvert is not valid if its starting or ending node is outside the global network
         longculvert%numlinks = 0
+        call mess(LEVEL_WARN, 'find1d2dculvertlinks: a long culvert is not valid if its starting or ending node is outside the global network.')
         return
      else ! This long culvert is valid on the current domain
         ! check the starting node
@@ -1169,7 +1179,7 @@ endif
            nodenum = inode(1) ! For the later search
            jafounds = 1
         else
-           ! Find the first known flow node in the current partition (if 2D flow ndoe was not found outside of the loop already)
+           ! Find the first known flow node in the current partition (if 2D flow node was not found outside of the loop already)
            call realloc(jnode, 1, keepExisting=.false.,fill=0)
            do j = is+1, ie-1
               call find_flowcells_kdtree(treeglob,1,xpl(j), ypl(j),jnode,1,INDTP_1D, ierror)

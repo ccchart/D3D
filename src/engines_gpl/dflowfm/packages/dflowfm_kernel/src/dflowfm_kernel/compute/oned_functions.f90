@@ -158,7 +158,6 @@ module m_oned_functions
       use messageHandling
       use precision_basics, only: comparereal
       use m_GlobalParameters, only: flow1d_eps10
-      use network_data, only: nump1d2d, nump, netcell
 
       implicit none
 
@@ -169,19 +168,10 @@ module m_oned_functions
       integer :: i
       integer :: k1, k2
       integer :: is, ip1, ip2
-      integer :: numk1d
       type(t_branch), pointer                 :: pbr
       integer, dimension(:), pointer          :: lin
       integer, dimension(:), pointer          :: grd
-      integer, allocatable :: netnode_to_flownode(:)
 
-      numk1d = nump1d2d - nump
-      allocate(netnode_to_flownode(numk1d))
-      do i=nump+1,nump1d2d
-         k1 = netcell(i)%nod(1)
-         netnode_to_flownode(k1) = i
-      end do
-      
       ! First reset the gridnumber of all network nodes.
       ! These nodes are exactly the set into which the branches's fromNode/toNode are pointing.
       do inod = 1,network%nds%count
@@ -193,8 +183,8 @@ module m_oned_functions
          pbr => network%brs%branch(ibr)
 
          ! Set flow node numbers via all flow link numbers on current branch.
-         ! NONONO: When uPointsCount == 0, any "orphan" flow node numbers will be set via another branch on which they *do* lie.
-         if (pbr%gridPointsCount > 0) then
+         ! When uPointsCount == 0, any "orphan" flow node numbers will be set via another branch on which they *do* lie.
+         if (pbr%uPointsCount > 0) then
             call realloc(pbr%lin, pbr%uPointsCount)
             call realloc(pbr%grd, pbr%gridPointsCount)
             lin => pbr%lin
@@ -232,6 +222,7 @@ module m_oned_functions
       use messageHandling
       use m_GlobalParameters, only: INDTP_ALL
       use m_partitioninfo, only: jampi
+      use m_inquire_flowgeom
 
       implicit none
 
@@ -240,7 +231,7 @@ module m_oned_functions
       integer, allocatable                    :: ixy2stor(:), k_tmp(:)
       double precision, allocatable           :: x_tmp(:), y_tmp(:)
       character(len=IdLen), allocatable       :: name_tmp(:)
-      integer                                 :: nxy, countxy, jakdtree
+      integer                                 :: nxy, countxy, jakdtree, ierr
 
       
       countxy = network%storS%Count_xy
@@ -255,14 +246,16 @@ module m_oned_functions
       nxy = 0
       do i = 1, network%storS%count
          pstor => network%storS%stor(i)
-         if (pstor%node_index < 0) then
+         if (pstor%node_index > 0) then
+            pStor%gridPoint = network%nds%node(pstor%node_index)%gridNumber
+         else if (pstor%branch_index > 0) then
+            ierr = findnode(pStor%branch_index, pstor%chainage, pstor%gridPoint)
+         else
             nxy = nxy + 1
             ixy2stor(nxy) = i
             x_tmp(nxy)    = pstor%x
             y_tmp(nxy)    = pstor%y
             name_tmp(nxy) = pstor%id
-         else
-            pStor%gridPoint = network%nds%node(pstor%node_index)%gridNumber
          end if
       end do
       
@@ -874,16 +867,18 @@ module m_oned_functions
    use m_flowgeom, only: groundLevel, volMaxUnderground, ndx, ndxi, ndx2d
    use m_flow,     only: s1, vol1, a1, vol1_f, a1m, s1m, nonlin
    use m_alloc
+   use unstruc_channel_flow, only: network
    implicit none
    double precision, allocatable :: s1_tmp(:), vol1_tmp(:), a1_tmp(:), vol1_ftmp(:), a1m_tmp(:), s1m_tmp(:)
    integer                       :: ndx1d
+   logical, allocatable :: hysteresis_tmp(:,:)
 
    ndx1d = ndxi-ndx2d
    if (ndx1d == 0) then
       return
    end if
 
-   ! 1. copy current s1, vol1, vol1_f, a1 and a1m to a temporary array
+   ! 1. copy current s1, vol1, vol1_f, a1, a1m and hysteresis to a temporary array
    allocate(s1_tmp(ndx))
    s1_tmp = s1
    
@@ -904,6 +899,12 @@ module m_oned_functions
    allocate(a1_tmp(ndx))
    a1_tmp = a1
    
+   if (network%loaded) then
+      if (network%numl > 0) then
+         allocate(hysteresis_tmp(2, network%numl))
+         hysteresis_tmp(:,:) = network%adm%hysteresis_for_summerdike
+      end if
+   end if
 
    ! 2. set s1 to be the ground level
    s1(ndx2d+1:ndxi)  = groundLevel(1:ndx1d)
@@ -920,7 +921,7 @@ module m_oned_functions
    call vol12d(0)
    volMaxUnderground(1:ndx1d) = vol1(ndx2d+1:ndxi)
 
-   ! 4. set s1, vol1, vol1_f, a1, a1m back
+   ! 4. set s1, vol1, vol1_f, a1, a1m and hysteresis back
    s1     = s1_tmp
    vol1   = vol1_tmp
    vol1_f = vol1_ftmp
@@ -930,6 +931,11 @@ module m_oned_functions
       a1m    = a1m_tmp
    end if
 
+   if (network%loaded) then
+      if (network%numl > 0) then
+         network%adm%hysteresis_for_summerdike = hysteresis_tmp
+      end if
+   end if
    end subroutine set_max_volume_for_1d_nodes
 
 

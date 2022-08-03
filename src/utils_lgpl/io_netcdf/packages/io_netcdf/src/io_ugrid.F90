@@ -921,6 +921,12 @@ function ug_def_var(ncid, id_var, id_dims, itype, iloctype, mesh_name, var_name,
       else
          ierr = nf90_put_att(ncid, id_var, 'coordinates', prefix//'_node_x '//prefix//'_node_y')
       end if
+      if (len_trim(cell_method) > 0) then
+         ierr = nf90_put_att(ncid, id_var, 'cell_methods', prefix//'_nNodes: '//trim(cell_method))
+      end if
+      if (len_trim(cell_measures) > 0) then
+         ierr = nf90_put_att(ncid, id_var, 'cell_measures', trim(cell_measures))
+      end if
    case (UG_LOC_EDGE)
       ierr = nf90_put_att(ncid, id_var, 'location',    'edge')
       if (add_latlon) then
@@ -949,7 +955,7 @@ function ug_def_var(ncid, id_var, id_dims, itype, iloctype, mesh_name, var_name,
       end if
    case (UG_LOC_CONTACT)
       ierr = nf90_put_att(ncid, id_var, 'location',    'contact')
-      ierr = nf90_put_att(ncid, id_var, 'coordinates', prefix)
+      ierr = nf90_put_att(ncid, id_var, 'coordinates', prefix//'_contact_id')
       ! TODO: AvD: UNST-1100: cell_measures for contacts not yet supported/well defined...
    case (UG_LOC_VOL)
       ierr = UG_NOTIMPLEMENTED
@@ -1388,10 +1394,10 @@ function ug_write_mesh_arrays(ncid, meshids, meshName, dim, dataLocs, numNode, n
          if (layerType == LAYERTYPE_OCEANSIGMA) then
             ! Only for pure sigma coordinates: these vars contain the formula terms, for ocean_sigma_z, see further below.
             
-            ierr = nf90_put_att(ncid, meshids%varids(mid_layersigma),     'formula_terms', 'sigma: '//prefix//'_layer_sigma     eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_waterdepth') ! TODO: AvD: do we define this only on faces?
+            ierr = nf90_put_att(ncid, meshids%varids(mid_layersigma),     'formula_terms', 'sigma: '//prefix//'_layer_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_waterdepth') ! TODO: AvD: do we define this only on faces?
             ierr = nf90_put_att(ncid, meshids%varids(mid_interfacesigma), 'formula_terms', 'sigma: '//prefix//'_interface_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_waterdepth') ! TODO: AvD: do we define this only on faces?   
             ! TODO: UNST-5711, Wrong waterdepth above to be replaced by correct bldepth variable, but then also taking time dependency of bldepth into account.
-            !ierr = nf90_put_att(ncid, meshids%varids(mid_layersigma),     'formula_terms', 'sigma: '//prefix//'_layer_sigma     eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'/trim(bldepthname_)) ! TODO: AvD: do we define this only on faces?
+            !ierr = nf90_put_att(ncid, meshids%varids(mid_layersigma),     'formula_terms', 'sigma: '//prefix//'_layer_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'/trim(bldepthname_)) ! TODO: AvD: do we define this only on faces?
             !ierr = nf90_put_att(ncid, meshids%varids(mid_interfacesigma), 'formula_terms', 'sigma: '//prefix//'_interface_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'/trim(bldepthname_)) ! TODO: AvD: do we define this only on faces?   
             ierr = nf90_put_att(ncid, meshids%varids(mid_layersigma)    , 'computed_standard_name', 'altitude')
             ierr = nf90_put_att(ncid, meshids%varids(mid_interfacesigma), 'computed_standard_name', 'altitude')
@@ -1424,7 +1430,7 @@ function ug_write_mesh_arrays(ncid, meshids, meshName, dim, dataLocs, numNode, n
          ierr = nf90_put_att(ncid, meshids%varids(mid_interfacezs), 'long_name',     'Sigma/Z coordinate of layer interfaces')
   
          ierr = nf90_put_att(ncid, meshids%varids(mid_interfacezs), 'formula_terms', 'sigma: '//prefix//'_interface_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'//trim(bldepthname_)//' depth_c: '//prefix//'_sigmazdepth zlev: '//prefix//'_interface_z ') ! TODO: AvD: do we define this only on faces?
-         ierr = nf90_put_att(ncid, meshids%varids(mid_layerzs),     'formula_terms', 'sigma: '//prefix//'_layer_sigma     eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'//trim(bldepthname_)//' depth_c: '//prefix//'_sigmazdepth zlev: '//prefix//'_layer_z ') ! TODO: AvD: do we define this only on faces?
+         ierr = nf90_put_att(ncid, meshids%varids(mid_layerzs),     'formula_terms', 'sigma: '//prefix//'_layer_sigma eta: '//prefix//'_'//trim(waterlevelname_)//' depth: '//prefix//'_'//trim(bldepthname_)//' depth_c: '//prefix//'_sigmazdepth zlev: '//prefix//'_layer_z ') ! TODO: AvD: do we define this only on faces?
          ierr = nf90_put_att(ncid, meshids%varids(mid_layerzs),     'units',         'm')
          ierr = nf90_put_att(ncid, meshids%varids(mid_interfacezs), 'units',         'm')
          ierr = nf90_put_att(ncid, meshids%varids(mid_layerzs)    , 'computed_standard_name', 'altitude')

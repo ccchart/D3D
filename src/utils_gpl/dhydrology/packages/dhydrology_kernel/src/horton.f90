@@ -44,7 +44,7 @@ module horton
    !! (using integral of capacity function, depending on state recovery or decrease).
    
    function infiltration_horton_formula(n, MinInfCap, MaxInfCap, DecreaseRate, RecoveryRate, PreviousInfCap, NewInfCap, &
-                                       TimestepSize, Dt, InitialStorage, Rainfall, InfCapState, InfiltrationMM) result(ierr)
+                                       TimestepSize, Dt, InitialStorage, Rainfall, includerain, InfCapState, InfiltrationMM) result(ierr)
       use dhydrology_error
       
       integer,                    intent(in   ) :: n                  !< Array length (grid cell count)
@@ -57,7 +57,8 @@ module horton
       double precision,           intent(in   ) :: TimestepSize       !< Timestep size (s)
       double precision,           intent(inout) :: Dt(n)              !< Time in hours since start of decreasing/recovery mode (hr)
       double precision,           intent(in   ) :: InitialStorage(n)  !< Initial storage (=storage at start of timestep) (m)
-      double precision,           intent(in   ) :: Rainfall(n)        !< Rainfall in current timestep (or more precise: additional ground rainfall, so minus interception)
+      double precision,           intent(in   ) :: Rainfall(:)        !< Rainfall in current timestep (or more precise: additional ground rainfall, so minus interception)
+      integer,                    intent(in   ) :: includerain        !< indicates whether or not (1/0) array Rainfall is available, otherwise no rainfall is assumed
       integer,                    intent(  out) :: InfCapState(n)     !< Infiltration capacity state; (one of HORTON_CAPSTAT_(NOCHANGE|RECOVERY|INCREASE))
       double precision, optional, intent(  out) :: InfiltrationMM(n)  !< Infiltration amount (mm)
       integer                                   :: ierr               !< Result status, DHYD_NOERR if successful.
@@ -68,6 +69,7 @@ module horton
       double precision                :: RFrac
       double precision, allocatable   :: ratio(:)
       integer                         :: i
+      logical                         :: rainIsFalling 
       
       ierr = DHYD_NOERR
 
@@ -106,7 +108,12 @@ module horton
       Ratio = -1d0
 
       do i = 1, n
-         if(InfCapState(i) == HORTON_CAPSTAT_DECREASE .and. InitialStorage(i) <= 0d0 .and. Rainfall(i) <= 0d0) then
+         if (includerain == 1) then
+            rainIsFalling = Rainfall(i) > 0d0
+         else 
+            rainIsFalling = .false.
+         endif
+         if(InfCapState(i) == HORTON_CAPSTAT_DECREASE .and. InitialStorage(i) <= 0d0 .and. .not. rainIsFalling) then
             ! state is decrease, but no storage and no rain anymore: switch to recovery
             InfCapState(i) = HORTON_CAPSTAT_RECOVERY
             Ratio(i) = (PreviousInfCap(i)-MaxInfcap(i)) / (MinInfCap(i)- MaxInfCap(i))
@@ -116,7 +123,7 @@ module horton
                DT1(i) = 9999d0
             end if
             DT(i)  = max(0d0, DT1(i) - RFRAC)
-            else if(InfCapState(i) == HORTON_CAPSTAT_RECOVERY .and. (InitialStorage(i) > 0d0 .or. Rainfall(i) > 0d0) ) then
+         else if(InfCapState(i) == HORTON_CAPSTAT_RECOVERY .and. (InitialStorage(i) > 0d0 .or. rainIsFalling) ) then
             ! state is recovery, but storage or rain: switch to decrease
             InfCapState(i) = HORTON_CAPSTAT_DECREASE
             ratio(i) = (PreviousInfCap(i)-MinInfCap(i)) / (MaxInfCap(i) - MinInfCap(i))
