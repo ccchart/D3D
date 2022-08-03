@@ -19,7 +19,6 @@ get_fortran_source_files(${src_path}/trwp trwp_source)
 # Gather source files
 get_fortran_source_files(${src_path}/waq_process waq_process_source)
 
-get_fortran_source_files(${src_path}/waq_tables waq_tables_source)
 
 # Define library
 set(library_name waq_process)
@@ -28,8 +27,7 @@ add_library(${library_name} ${bloom_source}
                             ${protist_source}
                             ${proc_preprocess_source}
                             ${trwp_source}
-                            ${waq_process_source}
-                            ${waq_tables_source})
+                            ${waq_process_source})
 
 # Set dependencies
 if (UNIX)
@@ -43,7 +41,7 @@ if (UNIX)
     set(oss_dependencies    deltares_common
                             nefis
                             solvesaphe
-                            waq_include
+                            waq_data
                             waq_utils_c
                             waq_utils_f)
 
@@ -58,7 +56,7 @@ if (WIN32)
                             netcdf4
                             netcdff
                             solvesaphe
-                            waq_include
+                            waq_data
                             waq_utils_c
                             waq_utils_f)
 
@@ -80,8 +78,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${bloom_source}
                                                     ${protist_source}
                                                     ${proc_preprocess_source}
                                                     ${trwp_source}
-                                                    ${waq_process_source}
-                                                    ${waq_tables_source})
+                                                    ${waq_process_source})
 
 set_target_properties (${library_name} PROPERTIES FOLDER engines_gpl/waq)
 
