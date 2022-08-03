@@ -519,7 +519,7 @@ subroutine loadModel(filename)
     
        ! set administration arrays and fill cross section list. So getbobs for 1d can be called.
        call timstrt('Initialise 1d administration', timerHandle)
-       call initialize_1dadmin(network, network%numl)
+       call initialize_1dadmin(network, network%numl, numl)
        call timstop(timerHandle)
     
     if (getMaxErrorLevel() >= LEVEL_ERROR) then
@@ -1024,8 +1024,7 @@ subroutine readMDUFile(filename, istat)
     call prop_get_integer(md_ptr, 'numerics', 'Limtypmom'       , limtypmom)
     call prop_get_integer(md_ptr, 'numerics', 'Limtypsa'        , limtypsa)
     call prop_get_integer(md_ptr, 'numerics', 'Limtypw'         , limtypw)
-    call prop_get_integer(md_ptr, 'numerics', 'TransportMethod' , jatransportmodule)
-    if (jatransportmodule == 1 .and. kmx > 1) then ! package deal
+    if (kmx > 1) then ! package deal
        ja_timestep_auto = 5
     endif
 
@@ -1252,6 +1251,9 @@ subroutine readMDUFile(filename, istat)
 
     call prop_get_integer(md_ptr, 'physics', 'Idensform'      , idensform)
     call prop_get_integer(md_ptr, 'physics', 'Maxitpresdens'  , maxitpresdens)
+    call prop_get_integer(md_ptr, 'physics', 'Rhointerfaces'  , jarhointerfaces)
+    call prop_get_integer(md_ptr, 'physics', 'baroczlaybed'   , jabaroczlaybed)
+
     call prop_get_integer(md_ptr, 'physics', 'Temperature'       , jatem)
     call prop_get_double (md_ptr, 'physics', 'InitialTemperature', temini)
     call prop_get_double (md_ptr, 'physics', 'Secchidepth'       , Secchidepth)
@@ -2247,8 +2249,11 @@ subroutine readMDUFile(filename, istat)
    !   jarstbnd=1
    !endif
 
-   call final_check_of_mdu_keywords (md_ptr, prefix='While reading '''//trim(filename)//'''')
-
+   ! If obsolete entries are used in the mdu-file, return with that error code.
+   call final_check_of_mdu_keywords (md_ptr, ierror, prefix='While reading '''//trim(filename)//'''')
+   if (ierror /= DFM_NOERR) then
+      istat = ierror
+   end if
 end subroutine readMDUFile
 
 !> helper routine to read the class boundaries
@@ -2319,51 +2324,53 @@ logical function isdeprecated(chap, key)
    character(len=*)                           :: key   !< keyword name
    
    isdeprecated = .false.
-   select case (chap)
+   select case (trim(chap))
    case (' ') ! just template code for the time being
-      select case (key)
+      select case (trim(key))
       case (' ')
          isdeprecated = .true.
       end select
    end select
 end function isdeprecated
 
-!> Check if a keyword is removed (and hence no longer supported).
-logical function isremoved(chap, key)
+!> Check if a keyword is obsolete (removed and hence no longer supported).
+logical function isobsolete(chap, key)
    character(len=*)                           :: chap  !< chapter name
    character(len=*)                           :: key   !< keyword name
    
-   isremoved = .false.
-   select case (chap)
+   isobsolete = .false.
+   select case (trim(chap))
    case ('geometry')
-      select case (key)
+      select case (trim(key))
       case ('bathymetryfile','bedlevelfile','botlevuni','botlevtype','ithindykescheme','manholefile','nooptimizedpolygon')
-         isremoved = .true.
+         isobsolete = .true.
       end select
    case ('numerics')
-      select case (key)
+      select case (trim(key))
       case ('hkad','ithindykescheme','thindykecontraction')
-         isremoved = .true.
+         isobsolete = .true.
       end select
    case ('output')
-      select case (key)
+      select case (trim(key))
       case ('writebalancefile')
-         isremoved = .true.
+         isobsolete = .true.
       end select
    end select
-end function isremoved
+end function isobsolete
     
 !> Present a list of all MDU entries (tree struct) that were not read D-Flow FM or read more than once.
 !> Show errors if obsolete (removed) keywords are used and stop.
 !> Show warnings if deprecated (but not yet removed) keywords are used.
-subroutine final_check_of_mdu_keywords(md_tree, prefix)
+subroutine final_check_of_mdu_keywords(md_tree, istat, prefix)
    use MessageHandling
    use dfm_error
    implicit none
    type (TREE_DATA), pointer  :: md_tree           !< MDU-tree
+   integer, intent(out)           :: istat             !< Results status (DFM_NOERR if no ignored entries)
    character(len=*), optional :: prefix            !< Optional message string prefix, default empty
 
-   type (TREE_DATA), pointer  :: achapter, anode
+   type (TREE_DATA), pointer                      :: achapter                !< tree data pointer for chapter level
+   type (TREE_DATA), pointer                      :: anode                   !< tree data pointer for keyword level
    integer                                        :: inode                   !< index of the keyword being processed
    integer                                        :: nnode                   !< number of keywords in the chapter
    integer                                        :: ichapter                !< index of the chapter being processed
@@ -2377,20 +2384,21 @@ subroutine final_check_of_mdu_keywords(md_tree, prefix)
    logical                                        :: ismatch                 !< flag indicating whether the chapter/keyword matches a certain condition
    integer                                        :: threshold_abort_current !< backup variable for default abort threshold level (temporarily overruled)
    logical                                        :: success                 !< flag indicating successful completion of a call
-   integer                                        :: num_removed             !< count the number of removed keywords
+   integer                                        :: num_obsolete            !< count the number of obsolete (removed) keywords
    integer                                        :: num_deprecated          !< count the number of deprecated keywords
    integer                                        :: num_doubleaccess        !< count the number of keywords accessed multiple times
-   integer                                        :: num_unused              !< count the number of unused (but not old removed) keywords
+   integer                                        :: num_notaccessed         !< count the number of keywords not accessed at all (not being obsolete keywords)
    integer, parameter                             :: numignore = 1           !< number of ignored chapters
    character(len=strlen), dimension(numignore)    :: ignorechaps             !< which chapters to skip while checking
 
+   istat = DFM_NOERR
    ignorechaps(:) = ' '
    ignorechaps(1) = 'model'
 
-   num_deprecated = 0
-   num_doubleaccess = 0
-   num_removed = 0
-   num_unused = 0
+   num_obsolete = 0     ! support for these keywords has been removed from the code
+   num_deprecated = 0   ! keywords still supported, but may be removed in upcoming release
+   num_doubleaccess = 0 ! supported keywords, read multiple times (possibly inefficient code)
+   num_notaccessed = 0  ! keywords not recognized by this version, possible typo by the user
 
    threshold_abort_current = threshold_abort
    threshold_abort = LEVEL_FATAL
@@ -2418,31 +2426,31 @@ ch:do ichapter = 1, nchapter
          if (success) then
             if (size(anode%node_data) > 0) then
                if (anode%node_visit < 1) then
-                  ! report any unused keyword
-                  if (isremoved(trim(chaptername), trim(nodename))) then
+                  ! report any unused keywords
+                  if (isobsolete(trim(chaptername), trim(nodename))) then
                       ! keyword is known, but no longer supported
-                      num_removed = num_removed + 1
+                      num_obsolete = num_obsolete + 1
                       call mess(LEVEL_ERROR, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//' is no longer supported.')
                   else
                       ! keyword unknown, or known keyword that was not accessed because of the reading was switched off by the value of another keyword
-                      num_unused = num_unused + 1
+                      num_notaccessed = num_notaccessed + 1
                       call mess(LEVEL_WARN, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was in file, but not used. Check possible typo.')
                endif
                else
-                   ! keyword is known and used
+                   ! keyword is known and used (node_visit >= 1)
                   
                   if (isdeprecated(trim(chaptername), trim(nodename))) then
                       ! keyword is used, but deprecated
                       num_deprecated = num_deprecated + 1
                       call mess(LEVEL_WARN, prefix//': keyword ['//trim(chaptername)//'] '//trim(nodename)//' is deprecated and may be removed in a future release.')
                   endif
-               endif
                if (anode%node_visit > 1) then
                   write(node_visit_str,'(i0)') anode%node_visit
                   num_doubleaccess = num_doubleaccess + 1
 !                 call mess(LEVEL_WARN, prefix//': ['//trim(chaptername)//'] '//trim(nodename)//'='//trim(nodestring)//' was accessed more than once ('//trim(node_visit_str)//' times). Please contact support.')
                endif
             endif
+         endif
          endif
       enddo
    enddo ch
@@ -2454,9 +2462,10 @@ ch:do ichapter = 1, nchapter
 
    threshold_abort = threshold_abort_current
 
-   if (num_removed > 0) then
+   if (num_obsolete > 0) then
       ! this is a fatal error that we want to stop at.
       call mess(LEVEL_ERROR, prefix//': Old unsupported keywords used: Check Section "Overview of deprecated and removed keywords" in the User Manual for information on how to update the input file.')
+      istat = DFM_WRONGINPUT
    end if
 
 end subroutine final_check_of_mdu_keywords
@@ -2664,8 +2673,8 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     end if
 
     call prop_set(prop_ptr, 'geometry', 'BedlevType',       ibedlevtyp, 'Bathymetry specification')
-    call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '1: at cell centers (from BathymetryFile)')
-    call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '2: at faces (from BathymetryFile)')
+    call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '1: at cell centers (from Net/IniFieldFile)')
+    call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '2: at faces (from IniFieldFile)')
     call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '3: at nodes, face levels mean of node values')
     call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '4: at nodes, face levels min. of node values')
     call prop_set(prop_ptr, 'geometry', ''          ,       ''        , '5: at nodes, face levels max. of node values')
@@ -2849,12 +2858,9 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        call prop_set(prop_ptr, 'numerics', 'Limtypw'         , limtypw, 'Limiter type for wave action transport (0: none, 1: minmod, 2: van Leer, 3: Koren, 4: monotone central)')
     end if
 
-    call prop_set(prop_ptr, 'numerics', 'TransportMethod', jatransportmodule,   'Transport method (0: Herman''s method, 1: transport module)')
-    if (writeall .or. jatransportmodule == 1) then
        call prop_set(prop_ptr, 'numerics', 'TransportAutoTimestepdiff', jatransportautotimestepdiff,   'Auto Timestepdiff in Transport, 0 : lim diff, no lim Dt_tr, 1 : no lim diff, lim Dt_tr, 2: no lim diff, no lim Dt_tr, 3=implicit (only 2D)')
        call prop_set(prop_ptr, 'numerics', 'Implicitdiffusion2D', Implicitdiffusion2D,   '1 = Yes, 0 = No')
-    endif
-
+  
     call prop_set(prop_ptr, 'numerics', 'Vertadvtypsal', Javasal,   'Vertical advection type for salinity (0: none, 1: upwind explicit, 2: central explicit, 3: upwind implicit, 4: central implicit, 5: central implicit but upwind for neg. stratif., 6: higher order explicit, no Forester)')
     call prop_set(prop_ptr, 'numerics', 'Vertadvtyptem', Javatem,   'Vertical advection type for temperature (0: none, 1: upwind explicit, 2: central explicit, 3: upwind implicit, 4: central implicit, 5: central implicit but upwind for neg. stratif., 6: higher order explicit, no Forester)')
     call prop_set(prop_ptr, 'numerics', 'Vertadvtypmom', javau, 'Vertical advection type for u1: 0: No, 3: Upwind implicit, 4: Central implicit, 5: QUICKEST implicit., 6: centerbased upwind expl, 7=6 HO' )
@@ -3173,6 +3179,13 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     if (writeall .or. Maxitpresdens .ne. 1) then
        call prop_set(prop_ptr, 'physics', 'Maxitpresdens', Maxitpresdens,'Max nr of iterations in pressure-density coupling, only used if idensform > 10 )')
     endif
+    if (writeall .or. jarhointerfaces .ne. 0) then
+       call prop_set(prop_ptr, 'physics', 'Rhointerfaces', jarhointerfaces,'Evaluate rho at interfaces, 0=org at centers, 1=at interfaces )')
+    endif
+
+    if (writeall .or. Jabaroczlaybed .ne. 1) then
+       call prop_set(prop_ptr, 'physics', 'Baroczlaybed' , jabaroczlaybed,'Use fix in barocp for zlaybed 0,1, 1=default)')
+    endif
  
     call prop_set(prop_ptr, 'physics', 'Ag'     ,          ag ,          'Gravitational acceleration')
     call prop_set(prop_ptr, 'physics', 'TidalForcing',     jatidep,      'Tidal forcing, if jsferic=1 (0: no, 1: yes)')
@@ -3242,7 +3255,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
           call prop_set(prop_ptr, 'physics', 'RhoairRhowater' , jaroro        ,  'windstress rhoa/rhow: 0=Rhoair/Rhomean, 1=Rhoair/rhow(), 2=rhoa0()/rhow(), 3=rhoa10()/Rhow()')
        endif
 
-       if ( janudge > 0 ) then
+       if ( janudge > 0 .or. jainiwithnudge > 0 ) then
           call prop_set_double(prop_ptr, 'physics', 'Nudgetimeuni', Tnudgeuni, 'Uniform nudge relaxation time')
           call prop_set_integer(prop_ptr, 'physics', 'IniWithNudge', jainiwithnudge, 'Initialize salinity and temperature with nudge variables')
        end if

@@ -105,19 +105,20 @@ module m_network
    
 contains
 
-   subroutine realloc_1dadmin(adm, links_count, gridp_count)
+   subroutine realloc_1dadmin(adm, links_count_1d, links_count_all, gridp_count_1d)
 
       type(t_administration_1d)  :: adm
-      integer, intent(in)        ::  links_count
-      integer, intent(in)        ::  gridp_count
+      integer, intent(in)        ::  links_count_1d  !< Maximum number of 1D flow links in model
+      integer, intent(in)        ::  links_count_all !< Maximum number of 1D+2D flow links in model
+      integer, intent(in)        ::  gridp_count_1d  !< Maximum number of 1D grid points in model
       
-      if (.not. allocated(adm%lin2str))      allocate(adm%lin2str   (links_count))  
-      if (.not. allocated(adm%lin2ibr))      allocate(adm%lin2ibr   (links_count))   
-      if (.not. allocated(adm%lin2local))    allocate(adm%lin2local (links_count)) 
-      if (.not. allocated(adm%lin2grid))     allocate(adm%lin2grid  (links_count)) 
-      if (.not. associated(adm%line2cross))  allocate(adm%line2cross(links_count, 3))
-      if (.not. associated(adm%gpnt2cross))  allocate(adm%gpnt2cross(gridp_count))
-      if (.not. allocated(adm%hysteresis_for_summerdike)) allocate(adm%hysteresis_for_summerdike(2,links_count))
+      if (.not. allocated(adm%lin2str))      allocate(adm%lin2str   (links_count_all))  
+      if (.not. allocated(adm%lin2ibr))      allocate(adm%lin2ibr   (links_count_1d))   
+      if (.not. allocated(adm%lin2local))    allocate(adm%lin2local (links_count_1d)) 
+      if (.not. allocated(adm%lin2grid))     allocate(adm%lin2grid  (links_count_1d)) 
+      if (.not. associated(adm%line2cross))  allocate(adm%line2cross(links_count_1d, 3))
+      if (.not. associated(adm%gpnt2cross))  allocate(adm%gpnt2cross(gridp_count_1d))
+      if (.not. allocated(adm%hysteresis_for_summerdike)) allocate(adm%hysteresis_for_summerdike(2,links_count_1d))
       adm%hysteresis_for_summerdike = .true.
       
    end subroutine realloc_1dadmin
@@ -193,13 +194,14 @@ contains
    end subroutine admin_network
 
 
-   subroutine initialize_1dadmin(network, linall)
+   subroutine initialize_1dadmin(network, linall_1d, linall_all)
    
       use m_CrossSections
       use m_GlobalParameters
       use Timers
       type(t_network), intent(inout), target :: network
-      integer, intent(in)            :: linall          !< Maximum number of links, used for (re)allocation.
+      integer, intent(in)            :: linall_1d          !< Maximum number of 1D links, used for (re)allocation.
+      integer, intent(in)            :: linall_all         !< Maximum number of all flow links, used for (re)allocation.
       
       integer :: is, k1, k2, L1, L2
       integer :: ilnk
@@ -236,7 +238,7 @@ contains
       logical                            :: interpolDone
       logical                            :: initError = .false.
 
-      call realloc(network%adm, linall, linall + network%brs%Count)
+      call realloc(network%adm, linall_1d, linall_all, linall_1d + network%brs%Count)
 
       timerHandle = 0
       call timstrt('line administration', timerHandle)
@@ -890,6 +892,7 @@ use m_tablematrices
     double precision                :: dep
     double precision                :: ys
     double precision                :: rad
+    logical                         :: checkDirectRoughness
     type(t_Roughness), pointer      :: rgh 
     type(t_spatial_data), pointer   :: values
     integer, dimension(:), pointer  :: rgh_type
@@ -951,7 +954,9 @@ use m_tablematrices
     !
     else ! Version 2 roughness
        do i = 1, 2
-          if (cross%frictionSectionID(cross%frictionSectionsCount) == '') then
+          checkDirectRoughness = .false.
+          if (associated(cross)) checkDirectRoughness = (cross%frictionSectionID(cross%frictionSectionsCount) == '')
+          if (checkDirectRoughness) then
              ! Current cross section does *not* refer to a friction section index, but has defined direct roughness type+coefficient.
              cz = GetChezy(cross%frictionType(section), cross%frictionValue(section), rad, dep, u)
           else

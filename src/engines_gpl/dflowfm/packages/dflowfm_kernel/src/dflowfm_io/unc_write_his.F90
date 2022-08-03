@@ -79,7 +79,7 @@ subroutine unc_write_his(tim)            ! wrihis
                      id_statdim, id_strlendim, id_crsdim, id_crslendim, id_crsptsdim, id_timedim, &
                      id_statx, id_staty, id_statid, id_statname, id_time, id_timestep, &
                      id_statlon, id_statlat, id_crsname, &
-                     id_vars, id_varucx, id_varucy, id_varucz, id_varsal, id_vartem, id_varsed, id_varrho, &
+                     id_vars, id_varucx, id_varucy, id_varucz, id_varsal, id_vartem, id_varsed, id_varrhop, id_varrho, id_bruv,  &
                      id_varQ, id_varQint, id_varb, id_varumag, id_varqmag,&
                      id_varAu,  &
                      id_varu,  id_varwx, id_varwy, id_varrain, id_varpatm, &
@@ -494,7 +494,7 @@ subroutine unc_write_his(tim)            ! wrihis
                
                ierr = nf90_put_att(ihisfile, id_varqmag, 'standard_name', 'water_volume_transport_in_river_channel') 
                ierr = nf90_put_att(ihisfile, id_varqmag, 'long_name', 'average discharge magnitude')
-               ierr = nf90_put_att(ihisfile, id_varqmag, 'units', 'm s-3')
+               ierr = nf90_put_att(ihisfile, id_varqmag, 'units', 'm3 s-1')
                ierr = nf90_put_att(ihisfile, id_varqmag, 'coordinates', statcoordstring)
                ierr = nf90_put_att(ihisfile, id_varqmag, 'geometry', station_geom_container_name)
                ierr = nf90_put_att(ihisfile, id_varqmag, '_FillValue', dmiss)
@@ -635,17 +635,17 @@ subroutine unc_write_his(tim)            ! wrihis
 
             if ((jasal > 0 .or. jatem > 0 .or. jased > 0) .and. jahisrho > 0) then
                if ( kmx.gt.0 ) then
-                  ierr = nf90_def_var(ihisfile, 'density', nf90_double, (/ id_laydim, id_statdim, id_timedim /), id_varrho)
-                  ierr = nf90_put_att(ihisfile, id_varrho, 'coordinates', trim(statcoordstring) // ' zcoordinate_c')
-                  jawrizc = 1
+                  idims(1) = id_laydim
+                  jawrizc  = 1
+                  call definencvar(ihisfile,id_varrhop,nf90_double, idims,3,'potential_density' , 'potential_density' , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
+                  if (idensform > 10) then 
+                  call definencvar(ihisfile,id_varrho ,nf90_double, idims,3,'density'           , 'density'           , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
+                  endif
+                  idims(1) = id_laydimw
+                  call definencvar(ihisfile,id_bruv   ,nf90_double, idims,3,'Brunt_Vaisala_N2'  , 'Brunt_Vaisala_N2'  , '1/s2'   ,  trim(statcoordstring) // ' zcoordinate_w', station_geom_container_name, fillVal = dmiss)
                else
-                  ierr = nf90_def_var(ihisfile, 'density', nf90_double, (/ id_statdim, id_timedim /), id_varrho)
-                  ierr = nf90_put_att(ihisfile, id_varrho, 'coordinates', statcoordstring)
-               end if
-               ierr = nf90_put_att(ihisfile, id_varrho, 'units', 'kg m-3')
-               ierr = nf90_put_att(ihisfile, id_varrho, 'geometry', station_geom_container_name)
-               ierr = nf90_put_att(ihisfile, id_varrho, '_FillValue', dmiss)
-               ierr = nf90_put_att(ihisfile, id_varrho, 'standard_name', 'density')
+                  call definencvar(ihisfile,id_varrhop,nf90_double, idims,2,'potential_density' , 'potential_density' , 'kg m-3' ,  trim(statcoordstring)                    , station_geom_container_name, fillVal = dmiss)
+               end if  ! en misschien kan iemand de kmx > 0 repetitie ook in definencvar afvangen en // ' zcoordinate_c' en idims,3  automatisch maken voor kmx>0
             endif
 
             if (ITRA1 > 0 .and. jahisconst > 0) then
@@ -1153,83 +1153,82 @@ subroutine unc_write_his(tim)            ! wrihis
             !ierr = nf90_put_att(ihisfile, id_varuavg, 'units', 'm s-1')
             !ierr = nf90_put_att(ihisfile, id_varuavg, 'coordinates', 'cross_section_name')
 
-            if( jatransportmodule /= 0 ) then
-               do num = 1,NUMCONST_MDU
-                  tmpstr = const_names(num)
-                  ! Forbidden chars in NetCDF names: space, /, and more.
-                  call replace_char(tmpstr,32,95)
-                  call replace_char(tmpstr,47,95)
-                  ierr = nf90_def_var(ihisfile, 'cross_section_cumulative_'//trim(tmpstr), nf90_double, (/ id_crsdim, id_timedim /), id_const_cum(num))
-                  ierr = nf90_put_att(ihisfile, id_const_cum(num), 'long_name', 'cumulative flux (based on upwind flow cell) for '//trim(tmpstr)//'.')
-
-                  ierr = nf90_def_var(ihisfile, 'cross_section_'//trim(tmpstr), nf90_double, (/ id_crsdim, id_timedim /), id_const(num))
-                  ierr = nf90_put_att(ihisfile, id_const(num), 'long_name', 'flux (based on upwind flow cell) for '//trim(tmpstr)//'.')
-
-                  if (num >= ISED1 .and. num <= ISEDN) then    ! if the constituent is sediment
-                     select case(stmpar%morpar%moroutput%transptype)
-                     case (0)
-                        tmpstr = 'kg'
-                     case (1, 2)
-                        tmpstr = 'm3'
-                     end select
+            do num = 1,NUMCONST_MDU
+               tmpstr = const_names(num)
+               ! Forbidden chars in NetCDF names: space, /, and more.
+               call replace_char(tmpstr,32,95)
+               call replace_char(tmpstr,47,95)
+               ierr = nf90_def_var(ihisfile, 'cross_section_cumulative_'//trim(tmpstr), nf90_double, (/ id_crsdim, id_timedim /), id_const_cum(num))
+               ierr = nf90_put_att(ihisfile, id_const_cum(num), 'long_name', 'cumulative flux (based on upwind flow cell) for '//trim(tmpstr)//'.')
+         
+               ierr = nf90_def_var(ihisfile, 'cross_section_'//trim(tmpstr), nf90_double, (/ id_crsdim, id_timedim /), id_const(num))
+               ierr = nf90_put_att(ihisfile, id_const(num), 'long_name', 'flux (based on upwind flow cell) for '//trim(tmpstr)//'.')
+         
+               if (num >= ISED1 .and. num <= ISEDN) then    ! if the constituent is sediment
+                  select case(stmpar%morpar%moroutput%transptype)
+                  case (0)
+                     tmpstr = 'kg'
+                  case (1, 2)
+                     tmpstr = 'm3'
+                  end select
+               else
+                  if (const_units(num) /= ' ') then
+                     tmpstr = trim(const_units(num)) // ' m3'
                   else
-                     if (const_units(num) /= ' ') then
-                        tmpstr = trim(const_units(num)) // ' m3'
-                     else
-                        tmpstr = '-'
-                     endif
+                     tmpstr = '-'
                   endif
-                  ierr = nf90_put_att(ihisfile, id_const_cum(num), 'units', tmpstr)
-                  ierr = nf90_put_att(ihisfile, id_const_cum(num), 'coordinates', 'cross_section_name')
-                  ierr = nf90_put_att(ihisfile, id_const_cum(num), 'geometry', crs_geom_container_name)
-
-                  if (num >= ISED1 .and. num <= ISEDN) then    ! if the constituent is sediment
-                     select case(stmpar%morpar%moroutput%transptype)
-                     case (0)
-                        tmpstr = 'kg/s'
-                     case (1, 2)
-                        tmpstr = 'm3/s'
-                     end select
+               endif
+               ierr = nf90_put_att(ihisfile, id_const_cum(num), 'units', tmpstr)
+               ierr = nf90_put_att(ihisfile, id_const_cum(num), 'coordinates', 'cross_section_name')
+               ierr = nf90_put_att(ihisfile, id_const_cum(num), 'geometry', crs_geom_container_name)
+         
+               if (num >= ISED1 .and. num <= ISEDN) then    ! if the constituent is sediment
+                  select case(stmpar%morpar%moroutput%transptype)
+                  case (0)
+                     tmpstr = 'kg/s'
+                  case (1, 2)
+                     tmpstr = 'm3/s'
+                  end select
+               else
+                  if (const_units(num) /= ' ') then
+                     tmpstr = trim(const_units(num)) // ' m3/s'
                   else
-                     if (const_units(num) /= ' ') then
-                        tmpstr = trim(const_units(num)) // ' m3/s'
-                     else
-                        tmpstr = '-'
-                     endif
+                     tmpstr = '-'
                   endif
-                  ierr = nf90_put_att(ihisfile, id_const(num), 'units', tmpstr)
-                  ierr = nf90_put_att(ihisfile, id_const(num), 'coordinates', 'cross_section_name')
-                  ierr = nf90_put_att(ihisfile, id_const(num), 'geometry', crs_geom_container_name)
-               enddo
-            endif
-
-            if( jased == 4 .and. stmpar%lsedtot > 0 ) then
-               ierr = nf90_def_var(ihisfile, 'cross_section_bedload_sediment_transport', nf90_double, (/ id_crsdim, id_timedim /), id_sedbtrans)
-               ierr = nf90_put_att(ihisfile, id_sedbtrans, 'long_name', 'cumulative bed load sediment transport')
-               ierr = nf90_put_att(ihisfile, id_sedbtrans, 'units', 'kg')
-               ierr = nf90_put_att(ihisfile, id_sedbtrans, 'coordinates', 'cross_section_name')
-               ierr = nf90_put_att(ihisfile, id_sedbtrans, 'geometry', crs_geom_container_name)
-               if( stmpar%lsedsus > 0 ) then
-                  ierr = nf90_def_var(ihisfile, 'cross_section_suspended_sediment_transport', nf90_double, (/ id_crsdim, id_timedim /), id_sedstrans)
-                  ierr = nf90_put_att(ihisfile, id_sedstrans, 'long_name', 'cumulative suspended load sediment transport')
-                  ierr = nf90_put_att(ihisfile, id_sedstrans, 'units', 'kg')
-                  ierr = nf90_put_att(ihisfile, id_sedstrans, 'coordinates', 'cross_section_name')
-                  ierr = nf90_put_att(ihisfile, id_sedstrans, 'geometry', crs_geom_container_name)
                endif
-               if (.not. allocated(id_sedbtransfrac)) then
-                  allocate(id_sedbtransfrac(stmpar%lsedtot))
-                  id_sedbtransfrac = 0
-               endif
-               do lsed = 1,stmpar%lsedtot    ! Making bedload on crosssections per fraction
-                  ierr = nf90_def_var(ihisfile, 'cross_section_bedload_sediment_transport_'//trim(stmpar%sedpar%namsed(lsed)), nf90_double, (/ id_crsdim, id_timedim /), id_sedbtransfrac(lsed))
-                  ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'long_name', 'cumulative bed load sediment transport per fraction')
-                  ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'units', 'kg')
-                  ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'coordinates', 'cross_section_name')
-                  ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'geometry', crs_geom_container_name)
-               enddo
-
+               ierr = nf90_put_att(ihisfile, id_const(num), 'units', tmpstr)
+               ierr = nf90_put_att(ihisfile, id_const(num), 'coordinates', 'cross_section_name')
+               ierr = nf90_put_att(ihisfile, id_const(num), 'geometry', crs_geom_container_name)
+            enddo
+         endif
+         
+         if( jased == 4 .and. stmpar%lsedtot > 0 ) then
+            ierr = nf90_def_var(ihisfile, 'cross_section_bedload_sediment_transport', nf90_double, (/ id_crsdim, id_timedim /), id_sedbtrans)
+            ierr = nf90_put_att(ihisfile, id_sedbtrans, 'long_name', 'cumulative bed load sediment transport')
+            ierr = nf90_put_att(ihisfile, id_sedbtrans, 'units', 'kg')
+            ierr = nf90_put_att(ihisfile, id_sedbtrans, 'coordinates', 'cross_section_name')
+            ierr = nf90_put_att(ihisfile, id_sedbtrans, 'geometry', crs_geom_container_name)
+            if( stmpar%lsedsus > 0 ) then
+               ierr = nf90_def_var(ihisfile, 'cross_section_suspended_sediment_transport', nf90_double, (/ id_crsdim, id_timedim /), id_sedstrans)
+               ierr = nf90_put_att(ihisfile, id_sedstrans, 'long_name', 'cumulative suspended load sediment transport')
+               ierr = nf90_put_att(ihisfile, id_sedstrans, 'units', 'kg')
+               ierr = nf90_put_att(ihisfile, id_sedstrans, 'coordinates', 'cross_section_name')
+               ierr = nf90_put_att(ihisfile, id_sedstrans, 'geometry', crs_geom_container_name)
             endif
-        end if
+            if (.not. allocated(id_sedbtransfrac)) then
+               allocate(id_sedbtransfrac(stmpar%lsedtot))
+               id_sedbtransfrac = 0
+            endif
+            do lsed = 1,stmpar%lsedtot    ! Making bedload on crosssections per fraction
+               ierr = nf90_def_var(ihisfile, 'cross_section_bedload_sediment_transport_'//trim(stmpar%sedpar%namsed(lsed)), nf90_double, (/ id_crsdim, id_timedim /), id_sedbtransfrac(lsed))
+               ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'long_name', 'cumulative bed load sediment transport per fraction')
+               ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'units', 'kg')
+               ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'coordinates', 'cross_section_name')
+               ierr = nf90_put_att(ihisfile, id_sedbtransfrac(lsed), 'geometry', crs_geom_container_name)
+            enddo
+         
+         endif
+        
 
         ! runup gauges
         if (nrug > 0) then
@@ -2780,8 +2779,12 @@ subroutine unc_write_his(tim)            ! wrihis
              if (jatem > 0) then
                 ierr = nf90_put_var(ihisfile, id_vartem, valobsT(:,IPNT_TEM1+kk-1), start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
              end if
-             if (jasal > 0 .or. jatem > 0 .or. jased > 0) then
-                ierr = nf90_put_var(ihisfile, id_varrho, valobsT(:,IPNT_RHO +kk-1), start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
+             if( (jasal > 0 .or. jatem > 0 .or. jased > 0 ) .and. jahisrho > 0) then
+                ierr = nf90_put_var(ihisfile, id_varrhop , valobsT(:,IPNT_RHOP +kk-1), start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
+                if (idensform > 10) then
+                ierr = nf90_put_var(ihisfile, id_varrho  , valobsT(:,IPNT_RHO +kk-1) , start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
+                endif
+                ierr = nf90_put_var(ihisfile, id_bruv    , valobsT(:,IPNT_BRUV+kk-1) , start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
              end if
              if (jased > 0 .and. .not. stm_included) then
                 ierr = nf90_put_var(ihisfile, id_varsed, valobsT(:,IPNT_SED +kk-1), start = (/ kk, 1, it_his /), count = (/ 1, ntot, 1 /))
@@ -2806,7 +2809,7 @@ subroutine unc_write_his(tim)            ! wrihis
                    else if (comparereal(tim, ti_hise, eps10) == 0) then
                       ierr = nf90_put_var(ihisfile, id_hwq(i), valobsT(:,IPNT_HWQ1 + (i-1)*kmx+kk-1), start = (/ kk, 1 /), count = (/ 1, ntot, 1/))
                    endif
-                enddo
+                enddo       
              end if
              if (IVAL_WQB3D1 > 0) then
                 do j = IVAL_WQB3D1,IVAL_WQB3DN   ! enumerators of 3d waqbot output in valobs array (not the pointer)
@@ -2845,8 +2848,8 @@ subroutine unc_write_his(tim)            ! wrihis
           if (jatem > 0) then
              ierr = nf90_put_var(ihisfile, id_vartem, valobsT(:,IPNT_TEM1), start = (/ 1, it_his /), count = (/ ntot, 1 /))
           end if
-          if(jasal > 0 .or. jatem > 0 .or. jased > 0 ) then
-             ierr = nf90_put_var(ihisfile, id_varrho, valobsT(:,IPNT_RHO),  start = (/ 1, it_his /), count = (/ ntot, 1 /))
+          if( (jasal > 0 .or. jatem > 0 .or. jased > 0 )  .and. jahisrho > 0) then
+             ierr = nf90_put_var(ihisfile, id_varrhop, valobsT(:,IPNT_RHOP) ,  start = (/ 1, it_his /), count = (/ ntot, 1 /))
           end if
   
           if (IVAL_TRA1 > 0) then
@@ -3100,31 +3103,29 @@ subroutine unc_write_his(tim)            ! wrihis
           ierr = nf90_put_var(ihisfile, id_varu,    crs(i)%sumvalcur(IPNT_U1A), (/ i, it_his /))
 !          ierr = nf90_put_var(ihisfile, id_varuavg, crs(i)%sumvalavg(IPNT_U1A), (/ i, it_his /))
 
-          if( jatransportmodule /= 0 ) then
-             IP = IPNT_HUA
-             do num = 1,NUMCONST_MDU
-                IP = IP + 1
-                if (num >= ISED1 .and. num <= ISEDN) then
-                   l = sedtot2sedsus(num-ISED1+1)
-                   select case(stmpar%morpar%moroutput%transptype)
-                   case (0)
-                      rhol = 1d0
-                   case (1)
-                      rhol = stmpar%sedpar%cdryb(l)
-                   case (2)
-                      rhol = stmpar%sedpar%rhosol(l)
-                   end select
-                   toutput_cum = crs(i)%sumvalcum(IP)/rhol
-                   toutput_cur = crs(i)%sumvalcur(IP)/rhol
-                else
-                  toutput_cum = crs(i)%sumvalcum(IP)
-                  toutput_cur = crs(i)%sumvalcur(IP)
-                endif
-                ierr = nf90_put_var(ihisfile, id_const_cum(num), toutput_cum, (/ i, it_his /))
-                ierr = nf90_put_var(ihisfile, id_const(num),     toutput_cur, (/ i, it_his /))
-             end do
-          endif
-
+          IP = IPNT_HUA
+          do num = 1,NUMCONST_MDU
+             IP = IP + 1
+             if (num >= ISED1 .and. num <= ISEDN) then
+                l = sedtot2sedsus(num-ISED1+1)
+                select case(stmpar%morpar%moroutput%transptype)
+                case (0)
+                   rhol = 1d0
+                case (1)
+                   rhol = stmpar%sedpar%cdryb(l)
+                case (2)
+                   rhol = stmpar%sedpar%rhosol(l)
+                end select
+                toutput_cum = crs(i)%sumvalcum(IP)/rhol
+                toutput_cur = crs(i)%sumvalcur(IP)/rhol
+             else
+               toutput_cum = crs(i)%sumvalcum(IP)
+               toutput_cur = crs(i)%sumvalcur(IP)
+             endif
+             ierr = nf90_put_var(ihisfile, id_const_cum(num), toutput_cum, (/ i, it_his /))
+             ierr = nf90_put_var(ihisfile, id_const(num),     toutput_cur, (/ i, it_his /))
+          end do
+     
           if( jased == 4 .and. stmpar%lsedtot > 0 ) then
              IP = IPNT_HUA + NUMCONST_MDU + 1
              ierr = nf90_put_var(ihisfile, id_sedbtrans, crs(i)%sumvalcum(IP), (/ i, it_his /))

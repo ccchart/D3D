@@ -552,7 +552,10 @@ subroutine processexternalboundarypoints(qid, filename, filetype, return_time, n
          itpbn = 7
          nqhbnd = nqhbnd + 1
          numqh  = numz
-         call realloc(qhpliname,nqhbnd)  ; qhpliname(nqhbnd) = pliname
+         if (filetype == poly_tim) then
+            call realloc(qhpliname,nqhbnd)  ; qhpliname(nqhbnd) = pliname
+         end if
+
          call realloc(L1qhbnd,nqhbnd) ; L1qhbnd(nqhbnd) = nbndz + 1
          call realloc(L2qhbnd,nqhbnd) ; L2qhbnd(nqhbnd) = nbndz + numz
          call realloc(atqh_all,nqhbnd); atqh_all(nqhbnd) = 0d0
@@ -825,7 +828,7 @@ function addtimespacerelation_boundaries(qid, filename, filetype, method, operan
    if (nbndz > 0 .and. (qid == 'waterlevelbnd' .or. qid == 'neumannbnd' .or. qid == 'riemannbnd' .or. qid == 'outflowbnd')) then
       success = ec_addtimespacerelation(qid, xbndz, ybndz, kdz, kx, filename, filetype, method, operand, xy2bndz, forcingfile=forcingfile, dtnodal=dt_nodal, targetindex=targetindex)
 
-   else if (nqhbnd > 0 .and. (qid == 'qhbnd')) then
+   else if (nbndz > 0 .and. nqhbnd > 0 .and. (qid == 'qhbnd')) then
       success = ec_addtimespacerelation(qid, xbndz, ybndz, kdz, kx, filename, filetype, method, operand, xy2bndz, forcingfile=forcingfile, targetindex=targetindex)
 
    else if (nbndu > 0 .and. (qid == 'dischargebnd' .or. qid == 'criticaloutflowbnd' .or. qid == 'weiroutflowbnd' .or. qid == 'absgenbnd' ) ) then
@@ -1722,10 +1725,7 @@ subroutine init_threttimes()
  character(len=256)  :: qidfm, tracnam, sedfracnam, qidnam
  integer, external   :: findname
 
- if(jatransportmodule == 0) then
-    return
- endif
-
+ 
  ! deallocation of TH arrays
  if(allocated(threttim)) then
     deallocate(threttim)

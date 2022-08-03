@@ -24,32 +24,18 @@
       SUBROUTINE SRWSHL(ITIME, A, J, C)
       use timers
       use delwaq2_data
+      use m_sysn          ! System characteristics
+      use m_sysi          ! Timer characteristics
+      use m_sysa          ! Pointers in real array workspace
+      use m_sysj          ! Pointers in integer array workspace
+      use m_sysc          ! Pointers in character array workspace
       implicit none
 
       real,             dimension(*) :: a
       integer,          dimension(*) :: j
       character(len=*), dimension(*) :: c
 
-!
-!     COMMON  /  SYSN   /   System characteristics
-!
-      INCLUDE 'sysn.inc'
-!
-!     COMMON  /  SYSI   /   System characteristics
-!
-      INCLUDE 'sysi.inc'
-!
-!     COMMON  /  SYSJ   /   Pointers in integer array workspace
-!
-      INCLUDE 'sysj.inc'
-!
-!     COMMON  /  SYSA   /   Pointers in real array workspace
-!
-      INCLUDE 'sysa.inc'
-!
-!     COMMON  /  SYSC   /   Pointers in character array workspace
-!
-      INCLUDE 'sysc.inc'
+
 
       integer    itime
 
@@ -132,9 +118,9 @@
 !     MONAME  CHARACTER  *      INPUT  Model identification strings
 
 !     Delft-IO for SRW
-!     use dio_streams
-!     use dio_plt_rw
-      include 'dio-plt.inc'
+
+      use m_dio_plt
+
 
 !     DELWAQ variables from argument list
 !
@@ -447,32 +433,17 @@
       SUBROUTINE RTCSHL(ITIME, A, J, C)
       use timers
       use delwaq2_data
+      use m_sysn          ! System characteristics
+      use m_sysi          ! Timer characteristics
+      use m_sysa          ! Pointers in real array workspace
+      use m_sysj          ! Pointers in integer array workspace
+      use m_sysc          ! Pointers in character array workspace
       implicit none
 
       real,             dimension(*) :: a
       integer,          dimension(*) :: j
       character(len=*), dimension(*) :: c
 
-!
-!     COMMON  /  SYSN   /   System characteristics
-!
-      INCLUDE 'sysn.inc'
-!
-!     COMMON  /  SYSI   /   System characteristics
-!
-      INCLUDE 'sysi.inc'
-!
-!     COMMON  /  SYSJ   /   Pointers in integer array workspace
-!
-      INCLUDE 'sysj.inc'
-!
-!     COMMON  /  SYSA   /   Pointers in real array workspace
-!
-      INCLUDE 'sysa.inc'
-!
-!     COMMON  /  SYSC   /   Pointers in character array workspace
-!
-      INCLUDE 'sysc.inc'
 
       integer    itime
 !

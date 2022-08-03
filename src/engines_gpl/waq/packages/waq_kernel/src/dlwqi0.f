@@ -43,8 +43,7 @@
 !>                             - calls DLWQTD to initialize the water bed layers
 !>                             - imports initial conditions
 
-!     CREATED: may -1988 by L. Postma
-!
+
 !     LOGICAL UNITNUMBERS : LUN( 2) - system intermediate file
 !                           LUN(19) - monitoring output file
 !
@@ -64,6 +63,11 @@
       use m_couplib
       use workspace
       use string_module  ! string manipulation tools
+      use m_sysn          ! System characteristics
+      use m_sysi          ! Timer characteristics
+      use m_sysa          ! Pointers in real array workspace
+      use m_sysj          ! Pointers in integer array workspace
+      use m_sysc          ! Pointers in character array workspace
 
 !     Parameters          :
 
@@ -85,26 +89,6 @@
       integer              , intent(inout) :: ierr          !< error count
 
 !
-!     COMMON  /  SYSN   /   System characteristics
-!
-      INCLUDE 'sysn.inc'
-!
-!     COMMON  /  SYSI  /    Timer characteristics
-!
-      INCLUDE 'sysi.inc'
-!
-!     COMMON  /  SYSA   /   Pointers in real array workspace
-!
-      INCLUDE 'sysa.inc'
-!
-!     COMMON  /  SYSJ   /   Pointers in integer array workspace
-!
-      INCLUDE 'sysj.inc'
-!
-!     COMMON  /  SYSC   /   Pointers in character array workspace
-!
-      INCLUDE 'sysc.inc'
-!
 !     Local declaration
 !
       REAL          RDUMMY(1)
@@ -121,10 +105,9 @@
 !     OLCFWQ             Flag indicating ONLINE running of CF and WQ
 !     SRWACT             Flag indicating active data exchange with SRW
 !     RTCACT             Flag indicating output for RTC
-!     DDWAQ              Flag indicating parallel computation
 
-      LOGICAL            OLCFWQ, SRWACT, RTCACT, DDWAQ, propor
-      COMMON /COMMUN/    OLCFWQ, SRWACT, RTCACT, DDWAQ
+      LOGICAL            OLCFWQ, SRWACT, RTCACT, propor
+      COMMON /COMMUN/    OLCFWQ, SRWACT, RTCACT
       integer(4) ithandl /0/
       if ( timon ) call timstrt ( "dlwqi0", ithandl )
 

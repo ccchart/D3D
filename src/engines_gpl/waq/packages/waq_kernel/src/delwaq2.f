@@ -107,10 +107,15 @@
       use m_timers_waq
       use m_couplib
       use delwaq2_data
+      use m_actions
+      use m_sysn          ! System characteristics
+      use m_sysi          ! Timer characteristics
+      use m_sysa          ! Pointers in real array workspace
+      use m_sysj          ! Pointers in integer array workspace
+      use m_sysc          ! Pointers in character array workspace
 
       implicit none
 
-      include 'actions.inc'
 !
 !     Declaration of arguments
 !
@@ -124,26 +129,7 @@
       TYPE(DELWAQ_DATA), TARGET               :: DLWQD
       type(GridPointerColl), pointer          :: GridPs               ! collection of all grid definitions
 
-!
-!     COMMON  /  SYSN   /   System characteristics
-!
-      INCLUDE 'sysn.inc'
-!
-!     COMMON  /  SYSI  /    Timer characteristics
-!
-      INCLUDE 'sysi.inc'
-!
-!     COMMON  /  SYSA   /   Pointers in real array workspace
-!
-      INCLUDE 'sysa.inc'
-!
-!     COMMON  /  SYSJ   /   Pointers in integer array workspace
-!
-      INCLUDE 'sysj.inc'
-!
-!     COMMON  /  SYSC   /   Pointers in character array workspace
-!
-      INCLUDE 'sysc.inc'
+
 !
 !     PARAMETERS    :
 !
@@ -164,9 +150,6 @@
 !
 !           input structure for boot-file
 !
-      INTEGER, DIMENSION(INSIZE)  :: IN
-      INTEGER, DIMENSION(IISIZE)  :: II
-      EQUIVALENCE ( IN( 1) , NOSEG ) , ( II( 1) , ITSTRT )
 !
       INTEGER, SAVE            :: LUN(NLUN)
       CHARACTER*(LCHMAX), SAVE :: LCHAR(NLUN)
@@ -186,8 +169,8 @@
       real                     :: rdummy
       CHARACTER                :: cdummy
       CHARACTER*2              :: C2
-      LOGICAL                  :: OLCFWQ, SRWACT, RTCACT, DDWAQ
-      COMMON /COMMUN/             OLCFWQ, SRWACT, RTCACT, DDWAQ
+      LOGICAL                  :: OLCFWQ, SRWACT, RTCACT
+      COMMON /COMMUN/             OLCFWQ, SRWACT, RTCACT
 !
       integer(4), save         :: ithndl = 0
 !
@@ -201,7 +184,7 @@
       INTEGER                  :: ILUN
       INTEGER                  :: IERRD
       INTEGER                  :: K
-      LOGICAL                  :: NOLIC
+
 !
       IF ( INIT ) THEN
          call timini ( )
@@ -271,7 +254,6 @@
             OLCFWQ = .FALSE.
             SRWACT = .FALSE.
             RTCACT = .FALSE.
-            DDWAQ  = .FALSE.
             LCHAR(44) = ' '
             LUN(44)   = LUN(43) + 1
 
@@ -306,18 +288,9 @@
             close (lunin)
  123        continue
 
-         ! check ddwaq from commandline
-
-            call getcom ( '-d'  , 0    , lfound, idummy, rdummy,
-     +           cdummy, ierr2)
-            if ( lfound ) then
-               DDWAQ = .TRUE.
-               write(lun(19),*) ' DDWAQ coupling activated'
-            endif
-
        ! initialise DIO
 
-            IF ( OLCFWQ .OR. SRWACT .OR. RTCACT .OR. DDWAQ ) THEN
+            IF ( OLCFWQ .OR. SRWACT .OR. RTCACT ) THEN
                if ( dioconfig .ne. ' ' ) then
                   write(lun(19),*) ' Using DelftIO ini file : ',trim(dioconfig)
                   CALL DIOINIT(dioconfig)
@@ -327,15 +300,11 @@
                endif
             ENDIF
 !
-!     The unlocking !
+!           Show startup screen
 !
             IF ( INIT2 ) THEN
                INIT2 = .FALSE.
-               IF ( NOQ3 .GT. 0 ) THEN
-                  CALL UNLOCK (LUN(19),.TRUE.,NOLIC)
-               ELSE
-                  CALL UNLOCK (LUN(19),.FALSE.,NOLIC)
-               ENDIF
+               CALL startup_screen (LUN(19))
             ENDIF
 
             IF (ACTION .EQ. ACTION_FULLCOMPUTATION) THEN
@@ -344,12 +313,6 @@
                WRITE(*,*)
             ENDIF
 
-            if ( nolic .and. noseg > 150 ) then
-               write(*,'(//a)') 'Error: Authorisation problem'
-               write(*,'(a)')   '       No valid license, so the number
-     & of segments is limited to 150'
-               call srstop(1)
-            endif
          endif
 !
 !        end of reading master proces
@@ -416,7 +379,7 @@
 !
 !        Use of DelftIO coupling not allowed in parallel runs
 !
-         IF ( OLCFWQ .OR. SRWACT .OR. RTCACT .OR. DDWAQ ) GOTO 996
+         IF ( OLCFWQ .OR. SRWACT .OR. RTCACT ) GOTO 996
       ENDIF
 
 !         branch to the appropriate integration option

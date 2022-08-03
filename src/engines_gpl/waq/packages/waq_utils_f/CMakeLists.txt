@@ -15,12 +15,6 @@ set(waq_utils_path ${src_path}/waq_utils)
 get_fortran_source_files(${waq_utils_path} waq_utils_source)
 list(REMOVE_ITEM waq_utils_source ${CMAKE_CURRENT_SOURCE_DIR}/${src_path}/waq_utils/gregor.f)
 
-if(UNIX)
-   list(REMOVE_ITEM waq_utils_source ${CMAKE_CURRENT_SOURCE_DIR}/${src_path}/waq_utils/avundf.f)
-else()
-   list(REMOVE_ITEM waq_utils_source ${CMAKE_CURRENT_SOURCE_DIR}/${src_path}/waq_utils/avundf_linux.f)
-endif(UNIX)
-
 set(library_name waq_utils_f)
 add_library(${library_name} ${dlwq_netcdf_source}
                             ${mod_couplib_source}
@@ -39,6 +33,7 @@ if (UNIX)
     # WARNING: waq_process and waq_util_f are (weakly) circular dependent
     # Just add waq_process to "target_lib_libraries", nothing more
     set(oss_dependencies    deltares_common
+                            waq_include
                             io_netcdf)
     target_link_libraries(${library_name}
          ${oss_dependencies}
@@ -48,6 +43,7 @@ if (UNIX)
 endif(UNIX)
 if (WIN32)
     set(oss_dependencies    deltares_common
+                            waq_include
                             io_netcdf
                             netcdf4
                             netcdff)

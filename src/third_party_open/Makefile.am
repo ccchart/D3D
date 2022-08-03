@@ -28,7 +28,6 @@ SUBDIRS = \
     kdtree2 \
     md5 \
     $(MAYBE_FORTRANGIS)
-
 nobase_dist_pkgdata_DATA = \
     esmf/lnx64/bin/libcilkrts.so.5 \
     esmf/lnx64/bin/libdl.so.2 \

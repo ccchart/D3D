@@ -68,7 +68,6 @@
 				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="WIN64"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes" PreprocessorDefinitions="WIN32"/></FileConfiguration></File>
-		<File RelativePath=".\src\dhaggr.f"/>
 		<File RelativePath=".\src\gkwini.f"/>
 		<File RelativePath=".\src\merge_atr.f"/>
 		<File RelativePath=".\src\set_aggr_pnts.f"/>

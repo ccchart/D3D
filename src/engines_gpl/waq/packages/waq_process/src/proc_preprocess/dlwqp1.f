@@ -47,11 +47,10 @@
       use output
       use partable
       use string_module
+      use m_sysn          ! System characteristics
+      use m_sysi          ! Timer characteristics
 
       implicit none
-
-      include 'sysn.inc'                           ! COMMON  /  SYSN   /   System characteristics
-      include 'sysi.inc'                           ! COMMON  /  SYSI  /    Timer characteristics
 
       ! declaration of arguments
 
@@ -177,7 +176,7 @@
       character*80   line
       character*256  pdffil
       character*10   config
-      logical        lfound, laswi , swi_nopro, l3dmod, nolic
+      logical        lfound, laswi , swi_nopro
       integer        blm_act                       ! index of ACTIVE_BLOOM_P
 
       ! charon coupling
@@ -258,21 +257,12 @@
       procesdef%maxsize=0
       old_items%cursize = 0
       old_items%maxsize = 0
-      if ( noq3 .gt. 0 ) then
-         l3dmod = .true.
-      else
-         l3dmod = .false.
-      endif
 
       ! open report file
 
       call dhopnf ( lun(35) , lchar(35), 35    , 1     , ierr2 )
       lurep = lun(35)
       call setmlu ( lurep )
-      call unlock ( lurep ,l3dmod ,nolic)
-      if (nolic .and. noseg>150) then
-         ! error and stop
-      endif
       call monsys(line,11)
       line = ' '
       call monsys(line,1)
@@ -634,9 +624,8 @@
 
          ! add the processes in the structure
 
-         call prprop ( lurep    , laswi   , l3dmod   , config, no_act,
-     +                 actlst   , allitems, procesdef, noinfo, nowarn,
-     +                 old_items, ierr2 )
+         call prprop ( lurep, laswi, config, no_act, actlst, allitems, procesdef, 
+     +                 noinfo, nowarn, old_items, ierr2 )
          if ( ierr2 .ne. 0 ) ierr = ierr + 1
          nbpr   = procesdef%cursize
 

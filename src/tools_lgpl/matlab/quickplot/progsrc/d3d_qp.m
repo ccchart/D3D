@@ -2485,7 +2485,7 @@ switch cmd
             writelog(logfile,logtype,cmd,c);
         end
         
-    case {'xclipping','yclipping','clippingvals'}
+    case {'xclipping','yclipping','zclipping','clippingvals'}
         cv=findobj(UOH,'tag',[cmd '=?']);
         if isempty(cmdargs)
             Str=get(cv,'string');
@@ -5081,6 +5081,8 @@ switch cmd
             switch lower(e)
                 case {'.qplog','.m'}
                     d3d_qp('run',cmd,cmdargs{:})
+                case {'.fig','.qpses'}
+                    d3d_qp('openfigure',cmd,cmdargs{:})
                 otherwise
                     d3d_qp('openfile',cmd,cmdargs{:})
             end

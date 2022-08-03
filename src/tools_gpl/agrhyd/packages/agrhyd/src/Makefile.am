@@ -54,7 +54,6 @@ AM_FFLAGS  += $(FINCLUDES) $(FMODULES) ${NETCDF_CFLAGS} ${NETCDF_FORTRAN_CFLAGS}
 agrhyd_SOURCES = \
    set_poi.f \
    gkwini.f \
-   dhaggr.f \
    agr_poi.f \
    agrhyd_version.F90 \
    sing_dis.f \

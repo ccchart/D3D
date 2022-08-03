@@ -271,7 +271,6 @@
  double precision, allocatable     :: qsho  (:)   !< higher order part of upwind salinity    fluxes (ppt*m3/s) (dim=lnkx)
  double precision, allocatable, target     :: tem0  (:)   !< [degC] water temperature at end of timestep {"location": "face", "shape": ["ndkx"]}
  double precision, allocatable, target     :: tem1  (:)   !< [degC] water temperature at end of timestep {"location": "face", "shape": ["ndkx"]}
- double precision, allocatable     :: Tupq  (:)   !< upwind temperature flux (deg*m3/s)
  double precision, allocatable     :: qtho  (:)   !< higher order part of upwind temperature fluxes (ppt*m3/s) (dim=lnkx)
 
  double precision, allocatable     :: sam0  (:)   !< salinity mass       (pptm3) at start of timestep  ! remove later
@@ -357,7 +356,7 @@ double precision, allocatable     :: fvcoro (:)  !< 3D adamsbashford u point (m/
 
  double precision, allocatable     :: zn2rn (:)   !< weight from zn to rn, flownode to netnode
 
- double precision, allocatable, target :: taus (:) !< [kg s-2 m] cell centre tau N/m2 {"location": "face", "shape": ["ndx"]}
+ double precision, allocatable, target :: taus (:) !< [kg s-2 m-1] cell centre tau N/m2 {"location": "face", "shape": ["ndx"]}
  double precision, allocatable, target :: tausmax  (:)   !< cell centre taumax N/m2
  double precision, allocatable     :: q1waq (:)   !< Cumulative q1 within current waq-timestep
  double precision, allocatable     :: qwwaq (:)   !< Cumulative qw within current waq-timestep
