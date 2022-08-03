@@ -34,12 +34,12 @@
  !! @return Error status: error (/=0) or not (0)
  integer function flow_modelinit() result(iresult)                     ! initialise flowmodel
  use timers
- use m_flowgeom,    only: jaFlowNetChanged, ndx, lnx, kfs, ndxi
+ use m_flowgeom,    only: jaFlowNetChanged, ndx
  use waq,           only: reset_waq
- use m_flow,        only: zws, zws0, kmx, jasecflow, lnkx, iperot
+ use m_flow,        only: kmx, jasecflow, iperot
  use m_flowtimes
  use m_wind, only: numlatsg
- use network_data,  only: netstat, NETSTAT_CELLS_DIRTY
+ use network_data,  only: NETSTAT_CELLS_DIRTY
  use gridoperations, only: make1D2Dinternalnetlinks
  use m_partitioninfo
  use m_timer
@@ -48,15 +48,14 @@
  use unstruc_files, only: mdia
  use unstruc_netcdf
  use MessageHandling
- use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves, jasedtrails
+ use m_flowparameters, only: jawave, jatrt, jacali, jacreep, jatransportmodule, flowWithoutWaves, jasedtrails, jajre, modind
  use dfm_error
  use m_fm_wq_processes, only: jawaqproc
  use m_vegetation
  use m_hydrology, only: jadhyd, init_hydrology
  use m_integralstats, is_is_numndvals=>is_numndvals
- use m_xbeach_data, only: instat, newstatbc, bccreated
+ use m_xbeach_data, only: bccreated
  use m_oned_functions
- use unstruc_display, only : ntek, jaGUI
  use m_alloc
  use m_bedform
  use m_fm_update_crosssections, only: fm_update_mor_width_area, fm_update_mor_width_mean_bedlevel
@@ -64,6 +63,7 @@
  use unstruc_caching
  use m_monitoring_crosssections, only: ncrs, fill_geometry_arrays_crs
  use m_setucxcuy_leastsquare, only: reconst2ndini
+ use m_flowexternalforcings, only: nwbnd
  use m_sedtrails_network
  use m_sedtrails_netcdf, only: sedtrails_loadNetwork
  use m_sedtrails_stats, only: default_sedtrails_stats, alloc_sedtrails_stats
@@ -74,7 +74,7 @@
  !
  implicit none
 
- integer              :: jw, istat, L, ierr
+ integer              :: istat, L, ierr
  integer, external    :: flow_flowinit
  integer, external    :: init_openmp
  !
@@ -84,7 +84,6 @@
  !NEW_FPE_FLAGS = FPE_M_TRAP_OVF + FPE_M_TRAP_DIV0 + FPE_M_TRAP_INV
  !OLD_FPE_FLAGS = FOR_SET_FPE (NEW_FPE_FLAGS)
  !
-
  iresult = DFM_GENERICERROR
 
  call datum2(rundat2)
@@ -119,12 +118,12 @@
  call timstop(handle_extra(1)) ! End basic steps
 
 ! JRE
- call timstrt('Xbeach input init', handle_extra(2)) ! Wave input
  if (jawave == 4) then
+    call timstrt('Surfbeat input init', handle_extra(2)) ! Wave input
     bccreated = .false.       ! for reinit
     call xbeach_wave_input()  ! will set swave and lwave
+    call timstop(handle_extra(2)) ! End wave input
  endif
- call timstop(handle_extra(2)) ! End wave input
 
  call timstrt('Make internal links      ', handle_extra(3)) ! Internal links
  if (md_jamake1d2dlinks == 1) then
@@ -142,7 +141,7 @@
  call mess(LEVEL_INFO,'Initializing flow model geometry...')
  if ( jampi.eq.0 ) then
     call flow_geominit(0)                                ! initialise flow geometry based upon present network, time independent
-                                                         ! make directional wave grid
+                                                         ! make directional wave grid for surfbeat model
 
     call mess(LEVEL_INFO,'Done initializing flow model geometry.')
 
@@ -211,7 +210,7 @@
  if (jawave > 0 .and. .not. flowWithoutWaves) then
     call alloc9basicwavearrays()
  endif
- if (jawave > 2 .or. (jased > 0 .and. stm_included)) then
+ if (jawave > 2) then
     call flow_waveinit()
  endif
  ! Construct a default griddim struct for D3D subroutines, i.e. sedmor or trachytopes
@@ -222,7 +221,7 @@
  call timstop(handle_extra(7)) ! End flow griddim
 
  call timstrt('Bed forms init (1)  ', handle_extra(8)) ! Bed forms
- if ((jased > 0 .and. stm_included) .or. bfm_included .or. jatrt > 0 ) then
+ if ((jased > 0 .and. stm_included) .or. bfm_included .or. jatrt > 0 .or. (jawave>0 .and. modind==9)) then
     call flow_bedforminit(1)        ! bedforms stage 1: datastructure init
  endif
  call timstop(handle_extra(8)) ! End bed forms
@@ -233,14 +232,14 @@
  call timstop(handle_extra(9)) ! End 1d roughness
 
  ! need number of fractions for allocation of sed array
-  call timstrt('Sedimentation Morphology init', handle_extra(10)) ! sedmor
+  call timstrt('Sediment transport and morphology init', handle_extra(10)) ! sedmor
  if ( len_trim(md_sedfile) > 0 ) then
       call flow_sedmorinit ()
  endif
  call timstop(handle_extra(10)) ! End sedmor
 
  call timstrt('Bed forms init (2)  ', handle_extra(11)) ! bedform
- if ((jased > 0 .and. stm_included) .or. bfm_included ) then
+ if ((jased > 0 .and. stm_included) .or. bfm_included .or. jatrt > 0) then
     call flow_bedforminit(2)        ! bedforms  stage 2: parameter read and process
  endif
  call timstop(handle_extra(11)) ! End bedform
@@ -369,24 +368,16 @@
  endif
  call timstop(handle_extra(26)) ! end dredging init
 
- call timstrt('Xbeach init         ', handle_extra(27)) ! Xbeach init
- if (jawave .eq. 4) then
-    call xbeach_wave_init()
-
-    if ( trim(instat).eq.'stat' .or. trim(instat)=='stat_table') then   ! for stationary solver: initialize with stationary field
-       !call xbeach_stationary()
-       call xbeach_solve_wave_stationary(iresult)
-       newstatbc   = 0
-       if ( jaGUI.eq.1 ) then                                          ! this part is for online visualisation
-          if (ntek > 0) then
-             if (mod(int(dnt_user),ntek) .eq. 0) then
-                call wave_makeplotvars()                                ! Potentially only at ntek interval
+ if (jawave .eq. 4 .and. jajre .eq. 1) then
+    call timstrt('Surfbeat init         ', handle_extra(27)) ! Surfbeat init
+    if (jampi==0) then
+       if (nwbnd==0) then
+          call mess(LEVEL_ERROR, 'unstruc::flow_modelinit - No wave boundary defined for surfbeat model')
              end if
           endif
+    call xbeach_wave_init()
+    call timstop(handle_extra(27))
        endif
-    end if
- end if
- call timstop(handle_extra(27)) ! end Xbeach init
 
  call timstrt('Observations init 2 ', handle_extra(28)) ! observations init 2
  call flow_obsinit()                                 ! initialise stations and cross sections on flow grid + structure his (2nd time required to fill values in observation stations)
