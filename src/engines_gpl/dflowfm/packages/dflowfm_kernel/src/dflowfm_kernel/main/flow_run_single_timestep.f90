@@ -53,8 +53,13 @@ integer :: N, L
  if (itstep >= 2) then
     call timstrt('step_reduce', handle_extra(51)) ! step_reduce
     !ADD if do SRE solver then
-    call SOFLOW_wrap()
-    call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
+    select case (FlowSolver)
+        case (1)
+            call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
+        case (2)
+            call SOFLOW_wrap()
+    end select
+    
     call timstop(handle_extra(51)) ! step_reduce
 
     if (dsetb > 0) then

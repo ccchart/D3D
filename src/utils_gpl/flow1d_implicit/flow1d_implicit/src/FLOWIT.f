@@ -279,6 +279,16 @@ c      !DEC$ ENDIF
 
       include '..\include\sobdim.i'
 c      include '..\include\mempool.i'
+      
+      integer    ok
+      integer    info
+      integer    warnng
+      integer    fatal
+      
+      parameter (ok     =     0,       
+     +           info   =     1,       
+     +           warnng =     2,       
+     +           fatal  =     3)
 
 c
 c     Declaration of parameters:

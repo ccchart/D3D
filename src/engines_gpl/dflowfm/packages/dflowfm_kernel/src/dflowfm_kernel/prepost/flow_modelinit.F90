@@ -421,8 +421,12 @@
  call timstop(handle_extra(33)) ! end Fourier init
 
  !Initialize flow1d_implicit
- if (FlowSolver==1) then
-     call initialize_flow1d_implicit()
+ if (FlowSolver==2) then
+     call initialize_flow1d_implicit(iresult)
+     if (iresult /= DFM_NOERR) then
+       call mess(LEVEL_WARN,'Error initializing 1D implicit.')
+       goto 1234
+     end if
  endif
  
  call timstrt('MDU file pointer    ', handle_extra(34)) ! writeMDUFilepointer

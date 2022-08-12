@@ -202,6 +202,17 @@ cc     Include memory pool
 cc
 c      include 'mempool.i'
 c      include 'errcod.i'
+      
+c     maybe make a module of these parameters. Used also in <FLOWIT>
+      integer    ok
+      integer    info
+      integer    warnng
+      integer    fatal
+      
+      parameter (ok     =     0,       
+     +           info   =     1,       
+     +           warnng =     2,       
+     +           fatal  =     3)
 c
 c*******
 c    END old interface
@@ -761,6 +772,7 @@ c      Other
 c
       lfrou=.false.
       lrest=.false.
+      iterbc=100
 c
 c     Create flwpar
 c     
