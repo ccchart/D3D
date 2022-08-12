@@ -74,6 +74,7 @@ integer, dimension(:,:)                  , pointer :: hbdpar
 integer, dimension(:,:)                  , pointer :: qbdpar
 integer, dimension(:,:)                  , pointer :: ntab
 integer, dimension(:,:)                  , pointer :: node
+integer, dimension(:,:)                  , pointer :: nodnod
 
 real                                     , pointer :: g
 real                                     , pointer :: psi                    
@@ -368,6 +369,13 @@ do k=1,f1dimppar%nnode
     f1dimppar%numnod(k)=network%NDS%NODE(1)%NUMBEROFCONNECTIONS
 end do
 !
+
+allocate(f1dimppar%nodnod(f1dimppar%nnode,f1dimppar%nbrnod+1))
+!#2DO compute properly based on node connections. 
+f1dimppar%nodnod(1,1)=1
+f1dimppar%nodnod(1,2)=2
+f1dimppar%nodnod(2,1)=2
+f1dimppar%nodnod(2,2)=1
 
 end subroutine initialize_flow1d_implicit
 

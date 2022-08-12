@@ -8,12 +8,12 @@
      +                  nhstat , nqstat , maxtab , ntabm  , nbrnod ,
      +                  nlev                                       ,
      +                  branch , bfrict                            ,
-     +                  bfricp , hpack  , qpack                    ,
+     +                  bfricp , hpack  , qpack  ,x                ,
      +                  wft    , aft    ,wtt     ,att     , of     , 
      +                  hlev                                       , 
      +                  hbdpar , qbdpar                            , 
      +                  table  , ntab                              ,
-     +                  node   , numnod
+     +                  node   , numnod ,nodnod                    
      +                  )
 c*******
 c    BEGIN original interface    
@@ -773,6 +773,11 @@ c
       lfrou=.false.
       lrest=.false.
       iterbc=100
+      
+c     I don't know what should the initial value be, but not 0.       
+      ibuf(1)=1
+      ibuf(2)=1
+      ibuf(3)=1
 c
 c     Create flwpar
 c     
@@ -826,7 +831,7 @@ c      endif
 c
 c     Start always with Bicgst method
 c
-       bicg = .true.
+       bicg = .true.  
 
  100  continue
 

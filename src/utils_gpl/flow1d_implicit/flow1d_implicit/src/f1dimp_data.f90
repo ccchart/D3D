@@ -231,6 +231,8 @@ module m_f1dimp_data
                                                                  !<node(3,i)>: I, integer. Station number for boundary, undefined for internal nodes.
                                                                  !<node(4,i)>: I, integer. Boundary number in case of boundary.
       
+      integer, allocatable, dimension(:,:)   :: nodnod           ! Administration of nodal adminstration matrix. All elements (i,j) with index i contain the numbers of the nodes connected to node i, node i included.
+      
       
    end type f1dimppar_type
    
