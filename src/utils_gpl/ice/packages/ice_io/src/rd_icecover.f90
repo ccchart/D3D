@@ -100,7 +100,9 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     !
     ! Parameters
     !
-    call prop_get(md_ptr,chapter,'IceDensity',icecover%dens_ice)
+    call prop_get(md_ptr,chapter,'IceDensity',icecover%ice_dens)
+    call prop_get(md_ptr,chapter,'IceAlbedo' ,icecover%ice_albedo)
+    call prop_get(md_ptr,chapter,'SnowAlbedo',icecover%snow_albedo)
     !
     tmp = ' '
     call prop_get(md_ptr,chapter,'IceFricType',tmp)
@@ -219,8 +221,12 @@ function echo_icecover(icecover, lundia) result (error)
     !
     ! parameters
     !
+    txtput1 = '  Albedo of ice cover'
+    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%ice_albedo
+    txtput1 = '  Albedo of snow cover'
+    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%snow_albedo
     txtput1 = '  Ice Density'
-    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%dens_ice
+    write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%ice_dens
 
     txtput1 = '  Ice Cover Friction Type'
     select case (icecover%frict_type)

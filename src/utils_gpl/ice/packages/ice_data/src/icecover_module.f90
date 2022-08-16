@@ -58,7 +58,7 @@ public select_icecover_model
 public late_activation_ext_force_icecover
 public alloc_icecover
 public clr_icecover
-public update_icecover
+!public update_icecover
 public update_icepress
 
 ! ice cover type
@@ -81,7 +81,9 @@ type icecover_type
     integer  :: areafrac_forcing_available        !> flag indicating whether ice area fraction is available via external forcing
     integer  :: thick_ice_forcing_available       !> flag indicating whether ice thickness is available via external forcing
     !
-    real(fp) :: dens_ice                          !> ice density
+    real(fp) :: ice_albedo                        !> albedo of ice
+    real(fp) :: snow_albedo                       !> albedo of snow
+    real(fp) :: ice_dens                          !> ice density
     real(fp) :: frict_val                         !> friction coefficient of ice cover (unit depends on frict_type)
     !
     ! state
@@ -92,6 +94,8 @@ type icecover_type
     !
     ! extra
     !
+    real(fp), dimension(:), pointer :: qh_air2ice => null() !> heat flux from air to ice (?)
+    real(fp), dimension(:), pointer :: qh_ice2wat => null() !> heat flux from ice to water (?)
     real(fp), dimension(:), pointer :: pressure   => null() !> pressure exerted by the ice cover (Pa)
 end type icecover_type
 
@@ -123,6 +127,8 @@ function null_icecover(icecover) result(istat)
     !
     ! extra
     !
+    nullify(icecover%qh_air2ice)
+    nullify(icecover%qh_ice2wat)
     nullify(icecover%pressure)
 end function null_icecover
 
@@ -198,7 +204,9 @@ function select_icecover_model(icecover, modeltype) result(istat)
        icecover%reduce_wind               = .false.
     endif
 
-    icecover%dens_ice                  = 917.0_fp
+    icecover%ice_albedo                = 0.75_fp
+    icecover%snow_albedo               = 0.9_fp
+    icecover%ice_dens                  = 917.0_fp
     icecover%frict_type                = FRICT_AS_DRAG_COEFF
     icecover%frict_val                 = 0.005_fp
     
@@ -238,12 +246,26 @@ function alloc_icecover(icecover, nmlb, nmub) result(istat)
        if (icecover%modeltype /= ICECOVER_EXT) then
           if (istat==0) allocate(icecover%thick_snow(nmlb:nmub), STAT = istat)
        endif
+       if (istat==0) then
+          icecover%areafrac  = 0.0_fp
+          icecover%thick_ice = 0.0_fp
+          if (icecover%modeltype /= ICECOVER_EXT) then
+             icecover%thick_snow = 0.0_fp
+          endif
+       endif
     endif
     !
     ! extra
     !
     if (icecover%modeltype /= ICECOVER_NONE) then
+       if (istat==0) allocate(icecover%qh_air2ice(nmlb:nmub), STAT = istat)
+       if (istat==0) allocate(icecover%qh_ice2wat(nmlb:nmub), STAT = istat)
        if (istat==0) allocate(icecover%pressure  (nmlb:nmub), STAT = istat)
+       if (istat==0) then
+          icecover%qh_air2ice = 0.0_fp
+          icecover%qh_ice2wat = 0.0_fp
+          icecover%pressure   = 0.0_fp
+       endif
     endif
 end function alloc_icecover
 
@@ -274,34 +296,36 @@ function clr_icecover(icecover) result (istat)
     !
     ! extra
     !
+    if (associated(icecover%qh_air2ice)) deallocate(icecover%qh_air2ice, STAT = istat)
+    if (associated(icecover%qh_ice2wat)) deallocate(icecover%qh_ice2wat, STAT = istat)
     if (associated(icecover%pressure  )) deallocate(icecover%pressure  , STAT = istat)
 end function clr_icecover
 
 !--------------- following routines should move to ice kernel ---------------
 
-!> Update the ice pressure array.
-subroutine update_icecover(icecover, nm)
-!!--declarations----------------------------------------------------------------
-    !
-    ! Function/routine arguments
-    !
-    type (icecover_type)                       , intent(inout) :: icecover  !> data structure containing ice cover data
-    integer                                    , intent(in)    :: nm        !> Spatial index
-    !
-    ! Local variables
-    !
-!
-!! executable statements -------------------------------------------------------
-!
-    select case (icecover%modeltype)
-    case (ICECOVER_KNMI)
-        ! follow De Bruin & Wessels (1975)
-    case (ICECOVER_SEMTNER)
-        ! follow Semtner (1975)
-    case default
-        ! by default no growth
-    end select
-end subroutine update_icecover
+!> Update the ice pressure array. I hope that we can extract the initial update_icecover from m_fm_icecover to here ...
+!subroutine update_icecover(icecover, nm)
+!!!--declarations----------------------------------------------------------------
+!    !
+!    ! Function/routine arguments
+!    !
+!    type (icecover_type)                       , intent(inout) :: icecover  !> data structure containing ice cover data
+!    integer                                    , intent(in)    :: nm        !> Spatial index
+!    !
+!    ! Local variables
+!    !
+!!
+!!! executable statements -------------------------------------------------------
+!!
+!    select case (icecover%modeltype)
+!    case (ICECOVER_KNMI)
+!        ! follow De Bruin & Wessels (1975)
+!    case (ICECOVER_SEMTNER)
+!        ! follow Semtner (1975)
+!    case default
+!        ! by default no growth
+!    end select
+!end subroutine update_icecover
 
 
 !> Update the ice pressure array.
@@ -317,7 +341,7 @@ subroutine update_icepress(icecover, ag)
     ! Local variables
     !
     integer                         :: nm        !> Spatial loop index
-    real(fp)                        :: dens_ice  !> Local variable for ice density
+    real(fp)                        :: ice_dens  !> Local variable for ice density
     real(fp), dimension(:), pointer :: areafrac  !> Pointer to ice area fraction array
     real(fp), dimension(:), pointer :: pressure  !> Pointer to ice pressure array
     real(fp), dimension(:), pointer :: thick_ice !> Pointer to ice thickness array
@@ -327,9 +351,9 @@ subroutine update_icepress(icecover, ag)
     areafrac  => icecover%areafrac
     pressure  => icecover%pressure
     thick_ice => icecover%thick_ice
-    dens_ice  =  icecover%dens_ice
+    ice_dens  =  icecover%ice_dens
     do nm = lbound(pressure,1),ubound(pressure,1)
-        pressure(nm) = areafrac(nm) * thick_ice(nm) * dens_ice * ag
+        pressure(nm) = areafrac(nm) * thick_ice(nm) * ice_dens * ag
         ! + optionally snow or is that weight always negligible?
     enddo
 end subroutine update_icepress

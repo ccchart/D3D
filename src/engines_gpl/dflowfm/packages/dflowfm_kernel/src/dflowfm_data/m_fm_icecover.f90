@@ -44,7 +44,8 @@ type(icecover_type), target                                :: ice_data          
 real(fp), dimension(:), pointer                            :: ice_af                       !< module pointer to array ice areafrac inside ice_data
 real(fp), dimension(:), pointer                            :: ice_h                        !< module pointer to array ice thickness inside ice_data
 real(fp), dimension(:), pointer                            :: ice_p                        !< module pointer to array pressure inside ice_data
-
+real(fp), dimension(:), pointer                            :: qh_air2ice                   !< module pointer to array qh_air2ice inside ice_data
+real(fp), dimension(:), pointer                            :: qh_ice2wat                   !< module pointer to array qh_ice2wat inside ice_data
 real(fp), dimension(:), pointer                            :: snow_h                       !< module pointer to array snow thickness inside ice_data
 
 integer, pointer                                           :: ja_aice_read                 !< flag indicating whether ice area fraction is available via EC module
@@ -62,7 +63,11 @@ logical, pointer                                           :: ice_reduce_wind   
 integer, pointer                                           :: ja_icecover                  !< module pointer to modeltype flag inside ice_data that specifies the ice cover model
 integer, pointer                                           :: ice_frctp                    !< module pointer to frict_type inside ice_data
 
+real(fp), pointer                                          :: ice_dens                     !< module pointer to ice_dens inside ice_data
+real(fp), pointer                                          :: ice_albedo                   !< module pointer to ice_albedo inside ice_data
 real(fp), pointer                                          :: ice_frcuni                   !< module pointer to frict_val inside ice_data
+
+real(fp), pointer                                          :: snow_albedo                  !< module pointer to snow_albedo inside ice_data
 
 
 contains
@@ -118,8 +123,12 @@ subroutine fm_ice_update_all_pointers()
     ice_reduce_waves   => ice_data%reduce_waves
     ice_reduce_wind    => ice_data%reduce_wind
     
+    ice_albedo => ice_data%ice_albedo
+    ice_dens   => ice_data%ice_dens
     ice_frctp  => ice_data%frict_type
     ice_frcuni => ice_data%frict_val
+    
+    snow_albedo => ice_data%snow_albedo
     
     call fm_ice_update_spatial_pointers()
 end subroutine fm_ice_update_all_pointers
@@ -143,6 +152,8 @@ subroutine fm_ice_update_spatial_pointers()
     ice_af => ice_data%areafrac
     ice_h  => ice_data%thick_ice
     ice_p  => ice_data%pressure
+    qh_air2ice => ice_data%qh_air2ice
+    qh_ice2wat => ice_data%qh_ice2wat
     snow_h => ice_data%thick_snow
 end subroutine fm_ice_update_spatial_pointers
 
@@ -275,5 +286,44 @@ subroutine fm_ice_update_press(ag)
 !
     call update_icepress(ice_data, ag)
 end subroutine fm_ice_update_press
+
+
+!> update the ice cover -- initial coding here with full access to D-Flow FM arrays via use statements
+!> let's see if we can make it gradually more modular and move functionality to the icecover_module.
+subroutine update_icecover()
+!!--declarations----------------------------------------------------------------
+    use m_flowgeom , only: ndx
+    use m_flowtimes, only: dts
+    implicit none
+    !
+    ! Function/routine arguments
+    !
+    ! NONE
+    !
+    ! Local variables
+    !
+    integer :: k
+!
+!! executable statements -------------------------------------------------------
+!
+    select case (ja_icecover)
+    case (ICECOVER_KNMI)
+        ! follow De Bruin & Wessels (1975)
+        
+    case (ICECOVER_SEMTNER)
+        ! follow Semtner (1975)
+        do k = 1, ndx
+            if (qh_air2ice(k) > 0.0_fp) then
+                ! melting
+            else
+                ! freezing
+            endif
+            ice_h(k) = ice_h(k) + 0.1_fp * dts ! not sure that dts is actually known before the time step ...
+        enddo
+        
+    case default
+        ! by default no growth
+    end select
+end subroutine update_icecover
 
 end module m_fm_icecover
