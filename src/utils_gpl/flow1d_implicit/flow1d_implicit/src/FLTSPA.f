@@ -209,7 +209,7 @@ c
       if (initial .and. .not.zero) then
 c         call getstr(istru,strnam,lstnam)
 c         ker = warnng
-c         call error (juer,'FLTSPA Q not zero in structure @'
+c         call sre_error (juer,'FLTSPA Q not zero in structure @'
 c     +               //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)         
       endif   
       if (inidb .and. .not.zero) then
@@ -217,7 +217,7 @@ c         call getstr(sdbdef,strnam,lstnam)
          if (sdbdef.ne.istru) then   
 c            call getstr(sdbdef,strnam,lstnam)
 c            ker = warnng
-c            call error (juer,'FLTSPA Q not zero in structure @'
+c            call sre_error (juer,'FLTSPA Q not zero in structure @'
 c     +                  //strnam(:lstnam)//'@ if sill dry', eflcr0, ker)
          endif
       endif

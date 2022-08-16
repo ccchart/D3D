@@ -162,12 +162,12 @@ c
           if ( icpnum .eq. 2 ) then
             call getstr(istnum,strnam,lstnam)
             ker = fatal
-            call error (juer,'FLCNPA Negative crest width in structure @
+            call sre_error (juer,'FLCNPA Negative crest width in structure @
      &'//strnam(:lstnam)//'@', eflncw, ker)
           else if ( icpnum .eq. 3 ) then
             call getstr(istnum,strnam,lstnam)
             ker = fatal
-            call error (juer,'FLCNPA Negative gate opening height in str
+            call sre_error (juer,'FLCNPA Negative gate opening height in str
      &ucture @'//strnam(:lstnam)//'@', eflngo, ker)
           endif
         endif
@@ -236,7 +236,7 @@ c           for change of controllable parameter
             if (.not.EQUAL(value,value0)) then
                call getstr(istnum,strnam,lstnam)
                ker1 = warnng
-               call error (juer,'FLCNPA controllable par. of @'//
+               call sre_error (juer,'FLCNPA controllable par. of @'//
      &         strnam(:lstnam)//'@ changed after restart',
      &         eflcha, ker1)   
                ker = max(ker,ker1)  

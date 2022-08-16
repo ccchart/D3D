@@ -497,7 +497,7 @@ c         ibuf(1) = -ibuf(1)
 
 c      if (ker .ne. ok) then
 c         write (txt,'(2(1x,i8))') itim
-c         call error (juer,'FLOW timestep@'//txt//'@',eflmes,info)
+c         call sre_error (juer,'FLOW timestep@'//txt//'@',eflmes,info)
 c         if (ker .ne. fatal) ker = ok
 c      endif
 c

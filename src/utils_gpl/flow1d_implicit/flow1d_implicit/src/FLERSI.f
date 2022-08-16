@@ -26,7 +26,7 @@ c
      +        exres(2,j) .gt. x(i2) ) then
             call getbrn (ibr,branam,lbrnam)
             ker = fatal
-            call error (juer,'FLERSI Coordinate of head loss not in bran
+            call sre_error (juer,'FLERSI Coordinate of head loss not in bran
      &ch @'//branam(:lbrnam)//'@', eflnib, ker)
          else
 c

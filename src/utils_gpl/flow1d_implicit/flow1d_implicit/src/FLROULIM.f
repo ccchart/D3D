@@ -57,12 +57,12 @@ c        store values at end of time step
       else if(kode.eq.-4) then   
          if (chlow(1).lt.999.9) then
             write (ctxt,'(f6.2)') chlow(1)
-            call error (juer,'FLROULIM Chezy in @'//sectxt(1)//
+            call sre_error (juer,'FLROULIM Chezy in @'//sectxt(1)//
      +                  '@ limited (@'//ctxt//'@)',eflrou,ker)
          endif
          do i=2,3
             if (chlow(i).lt.999.9) then
-               call error (juer,'FLROULIM Chezy in @'//sectxt(i)//
+               call sre_error (juer,'FLROULIM Chezy in @'//sectxt(i)//
      +                     '@ limited ',eflrof,ker)
             endif
          enddo   

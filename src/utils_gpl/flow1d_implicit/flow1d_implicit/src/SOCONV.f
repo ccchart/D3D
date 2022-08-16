@@ -209,7 +209,7 @@ c
       if (EPSEQU(epsq2,.0,1E-10) .and. .not.hcrit ) then
 c        Error when qtyp=0 and epsqrl only criterium specified
          ker = fatal
-         call error (juer , 'SOCONV no convergence-criterion left'
+         call sre_error (juer , 'SOCONV no convergence-criterion left'
      +               , eflncc , ker )
       endif
 c
@@ -280,7 +280,7 @@ c
             ibuf(4) = inocon
          else
             ker = fatal
-            call error (juer,'SOFLOW No convergence', eflncv, ker)
+            call sre_error (juer,'SOFLOW No convergence', eflncv, ker)
             juis = juer
          endif
 c         write(juis,100) itstat(4)+1        

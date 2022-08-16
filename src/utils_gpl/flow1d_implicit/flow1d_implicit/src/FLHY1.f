@@ -525,6 +525,6 @@ c
 c
       ker = fatal
       write (txt,'(i8)') errr
-      call error (juer ,'FLHY1 @'//txt//'@' ,nrerr ,ker)
+      call sre_error (juer ,'FLHY1 @'//txt//'@' ,nrerr ,ker)
 c
       end

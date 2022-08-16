@@ -136,7 +136,7 @@ c              Make messages if any
                   call getstr(istru,strnam,lstnam)
                   ker = warnng
                   write (txt,'(a,f7.2,a)') ' (H1=',strpar(15,istru),')'
-                  call error (juer,
+                  call sre_error (juer,
      +                        'FLTSER @Underflow@ in db structure @'
      +                        //strnam(:lstnam)//txt//'@', efllim, ker)               
                endif
@@ -145,7 +145,7 @@ c              Make messages if any
                   ker = warnng           
                   write (txt,'(2a,f7.2,a)') 
      +                       ' (',h2txt,strpar(16,istru),')'
-                  call error (juer,
+                  call sre_error (juer,
      +                        'FLTSER @Underflow@ in db structure @'
      +                        //strnam(:lstnam)//txt//'@', efllim, ker)               
                endif               
@@ -153,7 +153,7 @@ c              Make messages if any
                   call getstr(istru,strnam,lstnam)
                   ker = warnng
                   write (txt,'(a,f7.2,a)') ' (H1=',strpar(17,istru),')'
-                  call error (juer,
+                  call sre_error (juer,
      +                        'FLTSER @Overflow@ in db structure @'
      +                        //strnam(:lstnam)//txt//'@', efllim, ker)               
                endif
@@ -162,7 +162,7 @@ c              Make messages if any
                   ker = warnng
                   write (txt,'(2a,f7.2,a)')
      +                       ' (',h2txt,strpar(18,istru),')'
-                  call error (juer,
+                  call sre_error (juer,
      +                        'FLTSER @Overflow@ in db structure @'
      +                        //strnam(:lstnam)//txt//'@', efllim, ker)               
                endif            

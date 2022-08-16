@@ -300,7 +300,7 @@ c               call getstr(istru,strnam,lstnam)
 c               ker = warnng
 c               write (abrtxt,'(f8.0)') abran
 c               write (astrtxt,'(f8.0)') astr
-c               call error (juer,'FLGS Area in gen structure @'//
+c               call sre_error (juer,'FLGS Area in gen structure @'//
 c     &            strnam(:lstnam)//'@(@'//astrtxt//'@ > area branch (@'
 c     &            //abrtxt//'@)',eflgsa, ker)
             endif

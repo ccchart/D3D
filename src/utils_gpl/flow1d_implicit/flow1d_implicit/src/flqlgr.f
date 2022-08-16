@@ -118,7 +118,7 @@ c
 c
             if ((grhis(0,i,1)+1) .gt. dmgrnd) then
                ker = fatal
-               call error (juer,'FLQLGR' ,eflgrh,ker)
+               call sre_error (juer,'FLQLGR' ,eflgrh,ker)
                goto 900
             endif
             

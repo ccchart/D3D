@@ -154,13 +154,13 @@ c     Error allocating array space
       write(siztxt,'(i10)') newsize
       txt   = 'GAINTERPOL @' // siztxt // '@ @' // artype // '@'
       ker   = fatal
-      call error (juer, txt, ealloc, ker )
+      call sre_error (juer, txt, ealloc, ker )
       return
 c      
  9010 continue
 c     Error deallocating array space'
       txt   = 'GAINTERPOL @' // artype // '@'
       ker   = fatal
-      call error (juer, txt, edeall, ker )
+      call sre_error (juer, txt, edeall, ker )
 c
       end

@@ -235,7 +235,7 @@ c
       write (xtxt,'(f10.2)') xc
       call getbrn (ibr,branam,lbrnam)
       ker = fatal
-      call error (juer,'FLERES Extra resistance at branch @'//
+      call sre_error (juer,'FLERES Extra resistance at branch @'//
      +                  branam(:lbrnam)//'@ X= @' //xtxt//
      +                 '@ undefined for zero discharge',
      +                  eflexr,fatal)

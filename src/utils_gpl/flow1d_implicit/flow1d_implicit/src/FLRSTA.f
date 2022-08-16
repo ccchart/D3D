@@ -272,14 +272,14 @@ c
       if (errr.gt.0) then
          if (errr.eq.4) then
 c           Size of buffer has been changed
-            call error (juer ,
+            call sre_error (juer ,
      &       'FLRSTA  Size of discharge buffer changed at restart' ,
      &       efllag ,ker)
          else
 c
 c           Could not found restart time step.
 c
-            call error (juer ,'FLRSTA' ,eflrtt ,ker)
+            call sre_error (juer ,'FLRSTA' ,eflrtt ,ker)
          endif
          ker = fatal
       else
@@ -287,7 +287,7 @@ c
 c        NEFIS error ( <0 )
          ker = fatal
          write (txt,'(i8)') errr
-         call error (juer ,'FLRSTA @'//txt//'@' ,nrerr ,ker)
+         call sre_error (juer ,'FLRSTA @'//txt//'@' ,nrerr ,ker)
       endif
 c
  1010 continue

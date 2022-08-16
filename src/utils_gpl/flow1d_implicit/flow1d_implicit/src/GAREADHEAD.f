@@ -244,14 +244,14 @@ c     Error allocating array space
       write(siztxt,'(i10)') newsize
       txt   = 'GA1FILE @' // siztxt // '@ @' // artype // '@'
       ker   = fatal
-      call error (juer, txt, ealloc, ker )
+      call sre_error (juer, txt, ealloc, ker )
       return
 c      
  9010 continue
 c     Error deallocating array space'
       txt   = 'GA1FILE @' // artype // '@'
       ker   = fatal
-      call error (juer, txt, edeall, ker )
+      call sre_error (juer, txt, edeall, ker )
 c
  1000 format ('T0: ',I4.4,'.',I2.2,'.',I2.2,' ',I2.2,':',I2.2,':',I2.2,
      +        '  (scu=',i8,'s)')      

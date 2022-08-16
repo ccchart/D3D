@@ -782,7 +782,7 @@ c
                         call getloc (i,ibr,xc)
                         write (xtxt,'(f10.2)') xc
                         call getbrn (ibr,branam,lbrnam)
-                        call error (juer ,
+                        call sre_error (juer ,
      +                 'FLINI grain size d90 too small'//
      +                 ' at branch @'//branam(:lbrnam)//
      +                 '@ X= @'//xtxt//'@',

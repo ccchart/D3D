@@ -297,7 +297,7 @@ c
          if (kerlu.ne.0) then
 c           Matrix singular
             ker = fatal
-            call error (juer ,'FLSOEQ Matrix singular' ,eflmat ,ker)
+            call sre_error (juer ,'FLSOEQ Matrix singular' ,eflmat ,ker)
             goto 1000
          endif
          call lubksb (mat    ,nnode  ,nnode  ,indx   ,rhsvv(1,1)    )

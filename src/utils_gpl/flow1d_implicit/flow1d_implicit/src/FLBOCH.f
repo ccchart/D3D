@@ -745,7 +745,7 @@ c               ker  = warnng
 c               call getloc (i,ibr,xc)
 c               write (xtxt,'(f10.2)') xc
 c               call getbrn (ibr,branam,lbrnam)
-c               call error (juer ,
+c               call sre_error (juer ,
 c     +           'FLBOCH roughness or hydraulic radius out of limit'//
 c     +           ' at branch @'//branam(:lbrnam)//'@ X= @' //xtxt//'@',
 c     +           eflcrl , ker )

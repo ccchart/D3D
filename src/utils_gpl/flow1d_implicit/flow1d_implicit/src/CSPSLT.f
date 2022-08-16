@@ -416,7 +416,7 @@ c
                oke = .false.
                ker = fatal
                call getbrn (ibr,branam,lbrnam)
-               call error (juer,
+               call sre_error (juer,
      +         'CSPSLT Nikuradse-value is too high due to slot @' //
      +         branam(:lbrnam)// '@',
      +         ecsnik, ker)
@@ -428,7 +428,7 @@ c
          if (.not. oke) then
             ker = fatal
             call getbrn (ibr,branam,lbrnam)
-            call error (juer,
+            call sre_error (juer,
      +                  'CSPSLT Unable to create slot @' //
      +                   branam(:lbrnam)// '@',
      +                   ecsslt, ker)

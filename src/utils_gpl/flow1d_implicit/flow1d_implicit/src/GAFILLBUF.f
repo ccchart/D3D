@@ -108,7 +108,7 @@ c
 c      
       if (timind.lt.5) then
          ker = fatal
-         call error (juer,'GAFILLBUF to less dat', egales, ker )         
+         call sre_error (juer,'GAFILLBUF to less dat', egales, ker )         
       endif   
 c
       iloclast   = iloc
