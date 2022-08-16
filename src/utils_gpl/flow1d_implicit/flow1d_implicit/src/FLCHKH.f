@@ -188,7 +188,7 @@ c              write(11,*) 'FLCHKH',igr,psltvr(3,igr),h(igr)
                call getbrn (ibr,branam,lbrnam)
                write (xtxt,'(f10.2)') xc
                if ( .not. da_running_in_da_tools() ) then
-                  call sre_error (juer,'FLCHKH @'//branam(:lbrnam)//'@ @'
+              call sre_error (juer,'FLCHKH @'//branam(:lbrnam)//'@ @'
      +                                       //xtxt//'@ @'
      +                                       //htxt//'@ @'
      +                                       //btxt//'@',
@@ -200,7 +200,7 @@ c                 disturbance imposed by DATools.
 c                 Report warning, and adjust it.
 c
                   ker = warnng
-                  call sre_error (juer,'ADJUST @'//branam(:lbrnam)//'@ @'
+              call sre_error (juer,'ADJUST @'//branam(:lbrnam)//'@ @'
      +                                       //xtxt//'@ @'
      +                                       //htxt//'@ @'
      +                                       //btxt//'@',

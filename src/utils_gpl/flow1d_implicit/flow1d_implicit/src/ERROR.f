@@ -1,4 +1,4 @@
-      subroutine error (juer ,recsim  ,nr   ,ker)
+      subroutine sre_error (juer ,recsim  ,nr   ,ker)
 
 c=======================================================================
 c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS

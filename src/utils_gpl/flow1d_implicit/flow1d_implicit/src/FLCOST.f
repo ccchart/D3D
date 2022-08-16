@@ -271,7 +271,7 @@ c
                call getcontr(nrcon0 ,cntrnm1,lcntrnm1)
                call getcontr(i      ,cntrnm2,lcntrnm2)
                ker = fatal
-               call sre_error (juer,'FLCOST Controlled parameter controlled'
+          call sre_error (juer,'FLCOST Controlled parameter controlled'
      &         //'twice at the same time in structure @'//
      &         strnam(:lstnam)//'@ (@'
      &         //cntrnm1(:lcntrnm1)//'@,@' 
