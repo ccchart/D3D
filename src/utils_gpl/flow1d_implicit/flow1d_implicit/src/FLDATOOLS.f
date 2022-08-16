@@ -202,7 +202,7 @@ c     body
                 write(log_file_handle, '(A)') 'CHECK NOT OK'
              endif
 
-             call ERROR (juer,'Time Slice start time inconsistency',
+             call sre_error (juer,'Time Slice start time inconsistency',
      +                        efltsi , fatal )
           endif
       endif

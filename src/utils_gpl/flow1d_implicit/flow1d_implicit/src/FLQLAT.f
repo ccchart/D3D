@@ -624,7 +624,7 @@ c              ERROR Unexpected type for lateral structure
 c
               ker = fatal
 c              call getstr(istru,strnam,lstnam)
-c              call ERROR (juer,'FLQLAT  structure number@'//
+c              call sre_error (juer,'FLQLAT  structure number@'//
 c     +        strnam(:lstnam)//'@',eflstr, ker)
               goto 1000
             endif
@@ -673,7 +673,7 @@ c             ERROR Retention areas cannot be defined on grid points
 c
               ker = fatal
 c              call getstr(is1,strnam,lstnam)
-c              call ERROR (juer,'FLQLAT structure@'//strnam(:lstnam)//
+c              call sre_error (juer,'FLQLAT structure@'//strnam(:lstnam)//
 c     +                   '@ must be in a grid cell', eflqlt, ker)
               goto 1000
             endif
@@ -752,7 +752,7 @@ c                 ERROR Unexpected type for lateral structure
 c
                   ker = fatal
 c                  call getstr(istru,strnam,lstnam)
-c                  call ERROR (juer,
+c                  call sre_error (juer,
 c     +                       'FLQLAT  structure number @'//
 c     +                        strnam(:lstnam)//'@',
 c     +                        eflstr, ker)

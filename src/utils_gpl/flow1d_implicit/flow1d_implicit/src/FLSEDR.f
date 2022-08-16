@@ -101,7 +101,7 @@ c
       if ( h .lt. zbmain .or. h .lt. zbsub1 ) then
 c         ker = fatal
 c         call getbrn (ibr,branam,lbrnam)
-c         call ERROR (juer,'FLSEDR  branch @'//branam(:lbrnam)//
+c         call sre_error (juer,'FLSEDR  branch @'//branam(:lbrnam)//
 c     &               '@',eflhse,ker)
          goto 1000
       else

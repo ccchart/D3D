@@ -837,7 +837,7 @@ c
 
       iter = iter + 1
 
-      call FLOW (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
+      call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
      +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,nnm   ,nnn    ,nns     ,
      +nnf   ,nnmu  ,nosdim,lagstm,nlags ,juer  ,
 c     Mozart parameters plus groundwater switch
@@ -870,7 +870,7 @@ c     Mozart parameters plus groundwater switch
 c     
 c    original call
 c
-c      call FLOW (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
+c      call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
 c     +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,nnm   ,nnn    ,nns     ,
 c     +nnf   ,nnmu  ,nosdim,lagstm,nlags ,juer  ,
 cc     Mozart parameters plus groundwater switch

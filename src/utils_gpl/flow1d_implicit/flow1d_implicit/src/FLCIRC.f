@@ -103,7 +103,7 @@ c
 
       else if ( h .lt. reflev ) then
          ker = fatal
-         call ERROR (juer,'FLCIRC', eflhci, ker)
+         call sre_error (juer,'FLCIRC', eflhci, ker)
       else
 c
 c        Calculate X en Y
