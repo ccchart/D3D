@@ -58,15 +58,18 @@ module m_temperature
       double precision :: c_e_dalton            !< dalton number
       double precision :: c_h_stanton           !< stanton number
       double precision :: s_area                !< exposed water surface area
-      double precision :: F_cloud               !< Cloud coverage factor [-]
-      double precision :: T_air                 !< background temperature
-      double precision :: r_hum                 !< air humidity
       double precision :: c_frconv              !< coefficient of free convection
       double precision :: nu_air                !< air viscosity
       double precision :: sigma_prandtl         !< prandtl number
       double precision :: tkelvn                !< T(Kelvin) = T(Celsius) + tkelvn
       double precision :: rhoair                !< rho air
-   end type
+      double precision, dimension(:), allocatable :: F_cloud !< Cloud coverage factor [-]
+      double precision, dimension(:), allocatable :: T_air   !< background temperature
+      double precision, dimension(:), allocatable :: r_hum   !< air humidity
+      double precision :: F_cloud_global        !< Cloud coverage factor [-] (default or input value)
+      double precision :: T_air_global          !< background temperature (default or input value)
+      double precision :: r_hum_global          !< air humidity (default or input value)
+      end type
    
    type(t_temperature_pars), target, public :: tempPars
    
@@ -109,12 +112,24 @@ module m_temperature
          tempPars%c_h_stanton    = value
       case('s_area')           
          tempPars%s_area         = value
-      case('cloudiness')           
-         tempPars%F_cloud        = value/100d0
-      case('air_temperature')             
-         tempPars%T_air          = value
-      case('humidity')             
-         tempPars%r_hum          = value/100d0
+      case('cloudiness')
+         if (allocated(tempPars%F_cloud)) then
+            tempPars%F_cloud        = value/100d0
+         else
+            tempPars%F_cloud_global = value/100d0
+         endif
+      case('air_temperature') 
+         if  (allocated(tempPars%T_air  )) then
+            tempPars%T_air          = value
+         else
+            tempPars%T_air_global = value
+         endif
+      case('humidity') 
+         if  (allocated(tempPars%r_hum  )) then
+            tempPars%r_hum          = value/100d0
+         else
+            tempPars%r_hum_global = value/100d0
+         endif
       end select
          
    end subroutine set_par_temperature
@@ -161,21 +176,21 @@ module m_temperature
          f_U10 = (3.5d0 + 2d0*wind_speed) *(5d6/tp%s_area)**0.05d0
       
          labda = 4.48d0 + 0.049d0 * temp + f_U10 * (1.12d0 + 0.018d0*temp + 0.00158d0*temp**2)
-         Q_tot(nod) = - labda * (temp - tp%T_air)
+         Q_tot(nod) = - labda * (temp - tp%T_air(nod))
       case (HEAT_COMPOSITE) 
          
          ! calculate Q_sn: net incident solar radiation (short wave)
-         f_Fc = 1d0 - 0.4d0 * tp%F_cloud - 0.38d0 * tp%F_cloud**2
+         f_Fc = 1d0 - 0.4d0 * tp%F_cloud(nod) - 0.38d0 * tp%F_cloud(nod)**2
          q_sc(nod) = qsun_nominal(time) 
          q_sn(nod) = (1d0-tp%alfa_albedo) * q_sc(nod) * f_fc
          
          ! calculate Q_eb effective back radiation
-         e_a = tp%r_hum * get_e_temp(tp%T_air)
+         e_a = tp%r_hum(nod) * get_e_temp(tp%T_air(nod))
          e_s = get_e_temp(temp)
-         q_eb(nod) = tp%eps_emissivity * tp%sigma_stefan * (temp+tp%tkelvn)**4 * (0.39d0 - 0.05d0 * sqrt(e_a)) * (1d0 - 0.6d0 * tp%F_cloud**2)
+         q_eb(nod) = tp%eps_emissivity * tp%sigma_stefan * (temp+tp%tkelvn)**4 * (0.39d0 - 0.05d0 * sqrt(e_a)) * (1d0 - 0.6d0 * tp%F_cloud(nod)**2)
          
          ! calculate Q_ev evaporative heat flux
-         rho_a10     = get_rho_air(tp%T_air, e_a)
+         rho_a10     = get_rho_air(tp%T_air(nod), e_a)
          rho_a0      = get_rho_air(temp, e_s)
          alfa_diff   = tp%nu_air/tp%sigma_prandtl
          L_v         = 2.5d6 - 2.3d3 * temp
@@ -194,8 +209,8 @@ module m_temperature
          
          ! calculate q_co
          g_U10 = tp%c_h_stanton * wind_speed
-         q_coforced(nod)  = tp%rhoair * tp%c_pa * g_U10 * (temp - tp%T_air)
-         q_co_free(nod)   = k_s * rho_avg * tp%c_pa * (temp - tp%T_air)
+         q_coforced(nod)  = tp%rhoair * tp%c_pa * g_U10 * (temp - tp%T_air(nod))
+         q_co_free(nod)   = k_s * rho_avg * tp%c_pa * (temp - tp%T_air(nod))
          q_co(nod) = q_coforced(nod) + q_co_free(nod)
          
          q_tot(nod) = q_sn(nod) - q_eb(nod) - q_ev(nod) - q_co(nod)
@@ -265,9 +280,9 @@ end function qsun_nominal
       tempPars%c_e_dalton     = 0.0013d0
       tempPars%c_h_stanton    = 0.0013d0
       tempPars%s_area         = 1d6
-      tempPars%F_cloud        = 0d0
-      tempPars%T_air          = 15d0
-      tempPars%r_hum          = 0.3d0
+      tempPars%F_cloud_global = 0d0
+      tempPars%T_air_global   = 15d0
+      tempPars%r_hum_global   = 0.3d0
       tempPars%c_frconv       = 0.14d0
       tempPars%nu_air         = 16.0d-6
       tempPars%sigma_prandtl  = 0.7d0
