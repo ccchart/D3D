@@ -40,6 +40,7 @@ module m_readBoundaries
    use string_module
 
    use m_ec_module
+   use time_module, only : offset_reduced_jd
 
    implicit none
 
@@ -61,6 +62,7 @@ module m_readBoundaries
    integer, public            :: ec_itemId_windvelocity
    integer, public            :: ec_itemId_boundaries = ec_undef_int
    integer, public            :: ec_itemId_laterals = ec_undef_int
+   integer                    :: connectionIdSvwp = ec_undef_int
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -76,6 +78,7 @@ module m_readBoundaries
    public getBoundaryValuePtr, getLateralValuePtr
    public disableScalarUpdate
    public write_laterals_and_boundaries
+   public readSpaceVarMeteo, readSpaceVarMeteo2
 
    contains
 
@@ -523,6 +526,117 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    !call ecInstancePrintState(ec,callback_msg,LEVEL_DEBUG)
 
 end subroutine readBoundaryConditions
+
+!> part one of initializing the reading space varying meteo data
+!! to be called as the filename for the meteo data is known
+subroutine readSpaceVarMeteo(filename)
+   character(len=*), intent(in) :: filename
+
+   type(tEcFileReader), pointer :: fileReaderPtr
+   integer :: fileReaderId   !< Unique FileReader id.
+   integer :: fileType, tsunit
+   integer :: sourceItemId_1, sourceItemId_2, sourceItemId_3
+   real(kind=hp) :: refdat, tzone
+   character(len=*), parameter :: name = 'dewpoint_airtemperature_cloudiness' ! TODO, this works for current test data
+   logical :: success
+
+   if ( .not. associated(ec)) then
+      if (.not. ecInstanceCreate(ec))then
+         call setmessage(LEVEL_FATAL, 'Reading Space Varying Meteo: could not create ec-instance')
+      end if
+   endif
+
+   ec%coordsystem = EC_COORDS_SFERIC ! TODO EC_COORDS_CARTESIAN
+
+   fileReaderId = ecCreateFileReader(ec)
+   fileReaderPtr => ecFindFileReader(ec, fileReaderId)
+   fileReaderPtr%vectormax = 3 ! vectormax
+
+   fileType = provFile_netcdf
+   refdat = modelTimeStepData%julianstart - offset_reduced_jd
+   tzone = 0.0d0
+   tsunit = ec_second
+   success =  ecSetFileReaderProperties(ec, fileReaderId, filetype, filename, refdat, tzone, tsunit, name)
+
+   sourceItemId_1 = ecFindItemInFileReader(ec, fileReaderId, 'dew_point_temperature')
+   sourceItemId_2 = ecFindItemInFileReader(ec, fileReaderId, 'air_temperature')
+   sourceItemId_3 = ecFindItemInFileReader(ec, fileReaderId, 'cloud_area_fraction')
+
+   connectionIdSvwp = ecCreateConnection(ec)
+
+   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_1)
+   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_2)
+   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_3)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_humidity)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_air_temperature)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_cloudiness)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_humidity, connectionIdSvwp)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_air_temperature, connectionIdSvwp)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_cloudiness, connectionIdSvwp)
+
+   if (.not. success) then
+      call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
+   end if
+
+end subroutine readSpaceVarMeteo
+
+!> part two of initializing the reading space varying meteo data
+!! to be called as the grid coordinates are known
+subroutine readSpaceVarMeteo2(x, y)
+   double precision, intent(in) :: x(:), y(:)
+
+   integer :: elementSetId, ec_convtype, ec_method, converterId, targetIndex
+   integer, parameter :: jsferic = 1 ! TODO, this works for current test data
+   logical :: success
+
+   if (connectionIdSvwp == ec_undef_int) return
+
+   elementSetId = ecCreateElementSet(ec)
+   if (jsferic==0) then
+      success = ecSetElementSetType(ec, elementSetId, elmSetType_cartesian)
+   else
+      success = ecSetElementSetType(ec, elementSetId, elmSetType_spheric)
+   end if
+   if (success) success = ecSetElementSetXArray(ec, elementSetId, x)
+   if (success) success = ecSetElementSetYArray(ec, elementSetId, y)
+
+   ec_convtype = convType_netcdf
+   ec_method = interpolate_spacetimeSaveWeightFactors
+   converterId = ecCreateConverter(ec)
+   if (success) success = initializeConverter(ec, converterId, ec_convtype, operand_replace_element, ec_method)
+   if (success) success = ecSetConverterElement(ec, converterId, targetIndex)
+
+   if (success) success = ecSetConnectionConverter(ec, connectionIdSvwp, converterId)
+   if (success) success = ecSetConnectionIndexWeights(ec, connectionIdSvwp)
+
+   if (.not. success) then
+      call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
+   end if
+end subroutine readSpaceVarMeteo2
+
+!> Helper function for initializing a Converter.
+!! copied from meteo1.f90
+function initializeConverter(instancePtr, converterId, convtype, operand, method, srcmask, inputptr) result(success)
+   logical                    :: success      !< function status
+   type(tEcInstance), pointer :: instancePtr  !< 
+   integer                    :: converterId  !< Id of the converter to be initialized
+   integer                    :: convtype     !< Type of conversion
+   integer                    :: operand      !< Operand (add/replace)
+   integer                    :: method       !< Method of interpolation
+   type (tEcMask), optional   :: srcmask      !< Mask excluding source points
+   real(hp), pointer, optional:: inputptr     !< pointer to an input arg for the converter (for QHBND)
+   !
+   success              = ecSetConverterType(instancePtr, converterId, convtype)
+   if (success) success = ecSetConverterOperand(instancePtr, converterId, operand)
+   if (success) success = ecSetConverterInterpolation(instancePtr, converterId, method)
+   if (present(srcmask)) then
+      if (success) success = ecSetConverterMask(instancePtr, converterId, srcmask)
+   end if
+   if (present(inputptr)) then
+      if (success) success = ecSetConverterInputPointer(instancePtr, converterId, inputptr)
+   end if
+
+end function initializeConverter
 
 subroutine callback_msg(lvl,msg)
    integer, intent(in)              :: lvl
