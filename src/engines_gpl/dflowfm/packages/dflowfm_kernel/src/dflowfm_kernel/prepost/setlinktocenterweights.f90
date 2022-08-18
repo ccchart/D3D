@@ -45,31 +45,8 @@
  integer                :: ilongc, L1dlink
 
  double precision       :: xloc, yloc, beta, aa1, wcw, alf
- double precision, allocatable       :: wwL(:)
-
- double precision, allocatable       :: wcxy (:,:)   ! center weight factors (2,ndx) , only for normalising
- double precision, allocatable       :: wc   (:)     ! center weight factors (ndx)   , only for normalising
 
  double precision, external :: lin2nodx, lin2nody
-
- if ( allocated (wcx1) )  deallocate(wcx1,wcy1,wcx2,wcy2)
- if ( allocated (wcxy ) ) deallocate(wcxy )
- if ( allocated (wcL  ) ) deallocate(wcL )
-
- allocate ( wcx1(lnx) , stat  = ierr) ; wcx1 = 0
- call aerr('wcx1(lnx)', ierr, lnx)
- allocate ( wcy1(lnx) , stat  = ierr) ; wcy1 = 0
- call aerr('wcy1(lnx)', ierr, lnx)
- allocate ( wcx2(lnx) , stat  = ierr) ; wcx2 = 0
- call aerr('wcx2(lnx)', ierr, lnx)
- allocate ( wcy2(lnx) , stat  = ierr) ; wcy2 = 0
- call aerr('wcy2(lnx)', ierr, lnx)
- allocate ( wcxy (2,ndx) , stat  = ierr) ; wcxy  = 0
- call aerr('wcxy (2,ndx)', ierr, 2*ndx)
- allocate ( wcL  (2,Lnx) , stat  = ierr) ; wcL   = 0
- call aerr('wcL  (2,Lnx)', ierr, 2*Lnx)
- allocate ( wc     (ndx) , stat  = ierr) ; wc    = 0
- call aerr('wc     (ndx)', ierr, ndx)
 
  do L = 1, lnx
 
@@ -183,8 +160,6 @@
     k1  = walls(1,n)
     aa1 = 2d0*walls(17,n)
     wcw = 0d0
-    lnxmax = max(lnxmax,  nd(k1)%lnx)
-    call realloc(wwL, lnxmax, keepExisting = .false.)
     do kk = 1,size(nd(k1)%ln)
        LL = iabs(nd(k1)%ln(kk))
        n12 = 1 ; alf = acL(LL)
@@ -194,9 +169,9 @@
        wuL1    =  alf*dx(LL)*wu(LL)
        cs      =  walls(8,n) ! outward positive
        sn      = -walls(7,n)
-       wwL(kk) = abs(cs*csu(LL) + sn*snu(LL))
-       wwL(kk) = wwL(kk)*wuL1
-       wcw     = wcw + wwL(kk)
+       wwLL(kk) = abs(cs*csu(LL) + sn*snu(LL))
+       wwLL(kk) = wwLL(kk)*wuL1
+       wcw     = wcw + wwLL(kk)
     enddo
     if (wcw > 0d0) then
        wc(k1) = wc(k1) + aa1
@@ -206,7 +181,7 @@
           if (k1 .ne. ln(1,LL) ) then
              n12 = 2 ; alf = 1d0-acL(LL)
           endif
-          wcL(n12,LL) = wcL(n12,LL) + wwL(kk)*aa1/wcw
+          wcL(n12,LL) = wcL(n12,LL) + wwLL(kk)*aa1/wcw
        enddo
     endif
  enddo
@@ -239,9 +214,6 @@
     if (wc(k2) > 0d0) wcL(2,L) = wcL(2,L) / wc(k2)
 
  enddo
-
- deallocate (wcxy, wc)
- if (allocated(wwL)) deallocate(wwL)
 
  kfs = 0
 

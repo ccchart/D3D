@@ -157,7 +157,10 @@
  double precision, allocatable     :: wcny3(:)       !< link weights (lnx) for corner velocities k3
  double precision, allocatable     :: wcnx4(:)       !< link weights (lnx) for corner velocities k4
  double precision, allocatable     :: wcny4(:)       !< link weights (lnx) for corner velocities k4
-
+ double precision, allocatable     :: wc(:)          !< center weight factors (ndx)   , only for normalising
+ double precision, allocatable     :: wcxy(:,:)      !< center weight factors (2,ndx) , only for normalising
+ double precision, allocatable     :: wwLL(:)         !< wall contribution to scalar linktocenterweights
+ 
  double precision, allocatable     :: csb(:,:)       !< cosine orientation from left/right neighboring flownode to flowlink, left/right as ln
  double precision, allocatable     :: snb(:,:)       !< sine   orientation from left/right neighboring flownode to flowlink, left/right as ln
 

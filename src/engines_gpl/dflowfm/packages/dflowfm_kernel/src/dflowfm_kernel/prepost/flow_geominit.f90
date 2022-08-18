@@ -1200,6 +1200,7 @@
  mxwalls   = nw
 
  call setwallorientations()
+ call alloclinktocenterweights()
  call setlinktocenterweights()
 
 !-------------------------------------------------- CELL CORNER RELATED -----------------------------------------------
