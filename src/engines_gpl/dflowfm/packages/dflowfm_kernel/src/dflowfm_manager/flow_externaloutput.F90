@@ -64,6 +64,7 @@
  character(len=16)            :: filepostfix
  integer                      :: numomp
  double precision             :: tem_dif
+ integer                      :: imapdim
 
 
    call inctime_split(tim)
@@ -124,7 +125,13 @@
               call updateFlowAnalysisParameters()
            endif
              
-           call wrimap(tim)
+           if (ti_map3d > 0) then
+              imapdim = UNC_DIM_1D + UNC_DIM_2D  ! 1D/2D in this file, 3D below in a separate file.
+           else
+              imapdim = UNC_DIM_ALL ! 1D/2D and 3D in same file
+           end if
+ 
+           call wrimap(tim, imapdim)
            
            if (jamapFlowAnalysis > 0) then
               ! Reset the interval related flow analysis arrays
@@ -152,6 +159,28 @@
          endif
      endif
    endif
+
+   ! Separate map3D output file:
+   if (ti_map3d > 0 .and. jaeverydt == 0) then
+      if (comparereal(tim, time_map3d, eps10) >= 0) then
+         imapdim = UNC_DIM_3D
+
+         call wrimap(tim, imapdim)
+
+         if (comparereal(time_map3d, ti_map3de, eps10) == 0) then
+            time_map3d = tstop_user + 1
+         else
+            tem_dif = (tim - ti_map3ds)/ti_map3d
+            time_map3d = max(ti_map3ds + (floor(tem_dif + 0.001d0) +1)*ti_map3d,ti_map3ds)
+
+            if (comparereal(time_map3d, ti_map3de, eps10) == 1) then
+               ! next time_map3d would be beyond end of map3d-window, write one last map3d exactly at that end.
+               time_map3d = ti_map3de
+            endif
+         endif
+     endif
+   endif
+
    call timstop(handle_extra(77))
 
     call timstrt('call wriclm', handle_extra(78))

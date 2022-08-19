@@ -92,6 +92,11 @@ integer, parameter :: UNC_LOC_W   = 6  !< Data location: vertical velocity point
 integer, parameter :: UNC_LOC_WU  = 16 !< Data location: vertical viscosity point on all layer interfaces.
 
 integer, parameter :: MAX_ID_VAR = 4   !< Maximum dimension for id_var arrays
+integer, parameter :: UNC_DIM_1D = 1   !< Option value to include 1D in an output file.
+integer, parameter :: UNC_DIM_2D = 2   !< Option value to include 2D in an output file.
+integer, parameter :: UNC_DIM_3D = 4   !< Option value to include real 3D (also 2Dv) in an output file.
+integer, parameter :: UNC_DIM_ALL = UNC_DIM_1D + UNC_DIM_2D + UNC_DIM_3D !< Option value to include all dimensionalities in an output file.
+
 
 type(t_ug_meta) :: ug_meta_fm  !< Meta information on file.
 character(len=255) :: unc_metadatafile !< Input metadata NetCDF file to be included into other NetCDF output files, (e.g., *_meta.nc)
@@ -513,7 +518,8 @@ type t_unc_merged
    integer, allocatable :: ilink_merge(:)      !< like ilink_own, but from the merged restart file
 end type t_unc_merged
 
-type(t_unc_mapids) :: mapids       !< Global descriptor for the (open) map-file
+type(t_unc_mapids), target :: mapids       !< Global descriptor for the (open) map-file
+type(t_unc_mapids), target :: mapids3d     !< Global descriptor for the (open) map3D-file
 integer            :: ihisfile = 0 !< Global netcdf ID of the his-file
 
 type(t_crs), target :: crs !< crs read from net file, to be written to flowgeom. TODO: AvD: temp, move this global CRS into ug_meshgeom (now a bit difficult with old and new file format)
@@ -746,6 +752,25 @@ function unc_meta_add_user_defined(ncid) result(ierr)
    end if
 
 end function unc_meta_add_user_defined
+
+
+!> Checks in a given integer output-dimension code whether a particular
+!! output dimension-option is set, using bitwise option checks.
+!!
+!! Example: use_3d = unc_check_dimension(ioutputcode, UNC_DIM_3D)
+function unc_check_dimension(idimcode, idimoption) result(is_enabled)
+   integer, intent(in   ) :: idimcode !< The output-dimension-option that needs to be checked.
+   integer, intent(in   ) :: idimoption !< A singel output dimension type that will be checked for. Should be one of UNC_DIM_1D/2D/3D/ALL.
+   logical                :: is_enabled !< Return value showing whether idimset contains the checked idimoption.
+   
+   ! Perform logical AND to determine whether locType is inside dataLocs 'set'.
+   if (idimoption /= UNC_DIM_1D .and. idimoption /= UNC_DIM_2D .and. idimoption /= UNC_DIM_3D .and. idimoption /= UNC_DIM_ALL) then
+      is_enabled = .false. ! Programming error
+      return
+   else
+      is_enabled = iand(idimcode, idimoption) == idimoption
+   end if
+end function unc_check_dimension
 
 
 !> Defines a NetCDF variable that has no spatial dimension, also setting the most used attributes.
@@ -4833,7 +4858,7 @@ end subroutine unc_write_map
 
 !> Writes map/flow data to an already opened netCDF dataset. NEW version according to UGRID conventions + much cleanup.
 !! The netnode and -links have been written already.
-subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
+subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrimap
    use m_flow
    use m_flowtimes
    use m_flowgeom
@@ -4864,10 +4889,13 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    type(t_unc_mapids), intent(inout) :: mapids   !< Set of file and variable ids for this map-type file.
    real(kind=hp),      intent(in)    :: tim
    integer, optional,  intent(in)    :: jabndnd !< Whether to include boundary nodes (1) or not (0). Default: no.
+   integer, optional,  intent(in)    :: imapdim !< Dimensional type of map file to optionally select only 1D/2D or 3D output: sum of constants UNC_DIM_1D/2D/3D. Default: UNC_DIM_ALL.
 
    integer                           :: jabndnd_      !< Flag specifying whether boundary nodes are to be written.
    integer                           :: ndxndxi       !< Last node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
-   integer, save                   :: ierr, ndim
+   integer, save                     :: ierr, ndim
+   integer                           :: janormalmap   !< Normal map, also including space-independent quantities
+   integer                           :: ja3d          !< Include 3D quantities in this map file
 
    double precision, allocatable                       :: ust_x(:), ust_y(:), wavout(:), wavout2(:), scaled_rain(:)
    character(len=255)                                  :: tmpstr
@@ -4921,6 +4949,27 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       jabndnd_ = 0
    endif
 
+   if (present(imapdim)) then
+      ! Store 3D depth-varying variables in file?
+      if (unc_check_dimension(imapdim, UNC_DIM_3D)) then
+         ja3d = 1
+      else
+         ja3d = 0
+      end if
+
+      ! Store 1D/2D and depth-averaged variables in file?
+      if (unc_check_dimension(imapdim, UNC_DIM_1D) .or. unc_check_dimension(imapdim, UNC_DIM_2D)) then
+         janormalmap = 1
+      else
+         janormalmap = 0
+      end if
+
+   else
+      janormalmap = 1
+      ja3d = 1 ! but only if kmx>0 of course, checked below.
+   endif
+
+
    ! Include boundary cells in output (ndx) or not (ndxi)
    if (jabndnd_ == 1) then
       ndxndxi   = ndx
@@ -4955,7 +5004,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
       ierr = unc_meta_add_user_defined(mapids%ncid)
 
-      call unc_write_flowgeom_filepointer_ugrid(mapids%ncid, mapids%id_tsp, jabndnd_)
+      call unc_write_flowgeom_filepointer_ugrid(mapids%ncid, mapids%id_tsp, jabndnd=jabndnd_, ja3D=ja3d)
 
       ierr = unc_add_time_coverage(mapids%ncid, ti_maps, ti_mape, ti_map)
 
@@ -4974,12 +5023,12 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       ! Size of latest timestep
       ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_timestep, nf90_double, (/ mapids%id_tsp%id_timedim /), 'timestep', '',     'Latest computational timestep size in each output interval', 's')
 
-      if (jamapnumlimdt > 0) then
+      if (jamapnumlimdt > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_numlimdt   , nf90_double, UNC_LOC_S, 'Numlimdt'  , '', 'Number of times flow element was Courant limiting', '1', cell_method = 'point', jabndnd=jabndnd_)
       endif
 
       ! Time dependent grid layers
-      if (kmx > 0 .and. jafullgridoutput == 1) then
+      if (kmx > 0 .and. jafullgridoutput == 1 .and. ja3d > 0) then
          ! Face-centred z-coordinates:
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_flowelemzcc, nf90_double, UNC_LOC_S3D, 'flowelem_zcc', 'altitude', 'Vertical coordinate of layer centres at pressure points'   , 'm' , jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_flowelemzw , nf90_double, UNC_LOC_W  , 'flowelem_zw' , 'altitude', 'Vertical coordinate of layer interfaces at pressure points', 'm' , jabndnd=jabndnd_)
@@ -4988,7 +5037,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             id_twodim = mapids%id_tsp%meshids2d%dimids(mdim_two)
          else
             id_twodim = mapids%id_tsp%meshids1d%dimids(mdim_two)
-      endif
+         endif
 
          ! Bounds variable for face-centred z-coordinates:
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_flowelemzcc_bnd, nf90_double, UNC_LOC_S3D, 'flowelem_zcc_bnd', 'altitude', 'Bounds of vertical coordinate of layers at pressure points'   , 'm' , &
@@ -5007,19 +5056,19 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Water levels
-      if (jamaps1 > 0) then
+      if ((jamaps1 > 0 .and. janormalmap > 0) .or. (kmx > 0 .and. ja3d > 0 .and. laytyp(1) /= 2)) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s1, nf90_double, UNC_LOC_S, 's1',         'sea_surface_height',                'Water level', 'm', jabndnd=jabndnd_)
       end if
-      if (jamaps0 > 0) then
+      if (jamaps0 > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s0, nf90_double, UNC_LOC_S, 's0', 'sea_surface_height', 'Water level on previous timestep', 'm', jabndnd=jabndnd_)
       end if
 
       ! Influx
-      if (jamapqin > 0 .and. jaqin > 0) then
+      if (jamapqin > 0 .and. jaqin > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_qin, nf90_double, UNC_LOC_S, 'qin', '', 'Sum of all water influx', 'm3 s-1', jabndnd=jabndnd_)
       endif
 
-      if (jamapFlowAnalysis > 0) then
+      if (jamapFlowAnalysis > 0 .and. janormalmap > 0) then
          ! Flow analysis
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt,       nf90_double, UNC_LOC_S, 'negdpt',         '', 'Number of times negative depth was calculated', '1', cell_method = 'point', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt_cum,   nf90_double, UNC_LOC_S, 'negdpt_cum',     '', 'Cumulative number of times negative depth was calculated', '1', cell_method = 'point', jabndnd=jabndnd_)
@@ -5031,7 +5080,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Evaporation
-      if (jamapevap > 0) then
+      if (jamapevap > 0 .and. janormalmap > 0) then
          if(jadhyd == 1) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_potevap, nf90_double, UNC_LOC_S, 'potevap', 'water_potential_evaporation_flux', 'Potential evaporation rate at pressure points', 'm s-1', jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_actevap, nf90_double, UNC_LOC_S, 'actevap', 'lwe_water_evaporation_rate', 'Actual evaporation rate at pressure points', 'm s-1', jabndnd=jabndnd_) ! Intentionally did not use standard_name='water_potential_evaporation_flux', because that one requires other units: kg m-2 s-1.
@@ -5043,38 +5092,38 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
 
       ! Volumes
-      if (jamapvol1 > 0) then
+      if (jamapvol1 > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vol1, nf90_double, iLocS, 'vol1',         '',                'volume of water in grid cell', 'm3', jabndnd=jabndnd_)
       end if
 
       ! Calculated time step per cell based on CFL number
-      if(jamapdtcell > 0 ) then
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_dtcell, nf90_double, iLocS, 'dtcell', '', 'Time step per cell based on CFL', 's', jabndnd=jabndnd_)
+      if(jamapdtcell > 0 .and. janormalmap > 0) then
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_dtcell, nf90_double, UNC_LOC_S, 'dtcell', '', 'Time step per cell based on CFL', 's', jabndnd=jabndnd_)
       endif
 
       ! Water depths
-      if (jamaphs > 0) then
+      if ((jamaphs > 0 .and. janormalmap > 0) .or. (kmx > 0 .and. ja3d > 0 .and. laytyp(1) /= 2)) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hs, nf90_double, UNC_LOC_S, 'waterdepth', 'sea_floor_depth_below_sea_surface', 'Water depth at pressure points', 'm', jabndnd=jabndnd_)
       end if
      
-      if (jamaphu > 0) then
+      if (jamaphu > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hu, nf90_double, UNC_LOC_U, 'hu', 'sea_floor_depth_below_sea_surface', 'water depth at velocity points', 'm', jabndnd=jabndnd_)
       end if
 
       ! Velocities
-      if (jamapau > 0) then
+      if (jamapau > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_au, nf90_double, iLocU, 'au',         '',                'normal flow area between two neighbouring grid cells', 'm2', jabndnd=jabndnd_)
       end if
 
-      if(jamapu1 > 0) then
+      if(jamapu1 > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_u1, nf90_double, iLocU, 'u1', '', 'Velocity at velocity point, n-component', 'm s-1', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_u1, 'comment', 'Positive direction is from first to second neighbouring face (flow element).')
       end if
-      if(jamapu0 > 0) then
+      if(jamapu0 > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_u0, nf90_double, iLocU, 'u0', '', 'Velocity at velocity point at previous time step, n-component', 'm s-1', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_u0, 'comment', 'Positive direction is from first to second neighbouring face (flow element).')
       end if
-      if(jamapucvec > 0) then
+      if(jamapucvec > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'sea_water_x_eulerian_velocity',      'Flow element center eulerian velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'sea_water_y_eulerian_velocity',      'Flow element center eulerian velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
@@ -5105,7 +5154,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             end if
          end if
       end if
-      if(jamapucmag > 0) then
+      if(jamapucmag > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, nf90_double, iLocS, 'ucmag', 'sea_water_eulerian_speed', 'Flow element center eulerian velocity magnitude', 'm s-1', jabndnd=jabndnd_)
          else
@@ -5119,7 +5168,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             end if
          end if
       end if
-      if(jamapucqvec > 0) then
+      if(jamapucqvec > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxq, nf90_double, iLocS, 'ucxq', 'ucxq_eulerian_velocity', 'Flow element center eulerian velocity vector based on discharge, x-component', 'm s-1', jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucyq, nf90_double, iLocS, 'ucyq', 'ucyq_eulerian_velocity', 'Flow element center eulerian velocity vector based on discharge, y-component', 'm s-1', jabndnd=jabndnd_)
@@ -5128,34 +5177,36 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucyq, nf90_double, iLocS, 'ucyq', 'ucyq_velocity', 'Flow element center velocity vector based on discharge, y-component', 'm s-1', jabndnd=jabndnd_)
          end if
       end if
-      if (kmx > 0) then
+      if (kmx > 0 .and. ja3d > 0) then
          if(jamapww1 > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ww1, nf90_double, UNC_LOC_W, 'ww1', 'upward_sea_water_velocity', 'Upward velocity on vertical interface, n-component', 'm s-1', jabndnd=jabndnd_)
          end if
+      end if
+      if (kmx > 0 .and. ja3d > 0) then
          if(jamaprho > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rho, nf90_double, UNC_LOC_S3D, 'rho', 'sea_water_density', 'Flow element center mass density', 'kg m-3', jabndnd=jabndnd_)
          end if
       end if
 
-      if(jamapq1 > 0) then
+      if(jamapq1 > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_q1, nf90_double, iLocU, 'q1', 'discharge', 'Discharge through flow link at current time', 'm3 s-1', cell_method = 'sum', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_q1, 'comment', 'Positive direction is from first to second neighbouring face (flow element).')
       end if
 
-      if(jamapq1main > 0 .and. allocated(q1_main)) then
+      if(jamapq1main > 0 .and. allocated(q1_main) .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_q1main, nf90_double, iLocU, 'q1_main', '', 'Main channel discharge through flow link at current time', 'm3 s-1', cell_method = 'sum', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_q1main, 'comment', 'Positive direction is from first to second neighbouring face (flow element).')
       end if
 
-      if (jamapviu > 0) then
+      if (jamapviu > 0 .and. ja3d > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_viu, nf90_double, iLocU, 'viu', '', 'Horizontal eddy viscosity', 'm2 s-1', jabndnd=jabndnd_)
       end if
-      if (jamapdiu > 0) then
+      if (jamapdiu > 0 .and. ja3d > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_diu, nf90_double, iLocU, 'diu', '', 'Horizontal eddy diffusivity', 'm2 s-1', jabndnd=jabndnd_)
       end if
 
       ! Bed shear stress
-      if (jamaptaucurrent > 0) then
+      if (jamaptaucurrent > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_tausx     , nf90_double, UNC_LOC_S, 'tausx'  , '', 'Total bed shear stress vector, x-component', 'N m-2', jabndnd=jabndnd_)   ! vect shear stress
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_tausy     , nf90_double, UNC_LOC_S, 'tausy'  , '', 'Total bed shear stress vector, y-component', 'N m-2', jabndnd=jabndnd_)   ! vect shear stress
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_taus      , nf90_double, UNC_LOC_S, 'taus'   , '', 'Total bed shear stress magnitude', 'N m-2', jabndnd=jabndnd_)
@@ -5166,7 +5217,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
       ! Chezy data on flow nodes and flow links
       ! Input roughness value and type on flow links for input check (note: overwritten when jatrt==1)
-      if (jamapchezy > 0) then
+      if (jamapchezy > 0 .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_czs , nf90_double, UNC_LOC_S, 'czs'  , '', 'Chezy roughness in flow element center', 'm0.5s-1', jabndnd=jabndnd_)
             ! WO: m0.5s-1 does not follow standard ? (which accepts only integral powers?)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_czu , nf90_double, UNC_LOC_U, 'czu'  , '', 'Chezy roughness on flow links', 'm0.5s-1', jabndnd=jabndnd_)
@@ -5176,15 +5227,18 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
 
       ! Constituents
-      if (jamapsal > 0 .and. jasal > 0) then
+      if (jamapsal > 0 .and. jasal > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sa1, nf90_double, iLocS, 'sa1', 'sea_water_salinity', 'Salinity in flow element', '1e-3', jabndnd=jabndnd_)
       end if
+      if (jamapsal > 0 .and. jasal > 0 .and. (kmx > 0 .and. ja3d == 0)) then
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sa1, nf90_double, UNC_LOC_S, 'sa1', 'sea_water_salinity', 'Salinity in flow element, depth-averaged', '1e-3', jabndnd=jabndnd_)
+      end if
 
-      if (jamaptem > 0 .and. jatem > 0) then
+      if (jamaptem > 0 .and. jatem > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tem1, nf90_double, iLocS, 'tem1', 'sea_water_temperature', 'Temperature in flow element', 'degC', jabndnd=jabndnd_)
       endif
 
-      if (jamapspir > 0 .and. jasecflow > 0) then
+      if (jamapspir > 0 .and. jasecflow > 0 .and. janormalmap > 0) then
          if (kmx < 1) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_spircrv, nf90_double, UNC_LOC_S, 'spircrv', 'streamline_curvature', 'Flow streamline curvature'  , '1/m', jabndnd=jabndnd_ )
          endif
@@ -5192,7 +5246,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Tracers
-      if (jamapconst > 0 .and. ITRA1 > 0) then
+      if (jamapconst > 0 .and. ITRA1 > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          call realloc(mapids%id_const, (/ MAX_ID_VAR, NUMCONST /), keepExisting=.false., fill = 0)
          do j=ITRA1,ITRAN
             tmpstr = const_names(j)
@@ -5209,16 +5263,19 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
 
     ! water quality bottom variables
       if (numwqbots > 0) then
-         call realloc(mapids%id_wqb, (/ 3, numwqbots /), keepExisting=.false., fill = 0)
-         do j=1,numwqbots
-            tmpstr = wqbotnames(j)
-            ! Forbidden chars in NetCDF names: space, /, and more.
-            call replace_char(tmpstr,32,95)
-            call replace_char(tmpstr,47,95)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_wqb(:,j), nf90_double, UNC_LOC_S, trim(tmpstr), &
-                                   '', trim(wqbotnames(j)) // ' in flow element', wqbotunits(j), jabndnd=jabndnd_)
-         end do
-         if (wqbot3D_output == 1) then
+         if (janormalmap > 0) then
+            call realloc(mapids%id_wqb, (/ 3, numwqbots /), keepExisting=.false., fill = 0)
+            do j=1,numwqbots
+               tmpstr = wqbotnames(j)
+               ! Forbidden chars in NetCDF names: space, /, and more.
+               call replace_char(tmpstr,32,95)
+               call replace_char(tmpstr,47,95)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_wqb(:,j), nf90_double, UNC_LOC_S, trim(tmpstr), &
+                                      '', trim(wqbotnames(j)) // ' in flow element', wqbotunits(j), jabndnd=jabndnd_)
+            end do
+         end if
+
+         if (wqbot3D_output == 1 .and. ja3d > 0) then
             call realloc(mapids%id_wqb3d, (/ 3, numwqbots /), keepExisting=.false., fill = 0)
             do j=1,numwqbots
                tmpstr = wqbotnames(j)
@@ -5232,7 +5289,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! WAQ extra outputs
-      if (jawaqproc > 0) then
+      if (jawaqproc > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          if (noout_map > 0) then
             call realloc(mapids%id_waq, (/ 3, noout_map /), keepExisting=.false., fill = 0)
             do j=1,noout_map
@@ -5274,7 +5331,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! water quality mass balance areas
-      if (nomba > 0) then
+      if (nomba > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid,  mapids%id_tsp, mapids%id_mba(:), nf90_int, UNC_LOC_S, 'water_quality_mba', '', 'Water quality mass balance areas', '', is_timedep=0, jabndnd=jabndnd_)
          call realloc(flag_val, nomba, keepExisting = .false., fill = 0)
          flag_mean = ' '
@@ -5287,21 +5344,21 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Meteo forcings
-      if (jamaprain > 0 .and. jarain /= 0) then
+      if (jamaprain > 0 .and. jarain /= 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rain,  nf90_double, UNC_LOC_S, 'rainfall_rate',  'rainfall_rate', 'Rainfall rate', 'm s-1', jabndnd=jabndnd_)
       end if
 
       ! interception
-      if (jamapicept > 0 .and. interceptionmodel /= DFM_HYD_NOINTERCEPT) then
+      if (jamapicept > 0 .and. interceptionmodel /= DFM_HYD_NOINTERCEPT .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_icepths,  nf90_double, UNC_LOC_S, 'interception_waterdepth',  '', 'Waterdepth in interception layer', 'm', jabndnd=jabndnd_)
       end if
 
-      if (jamapwind > 0 .and. japatm /= 0) then
+      if (jamapwind > 0 .and. japatm /= 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm,  nf90_double, UNC_LOC_S, 'Patm',  'surface_air_pressure', 'Atmospheric pressure near surface', 'N m-2', jabndnd=jabndnd_)
       end if
 
       if (jawind > 0) then 
-         if (jamapwind > 0) then
+         if (jamapwind > 0 .and. janormalmap > 0) then
             if (jsferic == 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_windx,  nf90_double, UNC_LOC_S, 'windx',  'x_wind', 'velocity of air on flow element center, x-component', 'm s-1', jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_windy,  nf90_double, UNC_LOC_S, 'windy',  'y_wind', 'velocity of air on flow element center, y-component', 'm s-1', jabndnd=jabndnd_)
@@ -5316,7 +5373,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_windyu, nf90_double, UNC_LOC_U, 'windyu', 'northward_wind', 'velocity of air on flow links, y-component', 'm s-1', jabndnd=jabndnd_)
             end if
          endif
-         if (jamapwindstress > 0) then
+         if (jamapwindstress > 0 .and. janormalmap > 0) then
             if (jsferic == 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_windstressx, nf90_double, UNC_LOC_S, 'windstressx',  &
                   'surface_downward_x_stress', 'wind stress on flow element center, x-component', 'N m-2', jabndnd=jabndnd_)
@@ -5332,7 +5389,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Heat fluxes
-      if (jamapheatflux > 0 .and. jatem > 1) then ! here less verbose
+      if (jamapheatflux > 0 .and. jatem > 1 .and. janormalmap > 0) then ! here less verbose
 
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp   , mapids%id_tair   , nf90_double, UNC_LOC_S, 'Tair' , 'surface_temperature'      , 'Air temperature near surface'     , 'degC', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp   , mapids%id_tair   , nf90_double, UNC_LOC_S, 'Rhum' , 'surface_specific_humidity', 'Relative humidity near surface'    , '', jabndnd=jabndnd_)
@@ -5352,7 +5409,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif
 
       ! Turbulence.
-      if (jamaptur > 0 .and. kmx > 0) then
+      if (jamaptur > 0 .and. kmx > 0 .and. ja3d > 0) then
          if (iturbulencemodel >= 3) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_turkin1, nf90_double, UNC_LOC_WU, 'turkin1', 'specific_turbulent_kinetic_energy_of_sea_water', 'turbulent kinetic energy',          'm2 s-2', jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vicwwu,  nf90_double, UNC_LOC_WU, 'vicwwu',  'eddy_viscosity', 'turbulent vertical eddy viscosity', 'm2 s-1', jabndnd=jabndnd_)
@@ -5365,11 +5422,11 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       end if
 
       ! Sediment transport (via morphology module)
-      if ((jamapsed > 0 .and. jased > 0 .and. stm_included).or.(jasubsupl>0)) then
+      if (((jamapsed > 0 .and. jased > 0 .and. stm_included).or.(jasubsupl>0)) .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_mor_bl   , nf90_double, UNC_LOC_S, 'mor_bl'  , '', 'Time-varying bottom level in flow cell center', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
       endif
       !
-      if (jasubsupl>0) then
+      if (jasubsupl>0 .and. janormalmap > 0) then
          select case (ibedlevtyp)
             case (1)
                iloc = UNC_LOC_S
@@ -5381,7 +5438,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_subsupl, nf90_double, iloc, 'subsupl'  , '', 'Cumulative subsidence/uplift', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
       endif
       !
-      if (jamapz0>0) then
+      if (jamapz0>0 .and. janormalmap > 0) then
          ! roughness heights for current and current and wave related roughness
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_z0c   , nf90_double, UNC_LOC_U, 'z0ucur'  , '', 'Current related roughness height'        , 'm', dimids = (/ -2,  -1 /), jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_z0r   , nf90_double, UNC_LOC_U, 'z0urou'  , '', 'Current-wave related roughness height'   , 'm', dimids = (/ -2,  -1 /), jabndnd=jabndnd_)
@@ -5393,16 +5450,18 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          ierr = nf90_def_dim(mapids%ncid, 'nBedLayers', stmpar%morlyr%settings%nlyr, mapids%id_tsp%id_nlyrdim)
          ierr = nf90_def_dim(mapids%ncid, 'nStringlen', 100, mapids%id_tsp%id_strlendim)
          !
-         if (.not. stmpar%morpar%moroutput%cumavg) then   ! only one average transport value at end of model run
-            ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_sedavgtim, nf90_double, (/  1  /), 'sedAvgTim', '', 'Time interval over which cumulative transports are calculated', 's')
-         endif
-         !
-         call realloc(mapids%id_dxx, (/stmpar%morpar%nxx, 3 /), keepExisting=.false.)
-         !
-         ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_morfac, nf90_double, (/ mapids%id_tsp%id_timedim /), 'morfac', '', 'Average morphological factor over elapsed morphological time', '-')
-         ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_morft, nf90_double,  (/ mapids%id_tsp%id_timedim /), 'morft',  '', 'Current morphological time', 's')
-         !
-         ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_frac_name, nf90_char,  (/ mapids%id_tsp%id_strlendim, mapids%id_tsp%id_sedtotdim /), 'sedfrac_name', '', 'Sediment fraction name', '-')
+         if (janormalmap > 0) then
+            if (.not. stmpar%morpar%moroutput%cumavg) then   ! only one average transport value at end of model run
+               ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_sedavgtim, nf90_double, (/  1  /), 'sedAvgTim', '', 'Time interval over which cumulative transports are calculated', 's')
+            endif
+            !
+            call realloc(mapids%id_dxx, (/stmpar%morpar%nxx, 3 /), keepExisting=.false.)
+            !
+            ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_morfac, nf90_double, (/ mapids%id_tsp%id_timedim /), 'morfac', '', 'Average morphological factor over elapsed morphological time', '-')
+            ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_morft, nf90_double,  (/ mapids%id_tsp%id_timedim /), 'morft',  '', 'Current morphological time', 's')
+            !
+            ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_frac_name, nf90_char,  (/ mapids%id_tsp%id_strlendim, mapids%id_tsp%id_sedtotdim /), 'sedfrac_name', '', 'Sediment fraction name', '-')
+         end if
          if (stmpar%lsedsus > 0) then
             ierr = unc_def_var_nonspatial(mapids%ncid, mapids%id_susfrac_name, nf90_char,  (/ mapids%id_tsp%id_strlendim, mapids%id_tsp%id_sedsusdim /), 'sussedfrac_name', '', 'Suspended sediment fraction name', '-')
          endif
@@ -5415,81 +5474,82 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             case (2)
                transpunit = 'm3 s-1 m-1'
          end select
+         
          !
          ! Suspended transport related quantities
          !
          if (stmpar%lsedsus .gt. 0) then
             !
-            if ( kmx > 0 ) then
+            if ( kmx > 0 .and. ja3d > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_kmxsed, nf90_int, UNC_LOC_S, 'kmxsed', '', 'Bottom layer for sed calculations', '-', dimids = (/  -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ws, nf90_double, UNC_LOC_W, 'ws', '', 'Sediment settling velocity', 'm s-1', dimids = (/ -3, -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
-            else
+            else if (janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ws, nf90_double, UNC_LOC_S, 'ws', '', 'Sediment settling velocity', 'm s-1', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             end if
             !
-            if (kmx == 0) then
+            if (kmx == 0 .and. janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rsedeq, nf90_double, UNC_LOC_S, 'rsedeq', '', 'Equilibrium sediment concentration', 'kg m-3', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             end if
             !
-            if (stmpar%morpar%moroutput%aks) then
+            if (stmpar%morpar%moroutput%aks .and. janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aks, nf90_double, UNC_LOC_S, 'aks', '', 'Near-bed reference concentration height', 'm', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rca, nf90_double, UNC_LOC_S, 'rca', '', 'Near-bed reference concentration', 'kg m-3', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             end if
             !
-            if (stmpar%morpar%moroutput%sourcesink) then
+            if (stmpar%morpar%moroutput%sourcesink .and. janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sourse , nf90_double, UNC_LOC_S, 'sourse'  , '', 'Source term suspended sediment fractions', 'kg m-3 s-1', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sinkse , nf90_double, UNC_LOC_S, 'sinkse'  , '', 'Sink term suspended sediment fractions', 's-1', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             endif
             !
-            if ( kmx > 0 ) then
+            if ( kmx > 0 .and. janormalmap > 0) then
                if (stmpar%morpar%moroutput%suvcor) then
                   ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_scrn , nf90_double, UNC_LOC_U, 'e_scrn'  , '', 'Near-bed transport correction in face-normal direction', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                end if
             endif
             !
-            if (kmx > 0) then
+            if (kmx > 0 .and. ja3d > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sedfrac, nf90_double, UNC_LOC_S3D, 'sedfrac_concentration', '', 'Sediment concentration in flow cell', 'kg m-3',dimids = (/ -3, -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
-            else
+            else if (janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sedfrac, nf90_double, UNC_LOC_S, 'sedfrac_concentration', '', 'Sediment concentration in flow cell', 'kg m-3',dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             end if
             !
          endif
 
          ! default sediment transport output (suspended and bedload) on flow links
-         if (stmpar%lsedsus > 0) then
+         if (stmpar%lsedsus > 0 .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssn   , nf90_double, UNC_LOC_U, 'ssn'  , '', 'Suspended load transport, n-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sst   , nf90_double, UNC_LOC_U, 'sst'  , '', 'Suspended load transport, t-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
 
          endif
 
-         if (stmpar%lsedtot > 0) then
+         if (stmpar%lsedtot > 0 .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbn   , nf90_double, UNC_LOC_U, 'sbn'  , '', 'Bed load transport, n-component'         , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbt   , nf90_double, UNC_LOC_U, 'sbt'  , '', 'Bed load transport, t-component'         , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
 
-         if (stmpar%morpar%moroutput%dzduuvv) then ! bedslope
+         if (stmpar%morpar%moroutput%dzduuvv .and. janormalmap > 0) then ! bedslope
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_e_dzdn , nf90_double, UNC_LOC_U, 'e_dzdn'  , '', 'Bed slope, n-component', '-', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_e_dzdt , nf90_double, UNC_LOC_U, 'e_dzdt'  , '', 'Bed slope, t-component', '-', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          end if
 
-         if (stmpar%morpar%moroutput%uuuvvv) then
+         if (stmpar%morpar%moroutput%uuuvvv .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_uuu , nf90_double, UNC_LOC_S, 'uuu'  , '', 'Characteristic velocity in cell centre, x-component', 'm s-1', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_vvv , nf90_double, UNC_LOC_S, 'vvv'  , '', 'Characteristic velocity in cell centre, y-component', 'm s-1', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          end if
 
-         if (stmpar%morpar%moroutput%umod) then
+         if (stmpar%morpar%moroutput%umod .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_umod , nf90_double, UNC_LOC_S, 'umod'  , '', 'Characteristic velocity magnitude in cell centre', 'm s-1', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          end if
 
-         if (stmpar%morpar%moroutput%zumod) then
+         if (stmpar%morpar%moroutput%zumod .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_zumod , nf90_double, UNC_LOC_S, 'zumod'  , '', 'Height above bed for characteristic velocity in cell centre', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          end if
 
-         if (stmpar%morpar%moroutput%ustar) then
+         if (stmpar%morpar%moroutput%ustar .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ustar , nf90_double, UNC_LOC_S, 'ustar'  , '', 'Bed shear velocity in cell centre', 'm s-1', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          end if
 
-         if (stmpar%morpar%moroutput%sbcuv) then
+         if (stmpar%morpar%moroutput%sbcuv .and. janormalmap > 0) then
             if (stmpar%morpar%moroutput%rawtransports) then    ! if either of these is true, the reconstruction is done outside this subroutine, invalidating Willem's approach to have 'unspoiled' transports
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbcx   , nf90_double, UNC_LOC_S, 'sbcx'  , '', 'Bed load transport due to currents, x-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbcy   , nf90_double, UNC_LOC_S, 'sbcy'  , '', 'Bed load transport due to currents, y-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
@@ -5498,7 +5558,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbcy_reconstructed   , nf90_double, UNC_LOC_S, 'sbcy_reconstructed'  , '', 'Bed load transport due to currents (reconstructed), y-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
 
-         if (stmpar%morpar%moroutput%sbwuv) then
+         if (stmpar%morpar%moroutput%sbwuv .and. janormalmap > 0) then
             if (stmpar%morpar%moroutput%rawtransports) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbwx   , nf90_double, UNC_LOC_S, 'sbwx'  , '', 'Bed load transport due to waves, x-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbwy   , nf90_double, UNC_LOC_S, 'sbwy'  , '', 'Bed load transport due to waves, y-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
@@ -5507,7 +5567,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbwy_reconstructed   , nf90_double, UNC_LOC_S, 'sbwy_reconstructed'  , '', 'Bed load transport due to waves (reconstructed), y-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
 
-         if (stmpar%morpar%moroutput%sscuv) then    ! This differs from Delft3D 4
+         if (stmpar%morpar%moroutput%sscuv .and. janormalmap > 0) then    ! This differs from Delft3D 4
             if (stmpar%morpar%moroutput%rawtransports) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sscx   , nf90_double, UNC_LOC_S, 'sscx'  , '', 'Suspended load transport due to currents, x-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sscy   , nf90_double, UNC_LOC_S, 'sscy'  , '', 'Suspended load transport due to currents, y-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
@@ -5516,7 +5576,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sscy_reconstructed   , nf90_double, UNC_LOC_S, 'sscy_reconstructed'  , '', 'Suspended load transport due to currents (reconstructed), y-component'      , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
          endif
 
-         if (stmpar%morpar%moroutput%sswuv) then
+         if (stmpar%morpar%moroutput%sswuv .and. janormalmap > 0) then
             if (stmpar%morpar%moroutput%rawtransports) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sswx   , nf90_double, UNC_LOC_S, 'sswx'  , '', 'Suspended load transport due to waves, x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sswy   , nf90_double, UNC_LOC_S, 'sswy'  , '', 'Suspended load transport due to waves, y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
@@ -5525,81 +5585,84 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sswy_reconstructed   , nf90_double, UNC_LOC_S, 'sswy_reconstructed'  , '', 'Suspended load transport due to waves (reconstructed), y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
          endif
 
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sxtot   , nf90_double, UNC_LOC_S, 'sxtot'  , '', 'Total sediment transport in flow cell center (reconstructed), x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sytot   , nf90_double, UNC_LOC_S, 'sytot'  , '', 'Total sediment transport in flow cell center (reconstructed), y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+         if (janormalmap > 0) then
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sxtot   , nf90_double, UNC_LOC_S, 'sxtot'  , '', 'Total sediment transport in flow cell center (reconstructed), x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sytot   , nf90_double, UNC_LOC_S, 'sytot'  , '', 'Total sediment transport in flow cell center (reconstructed), y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
 
-         ! Time averaged sediment transport values
-         if (stmpar%morpar%moroutput%cumavg) then
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbxcum   , nf90_double, UNC_LOC_S, 'sbxcum'  , '', 'Time-averaged bed load transport, x-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbycum   , nf90_double, UNC_LOC_S, 'sbycum'  , '', 'Time-averaged bed load transport, y-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssxcum   , nf90_double, UNC_LOC_S, 'ssxcum'  , '', 'Time-averaged suspended load transport, x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssycum   , nf90_double, UNC_LOC_S, 'ssycum'  , '', 'Time-averaged suspended load transport, y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-         else
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbxcum   , nf90_double, UNC_LOC_S, 'sbxcum'  , '', 'Time-averaged bed load transport, x-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbycum   , nf90_double, UNC_LOC_S, 'sbycum'  , '', 'Time-averaged bed load transport, y-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssxcum   , nf90_double, UNC_LOC_S, 'ssxcum'  , '', 'Time-averaged suspended load transport, x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssycum   , nf90_double, UNC_LOC_S, 'ssycum'  , '', 'Time-averaged suspended load transport, y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
-         endif
+            ! Time averaged sediment transport values
+            if (stmpar%morpar%moroutput%cumavg) then
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbxcum   , nf90_double, UNC_LOC_S, 'sbxcum'  , '', 'Time-averaged bed load transport, x-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbycum   , nf90_double, UNC_LOC_S, 'sbycum'  , '', 'Time-averaged bed load transport, y-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssxcum   , nf90_double, UNC_LOC_S, 'ssxcum'  , '', 'Time-averaged suspended load transport, x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssycum   , nf90_double, UNC_LOC_S, 'ssycum'  , '', 'Time-averaged suspended load transport, y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+            else
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbxcum   , nf90_double, UNC_LOC_S, 'sbxcum'  , '', 'Time-averaged bed load transport, x-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbycum   , nf90_double, UNC_LOC_S, 'sbycum'  , '', 'Time-averaged bed load transport, y-component',       transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssxcum   , nf90_double, UNC_LOC_S, 'ssxcum'  , '', 'Time-averaged suspended load transport, x-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssycum   , nf90_double, UNC_LOC_S, 'ssycum'  , '', 'Time-averaged suspended load transport, y-component', transpunit, dimids = (/ -2, mapids%id_tsp%id_sedtotdim /), jabndnd=jabndnd_)
+            endif
 
-         select case (stmpar%morlyr%settings%iunderlyr)
-            case (1)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_bodsed  , nf90_double, UNC_LOC_S, 'bodsed'  , '', 'Available sediment mass in the bed in flow cell center', 'kg m-2', dimids = (/ mapids%id_tsp%id_sedtotdim, -2, -1 /), jabndnd=jabndnd_)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dpsed   , nf90_double, UNC_LOC_S, 'dpsed'  , '', 'Sediment thickness in the bed in flow cell center', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
-            case (2)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_msed   , nf90_double, UNC_LOC_S, 'msed'  , '', 'Available sediment mass in a layer of the bed in flow cell center', 'kg m-2', dimids = (/ mapids%id_tsp%id_sedtotdim, mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_thlyr  , nf90_double, UNC_LOC_S, 'thlyr'  , '', 'Thickness of a layer of the bed in flow cell center', 'm', dimids = (/ mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
-               !
-               if (stmpar%morlyr%settings%iporosity>0) then
-                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_poros  , nf90_double, UNC_LOC_S, 'poros'  , '', 'Porosity of a layer of the bed in flow cell center', '-', dimids = (/ mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
-               endif
-               !
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_lyrfrac  , nf90_double, UNC_LOC_S, 'lyrfrac'  , '', 'Volume fraction in a layer of the bed in flow cell center', '-', dimids = (/ -2, mapids%id_tsp%id_nlyrdim, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
-         end select
+            select case (stmpar%morlyr%settings%iunderlyr)
+               case (1)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_bodsed  , nf90_double, UNC_LOC_S, 'bodsed'  , '', 'Available sediment mass in the bed in flow cell center', 'kg m-2', dimids = (/ mapids%id_tsp%id_sedtotdim, -2, -1 /), jabndnd=jabndnd_)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dpsed   , nf90_double, UNC_LOC_S, 'dpsed'  , '', 'Sediment thickness in the bed in flow cell center', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
+               case (2)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_msed   , nf90_double, UNC_LOC_S, 'msed'  , '', 'Available sediment mass in a layer of the bed in flow cell center', 'kg m-2', dimids = (/ mapids%id_tsp%id_sedtotdim, mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_thlyr  , nf90_double, UNC_LOC_S, 'thlyr'  , '', 'Thickness of a layer of the bed in flow cell center', 'm', dimids = (/ mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
+                  !
+                  if (stmpar%morlyr%settings%iporosity>0) then
+                     ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_poros  , nf90_double, UNC_LOC_S, 'poros'  , '', 'Porosity of a layer of the bed in flow cell center', '-', dimids = (/ mapids%id_tsp%id_nlyrdim, -2, -1 /), jabndnd=jabndnd_)
+                  endif
+                  !
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_lyrfrac  , nf90_double, UNC_LOC_S, 'lyrfrac'  , '', 'Volume fraction in a layer of the bed in flow cell center', '-', dimids = (/ -2, mapids%id_tsp%id_nlyrdim, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
+            end select
+         end if
+         
          !
-         if (stmpar%morpar%moroutput%taub) then
+         if (stmpar%morpar%moroutput%taub .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_taub  , nf90_double, UNC_LOC_S, 'taub'  , '', 'Bed shear stress for morphology', 'N m-2', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%taurat) then
+         if (stmpar%morpar%moroutput%taurat .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_taurat  , nf90_double, UNC_LOC_S, 'taurat'  , '', 'Excess bed shear ratio', '-', dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%dm) then
+         if (stmpar%morpar%moroutput%dm .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dm  , nf90_double, UNC_LOC_S, 'dm'  , '', 'Arithmetic mean sediment diameter', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%dg) then
+         if (stmpar%morpar%moroutput%dg .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dg  , nf90_double, UNC_LOC_S, 'dg'  , '', 'Geometric mean sediment diameter', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%dgsd) then
+         if (stmpar%morpar%moroutput%dgsd .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dgsd  , nf90_double, UNC_LOC_S, 'dgsd'  , '', 'Geometric standard deviation of particle size mix', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%percentiles) then
+         if (stmpar%morpar%moroutput%percentiles .and. janormalmap > 0) then
             do l = 1, stmpar%morpar%nxx
                write(dxname,'(A,I2.2)') 'DXX',l
                write(dxdescr,'(A,F4.1,A)') 'Sediment diameter percentile '    , stmpar%morpar%xx(l)*100d0,' %'
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dxx(l,:)  , nf90_double, UNC_LOC_S, dxname  , '', dxdescr, 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
             enddo
          endif
-         if (stmpar%morpar%moroutput%frac) then
+         if (stmpar%morpar%moroutput%frac .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_frac  , nf90_double, UNC_LOC_S, 'frac'  , '', 'Availability fraction in top layer', '-', dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%mudfrac) then
+         if (stmpar%morpar%moroutput%mudfrac .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_mudfrac  , nf90_double, UNC_LOC_S, 'mudfrac'  , '', 'Mud fraction in top layer', '-', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%sandfrac) then
+         if (stmpar%morpar%moroutput%sandfrac .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sandfrac  , nf90_double, UNC_LOC_S, 'sandfrac'  , '', 'Sand fraction in top layer', '-', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%fixfac) then
+         if (stmpar%morpar%moroutput%fixfac .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_fixfac  , nf90_double, UNC_LOC_S, 'fixfac'  , '', 'Reduction factor due to limited sediment thickness', '-', dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
-         if (stmpar%morpar%moroutput%hidexp) then
+         if (stmpar%morpar%moroutput%hidexp .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_hidexp  , nf90_double, UNC_LOC_S, 'hidexp'  , '', 'Hiding and exposure factor', '-', dimids = (/ -2, mapids%id_tsp%id_sedtotdim, -1 /), jabndnd=jabndnd_)
          endif
          !
-         if (stmpar%morpar%flufflyr%iflufflyr>0 .and. stmpar%lsedsus>0) then
+         if (stmpar%morpar%flufflyr%iflufflyr>0 .and. stmpar%lsedsus>0 .and. janormalmap > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_mfluff  , nf90_double, UNC_LOC_S, 'mfluff'  , '', 'Sediment mass in fluff layer', 'kg m-2', dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
          end if
          !
          ! 1D cross sections
-         if (ndx1d > 0 .and. stm_included) then
+         if (ndx1d > 0 .and. stm_included .and. janormalmap > 0) then
             if (stmpar%morpar%bedupd) then
                nCrs = 0
                do i = 1,size(network%crs%cross)
@@ -5640,7 +5703,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       !
       ! BEDFORMS
       !
-      if (bfmpar%lfbedfrmout) then
+      if (bfmpar%lfbedfrmout .and. janormalmap > 0) then
          if (bfmpar%lfbedfrm) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_duneheight, nf90_double, UNC_LOC_S, 'duneheight'  , '', 'Time-varying dune height in flow cell center', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dunelength, nf90_double, UNC_LOC_S, 'dunelength'  , '', 'Time-varying dune length in flow cell center', 'm', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
@@ -5655,7 +5718,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       end if
 
       ! Sediment transport (via own built-in sed)
-      if (jamapsed > 0 .and. jased > 0 .and. .not. stm_included) then
+      if (jamapsed > 0 .and. jased > 0 .and. .not. stm_included .and. janormalmap > 0) then
          ierr = nf90_def_dim(mapids%ncid, 'nFrac', mxgr, mapids%id_tsp%id_maxfracdim)
          if( .not. allocated(mapids%id_sed) ) then
             allocate( mapids%id_sed(MAX_ID_VAR,mxgr), mapids%id_ero(MAX_ID_VAR,mxgr) )
@@ -5685,7 +5748,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       end if
 
       if (jamapwav>0) then
-         if (flowWithoutWaves) then      ! Check the external forcing wave quantities and their associated arrays
+         if (flowWithoutWaves .and. janormalmap > 0) then      ! Check the external forcing wave quantities and their associated arrays
             if (jamapwav_hwav > 0      .and. allocated(hwav)) then   
                if (jamapsigwav==0) then
                   ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav     , nf90_double, UNC_LOC_S, 'hwav'         , 'sea_surface_wave_rms_height'          , 'RMS wave height'          , 'm'    , jabndnd=jabndnd_) ! not CF
@@ -5728,7 +5791,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             end if
          else   ! flow With Waves
             ! JRE waves
-            if (jawave .eq. 4) then
+            if (jawave .eq. 4 .and. janormalmap > 0) then
                ierr = nf90_def_dim(mapids%ncid, 'ntheta', ntheta, mapids%id_tsp%id_ntheta)
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_E        , nf90_double, UNC_LOC_S, 'E'        , 'sea_surface_bulk_wave_energy'         , 'Wave energy per square meter'                     , 'J m-2', jabndnd=jabndnd_) ! not CF
                if (roller>0) then
@@ -5757,7 +5820,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
                endif
             end if
 
-            if ((jawave==3 .or. jawave==4).and. kmx>0) then
+            if ((jawave==3 .or. jawave==4).and. kmx>0 .and. janormalmap > 0) then
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sxwav       , nf90_double, UNC_LOC_S, 'sxwav' , 'sea_surface_x_wave_force_surface', 'Surface layer wave forcing term, x-component'   , 'N m-2', jabndnd=jabndnd_) ! not CF
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sywav       , nf90_double, UNC_LOC_S, 'sywav' , 'sea_surface_y_wave_force_surface', 'Surface layer wave forcing term, y-component'   , 'N m-2', jabndnd=jabndnd_) ! not CF
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sxbwav      , nf90_double, UNC_LOC_S, 'sxbwav', 'sea_surface_x_wave_force_bottom' , 'Water body wave forcing term, x-component'    , 'N m-2', jabndnd=jabndnd_) ! not CF
@@ -5765,22 +5828,29 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             end if
          
             if (jawave .gt. 0) then
-               if (jamapsigwav==0) then
-                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav        , nf90_double, UNC_LOC_S, 'hwav'         , 'sea_surface_wave_rms_height'          , 'RMS wave height'          , 'm' , jabndnd=jabndnd_   ) ! not CF
-               else
-                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav        , nf90_double, UNC_LOC_S, 'hwav'         , 'sea_surface_wave_significant_wave_height'          , 'Significant wave height'          , 'm' , jabndnd=jabndnd_   )
-               endif
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_uorb     , nf90_double, UNC_LOC_S, 'uorb'            , 'sea_surface_wave_orbital_velocity'    , 'Wave orbital velocity'    , 'm s-1', jabndnd=jabndnd_) ! not CF
+               if (janormalmap > 0) then
+                  if (jamapsigwav==0) then
+                     ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav        , nf90_double, UNC_LOC_S, 'hwav'         , 'sea_surface_wave_rms_height'          , 'RMS wave height'          , 'm' , jabndnd=jabndnd_   ) ! not CF
+                  else
+                     ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav        , nf90_double, UNC_LOC_S, 'hwav'         , 'sea_surface_wave_significant_wave_height'          , 'Significant wave height'          , 'm' , jabndnd=jabndnd_   )
+                  endif
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_uorb     , nf90_double, UNC_LOC_S, 'uorb'            , 'sea_surface_wave_orbital_velocity'    , 'Wave orbital velocity'    , 'm s-1', jabndnd=jabndnd_) ! not CF
+               end if
                !
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokes      , nf90_double, iLocS, 'ust_cc'     , 'sea_surface_x_stokes_drift'        , 'Stokes drift, x-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokes      , nf90_double, iLocS, 'vst_cc'     , 'sea_surface_y_stokes_drift'       , 'Stokes drift, y-component'    , 'm s-1', jabndnd=jabndnd_) ! not CF
+               if (ja3d > 0) then
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokes      , nf90_double, iLocS, 'ust_cc'     , 'sea_surface_x_stokes_drift'        , 'Stokes drift, x-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokes      , nf90_double, iLocS, 'vst_cc'     , 'sea_surface_y_stokes_drift'       , 'Stokes drift, y-component'    , 'm s-1', jabndnd=jabndnd_) ! not CF
                
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokeslink      , nf90_double, iLocU, 'ustokes'     , ''        , 'Stokes drift, n-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokeslink      , nf90_double, iLocU, 'vstokes'     , ''        , 'Stokes drift, t-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokeslink      , nf90_double, iLocU, 'ustokes'     , ''        , 'Stokes drift, n-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokeslink      , nf90_double, iLocU, 'vstokes'     , ''        , 'Stokes drift, t-component'   , 'm s-1', jabndnd=jabndnd_) ! not CF
+               end if
 
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_thetamean, nf90_double, UNC_LOC_S, 'thetamean'       , 'sea_surface_wave_from_direction'      , 'Wave from direction'      , 'deg from N', jabndnd=jabndnd_) ! not CF
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_twav,      nf90_double, UNC_LOC_S, 'twav'       ,      'sea_surface_wave_period'      , 'Wave period'      , 's') ! not CF
-               if (jawave==3 .or. jawave==4) then
+               if (janormalmap > 0) then
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_thetamean, nf90_double, UNC_LOC_S, 'thetamean'       , 'sea_surface_wave_from_direction'      , 'Wave from direction'      , 'deg from N', jabndnd=jabndnd_) ! not CF
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_twav,      nf90_double, UNC_LOC_S, 'twav'       ,      'sea_surface_wave_period'      , 'Wave period'      , 's') ! not CF
+               end if
+
+               if ((jawave==3 .or. jawave==4) .and. ja3d > 0) then
                   ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_Fx       , nf90_double, iLocS, 'Fx'              , 'sea_surface_x_wave_force'          , 'Wave force, x-component'     , 'N m-2', jabndnd=jabndnd_) ! not CF
                   ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_Fy       , nf90_double, iLocS, 'Fy'              , 'sea_surface_y_wave_force'         , 'Wave force, y-component'      , 'N m-2', jabndnd=jabndnd_) ! not CF
 
@@ -5792,7 +5862,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       endif   
       !
       ! Trachytope roughnesses on NET links
-      if (jamaptrachy > 0 .and. jatrt == 1) then
+      if (jamaptrachy > 0 .and. jatrt == 1 .and. janormalmap > 0) then
 
          if (ifrctypuni == 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cftrt, nf90_double, UNC_LOC_L, 'cftrt',   '', 'Chezy roughness from trachytopes', '', jabndnd=jabndnd_)
@@ -5809,13 +5879,13 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          end if
       end if
 
-      if (javeg > 0) then
+      if (javeg > 0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rnveg        	, nf90_double, UNC_LOC_S, 'rnveg'        , 'stem density of vegetation'      , 'stem density per square meter', 'm-2')
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_diaveg        , nf90_double, UNC_LOC_S, 'diaveg'       , 'stem diameter of vegetation'     , 'stem diameter of vegetation', 'm')
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_veg_stemheight, nf90_double, UNC_LOC_S, 'stemheight'   , 'stem height of vegetation'       , 'stem height of vegetation', 'm')
       endif
 
-      if (jamapcali > 0 .and. jacali == 1) then
+      if (jamapcali > 0 .and. jacali == 1 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfcl, nf90_double, UNC_LOC_L, 'cfcl',   '', 'Calibration factor for roughness', '', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_cfcl, 'non_si_units', 'm0.5s-1')
       endif
@@ -5865,20 +5935,23 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
            !end if
 
       if ( janudge.gt.0 .and. jamapNudge.gt.0 ) then
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_time, nf90_double, UNC_LOC_S, 'Tnudge', 'nudging_time', 'Nudging relaxing time', 's', is_timedep=0, jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_tem, nf90_double, UNC_LOC_S3D, 'nudge_tem', 'nudging_tem', 'Nudging temperature', 'degC', jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_sal, nf90_double, UNC_LOC_S3D, 'nudge_sal', 'nudging_sal', 'Nudging salinity', '1e-3, jabndnd=jabndnd_', jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_Dtem, nf90_double, UNC_LOC_S3D, 'nudge_Dtem', 'nudging_Dtem', 'Difference of nudging temperature with temperature', 'degC', jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_Dsal, nf90_double, UNC_LOC_S3D, 'nudge_Dsal', 'nudging_Dsal', 'Difference of nudging salinity with salinity', '1e-3', jabndnd=jabndnd_)
-
+         if (janormalmap > 0) then
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_time, nf90_double, UNC_LOC_S, 'Tnudge', 'nudging_time', 'Nudging relaxing time', 's', is_timedep=0, jabndnd=jabndnd_)
+         end if
+         if (ja3d > 0) then
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_tem, nf90_double, UNC_LOC_S3D, 'nudge_tem', 'nudging_tem', 'Nudging temperature', 'degC', jabndnd=jabndnd_)
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_sal, nf90_double, UNC_LOC_S3D, 'nudge_sal', 'nudging_sal', 'Nudging salinity', '1e-3, jabndnd=jabndnd_', jabndnd=jabndnd_)
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_Dtem, nf90_double, UNC_LOC_S3D, 'nudge_Dtem', 'nudging_Dtem', 'Difference of nudging temperature with temperature', 'degC', jabndnd=jabndnd_)
+            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_Dsal, nf90_double, UNC_LOC_S3D, 'nudge_Dsal', 'nudging_Dsal', 'Difference of nudging salinity with salinity', '1e-3', jabndnd=jabndnd_)
+         end if
       end if
 
-      if ( japart.eq.1 .and. jatracer.eq.1 .and. kmx.gt.0 ) then
+      if ( japart.eq.1 .and. jatracer.eq.1 .and. kmx.gt.0 .and. janormalmap > 0) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_depth_averaged_particle_concentration, nf90_double, UNC_LOC_S, 'depth_averaged_particle_concentration', 'depth_averaged_particle_concentration', 'depth-averaged particle concentration', 'm-3', jabndnd=jabndnd_)
       end if
 
       ! for 1D only, urban
-      if (ndxi-ndx2d>0) then
+      if (ndxi-ndx2d>0 .and. janormalmap > 0) then
          if (jamapTimeWetOnGround > 0) then ! cumulative time when water is above ground level
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_timewetground, nf90_double, UNC_LOC_S, 'time_water_on_ground', '', 'Cumulative time water above ground level', 's', which_meshdim = 1, jabndnd=jabndnd_)
          end if
@@ -5900,7 +5973,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vTotLat, nf90_double, UNC_LOC_S, 'cumulative_total_net_inflow_lateral', '', 'Cumulative total net inflow via all laterals at each 1D node', 'm3', which_meshdim = 1, jabndnd=jabndnd_)
          end if
       end if
-      if (lnx1d > 0) then
+      if (lnx1d > 0 .and. janormalmap > 0) then
          if (jamapS1Gradient > 0) then ! water level gradient
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s1Gradient, nf90_double, UNC_LOC_U, 'water_level_gradient', '', 'Water level gradient at each 1D flow link', '1', which_meshdim = 1, jabndnd=jabndnd_)
          end if
@@ -5913,7 +5986,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          call err_flush()
       end if
 
-      if ( janudge.gt.0 .and. jamapnudge.gt.0 ) then
+      if ( janudge.gt.0 .and. jamapnudge.gt.0 .and. janormalmap > 0) then
 !        output static nudging time
          workx = 0d0
          do k=1,Ndx
@@ -5924,7 +5997,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_time, UNC_LOC_S, workx, jabndnd=jabndnd_)
       end if
 
-      if (nomba > 0) then
+      if (nomba > 0 .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_mba(:), UNC_LOC_S, mbadef, jabndnd=jabndnd_)
       end if
 
@@ -5962,9 +6035,10 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    ierr = nf90_put_var(mapids%ncid, mapids%id_time    , tim, (/ itim /))
    ierr = nf90_put_var(mapids%ncid, mapids%id_timestep, dts, (/ itim /))
 
+
    if (timon) call timstop (handle_extra(72))
    if (timon) call timstrt ( "unc_write_map_filepointer_ugrid vars", handle_extra(73))
-   if (jamapnumlimdt > 0) then
+   if (jamapnumlimdt > 0 .and. janormalmap > 0) then
       ! ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_numlimdt, UNC_LOC_S, numlimdt) ! TODO: AvD: integer version of this routine
       call realloc(numlimdtdbl, ndxndxi, keepExisting=.false.)
       numlimdtdbl = dble(numlimdt) ! To prevent stack overflow. TODO: remove once integer version is available.
@@ -5973,7 +6047,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    end if
 
    ! Time dependent grid layers
-   if (kmx > 0 .and. jafullgridoutput == 1) then
+   if (kmx > 0 .and. jafullgridoutput == 1 .and. ja3d > 0) then
       call realloc(work1d, ndkx, keepExisting = .false.)
       call realloc(work3d2, (/ 2, kmx, max(lnx, ndxndxi) /), keepExisting=.false., fill = dmiss)
       do kk = 1,ndxndxi
@@ -6009,27 +6083,27 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    endif
 
    ! Water level
-   if (jamaps1 == 1) then
+   if ((jamaps1 > 0 .and. janormalmap > 0) .or. (kmx > 0 .and. ja3d > 0 .and. laytyp(1) /= 2)) then
       !ierr = nf90_inq_varid(mapids%ncid, 'mesh2d'//'_s1', mapids%id_s1(2))
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s1, UNC_LOC_S, s1, jabndnd=jabndnd_)
    end if
 
-   if (jamaps0 == 1) then
+   if (jamaps0 == 1 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s0, UNC_LOC_S, s0, jabndnd=jabndnd_)
    end if
 
-   if (jamapqin > 0 .and. jaqin > 0) then
+   if (jamapqin > 0 .and. jaqin > 0 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_qin, UNC_LOC_S, qin, jabndnd=jabndnd_)
    end if
 
    ! Water depth
-   if (jamaphs == 1) then
+   if ((jamaphs == 1 .and. janormalmap > 0) .or. (kmx > 0 .and. ja3d > 0 .and. laytyp(1) /= 2)) then
       !ierr = nf90_inq_varid(mapids%ncid, 'mesh2d'//'_waterdepth', mapids%id_hs(2))
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hs, UNC_LOC_S, hs, jabndnd=jabndnd_)
    end if
    
    ! Evaporation
-   if (jamapevap == 1) then
+   if (jamapevap == 1 .and. janormalmap > 0) then
       if (jadhyd == 1) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_potevap, UNC_LOC_S, PotEvap, jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_actevap, UNC_LOC_S, ActEvap, jabndnd=jabndnd_)
@@ -6049,14 +6123,14 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_au, iLocU, au, jabndnd=jabndnd_)
    end if
    
-   if (jamapflowanalysis == 1) then
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt,       iLocS, negativeDepths,     jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt_cum,   iLocS, negativeDepths_cum, jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_noiter,       iLocS, noIterations,       jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_noiter_cum,   iLocS, noIterations_cum,   jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_limtstep,     iLocS, limitingTimestepEstimation,       jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_limtstep_cum, iLocS, limitingTimestepEstimation_cum,   jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_courant,      iLocS, flowCourantNumber,  jabndnd=jabndnd_)
+   if (jamapflowanalysis == 1 .and. janormalmap > 0) then
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt,       UNC_LOC_S, negativeDepths,     jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_negdpt_cum,   UNC_LOC_S, negativeDepths_cum, jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_noiter,       UNC_LOC_S, noIterations,       jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_noiter_cum,   UNC_LOC_S, noIterations_cum,   jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_limtstep,     UNC_LOC_S, limitingTimestepEstimation,       jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_limtstep_cum, UNC_LOC_S, limitingTimestepEstimation_cum,   jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_courant,      UNC_LOC_S, flowCourantNumber,  jabndnd=jabndnd_)
    endif
 
    ! Velocities
@@ -6089,6 +6163,19 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          call reconstructucz(0)
          if (jamapucvec == 1) then 
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, UNC_LOC_S3D, ucz, jabndnd=jabndnd_)
+            ucxq(1:ndx) = 0d0
+            ucyq(1:ndx) = 0d0
+            do k=1,ndx
+               call getkbotktop(k,kb,kt)
+               do kk=kb,kt
+                  ucxq(k) = ucxq(k) + vol1(kk)*ucxq(kk)
+                  ucyq(k) = ucyq(k) + vol1(kk)*ucyq(kk)
+               end do
+               if (vol1(k) > 0d0) then
+                  ucxq(k) = ucxq(k)/vol1(k)
+                  ucyq(k) = ucyq(k)/vol1(k)
+               end if
+            end do
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxa, UNC_LOC_S, ucxq, jabndnd=jabndnd_)
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucya, UNC_LOC_S, ucyq, jabndnd=jabndnd_)
          end if
@@ -6097,6 +6184,16 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             call realloc(work1d, ndkx, keepExisting = .false., fill=0d0)
             do k=1,size(ucxq)                            ! NOTE: this does not include Stokes drift, no Eulerian velocities here!
                work1d(k) = sqrt(ucxq(k)**2 + ucyq(k)**2) ! TODO: this does not include vertical/w-component now.
+            end do
+            work1d(1:ndx) = 0d0
+            do k=1,ndx
+               call getkbotktop(k,kb,kt)
+               do kk=kb,kt
+                  work1d(k) = work1d(k) + vol1(kk)*work1d(kk)
+               end do
+               if (vol1(k) > 0d0) then
+                  work1d(k) = work1d(k)/vol1(k)
+               end if
             end do
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmaga, UNC_LOC_S, work1d, jabndnd=jabndnd_)
          end if
@@ -6217,7 +6314,25 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       do k = 1,ndkx
          sa1(k) = constituents(isalt, k )
       enddo
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sa1, iLocS, sa1, jabndnd=jabndnd_)
+      ! Depth-averaged. TODO: put into utility function
+      sa1(1:ndx) = 0d0
+      do k=1,ndx
+         call getkbotktop(k,kb,kt)
+         do kk=kb,kt
+            sa1(k) = sa1(k) + vol1(kk)*sa1(kk)
+         end do
+         if (vol1(k) > 0d0) then
+            sa1(k) = sa1(k)/vol1(k)
+         end if
+      end do
+
+      if (jamapsal > 0 .and. jasal > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sa1, iLocS, sa1, jabndnd=jabndnd_)
+      end if
+
+      if (jamapsal > 0 .and. jasal > 0 .and. (kmx > 0 .and. ja3d == 0)) then
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sa1, UNC_LOC_S, sa1, jabndnd=jabndnd_)
+      end if
    end if
 
    ! Temperature
@@ -6228,7 +6343,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tem1, iLocS, tem1, jabndnd=jabndnd_)
    endif
 
-   if (jasecflow > 0 .and. jamapspir > 0) then
+   if (jasecflow > 0 .and. jamapspir > 0 .and. janormalmap > 0) then
       if (kmx == 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_spircrv, UNC_LOC_S, spircrv, jabndnd=jabndnd_)
       endif
@@ -6271,7 +6386,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
     end if
 
    ! Turbulence.
-   if (jamaptur > 0 .and. kmx > 0) then
+   if (jamaptur > 0 .and. kmx > 0 .and. ja3d > 0) then
       if (iturbulencemodel >= 3) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_turkin1, UNC_LOC_WU, turkin1, jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vicwwu,  UNC_LOC_WU, vicwwu, jabndnd=jabndnd_)
@@ -6282,11 +6397,11 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    !
    ! Sediment transport (via morphology module)
    !
-if ((jamapsed > 0 .and. jased > 0 .and. stm_included).or.(jasubsupl>0)) then
+if (((jamapsed > 0 .and. jased > 0 .and. stm_included).or.(jasubsupl>0)) .and. janormalmap > 0) then
    ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_mor_bl, UNC_LOC_S, bl, jabndnd=jabndnd_)
 endif
 
-if (jasubsupl>0) then
+if (jasubsupl>0 .and. janormalmap > 0) then
    select case (ibedlevtyp)
       case (1)
          iloc = UNC_LOC_S
@@ -6301,7 +6416,7 @@ if (jasubsupl>0) then
    ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_subsupl, iloc, subsout, jabndnd=jabndnd_)
 endif
 
-if (jamapz0>0) then  
+if (jamapz0>0 .and. janormalmap > 0) then  
    ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_z0c, UNC_LOC_U, z0ucur, jabndnd=jabndnd_)    ! from setcfuhi
    ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_z0r, UNC_LOC_U, z0urou, jabndnd=jabndnd_)    ! from tauwave, update_vp, or above
 endif
@@ -6332,24 +6447,26 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_kmxsed, UNC_LOC_S, toutputx, jabndnd=jabndnd_)
       endif
       !
-      call realloc(toutputx, (/lnx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
-      call realloc(toutputy, (/lnx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
-      do l = 1, stmpar%lsedsus
-         select case(stmpar%morpar%moroutput%transptype)
-         case (0)
-            rhol = 1d0
-         case (1)
-            rhol = stmpar%sedpar%cdryb(sedtot2sedsus(l))
-         case (2)
-            rhol = stmpar%sedpar%rhosol(sedtot2sedsus(l))
-         end select
-         toutputx(:,l) = sedtra%e_ssn(:,l)/rhol
-         toutputy(:,l) = sedtra%e_sst(:,l)/rhol
-      end do
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ssn  , UNC_LOC_U, toutputx, jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sst  , UNC_LOC_U, toutputy, jabndnd=jabndnd_)
+      if (janormalmap > 0) then
+         call realloc(toutputx, (/lnx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
+         call realloc(toutputy, (/lnx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
+         do l = 1, stmpar%lsedsus
+            select case(stmpar%morpar%moroutput%transptype)
+            case (0)
+               rhol = 1d0
+            case (1)
+               rhol = stmpar%sedpar%cdryb(sedtot2sedsus(l))
+            case (2)
+               rhol = stmpar%sedpar%rhosol(sedtot2sedsus(l))
+            end select
+            toutputx(:,l) = sedtra%e_ssn(:,l)/rhol
+            toutputy(:,l) = sedtra%e_sst(:,l)/rhol
+         end do
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ssn  , UNC_LOC_U, toutputx, jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sst  , UNC_LOC_U, toutputy, jabndnd=jabndnd_)
+      end if
    endif
-   if (stmpar%lsedtot > 0) then
+   if (stmpar%lsedtot > 0 .and. janormalmap > 0) then
       call realloc(toutputx, (/lnx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       call realloc(toutputy, (/lnx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedtot
@@ -6368,15 +6485,15 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sbt  , UNC_LOC_U, toutputy, jabndnd=jabndnd_)
    endif
    !
-   if (stmpar%morpar%moroutput%uuuvvv) then
+   if (stmpar%morpar%moroutput%uuuvvv .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_uuu, UNC_LOC_S, sedtra%uuu, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vvv, UNC_LOC_S, sedtra%vvv, jabndnd=jabndnd_)
    end if
    !
    if (stmpar%lsedsus .gt. 0) then
 
-      call realloc(work3d, (/kmx, ndxndxi, stmpar%lsedsus /), keepExisting=.false., fill = dmiss)
-      if (kmx>0) then
+      if (kmx>0 .and. ja3d > 0) then
+         call realloc(work3d, (/kmx, ndxndxi, stmpar%lsedsus /), keepExisting=.false., fill = dmiss)
          ! Concentrations
          do kk = 1, ndxndxi
             call getkbotktop(kk,kb,kt)
@@ -6396,51 +6513,51 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
             enddo
          enddo
          ierr = nf90_put_var(mapids%ncid,mapids%id_ws(2),work3d(1:kmx,1:ndxndxi,1:stmpar%lsedsus),start=(/1,1,1,itim/), count=(/kmx,ndxndxi,stmpar%lsedsus,1/))
-      else
+      else if (janormalmap > 0) then
          call realloc(work1d_z,(/ndxndxi, stmpar%lsedsus /), keepExisting=.false., fill = dmiss)
          work1d_z = transpose(constituents(ISED1:ISEDN,:))  ! avoid array slice on stack
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sedfrac, UNC_LOC_S, work1d_z, jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ws, UNC_LOC_S, mtd%ws, jabndnd=jabndnd_)
       endif
 !
-      if (kmx == 0) then
+      if (kmx == 0 .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rsedeq, UNC_LOC_S, sedtra%rsedeq, jabndnd=jabndnd_)
       end if
 !
-      if (stmpar%morpar%moroutput%aks) then
+      if (stmpar%morpar%moroutput%aks .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aks, UNC_LOC_S, sedtra%aks, jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rca, UNC_LOC_S, sedtra%rca, jabndnd=jabndnd_)
       end if
 !
-      if (stmpar%morpar%moroutput%sourcesink) then
+      if (stmpar%morpar%moroutput%sourcesink .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sourse, UNC_LOC_S, sedtra%sourse, jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sinkse, UNC_LOC_S, sedtra%sinkse, jabndnd=jabndnd_)
       endif
 
-      if (stmpar%morpar%moroutput%suvcor) then
+      if (stmpar%morpar%moroutput%suvcor .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_scrn ,UNC_LOC_U, sedtra%e_scrn, jabndnd=jabndnd_)
       end if
    endif
    !
-   if (stmpar%morpar%moroutput%dzduuvv) then ! bedslope
+   if (stmpar%morpar%moroutput%dzduuvv .and. janormalmap > 0) then ! bedslope
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_e_dzdn ,UNC_LOC_U, sedtra%e_dzdn, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_e_dzdt ,UNC_LOC_U, sedtra%e_dzdt, jabndnd=jabndnd_)
    end if
 !
-   if (stmpar%morpar%moroutput%umod) then
+   if (stmpar%morpar%moroutput%umod .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_umod , UNC_LOC_S, sedtra%umod, jabndnd=jabndnd_)
    end if
 !
-   if (stmpar%morpar%moroutput%zumod) then
+   if (stmpar%morpar%moroutput%zumod .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_zumod , UNC_LOC_S, sedtra%zumod, jabndnd=jabndnd_)
    end if
 !
-   if (stmpar%morpar%moroutput%ustar) then
+   if (stmpar%morpar%moroutput%ustar .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ustar , UNC_LOC_S, sqrt(sedtra%ust2), jabndnd=jabndnd_)
    end if
 !
    if (stmpar%morpar%moroutput%rawtransports) then
-      if (stmpar%morpar%moroutput%sbcuv) then
+      if (stmpar%morpar%moroutput%sbcuv .and. janormalmap > 0) then
          call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          do l = 1, stmpar%lsedtot
@@ -6459,7 +6576,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbcy   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
       endif
       !
-      if (stmpar%morpar%moroutput%sbwuv) then
+      if (stmpar%morpar%moroutput%sbwuv .and. janormalmap > 0) then
          call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          do l = 1, stmpar%lsedtot
@@ -6478,7 +6595,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbwy   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
       endif
       !
-      if (stmpar%morpar%moroutput%sswuv) then
+      if (stmpar%morpar%moroutput%sswuv .and. janormalmap > 0) then
          call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          do l = 1, stmpar%lsedtot
@@ -6502,7 +6619,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    call reconstructsedtransports()
 
    if (stmpar%morpar%moroutput%rawtransports) then
-      if (stmpar%morpar%moroutput%sscuv) then
+      if (stmpar%morpar%moroutput%sscuv .and. janormalmap > 0) then
          call realloc(toutputx, (/ndx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
          call realloc(toutputy, (/ndx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
          do l = 1, stmpar%lsedsus
@@ -6522,7 +6639,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       endif
    endif
 
-   if (stmpar%morpar%moroutput%sbcuv) then
+   if (stmpar%morpar%moroutput%sbcuv .and. janormalmap > 0) then
       call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedtot
@@ -6541,7 +6658,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbcy_reconstructed   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
    endif
 !
-   if (stmpar%morpar%moroutput%sbwuv) then
+   if (stmpar%morpar%moroutput%sbwuv .and. janormalmap > 0) then
       call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedtot
@@ -6560,7 +6677,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sbwy_reconstructed   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
    endif
 !
-   if (stmpar%morpar%moroutput%sswuv) then
+   if (stmpar%morpar%moroutput%sswuv .and. janormalmap > 0) then
       call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedtot
@@ -6579,7 +6696,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sswy_reconstructed   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
    endif
    !
-   if (stmpar%morpar%moroutput%sscuv) then
+   if (stmpar%morpar%moroutput%sscuv .and. janormalmap > 0) then
       call realloc(toutputx, (/ndx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
       call realloc(toutputy, (/ndx, stmpar%lsedsus /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedsus
@@ -6598,105 +6715,66 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sscy_reconstructed   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
    endif
    !
-   if (stmpar%morpar%duneavalan) then
-      ! Add avalanching fluxes to total transport for output
-      call realloc(sxtotori,(/ndx, stmpar%lsedtot/), stat=ierr, keepExisting=.false.,fill=0d0)
-      call realloc(sytotori,(/ndx, stmpar%lsedtot/), stat=ierr, keepExisting=.false.,fill=0d0)
-      sxtotori = sedtra%sxtot
-      sytotori = sedtra%sytot
+   if (janormalmap > 0) then
+      if (stmpar%morpar%duneavalan) then
+         ! Add avalanching fluxes to total transport for output
+         call realloc(sxtotori,(/ndx, stmpar%lsedtot/), stat=ierr, keepExisting=.false.,fill=0d0)
+         call realloc(sytotori,(/ndx, stmpar%lsedtot/), stat=ierr, keepExisting=.false.,fill=0d0)
+         sxtotori = sedtra%sxtot
+         sytotori = sedtra%sytot
+         !
+         do l = 1, stmpar%lsedtot
+            do Lf = 1, lnx
+               sedtra%e_sbcn(Lf,l) = sedtra%e_sbcn(Lf,l) + avalflux(Lf,l)*wu_mor(Lf)
+            enddo
+         enddo
+         call reconstructsedtransports()
+      endif
       !
+      call realloc(toutputx, (/ndxndxi, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
+      call realloc(toutputy, (/ndxndxi, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
       do l = 1, stmpar%lsedtot
-         do Lf = 1, lnx
-            sedtra%e_sbcn(Lf,l) = sedtra%e_sbcn(Lf,l) + avalflux(Lf,l)*wu_mor(Lf)
-         enddo
-      enddo
-      call reconstructsedtransports()
-   endif
-   !
-   call realloc(toutputx, (/ndxndxi, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
-   call realloc(toutputy, (/ndxndxi, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
-   do l = 1, stmpar%lsedtot
-      select case(stmpar%morpar%moroutput%transptype)
-      case (0)
-         rhol = 1d0
-      case (1)
-         rhol = stmpar%sedpar%cdryb(l)
-      case (2)
-         rhol = stmpar%sedpar%rhosol(l)
-      end select
-      toutputx(1:ndxndxi,l) = (sedtra%sxtot(1:ndxndxi,l))/rhol
-      toutputy(1:ndxndxi,l) = (sedtra%sytot(1:ndxndxi,l))/rhol
-   end do
-   ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sxtot   , UNC_LOC_S, toutputx, jabndnd=jabndnd_)
-   ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sytot   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
-   !
-   if (stmpar%morpar%duneavalan) then
-      ! restore for timestep calculation
-      sedtra%sxtot = sxtotori
-      sedtra%sytot = sytotori
-   endif
-   !
-   ! Time averaged transports, could probably be more concise...
-   !morstarthyd = tstart_user + stmpar%morpar%tmor*tfac        ! seconds
-   dmorft      = stmpar%morpar%morft - stmpar%morpar%morft0    ! days since morstart
-   dmorfs      = dmorft*86400.0d0                              ! seconds
-   mortime     = stmpar%morpar%morft*86400d0                   ! seconds*morfac since tstart_user
-   if (stmpar%morpar%hydrt > stmpar%morpar%hydrt0) then
-      moravg = dmorft/(stmpar%morpar%hydrt - stmpar%morpar%hydrt0)
-   else
-      moravg = 0d0
-   endif
-   !
-   ierr = nf90_put_var(mapids%ncid, mapids%id_morfac  , moravg,(/ itim /))
-   ierr = nf90_put_var(mapids%ncid, mapids%id_morft   , mortime,(/ itim /))
-   !
-   if (stmpar%morpar%moroutput%cumavg) then
-      ! Bedload components
-      call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
-      call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
-      if ( dmorft > 0d0 ) then
-         do l = 1, stmpar%lsedtot
-            select case(stmpar%morpar%moroutput%transptype)
-            case (0)
-               rhodt = dmorfs
-            case (1)
-               rhodt = stmpar%sedpar%cdryb(l)*dmorfs
-            case (2)
-               rhodt = stmpar%sedpar%rhosol(l)*dmorfs
-            end select
-            toutputx(:,l) = sedtra%sbxcum(:,l)/rhodt
-            toutputy(:,l) = sedtra%sbycum(:,l)/rhodt
-         enddo
-      else
-          toutputx = 0d0
-          toutputy = 0d0
-      endif
-      ierr = nf90_put_var(mapids%ncid, mapids%id_sbxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
-      ierr = nf90_put_var(mapids%ncid, mapids%id_sbycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
+         select case(stmpar%morpar%moroutput%transptype)
+         case (0)
+            rhol = 1d0
+         case (1)
+            rhol = stmpar%sedpar%cdryb(l)
+         case (2)
+            rhol = stmpar%sedpar%rhosol(l)
+         end select
+         toutputx(1:ndxndxi,l) = (sedtra%sxtot(1:ndxndxi,l))/rhol
+         toutputy(1:ndxndxi,l) = (sedtra%sytot(1:ndxndxi,l))/rhol
+      end do
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sxtot   , UNC_LOC_S, toutputx, jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sytot   , UNC_LOC_S, toutputy, jabndnd=jabndnd_)
       !
-      ! Suspended load
-      if ( dmorft > 0d0 ) then
-         do l = 1, stmpar%lsedtot
-            select case(stmpar%morpar%moroutput%transptype)
-            case (0)
-               rhodt = dmorfs
-            case (1)
-               rhodt = stmpar%sedpar%cdryb(l)*dmorfs
-            case (2)
-               rhodt = stmpar%sedpar%rhosol(l)*dmorfs
-            end select
-            toutputx(:,l) = sedtra%ssxcum(:,l)/rhodt
-            toutputy(:,l) = sedtra%ssycum(:,l)/rhodt
-         enddo
-      else
-          toutputx = 0d0
-          toutputy = 0d0
+      if (stmpar%morpar%duneavalan) then
+         ! restore for timestep calculation
+         sedtra%sxtot = sxtotori
+         sedtra%sytot = sytotori
       endif
-      ierr = nf90_put_var(mapids%ncid, mapids%id_ssxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
-      ierr = nf90_put_var(mapids%ncid, mapids%id_ssycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
-   else
-      if (time_map >= ti_mape) then   ! to check, last timestep?
-         ierr = nf90_put_var(mapids%ncid, mapids%id_sedavgtim    , mortime, (/ 1 /))
+   end if
+
+   if (janormalmap > 0) then
+      !
+      ! Time averaged transports, could probably be more concise...
+      !morstarthyd = tstart_user + stmpar%morpar%tmor*tfac        ! seconds
+      dmorft      = stmpar%morpar%morft - stmpar%morpar%morft0    ! days since morstart
+      dmorfs      = dmorft*86400.0d0                              ! seconds
+      mortime     = stmpar%morpar%morft*86400d0                   ! seconds*morfac since tstart_user
+      if (stmpar%morpar%hydrt > stmpar%morpar%hydrt0) then
+         moravg = dmorft/(stmpar%morpar%hydrt - stmpar%morpar%hydrt0)
+      else
+         moravg = 0d0
+      endif
+      !
+      ierr = nf90_put_var(mapids%ncid, mapids%id_morfac  , moravg,(/ itim /))
+      ierr = nf90_put_var(mapids%ncid, mapids%id_morft   , mortime,(/ itim /))
+      !
+   end if
+
+   if (janormalmap > 0) then
+      if (stmpar%morpar%moroutput%cumavg) then
          ! Bedload components
          call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
          call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
@@ -6717,8 +6795,8 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
              toutputx = 0d0
              toutputy = 0d0
          endif
-         ierr = nf90_put_var(mapids%ncid, mapids%id_sbxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
-         ierr = nf90_put_var(mapids%ncid, mapids%id_sbycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
+         ierr = nf90_put_var(mapids%ncid, mapids%id_sbxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
+         ierr = nf90_put_var(mapids%ncid, mapids%id_sbycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
          !
          ! Suspended load
          if ( dmorft > 0d0 ) then
@@ -6738,89 +6816,136 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
              toutputx = 0d0
              toutputy = 0d0
          endif
-         ierr = nf90_put_var(mapids%ncid, mapids%id_ssxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
-         ierr = nf90_put_var(mapids%ncid, mapids%id_ssycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
-      end if
-   end if
-!
-   select case (stmpar%morlyr%settings%iunderlyr)
-      case (1)
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_bodsed  , UNC_LOC_S, stmpar%morlyr%state%bodsed, locdim=2, jabndnd=jabndnd_)
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dpsed   , UNC_LOC_S, stmpar%morlyr%state%dpsed, jabndnd=jabndnd_)
-      case (2)
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_msed  , UNC_LOC_S, stmpar%morlyr%state%msed , locdim=3, jabndnd=jabndnd_)
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_thlyr , UNC_LOC_S, stmpar%morlyr%state%thlyr, locdim=2, jabndnd=jabndnd_)
-         !
-         if (.not. allocated(frac) ) allocate( frac(1:ndx, 1:stmpar%morlyr%settings%nlyr, stmpar%lsedtot) )
-         frac = -999d0
-         do l = 1, stmpar%lsedtot
-            if (stmpar%morlyr%settings%iporosity==0) then
-               dens = stmpar%sedpar%cdryb(l)
+         ierr = nf90_put_var(mapids%ncid, mapids%id_ssxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
+         ierr = nf90_put_var(mapids%ncid, mapids%id_ssycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1, itim /), count = (/ ndxndxi, stmpar%lsedtot, 1 /))
+      else
+         if (time_map >= ti_mape) then   ! to check, last timestep?
+            ierr = nf90_put_var(mapids%ncid, mapids%id_sedavgtim    , mortime, (/ 1 /))
+            ! Bedload components
+            call realloc(toutputx, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
+            call realloc(toutputy, (/ndx, stmpar%lsedtot /), keepExisting=.false., fill = -999d0)
+            if ( dmorft > 0d0 ) then
+               do l = 1, stmpar%lsedtot
+                  select case(stmpar%morpar%moroutput%transptype)
+                  case (0)
+                     rhodt = dmorfs
+                  case (1)
+                     rhodt = stmpar%sedpar%cdryb(l)*dmorfs
+                  case (2)
+                     rhodt = stmpar%sedpar%rhosol(l)*dmorfs
+                  end select
+                  toutputx(:,l) = sedtra%sbxcum(:,l)/rhodt
+                  toutputy(:,l) = sedtra%sbycum(:,l)/rhodt
+               enddo
             else
-               dens = stmpar%sedpar%rhosol(l)
+                toutputx = 0d0
+                toutputy = 0d0
             endif
-            do k = 1, stmpar%morlyr%settings%nlyr
-               do nm = 1, ndxndxi
-                  if (stmpar%morlyr%state%thlyr(k,nm)>0.0_fp) then
-                       frac(nm, k, l) = stmpar%morlyr%state%msed(l, k, nm)/(dens*stmpar%morlyr%state%svfrac(k, nm) * &
-                                        stmpar%morlyr%state%thlyr(k, nm))
-                  else
-                       frac(nm, k, l) = 0d0
-                  endif
+            ierr = nf90_put_var(mapids%ncid, mapids%id_sbxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
+            ierr = nf90_put_var(mapids%ncid, mapids%id_sbycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
+            !
+            ! Suspended load
+            if ( dmorft > 0d0 ) then
+               do l = 1, stmpar%lsedtot
+                  select case(stmpar%morpar%moroutput%transptype)
+                  case (0)
+                     rhodt = dmorfs
+                  case (1)
+                     rhodt = stmpar%sedpar%cdryb(l)*dmorfs
+                  case (2)
+                     rhodt = stmpar%sedpar%rhosol(l)*dmorfs
+                  end select
+                  toutputx(:,l) = sedtra%ssxcum(:,l)/rhodt
+                  toutputy(:,l) = sedtra%ssycum(:,l)/rhodt
+               enddo
+            else
+                toutputx = 0d0
+                toutputy = 0d0
+            endif
+            ierr = nf90_put_var(mapids%ncid, mapids%id_ssxcum(2), toutputx(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
+            ierr = nf90_put_var(mapids%ncid, mapids%id_ssycum(2), toutputy(1:ndxndxi,:), start = (/ 1, 1 /), count = (/ ndxndxi, stmpar%lsedtot /))
+         end if
+      end if
+   !
+      select case (stmpar%morlyr%settings%iunderlyr)
+         case (1)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_bodsed  , UNC_LOC_S, stmpar%morlyr%state%bodsed, locdim=2, jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dpsed   , UNC_LOC_S, stmpar%morlyr%state%dpsed, jabndnd=jabndnd_)
+         case (2)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_msed  , UNC_LOC_S, stmpar%morlyr%state%msed , locdim=3, jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_thlyr , UNC_LOC_S, stmpar%morlyr%state%thlyr, locdim=2, jabndnd=jabndnd_)
+            !
+            if (.not. allocated(frac) ) allocate( frac(1:ndx, 1:stmpar%morlyr%settings%nlyr, stmpar%lsedtot) )
+            frac = -999d0
+            do l = 1, stmpar%lsedtot
+               if (stmpar%morlyr%settings%iporosity==0) then
+                  dens = stmpar%sedpar%cdryb(l)
+               else
+                  dens = stmpar%sedpar%rhosol(l)
+               endif
+               do k = 1, stmpar%morlyr%settings%nlyr
+                  do nm = 1, ndxndxi
+                     if (stmpar%morlyr%state%thlyr(k,nm)>0.0_fp) then
+                          frac(nm, k, l) = stmpar%morlyr%state%msed(l, k, nm)/(dens*stmpar%morlyr%state%svfrac(k, nm) * &
+                                           stmpar%morlyr%state%thlyr(k, nm))
+                     else
+                          frac(nm, k, l) = 0d0
+                     endif
+                  enddo
                enddo
             enddo
-         enddo
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_lyrfrac  , UNC_LOC_S, frac, jabndnd=jabndnd_)
-         !
-         if (stmpar%morlyr%settings%iporosity>0) then
-            if (.not. allocated(poros) ) allocate( poros(1:stmpar%morlyr%settings%nlyr, 1:ndx ) )
-            poros = 1d0-stmpar%morlyr%state%svfrac
-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_poros , UNC_LOC_S, poros, locdim=2, jabndnd=jabndnd_)
-         endif
-         !
-      case default
-         ! do nothing
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_lyrfrac  , UNC_LOC_S, frac, jabndnd=jabndnd_)
+            !
+            if (stmpar%morlyr%settings%iporosity>0) then
+               if (.not. allocated(poros) ) allocate( poros(1:stmpar%morlyr%settings%nlyr, 1:ndx ) )
+               poros = 1d0-stmpar%morlyr%state%svfrac
+               ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_poros , UNC_LOC_S, poros, locdim=2, jabndnd=jabndnd_)
+            endif
+            !
+         case default
+            ! do nothing
       end select
-
-      if (stmpar%morpar%moroutput%taub) then
+   end if
+      
+      if (stmpar%morpar%moroutput%taub .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_taub  , UNC_LOC_S, sedtra%taub, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%taurat) then
+      if (stmpar%morpar%moroutput%taurat .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_taurat, UNC_LOC_S, sedtra%taurat, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%dm) then
+      if (stmpar%morpar%moroutput%dm .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dm    , UNC_LOC_S, sedtra%dm, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%dg) then
+      if (stmpar%morpar%moroutput%dg .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dg    , UNC_LOC_S, sedtra%dg, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%dgsd) then
+      if (stmpar%morpar%moroutput%dgsd .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dgsd  , UNC_LOC_S, sedtra%dgsd, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%percentiles) then
+      if (stmpar%morpar%moroutput%percentiles .and. janormalmap > 0) then
          do l = 1, stmpar%morpar%nxx
             call realloc(toutput, ndx, keepExisting=.false., fill = -999d0)
             toutput = sedtra%dxx(1:ndx, l)
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dxx(l,:)   , UNC_LOC_S, toutput, jabndnd=jabndnd_)
          enddo
       endif
-      if (stmpar%morpar%moroutput%frac) then
+      if (stmpar%morpar%moroutput%frac .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_frac , UNC_LOC_S, sedtra%frac, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%mudfrac) then
+      if (stmpar%morpar%moroutput%mudfrac .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_mudfrac , UNC_LOC_S, sedtra%mudfrac, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%sandfrac) then
+      if (stmpar%morpar%moroutput%sandfrac .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sandfrac , UNC_LOC_S, sedtra%sandfrac, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%fixfac) then
+      if (stmpar%morpar%moroutput%fixfac .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_fixfac , UNC_LOC_S, sedtra%fixfac, jabndnd=jabndnd_)
       endif
-      if (stmpar%morpar%moroutput%hidexp) then
+      if (stmpar%morpar%moroutput%hidexp .and. janormalmap > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_hidexp , UNC_LOC_S, sedtra%hidexp, jabndnd=jabndnd_)
       endif
       !
-      if (stmpar%morpar%flufflyr%iflufflyr>0 .and. stmpar%lsedsus>0) then
+      if (stmpar%morpar%flufflyr%iflufflyr>0 .and. stmpar%lsedsus>0 .and. janormalmap > 0) then
          do l = 1, stmpar%lsedsus
             call realloc(toutput, ndx, keepExisting=.false., fill = -999d0)
             toutput = stmpar%morpar%flufflyr%mfluff(l,1:ndx)
@@ -6829,7 +6954,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          end do
       end if
       !
-      if (ndx1d > 0 .and. stm_included) then
+      if (ndx1d > 0 .and. stm_included .and. janormalmap > 0) then
          if (stmpar%morpar%bedupd) then
             if (allocated(work1d_z)) deallocate(work1d_z)
             if (allocated(work1d_n)) deallocate(work1d_n)
@@ -6860,13 +6985,13 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    !
    ! BEDFORMS
    !
-   if (bfmpar%lfbedfrmout) then
+   if (bfmpar%lfbedfrmout .and. janormalmap > 0) then
       if (bfmpar%lfbedfrm) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_duneheight, UNC_LOC_S, bfmpar%duneheight(1:ndxndxi), jabndnd=jabndnd_)
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_dunelength, UNC_LOC_S, bfmpar%dunelength(1:ndxndxi), jabndnd=jabndnd_)
       end if
       !
-      if (bfmpar%lfbedfrmrou) then
+      if (bfmpar%lfbedfrmrou .and. janormalmap > 0) then
          if (.not. allocated(rks)) then
             allocate(rks(1:ndx))
             rks = 0d0
@@ -6883,7 +7008,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    end if
 
    ! Sediment transport (via own built-in sed)
-   if (jamapsed > 0 .and. jased > 0 .and. .not.stm_included) then
+   if (jamapsed > 0 .and. jased > 0 .and. .not.stm_included .and. janormalmap > 0) then
       do j = 1,mxgr
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sed(:,j), UNC_LOC_S, sed(j,:), jabndnd=jabndnd_) ! ,  (/ 1, 1, itim /), (/ mxgr, ndxndxi, 1 /))
       enddo
@@ -6905,7 +7030,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    end if
 
    ! Meteo forcings
-   if (jawind > 0) then
+   if (jawind > 0 .and. janormalmap > 0) then
       allocate (windx(ndxndxi), windy(ndxndxi), stat=ierr)  
       if (ierr /= 0) call aerr( 'windx/windy', ierr, ndxndxi)
 
@@ -6928,7 +7053,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    endif
 
    ! Rain
-   if (jamaprain > 0 .and. jarain /= 0) then
+   if (jamaprain > 0 .and. jarain /= 0 .and. janormalmap > 0) then
       call realloc(scaled_rain, ndx, keepExisting = .false., fill = dmiss)
       do n=1,ndxndxi
          scaled_rain(n) = rain(n)*bare(n)/ba(n)*1d-3/(24d0*3600d0) ! mm/day->(m3/s / m2) Average actual rainfall rate on grid cell area (maybe zero bare).
@@ -6938,18 +7063,18 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    endif
 
    ! Interception
-   if (jamapicept > 0 .and. interceptionmodel /= DFM_HYD_NOINTERCEPT) then
+   if (jamapicept > 0 .and. interceptionmodel /= DFM_HYD_NOINTERCEPT .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_icepths  , UNC_LOC_S, InterceptHs, jabndnd=jabndnd_)
    endif
 
-   if (jamapwind > 0 .and. japatm > 0) then
+   if (jamapwind > 0 .and. japatm > 0 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_patm  , UNC_LOC_S, patm, jabndnd=jabndnd_)
    endif
 
 
 
    ! Heat flux models
-   if (jamapheatflux > 0 .and. jatem > 1) then ! here less verbose
+   if (jamapheatflux > 0 .and. jatem > 1 .and. janormalmap > 0) then ! here less verbose
 
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp   , mapids%id_tair  , UNC_LOC_S, Tair, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp   , mapids%id_rhum  , UNC_LOC_S, Rhum, jabndnd=jabndnd_)
@@ -6968,7 +7093,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    end if
 
    if (jamapwav>0) then
-      if (flowWithoutWaves) then      ! Check the external forcing wave quantities and their associated arrays
+      if (flowWithoutWaves .and. janormalmap > 0) then      ! Check the external forcing wave quantities and their associated arrays
          if (jamapwav_hwav > 0      .and. allocated(hwav)) then
             if (jamapsigwav==0) then
                wavfac = 1d0
@@ -7015,7 +7140,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          end if
       else   ! flowWithoutWaves
         ! JRE - XBeach
-        if (jawave .eq. 4) then
+        if (jawave .eq. 4 .and. janormalmap > 0) then
            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_E        , UNC_LOC_S, E, jabndnd=jabndnd_)
            if (roller>0) then
               ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_R        , UNC_LOC_S, R, jabndnd=jabndnd_)
@@ -7043,7 +7168,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
            ierr = nf90_put_var(mapids%ncid, mapids%id_ctheta(2)   , ctheta(:,1:ndxndxi) , start = (/ 1, 1, itim /), count = (/ ntheta, ndxndxi, 1 /))
         endif
         
-        if ((jawave == 3 .or. jawave==4) .and. kmx>0) then
+        if ((jawave == 3 .or. jawave==4) .and. kmx>0 .and. janormalmap > 0) then
            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sxwav,  UNC_LOC_S, sxwav, jabndnd=jabndnd_)
            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sywav,  UNC_LOC_S, sywav, jabndnd=jabndnd_)
            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sxbwav, UNC_LOC_S, sbxwav, jabndnd=jabndnd_)
@@ -7051,35 +7176,39 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
         end if
         
         if (jawave .gt. 0) then
-           if (jamapsigwav==0) then
-              wavfac = 1d0
-           else
-              wavfac = sqrt(2d0)
-           endif
-           if (allocated(wa)) deallocate(wa, stat = ierr)
-           allocate(wa(1:ndx), stat=ierr)
-           wa = wavfac*hwav
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav, UNC_LOC_S, wa, jabndnd=jabndnd_)
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_uorb, UNC_LOC_S, uorb, jabndnd=jabndnd_)
+           if (janormalmap > 0) then
+              if (jamapsigwav==0) then
+                 wavfac = 1d0
+              else
+                 wavfac = sqrt(2d0)
+              endif
+              if (allocated(wa)) deallocate(wa, stat = ierr)
+              allocate(wa(1:ndx), stat=ierr)
+              wa = wavfac*hwav
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hwav, UNC_LOC_S, wa, jabndnd=jabndnd_)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_uorb, UNC_LOC_S, uorb, jabndnd=jabndnd_)
         
-           wa = modulo(270d0 - phiwav, 360d0)
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_thetamean, UNC_LOC_S, wa, jabndnd=jabndnd_)
-           deallocate(wa)
+              wa = modulo(270d0 - phiwav, 360d0)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_thetamean, UNC_LOC_S, wa, jabndnd=jabndnd_)
+              deallocate(wa)
         
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_twav, UNC_LOC_S, twav)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_twav, UNC_LOC_S, twav)
+           end if
+
+           if (ja3d > 0) then
+              call realloc(ust_x, ndkx, keepExisting=.false.)
+              call realloc(ust_y, ndkx, keepExisting=.false.)
+              call reconstruct_cc_stokesdrift(ndkx,ust_x, ust_y)
         
-           call realloc(ust_x, ndkx, keepExisting=.false.)
-           call realloc(ust_y, ndkx, keepExisting=.false.)
-           call reconstruct_cc_stokesdrift(ndkx,ust_x, ust_y)
-        
-           ! then write:
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokes      , iLocS, ust_x, jabndnd=jabndnd_)
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokes      , iLocS, ust_y, jabndnd=jabndnd_)
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokeslink  , iLocU, ustokes, jabndnd=jabndnd_)
-           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokeslink  , iLocU, vstokes, jabndnd=jabndnd_)
-        
+              ! then write:
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokes      , iLocS, ust_x, jabndnd=jabndnd_)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokes      , iLocS, ust_y, jabndnd=jabndnd_)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokeslink  , iLocU, ustokes, jabndnd=jabndnd_)
+              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokeslink  , iLocU, vstokes, jabndnd=jabndnd_)
+           end if
+
            ! Wave forces
-           if (jawave == 3 .or. jawave==4) then
+           if ((jawave == 3 .or. jawave==4) .and. ja3d > 0) then
               call realloc(windx,ndkx,keepExisting=.false.,fill=0d0)   ! reuse scratch wind arrays, ust_x, y still needed for tausx,y
               call realloc(windy,ndkx,keepExisting=.false.,fill=0d0)
               call realloc(wavout,lnkx,keepExisting=.false.,fill=0d0)
@@ -7138,77 +7267,84 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    !        * 2: taus = sedtra%taub if sediment included, otherwise based on taubxu from wave shear stress subroutines
  
    !
-   if (jamaptaucurrent > 0 .or. jamapchezy > 0) then
-      if (jawave==0) then        ! Else, get taus from subroutine tauwave (taus = f(taucur,tauwave))
-         call gettaus(1,1)       
-         workx=DMISS; worky=DMISS
-         if (kmx==0) then
-            do k = 1, ndx   ! stack
-               workx(k) = taus(k)*ucx(k)/max(hypot(ucx(k),ucy(k)),1d-4)  ! could use ucmag, but not guaranteed to exist
-               worky(k) = taus(k)*ucy(k)/max(hypot(ucx(k),ucy(k)),1d-4)
-            enddo
-         else
-            do k = 1, ndx
-               call getkbotktop(k,kb,kt)
-               ux = ucx(kb); uy = ucy(kb)
-               um = max(hypot(ux,uy),1d-4)
-               workx(k) = taus(k)*ux/um   
-               worky(k) = taus(k)*uy/um   
-            enddo
-         endif
-      else if (jamapchezy > 0) then
-         call gettaus(2,1)       ! Only update czs
-      end if
+   if (janormalmap > 0) then
+      if (jamaptaucurrent > 0 .or. jamapchezy > 0) then
+         if (jawave==0) then        ! Else, get taus from subroutine tauwave (taus = f(taucur,tauwave))
+            call gettaus(1,1)       
+            workx=DMISS; worky=DMISS
+            if (kmx==0) then
+               do k = 1, ndx   ! stack
+                  workx(k) = taus(k)*ucx(k)/max(hypot(ucx(k),ucy(k)),1d-4)  ! could use ucmag, but not guaranteed to exist
+                  worky(k) = taus(k)*ucy(k)/max(hypot(ucx(k),ucy(k)),1d-4)
+               enddo
+            else
+               do k = 1, ndx
+                  call getkbotktop(k,kb,kt)
+                  ux = ucx(kb); uy = ucy(kb)
+                  um = max(hypot(ux,uy),1d-4)
+                  workx(k) = taus(k)*ux/um   
+                  worky(k) = taus(k)*uy/um   
+               enddo
+            endif
+         else if (jamapchezy > 0) then
+            call gettaus(2,1)       ! Only update czs
+         end if
       
-      if (jawave>0) then
-         call gettauswave(jawaveswartdelwaq)
-      endif   
-   end if
+         if (jawave>0) then
+            call gettauswave(jawaveswartdelwaq)
+         endif   
+      end if
 
-   if (jamapchezy > 0) then
-      do LL = 1,lnx
-         if (frcu(LL) > 0d0) then
-            call getcz (hu(LL), frcu(LL), ifrcutp(LL), czu(LL), LL)  ! in gettaus czu is calculated but not stored
-         endif
-      enddo
-   endif
-   !
-   if (jamaptaucurrent>0) then
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausx, UNC_LOC_S, workx(1:ndx), jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausy, UNC_LOC_S, worky(1:ndx), jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_taus, UNC_LOC_S, taus, jabndnd=jabndnd_) 
-      if (stm_included) then
-        ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausmax, UNC_LOC_S, sedtra%taub, jabndnd=jabndnd_)   ! sedtra%taub=reconstruction of tausmax, or Soulsby-Clarke
-      endif                                                                                                               ! JRE+BJ to do: keep this one, or through moroutput 
-   end if
+      if (jamapchezy > 0) then
+         do LL = 1,lnx
+            if (frcu(LL) > 0d0) then
+               call getcz (hu(LL), frcu(LL), ifrcutp(LL), czu(LL), LL)  ! in gettaus czu is calculated but not stored
+            endif
+         enddo
+      endif
+      !
+      if (jamaptaucurrent>0) then
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausx, UNC_LOC_S, workx(1:ndx), jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausy, UNC_LOC_S, worky(1:ndx), jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_taus, UNC_LOC_S, taus, jabndnd=jabndnd_) 
+         if (stm_included) then
+           ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_tausmax, UNC_LOC_S, sedtra%taub, jabndnd=jabndnd_)   ! sedtra%taub=reconstruction of tausmax, or Soulsby-Clarke
+         endif                                                                                                               ! JRE+BJ to do: keep this one, or through moroutput 
+      end if
 
-   if (jamapchezy > 0) then
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_czs , UNC_LOC_S, czs, jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_czu , UNC_LOC_U, czu, jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfu , UNC_LOC_U, frcu, jabndnd=jabndnd_)
-      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfutyp , UNC_LOC_U, ifrcutp, jabndnd=jabndnd_)
+      if (jamapchezy > 0) then
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_czs , UNC_LOC_S, czs, jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_czu , UNC_LOC_U, czu, jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfu , UNC_LOC_U, frcu, jabndnd=jabndnd_)
+         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfutyp , UNC_LOC_U, ifrcutp, jabndnd=jabndnd_)
+      end if
    end if
 
    ! Roughness from trachytopes
-   if (jamaptrachy > 0 .and. jatrt == 1) then
+   if (jamaptrachy > 0 .and. jatrt == 1 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cftrt, UNC_LOC_L, cftrt(:,2), jabndnd=jabndnd_)
    end if
 
    ! Calibration factor for roughness from trachytopes
-   if (jamapcali > 0 .and. jacali == 1) then
+   if (jamapcali > 0 .and. jacali == 1 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfcl, UNC_LOC_L, cfclval, jabndnd=jabndnd_)
    end if
    
    ! water quality bottom variables
     if (numwqbots > 0) then
-       do j=1,numwqbots
-          do k=1,ndxndxi
-             call getkbotktop(k,kb,kt)
-             workx(k) = wqbot(j,kb)
+       if (janormalmap > 0) then
+          do j=1,numwqbots
+             do k=1,ndxndxi
+                call getkbotktop(k,kb,kt)
+                workx(k) = wqbot(j,kb)
+             end do
+             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_wqb(:,j), UNC_LOC_S, workx(1:ndxndxi), jabndnd=jabndnd_)
           end do
-          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_wqb(:,j), UNC_LOC_S, workx(1:ndxndxi), jabndnd=jabndnd_)
-          if (wqbot3D_output == 1) then
+       end if
+
+       if (wqbot3D_output == 1 .and. ja3d > 0) then
 !         also write 3D
+          do j=1,numwqbots
              do kk=1,ndxndxi
                 call getkbotktop(kk,kb,kt)
                 do k = kb,kt
@@ -7216,8 +7352,8 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
                 enddo
              end do
              ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_wqb3d(:,j), UNC_LOC_S3D, workx, jabndnd=jabndnd_)
-          end if
-       end do
+          end do
+       end if
     end if
 
     ! WAQ output
@@ -7291,7 +7427,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       end if
     end if
 
-   if ( janudge.gt.0 .and. jamapnudge.gt.0 ) then
+   if ( janudge.gt.0 .and. jamapnudge.gt.0 .and. ja3d > 0) then
 !    nudging
      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_tem, UNC_LOC_S3D, nudge_tem, jabndnd=jabndnd_)
      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_sal, UNC_LOC_S3D, nudge_sal, jabndnd=jabndnd_)
@@ -7313,13 +7449,13 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_nudge_Dsal, UNC_LOC_S3D, workx, jabndnd=jabndnd_)
    end if
 
-   if (javeg > 0) then
+   if (javeg > 0 .and. janormalmap > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_rnveg , UNC_LOC_S, rnveg, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_diaveg , UNC_LOC_S, diaveg, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_veg_stemheight , UNC_LOC_S, stemheight, jabndnd=jabndnd_)
    endif
    
-   if ( japart.eq.1 .and. jatracer.eq.1 .and. kmx.gt.0 ) then
+   if ( japart.eq.1 .and. jatracer.eq.1 .and. kmx.gt.0 .and. janormalmap > 0) then
 !     depth-averaged particle concentration
       do k=1,Ndx
          workx(k) = constituents(part_iconst,k)
@@ -7327,7 +7463,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_depth_averaged_particle_concentration, UNC_LOC_S, workx, jabndnd=jabndnd_)
    end if
 
-   if (ndxi-ndx2d>0) then
+   if (ndxi-ndx2d>0 .and. janormalmap > 0) then
       if (jamapTimeWetOnGround > 0) then ! Cumulative time water above ground level
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_timewetground, UNC_LOC_S, time_wetground, jabndnd=jabndnd_)
       end if
@@ -7349,7 +7485,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vTotLat, UNC_LOC_S, vTotLat, jabndnd=jabndnd_)
       end if
    end if
-   if (lnx1d > 0) then
+   if (lnx1d > 0 .and. janormalmap > 0) then
       if (jamapS1Gradient > 0) then
          ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_s1Gradient, UNC_LOC_U, s1Gradient, jabndnd=jabndnd_)
       end if
@@ -14170,7 +14306,7 @@ subroutine get_layer_data_ugrid(layer_count, layer_type, layer_zs, interface_zs)
 end subroutine get_layer_data_ugrid
 
 !> Writes the unstructured flow geometry in UGRID format to an already opened netCDF dataset.
-subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D)
+subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D, ja3d)
 
    use m_flowgeom
    use network_data
@@ -14190,13 +14326,15 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
    use io_netcdf_acdd, only: ionc_add_geospatial_bounds
    implicit none
 
-   integer, intent(in)                     :: ncid
-   type(t_unc_timespace_id), intent(inout) :: id_tsp   !< Set of time and space related variable id's
-   integer, optional, intent(in) :: jabndnd !< Whether to include boundary nodes (1) or not (0). Default: no.
-   logical, optional, intent(in) :: jaFou   !< Whether this flowgeom writing is part of a Fourier file or not (affects 3D layer writing)
+   integer,                  intent(in   ) :: ncid
+   type(t_unc_timespace_id), intent(inout) :: id_tsp  !< Set of time and space related variable id's
+   integer, optional,        intent(in   ) :: jabndnd !< Whether to include boundary nodes (1) or not (0). Default: no.
+   logical, optional,        intent(in   ) :: jaFou   !< Whether this flowgeom writing is part of a Fourier file or not (affects 3D layer writing)
    logical, optional, intent(in) :: ja2D    !< Whether to include the 2D grid (default = .true.)
+   integer, optional,        intent(in   ) :: ja3D    !< Whether to include 3D layer information (1) or not (0). Default: yes if kmx>0.
 
    integer                         :: jabndnd_      !< Flag specifying whether boundary nodes are to be written.
+   integer                         :: ja3D_         !< Whether to include 3D layer information (1) or not (0).
    integer                         :: ndxndxi       !< Last 2/3D node to be saved. Equals ndx when boundary nodes are written, or ndxi otherwise.
    integer                         :: last_1d       !< Last 1D node to be saved. Equals ndx1db when boundary nodes are written, or ndxi otherwise.
    integer                         :: n1d_write     !< Number of 1D nodes to write.
@@ -14275,6 +14413,12 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
       ja2D_ = .true.
    end if
 
+   if (present(ja3D)) then
+      ja3D_ = ja3D
+   else
+      ja3D_ = 1 ! kmx checks done below
+   endif
+
    ! Put dataset in define mode (possibly again) to add dimensions and variables.
    ierr = nf90_redef(ncid)
    if (ierr == nf90_eindefine) jaInDefine = 1 ! Was still in define mode.
@@ -14289,7 +14433,7 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
    end if
 
    ! Get layer info.
-   if (kmx <= 0) then ! If no layers present.
+   if (kmx <= 0 .or. ja3D_ == 0) then ! If no layers present, or no 3D information needed in file.
       layer_count = 0
       layer_type = -1
       ! Leave layer_zs and interface_zs unallocated, since they will not be used in this case.
@@ -14591,20 +14735,21 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
       ! TODO: AvD: lnx1d+1:lnx includes open bnd links, which may *also* be 1D boundaries (don't want that in mesh2d)
       ! note edge_faces does not need re-indexing, cell number are flow variables and 2d comes first
      
-      if (jafullgridoutput == 0) then
+      if (jafullgridoutput == 0 .and. ja3D_ > 0) then
           unc_writeopts = ior(unc_writeopts,UG_WRITE_LYRVAR)
       else
           unc_writeopts = iand(unc_writeopts,not(UG_WRITE_LYRVAR))
-          endif
+      endif
               
-      waterlevelname = 's1'
-      bldepthname    = 'bldepth'
-      if (layer_type == LAYERTYPE_OCEAN_SIGMA_Z .or. layer_type == LAYERTYPE_OCEAN_SIGMA) then
-         if (jafou_) then
-            waterlevelname = 's1max'
-      endif
-      endif
-
+      if (ja3D_ > 0) then
+         waterlevelname = 's1'
+         bldepthname    = 'bldepth'
+         if (layer_type == LAYERTYPE_OCEAN_SIGMA_Z .or. layer_type == LAYERTYPE_OCEAN_SIGMA) then
+            if (jafou_) then
+               waterlevelname = 's1max'
+            end if
+         end if
+      end if
       ierr = ug_write_mesh_arrays(ncid, id_tsp%meshids2d, mesh2dname, 2, UG_LOC_EDGE + UG_LOC_FACE, numk2d, numl2d, ndx2d, numNodes, &
                                     edge_nodes, face_nodes, edge_faces, null(), null(),x2dn, y2dn, xue, yue, xz(1:ndx2d), yz(1:ndx2d), &
                                     crs, -999, dmiss, start_index, layer_count, layer_type, &
@@ -14617,28 +14762,30 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
       call write_edge_type_variable(ncid, id_tsp%meshids2d, mesh2dname, edge_type)
 
       ! Write optionally required bldepth and when needed s1max arrays for sigma- and sigma-z layer models
-      if (layer_type == LAYERTYPE_OCEAN_SIGMA_Z .or. layer_type == LAYERTYPE_OCEAN_SIGMA) then
-         ierr = nf90_def_var(ncid, trim(mesh2dname)//'_'//trim(bldepthname) , nf90_double, id_tsp%meshids2d%dimids(mdim_face), id_tsp%id_bldepth(2))
-         ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'standard_name' , "sea_floor_depth_below_geoid" )
-         ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'units', "m" )
-         ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'positive',  "down" )
+      if (ja3D_ > 0) then
+         if (layer_type == LAYERTYPE_OCEAN_SIGMA_Z .or. layer_type == LAYERTYPE_OCEAN_SIGMA) then
+            ierr = nf90_def_var(ncid, trim(mesh2dname)//'_'//trim(bldepthname) , nf90_double, id_tsp%meshids2d%dimids(mdim_face), id_tsp%id_bldepth(2))
+            ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'standard_name' , "sea_floor_depth_below_geoid" )
+            ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'units', "m" )
+            ierr = nf90_put_att(ncid, id_tsp%id_bldepth(2), 'positive',  "down" )
 
-         if (jafou_) then
-            ierr = nf90_def_var(ncid, trim(mesh2dname)//'_'//trim(waterlevelname) , nf90_double, id_tsp%meshids2d%dimids(mdim_face), id_tsp%id_s1max(2))
-            ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'standard_name' , "water level on cell centres" )
-            ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'units', "m" )
-            ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'positive',  "down" )
+            if (jafou_) then
+               ierr = nf90_def_var(ncid, trim(mesh2dname)//'_'//trim(waterlevelname) , nf90_double, id_tsp%meshids2d%dimids(mdim_face), id_tsp%id_s1max(2))
+               ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'standard_name' , "water level on cell centres" )
+               ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'units', "m" )
+               ierr = nf90_put_att(ncid, id_tsp%id_s1max(2), 'positive',  "down" )
 
-            ierr = nf90_enddef(ncid)
-            ierr = nf90_put_var(ncid, id_tsp%id_s1max(2), s1max(1:ndx2d))
-            ierr = nf90_put_var(ncid, id_tsp%id_bldepth(2), -1*bl_min(1:ndx2d))
-            ierr = nf90_redef(ncid)
-         else
-            ierr = nf90_enddef(ncid)
-            ierr = nf90_put_var(ncid, id_tsp%id_bldepth(2), -1*bl(1:ndx2d))
-            ierr = nf90_redef(ncid)
+               ierr = nf90_enddef(ncid)
+               ierr = nf90_put_var(ncid, id_tsp%id_s1max(2), s1max(1:ndx2d))
+               ierr = nf90_put_var(ncid, id_tsp%id_bldepth(2), -1*bl_min(1:ndx2d))
+               ierr = nf90_redef(ncid)
+            else
+               ierr = nf90_enddef(ncid)
+               ierr = nf90_put_var(ncid, id_tsp%id_bldepth(2), -1*bl(1:ndx2d))
+               ierr = nf90_redef(ncid)
+            endif
          endif
-      endif
+      end if
 
       deallocate(edge_nodes)
       deallocate(face_nodes)

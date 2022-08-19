@@ -71,7 +71,7 @@ integer :: N, L
           call updateFlowAnalysisParameters()
        endif
          
-       call wrimap(time1)
+       call wrimap(time1, UNC_DIM_ALL)
        
        if (jamapFlowAnalysis > 0) then
           ! Reset the interval related flow analysis arrays

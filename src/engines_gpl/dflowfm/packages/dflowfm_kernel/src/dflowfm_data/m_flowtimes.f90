@@ -88,6 +88,9 @@
  double precision                  :: ti_map      !< map interval (s)
  double precision                  :: ti_maps     !< Start of map output period (as assigned in mdu-file) (s)
  double precision                  :: ti_mape     !< End   of map output period (as assigned in mdu-file) (s)
+ double precision                  :: ti_map3d    !< map interval for separate 3D map files (s) (When not set, both 1D, 2D and 3D are in one normal map file)
+ double precision                  :: ti_map3ds   !< Start of map3D output period (as assigned in mdu-file) (s)
+ double precision                  :: ti_map3de   !< End   of map3D output period (as assigned in mdu-file) (s)
  double precision                  :: ti_his      !< history interval (s)
  double precision                  :: ti_hiss     !< Start of his output period (as assigned in mdu-file) (s)
  double precision                  :: ti_hise     !< End   of his output period (as assigned in mdu-file) (s)
@@ -131,7 +134,8 @@
 
  double precision                  :: time_choice   !< Time consisting the next time_user / time_map
  double precision                  :: time_out      !< Next time for output in the most general sense (map, his, etc.)
- double precision                  :: time_map      !< Map output interval
+ double precision                  :: time_map      !< Next time for map output
+ double precision                  :: time_map3d    !< Next time for map3D output
  double precision                  :: time_wav      !< Time-avg'd output interval xb JRE
  double precision                  :: time_sed      !< Time-avg'd output interval sedmor
  double precision                  :: time_st       !< Time-avg'd output interval sedtrails
@@ -233,6 +237,9 @@ subroutine default_flowtimes()
     ti_map      = 1200d0            !< map interval (s)
     ti_maps     = 0d0               !< Start map output (s)
     ti_mape     = 0d0               !< End   map output (s)
+    ti_map3d    = 0d0               !< map3D interval (s)
+    ti_map3ds   = 0d0               !< Start map3D output (s)
+    ti_map3de   = 0d0               !< End   map3D output (s)
     ti_his      = 120d0             !< history interval (s)
     ti_hiss     = 0d0               !< Start history output (s)
     ti_hise     = 0d0               !< End   history output (s)
@@ -289,6 +296,7 @@ subroutine reset_flowtimes()
 
     time_user    = tstart_user       !< lijkt me ook onderdeel
     time_map     = tstart_user       !< next time for map output
+    time_map3d   = tstart_user       !< next time for map 3D output
     time_wav     = tstart_user       !< same, wav
     time_sed     = tstart_user       !< same, morstats
     time_st      = tstart_user       !< same, sedtrails
@@ -318,7 +326,7 @@ subroutine reset_flowtimes()
        tvalswindow(idtwindow_start) = tstart_user
     end if
 
-    it_map       = 0                 !< Nr of snapshots presently in map file
+    it_map       = 0                 !< Nr of snapshots presently in map file (only for non-UGRID)
     it_wav       = 0                 !< Nr of snapshots presently in time-avg'd file JRE
     it_sed       = 0                 !< Nr of snapshots presently in time-avg'd sed file JRE
     it_st        = 0                 !< Nr of snapshots presently in time-avg'd sedtrails file JRE

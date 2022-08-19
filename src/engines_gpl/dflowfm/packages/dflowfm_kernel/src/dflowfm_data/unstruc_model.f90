@@ -158,6 +158,7 @@ implicit none
 
     character(len=255) :: md_hisfile       = ' ' !< Output history file for monitoring  (e.g., *_his.nc)
     character(len=255) :: md_mapfile       = ' ' !< Output map     file for full flow fields (e.g., *_map.nc)
+    character(len=255) :: md_map3dfile     = ' ' !< Output map3D   file for full flow fields (e.g., *_3d_map.nc)
     character(len=255) :: md_classmapfile  = ' ' !< Output classmap file for full flow fields in classes (formerly: incremental file) (e.g., *_clm.nc)
     character(len=255) :: md_comfile       = ' ' !< Output com     file for communication (e.g., *_com.nc)
     character(len=255) :: md_timingsfile   = ' ' !< Output timings file (auto-set)
@@ -343,6 +344,7 @@ use unstruc_channel_flow
     md_foufile = ' '
     md_hisfile = ' '
     md_mapfile = ' '
+    md_map3dfile = ' '
     md_classmapfile = ' '
     md_comfile = ' '
     md_timingsfile = ' '
@@ -1734,11 +1736,36 @@ subroutine readMDUFile(filename, istat)
     end if
     !
     ! If sedtrails is used, only use Mapformat=4
-    if (jasedtrails>0 .and. md_mapformat==IFORMAT_NETCDF) then
+    if (jasedtrails>0 .and. md_mapformat /= UNC_CONV_UGRID) then
        md_unc_conv = UNC_CONV_UGRID
        write (msgbuf, '(a,i0,a,i0,a)') 'Old format MapFormat=', IFORMAT_NETCDF, ' requested, which is not used when SedTrails output is activated. Output set to MapFormat=', IFORMAT_UGRID, '.'
        call warn_flush()
     endif   
+
+    call prop_get_string(md_ptr, 'output', 'Map3DFile', md_map3dfile, success)
+
+    ti_map_array = 0d0
+    call prop_get_doubles(md_ptr, 'output', 'Map3DInterval'   ,  ti_map_array, 3, success)
+    if (ti_map_array(1) .gt. 0d0) ti_map_array(1) = max(ti_map_array(1) , dt_user)
+    call getOutputTimeArrays(ti_map_array, ti_map3ds, ti_map3d, ti_map3de, success)
+
+    if (ti_map3d /= 0d0 .and. kmx <= 0) then
+       ti_map3d  = 0d0
+       ti_map3ds = 0d0
+       ti_map3de = 0d0
+
+       write(msgbuf, '(a,f9.3)') 'Separate 3D map file only relevant when number of layers > 0) (see Map3DInterval and kmx). Falling back to single map file now.'
+       call warn_flush()
+    end if
+
+    if (ti_map3d /= 0d0 .and. md_mapformat /= IFORMAT_UGRID) then
+       ti_map3d  = 0d0
+       ti_map3ds = 0d0
+       ti_map3de = 0d0
+
+       write(msgbuf, '(a,f9.3)') 'Separate 3D map file only supported in UGRID format (see Map3DInterval and MapFormat). Falling back to single map file now.'
+       call warn_flush()
+    end if
 
     call prop_get_integer(md_ptr, 'output', 'NcFormat', md_ncformat, success)
     call unc_set_ncformat(md_ncformat)
@@ -3626,6 +3653,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
 
     call prop_set(prop_ptr, 'output', 'HisFile',     trim(md_hisfile), 'HisFile name *_his.nc')
     call prop_set(prop_ptr, 'output', 'MapFile',     trim(md_mapfile), 'MapFile name *_map.nc')
+    call prop_set(prop_ptr, 'output', 'Map3DFile',   trim(md_map3dfile), 'Map3DFile name *_3d_map.nc')
 
     ti_his_array(1) = ti_his
     ti_his_array(2) = ti_hiss
@@ -3637,6 +3665,13 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     ti_map_array(2) = ti_maps
     ti_map_array(3) = ti_mape
     call prop_set(prop_ptr, 'output', 'MapInterval', ti_map_array, 'Map times (s), interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period')
+    
+    if (ti_map3d > 0d0 .or. writeall) then
+       ti_map_array(1) = ti_map3d
+       ti_map_array(2) = ti_map3ds
+       ti_map_array(3) = ti_map3de
+       call prop_set(prop_ptr, 'output', 'Map3DInterval', ti_map_array, 'Separate 3D map time (s) interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period' )
+    end if
 
     ti_rst_array(1) = ti_rst
     ti_rst_array(2) = ti_rsts
