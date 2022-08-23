@@ -65,7 +65,8 @@
  if (wrwaqon.and.allocated(qsrcwaq)) then
     qsrcwaq0 = qsrcwaq ! store current cumulative qsrc for waq at the beginning of this time step
  end if
-
+ call setlinktocenterweights()  ! update Perot weighting
+ 
  111 continue
 
  time1    = time0 + dts                               ! try to reach time1
