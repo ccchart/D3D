@@ -44,6 +44,7 @@ module m_temperature
    
    type :: t_temperature_pars
       integer          :: heat_model      
+      logical          :: useInputRadiation = .false. 
       ! variables for heat model
       double precision :: alfa_albedo                !< reflection coefficient of water () at average incidence angle of 60 deg,
                                                 !< (albedo is .025 at angle 0 deg, 0.13 at angle 70 deg)
@@ -130,6 +131,11 @@ module m_temperature
          else
             tempPars%r_hum_global = value/100d0
          endif
+      case('radiation')
+         if  (allocated(q_sn  )) then
+            q_sn = value
+         endif
+
       end select
          
    end subroutine set_par_temperature
@@ -180,10 +186,11 @@ module m_temperature
       case (HEAT_COMPOSITE) 
          
          ! calculate Q_sn: net incident solar radiation (short wave)
-         f_Fc = 1d0 - 0.4d0 * tp%F_cloud(nod) - 0.38d0 * tp%F_cloud(nod)**2
-         q_sc(nod) = qsun_nominal(time) 
-         q_sn(nod) = (1d0-tp%alfa_albedo) * q_sc(nod) * f_fc
-         
+         if (.not. tempPars%useInputRadiation) then
+            f_Fc = 1d0 - 0.4d0 * tp%F_cloud(nod) - 0.38d0 * tp%F_cloud(nod)**2
+            q_sc(nod) = qsun_nominal(time) 
+            q_sn(nod) = (1d0-tp%alfa_albedo) * q_sc(nod) * f_fc
+         endif
          ! calculate Q_eb effective back radiation
          e_a = tp%r_hum(nod) * get_e_temp(tp%T_air(nod))
          e_s = get_e_temp(temp)

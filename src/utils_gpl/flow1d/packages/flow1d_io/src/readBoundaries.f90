@@ -57,6 +57,7 @@ module m_readBoundaries
    ! meteo item in ec
    integer, public            :: ec_itemId_air_temperature
    integer, public            :: ec_itemId_cloudiness
+   integer, public            :: ec_itemId_radiation
    integer, public            :: ec_itemId_humidity
    integer, public            :: ec_itemId_winddirection
    integer, public            :: ec_itemId_windvelocity
@@ -288,6 +289,8 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
 
    use m_ec_bccollect
    use m_globalParameters
+   use m_temperature
+
 
    implicit none
       
@@ -513,6 +516,15 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
       ec_itemId_cloudiness  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
    else
       ec_itemId_cloudiness  = 0
+   endif
+   
+   ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'radiation')
+   if (ec_src_item > 0) then
+      ec_itemId_radiation  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      temppars%useInputRadiation = .true.
+   else
+      temppars%useInputRadiation = .false.
+      ec_itemId_radiation  = 0
    endif
    
    ! Prevent crash in Model-API
