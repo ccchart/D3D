@@ -162,7 +162,7 @@ else if (abs(kcu(ll))==1 .and. network%loaded) then !flow1d used only for 1d cha
          endif
       endif
 
-      wu(L) = max(0.01d0, maxflowwidth)
+      wu(L) = max(sl, maxflowwidth)
 
    endif
    ! finished for 1d network from flow1d
