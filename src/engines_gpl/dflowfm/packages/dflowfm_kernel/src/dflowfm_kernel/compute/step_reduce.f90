@@ -65,7 +65,6 @@
  if (wrwaqon.and.allocated(qsrcwaq)) then
     qsrcwaq0 = qsrcwaq ! store current cumulative qsrc for waq at the beginning of this time step
  end if
- call setlinktocenterweights()  ! update Perot weighting
  
  111 continue
 
@@ -328,5 +327,7 @@
      ! ln = ln0 ! was ok.
 
  endif
+ 
+ call setlinktocenterweights1d()  ! update Perot weighting for 1d links
 
  end subroutine step_reduce
