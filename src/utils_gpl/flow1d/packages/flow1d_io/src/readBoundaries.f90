@@ -56,14 +56,18 @@ module m_readBoundaries
 
    ! meteo item in ec
    integer, public            :: ec_itemId_air_temperature
+   integer, public            :: ec_itemId_air_temperature_svwp
    integer, public            :: ec_itemId_cloudiness
+   integer, public            :: ec_itemId_cloudiness_svwp
    integer, public            :: ec_itemId_radiation
    integer, public            :: ec_itemId_humidity
+   integer, public            :: ec_itemId_humidity_svwp
    integer, public            :: ec_itemId_winddirection
    integer, public            :: ec_itemId_windvelocity
    integer, public            :: ec_itemId_boundaries = ec_undef_int
    integer, public            :: ec_itemId_laterals = ec_undef_int
-   integer                    :: connectionIdSvwp = ec_undef_int
+   integer, public            :: connectionIdSvwp = ec_undef_int
+   logical                    :: SvwpReady = .false.
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -75,7 +79,8 @@ module m_readBoundaries
    integer, public          , dimension(:,:), allocatable :: ec_lat_2_ec_index
    
    public ec_target_items_ids, ec_loc_names, ec_quant_names, ec_item_is_lateral, ec_item_has_been_set_externally
-   public readBoundaryLocations, readBoundaryConditions, getBoundaryValue, updateBoundaryValue, closeBoundaryConditionFiles
+   public readBoundaryLocations, readBoundaryConditions, getBoundaryValue, getBoundaryValues
+   public updateBoundaryValue, closeBoundaryConditionFiles
    public getBoundaryValuePtr, getLateralValuePtr
    public disableScalarUpdate
    public write_laterals_and_boundaries
@@ -575,16 +580,22 @@ subroutine readSpaceVarMeteo(filename)
    sourceItemId_3 = ecFindItemInFileReader(ec, fileReaderId, 'cloud_area_fraction')
 
    connectionIdSvwp = ecCreateConnection(ec)
+   ec_itemId_humidity_svwp = ecCreateItem(ec)
+   ec_itemId_air_temperature_svwp = ecCreateItem(ec)
+   ec_itemId_cloudiness_svwp = ecCreateItem(ec)
+   if (success) success = ecSetItemRole(ec, ec_itemId_humidity_svwp, itemType_target)
+   if (success) success = ecSetItemRole(ec, ec_itemId_air_temperature_svwp, itemType_target)
+   if (success) success = ecSetItemRole(ec, ec_itemId_cloudiness_svwp, itemType_target)
 
    if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_1)
    if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_2)
    if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_3)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_humidity)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_air_temperature)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_cloudiness)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_humidity, connectionIdSvwp)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_air_temperature, connectionIdSvwp)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_cloudiness, connectionIdSvwp)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_humidity_svwp)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_air_temperature_svwp)
+   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_cloudiness_svwp)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_humidity_svwp, connectionIdSvwp)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_air_temperature_svwp, connectionIdSvwp)
+   if (success) success = ecAddItemConnection(ec, ec_itemId_cloudiness_svwp, connectionIdSvwp)
 
    if (.not. success) then
       call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
@@ -597,7 +608,7 @@ end subroutine readSpaceVarMeteo
 subroutine readSpaceVarMeteo2(x, y)
    double precision, intent(in) :: x(:), y(:)
 
-   integer :: elementSetId, ec_convtype, ec_method, converterId, targetIndex
+   integer :: elementSetId, ec_convtype, ec_method, converterId !, targetIndex
    integer, parameter :: jsferic = 1 ! TODO, this works for current test data
    logical :: success
 
@@ -616,7 +627,9 @@ subroutine readSpaceVarMeteo2(x, y)
    ec_method = interpolate_spacetimeSaveWeightFactors
    converterId = ecCreateConverter(ec)
    if (success) success = initializeConverter(ec, converterId, ec_convtype, operand_replace_element, ec_method)
-   if (success) success = ecSetConverterElement(ec, converterId, targetIndex)
+   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_humidity_svwp)
+   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_air_temperature_svwp)
+   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_cloudiness_svwp)
 
    if (success) success = ecSetConnectionConverter(ec, connectionIdSvwp, converterId)
    if (success) success = ecSetConnectionIndexWeights(ec, connectionIdSvwp)
@@ -624,6 +637,9 @@ subroutine readSpaceVarMeteo2(x, y)
    if (.not. success) then
       call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
    end if
+   SvwpReady = .true.
+   call ecInstancePrintState(ec, setmessage, LEVEL_INFO)
+
 end subroutine readSpaceVarMeteo2
 
 !> Helper function for initializing a Converter.
@@ -670,6 +686,18 @@ function getBoundaryValue(ec_target_item, timeAsMJD) result(value_from_ec)
    endif
 
 end function getBoundaryValue
+
+subroutine getBoundaryValues(ec_target_item, timeAsMJD, values_from_ec)
+   double precision, intent(out)  :: values_from_ec(:)
+   integer         , intent(in)   :: ec_target_item
+   double precision, intent(in)   :: timeAsMJD
+
+   values_from_ec = 0.0
+   if (.not. ecGetValues(ec, ec_target_item, timeAsMJD, values_from_ec) ) then
+      call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
+   endif
+
+end subroutine getBoundaryValues
 
 subroutine updateBoundaryValue(ec_target_item, timeAsMJD) 
    integer         , intent(in)   :: ec_target_item

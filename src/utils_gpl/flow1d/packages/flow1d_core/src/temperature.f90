@@ -37,7 +37,12 @@ module m_temperature
    public heat_exchange
    public default_heatfluxes
    public set_par_temperature
-   
+
+   interface set_par_temperature
+      module procedure set_par_temperature_scalar
+      module procedure set_par_temperature_array
+   end interface set_par_temperature
+
    integer, parameter, public :: HEAT_TRANSPORT = 1
    integer, parameter, public :: HEAT_EXCESS    = 3
    integer, parameter, public :: HEAT_COMPOSITE = 5
@@ -87,8 +92,8 @@ module m_temperature
    double precision, allocatable, public, target, dimension(:) :: q_co_free   !< Heat loss due to free convection
    
    contains
-   
-   subroutine set_par_temperature(name, value)
+
+   subroutine set_par_temperature_scalar(name, value)
       character(len=*), intent(in) :: name
       double precision, intent(in)     :: value
       
@@ -114,23 +119,11 @@ module m_temperature
       case('s_area')           
          tempPars%s_area         = value
       case('cloudiness')
-         if (allocated(tempPars%F_cloud)) then
-            tempPars%F_cloud        = value/100d0
-         else
-            tempPars%F_cloud_global = value/100d0
-         endif
+         tempPars%F_cloud_global = value/100d0
       case('air_temperature') 
-         if  (allocated(tempPars%T_air  )) then
-            tempPars%T_air          = value
-         else
-            tempPars%T_air_global = value
-         endif
+         tempPars%T_air_global = value
       case('humidity') 
-         if  (allocated(tempPars%r_hum  )) then
-            tempPars%r_hum          = value/100d0
-         else
-            tempPars%r_hum_global = value/100d0
-         endif
+         tempPars%r_hum_global = value/100d0
       case('radiation')
          if  (allocated(q_sn  )) then
             q_sn = value
@@ -138,8 +131,23 @@ module m_temperature
 
       end select
          
-   end subroutine set_par_temperature
-      
+   end subroutine set_par_temperature_scalar
+
+   subroutine set_par_temperature_array(name, values)
+      character(len=*), intent(in) :: name
+      double precision, intent(in)     :: values(:)
+
+      select case(trim(name))
+      case('cloudiness')
+         tempPars%F_cloud        = values/100d0
+      case('air_temperature')
+         tempPars%T_air          = values
+      case('humidity')
+         tempPars%r_hum          = values/100d0
+      end select
+
+   end subroutine set_par_temperature_array
+
    subroutine heat_exchange(temp, load, time, rhow, s1, dp, wind_speed, nod)
    
       use m_tables
