@@ -82,14 +82,14 @@ module m_temperature
    ! Temperature Output
    double precision, allocatable, public, target, dimension(:) :: q_tot       !< Total heat flux
    double precision, allocatable, public, target, dimension(:) :: q_sc        !< Radiation flux for clear sky condition
-   double precision, allocatable, public, target, dimension(:) :: q_co        !< Heat loss due to convection
+   double precision, allocatable, public, target, dimension(:) :: q_co        !< heat transfer due to convection 
    double precision, allocatable, public, target, dimension(:) :: q_sn        !< Net incident solar radiation
    double precision, allocatable, public, target, dimension(:) :: q_eb        !< Effective back radiation
-   double precision, allocatable, public, target, dimension(:) :: q_ev        !< Heat loss due to evaporation
-   double precision, allocatable, public, target, dimension(:) :: q_evforced  !< Forced heat loss due to evaporation
-   double precision, allocatable, public, target, dimension(:) :: q_evfree    !< Free heat loss due to evaporation
-   double precision, allocatable, public, target, dimension(:) :: q_coforced  !< Heat loss due to forced convection
-   double precision, allocatable, public, target, dimension(:) :: q_co_free   !< Heat loss due to free convection
+   double precision, allocatable, public, target, dimension(:) :: q_ev        !< Heat transfer due to evaporation
+   double precision, allocatable, public, target, dimension(:) :: q_evforced  !< Forced heat transfer due to evaporation
+   double precision, allocatable, public, target, dimension(:) :: q_evfree    !< Free heat transfer due to evaporation
+   double precision, allocatable, public, target, dimension(:) :: q_coforced  !< Heat transfer due to forced convection
+   double precision, allocatable, public, target, dimension(:) :: q_co_free   !< Heat transfer due to free convection
    
    contains
 
@@ -203,7 +203,7 @@ module m_temperature
          e_a = tp%r_hum(nod) * get_e_temp(tp%T_air(nod))
          e_s = get_e_temp(temp)
          q_eb(nod) = tp%eps_emissivity * tp%sigma_stefan * (temp+tp%tkelvn)**4 * (0.39d0 - 0.05d0 * sqrt(e_a)) * (1d0 - 0.6d0 * tp%F_cloud(nod)**2)
-         
+         q_eb(nod) = - q_eb(nod)
          ! calculate Q_ev evaporative heat flux
          rho_a10     = get_rho_air(tp%T_air(nod), e_a)
          rho_a0      = get_rho_air(temp, e_s)
@@ -218,17 +218,23 @@ module m_temperature
          else
             k_s = tp%c_frconv * (gravity * alfa_diff**2 / (tp%nu_air * rho_avg) * (rho_a10 - rho_a0) )**(1d0/3d0)
          endif
-         q_evforced(nod)  = L_v * tp%rhoair * f_U10 * (q_Ts - q_Ta)
-         q_evfree(nod)    = k_s * L_v * rho_avg * (q_Ts - q_Ta)
-         q_ev(nod)        = q_evforced(nod) + q_evfree(nod)
-         
+         q_evforced(nod)  = - L_v * tp%rhoair * f_U10 * (q_Ts - q_Ta)
+         q_evfree(nod)    = - k_s * L_v * rho_avg * (q_Ts - q_Ta)
+         if (temp > 0) then
+            q_ev(nod)        = q_evforced(nod) + q_evfree(nod)
+         else
+            ! No evaporation for temperature below 0.
+            q_ev(nod)        = 0d0
+            q_evforced(nod)  = 0d0 
+            q_evfree(nod)    = 0d0
+         endif         
          ! calculate q_co
          g_U10 = tp%c_h_stanton * wind_speed
-         q_coforced(nod)  = tp%rhoair * tp%c_pa * g_U10 * (temp - tp%T_air(nod))
-         q_co_free(nod)   = k_s * rho_avg * tp%c_pa * (temp - tp%T_air(nod))
+         q_coforced(nod)  = - tp%rhoair * tp%c_pa * g_U10 * (temp - tp%T_air(nod))
+         q_co_free(nod)   = - k_s * rho_avg * tp%c_pa * (temp - tp%T_air(nod))
          q_co(nod) = q_coforced(nod) + q_co_free(nod)
          
-         q_tot(nod) = q_sn(nod) - q_eb(nod) - q_ev(nod) - q_co(nod)
+         q_tot(nod) = q_sn(nod) + q_eb(nod) + q_ev(nod) + q_co(nod)
       case default
          q_tot(nod) = 0d0
       end select
