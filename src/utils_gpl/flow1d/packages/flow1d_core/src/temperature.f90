@@ -119,10 +119,19 @@ module m_temperature
       case('s_area')           
          tempPars%s_area         = value
       case('cloudiness')
+         if (allocated(tempPars%F_cloud)) then
+            tempPars%F_cloud        = value/100d0
+         endif
          tempPars%F_cloud_global = value/100d0
-      case('air_temperature') 
+      case('air_temperature')
+         if (allocated(tempPars%T_air)) then
+            tempPars%T_air          = value
+         endif
          tempPars%T_air_global = value
-      case('humidity') 
+      case('humidity')
+         if (allocated(tempPars%r_hum)) then
+            tempPars%r_hum          = value/100d0
+         end if
          tempPars%r_hum_global = value/100d0
       case('radiation')
          if  (allocated(q_sn  )) then
