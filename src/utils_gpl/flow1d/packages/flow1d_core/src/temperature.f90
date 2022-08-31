@@ -229,10 +229,9 @@ module m_temperature
          endif
          q_evforced(nod)  = - L_v * tp%rhoair * f_U10 * (q_Ts - q_Ta)
          q_evfree(nod)    = - k_s * L_v * rho_avg * (q_Ts - q_Ta)
-         if (temp > 0) then
-            q_ev(nod)        = q_evforced(nod) + q_evfree(nod)
-         else
-            ! No evaporation for temperature below 0.
+         q_ev(nod)        = q_evforced(nod) + q_evfree(nod)
+         if (temp < 0do .and. q_ev(nod) < 0d0) then
+            ! No evaporation for temperatures below 0 condensation is still possible.
             q_ev(nod)        = 0d0
             q_evforced(nod)  = 0d0 
             q_evfree(nod)    = 0d0
