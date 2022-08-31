@@ -32,7 +32,7 @@
 
 !> Performs a single computational timestep, calling <SOFLOW> of Sobek-RE
     
-subroutine SOFLOW_wrap()  
+subroutine SOFLOW_wrap(s0,umag,au,wu_loc)  
 
 use m_f1dimp
 
@@ -104,7 +104,18 @@ double precision                         , pointer :: resid
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
-      
+     
+!input
+double precision, dimension(:) :: s0
+double precision, dimension(:) :: umag
+double precision, dimension(:) :: au
+double precision, dimension(:) :: wu_loc
+
+!local
+integer                              :: k
+
+double precision, dimension(:,:), allocatable :: waoft
+
 !
 !f1dimp variables
 !
@@ -193,6 +204,21 @@ ntab   => f1dimppar%ntab
 node   => f1dimppar%node
 numnod => f1dimppar%numnod
 nodnod => f1dimppar%nodnod
+
+!time dependent
+allocate(waoft(ngrid,6))
+
+do k=1,ngrid
+    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
+    !IMPORTANT 2DO: needs to be interpolated from link to cell centre
+    !IMPORTANT 2DO: needs to be separated between flow and total
+    !IMPORTANT 2DO: wetted perimeter get from results
+    waoft(k,1)=wu_loc(k) !wf = actual flow width 
+    waoft(k,2)=wu_loc(k) !wt = actual total width
+    waoft(k,3)=au(k) !af = actual flow area
+    waoft(k,4)=au(k) !at = actual total area
+    waoft(k,5)=au(k)/wu_loc(k) !o = actual wetted perimeter
+enddo
 
 call SOFLOW( &
 !<flwpar> input

@@ -268,17 +268,17 @@ do k=1,f1dimppar%ngrid
 !                             type) Same definition as bfricp (3,i).
     
     !x
-    f1dimppar%x(k)=network%CRS%CROSS(k)%CHAINAGE
+    f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE
     
     !nlev
-    f1dimppar%nlev(k)=network%CRS%CROSS(101)%TABDEF%LEVELSCOUNT
+    f1dimppar%nlev(k)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
     do k2=1,f1dimppar%nlev(k)
-        f1dimppar%wft(k,k2)=network%CRS%CROSS(k)%TABDEF%FLOWWIDTH(k2) 
-        f1dimppar%aft(k,k2)=network%CRS%CROSS(k)%TABDEF%FLOWAREA(k2)  
-        f1dimppar%wtt(k,k2)=network%CRS%CROSS(k)%TABDEF%TOTALWIDTH(k2)   
-        f1dimppar%att(k,k2)=network%CRS%CROSS(k)%TABDEF%TOTALAREA(k2)    
-        f1dimppar%of(k,k2)=network%CRS%CROSS(k)%TABDEF%WETPERIMETER(k2)     
-        f1dimppar%hlev(k,k2)=network%CRS%CROSS(k)%TABDEF%HEIGHT(k2)
+        f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
+        f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
+        f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2)   
+        f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
+        f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
+        f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
     end do !k2
 
     !dependent variables
@@ -320,7 +320,7 @@ end do
 !tables
 !I cannot find the location of BC. Hardcoded for now:
 allocate(f1dimppar%table(f1dimppar%ntabm)) 
-f1dimppar%table=(/ 0,10000,0,86400,100,100,1,2 /)
+f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /)
 
 !                     call INTTAB (ntab(1,itab), ntab(4,itab),
 !     +                            table(ntab(3,itab)),
@@ -331,12 +331,12 @@ allocate(f1dimppar%ntab(4,f1dimppar%maxtab))
 !   h
 f1dimppar%ntab(1,1)=2
 f1dimppar%ntab(2,1)=1
-f1dimppar%ntab(3,1)=1
+f1dimppar%ntab(3,1)=5
 f1dimppar%ntab(4,1)=0
 !   q
 f1dimppar%ntab(1,2)=2
 f1dimppar%ntab(2,2)=3
-f1dimppar%ntab(3,2)=3
+f1dimppar%ntab(3,2)=7
 f1dimppar%ntab(4,2)=0
 
 !nodes
@@ -346,13 +346,13 @@ allocate(f1dimppar%numnod(f1dimppar%nnode))
 !upstream
 k=1
 f1dimppar%node(1,k)=3
-f1dimppar%node(3,k)=1
+f1dimppar%node(3,k)=1 !station number of the ones that are Q-stations. 
 f1dimppar%node(4,k)=1 
 !downstream
 k=2
 f1dimppar%node(1,k)=2
-f1dimppar%node(3,k)=2
-f1dimppar%node(4,k)=2
+f1dimppar%node(3,k)=1 !station number of the ones that are H-stations.
+f1dimppar%node(4,k)=1
 do k=1,f1dimppar%nnode
     !f1dimppar%node(1,k)= 
     !for some reason at this stage <network%NDS%NODE(2)%NODETYPE> is 0 for all cases. 

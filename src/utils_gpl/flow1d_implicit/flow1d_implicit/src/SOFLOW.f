@@ -738,6 +738,25 @@ c
           grid(kgrid)=1
       enddo
 c
+c    only main channel
+c
+      do kgrid=1,ngrid 
+          sectc(kgrid,1)=0
+          
+c    I think this may need to be moved outside and compute based
+c    on the actual water level? maybe only initialization?
+          cpack(kgrid,1)=bfricp(1,kgrid)
+          cpack(kgrid,2)=bfricp(1,kgrid)
+          cpack(kgrid,3)=bfricp(3,kgrid)
+          cpack(kgrid,4)=bfricp(5,kgrid)
+          
+          waoft(kgrid,1)=wft(kgrid,1)
+          waoft(kgrid,2)=wtt(kgrid,1)
+          waoft(kgrid,3)=aft(kgrid,1)
+          waoft(kgrid,4)=att(kgrid,1)
+          waoft(kgrid,5)=of(kgrid,1)
+      enddo 
+c
 c    extra resistance parameters (not used)
 c
       nexres=0
@@ -802,6 +821,10 @@ c
       flwpar(19 )      =dhtyp  
       flwpar(20 )      =exrstp 
       
+c     Initialize BC. #2DO make general!      
+      hstat(1) = table(ntab(3,1))
+      qstat(1) = table(ntab(3,2))
+      
 #if !  defined (SHR_MEM)
 c ====  shared memory  ====
 c ====  niet voor SRS BOS
@@ -837,8 +860,10 @@ c
 
       iter = iter + 1
 
-      call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran  ,ngrid   ,
-     +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,nnm   ,nnn    ,nns     ,
+      call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran,
+     +ngrid ,
+     +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,
+     +nnm   ,nnn   ,nns     ,
      +nnf   ,nnmu  ,nosdim,lagstm,nlags ,juer  ,
 c     Mozart parameters plus groundwater switch
      +lmoza ,istmoz,qlatid,qlatnm,lgrwt ,
