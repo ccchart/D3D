@@ -279,7 +279,7 @@ rem ====================
     call :makeDir !dest_share!
 
     call :copyFile "third_party_open\expat\x64\x64\Release\libexpat.dll"        !dest_share!
-    call :copyFile "third_party_open\intelredist\lib\x64\*.dll"                 !dest_share!
+rem call :copyFile "third_party_open\intelredist\lib\x64\*.dll"                 !dest_share!
     call :copyFile "third_party_open\mpich2\x64\bin\*.exe"                      !dest_share!
     call :copyFile "third_party_open\mpich2\x64\lib\*.dll"                      !dest_share!
     call :copyFile "third_party_open\pthreads\bin\x64\*.dll"                    !dest_share!
@@ -627,21 +627,31 @@ rem ================
 
     set dest="!dest_main!\x64\dpart\bin"
     set dest_scripts="!dest_main!\x64\dpart\scripts"
+    set dest_share="!dest_main!\x64\share\bin"
 
     call :makeDir !dest!
     call :makeDir !dest_scripts!
+    call :makeDir !dest_share!
 
     call :copyFile engines_gpl\part\bin\x64\release\delpar.exe !dest!
     call :copyFile "engines_gpl\part\scripts\run_*.bat"        !dest_scripts!
 
     if !compiler_redist_dir!=="" (
-        rem Compiler_dir not set
-    ) else (
-        rem "Compiler_dir:!compiler_redist_dir!"
-        rem Note the awkward usage of !-characters
-        set localstring="!compiler_redist_dir!libiomp5md.dll"
-        call :copyFile !localstring! !dest!
-    )
+           rem Compiler_dir not set
+       ) else (
+           rem "Compiler_dir:!compiler_redist_dir!"
+           rem Note the awkward usage of !-characters
+           set localstring="!compiler_redist_dir!libiomp5md.dll"
+           call :copyFile !!localstring! !dest_share!!
+           set localstring="!compiler_redist_dir!libifcoremd.dll"
+           call :copyFile !!localstring! !dest_share!!
+           set localstring="!compiler_redist_dir!libifportmd.dll"
+           call :copyFile !!localstring! !dest_share!!
+           set localstring="!compiler_redist_dir!libmmd.dll"
+           call :copyFile !!localstring! !dest_share!!
+           set localstring="!compiler_redist_dir!svml_dispmd.dll"
+           call :copyFile !!localstring! !dest_share!!
+       )
 	
 goto :endproc
 
