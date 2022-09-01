@@ -118,8 +118,9 @@ module m_flow1d_reader
       integer                         :: timerReadRoughness = 0
       integer                         :: timerReadBoundData = 0
       integer                         :: timerFileUnit
-      integer                         :: res 
-      
+      integer                         :: res
+      integer                         :: i
+
       call timini()
       timon = .true.
 
@@ -490,12 +491,14 @@ module m_flow1d_reader
       end if
 
       ! Read space varying meteo data
-      inputfile=''
-      call prop_get_string(md_ptr, 'files', 'meteoFile', inputfile, success)
-      inputfile = md_flow1d_file(1:posslash)//inputfile
-      if (len_trim(inputfile) > 0) then
-         call readSpaceVarMeteo(inputfile)
-      end if
+      do i = 1, size(svDataQuantities)
+         inputfile=''
+         call prop_get_string(md_ptr, 'files', 'sv' // svDataQuantities(i), inputfile, success)
+         inputfile = md_flow1d_file(1:posslash)//inputfile
+         if (len_trim(inputfile) > 0) then
+            call initSpaceVarMeteo1(inputfile, svDataQuantities(i), i)
+         end if
+      end do
 
       call SetMessage(LEVEL_INFO, 'Reading Boundary/Lateral Done')
       call timstop(timerReadBoundData)

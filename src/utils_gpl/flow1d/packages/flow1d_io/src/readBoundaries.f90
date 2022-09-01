@@ -56,18 +56,29 @@ module m_readBoundaries
 
    ! meteo item in ec
    integer, public            :: ec_itemId_air_temperature
-   integer, public            :: ec_itemId_air_temperature_svwp
    integer, public            :: ec_itemId_cloudiness
-   integer, public            :: ec_itemId_cloudiness_svwp
    integer, public            :: ec_itemId_radiation
    integer, public            :: ec_itemId_humidity
-   integer, public            :: ec_itemId_humidity_svwp
    integer, public            :: ec_itemId_winddirection
    integer, public            :: ec_itemId_windvelocity
    integer, public            :: ec_itemId_boundaries = ec_undef_int
    integer, public            :: ec_itemId_laterals = ec_undef_int
-   integer, public            :: connectionIdSvwp = ec_undef_int
    logical                    :: SvwpReady = .false.
+   integer, parameter         :: maxSvwpQuantities = 5
+   character(len=256)         :: filename_svwp(maxSvwpQuantities), quantity_svwp(maxSvwpQuantities)
+   integer, public            :: svItemIDs(maxSvwpQuantities) = ec_undef_int
+   logical                    :: isActiveSvwp(maxSvwpQuantities) = .false.
+   integer, public, parameter :: index_air_temperature_svwp = 1
+   integer, public, parameter :: index_cloudiness_svwp = 2
+   integer, public, parameter :: index_humidity_svwp = 3
+   integer, public, parameter :: index_wind_speed_svwp = 4
+   integer, public, parameter :: index_wind_from_direction_svwp = 5
+   character(len=*), public, parameter  :: svDataQuantities(maxSvwpQuantities) = [ &
+         'airtemperature     ', &
+         'cloudiness         ', &
+         'humidity           ', &
+         'wind_speed         ', &
+         'wind_from_direction']
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -84,7 +95,7 @@ module m_readBoundaries
    public getBoundaryValuePtr, getLateralValuePtr
    public disableScalarUpdate
    public write_laterals_and_boundaries
-   public readSpaceVarMeteo, readSpaceVarMeteo2
+   public initSpaceVarMeteo1, initSpaceVarMeteo2
 
    contains
 
@@ -546,93 +557,51 @@ end subroutine readBoundaryConditions
 
 !> part one of initializing the reading space varying meteo data
 !! to be called as the filename for the meteo data is known
-subroutine readSpaceVarMeteo(filename)
-   character(len=*), intent(in) :: filename
+subroutine initSpaceVarMeteo1(filename, quantity, index)
+   character(len=*), intent(in) :: filename, quantity
+   integer         , intent(in) :: index
 
-   type(tEcFileReader), pointer :: fileReaderPtr
-   integer :: fileReaderId   !< Unique FileReader id.
-   integer :: fileType, tsunit
-   integer :: sourceItemId_1, sourceItemId_2, sourceItemId_3
-   real(kind=hp) :: refdat, tzone
-   character(len=*), parameter :: name = 'dewpoint_airtemperature_cloudiness' ! TODO, this works for current test data
-   logical :: success
+   filename_svwp(index) = filename
+   quantity_svwp(index) = quantity
+   isActiveSvwp(index)  = .true.
 
-   if ( .not. associated(ec)) then
-      if (.not. ecInstanceCreate(ec))then
-         call setmessage(LEVEL_FATAL, 'Reading Space Varying Meteo: could not create ec-instance')
-      end if
-   endif
-
-   ec%coordsystem = EC_COORDS_SFERIC ! TODO EC_COORDS_CARTESIAN
-
-   fileReaderId = ecCreateFileReader(ec)
-   fileReaderPtr => ecFindFileReader(ec, fileReaderId)
-   fileReaderPtr%vectormax = 3 ! vectormax
-
-   fileType = provFile_netcdf
-   refdat = modelTimeStepData%julianstart - offset_reduced_jd
-   tzone = 0.0d0
-   tsunit = ec_second
-   success =  ecSetFileReaderProperties(ec, fileReaderId, filetype, filename, refdat, tzone, tsunit, name)
-
-   sourceItemId_1 = ecFindItemInFileReader(ec, fileReaderId, 'dew_point_temperature')
-   sourceItemId_2 = ecFindItemInFileReader(ec, fileReaderId, 'air_temperature')
-   sourceItemId_3 = ecFindItemInFileReader(ec, fileReaderId, 'cloud_area_fraction')
-
-   connectionIdSvwp = ecCreateConnection(ec)
-   ec_itemId_humidity_svwp = ecCreateItem(ec)
-   ec_itemId_air_temperature_svwp = ecCreateItem(ec)
-   ec_itemId_cloudiness_svwp = ecCreateItem(ec)
-   if (success) success = ecSetItemRole(ec, ec_itemId_humidity_svwp, itemType_target)
-   if (success) success = ecSetItemRole(ec, ec_itemId_air_temperature_svwp, itemType_target)
-   if (success) success = ecSetItemRole(ec, ec_itemId_cloudiness_svwp, itemType_target)
-
-   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_1)
-   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_2)
-   if (success) success = ecAddConnectionSourceItem(ec, connectionIdSvwp, sourceItemId_3)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_humidity_svwp)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_air_temperature_svwp)
-   if (success) success = ecAddConnectionTargetItem(ec, connectionIdSvwp, ec_itemId_cloudiness_svwp)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_humidity_svwp, connectionIdSvwp)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_air_temperature_svwp, connectionIdSvwp)
-   if (success) success = ecAddItemConnection(ec, ec_itemId_cloudiness_svwp, connectionIdSvwp)
-
-   if (.not. success) then
-      call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
-   end if
-
-end subroutine readSpaceVarMeteo
+end subroutine initSpaceVarMeteo1
 
 !> part two of initializing the reading space varying meteo data
 !! to be called as the grid coordinates are known
-subroutine readSpaceVarMeteo2(x, y)
-   double precision, intent(in) :: x(:), y(:)
+subroutine initSpaceVarMeteo2(x, y)
+   double precision, intent(in) :: x(:), y(:)  !< x- and y-coordinates
 
-   integer :: elementSetId, ec_convtype, ec_method, converterId !, targetIndex
-   integer, parameter :: jsferic = 1 ! TODO, this works for current test data
-   logical :: success
+   integer,       parameter :: fileType = provFile_netcdf ! we only support NetCDF at this moment
+   logical,       parameter :: jsferic = .false. ! we only support RD at this moment
+   integer,       parameter :: ec_method = interpolate_spacetimeSaveWeightFactors
+   real(kind=hp), parameter :: tzone = 0.0_hp
+   integer,       parameter :: tsunit = ec_second
+   integer,       parameter :: operand = operand_add
+   integer,       parameter :: vectormax = 1 ! one quantity at a time
+   integer                  :: i
+   integer                  :: refdat
+   logical                  :: success
 
-   if (connectionIdSvwp == ec_undef_int) return
+   if (.not. associated(ec)) then
+      if (.not. ecInstanceCreate(ec))then
+         call setmessage(LEVEL_FATAL, 'Initializing Space Varying Meteo: could not create ec-instance')
+      end if
+   endif
 
-   elementSetId = ecCreateElementSet(ec)
-   if (jsferic==0) then
-      success = ecSetElementSetType(ec, elementSetId, elmSetType_cartesian)
-   else
-      success = ecSetElementSetType(ec, elementSetId, elmSetType_spheric)
-   end if
-   if (success) success = ecSetElementSetXArray(ec, elementSetId, x)
-   if (success) success = ecSetElementSetYArray(ec, elementSetId, y)
+   ec%coordsystem = merge(EC_COORDS_SFERIC, EC_COORDS_CARTESIAN, jsferic)
 
-   ec_convtype = convType_netcdf
-   ec_method = interpolate_spacetimeSaveWeightFactors
-   converterId = ecCreateConverter(ec)
-   if (success) success = initializeConverter(ec, converterId, ec_convtype, operand_replace_element, ec_method)
-   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_humidity_svwp)
-   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_air_temperature_svwp)
-   if (success) success = ecSetConverterElement(ec, converterId, ec_itemId_cloudiness_svwp)
-
-   if (success) success = ecSetConnectionConverter(ec, connectionIdSvwp, converterId)
-   if (success) success = ecSetConnectionIndexWeights(ec, connectionIdSvwp)
+   success = .true.
+   svItemIDs(:) =  ec_undef_int
+   refdat = modelTimeStepData%startDate
+   do i = 1, maxSvwpQuantities
+      if (isActiveSvwp(i)) then
+         success = ecModuleAddTimeSpaceRelation(ec, quantity_svwp(i), x, y, vectormax, &
+            filename_svwp(i), filetype, ec_method, operand, refdat, tzone, tsunit, &
+            jsferic, ec_undef_hp, svItemIDs(i:i))
+         if (.not. success) exit
+      end if
+   end do
 
    if (.not. success) then
       call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
@@ -640,7 +609,7 @@ subroutine readSpaceVarMeteo2(x, y)
    SvwpReady = .true.
    call ecInstancePrintState(ec, setmessage, LEVEL_INFO)
 
-end subroutine readSpaceVarMeteo2
+end subroutine initSpaceVarMeteo2
 
 !> Helper function for initializing a Converter.
 !! copied from meteo1.f90
