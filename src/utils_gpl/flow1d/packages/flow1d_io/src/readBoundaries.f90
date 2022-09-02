@@ -41,6 +41,7 @@ module m_readBoundaries
 
    use m_ec_module
    use time_module, only : offset_reduced_jd
+   use m_temperature, only : tempPars
 
    implicit none
 
@@ -64,7 +65,7 @@ module m_readBoundaries
    integer, public            :: ec_itemId_boundaries = ec_undef_int
    integer, public            :: ec_itemId_laterals = ec_undef_int
    logical                    :: SvwpReady = .false.
-   integer, parameter         :: maxSvwpQuantities = 5
+   integer, parameter         :: maxSvwpQuantities = 6
    character(len=256)         :: filename_svwp(maxSvwpQuantities), quantity_svwp(maxSvwpQuantities)
    integer, public            :: svItemIDs(maxSvwpQuantities) = ec_undef_int
    logical                    :: isActiveSvwp(maxSvwpQuantities) = .false.
@@ -73,12 +74,14 @@ module m_readBoundaries
    integer, public, parameter :: index_humidity_svwp = 3
    integer, public, parameter :: index_wind_speed_svwp = 4
    integer, public, parameter :: index_wind_from_direction_svwp = 5
+   integer, public, parameter :: index_solarradiation_svwp = 6
    character(len=*), public, parameter  :: svDataQuantities(maxSvwpQuantities) = [ &
          'airtemperature     ', &
          'cloudiness         ', &
          'humidity           ', &
          'wind_speed         ', &
-         'wind_from_direction']
+         'wind_from_direction', &
+         'solarradiation     ']
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -305,8 +308,6 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
 
    use m_ec_bccollect
    use m_globalParameters
-   use m_temperature
-
 
    implicit none
       
@@ -603,11 +604,15 @@ subroutine initSpaceVarMeteo2(x, y)
       end if
    end do
 
+   if (svItemIDs(index_solarradiation_svwp) /= ec_undef_int) then
+      tempPars%useInputRadiation = .true.
+   end if
+
    if (.not. success) then
       call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
    end if
    SvwpReady = .true.
-   call ecInstancePrintState(ec, setmessage, LEVEL_INFO)
+   !call ecInstancePrintState(ec, setmessage, LEVEL_INFO)
 
 end subroutine initSpaceVarMeteo2
 
