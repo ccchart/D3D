@@ -668,7 +668,7 @@ subroutine getBoundaryValues(ec_target_item, timeAsMJD, values_from_ec)
 
    values_from_ec = 0.0
    if (.not. ecGetValues(ec, ec_target_item, timeAsMJD, values_from_ec) ) then
-      call SetMessage(LEVEL_FATAL, 'Error ec_target_item value from EC file')
+      call SetMessage(LEVEL_FATAL, dumpECMessageStack(LEVEL_ERROR, setmessage))
    endif
 
 end subroutine getBoundaryValues
