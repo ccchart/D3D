@@ -32,11 +32,23 @@
 
 !> Performs a single computational timestep, calling <SOFLOW> of Sobek-RE
     
-subroutine SOFLOW_wrap(s0,umag,au,wu_loc)  
+subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu)   
 
 use m_f1dimp
 
 implicit none
+
+!
+!input
+!
+
+integer, intent(in) :: ndx
+integer, intent(in) :: lnx
+
+double precision, dimension(ndx), intent(in) :: s0
+double precision, dimension(ndx), intent(in) :: umag
+double precision, dimension(lnx), intent(in) :: au
+double precision, dimension(lnx), intent(in) :: wu
 
 !
 !pointer
@@ -105,16 +117,11 @@ double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
      
-!input
-double precision, dimension(:) :: s0
-double precision, dimension(:) :: umag
-double precision, dimension(:) :: au
-double precision, dimension(:) :: wu_loc
 
 !local
 integer                              :: k
 
-double precision, dimension(:,:), allocatable :: waoft
+real, dimension(:,:), allocatable :: waoft
 
 !
 !f1dimp variables
@@ -129,10 +136,6 @@ f1dimppar%istep=1
 !f1dimppar%itim(2)=00000000
 f1dimppar%time=1.0d0
 f1dimppar%dtf=1.0d0
-
-!deal with 
-!hpack
-!qpack
 
 !#END# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
@@ -210,14 +213,23 @@ allocate(waoft(ngrid,6))
 
 do k=1,ngrid
     !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-    !IMPORTANT 2DO: needs to be interpolated from link to cell centre
-    !IMPORTANT 2DO: needs to be separated between flow and total
-    !IMPORTANT 2DO: wetted perimeter get from results
-    waoft(k,1)=wu_loc(k) !wf = actual flow width 
-    waoft(k,2)=wu_loc(k) !wt = actual total width
+    !FM1DIMP2DO: needs to be interpolated from link to cell centre
+    !FM1DIMP2DO: needs to be separated between flow and total
+    !FM1DIMP2DO: wetted perimeter get from results
+    !check right order in <FLNORM> and not in documentation. 
+    waoft(k,1)=wu(k) !wf = actual flow width 
+    waoft(k,2)=wu(k) !wt = actual total width
     waoft(k,3)=au(k) !af = actual flow area
-    waoft(k,4)=au(k) !at = actual total area
-    waoft(k,5)=au(k)/wu_loc(k) !o = actual wetted perimeter
+    waoft(k,4)=au(k) !at = actual total area n
+    waoft(k,5)=au(k) !at = actual total area n+1
+    waoft(k,6)=au(k)/wu(k) !o = actual wetted perimeter
+enddo
+
+!FM1DIMP2D: <au> needs to be interpolated from link to cell centre.
+!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
+do k=1,3
+    hpack(:,k)=s0(1:ngrid)
+    qpack(:,k)=umag(1:ngrid)*au(1:ngrid-1) !incorrect, see above. 
 enddo
 
 call SOFLOW( &
@@ -235,7 +247,7 @@ call SOFLOW( &
 !dependent on branch
         &   branch , bfrict                            , &
 !dependent on gridpoints 
-        &   bfricp , hpack  , qpack  ,x                , & 
+        &   bfricp , hpack  , qpack  ,x       , waoft  , & 
 !cross-sectional shape
         &   wft    , aft    ,wtt     ,att     , of     , & 
         &   hlev                                       , &

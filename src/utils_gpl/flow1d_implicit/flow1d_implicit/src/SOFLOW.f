@@ -8,7 +8,7 @@
      +                  nhstat , nqstat , maxtab , ntabm  , nbrnod ,
      +                  nlev                                       ,
      +                  branch , bfrict                            ,
-     +                  bfricp , hpack  , qpack  ,x                ,
+     +                  bfricp , hpack  , qpack  ,x       ,waoft   ,
      +                  wft    , aft    ,wtt     ,att     , of     , 
      +                  hlev                                       , 
      +                  hbdpar , qbdpar                            , 
@@ -750,11 +750,11 @@ c    on the actual water level? maybe only initialization?
           cpack(kgrid,3)=bfricp(3,kgrid)
           cpack(kgrid,4)=bfricp(5,kgrid)
           
-          waoft(kgrid,1)=wft(kgrid,1)
-          waoft(kgrid,2)=wtt(kgrid,1)
-          waoft(kgrid,3)=aft(kgrid,1)
-          waoft(kgrid,4)=att(kgrid,1)
-          waoft(kgrid,5)=of(kgrid,1)
+          !waoft(kgrid,1)=wft(kgrid,1)
+          !waoft(kgrid,2)=wtt(kgrid,1)
+          !waoft(kgrid,3)=aft(kgrid,1)
+          !waoft(kgrid,4)=att(kgrid,1)
+          !waoft(kgrid,5)=of(kgrid,1)
       enddo 
 c
 c    extra resistance parameters (not used)

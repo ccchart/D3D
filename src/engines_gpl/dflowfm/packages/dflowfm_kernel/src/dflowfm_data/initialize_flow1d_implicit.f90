@@ -210,8 +210,8 @@ end do
 allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !needs the part with FP1, FP2
 allocate(f1dimppar%x(f1dimppar%ngrid))
 allocate(f1dimppar%nlev(f1dimppar%ngrid)) 
-allocate(f1dimppar%hpack(3,f1dimppar%ngrid)) 
-allocate(f1dimppar%qpack(3,f1dimppar%ngrid))
+allocate(f1dimppar%hpack(f1dimppar%ngrid,3)) 
+allocate(f1dimppar%qpack(f1dimppar%ngrid,3))
 
     !cross-sectional information (gridpoint,level)
 allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
@@ -275,17 +275,20 @@ do k=1,f1dimppar%ngrid
     do k2=1,f1dimppar%nlev(k)
         f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
         f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
-        f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2)   
+        f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
+        !FM1DIMP2DO: deal with (at least error) case of rectangular cross-section with only two elevation points. 
+        !In this case, the area for the low point is 0. This causes a huge interpolation error in SRE. 
         f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
         f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
         f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
     end do !k2
 
     !dependent variables
+    !FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>
     do k2=1,3 !< time step before, intermediate, after
         !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-        f1dimppar%hpack(k2,k)=s0(k)
-        f1dimppar%qpack(k2,k)=hs(k)*ucmag(k)
+        f1dimppar%hpack(k,k2)=s0(k)
+        f1dimppar%qpack(k,k2)=hs(k)*ucmag(k) ! should be area, but I don't think it matters because it is done in <SOFLOW_wrap>
     end do !k2
 end do !k
 
