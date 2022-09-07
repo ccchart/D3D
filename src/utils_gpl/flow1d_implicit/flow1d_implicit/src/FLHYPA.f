@@ -254,29 +254,29 @@ c                  <alfabp>        <c2rp>           <wfp>
      +             waoft(1,7)     ,waoft(1,8)     ,waoft(1,9)     ,
 c                  <wf>
      +             waoft(1,1)     ,juer   ,ker    )
-cc
-cc     Computation of 9. wind stress
-cc
-c      call FLWIFR (nbran  ,ngrid  ,branch ,time   ,
-c     +             maxtab ,ntabm  ,ntab   ,table  ,gangle ,
-c     +             wndpar ,wfrict ,wshld  ,tauwi  ,dt1    ,theta2 )
-cc
-cc     Computation of 10. extra resistance
-cc
-c      call FLERES (ngrid  ,h1     ,h      ,q1     ,q      ,maxtab ,
-c     +             ntabm  ,ntab   ,table  ,x      ,nexres ,exres  ,
-cc                         <ksip>                  <omega>
-c     +             ksi    ,waoft(1,18)    ,exrstp ,omc    ,iter   ,
-c     +             juer   ,ker    ,theta2 )
-cc
-cc     Computation of 11. first order momentum cross section A1m
-cc
-c      if ( lsalt ) then
-c        call FLA1M (ngrid  ,nbran  ,branch ,typcr  ,
-c     +              h1     ,h      ,maxlev ,nlev   ,hlev   ,wft    ,
-cc                   <Af>
-c     +              waoft(1,3)     ,izwft  ,a1m    ,theta2 )
-c      endif
+c
+c     Computation of 9. wind stress
+c
+      call FLWIFR (nbran  ,ngrid  ,branch ,time   ,
+     +             maxtab ,ntabm  ,ntab   ,table  ,gangle ,
+     +             wndpar ,wfrict ,wshld  ,tauwi  ,dt1    ,theta2 )
+c
+c     Computation of 10. extra resistance
+c
+      call FLERES (ngrid  ,h1     ,h      ,q1     ,q      ,maxtab ,
+     +             ntabm  ,ntab   ,table  ,x      ,nexres ,exres  ,
+c                         <ksip>                  <omega>
+     +             ksi    ,waoft(1,18)    ,exrstp ,omc    ,iter   ,
+     +             juer   ,ker    ,theta2 )
+c
+c     Computation of 11. first order momentum cross section A1m
+c
+      if ( lsalt ) then
+        call FLA1M (ngrid  ,nbran  ,branch ,typcr  ,
+     +              h1     ,h      ,maxlev ,nlev   ,hlev   ,wft    ,
+c                   <Af>
+     +              waoft(1,3)     ,izwft  ,a1m    ,theta2 )
+      endif
 1000  continue
 c
       end

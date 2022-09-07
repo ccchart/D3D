@@ -231,13 +231,15 @@ c     Exceptions
 c
  1000 continue
 c
-      call getloc (igr,ibr,xc)
-      write (xtxt,'(f10.2)') xc
-      call getbrn (ibr,branam,lbrnam)
-      ker = fatal
-      call sre_error (juer,'FLERES Extra resistance at branch @'//
-     +                  branam(:lbrnam)//'@ X= @' //xtxt//
-     +                 '@ undefined for zero discharge',
-     +                  eflexr,fatal)
+CC removed as <getloc> and <getbrn> are not accessible
+cc   
+cc      call getloc (igr,ibr,xc)
+cc      write (xtxt,'(f10.2)') xc
+cc      call getbrn (ibr,branam,lbrnam)
+cc      ker = fatal
+cc      call sre_error (juer,'FLERES Extra resistance at branch @'//
+cc     +                  branam(:lbrnam)//'@ X= @' //xtxt//
+cc     +                 '@ undefined for zero discharge',
+cc     +                  eflexr,fatal)
 c
       end

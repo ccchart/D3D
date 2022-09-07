@@ -229,7 +229,8 @@ enddo
 !FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
 do k=1,3
     hpack(:,k)=s0(1:ngrid)
-    qpack(:,k)=umag(1:ngrid)*au(1:ngrid-1) !incorrect, see above. 
+    !qpack(:,k)=umag(1:ngrid)*au(1:ngrid-1) !incorrect, see above. 
+    qpack(:,k)=100 !check if hampers iteration
 enddo
 
 call SOFLOW( &

@@ -781,10 +781,11 @@ c      Groundwater parameters (not used)
 c      
       lgrwt=.false.
 c 
-c     Cross-section type
+c     Branch input
 c
       do kbran=1,nbran
           typcr(kbran)=1
+          wfrict(1,kbran)=0
       enddo
 c      
 c      Other
