@@ -32,9 +32,10 @@
 
 !> Performs a single computational timestep, calling <SOFLOW> of Sobek-RE
     
-subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu)   
+subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu,s1,u1)   
 
 use m_f1dimp
+!use m_flow, only: s1, u1 !this subroutine is not in flow_kernel and cannot use this module
 
 implicit none
 
@@ -49,6 +50,13 @@ double precision, dimension(ndx), intent(in) :: s0
 double precision, dimension(ndx), intent(in) :: umag
 double precision, dimension(lnx), intent(in) :: au
 double precision, dimension(lnx), intent(in) :: wu
+
+!
+!output
+!
+
+double precision, dimension(ndx), intent(out) :: s1
+double precision, dimension(lnx), intent(out) :: u1
 
 !
 !pointer
@@ -119,7 +127,7 @@ double precision, dimension(:,:)         , pointer :: hlev
      
 
 !local
-integer                              :: k
+integer                              :: k, k2
 
 real, dimension(:,:), allocatable :: waoft
 
@@ -229,8 +237,10 @@ enddo
 !FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
 do k=1,3
     hpack(:,k)=s0(1:ngrid)
-    !qpack(:,k)=umag(1:ngrid)*au(1:ngrid-1) !incorrect, see above. 
-    qpack(:,k)=100 !check if hampers iteration
+    do k2=1,ngrid
+        qpack(k2,k)=umag(k2)*au(k2) !incorrect, see above. 
+    enddo
+    !qpack(:,k)=100 !check if hampers iteration
 enddo
 
 call SOFLOW( &
@@ -261,5 +271,11 @@ call SOFLOW( &
 !close
         &)
     
-        
+     
+!Interpolate at links
+!FM1DIMP2D: compute new flow area <au> to find right velocity before interpolating
+!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts.
+s1=hpack(:,3);
+u1=qpack(:,3)/au(1:ngrid-1)
+
 end subroutine SOFLOW_wrap

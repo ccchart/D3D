@@ -272,6 +272,7 @@ c      call getloc (igpq,ibrq,xq)
 c
 c     Write maximum residuals to file DUMPRES
 c
+c    FM1DIMP2DO: manage error message
       if ( iter .ge. flitmx .and. conv .eq. 0) then
          if ( lconv ) then
             inocon  = inocon + 1

@@ -191,6 +191,7 @@ function initInitialFields(inifilename) result(ierr)
             
             success = timespaceinitialfield(xz, yz, hs, ndx, filename, filetype, method, operand, transformcoef, 2, kcsini)
             s1(1:ndxi) = bl(1:ndxi) + hs(1:ndxi)         
+
          else if (strcmpi(qid, 'InfiltrationCapacity')) then
             if (infiltrationmodel /= DFM_HYD_INFILT_CONST) then
                write (msgbuf, '(a,i0,a)') 'File '''//trim(inifilename)//''' contains quantity '''//trim(qid)//'''. This requires ''InfiltrationModel=', DFM_HYD_INFILT_CONST, ''' in the MDU file (constant).'
@@ -600,7 +601,7 @@ function init1dField(filename, inifieldfilename, quant) result (ierr)
                call warn_flush()
                cycle
             end if
-            if ((.not. strcmpi(quantity, 'bedlevel')) .and. (.not.strcmpi(quantity, 'waterlevel')) .and. (.not. strcmpi(quantity,'waterdepth')) .and. (.not. strcmpi(quantity, 'frictioncoefficient'))) then
+            if ((.not. strcmpi(quantity, 'bedlevel')) .and. (.not.strcmpi(quantity, 'waterlevel')) .and. (.not. strcmpi(quantity,'waterdepth')) .and. (.not. strcmpi(quantity, 'frictioncoefficient')) .and. (.not. strcmpi(quantity, 'initialvelocity'))) then
                numerr = numerr + 1
                write(msgbuf, '(7a)') 'Wrong block in file ''', trim(filename), ''': [', trim(groupname), ']. Quantity ''', trim(quantity), ''' is unknown.'
                call warn_flush()
@@ -704,6 +705,8 @@ function init1dField(filename, inifieldfilename, quant) result (ierr)
          s1(1:ndxi) = bl(1:ndxi) + hs(1:ndxi)
       else if (strcmpi(quantity, 'frictioncoefficient')) then
          call spaceInit1dfield(branchId, chainage, values, 1, frcu)
+      else if (strcmpi(quantity, 'initialvelocity')) then
+         call spaceInit1dfield(branchId, chainage, values, 1, u1)
       else if (strcmpi(quantity, 'bedlevel')) then
          !call spaceInit1dfield(branchId, chainage, values, 2, zk)
          ! TODO: UNST-2694, Reading bedlevel from 1dField file type is not yet supported.
