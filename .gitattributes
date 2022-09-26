@@ -1287,6 +1287,8 @@ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setwi
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setzcs.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/shipcoor.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/step_reduce.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/step_reduce_hydro.f90 -text
+src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/step_reduce_transport_morpho.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/structure_parameters.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/switchiadvnearlink.f90 -text
 src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/tabellenboek.f90 -text

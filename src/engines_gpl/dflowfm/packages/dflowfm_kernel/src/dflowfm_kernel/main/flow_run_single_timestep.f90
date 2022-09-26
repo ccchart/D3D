@@ -55,10 +55,12 @@ integer :: N, L
     !ADD if do SRE solver then
     select case (FlowSolver)
         case (1)
-            call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
+            call step_reduce_hydro(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
+            call step_reduce_transport_morpho(key)
         case (2)
             time1=time0+dts
             call SOFLOW_wrap(ndx,lnx,s1,u1,time1)
+            call step_reduce_transport_morpho(key)
     end select
     
     call timstop(handle_extra(51)) ! step_reduce
