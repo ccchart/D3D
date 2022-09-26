@@ -32,7 +32,8 @@
 
 !> Performs a single computational timestep, calling <SOFLOW> of Sobek-RE
     
-subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu,s1,u1)   
+subroutine SOFLOW_wrap(ndx,lnx,s1,u1,time1)   
+!subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu,s1,u1)   
 
 use m_f1dimp
 !use m_flow, only: s1, u1 !this subroutine is not in flow_kernel and cannot use this module
@@ -46,10 +47,12 @@ implicit none
 integer, intent(in) :: ndx
 integer, intent(in) :: lnx
 
-double precision, dimension(ndx), intent(in) :: s0
-double precision, dimension(ndx), intent(in) :: umag
-double precision, dimension(lnx), intent(in) :: au
-double precision, dimension(lnx), intent(in) :: wu
+double precision, intent(in) :: time1
+
+!double precision, dimension(ndx), intent(in) :: s0
+!double precision, dimension(ndx), intent(in) :: umag
+!double precision, dimension(lnx), intent(in) :: au
+!double precision, dimension(lnx), intent(in) :: wu
 
 !
 !output
@@ -57,6 +60,9 @@ double precision, dimension(lnx), intent(in) :: wu
 
 double precision, dimension(ndx), intent(out) :: s1
 double precision, dimension(lnx), intent(out) :: u1
+!double precision, dimension(ndx) :: s1
+!double precision, dimension(lnx) :: u1
+
 
 !
 !pointer
@@ -115,6 +121,7 @@ real, dimension(:,:)                     , pointer :: aft
 real, dimension(:,:)                     , pointer :: wtt
 real, dimension(:,:)                     , pointer :: att
 real, dimension(:,:)                     , pointer :: of
+real, dimension(:,:)                     , pointer :: waoft
 
 
 double precision                         , pointer :: time
@@ -124,12 +131,14 @@ double precision                         , pointer :: resid
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
-     
+
+!debug
+integer                                  , pointer :: fm1dimp_debug_k1
 
 !local
 integer                              :: k, k2
+integer                              :: swaoft
 
-real, dimension(:,:), allocatable :: waoft
 
 !
 !f1dimp variables
@@ -142,8 +151,8 @@ f1dimppar%istep=1
 !<itim> only used for writing to file when error
 !f1dimppar%itim(1)=20000101 
 !f1dimppar%itim(2)=00000000
-f1dimppar%time=1.0d0
-f1dimppar%dtf=1.0d0
+f1dimppar%time=time1
+f1dimppar%dtf=1.0d0 !as we do steady, it is overwritten
 
 !#END# MOVE TO CONVERSION ROUTINE FOR EVERY TIME STEP
 
@@ -194,6 +203,7 @@ bfricp => f1dimppar%bfricp
 hpack  => f1dimppar%hpack
 qpack  => f1dimppar%qpack
 x      => f1dimppar%x
+waoft  => f1dimppar%waoft 
 
 !cross-sectional shape
 wft  => f1dimppar%wft 
@@ -216,32 +226,51 @@ node   => f1dimppar%node
 numnod => f1dimppar%numnod
 nodnod => f1dimppar%nodnod
 
-!time dependent
-allocate(waoft(ngrid,6))
+!debug
+fm1dimp_debug_k1 => f1dimppar%fm1dimp_debug_k1
 
-do k=1,ngrid
-    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-    !FM1DIMP2DO: needs to be interpolated from link to cell centre
-    !FM1DIMP2DO: needs to be separated between flow and total
-    !FM1DIMP2DO: wetted perimeter get from results
-    !check right order in <FLNORM> and not in documentation. 
-    waoft(k,1)=wu(k) !wf = actual flow width 
-    waoft(k,2)=wu(k) !wt = actual total width
-    waoft(k,3)=au(k) !af = actual flow area
-    waoft(k,4)=au(k) !at = actual total area n
-    waoft(k,5)=au(k) !at = actual total area n+1
-    waoft(k,6)=au(k)/wu(k) !o = actual wetted perimeter
-enddo
+!we save <waoft> in a pointer. It is not needed to recompute based on FM variables. 
 
-!FM1DIMP2D: <au> needs to be interpolated from link to cell centre.
-!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
-do k=1,3
-    hpack(:,k)=s0(1:ngrid)
-    do k2=1,ngrid
-        qpack(k2,k)=umag(k2)*au(k2) !incorrect, see above. 
-    enddo
-    !qpack(:,k)=100 !check if hampers iteration
-enddo
+!swaoft=size(waoft,dim=2)
+!
+!do k=1,ngrid
+!    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
+!    !FM1DIMP2DO: needs to be interpolated from link to cell centre
+!    !FM1DIMP2DO: needs to be separated between flow and total
+!    !FM1DIMP2DO: wetted perimeter get from results
+!    !check right order in <FLNORM> and not in documentation. 
+!    waoft(k,1)=real(wu(k)) !wf = actual flow width 
+!    waoft(k,2)=real(wu(k)) !wt = actual total width
+!    waoft(k,3)=real(au(k)) !af = actual flow area
+!    waoft(k,4)=real(au(k)) !at = actual total area n
+!    waoft(k,5)=real(au(k)) !at = actual total area n+1
+!    waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
+!    do k2=7,swaoft
+!        waoft(k,k2)=0
+!    enddo
+!enddo
+
+!!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
+!!FM1DIMP2D: <au> needs to be interpolated from link to cell centre.
+!do k=1,3
+!    hpack(:,k)=s0(1:ngrid)
+!    do k2=1,ngrid
+!        qpack(k2,k)=umag(k2)*au(k2) !incorrect, see above. 
+!    enddo
+!    !qpack(:,k)=100 !check if hampers iteration
+!enddo
+
+!write(42,*) fm1dimp_debug_k1
+!write(42,*) 'q1'
+!write(42,*) qpack(:,1)
+!write(42,*) 'q3'
+!write(42,*) qpack(:,3)
+!write(42,*) 'h1'
+!write(42,*) hpack(:,1)
+!write(42,*) 'h3'
+!write(42,*) hpack(:,3)
+!write(42,*) 'waoft3'
+!write(42,*) waoft(:,3)
 
 call SOFLOW( &
 !<flwpar> input
@@ -275,7 +304,27 @@ call SOFLOW( &
 !Interpolate at links
 !FM1DIMP2D: compute new flow area <au> to find right velocity before interpolating
 !FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts.
-s1=hpack(:,3);
-u1=qpack(:,3)/au(1:ngrid-1)
+!s1(1:ngrid)=hpack(:,3)
+!u1(1:ngrid)=qpack(:,3)/waoft(:,3)
+do k=1,ngrid
+    s1(k)=hpack(k,3)
+    u1(k)=qpack(k,3)/waoft(k,3)
+enddo
+
+!FM1DIMP2DO: remove debug
+fm1dimp_debug_k1=fm1dimp_debug_k1+1 !FM1DIMP2DO: remove debug variables
+
+!write(42,*) 'SOFLOW'
+!write(42,*) fm1dimp_debug_k1
+!write(42,*) 'q1'
+!write(42,*) qpack(:,1)
+!write(42,*) 'q3'
+!write(42,*) qpack(:,3)
+!write(42,*) 'h1'
+!write(42,*) hpack(:,1)
+!write(42,*) 'h3'
+!write(42,*) hpack(:,3)
+!write(42,*) 'waoft3'
+!write(42,*) waoft(:,3)
 
 end subroutine SOFLOW_wrap

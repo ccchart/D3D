@@ -32,7 +32,7 @@
 
 subroutine setdt()
    use m_partitioninfo
-   use m_flowparameters, only: jawave
+   use m_flowparameters, only: jawave, FlowSolver
    use m_xbeach_data,    only: swave, instat
    use m_flowtimes
    use m_flow,           only: kkcflmx
@@ -125,6 +125,10 @@ subroutine setdt()
       endif
    endif
 
+   if (FlowSolver .eq. 2) then
+      dts=dt_max
+   endif
+    
    call timestepanalysis(dtsc_loc)
 
    dti = 1d0/dts

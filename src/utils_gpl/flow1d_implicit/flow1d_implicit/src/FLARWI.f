@@ -194,6 +194,9 @@ c
       real    dummy, delA, dummy2, delW
       double precision wght, hact
 c
+c     FM1DIMP2DO: remove debug
+      real dbg1
+c
 c     Include sobek constants
 c
       include '..\include\sobcon.i'
@@ -243,6 +246,9 @@ c
      +                     maxlev ,nlev   ,hlev   ,
      +                     h(i)   ,ilev   ,wght   )
 c
+c             FM1DIMP2DO: remove debug
+c              write(42,*) ilev, h(i)
+c
 c             Compute actual total width and area
 c
               call FLINAW (ngrid  ,i      ,lslot  ,
@@ -274,6 +280,9 @@ c
      +                     maxlev ,nlev   ,hlev   ,
      +                     hact   ,ilev   ,wght   )
 c
+c             FM1DIMP2DO: remove debug
+c              write(42,*) ilev, hact              
+c
 c              Compute of actual flow width and area
 c
               call FLINAW (ngrid  ,i      ,lslot  ,
@@ -281,6 +290,10 @@ c
      +                     hact   ,ilev   ,wght   ,
      +                     wft    ,aft    ,
      +                     wf(i)  ,af(i)  ,psltvr )
+c
+c             FM1DIMP2DO: remove debug
+c              write(42,*) af(i)
+              dbg1=af(i)
 c
 c              Compute extra area
 c

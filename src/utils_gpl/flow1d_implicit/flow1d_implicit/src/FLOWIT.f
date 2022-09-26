@@ -361,16 +361,21 @@ c
 c
 c     External functions
 c
-      integer gtrpnt, soipar
-      real sorpar
-      external gtrpnt, soipar, sorpar
-      integer  gtcpnt
-      external gtcpnt
+c      integer gtrpnt, soipar
+c      real sorpar
+c      external gtrpnt, soipar, sorpar
+c      integer  gtcpnt
+c      external gtcpnt
 c
 c     Include sobek error codes:
 c
 c      include '..\include\errcod.i'
-
+c
+c     Debug variables FM1DIMP2DO: remove
+c      
+      double precision dbg1
+      real dbg2
+c
 c      !DEC$ IF DEFINED (_DLL)
 
 c      if (initdone .and. OpenMIactive()) then
@@ -384,6 +389,17 @@ c      !DEC$ ENDIF
 c
 c     Calculate water level dependent hydraulic parameters
 c
+c     Debug variables FM1DIMP2DO: remove
+      dbg2=waoft(100,3)
+     
+c      write(42,*) 'in FLOWIT'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)
+      
       call FLHYPA(time    ,iter    ,nbran   ,ngrid   ,branch ,typcr  ,
 c                 <h_n>    <h_*>
      +            hp(1,2) ,hp(1,1) ,maxlev  ,nlev    ,hlev   ,wft    ,
@@ -397,6 +413,16 @@ c                                                    <Q_n>    <Q_*>
      +            tauwi   ,ksi     ,a1m     ,ker    ,dt1     ,theta2 ,
      +            exrstp  ,omalfa  ,omc     ,omr    ,omw    )
 c
+c     Debug variables FM1DIMP2DO: remove
+      dbg2=waoft(100,3)      
+c      write(42,*) 'FLYPA'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)
+      
       if (ker .eq. fatal) goto 1000
 c
 c
@@ -428,7 +454,15 @@ c     mozart parameters
      +            table   ,nqlat   ,qltpar ,juer   ,qlat   ,qlatgr ,
      +            strclo  ,strhis  ,theta2 ,dt1    ,ker    ,omqlat ,
      +            dhstru  ,relstr  ,iter)
-c
+      
+c      write(42,*) 'FLQLAT'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)
+     
       if (ker .eq. fatal) goto 1000
 
 c      if (lgrwt) then
@@ -468,6 +502,14 @@ c
      +            ibuf   ,istep  ,lfrou  ,qlat   ,qltpar ,nqlat  ,
      +            hlev   ,maxlev ,solbuf ,stdbq  ,nstdb  ,juer   ,
      +            ker    )
+            
+c      write(42,*) 'FLDSCO'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)     
 c
 c     Compute nodal administration matrix and solve this matrix
 c
@@ -483,6 +525,16 @@ c
      +            hp     ,qp     ,iterbc ,resid  ,delh   ,work  ,
      +            ker    ,steady ,nqlat  ,qlat   ,qltpar ,strhis,
      +            relstr ,theta  ,dt1    ,indx   ,juer   ,bicg  )
+      
+      dbg1=hp(1,1)
+      
+c      write(61,*) 'FLSOEQ'
+c      write(61,*) 'h1'
+c      write(61,*) hp(:,1)
+c      write(61,*) 'h2'
+c      write(61,*) hp(:,2)
+c      write(61,*) 'h3'
+c      write(61,*) hp(:,3)  
 c
 c     Exception
 c

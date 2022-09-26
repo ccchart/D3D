@@ -35,7 +35,7 @@ module m_f1dimp
    !
    ! flow 1d implicit
    !
-   logical                           :: f1dimp_included   !< do flow 1d implicit
+   logical                           :: f1dimp_included   !< do flow 1d implicit FM1DIMP2DO: this is checked with <flowsolver>?
    type(f1dimppar_type), target      :: f1dimppar         !< flow 1d implicit parameters
    !
 end module m_f1dimp

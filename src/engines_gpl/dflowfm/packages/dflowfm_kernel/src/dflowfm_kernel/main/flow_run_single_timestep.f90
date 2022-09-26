@@ -57,7 +57,8 @@ integer :: N, L
         case (1)
             call step_reduce(key)                            ! set a computational timestep implicit, reduce, elim conj grad substi
         case (2)
-            call SOFLOW_wrap(ndx,lnx,s0,ucmag,au,wu)
+            time1=time0+dts
+            call SOFLOW_wrap(ndx,lnx,s1,u1,time1)
     end select
     
     call timstop(handle_extra(51)) ! step_reduce

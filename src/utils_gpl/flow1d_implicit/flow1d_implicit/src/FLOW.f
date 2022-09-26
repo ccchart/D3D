@@ -374,6 +374,9 @@ c
       double precision        resid
       character*18            txt
 c
+c     FM1DIMP2DO: remove debug
+      real dbg1
+c
 c     Include sobek error code file
 c
       include '..\include\errcod.i'
@@ -410,6 +413,16 @@ c
       omboun = omega
       omqlat = omega
       theta2 = theta
+      
+c     FM1DIMP2DO: remove debug
+      dbg1=hp(1,1)
+c      write(42,*) 'in FLOW'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)
 c
 c     Put last computed approximations of new h and q in positions *
 c                                              <h_n>    <h_*>
@@ -418,6 +431,16 @@ c                 <h_n+1>    <Q_n>    <Q_*>    <Q_n+1>  <At_n>
      +            hp(1,3)   ,qp(1,1) ,qp(1,2) ,qp(1,3) ,waoft(1,5) ,
 c                 <At_n+1>
      +            waoft(1,4),qtyp)
+      
+c     FM1DIMP2DO: remove debug
+c      dbg1=hp(1,1)
+c      write(42,*) 'FLINS'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)
 c
 c
 c Neglect structures for now

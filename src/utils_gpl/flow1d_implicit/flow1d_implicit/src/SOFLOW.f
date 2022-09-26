@@ -258,7 +258,7 @@ c
 c     
 c     internal
 c
-      integer kgrid, kbran
+      integer kgrid, kbran, knode
 c
 c     Originally read from memory pool
 c
@@ -682,7 +682,7 @@ c      typcr  =     gtipnt ( 'TYPCR' )
       
 c      waoft  =     gtrpnt ( 'WAOFT' )
 c      real    waoft(ngrid,*)
-      real    waoft(ngrid,6)
+      real    waoft(ngrid,14)
       
 c      wfrict =     gtipnt ( 'WFRICT')
       integer wfrict(3,nbran)
@@ -710,6 +710,9 @@ c      grhis  =     gtrpnt ( 'GRHIS' )
       
       double precision h2(ngrid)
       double precision q2(ngrid)
+      
+c    debug
+      double precision dbg1
       
 c*******
 c    END allocate
@@ -787,6 +790,12 @@ c
           typcr(kbran)=1
           wfrict(1,kbran)=0
       enddo
+      
+c
+c     Node input
+      do knode=1,nnode
+          delh(knode)=0
+      enddo
 c      
 c      Other
 c
@@ -822,7 +831,7 @@ c
       flwpar(19 )      =dhtyp  
       flwpar(20 )      =exrstp 
       
-c     Initialize BC. #2DO make general!      
+c     Initialize BC. FM1DIMP2DO: make general
       hstat(1) = table(ntab(3,1))
       qstat(1) = table(ntab(3,2))
       
@@ -861,6 +870,16 @@ c
 
       iter = iter + 1
 
+c     FM1DIMP2DO: remove debug
+c      write(42,*) 'in SOFLOW'
+c      write(42,*) iter
+c      write(42,*) 'h1'
+c      write(42,*) hpack(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hpack(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hpack(:,3)
+      
       call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran,
      +ngrid ,
      +ncontr,ncsrel,ntcrel,ntrigr,lkalm ,nnc   ,
@@ -928,6 +947,16 @@ c        Check for convergence
 c
 c        Program stops at the moment in case of no convergence
 c
+c     FM1DIMP2DO: remove debug
+c      write(42,*) 'FLOW'
+c      write(42,*) iter
+c      write(42,*) 'h1'
+c      write(42,*) hpack(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hpack(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hpack(:,3)
+      
       call soconv (ngrid ,epsh   ,epsq   ,hpack  ,
      +             qpack ,miniter,conv   ,juresi ,
      +             iter  ,epsqrl ,qtyp   ,juer   ,
@@ -1002,13 +1031,28 @@ c     +rp(psltvr) )
 c        endif
 c
 c      endif
+c     FM1D2DO: remove debug
+      dbg1=hpack(1,1)
 c
 c     Calculate variables for time level n+1
 c
+c     <h2> and <q2> are not computed because I skip subroutine 
+c     <fltser>. Hence, I call <flnp1> with <hpack> and <qpack>
+      
+c     FM1DIMP2DO: remove debug      
+c      write(42,*) 'SOCONV'
+c      write(42,*) iter
+c      write(42,*) 'h1'
+c      write(42,*) hpack(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hpack(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hpack(:,3)
+      
       if ( ker.ne.fatal ) then
          call flnp1 (lkalm ,nbran ,ngrid ,nnf   ,
      +               branch,typcr ,bfrict,bfricp,
-     +               h2    ,q2    ,maxlev,nlev  ,
+     +               hpack(:,3)   ,qpack(:,3)   ,maxlev,nlev  ,
      +               hlev  ,wft   ,aft   ,overlp,
      +               arex  ,arexcn,arexop,of    ,
      +               maxtab,ntabm ,ntab  ,table ,
@@ -1018,6 +1062,36 @@ c
      +               afwfqs,alfab ,
      +               wtt   ,att   ,ker    )
       endif
+      
+c     FM1DIMP2DO: remove debug      
+c      write(42,*) 'FLNP1'
+c      write(42,*) iter
+c      write(42,*) 'h1'
+c      write(42,*) hpack(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hpack(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hpack(:,3)
+      
+      
+c     FM1D2DO: remove debug
+      dbg1=hpack(1,3)
+c
+c Original call
+c
+c      if ( ker.ne.fatal ) then
+c         call flnp1 (lkalm ,nbran ,ngrid ,nnf   ,
+c     +               branch,typcr ,bfrict,bfricp,
+c     +               h2    ,q2    ,maxlev,nlev  ,
+c     +               hlev  ,wft   ,aft   ,overlp,
+c     +               arex  ,arexcn,arexop,of    ,
+c     +               maxtab,ntabm ,ntab  ,table ,
+c     +               sectc ,sectv ,prslot,psltvr,
+c     +               waoft ,grsize,engpar,scifri,
+c     +               pfa   ,juer  ,cpack ,rpack ,
+c     +               afwfqs,alfab ,
+c     +               wtt   ,att   ,ker    )
+c      endif
 c
 c SObek WRite BuFfer
 c

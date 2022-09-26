@@ -158,6 +158,8 @@ module m_f1dimp_data
                                                                  !	 <bfricp(5,i)> Parameter for positive flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
                                                                  !	 <bfricp(6,i)> Parameter for negative flow direction in sub sec 2 (depending on friction type). Same definition as <bfricp (3,i)>.
       
+      real   , allocatable, dimension(:,:)             :: waoft ! <waoft>: P, double(<ngrid>,14): cross-sectional variables
+      
       double precision, allocatable, dimension(:,:)    :: hpack  !<hpack>: I, double(<ngrid,3>). Water level:
                                                                  ! <hpack(i,1)>: at time $n$.
                                                                  ! <hpack(i,2)>: at time $*$.
@@ -166,6 +168,7 @@ module m_f1dimp_data
                                                                  ! <qpack(i,1)>: at time $n$.
                                                                  ! <qpack(i,2)>: at time $*$.
                                                                  ! <qpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
+
       
       
       !*******
@@ -233,6 +236,10 @@ module m_f1dimp_data
       
       integer, allocatable, dimension(:,:)   :: nodnod           ! Administration of nodal adminstration matrix. All elements (i,j) with index i contain the numbers of the nodes connected to node i, node i included.
       
+      !*******
+      !debug variables
+      !*******
+      integer :: fm1dimp_debug_k1 
       
    end type f1dimppar_type
    

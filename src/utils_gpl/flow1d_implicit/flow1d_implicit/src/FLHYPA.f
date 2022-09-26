@@ -210,6 +210,12 @@ c                    2. flow area        Af(1:ngrid)
 c                    3. total width      Wt(1:ngrid)
 c                    4. total area       At(1:ngrid)
 c
+c     FM1DIMP2DO: remove debug
+c      write(52,*) 'a'
+c      write(52,*) waoft(:,3)
+c      write(52,*) h
+c      write(52,*) h1
+      
       call FLARWI (iter   ,nbran  ,ngrid  ,branch ,typcr  ,prslot ,
      +             h1     ,h      ,maxlev ,nlev   ,hlev   ,
      +             wft    ,aft    ,wtt    ,att    ,juer   ,
@@ -220,6 +226,12 @@ c                  <At>                            <W2>
      +             waoft(1,4)     ,ker    ,theta2 ,waoft(1,10)    ,
 c                  <Wfex>          <Wtex>       
      +             waoft(1,13)    ,waoft(1,14)    ,psltvr         )
+      
+c     FM1DIMP2DO: remove debug
+c      write(42,*) 'a'
+c      write(42,*) waoft(:,3)
+c      write(42,*) h
+c      write(42,*) h1
 c
 c     Computation of 5. wetted perimeter O (1:ngrid)
 c
@@ -254,6 +266,11 @@ c                  <alfabp>        <c2rp>           <wfp>
      +             waoft(1,7)     ,waoft(1,8)     ,waoft(1,9)     ,
 c                  <wf>
      +             waoft(1,1)     ,juer   ,ker    )
+      
+c     FM1DIMP2DO: remove debug
+c      write(42,*) 'a'
+c      write(42,*) waoft(:,3)
+      
 c
 c     Computation of 9. wind stress
 c

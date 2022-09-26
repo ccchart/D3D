@@ -244,6 +244,9 @@ c
 c     Include sobek error code file
 c
       include '..\include\errcod.i'
+      
+c     FM1DIMP2DO: remove debug
+      double precision dbg1      
 c
       if ( lkalm ) then
          scceql = sclceq(nnc+1)-1
@@ -266,7 +269,17 @@ c
      +             maxtab ,ntabm   ,ntab    ,table   ,
      +             hstat  ,hbdpar  ,qstat   ,qbdpar  ,
      +             rfv1   ,rfv2    ,mat     ,rhsvv(1,1)       )
-
+      
+c      write(42,*) 'FLSBCO'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)  
+c      write(42,*) 'delh'
+c      write(42,*) delh
+      
       if ( lkalm ) then
           scnodl = sclnod(nnn+1)-1
           call FLKSN2 (nnode  ,nnn ,nosdim, scnodl, scnode ,snnode,
@@ -274,6 +287,7 @@ c
       endif
 
       if (bicg) then
+c          write(42,*) 'bicg'
 c
 c--     the explicit left preconditioning step --c
         do 20 i = 1,nnode
@@ -288,6 +302,7 @@ c
 
       endif
       if (.not.bicg) then
+c          write(42,*) 'ludcmp'
 c
 c        If BICGST fails
 c        solve the matrix by using LU decomposition.
@@ -315,6 +330,19 @@ c
      +             rfv1    ,rfv2    ,
      +             rhsvv(1,1)       ,
      +             hp(1,1) ,hp(1,3) ,qp(1,1) ,qp(1,3) )
+      
+c      write(42,*) 'FLBRAN'
+c      write(42,*) 'h1'
+c      write(42,*) hp(:,1)
+c      write(42,*) 'h2'
+c      write(42,*) hp(:,2)
+c      write(42,*) 'h3'
+c      write(42,*) hp(:,3)  
+c      write(42,*) 'delh'
+c      write(42,*) delh
+      
+      dbg1=hp(1,3)
+      
 c
 c     Substitute back to obtain correct Q and H in retention areas
 c

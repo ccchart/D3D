@@ -36,11 +36,12 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi
+use m_flowgeom, only: ndx, ndxi, wu
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings
 use unstruc_messages
-use m_flow, only: s0, ucmag, hs
+use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
+
 
 implicit none
 
@@ -102,7 +103,7 @@ real, dimension(:,:)                     , pointer :: aft
 real, dimension(:,:)                     , pointer :: wtt
 real, dimension(:,:)                     , pointer :: att
 real, dimension(:,:)                     , pointer :: of
-
+real, dimension(:,:)                     , pointer :: waoft
 
 double precision                         , pointer :: time
 double precision                         , pointer :: dtf
@@ -111,7 +112,10 @@ double precision                         , pointer :: resid
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
-      
+
+!debug
+integer, pointer :: fm1dimp_debug_k1
+
 !output
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
@@ -119,6 +123,8 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 integer :: k
 integer :: k2
 integer :: idx_crs
+
+real :: swaoft
 
 !!
 !! CALC
@@ -140,7 +146,7 @@ f1dimppar%lambda=0
 f1dimppar%relstr=1.0d0
 f1dimppar%dhstru=1.0d-5
 f1dimppar%cflpse=1000.0d0
-f1dimppar%iterbc=10
+f1dimppar%iterbc=100
 f1dimppar%resid=1.0d-8 !check sensible value
 f1dimppar%overlp=0 !change to summerdiketransitionheight -> check if <network%csdefinitions%cs(1)%summerdike> allocated?
 f1dimppar%lconv=1 !the input is converted to logical by calling soipar? setting to true we can break the simulation in FM code to handle the messages
@@ -207,18 +213,66 @@ end do
  
 
 !dependent on gridpoints 
+if (allocated(f1dimppar%bfricp)) then
+    deallocate(f1dimppar%bfricp)
+endif
 allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !needs the part with FP1, FP2
+
+if (allocated(f1dimppar%x)) then
+    deallocate(f1dimppar%x)
+endif
 allocate(f1dimppar%x(f1dimppar%ngrid))
+
+if (allocated(f1dimppar%nlev)) then
+    deallocate(f1dimppar%nlev)
+endif
 allocate(f1dimppar%nlev(f1dimppar%ngrid)) 
+
+if (allocated(f1dimppar%hpack)) then
+    deallocate(f1dimppar%hpack)
+endif
 allocate(f1dimppar%hpack(f1dimppar%ngrid,3)) 
+
+if (allocated(f1dimppar%qpack)) then
+    deallocate(f1dimppar%qpack)
+endif
 allocate(f1dimppar%qpack(f1dimppar%ngrid,3))
 
+if (allocated(f1dimppar%waoft)) then
+    deallocate(f1dimppar%waoft)
+endif
+allocate(f1dimppar%waoft(f1dimppar%ngrid,18))
+swaoft=size(f1dimppar%waoft,dim=2)
+
     !cross-sectional information (gridpoint,level)
+if (allocated(f1dimppar%wft)) then
+    deallocate(f1dimppar%wft)
+endif
 allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+
+if (allocated(f1dimppar%aft)) then
+    deallocate(f1dimppar%aft)
+endif
 allocate(f1dimppar%aft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+
+if (allocated(f1dimppar%wtt)) then
+    deallocate(f1dimppar%wtt)
+endif
 allocate(f1dimppar%wtt(f1dimppar%ngrid,f1dimppar%maxlev)) 
+
+if (allocated(f1dimppar%att)) then
+    deallocate(f1dimppar%att)
+endif
 allocate(f1dimppar%att(f1dimppar%ngrid,f1dimppar%maxlev)) 
+
+if (allocated(f1dimppar%of)) then
+    deallocate(f1dimppar%of)
+endif
 allocate(f1dimppar%of(f1dimppar%ngrid,f1dimppar%maxlev)) 
+
+if (allocated(f1dimppar%hlev)) then
+    deallocate(f1dimppar%hlev)
+endif
 allocate(f1dimppar%hlev(f1dimppar%ngrid,f1dimppar%maxlev))
 
 do k=1,f1dimppar%ngrid
@@ -284,30 +338,57 @@ do k=1,f1dimppar%ngrid
     end do !k2
 
     !dependent variables
-    !FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>
+    !FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>? -> Better here and keep <hpack> and <qpack> as SRE computing variables
+    !
     do k2=1,3 !< time step before, intermediate, after
         !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
         f1dimppar%hpack(k,k2)=s0(k)
-        f1dimppar%qpack(k,k2)=hs(k)*ucmag(k) ! should be area, but I don't think it matters because it is done in <SOFLOW_wrap>
+        !FM1DIMP2DO: for the given water level we have to compute the flow area and multiply by the velocity <u1>
+        f1dimppar%qpack(k,k2)=100 
     end do !k2
+    
+    !waoft
+    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
+    !FM1DIMP2DO: needs to be interpolated from link to cell centre
+    !FM1DIMP2DO: needs to be separated between flow and total
+    !FM1DIMP2DO: wetted perimeter get from results
+    !check right order in <FLNORM> and not in documentation. 
+    f1dimppar%waoft(k,1)=real(wu(k)) !wf = actual flow width 
+    f1dimppar%waoft(k,2)=real(wu(k)) !wt = actual total width
+    f1dimppar%waoft(k,3)=real(au(k)) !af = actual flow area
+    f1dimppar%waoft(k,4)=real(au(k)) !at = actual total area n
+    f1dimppar%waoft(k,5)=real(au(k)) !at = actual total area n+1
+    f1dimppar%waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
+    do k2=7,swaoft
+        f1dimppar%waoft(k,k2)=0
+    enddo
+
 end do !k
 
 ! 
 !boundary conditions
 !   h
+if (allocated(f1dimppar%hbdpar)) then
+    deallocate(f1dimppar%hbdpar)
+endif
 allocate(f1dimppar%hbdpar(3,f1dimppar%nhstat)) 
+
 do k=1,f1dimppar%nhstat
     f1dimppar%hbdpar(1,k)=kbndz(2,1) !< first s1 point on the inside of the domain
     f1dimppar%hbdpar(2,k)=1
     f1dimppar%hbdpar(3,k)=k
 end do
 !   q
+if (allocated(f1dimppar%qbdpar)) then
+    deallocate(f1dimppar%qbdpar)
+endif
 allocate(f1dimppar%qbdpar(3,f1dimppar%nqstat)) 
+
 do k=1,f1dimppar%nqstat
     f1dimppar%qbdpar(1,k)=kbndu(2,1) !< first s1 point on the inside of the domain
     f1dimppar%qbdpar(2,k)=1
     f1dimppar%qbdpar(3,k)=f1dimppar%nhstat+k !< table number after the ones of <hbdpar>
-end do
+    end do
 
      !hbdpar(3,nhstat)  Hydrodynamic conditions for H-stations:
      !    (1,i) = Location [grid point] for H-station.
@@ -322,6 +403,9 @@ end do
 
 !tables
 !I cannot find the location of BC. Hardcoded for now:
+if (allocated(f1dimppar%table)) then
+    deallocate(f1dimppar%table)
+endif
 allocate(f1dimppar%table(f1dimppar%ntabm)) 
 f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /)
 
@@ -329,7 +413,9 @@ f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /)
 !     +                            table(ntab(3,itab)),
 !     +                            table(ntab(2,itab)),
 !     +                            dble(watlev),qh    )
-     
+if (allocated(f1dimppar%ntab)) then
+    deallocate(f1dimppar%ntab)
+endif     
 allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
 !   h
 f1dimppar%ntab(1,1)=2
@@ -343,7 +429,14 @@ f1dimppar%ntab(3,2)=7
 f1dimppar%ntab(4,2)=0
 
 !nodes
+if (allocated(f1dimppar%node)) then
+    deallocate(f1dimppar%node)
+endif 
 allocate(f1dimppar%node(4,f1dimppar%nnode))
+
+if (allocated(f1dimppar%numnod)) then
+    deallocate(f1dimppar%numnod)
+endif 
 allocate(f1dimppar%numnod(f1dimppar%nnode))
 !everything should be in the loop, but there are some issues...
 !upstream
@@ -370,15 +463,20 @@ do k=1,f1dimppar%nnode
     f1dimppar%node(2,k)=network%NDS%NODE(k)%GRIDNUMBER
     
     f1dimppar%numnod(k)=network%NDS%NODE(1)%NUMBEROFCONNECTIONS
-end do
+    end do
 !
 
+if (allocated(f1dimppar%nodnod)) then
+    deallocate(f1dimppar%nodnod)
+endif 
 allocate(f1dimppar%nodnod(f1dimppar%nnode,f1dimppar%nbrnod+1))
-!#2DO compute properly based on node connections. 
+!FM1DIMP2DO: compute properly based on node connections. 
 f1dimppar%nodnod(1,1)=1
 f1dimppar%nodnod(1,2)=2
 f1dimppar%nodnod(2,1)=2
 f1dimppar%nodnod(2,2)=1
+
+f1dimppar%fm1dimp_debug_k1=1
 
 end subroutine initialize_flow1d_implicit
 
