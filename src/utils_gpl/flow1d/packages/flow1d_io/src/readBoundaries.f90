@@ -1,7 +1,7 @@
 module m_readBoundaries
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2019.                                
+!  Copyright (C)  Stichting Deltares, 2017-2022.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify              
 !  it under the terms of the GNU Affero General Public License as               
@@ -559,12 +559,28 @@ end subroutine readBoundaryConditions
 !> part one of initializing the reading space varying meteo data
 !! to be called as the filename for the meteo data is known
 subroutine initSpaceVarMeteo1(filename, quantity, index)
-   character(len=*), intent(in) :: filename, quantity
-   integer         , intent(in) :: index
+   character(len=*), intent(in) :: filename  !< the filename for the file with space varying meteo data
+   character(len=*), intent(in) :: quantity  !< name of the quantity
+   integer         , intent(in) :: index     !< index of the quantity
 
-   filename_svwp(index) = filename
-   quantity_svwp(index) = quantity
-   isActiveSvwp(index)  = .true.
+   logical :: res
+   integer :: items(maxSvwpQuantities)
+
+   inquire(file=trim(filename), exist=res)
+   if (res) then
+      filename_svwp(index) = filename
+      quantity_svwp(index) = quantity
+      isActiveSvwp(index)  = .true.
+   else
+      call setmessage(LEVEL_FATAL, 'File not found. File: ' // trim(filename) // ' for quantity ' // quantity)
+   end if
+
+   items = (/ec_itemId_air_temperature, ec_itemId_cloudiness, ec_itemId_humidity, &
+      ec_itemId_windvelocity, ec_itemId_winddirection, ec_itemId_radiation/)
+
+   if (items(index) > 0) then
+      call setmessage(LEVEL_INFO, trim(quantity) // " defined both as constant as space varying; will use space varying")
+   end if
 
 end subroutine initSpaceVarMeteo1
 
@@ -591,6 +607,7 @@ subroutine initSpaceVarMeteo2(x, y)
    endif
 
    ec%coordsystem = merge(EC_COORDS_SFERIC, EC_COORDS_CARTESIAN, jsferic)
+   call clearECMessage()
 
    success = .true.
    svItemIDs(:) =  ec_undef_int
