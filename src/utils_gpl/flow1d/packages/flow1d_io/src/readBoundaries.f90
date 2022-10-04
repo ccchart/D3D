@@ -503,6 +503,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_speed')
    if (ec_src_item > 0) then
       ec_itemId_windvelocity  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable wind_speed (from BC file)")
    else
       ec_itemId_windvelocity  = 0
    endif
@@ -510,6 +511,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'wind_from_direction')
    if (ec_src_item > 0) then
       ec_itemId_winddirection  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable wind_from_direction (from BC file)")
    else
       ec_itemId_winddirection  = 0
    endif
@@ -517,6 +519,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'humidity')
    if (ec_src_item > 0) then
       ec_itemId_humidity  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable humidity (from BC file)")
    else
       ec_itemId_humidity  = 0
    endif
@@ -524,6 +527,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'air_temperature')
    if (ec_src_item > 0) then
       ec_itemId_air_temperature  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable air_temperature (from BC file)")
    else
       ec_itemId_air_temperature  = 0
    endif
@@ -531,6 +535,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    ec_src_item = ecFindItemByQuantityLocation(ec, 'model_wide', 'cloudiness')
    if (ec_src_item > 0) then
       ec_itemId_cloudiness  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable cloudiness (from BC file)")
    else
       ec_itemId_cloudiness  = 0
    endif
@@ -539,6 +544,7 @@ subroutine readBoundaryConditions(network, boundaryConditionsFile)
    if (ec_src_item > 0) then
       ec_itemId_radiation  = ecCreateTimeInterpolatedItem(ec, ec_src_item)
       temppars%useInputRadiation = .true.
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable radiation (from BC file)")
    else
       temppars%useInputRadiation = .false.
       ec_itemId_radiation  = 0
@@ -580,6 +586,8 @@ subroutine initSpaceVarMeteo1(filename, quantity, index)
 
    if (items(index) > 0) then
       call setmessage(LEVEL_INFO, trim(quantity) // " defined both as constant as space varying; will use space varying")
+   else
+      call setmessage(LEVEL_INFO, "Reading Meteo Variable " // trim(quantity) // " (from NetCDF file)")
    end if
 
 end subroutine initSpaceVarMeteo1
