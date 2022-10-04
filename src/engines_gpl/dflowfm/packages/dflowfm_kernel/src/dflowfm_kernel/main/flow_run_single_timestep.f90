@@ -59,7 +59,9 @@ integer :: N, L
             call step_reduce_transport_morpho(key)
         case (2)
             time1=time0+dts
-            call SOFLOW_wrap(ndx,lnx,s1,u1,time1)
+            call flow_initialize_fm1dimp_timestep() !in kernel, can access everything
+            call SOFLOW_wrap(time1) !in module, only accesses SRE variables
+            call flow_finalize_fm1dimp_timestep() !in kernel, can access everything
             call step_reduce_transport_morpho(key)
     end select
     

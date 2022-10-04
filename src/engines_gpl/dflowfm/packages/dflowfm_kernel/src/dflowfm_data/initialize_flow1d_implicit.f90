@@ -36,12 +36,12 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings
 use unstruc_messages
 use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
-
+use m_sediment, only: stmpar
 
 implicit none
 
@@ -275,7 +275,10 @@ if (allocated(f1dimppar%hlev)) then
 endif
 allocate(f1dimppar%hlev(f1dimppar%ngrid,f1dimppar%maxlev))
 
+call fm1dimp_update_network() !update of the flow variables (change every time step)
+
 do k=1,f1dimppar%ngrid
+    
     idx_crs=network%ADM%gpnt2cross(k)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
     
     !bfrictp
@@ -476,7 +479,18 @@ f1dimppar%nodnod(1,2)=2
 f1dimppar%nodnod(2,1)=2
 f1dimppar%nodnod(2,2)=1
 
+!FM1DIMP2DO: remove debug
 f1dimppar%fm1dimp_debug_k1=1
+
+!in steady computation <theta> in SRE is set to 1. We set it here to properly compute <u1> <q1>.
+!maybe better to make a case
+!do k=1,lnx
+!    teta(k)=1
+!enddo
+
+!we use the pure1d morpho implementation, only data on x!
+!I am not sure that implementation is correct though. 
+stmpar%morpar%mornum%pure1d=1
 
 end subroutine initialize_flow1d_implicit
 

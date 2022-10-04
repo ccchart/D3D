@@ -296,7 +296,12 @@
    ucxq_tmp = ucxq_mor
    ucyq_tmp = ucyq_mor
    call init_1dinfo()
-   call setucxqucyq_mor(u1_tmp, ucxq_tmp, ucyq_tmp)
+   !V: this function does several things and should be split. 
+   !<ucxq_tmp> is only used in 3D. It is a waste of time to compute also for 2D
+   !however, it cannot be switched off because <hs_mor> is also computed. 
+   !if (kmx > 0) then
+      call setucxqucyq_mor(u1_tmp, ucxq_tmp, ucyq_tmp) 
+   !endif
    !
    if ((.not. (jawave==4 .or. jawave==3 .or. jawave==6)) .or. flowWithoutWaves) then
       ktb=0d0     ! no roller turbulence

@@ -34,6 +34,7 @@
  use m_flow                                          ! substitute u1 and q1
  use m_flowgeom
  use m_flowtimes
+ use m_flowparameters, only: FlowSolver
  use m_partitioninfo
  use m_timer
  use unstruc_channel_flow
@@ -59,9 +60,15 @@
        do L = 1,lnx
           if (hu(L) > 0) then
              k1 = ln(1,L) ; k2 = ln(2,L)
-             u1(L) = ru(L) - fu(L)*( s1(k2) - s1(k1) )
-             q1(L) = au(L)*( teta(L)*u1(L) + (1d0-teta(L))*u0(L) )
-             qa(L) = au(L)*u1(L)
+             if (FlowSolver.eq.2) then !SRE solver
+                 !u1(L)=u1(L) !not necessary, it is already available
+                 q1(L)=au(L)*u1(L) 
+                 qa(L)=q1(L)
+             else !default case
+                u1(L) = ru(L) - fu(L)*( s1(k2) - s1(k1) )
+                q1(L) = au(L)*( teta(L)*u1(L) + (1d0-teta(L))*u0(L) )
+                qa(L) = au(L)*u1(L)
+             endif
           else
 !            call reset_fu_ru_for_structure_link(L, network%adm%lin2str, network%sts%struct) ! see furusobekstructures
              u1(L) = 0d0

@@ -32,8 +32,7 @@
 
 !> Performs a single computational timestep, calling <SOFLOW> of Sobek-RE
     
-subroutine SOFLOW_wrap(ndx,lnx,s1,u1,time1)   
-!subroutine SOFLOW_wrap(ndx,lnx,s0,umag,au,wu,s1,u1)   
+subroutine SOFLOW_wrap(time1)   
 
 use m_f1dimp
 !use m_flow, only: s1, u1 !this subroutine is not in flow_kernel and cannot use this module
@@ -44,8 +43,9 @@ implicit none
 !input
 !
 
-integer, intent(in) :: ndx
-integer, intent(in) :: lnx
+!integer, intent(in) :: ndx
+!integer, intent(in) :: lnx
+!integer, intent(in) :: lnx1d
 
 double precision, intent(in) :: time1
 
@@ -57,9 +57,11 @@ double precision, intent(in) :: time1
 !
 !output
 !
+!double precision, intent(out) :: h
+!double precision, intent(out) :: u
 
-double precision, dimension(ndx), intent(out) :: s1
-double precision, dimension(lnx), intent(out) :: u1
+!double precision, dimension(ndx), intent(out) :: s1
+!double precision, dimension(lnx), intent(out) :: u1
 !double precision, dimension(ndx) :: s1
 !double precision, dimension(lnx) :: u1
 
@@ -136,7 +138,7 @@ double precision, dimension(:,:)         , pointer :: hlev
 integer                                  , pointer :: fm1dimp_debug_k1
 
 !local
-integer                              :: k, k2
+!integer                              :: N
 integer                              :: swaoft
 
 
@@ -306,10 +308,9 @@ call SOFLOW( &
 !FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts.
 !s1(1:ngrid)=hpack(:,3)
 !u1(1:ngrid)=qpack(:,3)/waoft(:,3)
-do k=1,ngrid
-    s1(k)=hpack(k,3)
-    u1(k)=qpack(k,3)/waoft(k,3)
-enddo
+
+!h=hpack(:,3)
+!u=qpack(:,3)/waoft(:,3)
 
 !FM1DIMP2DO: remove debug
 fm1dimp_debug_k1=fm1dimp_debug_k1+1 !FM1DIMP2DO: remove debug variables
