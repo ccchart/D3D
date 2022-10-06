@@ -37,7 +37,7 @@ subroutine fm1dimp_update_network(iresult)
 !use m_flowparameters
 use m_f1dimp
 use unstruc_channel_flow, only: network
-use m_CrossSections, only: CalcConveyance
+use m_CrossSections, only: createTablesForTabulatedProfile
 !use unstruc_messages
 
 implicit none
@@ -47,69 +47,6 @@ implicit none
 !pointer
 !
 
-!logical                                  , pointer :: lconv                   
-!logical                                  , pointer :: steady    
-!                                         
-!integer                                  , pointer :: flitmx                 
-!integer                                  , pointer :: iterbc                 
-!integer                                  , pointer :: ngrid   
-!integer                                  , pointer :: ngridm   
-!integer                                  , pointer :: nbran   
-!integer                                  , pointer :: maxlev
-!integer                                  , pointer :: nnode
-!integer                                  , pointer :: nhstat
-!integer                                  , pointer :: nqstat
-!integer                                  , pointer :: maxtab
-!integer                                  , pointer :: ntabm
-!integer                                  , pointer :: nbrnod
-!
-!integer, dimension(:)                    , pointer :: nlev
-!integer, dimension(:)                    , pointer :: numnod
-!
-!integer, dimension(:,:)                  , pointer :: branch
-!integer, dimension(:,:)                  , pointer :: bfrict
-!integer, dimension(:,:)                  , pointer :: hbdpar
-!integer, dimension(:,:)                  , pointer :: qbdpar
-!integer, dimension(:,:)                  , pointer :: ntab
-!integer, dimension(:,:)                  , pointer :: node
-!integer, dimension(:,:)                  , pointer :: nodnod
-!
-!real                                     , pointer :: g
-!real                                     , pointer :: psi                    
-!real                                     , pointer :: theta                  
-!real                                     , pointer :: epsh                   
-!real                                     , pointer :: epsq                   
-!real                                     , pointer :: rhow                   
-!real                                     , pointer :: omega                  
-!real                                     , pointer :: epsqrl                 
-!real                                     , pointer :: lambda                 
-!real                                     , pointer :: relstr                 
-!real                                     , pointer :: dhstru                 
-!real                                     , pointer :: cflpse                               
-!real                                     , pointer :: overlp                 
-!real                                     , pointer :: omcfl                  
-!real                                     , pointer :: dhtyp                  
-!real                                     , pointer :: exrstp     
-!
-!real, dimension(:)                       , pointer :: table
-!real, dimension(:)                       , pointer :: x
-!
-!real, dimension(:,:)                     , pointer :: bfricp
-!real, dimension(:,:)                     , pointer :: wft
-!real, dimension(:,:)                     , pointer :: aft
-!real, dimension(:,:)                     , pointer :: wtt
-!real, dimension(:,:)                     , pointer :: att
-!real, dimension(:,:)                     , pointer :: of
-!real, dimension(:,:)                     , pointer :: waoft
-!
-!double precision                         , pointer :: time
-!double precision                         , pointer :: dtf
-!double precision                         , pointer :: resid
-!
-!double precision, dimension(:,:)         , pointer :: hpack
-!double precision, dimension(:,:)         , pointer :: qpack
-!double precision, dimension(:,:)         , pointer :: hlev
-
 !output
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
@@ -117,8 +54,6 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 integer :: k
 integer :: k2
 integer :: idx_crs
-
-real :: swaoft
 
 !!
 !! CALC
@@ -131,8 +66,18 @@ do k=1,f1dimppar%ngrid
     idx_crs=network%ADM%gpnt2cross(k)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
     
     !update cross-section flow variables after bed level changes
-    call CalcConveyance(network%crs%cross(idx_crs))
-
+    !FM1DIMP2DO: remove debug
+    !if (idx_crs.eq.1) then
+    !write(42,*) network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(5), network%CRS%CROSS(idx_crs)%TABDEF%height(1)
+    !endif
+    
+    call createTablesForTabulatedProfile(network%CRS%CROSS(idx_crs)%TABDEF)
+    
+    !FM1DIMP2DO: remove debug
+    !if (idx_crs.eq.1) then
+    !write(42,*) network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(5), network%CRS%CROSS(idx_crs)%TABDEF%height(1)
+    !endif
+    
     !copy values to <fm1dimppar>
     !FM1DIMP2DO: move to a subroutine?
     

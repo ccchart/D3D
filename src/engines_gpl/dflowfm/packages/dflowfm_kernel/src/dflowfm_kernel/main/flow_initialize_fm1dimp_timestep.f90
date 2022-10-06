@@ -35,16 +35,16 @@
 !This function cannot be in the <fm1dimp> module because it uses FM variables and
 !while the kernel of FM depends on the <fm1dimp> module, the opposite is not true.
 
-subroutine flow_initialize_fm1dimp_timestep()
+subroutine flow_initialize_fm1dimp_timestep(iresult)
 
 !
 !MODULES
 !
 
-use m_flowgeom, only: ndxi
-use unstruc_channel_flow, only: network
-use m_CrossSections, only: CalcConveyance
-use m_f1dimp 
+!use m_flowgeom, only: ndxi
+!use unstruc_channel_flow, only: network
+!use m_CrossSections, only: CalcConveyance
+!use m_f1dimp 
 
 implicit none
 
@@ -54,20 +54,21 @@ implicit none
 
 !pointer
 
-real, dimension(:)                       , pointer :: x
+!output
 
-real, dimension(:,:)                     , pointer :: waoft
-
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
+integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !locals
 
-integer :: L, N, n1, n2, nint, nout
+!integer :: L, N, n1, n2, nint, nout
 
 !
 !SET POINTERS
 !
 
+!
+!CALC
+!
+call fm1dimp_update_network(iresult) !update of the flow variables (change every time step)
 
 end subroutine flow_initialize_fm1dimp_timestep

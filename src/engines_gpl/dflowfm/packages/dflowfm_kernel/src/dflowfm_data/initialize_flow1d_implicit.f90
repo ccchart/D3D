@@ -41,7 +41,7 @@ use unstruc_channel_flow, only: network
 use m_flowexternalforcings
 use unstruc_messages
 use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
-use m_sediment, only: stmpar
+use m_sediment, only: stmpar, jased, stm_included
 
 implicit none
 
@@ -275,7 +275,7 @@ if (allocated(f1dimppar%hlev)) then
 endif
 allocate(f1dimppar%hlev(f1dimppar%ngrid,f1dimppar%maxlev))
 
-call fm1dimp_update_network() !update of the flow variables (change every time step)
+!call fm1dimp_update_network(iresult) !update of the flow variables (change every time step)
 
 do k=1,f1dimppar%ngrid
     
@@ -327,18 +327,20 @@ do k=1,f1dimppar%ngrid
     !x
     f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE
     
-    !nlev
-    f1dimppar%nlev(k)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
-    do k2=1,f1dimppar%nlev(k)
-        f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
-        f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
-        f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
-        !FM1DIMP2DO: deal with (at least error) case of rectangular cross-section with only two elevation points. 
-        !In this case, the area for the low point is 0. This causes a huge interpolation error in SRE. 
-        f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
-        f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
-        f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
-    end do !k2
+    !done in <fm1dimp_update_network>, which is called before the time step
+    !
+    !!nlev
+    !f1dimppar%nlev(k)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
+    !do k2=1,f1dimppar%nlev(k)
+    !    f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
+    !    f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
+    !    f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
+    !    !FM1DIMP2DO: deal with (at least error) case of rectangular cross-section with only two elevation points. 
+    !    !In this case, the area for the low point is 0. This causes a huge interpolation error in SRE. 
+    !    f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
+    !    f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
+    !    f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
+    !end do !k2
 
     !dependent variables
     !FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>? -> Better here and keep <hpack> and <qpack> as SRE computing variables
@@ -367,7 +369,7 @@ do k=1,f1dimppar%ngrid
     enddo
 
 end do !k
-
+    
 ! 
 !boundary conditions
 !   h
@@ -490,7 +492,9 @@ f1dimppar%fm1dimp_debug_k1=1
 
 !we use the pure1d morpho implementation, only data on x!
 !I am not sure that implementation is correct though. 
-stmpar%morpar%mornum%pure1d=1
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
+    stmpar%morpar%mornum%pure1d=1
+endif
 
 end subroutine initialize_flow1d_implicit
 
