@@ -493,7 +493,7 @@ f1dimppar%fm1dimp_debug_k1=1
 !we use the pure1d morpho implementation, only data on x!
 !I am not sure that implementation is correct though. 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-    stmpar%morpar%mornum%pure1d=1
+    stmpar%morpar%mornum%pure1d=0
 endif
 
 end subroutine initialize_flow1d_implicit
