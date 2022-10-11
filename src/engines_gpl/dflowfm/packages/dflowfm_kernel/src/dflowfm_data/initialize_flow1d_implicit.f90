@@ -36,12 +36,13 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings
 use unstruc_messages
 use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
+use m_fm_erosed, only: link1sign2
 
 implicit none
 
@@ -123,6 +124,7 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 integer :: k
 integer :: k2
 integer :: idx_crs
+integer :: n1, n2, nint, nout
 
 real :: swaoft
 
@@ -412,7 +414,10 @@ if (allocated(f1dimppar%table)) then
     deallocate(f1dimppar%table)
 endif
 allocate(f1dimppar%table(f1dimppar%ntabm)) 
-f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /)
+!f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /) !increase in water level
+!f1dimppar%table=(/ 0,86400,0,10000,1,1,100,100 /) !constant water level
+f1dimppar%table=(/ 0d0,86400d0,0d0,10000d0,1.00666656855963d0,1.00666656855963d0,100d0,100d0 /) !constant water level
+
 
 !                     call INTTAB (ntab(1,itab), ntab(4,itab),
 !     +                            table(ntab(3,itab)),
@@ -493,8 +498,33 @@ f1dimppar%fm1dimp_debug_k1=1
 !we use the pure1d morpho implementation, only data on x!
 !I am not sure that implementation is correct though. 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-    stmpar%morpar%mornum%pure1d=0
+    stmpar%morpar%mornum%pure1d=1
 endif
+
+!the most downstream link points inside and we have to consider this for the flux. 
+call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call to call it here and it will not be called again because it will be allocated. 
+!FM1DIMP2DO: I don't know why it fails compiling in case I ask to allocate here. It does not have the allocatable attribute, but neither it does <link1sign> 
+!if (allocated(link1sign2)) then
+!    deallocate(link1sign2)
+!endif 
+allocate(link1sign2(lnx)) 
+do k=1,lnx1d !internal links
+    link1sign2(k)=1
+enddo
+do k=lnxi+1,lnx1Db !boundary links
+    !FM1DIMP2DO: we could create a variable with this mapping to prevent computation of max, min and x(nint) every timestep
+    n1 = ln(1,k) 
+    n2 = ln(2,k)
+    nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
+    nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
+    if (f1dimppar%x(nint).eq.0) then !upstream
+        link1sign2(k)=1 
+    else ! downstream
+        link1sign2(k)=-1
+    endif
+enddo
+
+!because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
 end subroutine initialize_flow1d_implicit
 

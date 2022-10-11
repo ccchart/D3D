@@ -73,6 +73,8 @@
 
    integer, dimension(:),                 pointer :: link1 => NULL()
    integer, dimension(:),                 pointer :: link1sign => NULL()
+   integer, dimension(:),                 pointer :: link1sign2 => NULL() !sign of the link for FM1DIMP. It should converge with <link1sign>, but I am not sure of the use of <link1sign>. 
+                                                                          !<link1sign2> is 1 when a positive velocity is in the direction of increasing chainage and -1 when it has the opposite direction.
    logical                                        :: link1_initialized = .false.
 
    real(fp), dimension(:,:),              pointer :: seddif

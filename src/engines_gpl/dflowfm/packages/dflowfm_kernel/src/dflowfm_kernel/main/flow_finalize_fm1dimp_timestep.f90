@@ -91,6 +91,7 @@ do L=1,lnx1d !internal links
 enddo
             
 do L=lnxi+1,lnx1Db !boundary links
+    !FM1DIMP2DO: we could create a variable with this mapping to prevent computation of max, min and x(nint) every timestep
     n1 = ln(1,L) 
     n2 = ln(2,L)
     nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
@@ -101,6 +102,8 @@ do L=lnxi+1,lnx1Db !boundary links
     !not sure if x=0 is enough to order the branch. Another option is to get the next internal cell connected to the identified
     !internal cell and compute <dx>. If positive it is in the direction of the flow and viceversa.
     
+    !FM1DIMP2DO: this is prone to error and tricky. I am assuming that the upstream end, where the discharge is specified, is a chainage 0
+    !The difficulty is to set a direction of the branch that defines what it means that the velocity of SRE is positive. 
     if (x(nint).eq.0) then !upstream
         u1(L)=qpack(nint,3)/waoft(nint,3) 
     else ! downstream

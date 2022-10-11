@@ -37,7 +37,7 @@
    use unstruc_messages
    use m_sediment, only: stmpar, jabndtreatment  ! debug
    use sediment_basics_module
-   use m_fm_erosed, only: link1, link1sign
+   use m_fm_erosed, only: link1, link1sign, link1sign2
    implicit none
 
    integer,                                  intent(in)  :: lsedtot        !< number of sediment fractions
@@ -90,9 +90,9 @@
                if (upwindbedload .or. Lf>Lnxi) then
                    ! upwind approximation (also at boundary cells for central scheme if jabndtreatment==0)
                    if ( sutot1>0d0 .and. sutot2>0d0 ) then
-                      e_sn(Lf,l) =  sx(k1,l)
+                      e_sn(Lf,l) =  link1sign2(Lf)*sx(k1,l)
                    else if ( sutot1<0d0 .and. sutot2<0d0 ) then
-                      e_sn(Lf,l) =  sx(k2,l)
+                      e_sn(Lf,l) =  link1sign2(Lf)*sx(k2,l)
                    else
                       e_sn(Lf,l) =  0.5d0*(sx(k1,l)+sx(k2,l))
                    end if
