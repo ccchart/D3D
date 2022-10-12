@@ -923,7 +923,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
           endif
        enddo
     endif
-    if (.not.error) then
+    if (.not.error .and. flocmod /= FLOC_NONE) then
        !
        ! process flocculation
        !
