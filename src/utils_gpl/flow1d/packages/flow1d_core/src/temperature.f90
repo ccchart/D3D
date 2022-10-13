@@ -153,6 +153,8 @@ module m_temperature
          tempPars%T_air          = values
       case('humidity')
          tempPars%r_hum          = values/100d0
+      case('radiation')
+         q_sn = values
       end select
 
    end subroutine set_par_temperature_array

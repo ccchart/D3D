@@ -67,7 +67,7 @@ module m_readBoundaries
    integer, parameter         :: maxSvwpQuantities = 6
    character(len=256)         :: filename_svwp(maxSvwpQuantities), quantity_svwp(maxSvwpQuantities)
    integer, public            :: svItemIDs(maxSvwpQuantities) = ec_undef_int
-   logical                    :: isActiveSvwp(maxSvwpQuantities) = .false.
+   logical, public            :: isActiveSvwp(maxSvwpQuantities) = .false.
    integer, public, parameter :: index_air_temperature_svwp = 1
    integer, public, parameter :: index_cloudiness_svwp = 2
    integer, public, parameter :: index_humidity_svwp = 3
@@ -697,10 +697,29 @@ subroutine getBoundaryValues(ec_target_item, timeAsMJD, values_from_ec)
    integer         , intent(in)   :: ec_target_item
    double precision, intent(in)   :: timeAsMJD
 
+   logical, parameter :: extra_timer = .false.
+   integer(kind=8) :: count_start, count_rate, count_stop
+   double precision :: start, finish
+   double precision, save :: cumcpu = 0.0d0, cumwall = 0.0d0
+
+   if (extra_timer) then
+      call cpu_time(start)
+      call system_clock(count_start, count_rate)
+   end if
+
    values_from_ec = 0.0
    if (.not. ecGetValues(ec, ec_target_item, timeAsMJD, values_from_ec) ) then
       call SetMessage(LEVEL_FATAL, dumpECMessageStack(LEVEL_ERROR, setmessage))
    endif
+
+   if (extra_timer) then
+      call cpu_time(finish)
+      call system_clock(count_stop)
+
+      cumcpu = cumcpu + finish - start
+      cumwall = cumwall + (dble(count_stop - count_start) / dble(count_rate))
+      write(*,*) cumcpu, cumwall
+   end if
 
 end subroutine getBoundaryValues
 
