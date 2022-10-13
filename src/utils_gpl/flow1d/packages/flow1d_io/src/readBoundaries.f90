@@ -64,7 +64,6 @@ module m_readBoundaries
    integer, public            :: ec_itemId_windvelocity
    integer, public            :: ec_itemId_boundaries = ec_undef_int
    integer, public            :: ec_itemId_laterals = ec_undef_int
-   logical                    :: SvwpReady = .false.
    integer, parameter         :: maxSvwpQuantities = 6
    character(len=256)         :: filename_svwp(maxSvwpQuantities), quantity_svwp(maxSvwpQuantities)
    integer, public            :: svItemIDs(maxSvwpQuantities) = ec_undef_int
@@ -82,6 +81,13 @@ module m_readBoundaries
          'wind_speed         ', &
          'wind_from_direction', &
          'solarradiation     ']
+   character(len=*), public, parameter  :: svDataKeywords(maxSvwpQuantities) = [ &
+         'sv_air_temperature     ', &
+         'sv_cloudiness         ', &
+         'sv_humidity           ', &
+         'sv_wind_speed         ', &
+         'sv_wind_from_direction', &
+         'sv_solar_radiation     ']
 
    integer, public, parameter :: ec_lat_vartype_disch  = 1  ! todo: move to m_laterals, and use where applicable
    integer, public, parameter :: ec_lat_vartype_sal    = 2
@@ -585,7 +591,7 @@ subroutine initSpaceVarMeteo1(filename, quantity, index)
       ec_itemId_windvelocity, ec_itemId_winddirection, ec_itemId_radiation/)
 
    if (items(index) > 0) then
-      call setmessage(LEVEL_INFO, trim(quantity) // " defined both as constant as space varying; will use space varying")
+      call setmessage(LEVEL_INFO, trim(quantity) // " defined both as global time serie as space varying; will use space varying")
    else
       call setmessage(LEVEL_INFO, "Reading Meteo Variable " // trim(quantity) // " (from NetCDF file)")
    end if
@@ -636,7 +642,7 @@ subroutine initSpaceVarMeteo2(x, y)
    if (.not. success) then
       call setmessage(LEVEL_ERROR, dumpECMessageStack(LEVEL_ERROR, setmessage))
    end if
-   SvwpReady = .true.
+
    !call ecInstancePrintState(ec, setmessage, LEVEL_INFO)
 
 end subroutine initSpaceVarMeteo2
