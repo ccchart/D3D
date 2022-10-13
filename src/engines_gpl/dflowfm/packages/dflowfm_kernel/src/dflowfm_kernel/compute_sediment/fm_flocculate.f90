@@ -41,13 +41,12 @@
    !--declarations----------------------------------------------------------------
    use precision
    use m_flowtimes, only: dts
-   use flocculation, only: flocculate
+   use flocculation, only: FLOC_NONE, flocculate
    use m_flowgeom, only: ndx, bl
    use m_flow    , only: kmx, s1
    use m_flowparameters, only: epshs
    use m_transport, only: constituents, ised1
    use m_fm_erosed, only: floclist, flocmod, nflocpop, nflocsizes, tfloc
-   use morphology_data_module, only: FLOC_NONE
    implicit none
    
    !

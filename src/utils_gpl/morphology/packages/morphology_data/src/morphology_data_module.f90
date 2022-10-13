@@ -35,6 +35,7 @@ module morphology_data_module
 !!--module declarations---------------------------------------------------------
 use precision
 use sediment_basics_module, only: SEDTYP_SAND, SEDTYP_SILT
+use flocculation, only: FLOC_NONE
 use handles, only:handletype
 use properties, only:tree_data
 use m_tables, only:t_table
@@ -142,11 +143,6 @@ integer, parameter, public :: MAX_IP   =  5     ! maximum number of integer para
 integer, parameter, public :: SP_RUNID =  1     ! ID of simulation
 integer, parameter, public :: SP_USRFL =  2     ! name of user specified input file
 integer, parameter, public :: MAX_SP   =  2     ! maximum number of strings
-
-integer, parameter, public :: FLOC_NONE                 = 0
-integer, parameter, public :: FLOC_MANNING_DYER         = 1
-integer, parameter, public :: FLOC_CHASSAGNE_SAFAR      = 2
-integer, parameter, public :: FLOC_VERNEY_ETAL          = 3
 
 integer, parameter, public :: WS_FORM_FUNCTION_SALTEMCON    = 1
 integer, parameter, public :: WS_FORM_FUNCTION_DSS          = 2

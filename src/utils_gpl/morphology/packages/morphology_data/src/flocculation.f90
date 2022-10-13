@@ -35,6 +35,13 @@ module flocculation
     use precision
     implicit none
 
+    integer, parameter, public :: FLOC_NONE                 = 0 ! no flocculation
+    integer, parameter, public :: FLOC_MANNING_DYER         = 1 ! flocculation based on Manning and Dyer (2007)
+    integer, parameter, public :: FLOC_CHASSAGNE_SAFAR      = 2 ! flocculation based on Chassagne and Safar (2020)
+    integer, parameter, public :: FLOC_VERNEY_ETAL          = 3 ! flocculation based on Verney et al (2010)
+    
+    real(fp), parameter        :: PARAM_SOULSBY = 3.0  ! Coefficient of proportionality according to Soulsby (see Manning and Dyer)
+
 contains
 
 
@@ -111,10 +118,9 @@ subroutine micro_floc_settling_manning( tke, ws_micro )
 !
 ! Local variables and parameters
 !
-    real(fp), parameter   :: param_soulsby = 3.0  ! Coefficient of proportionality according to Soulsby (see Manning and Dyer)
     real(fp)              :: tshear               ! Turbulent shear stress
 
-    tshear = param_soulsby * tke
+    tshear = PARAM_SOULSBY * tke
 
     !
     ! Settling velocity of micro flocs
@@ -443,8 +449,6 @@ end subroutine floc_chassagne
 
 
 subroutine flocculate(cfloc, adt, flocmod)
-use morphology_data_module, only: FLOC_MANNING_DYER, FLOC_CHASSAGNE_SAFAR, FLOC_VERNEY_ETAL
-
 !!--description-----------------------------------------------------------------
 !
 ! Update the mass distribution of clay over the various floc sizes.
