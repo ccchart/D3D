@@ -38,11 +38,12 @@ use m_f1dimp
 use m_physcoef
 use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi
 use unstruc_channel_flow, only: network
-use m_flowexternalforcings
+use m_flowexternalforcings !FM1dIMP2DO: do I need it?
 use unstruc_messages
 use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
 use m_fm_erosed, only: link1sign2
+!use m_meteo !boundary conditions -> eventually done every time step
 
 implicit none
 
@@ -66,6 +67,7 @@ integer                                  , pointer :: nqstat
 integer                                  , pointer :: maxtab
 integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
+integer                                  , pointer :: table_length
 
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
@@ -125,8 +127,14 @@ integer :: k
 integer :: k2
 integer :: idx_crs
 integer :: n1, n2, nint, nout
+integer :: table_number
 
 real :: swaoft
+
+!point
+
+table_length => f1dimppar%table_length
+maxtab       => f1dimppar%maxtab
 
 !!
 !! CALC
@@ -176,8 +184,15 @@ end do
 f1dimppar%nnode=network%nds%count 
 f1dimppar%nhstat=nzbnd 
 f1dimppar%nqstat=nqbnd 
-f1dimppar%ntabm=8 !Properly compute. I cannot find the location of the read BC tables!
 f1dimppar%maxtab=ndx - ndxi !<we have as many tables as open boundaries
+!if (comparereal(nzbnd+nqbnd,ndx-ndxi,1d-10)/=0) then !FM1DIMP2DO: why does the compiler complain when using <comparereal>?
+if ((nzbnd+nqbnd).ne.(ndx-ndxi)) then
+    write (msgbuf, '(a)') 'Number of open boundaries is different than number of water level + discharge boundaries'
+    call err_flush()
+    iresult=1    
+endif
+table_length=2 !length of each table. All have only 2 times.
+f1dimppar%ntabm=maxtab*table_length*2 !last 2 is for <time> and <values> 
 f1dimppar%nbrnod=network%NDS%MAXNUMBEROFCONNECTIONS
 
 !!dependent on branch
@@ -374,6 +389,15 @@ end do !k
     
 ! 
 !boundary conditions
+!
+
+if (allocated(f1dimppar%ntab)) then
+    deallocate(f1dimppar%ntab)
+endif     
+allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
+
+table_number=0 !counter position in which the BC is saved in the table
+
 !   h
 if (allocated(f1dimppar%hbdpar)) then
     deallocate(f1dimppar%hbdpar)
@@ -381,9 +405,17 @@ endif
 allocate(f1dimppar%hbdpar(3,f1dimppar%nhstat)) 
 
 do k=1,f1dimppar%nhstat
+    table_number=table_number+1
+    
     f1dimppar%hbdpar(1,k)=kbndz(2,1) !< first s1 point on the inside of the domain
     f1dimppar%hbdpar(2,k)=1
-    f1dimppar%hbdpar(3,k)=k
+    f1dimppar%hbdpar(3,k)=table_number
+    
+    !FM1DIMP2DO: make this a subroutine? called in every loop for every BC
+    f1dimppar%ntab(1,table_number)=table_length !length of table 
+    f1dimppar%ntab(2,table_number)=table_number*table_length-1 !start address X
+    f1dimppar%ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
+    f1dimppar%ntab(4,table_number)=0 !access method (0=continuous interpolation)
 end do
 !   q
 if (allocated(f1dimppar%qbdpar)) then
@@ -392,10 +424,17 @@ endif
 allocate(f1dimppar%qbdpar(3,f1dimppar%nqstat)) 
 
 do k=1,f1dimppar%nqstat
+    table_number=table_number+1
+    
     f1dimppar%qbdpar(1,k)=kbndu(2,1) !< first s1 point on the inside of the domain
     f1dimppar%qbdpar(2,k)=1
-    f1dimppar%qbdpar(3,k)=f1dimppar%nhstat+k !< table number after the ones of <hbdpar>
-    end do
+    f1dimppar%qbdpar(3,k)=table_number !< table number after the ones of <hbdpar>
+    
+    f1dimppar%ntab(1,table_number)=table_length !length of table 
+    f1dimppar%ntab(2,table_number)=table_number*table_length-1 !start address X
+    f1dimppar%ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
+    f1dimppar%ntab(4,table_number)=0 !access method (0=continuous interpolation)
+end do
 
      !hbdpar(3,nhstat)  Hydrodynamic conditions for H-stations:
      !    (1,i) = Location [grid point] for H-station.
@@ -409,34 +448,10 @@ do k=1,f1dimppar%nqstat
       
 
 !tables
-!I cannot find the location of BC. Hardcoded for now:
 if (allocated(f1dimppar%table)) then
     deallocate(f1dimppar%table)
 endif
 allocate(f1dimppar%table(f1dimppar%ntabm)) 
-!f1dimppar%table=(/ 0,86400,0,10000,1,2,100,100 /) !increase in water level
-!f1dimppar%table=(/ 0,86400,0,10000,1,1,100,100 /) !constant water level
-f1dimppar%table=(/ 0d0,86400d0,0d0,10000d0,1.00666656855963d0,1.00666656855963d0,100d0,100d0 /) !constant water level
-
-
-!                     call INTTAB (ntab(1,itab), ntab(4,itab),
-!     +                            table(ntab(3,itab)),
-!     +                            table(ntab(2,itab)),
-!     +                            dble(watlev),qh    )
-if (allocated(f1dimppar%ntab)) then
-    deallocate(f1dimppar%ntab)
-endif     
-allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
-!   h
-f1dimppar%ntab(1,1)=2
-f1dimppar%ntab(2,1)=1
-f1dimppar%ntab(3,1)=5
-f1dimppar%ntab(4,1)=0
-!   q
-f1dimppar%ntab(1,2)=2
-f1dimppar%ntab(2,2)=3
-f1dimppar%ntab(3,2)=7
-f1dimppar%ntab(4,2)=0
 
 !nodes
 if (allocated(f1dimppar%node)) then

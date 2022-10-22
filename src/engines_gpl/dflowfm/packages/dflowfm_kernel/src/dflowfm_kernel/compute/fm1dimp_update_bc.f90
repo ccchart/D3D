@@ -30,49 +30,87 @@
 ! $Id$
 ! $HeadURL$
 
-!> Updates the flow variables of FM when the Sobek-RE kernel is used. 
+!> Updates the boundary conditions. The FM variables are updated in <flow_initimestep>
+! and here we put them into the table that uses SRE. 
+subroutine fm1dimp_update_bc(iresult,time1)
 
-!This function cannot be in the <fm1dimp> module because it uses FM variables and
-!while the kernel of FM depends on the <fm1dimp> module, the opposite is not true.
-
-subroutine flow_initialize_fm1dimp_timestep(iresult,time1)
-
-!
-!MODULES
-!
-
-!use m_flowgeom, only: ndxi
+!use m_flowparameters
+use m_flow, only: au
+use m_f1dimp
+use m_flowexternalforcings
 !use unstruc_channel_flow, only: network
-!use m_CrossSections, only: CalcConveyance
-!use m_f1dimp 
+!use m_CrossSections, only: createTablesForTabulatedProfile
+!use unstruc_messages
+
 
 implicit none
 
-!
-!DECLARATION
-!
 
 !pointer
+integer                                  , pointer :: table_length
+integer                                  , pointer :: maxtab
 
 !input
-double precision, intent(in) :: time1
+double precision, intent(in) :: time1 !t^{n+1}
 
 !output
-
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
-!locals
+!local
+integer :: k, ktab, nq, n, L
+integer :: idx_crs
+integer :: table_number
 
-!integer :: L, N, n1, n2, nint, nout
+!point
+table_length => f1dimppar%table_length
+maxtab       => f1dimppar%maxtab
 
-!
-!SET POINTERS
-!
+!!
+!! CALC
+!!
 
-!
-!CALC
-!
-call fm1dimp_update_network(iresult) !update of the flow variables (change every time step)
-call fm1dimp_update_bc(iresult,time1) !update of the boundary conditions
+iresult=0
 
-end subroutine flow_initialize_fm1dimp_timestep
+do k=1,f1dimppar%nhstat
+    table_number=f1dimppar%hbdpar(3,k)
+    !x (time)
+    ktab=table_number*table_length-1
+    f1dimppar%table(ktab)=time1
+    f1dimppar%table(ktab+1)=time1+1d0 !It does not matter, as the query time will be <time1>
+    !y (var)
+    ktab=maxtab*table_length+table_number*table_length-1
+    f1dimppar%table(ktab)=zbndz(1) !FM1DIMP2DO: this will have to check which BC in case of more than 1
+    f1dimppar%table(ktab+1)=zbndz(1)
+end do
+!   q
+
+do k=1,f1dimppar%nqstat
+    table_number=f1dimppar%qbdpar(3,k) !< table number after the ones of <hbdpar>
+    !x (time)
+    ktab=table_number*table_length-1
+    f1dimppar%table(ktab)=time1
+    f1dimppar%table(ktab+1)=time1+1d0 !It does not matter, as the query time will be <time1>
+    !y (var)
+    ktab=maxtab*table_length+table_number*table_length-1
+    
+    !FM1DIMP2DO: properly understand what happens!
+    !In <setau>, the discharge read in BC is converted into a 
+    !normalized discharge. Here we reconvert it to the actual 
+    !discharge. 
+    nq=k
+    n=L1qbnd(nq)!, L2qbnd(nq)
+    L=kbndu(3,n)
+    f1dimppar%table(ktab)=zbndq(1)*au(L) !FM1DIMP2DO: this will have to check which BC in case of more than 1
+    f1dimppar%table(ktab+1)=zbndq(1)*au(L)
+end do
+
+!f1dimppar%table=(/ 0d0,86400d0,0d0,10000d0,1.00666656855963d0,1.00666656855963d0,100d0,100d0 /)
+!                     call INTTAB (ntab(1,itab), ntab(4,itab),
+!     +                            table(ntab(3,itab)),
+!     +                            table(ntab(2,itab)),
+!     +                            dble(watlev),qh    )
+
+!zbndz
+
+end subroutine fm1dimp_update_bc
+

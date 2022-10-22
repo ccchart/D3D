@@ -91,15 +91,16 @@ module m_f1dimp_data
       !*******
       
       integer                          :: ngrid                 !< Number of cells in network.
-      integer                          :: ngridm                !< Maximum number of cells in a branch
+      integer                          :: ngridm                !< Maximum number of cells in a branch.
       integer                          :: nbran                 !< Maximum number of connected branches to one node.
       integer                          :: maxlev                !< Maximum+1 number of nlev(1:ngrid).
       integer                          :: nnode                 !< Number of nodes.
       integer                          :: nhstat                !< Number of h-boundary stations.
       integer                          :: nqstat                !< Number of q-boundary stations.
-      integer                          :: ntabm                 !< Maximum size of table 
+      integer                          :: ntabm                 !< Maximum size of table. 
       integer                          :: maxtab                !< Maximum number of defined tables.
       integer                          :: nbrnod                !< Maximum number of connected branches to one node.
+      integer                          :: table_length          !< Number of items in each table.
       
       !*******
       !dependent on branch
