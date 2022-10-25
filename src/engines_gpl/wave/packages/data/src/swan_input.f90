@@ -343,6 +343,7 @@ module swan_input
        character(256)                           :: flowgridfile ! netcdf file containing flow grid
        character(256)                           :: scriptname
        character(256)                           :: specfile
+       character(256)                           :: inputtemplatefile !BS UNST-6233
        character(1024)                          :: comfile
        character(15)                            :: usehottime    = '00000000.000000'       ! Time in the name of the hotfile that has to be used by SWAN
        character(15)                            :: writehottime  = '00000000.000000'       ! Time in the name of the hotfile that has to be written by SWAN
@@ -545,6 +546,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     character(37)               :: tseriesfilename
     character(37)               :: polylinefile
     character(80)               :: parname
+    !character(256)              :: inputtemplatefile !BS UNST-6233 do we want it to be part of the swa_type or not???
     character(256)              :: errorstring
     character(80),dimension(:), allocatable :: tmp_add_out_names
     character(80),dimension(:), allocatable :: tmp_extforce_names
@@ -718,6 +720,9 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     endif
     sr%flowLinkConnectivity = .false.
     call prop_get_logical (mdw_ptr, 'General', 'flowLinkConnectivity', sr%flowLinkConnectivity)
+    !BS UNST-6233 
+    sr%inputtemplatefile = ''
+    call prop_get_string (mdw_ptr, 'General', 'INPUTTemplateFile', sr%inputtemplatefile)
     !
     ! Write format for SWAN input
     sr%ndec = 8
@@ -2255,7 +2260,11 @@ subroutine write_swan_input (sr, itide, calccount, inest, xymiss, wavedata)
     wvel   = sr%wvel(itide)
     wdir   = sr%wdir(itide)
     !
-    call write_swan_inp (wavedata, calccount, &
+    !BS UNST-6233 
+    if(sr%inputtemplatefile /= '') then
+       call update_swan_inp(sr%inputtemplatefile)
+     else 
+       call write_swan_inp (wavedata, calccount, &
                     & itide        ,sr%nttide ,inest      ,sr%nnest  ,sr%swuvt  , &
                     & sr%swuvi     ,sr%prname ,sr%prnumb  ,sr%title1 ,sr%title2 , &
                     & sr%title3    ,sr%itest  ,sr%itrace  , &
@@ -2268,7 +2277,56 @@ subroutine write_swan_input (sr, itide, calccount, inest, xymiss, wavedata)
                     & sr%varwin    ,sr%varfri ,sr%ncurv   ,sr%ncrv   ,sr%nclin  , &
                     & sr%xpcu      ,sr%ypcu   ,xymiss     ,curlif    ,sr%casl   , &
                     & sr%cdd       ,sr%css    ,sr%sferic  ,sr     )
+     endif
+    !
+    
 end subroutine write_swan_input
+!
+!
+!==============================================================================
+!BS UNST-6233
+subroutine update_swan_inp(filnam)
+    implicit none
+
+! open existing INPUT file
+! open new INPUT file
+! read line by line the existing INPUT file
+! write that line to the new input file
+
+! Global variables    
+    character(*), intent(in)  :: filnam
+!
+! Local variables
+!
+    integer           :: old_input
+    integer           :: new_input
+    character(256)    :: rec
+    
+!
+!! executable statements -------------------------------------------------------
+!
+    open (newunit=old_input, file = filnam, form = 'formatted', status = 'old',err=6666)
+    open (newunit=new_input, file = 'INPUT', form = 'formatted', status = 'replace')
+    
+10  continue
+    read(old_input,'(a)',end=7777,err=8888) rec
+    write(new_input,'(a)') rec
+    goto 10
+
+6666 continue
+     write(*,'(2a)') '*** ERROR: Unable to find file ',trim(filnam)
+     close(old_input)
+     call wavestop(1, 'Unable to find file '//trim(filnam))
+8888 continue
+     write(*,'(2a)') '*** ERROR: Unable to read file ',trim(filnam)
+     close(old_input)
+     close(new_input)
+     call wavestop(1, 'Unable to read file '//trim(filnam))
+7777 continue     
+    close(old_input)
+    close(new_input)
+    
+end subroutine update_swan_inp
 !
 !
 !==============================================================================
