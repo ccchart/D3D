@@ -2426,9 +2426,13 @@ subroutine wrtarray_nmkli(fds, filename, filetype, grpnam, &
           call dfgather_seq(var, rbuff5gl, 1-gdp%d%nlb, 1-gdp%d%mlb, gdp%gdparall%nmaxgl, gdp%gdparall%mmaxgl)
        endif
     endif
-    call wrtvar(fds, filename, filetype, grpnam, &
-              & itime, gdp, ierr, lundia, rbuff5gl, varnam)
-    if (allocated(rbuff5gl)) deallocate(rbuff5gl)
+    if (allocated(rbuff5gl)) then
+       call wrtvar(fds, filename, filetype, grpnam, &
+                 & itime, gdp, ierr, lundia, rbuff5gl, varnam)
+       deallocate(rbuff5gl)
+    else
+       ierr = 0
+    endif
 
 end subroutine wrtarray_nmkli
 
