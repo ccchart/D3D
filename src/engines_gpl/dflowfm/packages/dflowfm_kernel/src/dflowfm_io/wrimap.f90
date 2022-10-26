@@ -33,7 +33,7 @@
 !> Toplevel map file writer.
 !! Takes care of old/ugrid/tecplot format.
 !! Does not take care of MapInterval checks, that is in flow_externaloutput().
-subroutine wrimap(tim, imapdim)
+subroutine wrimap(tim, imapdim, is_last_map_time)
     use m_flow
     use m_flowtimes
     use m_observations
@@ -48,6 +48,7 @@ subroutine wrimap(tim, imapdim)
     implicit none
     double precision, intent(in   ) :: tim     !< Current time for writing a new map snapshot
     integer,          intent(in   ) :: imapdim !< Dimensional type of map file, see UNC_DIM_1D/2D/3D/ALL for valid options.
+    logical,          intent(in   ) :: is_last_map_time !< Whether or not this is the last snapshot written to file. Used to trigger writing of some final run diagnostics (only for UGRID).
 
     ! locals
     type(t_unc_mapids), pointer :: mapidsptr
@@ -130,6 +131,11 @@ subroutine wrimap(tim, imapdim)
              jabndnd = 0
              if (jamapbnd > 0) jabndnd = 1
              call unc_write_map_filepointer_ugrid(mapidsptr,tim,jabndnd, imapdim = imapdim)  ! wrimap
+
+             if (is_last_map_time) then
+                ierr = unc_put_run_diagnostics(mapidsptr%ncid, mapidsptr%diag_ids)
+             end if
+
           else
              call unc_write_map_filepointer(mapidsptr%ncid,tim)  ! wrimap
           endif

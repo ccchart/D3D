@@ -65,6 +65,7 @@
  integer                      :: numomp
  double precision             :: tem_dif
  integer                      :: imapdim
+ logical                      :: is_last_map_time
 
 
    call inctime_split(tim)
@@ -119,6 +120,8 @@
            end if
         end if
 
+        is_last_map_time = (comparereal(time_map, ti_mape, eps10) == 0)
+
         if (jaeverydt == 0) then
            if (jamapFlowAnalysis > 0) then
               ! update the cumulative flow analysis parameters, and also compute the right CFL numbers
@@ -131,7 +134,7 @@
               imapdim = UNC_DIM_ALL ! 1D/2D and 3D in same file
            end if
  
-           call wrimap(tim, imapdim)
+           call wrimap(tim, imapdim, is_last_map_time)
            
            if (jamapFlowAnalysis > 0) then
               ! Reset the interval related flow analysis arrays
@@ -141,7 +144,7 @@
               flowCourantNumber = 0d0
            endif
         endif
-         if (comparereal(time_map, ti_mape, eps10) == 0) then
+         if (is_last_map_time) then
             time_map = tstop_user + 1
          else
             tem_dif = (tim - ti_maps)/ti_map
@@ -165,9 +168,10 @@
       if (comparereal(tim, time_map3d, eps10) >= 0) then
          imapdim = UNC_DIM_3D
 
-         call wrimap(tim, imapdim)
+         is_last_map_time = (comparereal(time_map3d, ti_map3de, eps10) == 0)
+         call wrimap(tim, imapdim, is_last_map_time)
 
-         if (comparereal(time_map3d, ti_map3de, eps10) == 0) then
+         if (is_last_map_time) then
             time_map3d = tstop_user + 1
          else
             tem_dif = (tim - ti_map3ds)/ti_map3d

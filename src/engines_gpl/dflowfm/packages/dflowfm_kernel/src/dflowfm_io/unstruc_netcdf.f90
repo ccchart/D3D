@@ -51,6 +51,7 @@ use io_ugrid
 use m_sediment
 use string_module
 use io_netcdf_acdd
+use dfm_error
 implicit none
 
 integer            :: nerr_
@@ -133,6 +134,13 @@ character(len=32), dimension(3), parameter :: unc_meta_fromenv_atts = [character
    'creator_email', &
    'creator_url' &
 ]
+
+!> This type collects all NetCDF ids that are relevant for final writing of run diagnostics.
+!! Create a separate variable of this type for each output file that wants to have the diagnostics.
+type t_unc_diag_ids
+   integer :: id_timestep_avg = 0 !< NetCDF variable id for average timestep
+end type t_unc_diag_ids
+
 
 ! This type collects the time and space administration relevant for repeat writes to
 ! netcdf files in FM
@@ -472,6 +480,7 @@ type t_unc_mapids
    integer :: id_limtstep_cum(MAX_ID_VAR) = -1 !< Variable ID for cumulative number of times a node was limiting for the computational time step
    integer :: id_courant(MAX_ID_VAR)      = -1 !< Variable ID for the Courant number in a node      
 
+   type(t_unc_diag_ids), pointer :: diag_ids   !< Set of ids for writing run diagnostics.
    !
    ! Other
    !
@@ -754,6 +763,45 @@ function unc_meta_add_user_defined(ncid) result(ierr)
 end function unc_meta_add_user_defined
 
 
+!> Defines some NetCDF variables to later write final run diagnostics into an output NetCDF file.
+function unc_def_run_diagnostics(ncid, diag_ids) result(ierr)
+   integer,              intent(in   ) :: ncid     !< NetCDF dataset ID to write into
+   type(t_unc_diag_ids), pointer       :: diag_ids !< NetCDF variable IDs for the run diagnostics.
+   integer                             :: ierr     !< Result status (DFM_NOERR if successful)
+
+   ierr = DFM_NOERR
+   
+   if (.not. associated(diag_ids)) then
+      allocate(diag_ids)
+   end if
+   
+   ! Size of average timestep
+   ierr = unc_def_var_nonspatial(ncid, diag_ids%id_timestep_avg, nf90_double, (/ integer :: /), 'timestep_avg', '',     'Average computational timestep for complete model run', 's')
+
+end function unc_def_run_diagnostics
+
+
+!> Adds some final run diagnostics into an output NetCDF file.
+function unc_put_run_diagnostics(ncid, diag_ids) result(ierr)
+   use m_flowtimes, only: tstart_user, tstop_user, time1, dnt
+
+   integer,              intent(in   ) :: ncid     !< NetCDF dataset ID to write into
+   type(t_unc_diag_ids), intent(in   ) :: diag_ids !< NetCDF variable IDs for the run diagnostics.
+   integer                             :: ierr     !< Result status (DFM_NOERR if successful)
+
+   double precision :: dtav
+   
+   ierr = DFM_NOERR
+   
+   ! Size of average timestep
+   if (dnt > 0) then
+      dtav = (time1 - tstart_user)/max(1d0, dnt)
+      ierr = nf90_put_var(ncid, diag_ids%id_timestep_avg, dtav)
+   end if
+
+end function unc_put_run_diagnostics
+
+
 !> Checks in a given integer output-dimension code whether a particular
 !! output dimension-option is set, using bitwise option checks.
 !!
@@ -778,7 +826,6 @@ end function unc_check_dimension
 !! For variables with either his-station-range or map-grid-range in the dimensions:
 !! @see unc_def_var_map @see unc_def_var_his
 function unc_def_var_nonspatial(ncid, id_var, itype, idims, var_name, standard_name, long_name, unit) result(ierr)
-   use dfm_error
    implicit none
 
    integer,          intent(in)     :: ncid          !< NetCDF file unit
@@ -814,7 +861,6 @@ use netcdf_utils, only: ncu_append_atts
 use m_flowgeom
 use m_flowparameters, only: jamapvol1, jamapau, jamaphs, jamaphu, jamapanc
 use network_data, only: numl, numl1d
-use dfm_error
 use m_missing
 use string_module, only: strcmpi
 implicit none
@@ -1156,7 +1202,6 @@ character(len=50) :: checkvars(5) ! small array to check on presence of some var
 end function unc_def_var_map
 
 function unc_put_att_dble(ncid, id_var, att_name, att_value) result(ierr)
-use dfm_error
 implicit none
 
 integer,          intent(in)     :: ncid          !< NetCDF file unit
@@ -5003,6 +5048,8 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrim
       ierr = ug_addglobalatts(mapids%ncid, ug_meta_fm)
 
       ierr = unc_meta_add_user_defined(mapids%ncid)
+      
+      ierr = unc_def_run_diagnostics(mapids%ncid, mapids%diag_ids)
 
       call unc_write_flowgeom_filepointer_ugrid(mapids%ncid, mapids%id_tsp, jabndnd=jabndnd_, ja3D=ja3d)
 

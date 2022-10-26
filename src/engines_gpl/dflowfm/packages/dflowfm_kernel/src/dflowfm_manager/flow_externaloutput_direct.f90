@@ -51,7 +51,7 @@ subroutine flow_externaloutput_direct()
                              '(', trim(datetime_to_string(iyear, imonth, iday, ihour, imin, isec)), ').'
    call msg_flush()
 
-   call wrimap(time1, UNC_DIM_ALL)
+   call wrimap(time1, UNC_DIM_ALL, .false.)
 
    call unc_write_his(time1)
 
