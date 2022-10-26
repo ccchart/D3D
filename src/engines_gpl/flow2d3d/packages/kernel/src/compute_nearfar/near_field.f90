@@ -171,6 +171,9 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
     integer                                             :: nub
     integer                                             :: nm
     integer                                             :: k_dummy
+    integer                                             :: seedSize
+    integer                                             :: seedIrand
+    integer, dimension(:), allocatable                  :: seed
     real(fp)                                            :: dummy
     real(fp)                                            :: flwang
     real(fp)                                            :: signx
@@ -482,6 +485,12 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                               & k_intake(idis),kfsmn0_ptr,kfsmx0_ptr    ,dzs0_ptr      ,zmodel        ,inside        , gdp           )
                 enddo
                 !
+                ! Improved UniqueId generation:
+                ! Part 1: Generate a random integer, seedIrand, based on date/time (call RANDOM_SEED())
+                call random_seed()
+                call random_number(dummy)
+                seedIrand = floor(dummy * 123456789.8e0)
+                !
                 ! Convert flow results to input for cormix and write to input file
                 ! Write all input files (one for each discharge) in the following do loop
                 !
@@ -494,7 +503,22 @@ subroutine near_field(u0     ,v0     ,rho      ,thick  , &
                    if (skipuniqueid) then
                       gdp%uniqueid = ' '
                    else
-                      call random_seed()
+                      !
+                      ! Improved UniqueId generation:
+                      ! Part 2: Use seed array with elements "idis" and "seedIrand". "seedSize" is typically 2.
+                      call random_seed(size=seedSize)
+                      allocate(seed(seedSize))
+                      do i=1, seedSize
+                         if (mod(i,2) == 0) then
+                            seed(i) = idis
+                         else
+                            seed(i) = seedIrand
+                         endif
+                      enddo
+                      call random_seed(put=seed)
+                      deallocate(seed)
+                      !
+                      ! Create uniqueId
                       do i=1,6
                          call random_number(dummy)
                          gdp%uniqueid(i:i) = char(floor(65.0_fp+dummy*26.0_fp))
