@@ -88,21 +88,21 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          dambreakAveraging(2,dambreakLocationsUpstreamMapping, IDB_S1U) = 1d0
       endif
       do i = 1, nDambreakAveragingUpstream
-          n = dambreakAverigingUpstreamMapping(i)
-          do l = L1dambreaksg(n), L2dambreaksg(n)
-              Lf = abs(kdambreak(3,l))
-              if (Lf == 0) cycle
-              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
-                 dambreakAveraging(1,n, IDB_S1U) = dambreakAveraging(1,n, IDB_S1U) + wu(Lf) * s1(kdambreak(1,l))
-                 dambreakAveraging(2,n, IDB_S1U) = dambreakAveraging(2,n, IDB_S1U) + wu(Lf)
-         endif
-          enddo
-          if (LStartBreach(n) > 0) then
-             if ( kdambreak(1,LStartBreach(n)) > 0) then
-                dambreakAveraging(3,n, IDB_S1U) = s1(kdambreak(1,LStartBreach(n)))
+         n = dambreakAverigingUpstreamMapping(i)
+         do l = L1dambreaksg(n), L2dambreaksg(n)
+            Lf = abs(kdambreak(3,l))
+            if (Lf == 0) cycle
+            if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+               dambreakAveraging(1,n, IDB_S1U) = dambreakAveraging(1,n, IDB_S1U) + wu(Lf) * s1(kdambreak(1,l))
+               dambreakAveraging(2,n, IDB_S1U) = dambreakAveraging(2,n, IDB_S1U) + wu(Lf)
             endif
-          endif
          enddo
+         if (LStartBreach(n) > 0) then
+            if ( kdambreak(1,LStartBreach(n)) > 0) then
+               dambreakAveraging(3,n, IDB_S1U) = s1(kdambreak(1,LStartBreach(n)))
+            endif
+         endif
+      enddo
       !
       ! Water level downstream of breach
       !
@@ -111,33 +111,33 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          dambreakAveraging(2,dambreakLocationsDownstreamMapping, IDB_S1D) = 1d0
       endif
       do i = 1, nDambreakAveragingDownstream
-          n = dambreakAverigingDownstreamMapping(i)
-          do l = L1dambreaksg(n), L2dambreaksg(n)
-              Lf = abs(kdambreak(3,l))
-              if (Lf == 0) cycle
-              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
-                 dambreakAveraging(1,n, IDB_S1D) = dambreakAveraging(1,n, IDB_S1D) + wu(Lf) * s1(kdambreak(2,l))
-                 dambreakAveraging(2,n, IDB_S1D) = dambreakAveraging(2,n, IDB_S1D) + wu(Lf)
-              endif
-          enddo
-          if (LStartBreach(n) > 0) then
-             if (kdambreak(2,LStartBreach(n)) > 0) then
-                dambreakAveraging(3,n, IDB_S1D) = s1(kdambreak(2,LStartBreach(n)))
-             endif
-          endif
+         n = dambreakAverigingDownstreamMapping(i)
+         do l = L1dambreaksg(n), L2dambreaksg(n)
+            Lf = abs(kdambreak(3,l))
+            if (Lf == 0) cycle
+            if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+               dambreakAveraging(1,n, IDB_S1D) = dambreakAveraging(1,n, IDB_S1D) + wu(Lf) * s1(kdambreak(2,l))
+               dambreakAveraging(2,n, IDB_S1D) = dambreakAveraging(2,n, IDB_S1D) + wu(Lf)
+            endif
+         enddo
+         if (LStartBreach(n) > 0) then
+            if (kdambreak(2,LStartBreach(n)) > 0) then
+               dambreakAveraging(3,n, IDB_S1D) = s1(kdambreak(2,LStartBreach(n)))
+            endif
+         endif
       enddo
       !
       ! Velocity through breach
       !
       do n = 1, ndambreaksg
-          do l = L1dambreaksg(n), L2dambreaksg(n)
-              Lf = abs(kdambreak(3,l))
-              if (Lf == 0) cycle
-              if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
-                 dambreakAveraging(1,n, IDB_U1) = dambreakAveraging(1,n, IDB_U1) + au(Lf) * u1(Lf)
-                 dambreakAveraging(2,n, IDB_U1) = dambreakAveraging(2,n, IDB_U1) + au(Lf)
-              endif
-          enddo
+         do l = L1dambreaksg(n), L2dambreaksg(n)
+            Lf = abs(kdambreak(3,l))
+            if (Lf == 0) cycle
+            if (hu(Lf) > dmiss .and. activeDambreakLinks(l) > 0 .and. (.not. db_ghost(l))) then
+               dambreakAveraging(1,n, IDB_U1) = dambreakAveraging(1,n, IDB_U1) + au(Lf) * u1(Lf)
+               dambreakAveraging(2,n, IDB_U1) = dambreakAveraging(2,n, IDB_U1) + au(Lf)
+            endif
+         enddo
       enddo
       !
       ! Maximum water level before or after the breach
