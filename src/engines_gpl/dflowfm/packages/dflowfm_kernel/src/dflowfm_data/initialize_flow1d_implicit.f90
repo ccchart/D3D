@@ -74,6 +74,7 @@ integer, dimension(:)                    , pointer :: numnod
 integer, dimension(:)                    , pointer :: grd_sre_fm
 
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
+integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
 
 integer, dimension(:,:)                  , pointer :: branch
 integer, dimension(:,:)                  , pointer :: bfrict
@@ -133,6 +134,11 @@ integer :: n1, n2, nint, nout
 integer :: table_number
 integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, idx_fm, nl, L
+
+!move to function
+integer :: idx_aux
+integer :: min_1, min_2
+
 !integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
@@ -247,6 +253,11 @@ do k=1,nbran
            call err_flush()
            iresult=1
         endif
+        if (.not. ((grd_sre_fm(grd_fmL_sre(L,2)) .eq. n1) .or. (grd_sre_fm(grd_fmL_sre(L,2)) .eq. n2))) then
+           write (msgbuf, '(a)') 'Links and nodes do not match.'
+           call err_flush()
+           iresult=1
+        endif
     enddo
         
     !branch
@@ -257,6 +268,34 @@ do k=1,nbran
     
     !update index initial
     idx_i=idx_f+1
+enddo
+
+if (allocated(f1dimppar%grd_fmLb_sre)) then
+    deallocate(f1dimppar%grd_fmLb_sre)
+endif
+allocate(f1dimppar%grd_fmLb_sre(lnx1Db-lnxi,2))
+grd_fmLb_sre => f1dimppar%grd_fmLb_sre
+
+k=0
+do L=lnxi+1,lnx1Db !boundary links
+    k=k+1
+    n1 = ln(1,L) 
+    n2 = ln(2,L)
+    nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
+    nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
+    !grd_fmLb_sre(k,1)=findloc(grd_sre_fm,nint) !sre index with <nint> FM value !not working fine due to type of array I guess. 
+    !FM1DIMP2DO: move to function or search for smarter way
+    idx_aux=1
+    min_1=abs(grd_sre_fm(1)-nint)
+    do k2=2,size(grd_sre_fm)
+        min_2=abs(grd_sre_fm(k2)-nint)
+        if (min_2 < min_1) then
+            min_1=min_2
+            idx_aux=k2
+        endif
+    enddo
+    grd_fmLb_sre(k,1)=idx_aux
+    grd_fmLb_sre(k,2)=nout !FM index of the ghost cell centre associated to link <L>
 enddo
 
 !ngrid=network%numk !total number of mesh nodes (internal water level points)
@@ -724,5 +763,4 @@ endif
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
-end subroutine initialize_flow1d_implicit
-
+    end subroutine initialize_flow1d_implicit

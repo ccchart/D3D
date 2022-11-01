@@ -142,6 +142,7 @@ module m_f1dimp_data
       integer, allocatable, dimension(:)               :: grd_sre_fm   !< Conversion between gridpoint number in SRE and in FM. For <grd_sre_fm(i)> one obtains the FM global gridpoint associated to SRE global gridpoint <i>
       
       integer, allocatable, dimension(:,:)             :: grd_fmL_sre  !< Conversion between internal link in FM and SRE global gridpoints. For <grd_fmL_sre(i)> one obtains the two gridpoints in SRE associated to <i>
+      integer, allocatable, dimension(:,:)             :: grd_fmLb_sre !< Conversion between boundary link <L> in FM and SRE global gridpoint (in position (k,1)) and the FM cell-centre (in position (k,2)), where  <k=[lnxi+1:lnx1Db]-lnxi+1>
       
       real   , allocatable, dimension(:)               :: x      !  x-coordinate for each grid point.
       

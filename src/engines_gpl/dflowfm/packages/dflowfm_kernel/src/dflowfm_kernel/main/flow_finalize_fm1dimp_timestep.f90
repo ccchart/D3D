@@ -59,6 +59,9 @@ implicit none
 
 integer, dimension(:)                    , pointer :: grd_sre_fm
 
+integer, dimension(:,:)                    , pointer :: grd_fmL_sre
+integer, dimension(:,:)                    , pointer :: grd_fmLb_sre
+
 real, dimension(:)                       , pointer :: x
 
 real, dimension(:,:)                     , pointer :: waoft
@@ -68,7 +71,7 @@ double precision, dimension(:,:)         , pointer :: qpack
 
 !locals
 
-integer :: L, N, n1, n2, nint, nout, idx_fm
+integer :: L, N, n1, n2, nint, nout, idx_fm, k
 
 !
 !SET POINTERS
@@ -79,7 +82,9 @@ x      => f1dimppar%x
 waoft  => f1dimppar%waoft 
 hpack  => f1dimppar%hpack
 qpack  => f1dimppar%qpack
-grd_sre_fm => f1dimppar%grd_sre_fm
+grd_sre_fm   => f1dimppar%grd_sre_fm
+grd_fmL_sre  => f1dimppar%grd_fmL_sre
+grd_fmLb_sre => f1dimppar%grd_fmLb_sre
 
  ! 1:ndx2D, ndx2D+1:ndxi, ndxi+1:ndx1Db, ndx1Db+1:ndx
  ! ^ 2D int ^ 1D int      ^ 1D bnd       ^ 2D bnd ^ total
@@ -89,18 +94,23 @@ do N=1,ndxi !internal cell centres
 enddo
    
 do L=1,lnx1d !internal links
-    n1 = ln(1,L) 
-    n2 = ln(2,L)
+    !n1 = ln(1,L) 
+    !n2 = ln(2,L)
+    n1=grd_fmL_sre(L,1)
+    n2=grd_fmL_sre(L,2)
     u1(L)=0.5*qpack(n1,3)/waoft(n1,3)+0.5*qpack(n2,3)/waoft(n2,3)
 enddo
-            
+
+k=0
 do L=lnxi+1,lnx1Db !boundary links
-    !FM1DIMP2DO: we could create a variable with this mapping to prevent computation of max, min and x(nint) every timestep
-    n1 = ln(1,L) 
-    n2 = ln(2,L)
-    nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
-    nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
-    
+    !!FM1DIMP2DO: we could create a variable with this mapping to prevent computation of max, min and x(nint) every timestep
+    !n1 = ln(1,L) 
+    !n2 = ln(2,L)
+    !nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
+    !nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
+    k=k+1
+    nint=grd_fmLb_sre(k,1)
+    nout=grd_fmLb_sre(k,2)
     !we could have a better reconstruction of <u1(L)> with the slope of the previous value rather than just copying the value.
     
     !not sure if x=0 is enough to order the branch. Another option is to get the next internal cell connected to the identified
