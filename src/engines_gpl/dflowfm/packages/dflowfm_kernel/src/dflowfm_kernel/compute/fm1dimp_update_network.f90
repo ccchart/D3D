@@ -53,7 +53,7 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 !local
 integer :: k
 integer :: k2
-integer :: idx_crs
+integer :: idx_crs, idx_fm
 
 !!
 !! CALC
@@ -63,7 +63,8 @@ iresult=0
 
 do k=1,f1dimppar%ngrid
     
-    idx_crs=network%ADM%gpnt2cross(k)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
+    idx_fm=f1dimppar%grd_sre_fm(k) !index of the global grid point in fm for the global gridpoint <k> in SRE
+    idx_crs=network%ADM%gpnt2cross(idx_fm)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
     
     !update cross-section flow variables after bed level changes
     !FM1DIMP2DO: remove debug

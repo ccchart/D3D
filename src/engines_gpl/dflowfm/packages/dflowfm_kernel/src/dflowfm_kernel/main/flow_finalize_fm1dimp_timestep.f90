@@ -57,6 +57,8 @@ implicit none
 
 !pointer
 
+integer, dimension(:)                    , pointer :: grd_sre_fm
+
 real, dimension(:)                       , pointer :: x
 
 real, dimension(:,:)                     , pointer :: waoft
@@ -66,7 +68,7 @@ double precision, dimension(:,:)         , pointer :: qpack
 
 !locals
 
-integer :: L, N, n1, n2, nint, nout
+integer :: L, N, n1, n2, nint, nout, idx_fm
 
 !
 !SET POINTERS
@@ -77,11 +79,13 @@ x      => f1dimppar%x
 waoft  => f1dimppar%waoft 
 hpack  => f1dimppar%hpack
 qpack  => f1dimppar%qpack
+grd_sre_fm => f1dimppar%grd_sre_fm
 
  ! 1:ndx2D, ndx2D+1:ndxi, ndxi+1:ndx1Db, ndx1Db+1:ndx
  ! ^ 2D int ^ 1D int      ^ 1D bnd       ^ 2D bnd ^ total
 do N=1,ndxi !internal cell centres
-    s1(N)=hpack(N,3)
+    idx_fm=grd_sre_fm(N) !index of the global grid point in fm for the global gridpoint <k> in SRE
+    s1(idx_fm)=hpack(N,3)
 enddo
    
 do L=1,lnx1d !internal links

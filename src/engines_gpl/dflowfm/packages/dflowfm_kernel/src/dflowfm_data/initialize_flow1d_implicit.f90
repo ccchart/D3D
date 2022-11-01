@@ -71,6 +71,9 @@ integer                                  , pointer :: table_length
 
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
+integer, dimension(:)                    , pointer :: grd_sre_fm
+
+integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 
 integer, dimension(:,:)                  , pointer :: branch
 integer, dimension(:,:)                  , pointer :: bfrict
@@ -129,10 +132,12 @@ integer :: idx_crs
 integer :: n1, n2, nint, nout
 integer :: table_number
 integer :: idx_fr, idx_to
+integer :: idx_i, idx_f, idx_fm, nl, L
+!integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
 
-integer, allocatable, dimension(:,:) :: nodnod_aux
+!integer, allocatable, dimension(:,:) :: nodnod_aux
 
 real :: swaoft
 
@@ -184,13 +189,78 @@ f1dimppar%exrstp=0.0d0 !default in SRE
 f1dimppar%steady=.true.
 
 !dimensions
-ngrid=network%numk !total number of mesh nodes (water level points)
 nbran=network%brs%count 
 
+ngrid=0
 ngridm=0
+!nlink
 do k=1,nbran
+    ngrid=ngrid+network%BRS%BRANCH(k)%GRIDPOINTSCOUNT
     ngridm=max(ngridm,network%BRS%BRANCH(k)%GRIDPOINTSCOUNT)
-end do
+    !nlink=nlink+network%BRS%BRANCH(k)%UPOINTSCOUNT
+enddo
+
+!construct branches
+
+if (allocated(f1dimppar%grd_sre_fm)) then
+    deallocate(f1dimppar%grd_sre_fm)
+endif
+allocate(f1dimppar%grd_sre_fm(ngrid)) 
+grd_sre_fm => f1dimppar%grd_sre_fm
+
+if (allocated(f1dimppar%grd_fmL_sre)) then
+    deallocate(f1dimppar%grd_fmL_sre)
+endif
+allocate(f1dimppar%grd_fmL_sre(lnx1D,2)) 
+grd_fmL_sre => f1dimppar%grd_fmL_sre
+
+if (allocated(f1dimppar%branch)) then
+    deallocate(f1dimppar%branch)
+endif
+allocate(f1dimppar%branch(4,nbran)) 
+branch => f1dimppar%branch
+
+if (allocated(f1dimppar%x)) then
+    deallocate(f1dimppar%x)
+endif
+allocate(f1dimppar%x(ngrid))
+x => f1dimppar%x
+
+idx_i=1
+do k=1,nbran
+    !update index final
+    idx_f=idx_i+network%BRS%BRANCH(k)%GRIDPOINTSCOUNT-1
+    
+    grd_sre_fm(idx_i:idx_f)=network%BRS%BRANCH(k)%GRD
+    x(idx_i:idx_f)=network%BRS%BRANCH(k)%GRIDPOINTSCHAINAGES !chainage
+
+    nl=network%BRS%BRANCH(k)%UPOINTSCOUNT
+    do k2=1,nl
+        L=network%BRS%BRANCH(k)%LIN(k2)
+        grd_fmL_sre(L,:)=(/ idx_i+k2-1, idx_i+k2 /)
+        
+        !search for the GRD with <n1>? 
+    	n1 = ln(1,L) 
+        n2 = ln(2,L)	
+        if (.not. ((grd_sre_fm(grd_fmL_sre(L,1)) .eq. n1) .or. (grd_sre_fm(grd_fmL_sre(L,1)) .eq. n2))) then
+           write (msgbuf, '(a)') 'Links and nodes do not match.'
+           call err_flush()
+           iresult=1
+        endif
+    enddo
+        
+    !branch
+    branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
+    branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
+    branch(3,k)=idx_i
+    branch(4,k)=idx_f
+    
+    !update index initial
+    idx_i=idx_f+1
+enddo
+
+!ngrid=network%numk !total number of mesh nodes (internal water level points)
+
 
 maxlev=0 
 do k=1,network%CSDEFINITIONS%COUNT 
@@ -211,19 +281,13 @@ table_length=2 !length of each table. All have only 2 times.
 ntabm=maxtab*table_length*2 !last 2 is for <time> and <values> 
 nbrnod=network%NDS%MAXNUMBEROFCONNECTIONS
 
-!!dependent on branch
-allocate(f1dimppar%branch(4,nbran)) 
-branch => f1dimppar%branch
-
+if (allocated(f1dimppar%bfrict)) then
+    deallocate(f1dimppar%bfrict)
+endif
 allocate(f1dimppar%bfrict(3,nbran))
 bfrict => f1dimppar%bfrict
 
 do k=1,nbran
-    !branch
-    branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
-    branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
-    branch(3,k)=network%BRS%BRANCH(k)%FROMNODE%GRIDNUMBER
-    branch(4,k)=network%BRS%BRANCH(k)%TONODE%GRIDNUMBER
     
     !bfrict
     do k2=1,3 !< main channel, floodplain 1, floodplain 2
@@ -255,11 +319,6 @@ if (allocated(f1dimppar%bfricp)) then
 endif
 allocate(f1dimppar%bfricp(6,ngrid)) !needs the part with FP1, FP2
 bfricp => f1dimppar%bfricp
-
-if (allocated(f1dimppar%x)) then
-    deallocate(f1dimppar%x)
-endif
-allocate(f1dimppar%x(ngrid))
 
 if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
@@ -317,24 +376,26 @@ allocate(f1dimppar%hlev(ngrid,maxlev))
 
 do k=1,ngrid
     
+    idx_fm=grd_sre_fm(k) !index of the global grid point in fm for the global gridpoint <k> in SRE
+    
     !idx_crs
     !index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node, but 
     !due to precision, <network%ADM%gpnt2cross%F> may not be exactly 1. 
-    if (network%ADM%gpnt2cross(k)%F>0.5) then
-        if (network%ADM%gpnt2cross(k)%F<1-1.0e-6) then
+    if (network%ADM%gpnt2cross(idx_fm)%F>0.5) then
+        if (network%ADM%gpnt2cross(idx_fm)%F<1-1.0e-6) then
            write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
            call err_flush()
            iresult=1
         endif
-        idx_crs=network%ADM%gpnt2cross(k)%C2     
+        idx_crs=network%ADM%gpnt2cross(idx_fm)%C2     
     endif
-    if (network%ADM%gpnt2cross(k)%F<0.5) then
-        if (network%ADM%gpnt2cross(k)%F>1.0e-6) then
+    if (network%ADM%gpnt2cross(idx_fm)%F<0.5) then
+        if (network%ADM%gpnt2cross(idx_fm)%F>1.0e-6) then
            write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
            call err_flush()
            iresult=1
         endif
-        idx_crs=network%ADM%gpnt2cross(k)%C1    
+        idx_crs=network%ADM%gpnt2cross(idx_fm)%C1    
     endif
     
     !bfrictp
@@ -381,7 +442,7 @@ do k=1,ngrid
 !                             type) Same definition as bfricp (3,i).
     
     !x
-    f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE
+    !f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE !we cannot take the chaninage from the cross-section because when there are several branches, the first cross-section may come from another branch than the one we are dealing.
     
     !done in <fm1dimp_update_network>, which is called before the time step
     !
@@ -582,11 +643,6 @@ end do
 
 !nodes
 
-!nodnod(1,1)=1
-!nodnod(1,2)=2
-!nodnod(2,1)=2
-!nodnod(2,2)=1
-
 if (allocated(f1dimppar%nodnod)) then
     deallocate(f1dimppar%nodnod)
 endif 
@@ -598,23 +654,32 @@ if (allocated(kcol)) then
     deallocate(kcol)
 endif 
 allocate(kcol(nnode))
-kcol=1
+kcol=2 !first index is filled with its own node
 
-if (allocated(nodnod_aux)) then
-    deallocate(nodnod_aux)
-endif 
-allocate(nodnod_aux(nnode,20))
-nodnod_aux=0 !we have to be sure ther is no 0 node
+!nodnod_ncol=20 !preallocating varibales
+!!<nodnod_aux> has the values 
+!if (allocated(nodnod_aux)) then
+!    deallocate(nodnod_aux)
+!endif 
+!allocate(nodnod_aux(nnode,nodnod_ncol)) !we have to be sure it is less than <nodnod_ncol>
+!nodnod_aux=0 !we have to be sure ther is no 0 node
+
+!filling first index with its own node
+do k=1,nnode
+    nodnod(k,1)=k
+enddo
 
 do k=1,nbran
     
     idx_fr=network%BRS%BRANCH(k)%NODEINDEX(1)
     idx_to=network%BRS%BRANCH(k)%NODEINDEX(2)
     
-    nodnod_aux(idx_fr,kcol(idx_fr))=idx_to
-    
+    nodnod(idx_fr,kcol(idx_fr))=idx_to
     kcol(idx_fr)=kcol(idx_fr)+1
-
+    
+    nodnod(idx_to,kcol(idx_to))=idx_fr
+    kcol(idx_to)=kcol(idx_to)+1
+    
 enddo
 
 !FM1DIMP2DO: remove debug
@@ -630,9 +695,9 @@ f1dimppar%fm1dimp_debug_k1=1
 !I am not sure that implementation is correct though. 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     stmpar%morpar%mornum%pure1d=1
-endif
 
-!the most downstream link points inside and we have to consider this for the flux. 
+
+!the most downstream link points inside and we have to consider this for the flux.
 call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call to call it here and it will not be called again because it will be allocated. 
 !FM1DIMP2DO: I don't know why it fails compiling in case I ask to allocate here. It does not have the allocatable attribute, but neither it does <link1sign> 
 !if (allocated(link1sign2)) then
@@ -654,6 +719,8 @@ do k=lnxi+1,lnx1Db !boundary links
         link1sign2(k)=-1
     endif
 enddo
+
+endif
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
