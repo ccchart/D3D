@@ -128,13 +128,29 @@ integer :: k2
 integer :: idx_crs
 integer :: n1, n2, nint, nout
 integer :: table_number
+integer :: idx_fr, idx_to
+
+integer, allocatable, dimension(:)   :: kcol
+
+integer, allocatable, dimension(:,:) :: nodnod_aux
 
 real :: swaoft
 
+
 !point
+!pointer cannot be before the array is allocated, here only non-allocatable arrays
 
 table_length => f1dimppar%table_length
 maxtab       => f1dimppar%maxtab
+nnode        => f1dimppar%nnode
+ntabm        => f1dimppar%ntabm
+nbran        => f1dimppar%nbran
+ngrid        => f1dimppar%ngrid
+nbrnod       => f1dimppar%nbrnod
+maxlev       => f1dimppar%maxlev
+ngridm       => f1dimppar%ngridm
+nhstat       => f1dimppar%nhstat
+nqstat       => f1dimppar%nqstat
 
 !!
 !! CALC
@@ -168,23 +184,23 @@ f1dimppar%exrstp=0.0d0 !default in SRE
 f1dimppar%steady=.true.
 
 !dimensions
-f1dimppar%ngrid=network%numk !total number of mesh nodes (water level points)
-f1dimppar%nbran=network%brs%count !Fine if there is only one branch. Otherwise compute.
+ngrid=network%numk !total number of mesh nodes (water level points)
+nbran=network%brs%count 
 
-f1dimppar%ngridm=0
-do k=1,f1dimppar%nbran
-    f1dimppar%ngridm=f1dimppar%ngridm+network%BRS%BRANCH(k)%GRIDPOINTSCOUNT
+ngridm=0
+do k=1,nbran
+    ngridm=max(ngridm,network%BRS%BRANCH(k)%GRIDPOINTSCOUNT)
 end do
 
-f1dimppar%maxlev=0 
+maxlev=0 
 do k=1,network%CSDEFINITIONS%COUNT 
-    f1dimppar%maxlev=max(f1dimppar%maxlev,network%CSDEFINITIONS%CS(1)%LEVELSCOUNT)
+    maxlev=max(maxlev,network%CSDEFINITIONS%CS(1)%LEVELSCOUNT)
 end do
 
-f1dimppar%nnode=network%nds%count 
-f1dimppar%nhstat=nzbnd 
-f1dimppar%nqstat=nqbnd 
-f1dimppar%maxtab=ndx - ndxi !<we have as many tables as open boundaries
+nnode=network%nds%count 
+nhstat=nzbnd 
+nqstat=nqbnd 
+maxtab=ndx - ndxi !<we have as many tables as open boundaries
 !if (comparereal(nzbnd+nqbnd,ndx-ndxi,1d-10)/=0) then !FM1DIMP2DO: why does the compiler complain when using <comparereal>?
 if ((nzbnd+nqbnd).ne.(ndx-ndxi)) then
     write (msgbuf, '(a)') 'Number of open boundaries is different than number of water level + discharge boundaries'
@@ -192,24 +208,28 @@ if ((nzbnd+nqbnd).ne.(ndx-ndxi)) then
     iresult=1    
 endif
 table_length=2 !length of each table. All have only 2 times.
-f1dimppar%ntabm=maxtab*table_length*2 !last 2 is for <time> and <values> 
-f1dimppar%nbrnod=network%NDS%MAXNUMBEROFCONNECTIONS
+ntabm=maxtab*table_length*2 !last 2 is for <time> and <values> 
+nbrnod=network%NDS%MAXNUMBEROFCONNECTIONS
 
 !!dependent on branch
-allocate(f1dimppar%branch(4,f1dimppar%nbran)) 
-allocate(f1dimppar%bfrict(3,f1dimppar%nbran))
-do k=1,f1dimppar%nbran
+allocate(f1dimppar%branch(4,nbran)) 
+branch => f1dimppar%branch
+
+allocate(f1dimppar%bfrict(3,nbran))
+bfrict => f1dimppar%bfrict
+
+do k=1,nbran
     !branch
-    f1dimppar%branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
-    f1dimppar%branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
-    f1dimppar%branch(3,k)=network%BRS%BRANCH(k)%FROMNODE%GRIDNUMBER
-    f1dimppar%branch(4,k)=network%BRS%BRANCH(k)%TONODE%GRIDNUMBER
+    branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
+    branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
+    branch(3,k)=network%BRS%BRANCH(k)%FROMNODE%GRIDNUMBER
+    branch(4,k)=network%BRS%BRANCH(k)%TONODE%GRIDNUMBER
     
     !bfrict
     do k2=1,3 !< main channel, floodplain 1, floodplain 2
         select case (network%RGS%ROUGH(k2)%FRICTIONTYPE) !< where is the information per branch? add when several branches!
             case (0)
-                f1dimppar%bfrict(k2,k)=1
+                bfrict(k2,k)=1
             case default
                 write (msgbuf, '(a)') 'Only constant Chezy friction is supported at the moment.'
                 call err_flush()
@@ -233,79 +253,98 @@ end do
 if (allocated(f1dimppar%bfricp)) then
     deallocate(f1dimppar%bfricp)
 endif
-allocate(f1dimppar%bfricp(6,f1dimppar%ngrid)) !needs the part with FP1, FP2
+allocate(f1dimppar%bfricp(6,ngrid)) !needs the part with FP1, FP2
+bfricp => f1dimppar%bfricp
 
 if (allocated(f1dimppar%x)) then
     deallocate(f1dimppar%x)
 endif
-allocate(f1dimppar%x(f1dimppar%ngrid))
+allocate(f1dimppar%x(ngrid))
 
 if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
 endif
-allocate(f1dimppar%nlev(f1dimppar%ngrid)) 
+allocate(f1dimppar%nlev(ngrid)) 
 
 if (allocated(f1dimppar%hpack)) then
     deallocate(f1dimppar%hpack)
 endif
-allocate(f1dimppar%hpack(f1dimppar%ngrid,3)) 
+allocate(f1dimppar%hpack(ngrid,3)) 
 
 if (allocated(f1dimppar%qpack)) then
     deallocate(f1dimppar%qpack)
 endif
-allocate(f1dimppar%qpack(f1dimppar%ngrid,3))
+allocate(f1dimppar%qpack(ngrid,3))
 
 if (allocated(f1dimppar%waoft)) then
     deallocate(f1dimppar%waoft)
 endif
-allocate(f1dimppar%waoft(f1dimppar%ngrid,18))
+allocate(f1dimppar%waoft(ngrid,18))
 swaoft=size(f1dimppar%waoft,dim=2)
 
     !cross-sectional information (gridpoint,level)
 if (allocated(f1dimppar%wft)) then
     deallocate(f1dimppar%wft)
 endif
-allocate(f1dimppar%wft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%wft(ngrid,maxlev)) 
 
 if (allocated(f1dimppar%aft)) then
     deallocate(f1dimppar%aft)
 endif
-allocate(f1dimppar%aft(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%aft(ngrid,maxlev)) 
 
 if (allocated(f1dimppar%wtt)) then
     deallocate(f1dimppar%wtt)
 endif
-allocate(f1dimppar%wtt(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%wtt(ngrid,maxlev)) 
 
 if (allocated(f1dimppar%att)) then
     deallocate(f1dimppar%att)
 endif
-allocate(f1dimppar%att(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%att(ngrid,maxlev)) 
 
 if (allocated(f1dimppar%of)) then
     deallocate(f1dimppar%of)
 endif
-allocate(f1dimppar%of(f1dimppar%ngrid,f1dimppar%maxlev)) 
+allocate(f1dimppar%of(ngrid,maxlev)) 
 
 if (allocated(f1dimppar%hlev)) then
     deallocate(f1dimppar%hlev)
 endif
-allocate(f1dimppar%hlev(f1dimppar%ngrid,f1dimppar%maxlev))
+allocate(f1dimppar%hlev(ngrid,maxlev))
 
 !call fm1dimp_update_network(iresult) !update of the flow variables (change every time step)
 
-do k=1,f1dimppar%ngrid
+do k=1,ngrid
     
-    idx_crs=network%ADM%gpnt2cross(k)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
+    !idx_crs
+    !index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node, but 
+    !due to precision, <network%ADM%gpnt2cross%F> may not be exactly 1. 
+    if (network%ADM%gpnt2cross(k)%F>0.5) then
+        if (network%ADM%gpnt2cross(k)%F<1-1.0e-6) then
+           write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
+           call err_flush()
+           iresult=1
+        endif
+        idx_crs=network%ADM%gpnt2cross(k)%C2     
+    endif
+    if (network%ADM%gpnt2cross(k)%F<0.5) then
+        if (network%ADM%gpnt2cross(k)%F>1.0e-6) then
+           write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
+           call err_flush()
+           iresult=1
+        endif
+        idx_crs=network%ADM%gpnt2cross(k)%C1    
+    endif
     
     !bfrictp
-    f1dimppar%bfricp(1,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
-    f1dimppar%bfricp(2,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
+    bfricp(1,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
+    bfricp(2,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
     !deal properly with the values below when friction per section varies. 
-    f1dimppar%bfricp(3,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
-    f1dimppar%bfricp(4,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
-    f1dimppar%bfricp(5,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
-    f1dimppar%bfricp(6,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
+    bfricp(3,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
+    bfricp(4,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
+    bfricp(5,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
+    bfricp(6,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
 !bfricp(6,ngrid)   I  Bed friction parameters:
 !                     (1,i) = Parameter for positive flow direction
 !                             in main section (depending on friction
@@ -359,31 +398,33 @@ do k=1,f1dimppar%ngrid
     !    f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
     !end do !k2
 
-    !dependent variables
-    !FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>? -> Better here and keep <hpack> and <qpack> as SRE computing variables
-    !
-    do k2=1,3 !< time step before, intermediate, after
-        !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-        f1dimppar%hpack(k,k2)=s0(k)
-        !FM1DIMP2DO: for the given water level we have to compute the flow area and multiply by the velocity <u1>
-        f1dimppar%qpack(k,k2)=100 
-    end do !k2
+    !dependent variables and waoft dealt with time step initialization.
     
-    !waoft
-    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-    !FM1DIMP2DO: needs to be interpolated from link to cell centre
-    !FM1DIMP2DO: needs to be separated between flow and total
-    !FM1DIMP2DO: wetted perimeter get from results
-    !check right order in <FLNORM> and not in documentation. 
-    f1dimppar%waoft(k,1)=real(wu(k)) !wf = actual flow width 
-    f1dimppar%waoft(k,2)=real(wu(k)) !wt = actual total width
-    f1dimppar%waoft(k,3)=real(au(k)) !af = actual flow area
-    f1dimppar%waoft(k,4)=real(au(k)) !at = actual total area n
-    f1dimppar%waoft(k,5)=real(au(k)) !at = actual total area n+1
-    f1dimppar%waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
-    do k2=7,swaoft
-        f1dimppar%waoft(k,k2)=0
-    enddo
+    !!dependent variables
+    !!FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>? -> Better here and keep <hpack> and <qpack> as SRE computing variables
+    !!
+    !do k2=1,3 !< time step before, intermediate, after
+    !    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
+    !    f1dimppar%hpack(k,k2)=s0(k)
+    !    !FM1DIMP2DO: for the given water level we have to compute the flow area and multiply by the velocity <u1>
+    !    f1dimppar%qpack(k,k2)=100 
+    !end do !k2
+    
+    !!waoft
+    !!I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
+    !!FM1DIMP2DO: needs to be interpolated from link to cell centre
+    !!FM1DIMP2DO: needs to be separated between flow and total
+    !!FM1DIMP2DO: wetted perimeter get from results
+    !!check right order in <FLNORM> and not in documentation. 
+    !f1dimppar%waoft(k,1)=real(wu(k)) !wf = actual flow width 
+    !f1dimppar%waoft(k,2)=real(wu(k)) !wt = actual total width
+    !f1dimppar%waoft(k,3)=real(au(k)) !af = actual flow area
+    !f1dimppar%waoft(k,4)=real(au(k)) !at = actual total area n
+    !f1dimppar%waoft(k,5)=real(au(k)) !at = actual total area n+1
+    !f1dimppar%waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
+    !do k2=7,swaoft
+    !    f1dimppar%waoft(k,k2)=0
+    !enddo
 
 end do !k
     
@@ -394,7 +435,8 @@ end do !k
 if (allocated(f1dimppar%ntab)) then
     deallocate(f1dimppar%ntab)
 endif     
-allocate(f1dimppar%ntab(4,f1dimppar%maxtab)) 
+allocate(f1dimppar%ntab(4,maxtab)) 
+ntab => f1dimppar%ntab
 
 table_number=0 !counter position in which the BC is saved in the table
 
@@ -402,38 +444,40 @@ table_number=0 !counter position in which the BC is saved in the table
 if (allocated(f1dimppar%hbdpar)) then
     deallocate(f1dimppar%hbdpar)
 endif
-allocate(f1dimppar%hbdpar(3,f1dimppar%nhstat)) 
+allocate(f1dimppar%hbdpar(3,nhstat)) 
+hbdpar       => f1dimppar%hbdpar
 
-do k=1,f1dimppar%nhstat
+do k=1,nhstat
     table_number=table_number+1
     
-    f1dimppar%hbdpar(1,k)=kbndz(2,1) !< first s1 point on the inside of the domain
-    f1dimppar%hbdpar(2,k)=1
-    f1dimppar%hbdpar(3,k)=table_number
+    hbdpar(1,k)=kbndz(2,k) !< first s1 point on the inside of the domain
+    hbdpar(2,k)=1
+    hbdpar(3,k)=table_number
     
     !FM1DIMP2DO: make this a subroutine? called in every loop for every BC
-    f1dimppar%ntab(1,table_number)=table_length !length of table 
-    f1dimppar%ntab(2,table_number)=table_number*table_length-1 !start address X
-    f1dimppar%ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
-    f1dimppar%ntab(4,table_number)=0 !access method (0=continuous interpolation)
+    ntab(1,table_number)=table_length !length of table 
+    ntab(2,table_number)=table_number*table_length-1 !start address X
+    ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
+    ntab(4,table_number)=0 !access method (0=continuous interpolation)
 end do
 !   q
 if (allocated(f1dimppar%qbdpar)) then
     deallocate(f1dimppar%qbdpar)
 endif
-allocate(f1dimppar%qbdpar(3,f1dimppar%nqstat)) 
+allocate(f1dimppar%qbdpar(3,nqstat)) 
+qbdpar       => f1dimppar%qbdpar
 
-do k=1,f1dimppar%nqstat
+do k=1,nqstat
     table_number=table_number+1
     
-    f1dimppar%qbdpar(1,k)=kbndu(2,1) !< first s1 point on the inside of the domain
-    f1dimppar%qbdpar(2,k)=1
-    f1dimppar%qbdpar(3,k)=table_number !< table number after the ones of <hbdpar>
+    qbdpar(1,k)=kbndu(2,k) !< first s1 point on the inside of the domain
+    qbdpar(2,k)=1
+    qbdpar(3,k)=table_number !< table number after the ones of <hbdpar>
     
-    f1dimppar%ntab(1,table_number)=table_length !length of table 
-    f1dimppar%ntab(2,table_number)=table_number*table_length-1 !start address X
-    f1dimppar%ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
-    f1dimppar%ntab(4,table_number)=0 !access method (0=continuous interpolation)
+    ntab(1,table_number)=table_length !length of table 
+    ntab(2,table_number)=table_number*table_length-1 !start address X
+    ntab(3,table_number)=maxtab*table_length+table_number*table_length-1 !start address Y
+    ntab(4,table_number)=0 !access method (0=continuous interpolation)
 end do
 
      !hbdpar(3,nhstat)  Hydrodynamic conditions for H-stations:
@@ -451,55 +495,127 @@ end do
 if (allocated(f1dimppar%table)) then
     deallocate(f1dimppar%table)
 endif
-allocate(f1dimppar%table(f1dimppar%ntabm)) 
+allocate(f1dimppar%table(ntabm)) 
+table => f1dimppar%table
 
 !nodes
 if (allocated(f1dimppar%node)) then
     deallocate(f1dimppar%node)
 endif 
-allocate(f1dimppar%node(4,f1dimppar%nnode))
+allocate(f1dimppar%node(4,nnode))
+node => f1dimppar%node
 
 if (allocated(f1dimppar%numnod)) then
     deallocate(f1dimppar%numnod)
 endif 
-allocate(f1dimppar%numnod(f1dimppar%nnode))
-!everything should be in the loop, but there are some issues...
-!upstream
-k=1
-f1dimppar%node(1,k)=3
-f1dimppar%node(3,k)=1 !station number of the ones that are Q-stations. 
-f1dimppar%node(4,k)=1 
-!downstream
-k=2
-f1dimppar%node(1,k)=2
-f1dimppar%node(3,k)=1 !station number of the ones that are H-stations.
-f1dimppar%node(4,k)=1
-do k=1,f1dimppar%nnode
+allocate(f1dimppar%numnod(nnode))
+numnod => f1dimppar%numnod
+
+!FM1DIMP2DO: REMOVE
+!!everything should be in the loop, but there are some issues...
+!!upstream
+!k=1
+!f1dimppar%node(1,k)=3
+!f1dimppar%node(3,k)=1 !station number of the ones that are Q-stations. 
+!f1dimppar%node(4,k)=1 
+!!downstream
+!k=2
+!f1dimppar%node(1,k)=2
+!f1dimppar%node(3,k)=1 !station number of the ones that are H-stations.
+!f1dimppar%node(4,k)=1
+
+do k=1,nnode
     !f1dimppar%node(1,k)= 
-    !for some reason at this stage <network%NDS%NODE(2)%NODETYPE> is 0 for all cases. 
-                                                         !! - -2    boundary node
-                                                         !! - -1    not set
-                                                         !! -  0    node with one reach connected
-                                                         !! -  1    connection node with more than one reach connected
-                                                         !! -  2    water level boundary
-                                                         !! -  3    Discharge boundary 
-                                                         !! -  4    Discharge boundary as tabulated function of water level
-                                                         !! -  5    Embedded node
-    f1dimppar%node(2,k)=network%NDS%NODE(k)%GRIDNUMBER
+    !for some reason at this stage <network%NDS%NODE%NODETYPE> is only either 0 or 1
+    !hence, if type 0 it means BC and I have to search which one is it
+    !network%NDS%NODE%NODETYPE
+    !! - -2    boundary node
+    !! - -1    not set
+    !! -  0    node with one reach connected
+    !! -  1    connection node with more than one reach connected
+    !! -  2    water level boundary
+    !! -  3    Discharge boundary 
+    !! -  4    Discharge boundary as tabulated function of water level
+    !! -  5    Embedded node
+    if (network%NDS%NODE(k)%NODETYPE .eq. 0) then !BC noce
+        
+        do k2=1,nhstat !search in hbdpar
+            if (hbdpar(1,k2) .eq. network%NDS%NODE(k)%GRIDNUMBER) then
+                node(1,k)=2 !H boundary
+                node(2,k)=hbdpar(1,k2) !gridpoint
+                node(3,k)=k2
+                node(4,k)=1 !not sure what should it be
+            endif
+        enddo !nhstat
+        
+        if (node(1,k) .eq. 0) then !it is not hbdpar, we search in qbdpar
+        
+            do k2=1,nqstat !search in hbdpar
+                if (qbdpar(1,k2) .eq. network%NDS%NODE(k)%GRIDNUMBER) then
+                    node(1,k)=3 !Q boundary
+                    node(2,k)=qbdpar(1,k2) !gridpoint
+                    node(3,k)=k2
+                    node(4,k)=1 !not sure what should it be
+                endif
+            enddo
+        
+        endif
+        
+        if (node(1,k) .eq. 0) then !it is not hbdpar nor qbdpar => error
+            write (msgbuf, '(a)') 'There is a node which is neither internal nor H nor Q boundary.'
+            call err_flush()
+            iresult=1
+        endif
+        
+    elseif (network%NDS%NODE(k)%NODETYPE .eq. 1) then !internal node
+        node(1,k)=1
+        !node(2:end) is undefined if internal node
+    else
+        write (msgbuf, '(a)') 'The type of node is not what I expected.'
+        call err_flush()
+        iresult=1
+    endif
     
-    f1dimppar%numnod(k)=network%NDS%NODE(1)%NUMBEROFCONNECTIONS
-    end do
-!
+    numnod(k)=network%NDS%NODE(k)%NUMBEROFCONNECTIONS
+    
+end do
+
+!nodes
+
+!nodnod(1,1)=1
+!nodnod(1,2)=2
+!nodnod(2,1)=2
+!nodnod(2,2)=1
 
 if (allocated(f1dimppar%nodnod)) then
     deallocate(f1dimppar%nodnod)
 endif 
-allocate(f1dimppar%nodnod(f1dimppar%nnode,f1dimppar%nbrnod+1))
-!FM1DIMP2DO: compute properly based on node connections. 
-f1dimppar%nodnod(1,1)=1
-f1dimppar%nodnod(1,2)=2
-f1dimppar%nodnod(2,1)=2
-f1dimppar%nodnod(2,2)=1
+allocate(f1dimppar%nodnod(nnode,nbrnod+1))
+nodnod => f1dimppar%nodnod
+
+!<kcol> saves the index to write in the row of <nonnod_aux>
+if (allocated(kcol)) then
+    deallocate(kcol)
+endif 
+allocate(kcol(nnode))
+kcol=1
+
+if (allocated(nodnod_aux)) then
+    deallocate(nodnod_aux)
+endif 
+allocate(nodnod_aux(nnode,20))
+nodnod_aux=0 !we have to be sure ther is no 0 node
+
+do k=1,nbran
+    
+    idx_fr=network%BRS%BRANCH(k)%NODEINDEX(1)
+    idx_to=network%BRS%BRANCH(k)%NODEINDEX(2)
+    
+    nodnod_aux(idx_fr,kcol(idx_fr))=idx_to
+    
+    kcol(idx_fr)=kcol(idx_fr)+1
+
+enddo
 
 !FM1DIMP2DO: remove debug
 f1dimppar%fm1dimp_debug_k1=1
