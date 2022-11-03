@@ -283,8 +283,9 @@ do L=lnxi+1,lnx1Db !boundary links
     n2 = ln(2,L)
     nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
     nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
-    !grd_fmLb_sre(k,1)=findloc(grd_sre_fm,nint) !sre index with <nint> FM value !not working fine due to type of array I guess. 
+    
     !FM1DIMP2DO: move to function or search for smarter way
+    !grd_fmLb_sre(k,1)=findloc(grd_sre_fm,nint) !sre index with <nint> FM value !not working fine due to type of array I guess. 
     idx_aux=1
     min_1=abs(grd_sre_fm(1)-nint)
     do k2=2,size(grd_sre_fm)
@@ -294,6 +295,7 @@ do L=lnxi+1,lnx1Db !boundary links
             idx_aux=k2
         endif
     enddo
+    
     grd_fmLb_sre(k,1)=idx_aux
     grd_fmLb_sre(k,2)=nout !FM index of the ghost cell centre associated to link <L>
 enddo
@@ -483,48 +485,29 @@ do k=1,ngrid
     !x
     !f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE !we cannot take the chaninage from the cross-section because when there are several branches, the first cross-section may come from another branch than the one we are dealing.
     
-    !done in <fm1dimp_update_network>, which is called before the time step
+    !<hpack>, <qpack>, and <waoft> are saved as <fm1dimp> variables but need to be initialized here. 
+    
+    !dependent variables
     !
-    !!nlev
-    !f1dimppar%nlev(k)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
-    !do k2=1,f1dimppar%nlev(k)
-    !    f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
-    !    f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
-    !    f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
-    !    !FM1DIMP2DO: deal with (at least error) case of rectangular cross-section with only two elevation points. 
-    !    !In this case, the area for the low point is 0. This causes a huge interpolation error in SRE. 
-    !    f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
-    !    f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
-    !    f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
-    !end do !k2
-
-    !dependent variables and waoft dealt with time step initialization.
+    do k2=1,3 !< time step [before, intermediate, after]
+        f1dimppar%hpack(k,k2)=s0(idx_fm)
+        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
+    end do !k2
     
-    !!dependent variables
-    !!FM1DIMP2DO: not sure this is needed here. Done in <SOFLOW_wrap>? -> Better here and keep <hpack> and <qpack> as SRE computing variables
-    !!
-    !do k2=1,3 !< time step before, intermediate, after
-    !    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-    !    f1dimppar%hpack(k,k2)=s0(k)
-    !    !FM1DIMP2DO: for the given water level we have to compute the flow area and multiply by the velocity <u1>
-    !    f1dimppar%qpack(k,k2)=100 
-    !end do !k2
-    
-    !!waoft
-    !!I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-    !!FM1DIMP2DO: needs to be interpolated from link to cell centre
-    !!FM1DIMP2DO: needs to be separated between flow and total
-    !!FM1DIMP2DO: wetted perimeter get from results
-    !!check right order in <FLNORM> and not in documentation. 
-    !f1dimppar%waoft(k,1)=real(wu(k)) !wf = actual flow width 
-    !f1dimppar%waoft(k,2)=real(wu(k)) !wt = actual total width
-    !f1dimppar%waoft(k,3)=real(au(k)) !af = actual flow area
-    !f1dimppar%waoft(k,4)=real(au(k)) !at = actual total area n
-    !f1dimppar%waoft(k,5)=real(au(k)) !at = actual total area n+1
-    !f1dimppar%waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
-    !do k2=7,swaoft
-    !    f1dimppar%waoft(k,k2)=0
-    !enddo
+    !waoft
+    !FM1DIMP2DO: needs to be interpolated from link to cell centre
+    !FM1DIMP2DO: needs to be separated between flow and total
+    !FM1DIMP2DO: wetted perimeter get from results
+    !check right order in <FLNORM> and not in documentation. 
+    f1dimppar%waoft(k,1)=real(wu(idx_fm)) !wf = actual flow width 
+    f1dimppar%waoft(k,2)=real(wu(idx_fm)) !wt = actual total width
+    f1dimppar%waoft(k,3)=real(au(idx_fm)) !af = actual flow area
+    f1dimppar%waoft(k,4)=real(au(idx_fm)) !at = actual total area n
+    f1dimppar%waoft(k,5)=real(au(idx_fm)) !at = actual total area n+1
+    f1dimppar%waoft(k,6)=real(au(idx_fm)/wu(idx_fm)) !o = actual wetted perimeter
+    do k2=7,swaoft
+        f1dimppar%waoft(k,k2)=0
+    enddo
 
 end do !k
     

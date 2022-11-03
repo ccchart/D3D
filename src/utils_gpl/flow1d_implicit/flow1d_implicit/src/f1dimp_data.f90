@@ -246,6 +246,7 @@ module m_f1dimp_data
       !debug variables
       !*******
       integer :: fm1dimp_debug_k1 
+      integer :: debug_wr 
       
    end type f1dimppar_type
    

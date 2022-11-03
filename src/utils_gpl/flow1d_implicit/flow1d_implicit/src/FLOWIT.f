@@ -415,13 +415,13 @@ c                                                    <Q_n>    <Q_*>
 c
 c     Debug variables FM1DIMP2DO: remove
       dbg2=waoft(100,3)      
-c      write(42,*) 'FLYPA'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)
+      write(42,*) 'FLYPA'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)
       
       if (ker .eq. fatal) goto 1000
 c
@@ -455,13 +455,13 @@ c     mozart parameters
      +            strclo  ,strhis  ,theta2 ,dt1    ,ker    ,omqlat ,
      +            dhstru  ,relstr  ,iter)
       
-c      write(42,*) 'FLQLAT'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)
+      write(42,*) 'FLQLAT'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)
      
       if (ker .eq. fatal) goto 1000
 
@@ -503,13 +503,13 @@ c
      +            hlev   ,maxlev ,solbuf ,stdbq  ,nstdb  ,juer   ,
      +            ker    )
             
-c      write(42,*) 'FLDSCO'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)     
+      write(42,*) 'FLDSCO'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)     
 c
 c     Compute nodal administration matrix and solve this matrix
 c
@@ -528,13 +528,13 @@ c
       
       dbg1=hp(1,1)
       
-c      write(61,*) 'FLSOEQ'
-c      write(61,*) 'h1'
-c      write(61,*) hp(:,1)
-c      write(61,*) 'h2'
-c      write(61,*) hp(:,2)
-c      write(61,*) 'h3'
-c      write(61,*) hp(:,3)  
+      write(42,*) 'FLSOEQ'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)  
 c
 c     Exception
 c

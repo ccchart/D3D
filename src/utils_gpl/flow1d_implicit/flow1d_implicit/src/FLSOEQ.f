@@ -270,15 +270,15 @@ c
      +             hstat  ,hbdpar  ,qstat   ,qbdpar  ,
      +             rfv1   ,rfv2    ,mat     ,rhsvv(1,1)       )
       
-c      write(42,*) 'FLSBCO'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)  
-c      write(42,*) 'delh'
-c      write(42,*) delh
+      write(42,*) 'FLSBCO'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)  
+      write(42,*) 'delh'
+      write(42,*) delh
       
       if ( lkalm ) then
           scnodl = sclnod(nnn+1)-1
@@ -287,7 +287,7 @@ c      write(42,*) delh
       endif
 
       if (bicg) then
-c          write(42,*) 'bicg'
+        write(42,*) 'bicg'
 c
 c--     the explicit left preconditioning step --c
         do 20 i = 1,nnode
@@ -302,7 +302,7 @@ c
 
       endif
       if (.not.bicg) then
-c          write(42,*) 'ludcmp'
+         write(42,*) 'ludcmp'
 c
 c        If BICGST fails
 c        solve the matrix by using LU decomposition.
@@ -331,15 +331,15 @@ c
      +             rhsvv(1,1)       ,
      +             hp(1,1) ,hp(1,3) ,qp(1,1) ,qp(1,3) )
       
-c      write(42,*) 'FLBRAN'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)  
-c      write(42,*) 'delh'
-c      write(42,*) delh
+      write(42,*) 'FLBRAN'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)  
+      write(42,*) 'delh'
+      write(42,*) delh
       
       dbg1=hp(1,3)
       

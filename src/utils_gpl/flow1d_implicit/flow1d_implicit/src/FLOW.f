@@ -416,13 +416,13 @@ c
       
 c     FM1DIMP2DO: remove debug
       dbg1=hp(1,1)
-c      write(42,*) 'in FLOW'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)
+      write(42,*) 'in FLOW'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)
 c
 c     Put last computed approximations of new h and q in positions *
 c                                              <h_n>    <h_*>
@@ -433,14 +433,14 @@ c                 <At_n+1>
      +            waoft(1,4),qtyp)
       
 c     FM1DIMP2DO: remove debug
-c      dbg1=hp(1,1)
-c      write(42,*) 'FLINS'
-c      write(42,*) 'h1'
-c      write(42,*) hp(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hp(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hp(:,3)
+      dbg1=hp(1,1)
+      write(42,*) 'FLINS'
+      write(42,*) 'h1'
+      write(42,*) hp(:,1)
+      write(42,*) 'h2'
+      write(42,*) hp(:,2)
+      write(42,*) 'h3'
+      write(42,*) hp(:,3)
 c
 c
 c Neglect structures for now

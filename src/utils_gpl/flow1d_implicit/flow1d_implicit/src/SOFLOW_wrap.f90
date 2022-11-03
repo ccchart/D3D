@@ -229,50 +229,25 @@ numnod => f1dimppar%numnod
 nodnod => f1dimppar%nodnod
 
 !debug
+debug_wr         => f1dimppar%debug_wr
 fm1dimp_debug_k1 => f1dimppar%fm1dimp_debug_k1
 
-!we save <waoft> in a pointer. It is not needed to recompute based on FM variables. 
+debug_wr=1
 
-!swaoft=size(waoft,dim=2)
-!
-!do k=1,ngrid
-!    !I don't think <k> below is correct. It should be an index mapping gridpoint and internal gridpoint
-!    !FM1DIMP2DO: needs to be interpolated from link to cell centre
-!    !FM1DIMP2DO: needs to be separated between flow and total
-!    !FM1DIMP2DO: wetted perimeter get from results
-!    !check right order in <FLNORM> and not in documentation. 
-!    waoft(k,1)=real(wu(k)) !wf = actual flow width 
-!    waoft(k,2)=real(wu(k)) !wt = actual total width
-!    waoft(k,3)=real(au(k)) !af = actual flow area
-!    waoft(k,4)=real(au(k)) !at = actual total area n
-!    waoft(k,5)=real(au(k)) !at = actual total area n+1
-!    waoft(k,6)=real(au(k)/wu(k)) !o = actual wetted perimeter
-!    do k2=7,swaoft
-!        waoft(k,k2)=0
-!    enddo
-!enddo
-
-!!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts. 
-!!FM1DIMP2D: <au> needs to be interpolated from link to cell centre.
-!do k=1,3
-!    hpack(:,k)=s0(1:ngrid)
-!    do k2=1,ngrid
-!        qpack(k2,k)=umag(k2)*au(k2) !incorrect, see above. 
-!    enddo
-!    !qpack(:,k)=100 !check if hampers iteration
-!enddo
-
-!write(42,*) fm1dimp_debug_k1
-!write(42,*) 'q1'
-!write(42,*) qpack(:,1)
-!write(42,*) 'q3'
-!write(42,*) qpack(:,3)
-!write(42,*) 'h1'
-!write(42,*) hpack(:,1)
-!write(42,*) 'h3'
-!write(42,*) hpack(:,3)
-!write(42,*) 'waoft3'
-!write(42,*) waoft(:,3)
+if (debug_wr>0) then
+write(42,*) 'SOFLOW_wrap'
+write(42,*) fm1dimp_debug_k1
+write(42,*) 'q1'
+write(42,*) qpack(:,1)
+write(42,*) 'q3'
+write(42,*) qpack(:,3)
+write(42,*) 'h1'
+write(42,*) hpack(:,1)
+write(42,*) 'h3'
+write(42,*) hpack(:,3)
+write(42,*) 'waoft3'
+write(42,*) waoft(:,3)
+endif
 
 call SOFLOW( &
 !<flwpar> input
@@ -302,30 +277,22 @@ call SOFLOW( &
 !close
         &)
     
-     
-!Interpolate at links
-!FM1DIMP2D: compute new flow area <au> to find right velocity before interpolating
-!FM1DIMP2D: check what happens with several branches. We have to get rid of ghosts.
-!s1(1:ngrid)=hpack(:,3)
-!u1(1:ngrid)=qpack(:,3)/waoft(:,3)
-
-!h=hpack(:,3)
-!u=qpack(:,3)/waoft(:,3)
-
 !FM1DIMP2DO: remove debug
 fm1dimp_debug_k1=fm1dimp_debug_k1+1 !FM1DIMP2DO: remove debug variables
 
-!write(42,*) 'SOFLOW'
-!write(42,*) fm1dimp_debug_k1
-!write(42,*) 'q1'
-!write(42,*) qpack(:,1)
-!write(42,*) 'q3'
-!write(42,*) qpack(:,3)
-!write(42,*) 'h1'
-!write(42,*) hpack(:,1)
-!write(42,*) 'h3'
-!write(42,*) hpack(:,3)
-!write(42,*) 'waoft3'
-!write(42,*) waoft(:,3)
+if (debug_wr>0) then
+write(42,*) 'SOFLOW'
+write(42,*) fm1dimp_debug_k1
+write(42,*) 'q1'
+write(42,*) qpack(:,1)
+write(42,*) 'q3'
+write(42,*) qpack(:,3)
+write(42,*) 'h1'
+write(42,*) hpack(:,1)
+write(42,*) 'h3'
+write(42,*) hpack(:,3)
+write(42,*) 'waoft3'
+write(42,*) waoft(:,3)
+endif
 
 end subroutine SOFLOW_wrap

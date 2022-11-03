@@ -871,14 +871,14 @@ c
       iter = iter + 1
 
 c     FM1DIMP2DO: remove debug
-c      write(42,*) 'in SOFLOW'
-c      write(42,*) iter
-c      write(42,*) 'h1'
-c      write(42,*) hpack(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hpack(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hpack(:,3)
+      write(42,*) 'in SOFLOW'
+      write(42,*) iter
+      write(42,*) 'h1'
+      write(42,*) hpack(:,1)
+      write(42,*) 'h2'
+      write(42,*) hpack(:,2)
+      write(42,*) 'h3'
+      write(42,*) hpack(:,3)
       
       call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran,
      +ngrid ,
@@ -948,14 +948,14 @@ c
 c        Program stops at the moment in case of no convergence
 c
 c     FM1DIMP2DO: remove debug
-c      write(42,*) 'FLOW'
-c      write(42,*) iter
-c      write(42,*) 'h1'
-c      write(42,*) hpack(:,1)
-c      write(42,*) 'h2'
-c      write(42,*) hpack(:,2)
-c      write(42,*) 'h3'
-c      write(42,*) hpack(:,3)
+      write(42,*) 'FLOW'
+      write(42,*) iter
+      write(42,*) 'h1'
+      write(42,*) hpack(:,1)
+      write(42,*) 'h2'
+      write(42,*) hpack(:,2)
+      write(42,*) 'h3'
+      write(42,*) hpack(:,3)
       
       call soconv (ngrid ,epsh   ,epsq   ,hpack  ,
      +             qpack ,miniter,conv   ,juresi ,
