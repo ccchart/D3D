@@ -458,6 +458,9 @@ subroutine read_swan (filnam, sr, wavedata)
    sr%swwindt       = .false.
    sr%timedependent = .false.
    !
+   !BS BARE MDW cheap trick to read the Template INPUT file. 
+   call update_swan_inp('c:\ISSUES\UNST-6233\e04_f04_c05\INPUT_1_19871201_000000',wavedata,1,1,1)
+   !
    keywbased = .false.
    call read_keyw_mdw(sr, wavedata, keywbased)
    if (.not.keywbased) then
@@ -575,7 +578,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     versionstring = ''
     call prop_get_string(mdw_ptr, 'WaveFileInformation', 'FileVersion', versionstring)
-    if (trim(versionstring) /= '02.00') return
+    if (trim(versionstring) < '02.00') return
     keywbased = .true.
     !
     ! gen_ptr is used later on
@@ -604,7 +607,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
         sr%exemode = SWAN_MODE_LIB
         if (engine_comm_world == MPI_COMM_NULL) then
             write(*,*) 'SWAN_INPUT: SwanMode = lib only allowed when D-Waves is run using MPI.'
-            goto 999
+            !BS BARE MDW goto 999
         endif
         call prop_get_string (mdw_ptr, 'General', 'ScriptName' , sr%scriptname)
         if (sr%scriptname /= ' ') then
@@ -612,12 +615,12 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
             inquire (file = trim(sr%scriptname), exist = ex)
             if (.not. ex) then
                 write(*,*) 'SWAN_INPUT: specified ScriptName "',trim(sr%scriptname),'" does not exist.'
-                goto 999
+                !BS BARE MDW goto 999
             endif
         endif
     case default
        write(*,*) 'SWAN_INPUT: invalid SWAN execution mode. Expected SwanMode = "exe" or "lib"'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     !
     sr%deltc            = -999.0
@@ -637,16 +640,16 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call prop_get_real(mdw_ptr, 'General', 'TimeStep', sr%deltc)
        if (sr%deltc < 0.0) then
           write(*,*) '*** ERROR: Unable to read non-stationary parameter "TimeStep"'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        call prop_get_real(mdw_ptr, 'General', 'TimeInterval', sr%nonstat_interval)
        if (sr%nonstat_interval < 0.0) then
           write(*,*) '*** ERROR: Unable to read non-stationary parameter "TimeInterval"'
-          goto 999
+          !BS BARE MDW goto 999
        endif
     case default
        write(*,*) 'SWAN_INPUT: missing or invalid simulation mode'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     !
     parname = ''
@@ -680,7 +683,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
       sr%nautconv = .false.
     case default
        write(*,*) 'SWAN_INPUT: missing or invalid direction convention'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     obstfil = ''
     call prop_get_string (mdw_ptr, 'General', 'ObstacleFile', obstfil)
@@ -696,7 +699,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     read(parname,*,iostat=istat) refdate
     if (istat /= 0) then
        write(*,*) 'SWAN_INPUT: missing or invalid reference date'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     call setrefdate(wavedata%time,refdate)
     sr%refjulday = ymd2jul(refdate)
@@ -715,7 +718,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call readtable(sr%tseriesfile, tseriesfilename, sr%refjulday, errorstring)
        if (errorstring /= ' ') then
           write(*,'(A)') trim(errorstring)
-          goto 999
+          !BS BARE MDW goto 999
        endif
     endif
     sr%flowLinkConnectivity = .false.
@@ -741,7 +744,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        ntimes = gettablentimes(sr%tseriesfile, timetable, errorstring)
        if (errorstring /= ' ') then
           write(*,'(A)') trim(errorstring)
-          goto 999
+          !BS BARE MDW goto 999
        endif
     else
        !
@@ -768,7 +771,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     if (istat/=0) then
        write(*,*) 'SWAN_INPUT: memory alloc error (ntimes)'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     !
     sr%timwav = -999.0
@@ -845,35 +848,35 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
                    & 0     , errorstring)
        if (sr%ts_wl(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many WaterLevel entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'XVeloc', sr%ts_xv, &
                    & 0     , errorstring)
        if (sr%ts_xv(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many XVeloc entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'YVeloc', sr%ts_yv, &
                    & 0     , errorstring)
        if (sr%ts_yv(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many YVeloc entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'WindSpeed', sr%ts_ws, &
                    & 0     , errorstring)
        if (sr%ts_ws(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many WindSpeed entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'WindDir', sr%ts_wd, &
                    & 0     , errorstring)
        if (sr%ts_wd(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many WindDir entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
     endif
     !
@@ -891,7 +894,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     case default
        if (parname /= '') then
           write(*,*) 'SWAN_INPUT: unknown General/DirSpace: ', parname
-          goto 999
+          !BS BARE MDW goto 999
        endif
     end select
     def_ndir     = -999
@@ -1022,7 +1025,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     call prop_get_integer(mdw_ptr, 'Processes', 'GenModePhys', sr%genmode)
     if (sr%genmode < 0 .or. sr%genmode > 3) then
        write(*,*) 'SWAN_INPUT: missing or invalid generation mode'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     !
     call prop_get_logical(mdw_ptr, 'Processes', 'WaveSetup' , sr%setup)
@@ -1055,7 +1058,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
       sr%frcof    = 0.05
     case default
        write(*,*) 'SWAN_INPUT: invalid bed friction type'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     if (sr%frictype > 0) then
        call prop_get_real   (mdw_ptr, 'Processes', 'BedFricCoef', sr%frcof)
@@ -1079,7 +1082,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     call prop_get_real   (mdw_ptr, 'Processes', 'AlfaWind'    , sr%alfawind)
     if (sr%alfawind<1d-6 .and. sr%alfawind>-1d-6) then
        write (*,'(a)') 'SWAN_INPUT: AlfaWind is not allowed to be equal to 0.0.'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     parname = ''
     call prop_get_string (mdw_ptr, 'Processes', 'WhiteCapping', parname)
@@ -1094,11 +1097,11 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
       if (sr%genmode /= 3) then
         write (*,'(2a,i0)') 'SWAN_INPUT: WhiteCapping=Westhuysen can not be', &
              & ' combined with formulations of generation ',sr%genmode
-        goto 999
+        !BS BARE MDW goto 999
       endif
     case default
        write(*,*) 'SWAN_INPUT: [Processes] WhiteCapping: invalid input:',trim(parname)
-       goto 999
+       !BS BARE MDW goto 999
     end select
     call prop_get_logical(mdw_ptr, 'Processes', 'Quadruplets', sr%quadruplets)
     call prop_get_logical(mdw_ptr, 'Processes', 'Refraction' , sr%refraction)
@@ -1120,7 +1123,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
       sr%swdis = 3
     case default
        write(*,*) 'SWAN_INPUT: invalid method to compute wave forces'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     !
     parname = ''
@@ -1143,7 +1146,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
       call prop_get_real (mdw_ptr, 'Processes', 'IceWind', sr%icewind)
     case default
        write(*,*) 'SWAN_INPUT: invalid method for wave damping due to ice'
-       goto 999
+       !BS BARE MDW goto 999
     end select
     !
     ! Numerics
@@ -1200,7 +1203,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     call prop_get_string (mdw_ptr, 'Output', 'FlowGridForCom'  , sr%flowgridfile)
     if (sr%flowgridfile /= ' ') then
        write(*,'(a)') "ERROR: No longer supported: stand alone WAVE computation using FLOW data in a com-file via keyword 'FlowGridForCom'"
-       goto 999
+       !BS BARE MDW goto 999
     endif
     call prop_get_string (mdw_ptr, 'Output', 'COMFile'                , sr%flowgridfile)
     call prop_get_logical(mdw_ptr, 'Output', 'AppendCOM'              , sr%append_com)
@@ -1223,7 +1226,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        i = len_trim(sr%flowgridfile)
        if (sr%flowgridfile(i-5:i) /= "com.nc") then
           write(*,'(3a)') "ERROR: The name of the COMFile (", trim(sr%flowgridfile), ") must end on 'com.nc'"
-          goto 999
+          !BS BARE MDW goto 999
        endif
     endif
     !
@@ -1245,7 +1248,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        allocate (sr%pntfilnamtab(nlocc), stat = istat)
        if (istat/=0) then
           write(*,*) 'SWAN_INPUT: memory alloc error (pntfilnam)'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        sr%pntfilnam    = ' '
        sr%pntfilnamtab = ' '
@@ -1357,7 +1360,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     enddo
     if (ndomains == 0) then
        write(*,*) 'SWAN_INPUT: no domains found!'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     sr%nnest = ndomains
     !
@@ -1366,7 +1369,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     if (istat /= 0) then
        write(*,*) 'SWAN_INPUT: memory alloc error (ndomains)'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     !
     sr%dom(1)%qextnd           = 0
@@ -1379,7 +1382,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call prop_get_integer(mdw_ptr, 'General', 'FlowVegetation', sr%dom(1)%qextnd(q_veg) )
        if (sr%dom(1)%qextnd(q_veg) == 2) then
           write(*,*) 'SWAN_INPUT: FlowVegetation=2 is found while extrapolation to the outside of domain is not supported yet.'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        call prop_get_integer(mdw_ptr, 'General', 'FlowWaterLevel', sr%dom(1)%qextnd(q_wl)  )
        call prop_get_integer(mdw_ptr, 'General', 'FlowVelocity'  , sr%dom(1)%qextnd(q_cur) )
@@ -1400,7 +1403,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           !
        case default
           write(*,*) 'SWAN_INPUT: invalid option for [General], FlowVelocityType'
-          goto 999
+          !BS BARE MDW goto 999
        end select
     endif
     do i = 1, ndomains
@@ -1451,7 +1454,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call readgriddims(dom%curlif, dom%mxc, dom%myc)
        if (dom%curlif == '') then
           write(*,*) 'SWAN_INPUT: grid not found for domain', domainnr
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        ! poles? No, fences!
@@ -1480,7 +1483,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call prop_get_string(tmp_ptr, '*', 'BedLevel', dom%botfil)
        if (dom%botfil == '') then
           write(*,*) 'SWAN_INPUT: bathymetry not found for domain', domainnr
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        flag           = .false.
@@ -1507,7 +1510,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           call prop_get_string(tmp_ptr, '*', 'VegetationMap', dom%vegfil)
           if (dom%vegfil == '') then
              write(*,*) 'SWAN_INPUT: vegetation map not found for domain ', domainnr
-             goto 999
+             !BS BARE MDW goto 999
           endif
        endif       
        !
@@ -1516,7 +1519,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call prop_get_integer(tmp_ptr, '*', 'NDir', dom%ndir)
        if (dom%ndir < 1) then
           write(*,*) 'SWAN_INPUT: invalid number of directions: ', dom%ndir
-          goto 999
+          !BS BARE MDW goto 999
        endif
        parname = ''
        call prop_get_string(tmp_ptr, '*', 'DirSpace', parname)
@@ -1529,7 +1532,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        case default
           if (parname /= '' .or. dom%dirspace < 0) then
              write(*,*) 'SWAN_INPUT: unknown DirSpace: ', parname
-             goto 999
+             !BS BARE MDW goto 999
           endif
        end select
        !
@@ -1550,7 +1553,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        if (domainnr > 1 .and. &
           & (dom%nestnr<1 .or. dom%nestnr>=domainnr)) then
           write(*,*) 'SWAN_INPUT: domain', domainnr, ' not nested in a valid domain'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        dom%nesfil(1:4) = 'NEST'
        write(dom%nesfil(5:7),'(I3.3)') domainnr
@@ -1587,7 +1590,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
              !
           case default
              write(*,'(a,i0,a)') 'SWAN_INPUT: invalid option for [Domain ', domainnr, '], FlowVelocityType'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           !
           ! echo to screen
@@ -1741,7 +1744,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     allocate (sr%bnd(nbound  ), stat = istat)
     if (istat /= 0) then
        write(*,*) 'SWAN_INPUT: memory alloc error (nbound)'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     !
     sr%specfile    = ' '
@@ -1776,28 +1779,28 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
                    & 0     , errorstring)
        if (def_ts_hs(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many WaveHeight entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'Period', def_ts_tp, &
                    & 0     , errorstring)
        if (def_ts_tp(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many Period entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'Direction', def_ts_wd, &
                    & 0     , errorstring)
        if (def_ts_wd(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many Direction entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call gettable(sr%tseriesfile, 'General', 'DirSpreading', def_ts_ds, &
                    & 0     , errorstring)
        if (def_ts_ds(3) > 1) then
           write(*,*) 'SWAN_INPUT: too many DirSpreading entries in TSeriesFile'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
     endif
@@ -1841,7 +1844,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
              bnd%orient = 8
           case default
              write(*,*) 'SWAN_INPUT: missing or invalid boundary orientation'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           bnd%turn = 1
           !
@@ -1855,7 +1858,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
              bnd%turn = 1
           case default
              write(*,*) 'SWAN_INPUT: invalid distance measurement direction'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           !
        case ('grid','grid-coordinates')
@@ -1890,7 +1893,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           !
        case default
           write(*,*) 'SWAN_INPUT: missing or invalid boundary orientation definition type'
-          goto 999
+          !BS BARE MDW goto 999
        end select
        !
        parname = ''
@@ -1920,7 +1923,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
             bnd%sshape = 4
           case default
              write(*,*) 'SWAN_INPUT: missing or invalid boundary spectrum shape type'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           !
           parname = ''
@@ -1933,7 +1936,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
             bnd%periodtype = 2
           case default
              write(*,*) 'SWAN_INPUT: missing or invalid boundary spectrum period type'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           !
           parname = ''
@@ -1946,12 +1949,12 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
             bnd%dsprtype = 2
           case default
              write(*,*) 'SWAN_INPUT: missing or invalid boundary spectrum directional spreading type'
-             goto 999
+             !BS BARE MDW goto 999
           end select
           !
        case default
           write(*,*) 'SWAN_INPUT: missing or invalid boundary spectrum specification type'
-          goto 999
+          !BS BARE MDW goto 999
        end select
        !
        select case (bnd%sshape)
@@ -1992,7 +1995,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        if (istat==0) allocate (bnd%spectrum  (nsect ), stat = istat)
        if (istat/=0) then
           write(*,*) 'SWAN_INPUT: memory alloc error (nsect)'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        bnd%distance  = -999.0
        bnd%waveheight= -999.0
@@ -2018,31 +2021,31 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           case ('waveheight')
              if (sectnr==0) then
                 write(*,*) 'SWAN_INPUT: premature wave height specification at ',trim(bnd%name)
-                goto 999
+                !BS BARE MDW goto 999
              endif
              call prop_get_real(tmp_ptr, '*', 'WaveHeight', bnd%waveheight(sectnr))
           case ('period')
              if (sectnr==0) then
                 write(*,*) 'SWAN_INPUT: premature period specification at ',trim(bnd%name)
-                goto 999
+                !BS BARE MDW goto 999
              endif
              call prop_get_real(tmp_ptr, '*', 'Period', bnd%period(sectnr))
           case ('direction')
              if (sectnr==0) then
                 write(*,*) 'SWAN_INPUT: premature direction specification at ',trim(bnd%name)
-                goto 999
+                !BS BARE MDW goto 999
              endif
              call prop_get_real(tmp_ptr, '*', 'Direction', bnd%direction(sectnr))
           case ('dirspreading')
              if (sectnr==0) then
                 write(*,*) 'SWAN_INPUT: premature direction spreading specification at ',trim(bnd%name)
-                goto 999
+                !BS BARE MDW goto 999
              endif
              call prop_get_real(tmp_ptr, '*', 'DirSpreading', bnd%dirspread(sectnr))
           case ('spectrum')
              if (sectnr==0) then
                 write(*,*) 'SWAN_INPUT: premature spectrum file specification at ',trim(bnd%name)
-                goto 999
+                !BS BARE MDW goto 999
              endif
              call prop_get_string(tmp_ptr, '*', 'Spectrum', bnd%spectrum(sectnr))
           end select
@@ -2056,7 +2059,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           if (bnd%ts_hs(1)<0) bnd%ts_hs = def_ts_hs
           if (bnd%ts_hs(3)>1 .and. bnd%ts_hs(3)/=bnd%nsect) then
              write(*,*) 'SWAN_INPUT: invalid number of WaveHeight entries in TSeriesFile'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
           call gettable(sr%tseriesfile, bnd%name, 'Period', bnd%ts_tp, &
@@ -2064,7 +2067,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           if (bnd%ts_tp(1)<0) bnd%ts_tp = def_ts_tp
           if (bnd%ts_tp(3)>1 .and. bnd%ts_tp(3)/=bnd%nsect) then
              write(*,*) 'SWAN_INPUT: invalid number of Period entries in TSeriesFile'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
           call gettable(sr%tseriesfile, bnd%name, 'Direction', bnd%ts_wd, &
@@ -2072,7 +2075,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           if (bnd%ts_wd(1)<0) bnd%ts_wd = def_ts_wd
           if (bnd%ts_wd(3)>1 .and. bnd%ts_wd(3)/=bnd%nsect) then
              write(*,*) 'SWAN_INPUT: invalid number of Direction entries in TSeriesFile'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
           call gettable(sr%tseriesfile, bnd%name, 'DirSpreading', bnd%ts_ds, &
@@ -2080,7 +2083,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           if (bnd%ts_ds(1)<0) bnd%ts_ds = def_ts_ds
           if (bnd%ts_ds(3)>1 .and. bnd%ts_ds(3)/=bnd%nsect) then
              write(*,*) 'SWAN_INPUT: invalid number of DirSpreading entries in TSeriesFile'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
        endif
@@ -2095,20 +2098,20 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
        call prop_file('ini',trim(obstfil),obst_ptr,istat)
        if (istat /= 0) then
           write(*,*) 'SWAN_INPUT: error reading obstacle file ''', trim(obstfil), ''''
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        call tree_get_node_by_name( obst_ptr, 'ObstacleFileInformation', tmp_ptr )
        call tree_get_node_by_name( tmp_ptr, 'PolylineFile', pol_ptr )
        if (.not.associated (pol_ptr)) then
           write(*,*) 'SWAN_INPUT: missing PolylineFile keyword in obstacle file'
-          goto 999
+          !BS BARE MDW goto 999
        endif
        call tree_get_data_string(pol_ptr,polylinefile,flag)
        call prop_file('tekal',polylinefile,pol_ptr,istat)
        if (istat /= 0) then
           write(*,*) 'SWAN_INPUT: error reading obstacle polygon file ''', trim(polylinefile), ''''
-          goto 999
+          !BS BARE MDW goto 999
        endif
        !
        nobst    = 0
@@ -2124,7 +2127,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           call tree_get_node_by_name(pol_ptr, parname, tmp_ptr )
           if ( .not. associated(tmp_ptr) ) then
              write(*,*) 'SWAN_INPUT: obstacle polygon ''', trim(parname), ''' not found'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
           call tree_get_data_ptr( tmp_ptr, data_ptr, parname)
@@ -2152,7 +2155,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     if (istat/=0) then
        write(*,*) 'SWAN_INPUT: memory alloc error (nobst)'
-       goto 999
+       !BS BARE MDW goto 999
     endif
     !
     if (nobst > 0) then
@@ -2201,7 +2204,7 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
           call tree_get_node_by_name(pol_ptr, parname, tmp_ptr )
           if ( .not. associated(tmp_ptr) ) then
              write(*,*) 'SWAN_INPUT: obstacle polygon not found'
-             goto 999
+             !BS BARE MDW goto 999
           endif
           !
           ! get x,y coordinates ...
@@ -2236,7 +2239,8 @@ subroutine read_keyw_mdw(sr          ,wavedata   ,keywbased )
     !
     return
 999 continue
-    call wavestop(1, "ERROR while reading keyword based mdw file")
+    !BS BARE MDW CHECK do not stop after reading empty mdw file
+    !call wavestop(1, "ERROR while reading keyword based mdw file")
 end subroutine read_keyw_mdw
 !
 !
@@ -2309,6 +2313,7 @@ subroutine update_swan_inp(filnam,wavedata,itide,nttide,calccount)
     integer           :: new_input
     integer           :: loc_time
     integer           :: loc_file
+    integer           :: loc_out
     character(256)    :: rec
     character(85)     :: line !BS same length as in write_swan_inp
     character(15)               :: tbegc
@@ -2317,38 +2322,35 @@ subroutine update_swan_inp(filnam,wavedata,itide,nttide,calccount)
 !
 !! executable statements -------------------------------------------------------
 !
+    write(*,'(2a)') 'Updating pre-existing INPUT file: ',trim(filnam)
+   
     open (newunit=old_input, file = filnam, form = 'formatted', status = 'old',err=6666)
     open (newunit=new_input, file = 'INPUT', form = 'formatted', status = 'replace')
     
 10  continue
     read(old_input,'(a)',end=7777,err=8888) rec
     ! add checks for lines that need updates
-    ! check for TABLE (not all tables though)
-    ! check for SPEC
-    ! check for COMPUTE
+    ! check for TABLE - we have decided to leave the TABLE as is, because we want to get rid of it altogether
+    ! check for SPEC - done. with some issues 
+    ! check for COMPUTE - done. with some issues
     ! check for HOTF
-    !HOW TO
-    ! compare first 4 characters of line with TABL, SPEC, COMP, HOTF
-    ! rewrite the entire line
-    if(index(rec,'TABLE') /= 0) then
-        ! this one need a bit more than that. or can remain a bit dull
-        write(*,*) 'in TABLE zone'
+    !
+    loc_out = index(rec, 'OUT ') ! this only works for OUT, not OUTPUT (for now)
+    if(index(rec,'TABLE')/=0)then
         write(new_input,'(a)') rec
-    !    
     elseif(index(rec,'SPEC') /= 0) then
         write(*,*) 'in SPECOUT zone'
         ! these lines were either generated by D-waves or generated/modified by the user
         ! only modify the part of the line that contain eihter 00000 (fname that depends on time points),
         ! or the time dependent part that follows OUTput
-        
-        
+        !
         if(index(rec,'0000') /=0) then
-            if(index(rec,'OUT ')/= 0) then                              ! change the file name and the time
+            if(loc_out/= 0) then                              ! change the file name and the time
                 ! change fname to current time point
                 loc_file = index(rec,'0000')   
                 ! change time dependent part 
                 tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-                loc_time = index(rec,'OUT ') + 5
+                loc_time = loc_out + 5
                 if(nttide>1) then
                     write(new_input,'(a,I6.6,4a)') rec(1:loc_file-1), itide    , rec(loc_file+6:loc_time), tbegc,' ', rec(loc_time+15:) 
                 elseif(wavedata%mode /= stand_alone) then
@@ -2363,11 +2365,16 @@ subroutine update_swan_inp(filnam,wavedata,itide,nttide,calccount)
                     write(new_input,'(a,I6.6,a)') rec(1:loc_file-1), calccount, rec(loc_file+6:)
                 endif
             endif
-        elseif(index(rec,'OUT ')/=0) then                             ! do not change the file name, but change the time
+        elseif(loc_out/=0) then                             ! do not change the file name, but change the time
             ! change time dependent part (length('OUT')) + 1 blank + 1
             tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-            loc_time = index(rec,'OUT ') + 5
-            write(new_input,'(4a)') rec(1:loc_time), tbegc, rec(loc_time+15:)
+            if(loc_out == ' ') then
+                loc_time = loc_out + 5
+                write(new_input,'(4a)') rec(1:loc_time), tbegc, rec(loc_time+15:)
+            else
+                loc_time = loc_out + 8 ! it is either OUT or OUTPUT
+                write(new_input,'(4a)') rec(1:loc_time), tbegc, rec(loc_time+15:)
+            endif
         else                                                        ! do not change the file name, do not change the time
             write(new_input,'(a)') rec     
         endif
@@ -2375,20 +2382,22 @@ subroutine update_swan_inp(filnam,wavedata,itide,nttide,calccount)
     !
     elseif(index(rec,'COMP') /= 0) then
         write(*,*) 'in COMPUTE zone'
+        !BS BARE MDW cheap trick to keep the existing time of computation in the Template INPUT file
+        write(new_input,'(a)') rec
         ! stationary computation
-        if(index(rec,' STAT') /= 0) then 
-            write(*,*) 'in COMPUTE STAT zone'
-            tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-            write (new_input,'(A,1X,A)') ' COMPUTE STAT  ',tendc
-            sr%writehottime = tendc
+        !if(index(rec,' STAT') /= 0) then 
+        !    write(*,*) 'in COMPUTE STAT zone'
+        !    tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
+        !    write (new_input,'(A,1X,A)') ' COMPUTE STAT  ',tendc
+        !    sr%writehottime = tendc
         ! non stationary computation    
-        elseif(index(rec,'NONSTAT') /= 0 ) then
-            write(*,*) 'in COMPUTE NONSTAT zone'
-            tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-            tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
-            write(new_input,'(3a,f8.2,3a)') ' COMPUTE NONSTAT ',tbegc, ' ', sr%deltc, ' MIN ', tendc 
-            sr%writehottime = tendc
-        endif    
+        !elseif(index(rec,'NONSTAT') /= 0 ) then
+        !    write(*,*) 'in COMPUTE NONSTAT zone'
+        !    tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
+        !    tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
+        !    write(new_input,'(3a,f8.2,3a)') ' COMPUTE NONSTAT ',tbegc, ' ', sr%deltc, ' MIN ', tendc 
+        !    sr%writehottime = tendc
+        !endif    
     !
     elseif(index(rec,'HOTF')  /= 0) then
         write(*,*) 'in HOTFILE zone'
