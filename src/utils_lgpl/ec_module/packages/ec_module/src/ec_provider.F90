@@ -274,7 +274,7 @@ module m_ec_provider
 
             if (.not. ecSupportOpenExistingFile(fileReaderPtr%fileHandle, fileReaderPtr%fileName)) return
             select case (fileReaderPtr%ofType)                 ! Inventory of the opened netcdf-file
-            case (provFile_netcdf)
+            case (provFile_netcdf, provFile_ncspiderweb)
                if (.not. ecProviderNetcdfReadvars(fileReaderPtr)) then
                   ! todo: error handling with message
                   return
@@ -338,6 +338,8 @@ module m_ec_provider
                success = ecProviderCreateArcinfoItems(instancePtr, fileReaderPtr)
             case (provFile_spiderweb)
                success = ecProviderCreateSpiderwebItems(instancePtr, fileReaderPtr)
+            case (provFile_ncspiderweb)
+               success = ecProviderCreateNetcdfSpiderwebItems(instancePtr, fileReaderPtr)
             case (provFile_curvi)
                success = ecProviderCreateCurviItems(instancePtr, fileReaderPtr)
             case (provFile_curvi_weight)
@@ -2284,6 +2286,394 @@ module m_ec_provider
       end function ecProviderCreateSpiderwebItems
       
       ! =======================================================================
+
+      !> Create source Items and their contained types, based on a spiderweb file's header.
+      !! meteo1.f90: reaspwheader
+      function ecProviderCreateNetcdfSpiderwebItems(instancePtr, fileReaderPtr) result(success)
+         logical                      :: success       !< function status
+         type(tEcInstance),   pointer :: instancePtr   !< intent(in)
+         type(tEcFileReader), pointer :: fileReaderPtr !< intent(inout)
+         !
+         integer                   :: quantityId      !< helper variable 
+         integer                   :: elementSetId    !< helper variable 
+         integer                   :: field0Id        !< helper variable 
+         integer                   :: field1Id        !< helper variable 
+         integer                   :: itemId          !< helper variable 
+         integer                   :: n_cols          !< helper variable
+         integer                   :: n_rows          !< helper variable
+         real(hp)                  :: missingValue    !< helper variable
+         real(hp)                  :: radius          !< helper variable
+         real(hp)                  :: range_step
+         real(hp)                  :: spw_merge_frac  !< helper variable
+         real(hp), dimension(:), allocatable     :: range_val
+         character(len=maxNameLen) :: radius_unit     !< helper variable
+         type(tEcItem), pointer    :: item1           !< Item containing quantity1: wind_speed
+         type(tEcItem), pointer    :: item2           !< Item containing quantity2: wind_from_direction
+         type(tEcItem), pointer    :: item3           !< Item containing quantity3: surface_air_pressure
+         type(tEcItem), pointer    :: item4           !< Item containing quantity4: surface_air_pressure at eye
+         type(tEcItem), pointer    :: item5           !< Item containing quantity5: x-coordinate of eye
+         type(tEcItem), pointer    :: item6           !< Item containing quantity6: y-coordinate of eye
+         character(len=NF90_MAX_NAME), dimension(1)              :: ncstdnames            !< helper variable : temp. list of standard names to search for in netcdf
+         character(len=maxNameLen)                               :: units                 !< quantity units string
+         character(len=NF90_MAX_NAME)                            :: dimname               !< string for dimension name
+         integer                                                 :: i                     !< local loop counter
+         integer                                                 :: idazimuth             !< netCDF variable id of the azimuth angle
+         integer                                                 :: idazimuth_dim         !< netCDF dimension id of the azimuth angle dimension
+         integer                                                 :: idrange               !< netCDF variable id of the distance from the eye (range)
+         integer                                                 :: idrange_dim           !< netCDF dimension id of the distance from the eye (range) dimension
+         integer                                                 :: idtime                !< netCDF variable id of the time variable
+         integer                                                 :: idtime_dim            !< netCDF dimension id of the time dimension
+         integer                                                 :: idp_eye               !< netCDF variable id of the air pressure at the eye
+         integer                                                 :: idx_eye               !< netCDF variable id of the x-coordinate at the eye
+         integer                                                 :: idy_eye               !< netCDF variable id of the y-coordinate at the eye
+         integer                                                 :: nangles               !< number of azimuth angles
+         integer                                                 :: nranges               !< number of distance ranges
+         integer                                                 :: ntimes                !< number of time steps
+         integer                                                 :: idvar                 !< netCDF variable id of a requested quantity
+         integer                                                 :: ndims
+         integer                                                 :: nvar
+         integer                                                 :: ierror
+         integer                                                 :: id
+         integer                                                 :: idims
+         integer, dimension(:), allocatable                      :: coordids
+         integer, dimension(:), allocatable                      :: dimids
+         character(len=NF90_MAX_NAME)                            :: xname                 !< standard name of x coordinate
+         character(len=NF90_MAX_NAME)                            :: yname                 !< standard name of y coordinate
+         character(len=NF90_MAX_NAME)                            :: eye_press_name        !< name of netCDF variable containing surface_air_pressure in the eye
+         !
+         success = .true.
+         nvar = size(fileReaderPtr%standard_names, dim=1)
+         !
+         ! identify the characteristic dimensions: time
+         ncstdnames = 'time'
+         call ecProviderSearchStdOrVarnames(fileReaderPtr, 1, idvar, ncstdnames)
+         if (idvar <= 0) then
+             call setECMessage("No variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         idtime = idvar
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
+         if (ndims /= 1) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have 1 dimension.')
+             success = .false.
+             return
+         endif
+         allocate(dimids(ndims))
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids) ! get dimension ID's
+         idtime_dim = dimids(1)
+         ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, idtime_dim, dimname, ntimes)
+         !
+         ! identify the characteristic dimensions: azimuth angle
+         ncstdnames = 'ray_azimuth_angle'
+         call ecProviderSearchStdOrVarnames(fileReaderPtr, 1, idvar, ncstdnames)
+         if (idvar <= 0) then
+             call setECMessage("No variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         idazimuth = idvar
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
+         if (ndims /= 1) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have 1 dimension.')
+             success = .false.
+             return
+         endif
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids) ! get dimension ID's
+         idazimuth_dim = dimids(1)
+         ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, idazimuth_dim, dimname, nangles)
+         !
+         ! TODO: check angles unit and equidistance of angles (start at 0, step 360/nangles)
+         !
+         ! identify the characteristic dimensions: distance from eye
+         ncstdnames = 'projection_range_coordinate'
+         call ecProviderSearchStdOrVarnames(fileReaderPtr, 1, idvar, ncstdnames)
+         if (idvar <= 0) then
+             call setECMessage("No variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         idrange = idvar
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
+         if (ndims /= 1) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have 1 dimension.')
+             success = .false.
+             return
+         endif
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids) ! get dimension ID's
+         idrange_dim = dimids(1)
+         ierror = nf90_inquire_dimension(fileReaderPtr%fileHandle, idrange_dim, dimname, nranges)
+         !
+         radius_unit = ' '
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, idvar, 'units', radius_unit)
+         missingValue = NF90_FILL_FLOAT
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, idvar, '_FillVal', missingValue)
+         !
+         allocate(range_val(nranges))
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, idvar, range_val)
+         radius = range_val(nranges)
+         range_step = radius / nranges
+         do i = 1,nranges
+             if (abs(range_val(i) - range_step * i) > 1d-5 * range_step) then
+                 deallocate(range_val)
+                 call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" does not match equidistant assumption.')
+                 success = .false.
+                 return
+             endif
+         enddo
+         deallocate(range_val)
+         !
+         ! identify longitude or projection_x_coordinate
+         if (.true.) then
+             xname = 'longitude'
+             yname = 'latitude'
+         else
+             xname = 'projection_x_coordinate'
+             yname = 'projection_y_coordinate'
+         endif
+         !
+         ncstdnames = xname
+         call ecProviderSearchStdOrVarnames(fileReaderPtr, 1, idvar, ncstdnames)
+         if (idvar <= 0) then
+             call setECMessage("No variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         idx_eye = idvar
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
+         if (ndims /= 1) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have 1 dimension.')
+             success = .false.
+             return
+         endif
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids) ! get dimension ID's
+         if (dimids(1) /= idtime_dim) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have time dimension.')
+             success = .false.
+             return
+         endif
+         !
+         ! identify latitude or projection_y_coordinate
+         ncstdnames = yname
+         call ecProviderSearchStdOrVarnames(fileReaderPtr, 1, idvar, ncstdnames)
+         if (idvar <= 0) then
+             call setECMessage("No variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         idy_eye = idvar
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, ndims=ndims)  ! get the number of dimensions
+         if (ndims /= 1) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have 1 dimension.')
+             success = .false.
+             return
+         endif
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids) ! get dimension ID's
+         if (dimids(1) /= idtime_dim) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have time dimension.')
+             success = .false.
+             return
+         endif
+         !
+         ! identify the merge factor is specified in the file
+         spw_merge_frac = 0.5
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, NF90_GLOBAL, 'spw_merge_frac', spw_merge_frac)
+         deallocate(dimids)
+         !
+         n_rows = nranges
+         n_rows = n_rows + 1 ! an additional row for the eye
+         n_cols = nangles
+         n_cols = n_cols + 1 ! an additional column for 360 == 0 degrees
+         !
+         ! One common ElementSet.
+         elementSetId = ecInstanceCreateElementSet(instancePtr)
+         if (.not. (ecElementSetSetType(instancePtr, elementSetId, elmSetType_spw) .and. &
+                    ecElementSetSetRadius(instancePtr, elementSetId, radius, spw_merge_frac, radius_unit) .and. &
+                    ecElementSetSetRowsCols(instancePtr, elementSetId, n_rows, n_cols))) then
+            success = .false.
+         end if
+         !
+         ! ===== quantity1: wind_speed =====
+         ncstdnames = 'wind_speed'
+         success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'windspeed', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item1)
+         !
+         !! ===== quantity2: wind_from_direction =====
+         ncstdnames = 'wind_from_direction'
+         success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'winddirection', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item2)
+         !
+         !! ===== quantity3: surface_air_pressure =====
+         ncstdnames = 'surface_air_pressure'
+         success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'air_pressure', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item3)
+         !
+         !! ===== quantity4: surface_air_pressure at the eye =====
+         eye_press_name = ' '
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, 'eye_value', eye_press_name)
+         idp_eye = -1
+         do id = 1, nvar
+             if (eye_press_name == fileReaderPtr%variable_names(id)) then
+                 idp_eye = id
+                 exit
+             endif
+         enddo
+         if (idp_eye < 0) then
+             call setECMessage("No eye pressure found in NetCDF file '"//trim(fileReaderPtr%filename)//'".')
+             success = .false.
+             return
+         endif
+         quantityId = ecInstanceCreateQuantity(instancePtr)
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=eye_press_name, ncid=idp_eye))) then
+            success = .false.
+         end if
+         itemId = ecInstanceCreateItem(instancePtr)
+         if (.not. ( ecItemSetQuantity(instancePtr, itemId, quantityId))) then
+            success = .false.
+            item4 => null()
+         else
+            item4 => ecSupportFindItem(instancePtr, itemId)
+         end if
+         !
+         !! ===== quantity5: x-coordinate of the the eye =====
+         quantityId = ecInstanceCreateQuantity(instancePtr)
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=xname, ncid=idx_eye))) then
+            success = .false.
+         end if
+         itemId = ecInstanceCreateItem(instancePtr)
+         if (.not. ( ecItemSetQuantity(instancePtr, itemId, quantityId))) then
+            success = .false.
+            item5 => null()
+         else
+            item5 => ecSupportFindItem(instancePtr, itemId)
+         end if
+         !
+         !! ===== quantity6: y-coordinate of the the eye =====
+         quantityId = ecInstanceCreateQuantity(instancePtr)
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=yname, ncid=idy_eye))) then
+            success = .false.
+         end if
+         itemId = ecInstanceCreateItem(instancePtr)
+         if (.not. ( ecItemSetQuantity(instancePtr, itemId, quantityId))) then
+            success = .false.
+            item6 => null()
+         else
+            item6 => ecSupportFindItem(instancePtr, itemId)
+         end if
+         !
+         !! ===== finish initialization of Fields =====
+         !! Read the first two records into tEcItem%sourceT0FieldPtr and tEcItem%sourceT1FieldPtr.
+         if (success) then
+            success = ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, 0, n_cols, n_rows, 1) ! timendx
+         end if
+         if (success) then
+            success = ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, 1, n_cols, n_rows, 1)
+         end if
+         ! Add successfully created source Items to the FileReader
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item1%id)
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item2%id)
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item3%id)
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item4%id)
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item5%id)
+         if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item6%id)
+      end function ecProviderCreateNetcdfSpiderwebItems
+
+      function ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, qname, n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item1) result(success)
+         logical                                                :: success       !< function status
+         type(tEcInstance), pointer                             :: instancePtr   !< intent(in)
+         type(tEcFileReader), pointer                           :: fileReaderPtr !< intent(inout)
+         integer,                                    intent(in) :: elementSetId    !< helper variable 
+         character(len=NF90_MAX_NAME), dimension(1), intent(in) :: ncstdnames  !< helper variable : temp. list of standard names to search for in netcdf
+         character(len=*),                           intent(in) :: qname                 !< quantity units string
+         integer,                                    intent(in) :: n_rows          !< helper variable
+         integer,                                    intent(in) :: n_cols          !< helper variable
+         integer,                                    intent(in) :: idazimuth_dim         !< netCDF dimension id of the azimuth angle dimension
+         integer,                                    intent(in) :: idrange_dim           !< netCDF dimension id of the distance from the eye (range) dimension
+         integer,                                    intent(in) :: idtime_dim            !< netCDF dimension id of the time dimension
+         real(hp),                                   intent(in) :: missingValue    !< helper variable
+         type(tEcItem), pointer                                 :: item1           !< intent(out), Item containing quantity1
+         !
+         integer                   :: quantityId      !< helper variable
+         integer                   :: field0Id        !< helper variable 
+         integer                   :: field1Id        !< helper variable 
+         integer                   :: itemId          !< helper variable 
+         character(len=maxNameLen)                               :: units                 !< quantity units string
+         integer                                                 :: id                    !< loop counter
+         integer                                                 :: idvar                 !< netCDF variable id of a requested quantity
+         integer                                                 :: ndims
+         integer                                                 :: nvar                  !< number of variables in the netCDF file
+         integer                                                 :: ierror
+         integer, dimension(:), allocatable                      :: dimids
+         !
+         success = .true.
+         item1 => null()
+         nvar = size(fileReaderPtr%standard_names, dim=1)
+         !
+         ! check standard name
+         idvar = -1
+         do id = 1, nvar
+             if (ncstdnames(1) == fileReaderPtr%standard_names(id)) then
+                 ! check the number of dimensions
+                 ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, id, ndims=ndims)
+                 if (ierror == 0 .and. ndims == 3) then
+                     idvar = id
+                     exit
+                 endif
+             endif
+         enddo
+         if (idvar <= 0) then
+             call setECMessage("No 3-dimensional variable with standard name '" // trim(ncstdnames(1)) // "' found in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         fileReaderPtr%standard_names(idvar)=ncstdnames(1)
+         units = ' '
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, idvar, 'units', units)
+         !
+         ! check the order of the dimensions
+         allocate(dimids(ndims))
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idvar, dimids=dimids)
+         if (dimids(1) /= idrange_dim .or. dimids(2) /= idazimuth_dim .or. dimids(3) /= idtime_dim) then
+             call setECMessage("Variable with standard name '" // trim(ncstdnames(1)) // "' in NetCDF file '"//trim(fileReaderPtr%filename)//'" should have dimensions specified in the order: range, azimuth, time.')
+             success = .false.
+             return
+         endif
+         !
+         quantityId = ecInstanceCreateQuantity(instancePtr)
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=qname,      &
+                                                           units=units,     &
+                                                           ncid=idvar))) then
+            success = .false.
+         end if
+         if (.not.(ecQuantitySetUnitsFillScaleOffsetFromNcidVarid(instancePtr, quantityId, fileReaderPtr%fileHandle, idvar))) then
+            success = .false.
+         endif
+
+         field0Id = ecInstanceCreateField(instancePtr)
+         if (.not. (ecFieldCreate1dArray(instancePtr, field0Id, n_cols*n_rows) .and. &
+                    ecFieldSetMissingValue(instancePtr, field0Id, missingValue))) then
+            success = .false.
+         else
+            instancePtr%ecFieldsPtr(field0Id)%ptr%bbox = (/1,1,n_rows,n_cols/)
+         end if
+         field1Id = ecInstanceCreateField(instancePtr)
+         if (.not. (ecFieldCreate1dArray(instancePtr, field1Id, n_cols*n_rows) .and. &
+                    ecFieldSetMissingValue(instancePtr, field1Id, missingValue))) then
+            success = .false.
+         else
+            instancePtr%ecFieldsPtr(field1Id)%ptr%bbox = (/1,1,n_rows,n_cols/)
+         end if
+         itemId = ecInstanceCreateItem(instancePtr)
+         if (.not. ( ecItemSetRole(instancePtr, itemId, itemType_source) .and. &
+                     ecItemSetType(instancePtr, itemId, accessType_fileReader) .and. &
+                     ecItemSetQuantity(instancePtr, itemId, quantityId) .and. &
+                     ecItemSetElementSet(instancePtr, itemId, elementSetId) .and. &
+                     ecItemSetSourceT0Field(instancePtr, itemId, field0Id) .and. &
+                     ecItemSetSourceT1Field(instancePtr, itemId, field1Id))) then
+            success = .false.
+         else
+            item1 => ecSupportFindItem(instancePtr, itemId)
+         end if
+      end function ecProviderCreateNetcdfSpiderwebItem
+
+      ! =======================================================================
       function ecProviderCreateTimeInterpolatedItem(instancePtr, sourceItemId, tgtNdx, arrayPtr, scalarPtr) result(itemId)
           use m_ec_item
           use m_ec_converter,  only: ecConverterSetType, ecConverterSetInterpolation, ecConverterSetOperand, ecConverterSetElement
@@ -3309,7 +3699,7 @@ module m_ec_provider
                success = .true.
             case (provFile_grib)
                call setECMessage("ERROR: ec_provider::ecProviderInitializeTimeFrame: Unsupported file type.")
-            case (provFile_netcdf)
+            case (provFile_netcdf, provFile_ncspiderweb)
                success = ecNetcdfInitializeTimeFrame(fileReaderPtr)
             case (provFile_t3D)
                success = ecDefaultInitializeTimeFrame(fileReaderPtr)

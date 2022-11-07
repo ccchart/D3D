@@ -750,7 +750,7 @@ module m_ec_module
          convtype = convType_undefined ! not yet implemented
       case (provFile_arcinfo)
          convtype = convType_arcinfo
-      case (provFile_spiderweb)
+      case (provFile_spiderweb, provFile_ncspiderweb)
          convtype = convType_spiderweb
       case (provFile_curvi)
          convtype = convType_curvi

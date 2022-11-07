@@ -57,6 +57,7 @@ module m_ec_filereader_read
    public :: ecSpiderwebAndCurviFindInFile
    public :: ecSpiderAndCurviAndArcinfoReadToBody
    public :: ecSpiderwebReadBlock
+   public :: ecNetcdfSpiderwebReadBlock
    public :: ecNetcdfGetTimeIndexByTime
    public :: ecArcinfoAndT3dReadBlock
    public :: ecCurviReadBlock
@@ -94,7 +95,7 @@ module m_ec_filereader_read
             call setECMessage("Rewind failed on " // trim(fileReaderPtr%fileName) // ". Error: " // trim(iomsg))
             return
          endif
-         ! continue reading lines untill a data line is encountered
+         ! continue reading lines until a data line is encountered
          do
             iomsg = ""
 !           call GetLine(fileReaderPtr%fileHandle, rec, istat, iomsg=iomsg)
@@ -125,7 +126,7 @@ module m_ec_filereader_read
          integer        :: istat !< status of read operation
          !
          success = .false.
-         ! continue reading lines untill a data line is encountered
+         ! continue reading lines until a data line is encountered
          do
             call GetLine(fileReaderPtr%fileHandle, rec, istat)
             if (istat == 0) then
@@ -165,7 +166,7 @@ module m_ec_filereader_read
          !
          success = .false.
          n_values = size(values)
-         ! continue reading lines untill a data line is encountered
+         ! continue reading lines until a data line is encountered
          do
             call GetLine(fileReaderPtr%fileHandle, rec, istat)
             rec0 = rec                                         ! preserve originally read line for error reporting
@@ -662,6 +663,143 @@ module m_ec_filereader_read
             success = .false.
          end if
       end function ecSpiderwebReadBlock
+
+      !> Read the next record from a spiderweb file.
+      !! meteo1: reaspwtim
+      function ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, t0t1, n_cols, n_rows, timesndx) result(success)
+         use netcdf
+         
+         logical                         :: success       !< function status
+         type(tEcFileReader), pointer    :: fileReaderPtr !< intent(in)
+         type(tEcItem),       pointer    :: item1         !< Item containing quantity1: wind_speed, intent(inout)
+         type(tEcItem),       pointer    :: item2         !< Item containing quantity2: wind_from_direction, intent(inout)
+         type(tEcItem),       pointer    :: item3         !< Item containing quantity3: surface_air_pressure, intent(inout)
+         type(tEcItem),       pointer    :: item4         !< Item containing quantity4: surface_air_pressure at eye, intent(in)
+         type(tEcItem),       pointer    :: item5         !< Item containing quantity5: x-coordinate of the eye, intent(in)
+         type(tEcItem),       pointer    :: item6         !< Item containing quantity6: y-coordinate of the eye, intent(in)
+         integer,             intent(in) :: t0t1          !< read into Field T0 or T1 (0,1)
+         integer,             intent(in) :: n_cols
+         integer,             intent(in) :: n_rows
+         integer,             intent(in) :: timesndx
+         
+         type(tEcField), pointer                 :: fieldPtr1        !< Field to update
+         type(tEcField), pointer                 :: fieldPtr2        !< Field to update
+         type(tEcField), pointer                 :: fieldPtr3        !< Field to update
+         real(hp), dimension(:,:,:), allocatable :: data_block       !< 2D slice of NetCDF variable's data
+         real(hp), dimension(1)                  :: data_scalar      !< receive scalar data from NetCDF
+         integer :: ierror
+         integer :: istat
+         integer :: io
+         integer :: col
+         real(hp) :: press_eye
+         real(hp) :: time_mjd
+         real(hp) :: x_spw_eye
+         real(hp) :: y_spw_eye
+         !
+         success = .true.
+         
+         if (t0t1 == 0) then
+            fieldPtr1 => item1%sourceT0FieldPtr
+            fieldPtr2 => item2%sourceT0FieldPtr
+            fieldPtr3 => item3%sourceT0FieldPtr
+         else if (t0t1 == 1) then
+            fieldPtr1 => item1%sourceT1FieldPtr
+            fieldPtr2 => item2%sourceT1FieldPtr
+            fieldPtr3 => item3%sourceT1FieldPtr
+         else
+            call setECMessage("Invalid source Field specified in ecNetcdfReadNextBlock.")
+            success = .false.
+            return
+         end if
+
+         ! allocate memory for reading data
+         allocate(data_block(n_cols-1, n_rows-1, 1), stat = istat)
+         
+         ! time
+         time_mjd = ecSupportTimeIndexToMJD(fileReaderPtr%tframe, timesndx)
+            
+         !! ===== quantity4: surface_air_pressure at the the eye =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item4%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
+         press_eye = data_scalar(1)
+
+         !! ===== quantity5: x-coordinate of the the eye =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item5%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
+         x_spw_eye = data_scalar(1)
+
+         !! ===== quantity6: y-coordinate of the the eye =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item6%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
+         y_spw_eye = data_scalar(1)
+         
+         !! ===== quantity1: wind_speed =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item1%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
+         if (ierror /= NF90_NOERR) then ! handle exception
+             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             success = .false.
+             return
+         endif
+         io = 0
+         do col = 0, n_cols-1
+             if (col == 0) then
+                 fieldPtr1%arr1d(io+1:io+n_rows) = 0d0
+             else
+                 fieldPtr1%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
+                 fieldPtr1%arr1d(io+n_rows) = data_block(col,1,1)
+             endif
+             io = io + n_rows
+         enddo
+         fieldPtr1%timesteps = time_mjd
+         fieldPtr1%timesndx  = timesndx
+         fieldPtr1%x_spw_eye = x_spw_eye
+         fieldPtr1%y_spw_eye = y_spw_eye
+         
+         !! ===== quantity2: wind_from_direction =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item2%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
+         if (ierror /= NF90_NOERR) then ! handle exception
+             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             success = .false.
+             return
+         endif
+         io = 0
+         do col = 0, n_cols-1
+             if (col == 0) then
+                 fieldPtr2%arr1d(io+1:io+n_rows-1) = data_block(1,:,1)
+                 fieldPtr2%arr1d(io+n_rows) = data_block(1,1,1)
+             else
+                 fieldPtr2%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
+                 fieldPtr2%arr1d(io+n_rows) = data_block(col,1,1)
+             endif
+             io = io + n_rows
+         enddo
+         fieldPtr2%timesteps = time_mjd
+         fieldPtr2%timesndx  = timesndx
+         fieldPtr2%x_spw_eye = x_spw_eye
+         fieldPtr2%y_spw_eye = y_spw_eye
+         
+         !! ===== quantity3: surface_air_pressure =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
+         if (ierror /= NF90_NOERR) then ! handle exception
+             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             success = .false.
+             return
+         endif
+         io = 0
+         do col = 0, n_cols-1
+             if (col == 0) then
+                 fieldPtr3%arr1d(io+1:io+n_rows) = press_eye
+             else
+                 fieldPtr3%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
+                 fieldPtr3%arr1d(io+n_rows) = data_block(col,1,1)
+             endif
+             io = io + n_rows
+         enddo
+         fieldPtr3%timesteps = time_mjd
+         fieldPtr3%timesndx  = timesndx
+         fieldPtr3%x_spw_eye = x_spw_eye
+         fieldPtr3%y_spw_eye = y_spw_eye
+         
+         ! all reading done
+         deallocate(data_block, stat = istat)
+      end function ecNetcdfSpiderwebReadBlock
 
       ! =======================================================================
       !> Given the time, find the index of the time dimension in a netCDF filereader
@@ -1249,7 +1387,7 @@ module m_ec_filereader_read
 
       ! =======================================================================
 
-      !> Read the file from the current line untill a line containing the keyword is found and read.
+      !> Read the file from the current line until a line containing the keyword is found and read.
       !! meteo1.f90: reaspwheader
       function ecFindInFile(minp, keyword) result(rec)
          character(maxFileNameLen)                 :: rec

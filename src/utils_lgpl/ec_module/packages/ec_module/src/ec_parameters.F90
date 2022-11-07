@@ -99,6 +99,7 @@ module m_ec_parameters
    integer, parameter :: provFile_t3D                 = 16  !< temporary type for 3D salinity boundaries
    integer, parameter :: provFile_bc                  = 17  !< BC-format
    integer, parameter :: provFile_fourier_cor         = 18  !< period(hrs), ampl(m), phas(deg) correction
+   integer, parameter :: provFile_ncspiderweb         = 19  !< 3 field each timestep 3 dim array        bilin/spw
 
    ! enumeration for access types
    integer, parameter :: accessType_undefined     = 0

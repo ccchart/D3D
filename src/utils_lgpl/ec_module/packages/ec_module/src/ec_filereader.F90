@@ -310,6 +310,38 @@ module m_ec_filereader
                   fileReaderPtr%items(i)%ptr%sourceT1FieldPtr => fileReaderPtr%items(i)%ptr%sourceT0FieldPtr
                   fileReaderPtr%items(i)%ptr%sourceT0FieldPtr => fieldPtrA
                end do
+            case (provFile_ncspiderweb)
+               itemPtr => fileReaderPtr%items(1)%ptr
+               if (itemPtr%sourceT0FieldPtr%timesndx < 0) then
+                  t0t1 = 0 
+                  timesndx  = ecNetcdfGetTimeIndexByTime(fileReaderPtr, timesteps)           ! timesteps is MJD in the new EC-module ? CHECK!
+               elseif (itemPtr%sourceT0FieldPtr%timesndx > itemPtr%sourceT1FieldPtr%timesndx) then
+                  t0t1 = 1
+                  timesndx = itemPtr%sourceT0FieldPtr%timesndx + 1
+               else
+                  t0t1 = 0 
+                  timesndx = itemPtr%sourceT1FieldPtr%timesndx + 1
+               endif
+               ! read the next record into t0
+               success = ecNetcdfSpiderwebReadBlock(fileReaderPtr, &
+                                                    fileReaderPtr%items(1)%ptr, &
+                                                    fileReaderPtr%items(2)%ptr, &
+                                                    fileReaderPtr%items(3)%ptr, &
+                                                    fileReaderPtr%items(4)%ptr, &
+                                                    fileReaderPtr%items(5)%ptr, &
+                                                    fileReaderPtr%items(6)%ptr, &
+                                                    t0t1, &
+                                                    fileReaderPtr%items(1)%ptr%elementSetPtr%n_cols, &
+                                                    fileReaderPtr%items(1)%ptr%elementSetPtr%n_rows, &
+                                                    timesndx)
+               if (t0t1 == 0) then
+                  ! flip t0 and t1
+                  do i=1, fileReaderPtr%nItems
+                     fieldPtrA => fileReaderPtr%items(i)%ptr%sourceT1FieldPtr
+                     fileReaderPtr%items(i)%ptr%sourceT1FieldPtr => fileReaderPtr%items(i)%ptr%sourceT0FieldPtr
+                     fileReaderPtr%items(i)%ptr%sourceT0FieldPtr => fieldPtrA
+                  end do
+               endif
             case (provFile_curvi)
                ! Read a new value into t0 and then flip t0 and t1.
                success = ecCurviReadBlock(fileReaderPtr, fileReaderPtr%fileHandle, 0)

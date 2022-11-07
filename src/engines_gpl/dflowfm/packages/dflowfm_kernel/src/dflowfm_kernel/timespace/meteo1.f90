@@ -54,6 +54,7 @@ module timespace_parameters
   integer, parameter :: ncgrid                         = 11  ! NetCDF grid, rectangular type as arcinfo  
   integer, parameter :: ncflow                         = 12  ! NetCDF flow, with arbitrary type of input
   integer, parameter :: ncwave                         = 14  ! NetCDF com file, with arbitrary type of input
+  integer, parameter :: ncspiderweb                    = 15  ! 3 veld per tijdstap 3 dim array        bilin/spw
   integer, parameter :: bcascii                        = 17  ! .bc format as ASCII file
   integer, parameter :: field1d                        = 18  ! Scalar quantity on a 1D network, used for initial/parameter fields.
   integer, parameter :: geotiff                        = 19  ! GeoTIFF, used for initial/parameter fields.
@@ -6768,6 +6769,8 @@ module m_meteo
             ec_filetype = provFile_poly_tim
          case (ncgrid, ncwave)      ! 11, 14
             ec_filetype = provFile_netcdf
+         case (ncspiderweb)         ! 15
+            ec_filetype = provFile_ncspiderweb
          case (ncflow)              ! 12
             ec_filetype = provFile_undefined ! only used for timespaceinitialfield, no EC yet.
          case (bcascii)             ! 17
@@ -7908,6 +7911,8 @@ module m_meteo
                sourceItemName = 'uniform_item'
             else if (ec_filetype == provFile_spiderweb) then
                sourceItemName = 'p_drop'
+            else if (ec_filetype == provFile_ncspiderweb) then
+               sourceItemName = 'air_pressure'
             else if (ec_filetype == provFile_netcdf) then
                ! the arc-info file contains 'air_pressure', which is also the standard_name 
                sourceItemName  = 'air_pressure'
@@ -7994,6 +7999,13 @@ module m_meteo
                if (.not. success) then
                   goto 1234
                end if
+            else if (ec_filetype == provFile_ncspiderweb) then
+               sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'windspeed')
+               sourceItemId_2 = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'winddirection')
+               success = (sourceItemId /= ec_undef_int .and. sourceItemId_2 /= ec_undef_int)
+               if (.not. success) then
+                  goto 1234
+               end if
             else
                call mess(LEVEL_FATAL, 'm_meteo::ec_addtimespacerelation: Unsupported filetype for quantity windxy.')
                return
@@ -8018,6 +8030,10 @@ module m_meteo
                sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'windspeed')
                sourceItemId_2 = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'winddirection')
                sourceItemId_3 = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'p_drop')
+            else if (ec_filetype == provFile_ncspiderweb) then
+               sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'windspeed')
+               sourceItemId_2 = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'winddirection')
+               sourceItemId_3 = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'air_pressure')
             else if (ec_filetype == provFile_netcdf) then
                sourceItemId   = ecFindItemInFileReader(ecInstancePtr, fileReaderId, 'air_pressure')
                if ( .not. withStress) then

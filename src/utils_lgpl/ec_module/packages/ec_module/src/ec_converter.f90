@@ -2435,7 +2435,7 @@ module m_ec_converter
                     swr = i
                  case ('winddirection')
                     swd = i
-                 case ('p_drop')
+                 case ('p_drop','air_pressure')
                     swp = i
               end select
             end do
