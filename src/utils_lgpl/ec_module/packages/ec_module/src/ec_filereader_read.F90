@@ -666,7 +666,7 @@ module m_ec_filereader_read
 
       !> Read the next record from a spiderweb file.
       !! meteo1: reaspwtim
-      function ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, t0t1, n_cols, n_rows, timesndx) result(success)
+      function ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, t0t1, nranges, nangles, timesndx) result(success)
          use netcdf
          
          logical                         :: success       !< function status
@@ -678,26 +678,26 @@ module m_ec_filereader_read
          type(tEcItem),       pointer    :: item5         !< Item containing quantity5: x-coordinate of the eye, intent(in)
          type(tEcItem),       pointer    :: item6         !< Item containing quantity6: y-coordinate of the eye, intent(in)
          integer,             intent(in) :: t0t1          !< read into Field T0 or T1 (0,1)
-         integer,             intent(in) :: n_cols
-         integer,             intent(in) :: n_rows
+         integer,             intent(in) :: nranges
+         integer,             intent(in) :: nangles
          integer,             intent(in) :: timesndx
          
-         type(tEcField), pointer                 :: fieldPtr1        !< Field to update
-         type(tEcField), pointer                 :: fieldPtr2        !< Field to update
-         type(tEcField), pointer                 :: fieldPtr3        !< Field to update
-         real(hp), dimension(:), allocatable     :: windspeed        !< temporary array for windspeed after 
-         real(hp), dimension(:,:,:), allocatable :: data_block       !< 2D slice of NetCDF variable's data
-         real(hp), dimension(1)                  :: data_scalar      !< receive scalar data from NetCDF
-         integer :: ierror
-         integer :: istat
-         integer :: io
-         integer :: col
-         real(hp) :: press_eye
-         real(hp) :: time_mjd
-         real(hp) :: x_spw_eye
-         real(hp) :: y_spw_eye
+         type(tEcField), pointer                                 :: fieldPtr1             !< Field to update
+         type(tEcField), pointer                                 :: fieldPtr2             !< Field to update
+         type(tEcField), pointer                                 :: fieldPtr3             !< Field to update
+         real(hp), dimension(:), allocatable                     :: windspeed             !< temporary array for windspeed after 
+         real(hp), dimension(1)                                  :: data_scalar           !< receive scalar data from NetCDF
+         integer, dimension(1)                                   :: dimid                 !< length 1 array to request azimuth dimension
+         integer                                                 :: id                    !< loop counter for netCDF ids
+         integer                                                 :: idazimuth             !< netCDF variable id of the azimuth angle
+         integer                                                 :: idazimuth_dim         !< netCDF dimension id of the azimuth angle dimension
+         integer                                                 :: ierror
+         real(hp)                                                :: press_eye
+         real(hp)                                                :: time_mjd
+         real(hp)                                                :: x_spw_eye
+         real(hp)                                                :: y_spw_eye
          !
-         success = .true.
+         success = .false.
          
          if (t0t1 == 0) then
             fieldPtr1 => item1%sourceT0FieldPtr
@@ -709,12 +709,8 @@ module m_ec_filereader_read
             fieldPtr3 => item3%sourceT1FieldPtr
          else
             call setECMessage("ecNetcdfSpiderwebReadBlock:Invalid source Field specified.")
-            success = .false.
             return
          end if
-
-         ! allocate memory for reading data
-         allocate(data_block(n_cols-1, n_rows-1, 1), stat = istat)
          
          ! time
          time_mjd = ecSupportTimeIndexToMJD(fileReaderPtr%tframe, timesndx)
@@ -734,47 +730,31 @@ module m_ec_filereader_read
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item6%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
          y_spw_eye = data_scalar(1)
          
+         ! determine the azimuth dimension to check in which order the data is provided in the netCDF file
+         ! since this was already checked in the provider, we know that this exists.
+         idazimuth = -1
+         do id = 1, len(fileReaderPtr%standard_names)
+             if (fileReaderPtr%standard_names(id) == 'ray_azimuth_angle') then
+                 idazimuth = id
+                 exit
+             endif
+         enddo
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, idazimuth, dimids=dimid)
+         idazimuth_dim = dimid(1)
+         
          !! ===== quantity1: wind component 1 (speed or eastward wind) =====
-         ierror = nf90_get_var(fileReaderPtr%fileHandle, item1%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
-         if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
-             success = .false.
+         if (load_data(item1, fieldPtr1) /= 0) then
              return
          endif
-         io = 0
-         do col = 0, n_cols-1
-             if (col == 0) then
-                 fieldPtr1%arr1d(io+1:io+n_rows) = 0d0
-             else
-                 fieldPtr1%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
-                 fieldPtr1%arr1d(io+n_rows) = data_block(col,1,1)
-             endif
-             io = io + n_rows
-         enddo
          fieldPtr1%timesteps = time_mjd
          fieldPtr1%timesndx  = timesndx
          fieldPtr1%x_spw_eye = x_spw_eye
          fieldPtr1%y_spw_eye = y_spw_eye
          
          !! ===== quantity2: wind component 2 (direction or northward wind) =====
-         ierror = nf90_get_var(fileReaderPtr%fileHandle, item2%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
-         if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
-             success = .false.
+         if (load_data(item2, fieldPtr2) /= 0) then
              return
          endif
-         io = 0
-         do col = 0, n_cols-1
-             if (col == 0) then
-                 ! we don't know whether we are dealing with direction of northward wind
-                 ! just set the values to 0 here and update them once we have the direction
-                 fieldPtr2%arr1d(io+1:io+n_rows) = 0d0
-             else
-                 fieldPtr2%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
-                 fieldPtr2%arr1d(io+n_rows) = data_block(col,1,1)
-             endif
-             io = io + n_rows
-         enddo
          fieldPtr2%timesteps = time_mjd
          fieldPtr2%timesndx  = timesndx
          fieldPtr2%x_spw_eye = x_spw_eye
@@ -787,48 +767,115 @@ module m_ec_filereader_read
              fieldPtr2%arr1d = fieldPtr2%arr1d + 180.0_hp
          elseif (fileReaderPtr%standard_names(item1%quantityptr%ncid) == 'eastward_wind' .and. fileReaderPtr%standard_names(item2%quantityptr%ncid) == 'northward_wind') then
              ! need to determine speed and direction
-             allocate(windspeed(n_cols*n_rows))
+             allocate(windspeed(nranges*nangles))
              windspeed = sqrt(fieldPtr1%arr1d**2 + fieldPtr2%arr1d**2)
              fieldPtr2%arr1d = 270d0 - atan2d(fieldPtr2%arr1d,fieldPtr1%arr1d)
              fieldPtr1%arr1d = windspeed
              deallocate(windspeed)
          else
              call setECMessage("ecNetcdfSpiderwebReadBlock: Unsupported combination of wind components in "//trim(fileReaderPtr%filename)//".")
-             success = .false.
              return
          endif
          !
          ! copy direction from inner range to eye
-         fieldPtr2%arr1d(1:n_rows) = fieldPtr2%arr1d(n_rows+1:2*n_rows)
+         fieldPtr2%arr1d(1:nangles) = fieldPtr2%arr1d(nangles+1:2*nangles)
          
          !! ===== quantity3: surface_air_pressure =====
-         ierror = nf90_get_var(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
-         if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
-             success = .false.
+         if (load_data(item3, fieldPtr3) /= 0) then
              return
          endif
-         ! Compensate for unit of pressure (mbar, hPa versus Pa)
-         if ((index(item3%quantityPtr%units,'mbar') == 1) .or. (index(item3%quantityPtr%units,'hPa') == 1)) then
-            data_block = data_block * 100.0_hp
-         end if
-         io = 0
-         do col = 0, n_cols-1
-             if (col == 0) then
-                 fieldPtr3%arr1d(io+1:io+n_rows) = press_eye
-             else
-                 fieldPtr3%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
-                 fieldPtr3%arr1d(io+n_rows) = data_block(col,1,1)
-             endif
-             io = io + n_rows
-         enddo
          fieldPtr3%timesteps = time_mjd
          fieldPtr3%timesndx  = timesndx
          fieldPtr3%x_spw_eye = x_spw_eye
          fieldPtr3%y_spw_eye = y_spw_eye
+         !
+         ! fill eye values
+         fieldPtr3%arr1d(1:nangles) = press_eye
          
          ! all reading done
+         success = .true.
+         
+      contains
+      
+         function load_data(item,fieldPtr) result(icode)
+         type(tEcItem), pointer                  :: item     !< Item being processed
+         type(tEcField), pointer                 :: fieldPtr !< Field to update
+         integer                                 :: icode    !< Return code
+                                                 
+         integer, dimension(3)                   :: dimids     !< length 3 array for requesting dimensions of item
+         integer                                 :: i          !< loop index for data array in EC-module
+         integer                                 :: ierror     !< netCDF error flag
+         integer                                 :: istat      !< memory error flag
+         integer                                 :: irange     !< loop index for range dimension of data array
+         integer                                 :: iangle     !< loop index for azimuth dimension of data array
+         real(hp), dimension(:,:,:), allocatable :: data_block !< array for storing a 2D slice of the 3D array
+         
+         icode = 1
+         ierror = nf90_inquire_variable(fileReaderPtr%fileHandle, item%QuantityPtr%ncid, dimids=dimids)
+         if (ierror /= NF90_NOERR) then ! handle exception
+             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             return
+         endif
+         i = 1
+         if (dimids(2) == idazimuth_dim) then
+             ! read data
+             allocate(data_block(nranges-1, nangles-1, 1), stat = istat)
+             if (istat /= 0) then ! handle exception
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while allocation data_block.")
+                 return
+             endif
+             ierror = nf90_get_var(fileReaderPtr%fileHandle, item%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/nranges-1, nangles-1, 1/))
+             if (ierror /= NF90_NOERR) then ! handle exception
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+                 return
+             endif
+             ! transfer data
+             do irange = 0, nranges-1
+                 do iangle = 1, nangles
+                     if (irange == 0) then
+                         fieldPtr%arr1d(i) = 0d0
+                     elseif (iangle == nangles) then
+                         fieldPtr%arr1d(i) = data_block(irange,1,1)
+                     else
+                         fieldPtr%arr1d(i) = data_block(irange,iangle,1)
+                     endif
+                     i = i + 1
+                 enddo
+             enddo
+         else
+             ! read data
+             allocate(data_block(nangles-1, nranges-1, 1), stat = istat)
+             if (istat /= 0) then ! handle exception
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while allocation data_block.")
+                 return
+             endif
+             ierror = nf90_get_var(fileReaderPtr%fileHandle, item%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/nangles-1, nranges-1, 1/))
+             if (ierror /= NF90_NOERR) then ! handle exception
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+                 return
+             endif
+             ! transfer data
+             do irange = 0, nranges-1
+                 do iangle = 1, nangles
+                     if (irange == 0) then
+                         fieldPtr%arr1d(i) = 0d0
+                     elseif (iangle == nangles) then
+                         fieldPtr%arr1d(i) = data_block(1,irange,1)
+                     else
+                         fieldPtr%arr1d(i) = data_block(iangle,irange,1)
+                     endif
+                     i = i + 1
+                 enddo
+             enddo
+         endif
          deallocate(data_block, stat = istat)
+         if (istat /= 0) then ! handle exception
+             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while deallocation data_block.")
+             return
+         endif
+         icode = 0
+         end function load_data
+         
       end function ecNetcdfSpiderwebReadBlock
 
       ! =======================================================================
