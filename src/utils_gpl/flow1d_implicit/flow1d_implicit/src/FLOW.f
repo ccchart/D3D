@@ -20,7 +20,8 @@ c              mozart parameters (extra qlatnm) plus groundwater switch
      +         rfv2   ,abcd1  ,abcd2  ,mat    ,rhsvv  ,hp     ,
      +         qp     ,delh   ,work   ,cnstrl ,strhis ,trcnrl ,triger ,
      +         cnpflg ,ker    ,qtyp   ,lfrou  ,strbuf ,ibuf   ,solbuf ,
-     +         buflag ,indx   ,bicg   ,stdbq  ,nstdb  )
+     +         buflag ,indx   ,bicg   ,stdbq  ,nstdb                  ,
+     +         debug_wr)
 
 c=======================================================================
 c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS
@@ -376,6 +377,7 @@ c
 c
 c     FM1DIMP2DO: remove debug
       real dbg1
+      integer debug_wr
 c
 c     Include sobek error code file
 c
@@ -416,6 +418,7 @@ c
       
 c     FM1DIMP2DO: remove debug
       dbg1=hp(1,1)
+      if (debug_wr>0) then
       write(42,*) 'in FLOW'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
@@ -423,6 +426,7 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      endif
 c
 c     Put last computed approximations of new h and q in positions *
 c                                              <h_n>    <h_*>
@@ -434,6 +438,7 @@ c                 <At_n+1>
       
 c     FM1DIMP2DO: remove debug
       dbg1=hp(1,1)
+      if (debug_wr>0) then
       write(42,*) 'FLINS'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
@@ -441,6 +446,7 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      endif
 c
 c
 c Neglect structures for now
@@ -483,7 +489,8 @@ c          mozart parameters plus groundwater switch
      +     omr    ,omw    ,cflpse ,iterbc ,resid  ,delh   ,work   ,
      +     lambda ,relstr ,dhstru ,omcfl  ,dhtyp  ,ker    ,omboun ,
      +     omqlat ,ibuf   ,lfrou  ,qtyp   ,indx   ,bicg   ,solbuf ,
-     +     stdbq  ,nstdb  )
+     +     stdbq  ,nstdb                                          ,
+     +     debug_wr)
 c
       if (ker .eq. fatal) goto 1000
 cc

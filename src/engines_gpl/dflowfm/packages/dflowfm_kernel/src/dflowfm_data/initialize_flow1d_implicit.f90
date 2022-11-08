@@ -36,13 +36,14 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1dIMP2DO: do I need it?
 use unstruc_messages
 use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
 use m_fm_erosed, only: link1sign2
+use m_oned_functions, only: gridpoint2cross
 !use m_meteo !boundary conditions -> eventually done every time step
 
 implicit none
@@ -72,7 +73,10 @@ integer                                  , pointer :: table_length
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
 integer, dimension(:)                    , pointer :: grd_sre_fm
-
+integer, dimension(:)                    , pointer :: idx_cs
+integer, dimension(:)                    , pointer :: lin
+integer, dimension(:)                    , pointer :: grd
+      
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
 
@@ -115,7 +119,7 @@ real, dimension(:,:)                     , pointer :: waoft
 double precision                         , pointer :: time
 double precision                         , pointer :: dtf
 double precision                         , pointer :: resid
-
+      
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
@@ -127,13 +131,14 @@ integer, pointer :: fm1dimp_debug_k1
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
-integer :: k
-integer :: k2
+integer :: k, k1, k2 !FM1DIMP2DO: make the variables names consistent
 integer :: idx_crs
-integer :: n1, n2, nint, nout
+integer :: n1, n2, nint, nout, pointscount, i, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, idx_fm, nl, L
+integer :: idx_sre
+integer :: j
 
 !move to function
 integer :: idx_aux
@@ -142,11 +147,11 @@ integer :: min_1, min_2
 !integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
+!integer, allocatable, dimension(:)   :: node_processed !< flag (connection) nodes processed while checking cross sections
 
 !integer, allocatable, dimension(:,:) :: nodnod_aux
 
 real :: swaoft
-
 
 !point
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
@@ -162,6 +167,7 @@ maxlev       => f1dimppar%maxlev
 ngridm       => f1dimppar%ngridm
 nhstat       => f1dimppar%nhstat
 nqstat       => f1dimppar%nqstat
+idx_cs       => f1dimppar%idx_cs
 
 !!
 !! CALC
@@ -232,7 +238,20 @@ endif
 allocate(f1dimppar%x(ngrid))
 x => f1dimppar%x
 
+if (allocated(f1dimppar%idx_cs)) then
+    deallocate(f1dimppar%idx_cs)
+endif
+allocate(f1dimppar%idx_cs(ngrid))
+idx_cs => f1dimppar%idx_cs
+
+!if (allocated(node_processed)) then
+!    deallocate(node_processed)
+!endif
+!allocate(node_processed(ndxi))
+!node_processed=0
+
 idx_i=1
+idx_sre=0
 do k=1,nbran
     !update index final
     idx_f=idx_i+network%BRS%BRANCH(k)%GRIDPOINTSCOUNT-1
@@ -259,8 +278,43 @@ do k=1,nbran
            iresult=1
         endif
     enddo
+    
+    !cross-section
+    pointscount=network%BRS%BRANCH(k)%GRIDPOINTSCOUNT !FM1DIMP2DO: also make pointer?
+    lin      => network%brs%branch(k)%lin
+    grd      => network%brs%branch(k)%grd
+    
+    do i=1,pointscount
+        idx_sre=idx_sre+1
+        k1=grd(i)
         
+        !FM1DIMP2DO: This part of the code is part of <set_cross_sections_to_gridpoints>, could be modularized.
+        !->start
+        if (i==1 .or. i==pointscount) then
+           ! search for correct location
+           if (i==1) then 
+              L = lin(1)
+           else
+              L = lin(pointscount-1)
+           endif
+           do j = 1,nd(k1)%lnx
+              if (L == iabs(nd(k1)%ln(j))) then
+                 jpos = j
+              endif
+           enddo
+        else
+           jpos = 1
+        endif  
+        !-> end
+        
+        idx_cs(idx_sre)=gridpoint2cross(k1)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+        !if there is not a unique cross-section per gridpoint per branch, <ic=-999>. It is not needed to check
+        !this here because it is already checked in <flow_sedmorinit>, which is called before <initialize_flow1d_implicit>
+        
+        !icd=network%crs%cross(ic) !cross-section associated to the FM gridpoint per branch
+    enddo
     !branch
+    
     branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
     branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
     branch(3,k)=idx_i
@@ -422,24 +476,27 @@ do k=1,ngrid
     !idx_crs
     !index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node, but 
     !due to precision, <network%ADM%gpnt2cross%F> may not be exactly 1. 
-    if (network%ADM%gpnt2cross(idx_fm)%F>0.5) then
-        if (network%ADM%gpnt2cross(idx_fm)%F<1-1.0e-6) then
-           write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
-           call err_flush()
-           iresult=1
-        endif
-        idx_crs=network%ADM%gpnt2cross(idx_fm)%C2     
-    endif
-    if (network%ADM%gpnt2cross(idx_fm)%F<0.5) then
-        if (network%ADM%gpnt2cross(idx_fm)%F>1.0e-6) then
-           write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
-           call err_flush()
-           iresult=1
-        endif
-        idx_crs=network%ADM%gpnt2cross(idx_fm)%C1    
-    endif
+    !if (network%ADM%gpnt2cross(idx_fm)%F>0.5) then
+    !    if (network%ADM%gpnt2cross(idx_fm)%F<1-1.0e-6) then
+    !       write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
+    !       call err_flush()
+    !       iresult=1
+    !    endif
+    !    idx_crs=network%ADM%gpnt2cross(idx_fm)%C2     
+    !endif
+    !if (network%ADM%gpnt2cross(idx_fm)%F<0.5) then
+    !    if (network%ADM%gpnt2cross(idx_fm)%F>1.0e-6) then
+    !       write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
+    !       call err_flush()
+    !       iresult=1
+    !    endif
+    !    idx_crs=network%ADM%gpnt2cross(idx_fm)%C1    
+    !endif
+    
     
     !bfrictp
+    idx_crs=idx_cs(k)
+    
     bfricp(1,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
     bfricp(2,k)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
     !deal properly with the values below when friction per section varies. 

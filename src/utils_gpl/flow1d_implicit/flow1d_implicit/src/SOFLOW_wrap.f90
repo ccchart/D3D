@@ -136,6 +136,7 @@ double precision, dimension(:,:)         , pointer :: hlev
 
 !debug
 integer                                  , pointer :: fm1dimp_debug_k1
+integer                                  , pointer :: debug_wr
 
 !local
 !integer                              :: N
@@ -273,7 +274,9 @@ call SOFLOW( &
 !tables
         &   table  , ntab                              , &
 !dependent on node
-        &   node   , numnod ,nodnod                    ,  &
+        &   node   , numnod ,nodnod                    , &
+!debug 
+        &   debug_wr,                                    &
 !close
         &)
     

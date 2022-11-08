@@ -21,7 +21,8 @@ c               mozart parameters plus groundwater switch
      +          omr    ,omw    ,cflpse ,iterbc ,resid  ,delh   ,work   ,
      +          lambda ,relstr ,dhstru ,omcfl  ,dhtyp  ,ker    ,omboun ,
      +          omqlat ,ibuf   ,lfrou  ,qtyp   ,indx   ,bicg   ,solbuf ,
-     +          stdbq  ,nstdb  )
+     +          stdbq  ,nstdb                                          ,
+     +          debug_wr)
 
 c=======================================================================
 c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS
@@ -375,6 +376,7 @@ c     Debug variables FM1DIMP2DO: remove
 c      
       double precision dbg1
       real dbg2
+      integer debug_wr
 c
 c      !DEC$ IF DEFINED (_DLL)
 
@@ -415,6 +417,7 @@ c                                                    <Q_n>    <Q_*>
 c
 c     Debug variables FM1DIMP2DO: remove
       dbg2=waoft(100,3)      
+      if (debug_wr>0) then
       write(42,*) 'FLYPA'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
@@ -422,6 +425,7 @@ c     Debug variables FM1DIMP2DO: remove
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      endif
       
       if (ker .eq. fatal) goto 1000
 c
@@ -455,6 +459,7 @@ c     mozart parameters
      +            strclo  ,strhis  ,theta2 ,dt1    ,ker    ,omqlat ,
      +            dhstru  ,relstr  ,iter)
       
+      if (debug_wr>0) then
       write(42,*) 'FLQLAT'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
@@ -462,7 +467,8 @@ c     mozart parameters
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
-     
+      endif
+      
       if (ker .eq. fatal) goto 1000
 
 c      if (lgrwt) then
@@ -502,14 +508,16 @@ c
      +            ibuf   ,istep  ,lfrou  ,qlat   ,qltpar ,nqlat  ,
      +            hlev   ,maxlev ,solbuf ,stdbq  ,nstdb  ,juer   ,
      +            ker    )
-            
+      
+      if (debug_wr>0) then
       write(42,*) 'FLDSCO'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
       write(42,*) 'h2'
       write(42,*) hp(:,2)
       write(42,*) 'h3'
-      write(42,*) hp(:,3)     
+      write(42,*) hp(:,3) 
+      endif
 c
 c     Compute nodal administration matrix and solve this matrix
 c
@@ -524,10 +532,12 @@ c
      +            qbdpar ,urelax ,rfv1   ,rfv2   ,mat    ,rhsvv ,
      +            hp     ,qp     ,iterbc ,resid  ,delh   ,work  ,
      +            ker    ,steady ,nqlat  ,qlat   ,qltpar ,strhis,
-     +            relstr ,theta  ,dt1    ,indx   ,juer   ,bicg  )
+     +            relstr ,theta  ,dt1    ,indx   ,juer   ,bicg  ,
+     +            debug_wr)
       
       dbg1=hp(1,1)
       
+      if (debug_wr>0) then
       write(42,*) 'FLSOEQ'
       write(42,*) 'h1'
       write(42,*) hp(:,1)
@@ -535,6 +545,7 @@ c
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)  
+      endif
 c
 c     Exception
 c

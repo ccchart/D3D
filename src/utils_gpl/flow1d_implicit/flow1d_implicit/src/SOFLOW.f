@@ -13,7 +13,8 @@
      +                  hlev                                       , 
      +                  hbdpar , qbdpar                            , 
      +                  table  , ntab                              ,
-     +                  node   , numnod ,nodnod                    
+     +                  node   , numnod ,nodnod                    ,
+     +                  debug_wr
      +                  )
 c*******
 c    BEGIN original interface    
@@ -713,6 +714,7 @@ c      grhis  =     gtrpnt ( 'GRHIS' )
       
 c    debug
       double precision dbg1
+      integer debug_wr
       
 c*******
 c    END allocate
@@ -871,6 +873,7 @@ c
       iter = iter + 1
 
 c     FM1DIMP2DO: remove debug
+      if (debug_wr>0) then
       write(42,*) 'in SOFLOW'
       write(42,*) iter
       write(42,*) 'h1'
@@ -879,6 +882,7 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hpack(:,2)
       write(42,*) 'h3'
       write(42,*) hpack(:,3)
+      endif
       
       call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran,
      +ngrid ,
@@ -907,7 +911,8 @@ c     Mozart parameters plus groundwater switch
      +qpack ,delh  ,work  ,cnstrl,strhis,trcnrl,
      +triger,cnpflg,ker   ,qtyp  ,lfrou ,strbuf,
      +ibuf  ,solbuf,buflag,indx  ,bicg  ,stdbq ,
-     +nstdb  )
+     +nstdb                                    ,
+     +debug_wr)
       
 
 
@@ -948,6 +953,7 @@ c
 c        Program stops at the moment in case of no convergence
 c
 c     FM1DIMP2DO: remove debug
+      if (debug_wr>0) then
       write(42,*) 'FLOW'
       write(42,*) iter
       write(42,*) 'h1'
@@ -956,6 +962,7 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hpack(:,2)
       write(42,*) 'h3'
       write(42,*) hpack(:,3)
+      endif
       
       call soconv (ngrid ,epsh   ,epsq   ,hpack  ,
      +             qpack ,miniter,conv   ,juresi ,
