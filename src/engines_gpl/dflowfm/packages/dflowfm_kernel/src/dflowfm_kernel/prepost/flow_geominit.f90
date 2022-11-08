@@ -874,7 +874,6 @@
        else
           if (iabs(kcu(L)) == 1 .and. network%loaded) then
               ! Calculate maximal total area by using a water depth of 1000 m.
-              hyst_dummy = .false.
               call GetCSParsFlow(network%adm%line2cross(LL,2), network%crs%cross, 1d3, area, wetPerimeter, flowWidth, maxFlowWidth = wu(L))
           else IF ( prof1D(1,LL) >= 0) THEN
              wu(L) = prof1d(1,LL)                         ! todo, wu1DUNI from max width of profile interpolations

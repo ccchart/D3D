@@ -49,19 +49,16 @@
 
  dx1 = 0.5d0*dx(L)
  dx2 = dx1
- ! TO DO: improvement ?
- ! dx1 = acL(L)*dx(L)  
- ! dx2 = (1-acL(L))*dx(L) 
  k1 = ln(1,L)
  k2 = ln(2,L)
 
     if (dxDoubleAt1DEndNodes) then
        if (kcu(L) == 1) then
           if ( nd(k1)%lnx == 1 ) then
-             dx1 = 2d0*dx1  !  TO DO:  improvement? dx(L) 
+             dx1 = 2d0*dx1
           endif
           if ( nd(k2)%lnx == 1 ) then
-             dx2 = 2d0*dx2  !  TO DO:  improvement? dx(L) 
+             dx2 = 2d0*dx2
           endif
        endif
     endif

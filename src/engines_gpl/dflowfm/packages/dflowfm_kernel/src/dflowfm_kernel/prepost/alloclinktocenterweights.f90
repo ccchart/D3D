@@ -30,7 +30,8 @@
 ! $Id$
 ! $HeadURL$
 
- subroutine alloclinktocenterweights()                 ! set center related linkxy weights
+!> allocate center related linkxy weights
+ subroutine alloclinktocenterweights()                 
 
  use m_flow
  use m_netw

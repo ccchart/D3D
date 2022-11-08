@@ -30,21 +30,18 @@
 ! $Id$
 ! $HeadURL$
 
- subroutine setlinktocenterweights1d()                 ! set center related linkxy weights
+!> set center related linkxy weights 
+ subroutine setlinktocenterweights1d()                 
 
  use m_flow
- !use m_netw
  use m_flowgeom
- !use m_sferic
  use m_longculverts
  implicit none
  !
- double precision       :: wud, wuL1, wuL2, cs, sn !, wuk
- integer                :: L ! k, ierr, n, kk, n12, lnxmax
- integer                :: k1, k2 !, k3, k4, nn, LL, jaclosedcorner
+ double precision       :: wud, wuL1, wuL2, cs, sn 
+ integer                :: L 
+ integer                :: k1, k2 
  integer                :: ilongc, L1dlink
- !
- !double precision       :: xloc, yloc, beta, aa1, wcw, alf
  !
  double precision, external :: lin2nodx, lin2nody
 
@@ -57,8 +54,6 @@
 
     k1   = ln(1,L) ; k2 = ln(2,L) !left and right node
     wud  = wu(L)*dx(L) !flow surface area
-!    cs   = csu(L)
-!    sn   = snu(L)
 
     wuL1  = acl(L)*wud ! 2d center factor
     wcL  (1,L ) = wuL1
@@ -91,8 +86,6 @@
 
     k1   = ln(1,L) ; k2 = ln(2,L) !left and right node
     wud  = wu(L)*dx(L) !flow surface area
-!    cs   = csu(L)
-!    sn   = snu(L)
 
     wuL1  = acl(L)*wud ! 2d center factor
     wcL  (1,L ) = wuL1
@@ -192,62 +185,12 @@
     enddo
  endif
 
- 
- !lnxmax = 0
- !do n   = 1, mxwalls                                        ! wall contribution to scalar linktocenterweights
- !   k1  = walls(1,n)
- !   aa1 = 2d0*walls(17,n)
- !   wcw = 0d0
- !   do kk = 1,size(nd(k1)%ln)
- !      LL = iabs(nd(k1)%ln(kk))
- !      n12 = 1 ; alf = acL(LL)
- !      if (k1 .ne. ln(1,LL) ) then
- !         n12 = 2 ; alf = 1d0-acL(LL)
- !      endif
- !      wuL1    =  alf*dx(LL)*wu(LL)
- !      cs      =  walls(8,n) ! outward positive
- !      sn      = -walls(7,n)
- !      wwLL(kk) = abs(cs*csu(LL) + sn*snu(LL))
- !      wwLL(kk) = wwLL(kk)*wuL1
- !      wcw     = wcw + wwLL(kk)
- !   enddo
- !   if (wcw > 0d0) then
- !      wc(k1) = wc(k1) + aa1
- !      do kk = 1,size(nd(k1)%ln)
- !         LL = iabs(nd(k1)%ln(kk))
- !         n12 = 1 ; alf = acL(LL)
- !         if (k1 .ne. ln(1,LL) ) then
- !            n12 = 2 ; alf = 1d0-acL(LL)
- !         endif
- !         wcL(n12,LL) = wcL(n12,LL) + wwLL(kk)*aa1/wcw
- !      enddo
- !   endif
- !enddo
-
  do L = 1, lnx1d
     k1 = ln(1,L) ; k2 = ln(2,L)
-    !if (iabs(kcu(L)) == 2 .or. iabs(kcu(L)) == 4) then      ! 2D links and 1D2D lateral links
-    !   IF (kfs(K1) == 0) THEN                               ! kfs temporarily used as cutcell flag, set in cutcelwu
-    !      wcx1(L) = wcx1(L)*bai(k1)
-    !      wcy1(L) = wcy1(L)*bai(k1)
-    !   ELSE
-    !      if (wcxy(1,k1) .ne. 0) wcx1(L) = wcx1(L)/wcxy(1,k1)
-    !      if (wcxy(2,k1) .ne. 0) wcy1(L) = wcy1(L)/wcxy(2,k1)
-    !   ENDIF
-    !
-    !   IF (kfs(K2) == 0) THEN
-    !      wcx2(L) = wcx2(L)*bai(k2)
-    !      wcy2(L) = wcy2(L)*bai(k2)
-    !   ELSE
-    !      if (wcxy(1,k2) .ne. 0) wcx2(L) = wcx2(L)/wcxy(1,k2)
-    !      if (wcxy(2,k2) .ne. 0) wcy2(L) = wcy2(L)/wcxy(2,k2)
-    !   ENDIF
-    !else
-       wcx1(L) = wcx1(L)/a1(k1) !if (wcxy(2,k1) .ne. 0) /wcxy(2,k1)
-       wcy1(L) = wcy1(L)/a1(k1) !if (wcxy(1,k1) .ne. 0) /wcxy(1,k1)
-       wcx2(L) = wcx2(L)/a1(k2) !if (wcxy(2,k2) .ne. 0) /wcxy(2,k2)
-       wcy2(L) = wcy2(L)/a1(k2) !if (wcxy(1,k2) .ne. 0) /wcxy(1,k2)
-    !endif
+    wcx1(L) = wcx1(L)/a1(k1)
+    wcy1(L) = wcy1(L)/a1(k1)
+    wcx2(L) = wcx2(L)/a1(k2)
+    wcy2(L) = wcy2(L)/a1(k2)
     if (wc(k1) > 0d0) wcL(1,L) = wcL(1,L) / wc(k1)
     if (wc(k2) > 0d0) wcL(2,L) = wcL(2,L) / wc(k2)
 
@@ -256,15 +199,12 @@
  !boundaries
  do L = lnxi + 1, lnx1db
     k1 = ln(1,L) ; k2 = ln(2,L)
-    wcx1(L) = wcx1(L)/a1(k1) !if (wcxy(2,k1) .ne. 0) /wcxy(2,k1)
-    wcy1(L) = wcy1(L)/a1(k1) !if (wcxy(1,k1) .ne. 0) /wcxy(1,k1)
-    wcx2(L) = wcx2(L)/a1(k2) !if (wcxy(2,k2) .ne. 0) /wcxy(2,k2)
-    wcy2(L) = wcy2(L)/a1(k2) !if (wcxy(1,k2) .ne. 0) /wcxy(1,k2)
+    wcx1(L) = wcx1(L)/a1(k1)
+    wcy1(L) = wcy1(L)/a1(k1)
+    wcx2(L) = wcx2(L)/a1(k2)
+    wcy2(L) = wcy2(L)/a1(k2)
     if (wc(k1) > 0d0) wcL(1,L) = wcL(1,L) / wc(k1)
     if (wc(k2) > 0d0) wcL(2,L) = wcL(2,L) / wc(k2)
  enddo
-
- 
-! kfs = 0
 
  end subroutine setlinktocenterweights1d
