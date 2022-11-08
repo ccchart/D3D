@@ -191,7 +191,6 @@ module m_ec_quantity
 
          units = ''
          if (ncu_get_att(ncid, varid, 'units', units)==NF90_NOERR) then 
-            call str_upper(units) ! make units attribute case-insensitive 
             if (.not.(ecQuantitySet(instancePtr, quantityId, units=units))) then
                 deallocate(units)
                 return

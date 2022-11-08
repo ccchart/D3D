@@ -2340,6 +2340,8 @@ module m_ec_provider
          character(len=NF90_MAX_NAME)                            :: xname                 !< standard name of x coordinate
          character(len=NF90_MAX_NAME)                            :: yname                 !< standard name of y coordinate
          character(len=NF90_MAX_NAME)                            :: eye_press_name        !< name of netCDF variable containing surface_air_pressure in the eye
+         character(len=NF90_MAX_NAME)                            :: name_w1               !< standard name of first wind component
+         character(len=NF90_MAX_NAME)                            :: name_w2               !< standard name of second wind component
          !
          success = .true.
          nvar = size(fileReaderPtr%standard_names, dim=1)
@@ -2493,35 +2495,47 @@ module m_ec_provider
             success = .false.
          end if
          !
-         ! ===== quantity1: wind_speed =====
-         ncstdnames = 'wind_speed'
+         if (standard_name_to_id('eastward_wind') > 0 .and. standard_name_to_id('northward_wind') > 0) then
+             name_w1 = 'eastward_wind'
+             name_w2= 'northward_wind'
+         elseif (standard_name_to_id('wind_speed') > 0 .and. standard_name_to_id('wind_to_direction') > 0) then
+             name_w1 = 'wind_speed'
+             name_w2 = 'wind_to_direction'
+         elseif (standard_name_to_id('wind_speed') > 0 .and. standard_name_to_id('wind_from_direction') > 0) then
+             name_w1 = 'wind_speed'
+             name_w2 = 'wind_from_direction'
+         else
+             call setECMessage("Unable to identify the wind components in NetCDF file '"//trim(fileReaderPtr%filename)//'"')
+             success = .false.
+             return
+         endif
+         ! ===== quantity1 ===== actual wind quantity 1 in reader changed to windspeed
+         ncstdnames = name_w1
          success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'windspeed', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item1)
          !
-         !! ===== quantity2: wind_from_direction =====
-         ncstdnames = 'wind_from_direction'
+         !! ===== quantity2 ===== actual wind quantity 1 in reader changed to winddirection
+         ncstdnames = name_w2
          success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'winddirection', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item2)
          !
-         !! ===== quantity3: surface_air_pressure =====
+         !! ===== quantity3: surface_air_pressure ===== internally handled as air_pressure
          ncstdnames = 'surface_air_pressure'
          success = ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, 'air_pressure', n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item3)
          !
          !! ===== quantity4: surface_air_pressure at the eye =====
          eye_press_name = ' '
          ierror = nf90_get_att(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, 'eye_value', eye_press_name)
-         idp_eye = -1
-         do id = 1, nvar
-             if (eye_press_name == fileReaderPtr%variable_names(id)) then
-                 idp_eye = id
-                 exit
-             endif
-         enddo
+         idp_eye = variable_name_to_id(eye_press_name)
          if (idp_eye < 0) then
              call setECMessage("No eye pressure found in NetCDF file '"//trim(fileReaderPtr%filename)//'".')
              success = .false.
              return
          endif
+         units = ' '
+         ierror = nf90_get_att(fileReaderPtr%fileHandle, idp_eye, 'units', units)
          quantityId = ecInstanceCreateQuantity(instancePtr)
-         if (.not. (ecQuantitySet(instancePtr, quantityId, name=eye_press_name, ncid=idp_eye))) then
+         if (.not. (ecQuantitySet(instancePtr, quantityId, name=eye_press_name, &
+                                                           units=units, &
+                                                           ncid=idp_eye))) then
             success = .false.
          end if
          itemId = ecInstanceCreateItem(instancePtr)
@@ -2573,6 +2587,39 @@ module m_ec_provider
          if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item4%id)
          if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item5%id)
          if (success) success = ecFileReaderAddItem(instancePtr, fileReaderPtr%id, item6%id)
+         
+      contains
+      
+         function standard_name_to_id(quantity_name) result(idvar)
+         character(len=*) :: quantity_name
+         integer :: idvar
+         !
+         integer :: id
+         !
+         idvar = -1
+         do id = 1, nvar
+             if (fileReaderPtr%standard_names(id) == quantity_name) then
+                 idvar = id
+                 return
+             endif
+         enddo
+         end function standard_name_to_id
+      
+         function variable_name_to_id(quantity_name) result(idvar)
+         character(len=*) :: quantity_name
+         integer :: idvar
+         !
+         integer :: id
+         !
+         idvar = -1
+         do id = 1, nvar
+             if (fileReaderPtr%variable_names(id) == quantity_name) then
+                 idvar = id
+                 return
+             endif
+         enddo
+         end function variable_name_to_id
+         
       end function ecProviderCreateNetcdfSpiderwebItems
 
       function ecProviderCreateNetcdfSpiderwebItem(instancePtr, fileReaderPtr, elementSetId, ncstdnames, qname, n_rows, n_cols, idazimuth_dim, idrange_dim, idtime_dim, missingValue, item1) result(success)

@@ -685,6 +685,7 @@ module m_ec_filereader_read
          type(tEcField), pointer                 :: fieldPtr1        !< Field to update
          type(tEcField), pointer                 :: fieldPtr2        !< Field to update
          type(tEcField), pointer                 :: fieldPtr3        !< Field to update
+         real(hp), dimension(:), allocatable     :: windspeed        !< temporary array for windspeed after 
          real(hp), dimension(:,:,:), allocatable :: data_block       !< 2D slice of NetCDF variable's data
          real(hp), dimension(1)                  :: data_scalar      !< receive scalar data from NetCDF
          integer :: ierror
@@ -707,7 +708,7 @@ module m_ec_filereader_read
             fieldPtr2 => item2%sourceT1FieldPtr
             fieldPtr3 => item3%sourceT1FieldPtr
          else
-            call setECMessage("Invalid source Field specified in ecNetcdfReadNextBlock.")
+            call setECMessage("ecNetcdfSpiderwebReadBlock:Invalid source Field specified.")
             success = .false.
             return
          end if
@@ -721,6 +722,9 @@ module m_ec_filereader_read
          !! ===== quantity4: surface_air_pressure at the the eye =====
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item4%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
          press_eye = data_scalar(1)
+         if ((index(item4%quantityPtr%units,'mbar') == 1) .or. (index(item4%quantityPtr%units,'hPa') == 1)) then
+            press_eye = press_eye * 100.0_hp
+         end if
 
          !! ===== quantity5: x-coordinate of the the eye =====
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item5%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
@@ -730,10 +734,10 @@ module m_ec_filereader_read
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item6%QuantityPtr%ncid, data_scalar, start=(/timesndx/), count=(/1/))
          y_spw_eye = data_scalar(1)
          
-         !! ===== quantity1: wind_speed =====
+         !! ===== quantity1: wind component 1 (speed or eastward wind) =====
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item1%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
          if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
              success = .false.
              return
          endif
@@ -752,18 +756,19 @@ module m_ec_filereader_read
          fieldPtr1%x_spw_eye = x_spw_eye
          fieldPtr1%y_spw_eye = y_spw_eye
          
-         !! ===== quantity2: wind_from_direction =====
+         !! ===== quantity2: wind component 2 (direction or northward wind) =====
          ierror = nf90_get_var(fileReaderPtr%fileHandle, item2%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
          if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
              success = .false.
              return
          endif
          io = 0
          do col = 0, n_cols-1
              if (col == 0) then
-                 fieldPtr2%arr1d(io+1:io+n_rows-1) = data_block(1,:,1)
-                 fieldPtr2%arr1d(io+n_rows) = data_block(1,1,1)
+                 ! we don't know whether we are dealing with direction of northward wind
+                 ! just set the values to 0 here and update them once we have the direction
+                 fieldPtr2%arr1d(io+1:io+n_rows) = 0d0
              else
                  fieldPtr2%arr1d(io+1:io+n_rows-1) = data_block(col,:,1)
                  fieldPtr2%arr1d(io+n_rows) = data_block(col,1,1)
@@ -775,13 +780,38 @@ module m_ec_filereader_read
          fieldPtr2%x_spw_eye = x_spw_eye
          fieldPtr2%y_spw_eye = y_spw_eye
          
-         !! ===== quantity3: surface_air_pressure =====
-         ierror = nf90_get_var(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
-         if (ierror /= NF90_NOERR) then ! handle exception
-             call setECMessage("NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+         if (fileReaderPtr%standard_names(item1%quantityptr%ncid) == 'wind_speed' .and. fileReaderPtr%standard_names(item2%quantityptr%ncid) == 'wind_from_direction') then
+             ! this is what the converter expects, so nothing to do
+         elseif (fileReaderPtr%standard_names(item1%quantityptr%ncid) == 'wind_speed' .and. fileReaderPtr%standard_names(item2%quantityptr%ncid) == 'wind_to_direction') then
+             ! need to rotate the direction by 180 degrees
+             fieldPtr2%arr1d = fieldPtr2%arr1d + 180.0_hp
+         elseif (fileReaderPtr%standard_names(item1%quantityptr%ncid) == 'eastward_wind' .and. fileReaderPtr%standard_names(item2%quantityptr%ncid) == 'northward_wind') then
+             ! need to determine speed and direction
+             allocate(windspeed(n_cols*n_rows))
+             windspeed = sqrt(fieldPtr1%arr1d**2 + fieldPtr2%arr1d**2)
+             fieldPtr2%arr1d = 270d0 - atan2d(fieldPtr2%arr1d,fieldPtr1%arr1d)
+             fieldPtr1%arr1d = windspeed
+             deallocate(windspeed)
+         else
+             call setECMessage("ecNetcdfSpiderwebReadBlock: Unsupported combination of wind components in "//trim(fileReaderPtr%filename)//".")
              success = .false.
              return
          endif
+         !
+         ! copy direction from inner range to eye
+         fieldPtr2%arr1d(1:n_rows) = fieldPtr2%arr1d(n_rows+1:2*n_rows)
+         
+         !! ===== quantity3: surface_air_pressure =====
+         ierror = nf90_get_var(fileReaderPtr%fileHandle, item3%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/n_cols-1, n_rows-1, 1/))
+         if (ierror /= NF90_NOERR) then ! handle exception
+             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:'"//trim(nf90_strerror(ierror))//"' in "//trim(fileReaderPtr%filename)//".")
+             success = .false.
+             return
+         endif
+         ! Compensate for unit of pressure (mbar, hPa versus Pa)
+         if ((index(item3%quantityPtr%units,'mbar') == 1) .or. (index(item3%quantityPtr%units,'hPa') == 1)) then
+            data_block = data_block * 100.0_hp
+         end if
          io = 0
          do col = 0, n_cols-1
              if (col == 0) then

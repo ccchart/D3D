@@ -2428,17 +2428,17 @@ module m_ec_converter
                   // trim(connection%targetItemsPtr(1)%ptr%quantityPtr%name)         &
                   // "' is not a known spiderweb quantity.")
                return
+         end select
+         do i = 1, connection%nSourceItems
+            select case (connection%sourceItemsPtr(i)%ptr%quantityPtr%name)
+               case ('windspeed')
+                  swr = i
+               case ('winddirection')
+                  swd = i
+               case ('p_drop','air_pressure')
+                  swp = i
             end select
-            do i = 1, connection%nSourceItems
-              select case (connection%sourceItemsPtr(i)%ptr%quantityPtr%name)
-                 case ('windspeed')
-                    swr = i
-                 case ('winddirection')
-                    swd = i
-                 case ('p_drop','air_pressure')
-                    swp = i
-              end select
-            end do
+         end do
 
          !
          ! Calculate the basic spiderweb grid settings
