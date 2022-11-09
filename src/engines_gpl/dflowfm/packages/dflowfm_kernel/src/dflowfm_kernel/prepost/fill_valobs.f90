@@ -322,6 +322,8 @@ subroutine fill_valobs()
          do kk=kb,kt
             klay = kk-kb+nlayb
 
+            valobs(IPNT_VOL+klay-1,i)  = vol1(kk)
+
             if (kmx > 0) then
                valobs(IPNT_ZCS+klay-1,i) = 0.5d0*( zws(kk)+zws(kk-1) )
             endif

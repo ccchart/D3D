@@ -527,9 +527,367 @@ type t_unc_merged
    integer, allocatable :: ilink_merge(:)      !< like ilink_own, but from the merged restart file
 end type t_unc_merged
 
+type t_unc_hisids
+   integer :: idx_curtime  = 0  !< Index of current time (typically of latest snapshot being written).
+
+   integer :: ncid = 0 !< NetCDF data set id (typically NetCDF file pointer)
+   integer :: id_laydim
+   integer :: id_laydimw
+   integer :: id_statdim
+   integer :: id_strlendim
+   integer :: id_crsdim
+   integer :: id_crslendim
+   integer :: id_crsptsdim
+   integer :: id_timedim
+   integer :: id_statx
+   integer :: id_staty
+   integer :: id_statid
+   integer :: id_statname
+   integer :: id_time
+   integer :: id_timestep
+   integer :: id_statlon
+   integer :: id_statlat
+   integer :: id_crsname
+   integer :: id_vars
+   integer :: id_varucx
+   integer :: id_varucy
+   integer :: id_varucz
+   integer :: id_varsal
+   integer :: id_vartem
+   integer :: id_varsed
+   integer :: id_varrhop
+   integer :: id_varrho
+   integer :: id_bruv
+   integer :: id_varQ
+   integer :: id_varQint
+   integer :: id_varb
+   integer :: id_varumag
+   integer :: id_varqmag
+   integer :: id_varAu
+   integer :: id_varu
+   integer :: id_varwx
+   integer :: id_varwy
+   integer :: id_varrain
+   integer :: id_varpatm
+   integer :: id_infiltcap
+   integer :: id_infiltact
+   integer :: id_qsun
+   integer :: id_qeva
+   integer :: id_qcon
+   integer :: id_qlong
+   integer :: id_qfreva
+   integer :: id_qfrcon
+   integer :: id_qtot
+   integer :: id_turkin
+   integer :: id_tureps
+   integer :: id_vicwwu
+   integer :: id_rich
+   integer :: id_zcs
+   integer :: id_zws
+   integer :: id_zwu
+   integer :: id_wind
+   integer :: id_tair
+   integer :: id_rhum
+   integer :: id_clou
+   integer :: id_R
+   integer :: id_WH
+   integer :: id_WD
+   integer :: id_WL
+   integer :: id_WT
+   integer :: id_WU
+   integer :: id_hs
+   integer :: id_pumpdim
+   integer :: id_pump_id
+   integer :: id_pump_dis
+   integer :: id_pump_cap
+   integer :: id_pump_s1up
+   integer :: id_pump_s1dn
+   integer :: id_pump_head
+   integer :: id_pump_xmid
+   integer :: id_pump_ymid
+   integer :: id_pump_struhead
+   integer :: id_pump_stage
+   integer :: id_pump_redufact
+   integer :: id_pump_s1del
+   integer :: id_pump_s1suc
+   integer :: id_pump_disdir
+   integer :: id_gatedim
+   integer :: id_gatename
+   integer :: id_gate_dis
+   integer :: id_gate_edgel
+   integer :: id_gate_s1up
+   integer :: id_gate_s1dn
+   integer :: id_cdamdim
+   integer :: id_cdamname
+   integer :: id_cdam_dis
+   integer :: id_cdam_crestl
+   integer :: id_cdam_s1up
+   integer :: id_cdam_s1dn
+   integer :: id_weirgendim
+   integer :: id_weirgen_id
+   integer :: id_weirgen_dis
+   integer :: id_weirgen_crestl
+   integer :: id_weirgen_crestw
+   integer :: id_weirgen_s1up
+   integer :: id_weirgen_s1dn
+   integer :: id_weir_stat
+   integer :: id_weirgen_vel
+   integer :: id_weirgen_au
+   integer :: id_weirgen_head
+   integer :: id_weirgen_forcedif
+   integer :: id_weirgen_s1crest
+   integer :: id_gategendim
+   integer :: id_gategenname
+   integer :: id_gategen_dis
+   integer :: id_gategen_sillh
+   integer :: id_gategen_sillw
+   integer :: id_gategen_edgel
+   integer :: id_gategen_openw
+   integer :: id_gategen_flowh
+   integer :: id_gategen_s1up
+   integer :: id_gategen_s1dn
+   integer :: id_genstrudim
+   integer :: id_genstru_id
+   integer :: id_genstru_dis
+   integer :: id_genstru_crestl
+   integer :: id_genstru_crestw
+   integer :: id_genstru_edgel
+   integer :: id_genstru_openw
+   integer :: id_genstru_s1up
+   integer :: id_genstru_s1dn
+   integer :: id_genstru_dis_gate_open
+   integer :: id_genstru_dis_gate_over
+   integer :: id_genstru_dis_gate_under
+   integer :: id_genstru_openh
+   integer :: id_genstru_uppl
+   integer :: id_genstru_vel
+   integer :: id_genstru_au
+   integer :: id_genstru_au_open
+   integer :: id_genstru_au_over
+   integer :: id_genstru_au_under
+   integer :: id_genstru_stat
+   integer :: id_genstru_head
+   integer :: id_genstru_velgateopen
+   integer :: id_genstru_velgateover
+   integer :: id_genstru_velgateunder
+   integer :: id_genstru_s1crest
+   integer :: id_genstru_forcedif
+   integer :: id_orifgendim
+   integer :: id_orifgen_id
+   integer :: id_orifgen_dis
+   integer :: id_orifgen_crestl
+   integer :: id_orifgen_crestw
+   integer :: id_orifgen_edgel
+   integer :: id_orifgen_stat
+   integer :: id_orifgen_s1dn
+   integer :: id_orifgen_openh
+   integer :: id_orifgen_vel
+   integer :: id_orifgen_au
+   integer :: id_orifgen_s1up
+   integer :: id_orifgen_head
+   integer :: id_orifgen_s1crest
+   integer :: id_orifgen_forcedif
+   integer :: id_bridgedim
+   integer :: id_bridge_id
+   integer :: id_bridge_dis
+   integer :: id_bridge_s1up
+   integer :: id_bridge_s1dn
+   integer :: id_bridge_vel
+   integer :: id_bridge_au
+   integer :: id_bridge_head
+   integer :: id_bridge_blup
+   integer :: id_bridge_bldn
+   integer :: id_bridge_bl_act
+   integer :: id_culvertdim
+   integer :: id_culvert_id
+   integer :: id_culvert_dis
+   integer :: id_culvert_s1up
+   integer :: id_culvert_s1dn
+   integer :: id_culvert_crestl
+   integer :: id_culvert_openh
+   integer :: id_culvert_edgel
+   integer :: id_culvert_vel
+   integer :: id_culvert_stat
+   integer :: id_culvert_au
+   integer :: id_culvert_head
+   integer :: id_sedbtrans
+   integer :: id_sedstrans
+   integer :: id_srcdim
+   integer :: id_srclendim
+   integer :: id_srcname
+   integer :: id_qsrccur
+   integer :: id_vsrccum
+   integer :: id_qsrcavg
+   integer :: id_pred
+   integer :: id_presa
+   integer :: id_pretm
+   integer :: id_srcx
+   integer :: id_srcy
+   integer :: id_srcptsdim
+   integer :: id_partdim
+   integer :: id_parttime
+   integer :: id_partx
+   integer :: id_party
+   integer :: id_partz
+   integer :: id_dredlinkdim
+   integer :: id_dreddim
+   integer :: id_dumpdim
+   integer :: id_dredlink_dis
+   integer :: id_dred_dis
+   integer :: id_dump_dis
+   integer :: id_dred_tfrac
+   integer :: id_plough_tfrac
+   integer :: id_sedtotdim
+   integer :: id_dred_name
+   integer :: id_dump_name
+   integer :: id_frac_name
+   integer :: id_dambreakdim
+   integer :: id_dambreak_id
+   integer :: id_dambreak_s1up
+   integer :: id_dambreak_s1dn
+   integer :: id_dambreak_discharge
+   integer :: id_dambreak_cumulative_discharge
+   integer :: id_dambreak_au
+   integer :: id_dambreak_head
+   integer :: id_dambreak_cresth
+   integer :: id_dambreak_crestw
+   integer :: id_uniweirdim
+   integer :: id_uniweir_id
+   integer :: id_uniweir_dis
+   integer :: id_uniweir_s1up
+   integer :: id_uniweir_s1dn
+   integer :: id_uniweir_crestl
+   integer :: id_uniweir_vel
+   integer :: id_uniweir_au
+   integer :: id_uniweir_head
+   integer :: id_dambreak_breach_width_time_derivative
+   integer :: id_dambreak_water_level_jump
+   integer :: id_dambreak_normal_velocity
+   integer :: id_checkmon
+   integer :: id_num_timesteps
+   integer :: id_comp_time
+   integer :: id_cmpstrudim
+   integer :: id_cmpstru_id
+   integer :: id_cmpstru_dis
+   integer :: id_cmpstru_s1up
+   integer :: id_cmpstru_s1dn
+   integer :: id_cmpstru_vel
+   integer :: id_cmpstru_au
+   integer :: id_cmpstru_head
+   integer :: id_longculvertdim
+   integer :: id_longculvert_id
+   integer :: id_longculvert_dis
+   integer :: id_longculvert_s1up
+   integer :: id_longculvert_s1dn
+   integer :: id_longculvert_vel
+   integer :: id_longculvert_au
+   integer :: id_longculvert_head
+   integer :: id_longculvert_valveopen
+   integer :: id_sscx
+   integer :: id_sscy
+   integer :: id_sswx
+   integer :: id_sswy
+   integer :: id_sbcx
+   integer :: id_sbcy
+   integer :: id_sbwx
+   integer :: id_sbwy
+   integer :: id_varucxq
+   integer :: id_varucyq
+   integer :: id_sf
+   integer :: id_ws
+   integer :: id_seddif
+   integer :: id_sink
+   integer :: id_sour
+   integer :: id_sedsusdim
+   integer :: id_latdim
+   integer :: id_lat_id
+   integer :: id_lat_predis_inst
+   integer :: id_lat_predis_ave
+   integer :: id_lat_realdis_inst
+   integer :: id_lat_realdis_ave
+   integer :: id_ustx
+   integer :: id_usty
+   integer :: id_nlyrdim
+   integer :: id_bodsed
+   integer :: id_dpsed
+   integer :: id_msed
+   integer :: id_thlyr
+   integer :: id_poros
+   integer :: id_lyrfrac
+   integer :: id_frac
+   integer :: id_mudfrac
+   integer :: id_sandfrac
+   integer :: id_fixfac
+   integer :: id_hidexp
+   integer :: id_taub
+   integer :: id_mfluff
+   integer :: id_rugdim
+   integer :: id_rugx
+   integer :: id_rugy
+   integer :: id_rugid
+   integer :: id_rugname
+   integer :: id_varruh
+   integer :: id_taux
+   integer :: id_tauy
+
+   ! ids for geometry variables
+   ! only use them once at the first time of history output
+   integer :: id_statgeom_node_count
+   integer :: id_statgeom_node_coordx
+   integer :: id_statgeom_node_coordy
+   integer :: id_statgeom_node_lon
+   integer :: id_statgeom_node_lat
+   integer :: id_crsgeom_node_count
+   integer :: id_crsgeom_node_coordx
+   integer :: id_crsgeom_node_coordy
+   integer :: id_weirgeom_node_count
+   integer :: id_weirgeom_node_coordx
+   integer :: id_weirgeom_node_coordy
+   integer :: id_orifgeom_node_count
+   integer :: id_orifgeom_node_coordx
+   integer :: id_orifgeom_node_coordy
+   integer :: id_genstrugeom_node_count
+   integer :: id_genstrugeom_node_coordx
+   integer :: id_genstrugeom_node_coordy
+   integer :: id_uniweirgeom_node_count
+   integer :: id_uniweirgeom_node_coordx
+   integer :: id_uniweirgeom_node_coordy
+   integer :: id_culvertgeom_node_count
+   integer :: id_culvertgeom_node_coordx
+   integer :: id_culvertgeom_node_coordy
+   integer :: id_gategengeom_node_count
+   integer :: id_gategengeom_node_coordx
+   integer :: id_gategengeom_node_coordy
+   integer :: id_pumpgeom_node_count
+   integer :: id_pumpgeom_node_coordx
+   integer :: id_pumpgeom_node_coordy
+   integer :: id_bridgegeom_node_count
+   integer :: id_bridgegeom_node_coordx
+   integer :: id_bridgegeom_node_coordy
+   integer :: id_srcgeom_node_count
+   integer :: id_srcgeom_node_coordx
+   integer :: id_srcgeom_node_coordy
+   integer :: id_latgeom_node_count
+   integer :: id_latgeom_node_coordx
+   integer :: id_latgeom_node_coordy
+   integer :: id_longculvertgeom_node_count
+   integer :: id_longculvertgeom_node_coordx
+   integer :: id_longculvertgeom_node_coordy
+   integer, allocatable :: id_tra(:)
+   integer, allocatable :: id_hwq(:)
+   integer, allocatable :: id_hwqb(:)
+   integer, allocatable :: id_hwqb3d(:)
+   integer, allocatable :: id_const(:)
+   integer, allocatable :: id_const_cum(:)
+   integer, allocatable :: id_voltot(:)
+   integer, allocatable :: id_sedbtransfrac(:)
+
+end type t_unc_hisids
+
 type(t_unc_mapids), target :: mapids       !< Global descriptor for the (open) map-file
 type(t_unc_mapids), target :: mapids3d     !< Global descriptor for the (open) map3D-file
-integer            :: ihisfile = 0 !< Global netcdf ID of the his-file
+type(t_unc_hisids), target :: hisids       !< Global descriptor for the (open) his-file
+type(t_unc_hisids), target :: hisids3d     !< Global descriptor for the (open) his3D-file
 
 type(t_crs), target :: crs !< crs read from net file, to be written to flowgeom. TODO: AvD: temp, move this global CRS into ug_meshgeom (now a bit difficult with old and new file format)
 
@@ -5170,21 +5528,24 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrim
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_u0, nf90_double, iLocU, 'u0', '', 'Velocity at velocity point at previous time step, n-component', 'm s-1', jabndnd=jabndnd_)
          ierr = unc_put_att(mapids%ncid, mapids%id_u0, 'comment', 'Positive direction is from first to second neighbouring face (flow element).')
       end if
-      if(jamapucvec > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
-         if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'sea_water_x_eulerian_velocity',      'Flow element center eulerian velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'sea_water_y_eulerian_velocity',      'Flow element center eulerian velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
-         else
-            if (jsferic == 0) then
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'sea_water_x_velocity',      'Flow element center velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'sea_water_y_velocity',      'Flow element center velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
+      if(jamapucvec > 0) then
+         if ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0)) then
+            if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'sea_water_x_eulerian_velocity',      'Flow element center eulerian velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'sea_water_y_eulerian_velocity',      'Flow element center eulerian velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
             else
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'eastward_sea_water_velocity',      'Flow element center velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
-               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'northward_sea_water_velocity',      'Flow element center velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
+               if (jsferic == 0) then
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'sea_water_x_velocity',      'Flow element center velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'sea_water_y_velocity',      'Flow element center velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
+               else
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, nf90_double, iLocS, 'ucx', 'eastward_sea_water_velocity',      'Flow element center velocity vector, x-component', 'm s-1', jabndnd=jabndnd_)
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, nf90_double, iLocS, 'ucy', 'northward_sea_water_velocity',      'Flow element center velocity vector, y-component', 'm s-1', jabndnd=jabndnd_)
+               end if
             end if
-         end if
-         if (kmx > 0) then
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, nf90_double, UNC_LOC_S3D, 'ucz', 'upward_sea_water_velocity', 'Flow element center velocity vector, z-component', 'm s-1', jabndnd=jabndnd_)
+            if (kmx > 0) then
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, nf90_double, UNC_LOC_S3D, 'ucz', 'upward_sea_water_velocity', 'Flow element center velocity vector, z-component', 'm s-1', jabndnd=jabndnd_)
+            end if
+         else if (kmx > 0) then ! 3D model in depth averaged map file:
             ! Depth-averaged cell-center velocities in 3D:
             if (jsferic == 0) then
                if (jaeulervel==1 .and. jawave>0) then
@@ -5201,13 +5562,14 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrim
             end if
          end if
       end if
-      if(jamapucmag > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
-         if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, nf90_double, iLocS, 'ucmag', 'sea_water_eulerian_speed', 'Flow element center eulerian velocity magnitude', 'm s-1', jabndnd=jabndnd_)
-         else
-            ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, nf90_double, iLocS, 'ucmag', 'sea_water_speed', 'Flow element center velocity magnitude', 'm s-1', jabndnd=jabndnd_)
-         end if
-         if (kmx > 0) then           
+      if (jamapucmag > 0) then
+         if ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0)) then
+            if (jaeulervel==1 .and. jawave>0 .and. .not. flowWithoutWaves) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, nf90_double, iLocS, 'ucmag', 'sea_water_eulerian_speed', 'Flow element center eulerian velocity magnitude', 'm s-1', jabndnd=jabndnd_)
+            else
+               ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, nf90_double, iLocS, 'ucmag', 'sea_water_speed', 'Flow element center velocity magnitude', 'm s-1', jabndnd=jabndnd_)
+            end if
+         else if (kmx > 0) then  ! 3D model in depth averaged map file:          
             if (jaeulervel==1 .and. jawave>0) then ! TODO: AvD:refactor such that yes<->no Eulerian velocities are in parameters below:
                ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmaga, nf90_double, UNC_LOC_S, 'ucmaga', 'sea_water_speed', 'Flow element center depth-averaged GLM velocity magnitude', 'm s-1', jabndnd=jabndnd_)  ! depth-averaged magnitude has no stokes drift
             else
@@ -6193,23 +6555,26 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrim
    endif
 
    if (jamapucvec == 1 .or. jamapucmag == 1 .or. jamapucqvec == 1) then
-      workx=DMISS
-      worky=DMISS    
-      call getucxucyeulmag(ndkx, workx, worky, ucmag, jaeulervel, jamapucmag)
+      if ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0)) then
+         workx=DMISS
+         worky=DMISS
+         call getucxucyeulmag(ndkx, workx, worky, ucmag, jaeulervel, jamapucmag)
+         !
+         if (jamapucvec == 1) then
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, iLocS, workx, jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, iLocS, worky, jabndnd=jabndnd_)
+            if (kmx > 0) then
+               call reconstructucz(0)
+               ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, UNC_LOC_S3D, ucz, jabndnd=jabndnd_)
+            end if
+         end if
+         !
+         if (jamapucmag == 1) then
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, iLocS, ucmag, jabndnd=jabndnd_)
+         end if
       !
-      if (jamapucvec == 1) then
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucx, iLocS, workx, jabndnd=jabndnd_)
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucy, iLocS, worky, jabndnd=jabndnd_)
-      end if
-      !
-      if (jamapucmag == 1) then
-         ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmag, iLocS, ucmag, jabndnd=jabndnd_)
-      end if
-      !
-      if (kmx > 0) then
-         call reconstructucz(0)
+      else if (kmx > 0) then ! 3D model in depth averaged map file:
          if (jamapucvec == 1) then 
-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, UNC_LOC_S3D, ucz, jabndnd=jabndnd_)
             ucxq(1:ndx) = 0d0
             ucyq(1:ndx) = 0d0
             do k=1,ndx
@@ -6246,7 +6611,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd, imapdim) ! wrim
          end if
       end if
 
-      if (jamapucqvec == 1) then
+      if (jamapucqvec > 0 .and. ((kmx > 0 .and. ja3d > 0) .or. (kmx == 0 .and. janormalmap > 0))) then
          ! TODO: AvD/MN: consider removing entire loop and simply unc_put_var_map( ..., ucqx,..)
          if (kmx > 0) then
             do kk = 1,ndx
@@ -17137,5 +17502,69 @@ do n = 1,ndxndxi
 end do
 end subroutine linktonode2
 
+
+function unc_put_3d_or_depthaveraged_valobs(hisids, id_var, ipnt_var, ja3d) result(ierr)
+   use m_flow, only: kmx
+   use m_observations, only: numobs, nummovobs, kobs, valobs, IPNT_VOL, MAXNUMVALOBS2D, MAXNUMVALOBS3D
+   use dfm_error
+   use m_alloc
+   use unstruc_messages
+   use m_missing
+   implicit none
+   type(t_unc_hisids), intent(in   ) :: hisids   !< Struct with his file NetCDF IDs
+   integer,            intent(in   ) :: id_var   !< NetCDF Variable ID to write into.
+!   double precision,   intent(in   ) :: valobsT(:,:) !< (1:numobs+nummovobs,:) Observation values on all stations for all recorded variables (transposed).
+   integer,            intent(in   ) :: ipnt_var !< Index pointer into the valobsT array, second dimension, for the variable to be written, e.g., IPNT_TEM1.
+   integer,            intent(in   ) :: ja3d     !< Whether or not (1/0) to write 3D or depth-averaged instead.
+   integer                           :: ierr     !< Result status (DFM_NOERR if succesful).
+   double precision, allocatable, save :: val_depthavg(:)
+   double precision, allocatable, save :: val_3d(:,:)
+   integer :: i, ntot, k, kb, kt, nlayb, nrlay, klayb0, klayt
+   double precision :: voltot_node
+
+   ierr = DFM_NOERR
+
+   if (ipnt_var <= MAXNUMVALOBS2D .or. ipnt_var > MAXNUMVALOBS2D+MAXNUMVALOBS3D*max(kmx,1)) then
+      ierr = DFM_GENERICERROR
+      call err('unc_put_3d_or_depthaveraged_valobs(): invalid ipnt_var was given, only allowed for 3D variables: ', ipnt_var)
+      return
+   end if
+   
+   ntot = numobs + nummovobs
+   
+   if (ja3d > 0) then
+      ! Copy into temp array for fast disk writing
+      call realloc(val_3d, (/ kmx, ntot /), keepExisting=.false.)
+      do i=1,ntot
+         val_3d(1:kmx, i) = valobs(ipnt_var:ipnt_var+kmx-1, i)
+      end do
+      ierr = nf90_put_var(hisids%ncid, id_var, val_3d, start = (/ 1, 1, hisids%idx_curtime /), count = (/ kmx, ntot, 1 /))
+   else
+      ! Depth-averaged "2D" values
+      call realloc(val_depthavg, ntot, keepExisting=.false., fill=dmiss)
+      do i=1,ntot
+         k = kobs(i)
+         if (k > 0) then
+            if ( kmx > 0 ) then
+               call getkbotktop(k, kb, kt)
+               call getlayerindices(k, nlayb, nrlay)
+            else
+               kb = k
+               kt = k
+               nlayb = 1
+            end if
+            klayb0 = nlayb - 1
+            klayt  = nlayb + kt-kb
+            ! After being filled in fill_valobs(), the valobs array is filled with nt-nb values, on indexes IPNT_VAR+nlayb-1:IPNT_VAR+nlayb+nt-nb.
+            voltot_node = sum(valobs(IPNT_VOL+klayb0:IPNT_VOL+klayt,i))
+            if (voltot_node > 0d0) then
+               val_depthavg(i) = dot_product(valobs(ipnt_var+klayb0:ipnt_var+klayt,i), valobs(IPNT_VOL+klayb0:IPNT_VOL+klayt,i)) / voltot_node
+            end if
+         end if
+      end do
+      ierr = nf90_put_var(hisids%ncid, id_var, val_depthavg(:),  start = (/ 1, hisids%idx_curtime /), count = (/ ntot, 1 /))
+   end if
+   
+end function unc_put_3d_or_depthaveraged_valobs
 
 end module unstruc_netcdf

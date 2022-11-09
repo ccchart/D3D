@@ -452,8 +452,10 @@ use m_meteo, only: ecInstancePtr
     end if
     call close_all_files()
     call unc_closeall()
-    mapids%ncid = 0    !< Reset global map-file ncid
-    ihisfile = 0       !< Reset global his-file ncid
+    mapids%ncid   = 0    !< Reset global map-file ncid
+    mapids3d%ncid = 0    !< Reset global map3D-file ncid
+    hisids%ncid   = 0    !< Reset global his-file ncid
+    hisids3d%ncid = 0    !< Reset global his3D-file ncid
     call FinalizeMessageHandling()
     close(mdia)
     mdia = 0

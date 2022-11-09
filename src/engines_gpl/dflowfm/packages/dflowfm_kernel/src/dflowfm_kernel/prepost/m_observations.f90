@@ -105,7 +105,8 @@ implicit none
     integer                           :: MAXNUMVALOBS3D   ! maximum number of outputted values at observation stations, 3D layer centers
     integer                           :: MAXNUMVALOBS3Dw  ! maximum number of outputted values at observation stations, 3D layer interfaces (e.g. zws)
     integer                           :: MAXNUMVALOBSLYR  ! maximum number of outputted values at observation stations, bed sediment layers (e.g. msed)
-    integer                           :: IVAL_S1          ! 2D first
+    ! 2D first
+    integer                           :: IVAL_S1
     integer                           :: IVAL_HS
     integer                           :: IVAL_BL
     integer                           :: IVAL_SMX
@@ -124,7 +125,9 @@ implicit none
     integer                           :: IVAL_WAVEU
     integer                           :: IVAL_TAUX
     integer                           :: IVAL_TAUY
-    integer                           :: IVAL_UCX         ! 3D, layer centered after 2D
+    ! 3D, layer centered after 2D
+    integer                           :: IVAL_VOL
+    integer                           :: IVAL_UCX
     integer                           :: IVAL_UCY
     integer                           :: IVAL_UCZ
     integer                           :: IVAL_UCXQ
@@ -147,7 +150,8 @@ implicit none
     integer                           :: IVAL_SF1 ! stm code
     integer                           :: IVAL_SFN
     integer                           :: IVAL_ZCS
-    integer                           :: IVAL_ZWS         ! 3D, layer interfaces after layer centered
+    ! 3D, layer interfaces after layer centered
+    integer                           :: IVAL_ZWS
     integer                           :: IVAL_ZWU
     integer                           :: IVAL_TKIN
     integer                           :: IVAL_TEPS
@@ -231,6 +235,7 @@ implicit none
     integer                           :: IPNT_WAVEU
     integer                           :: IPNT_TAUX
     integer                           :: IPNT_TAUY
+    integer                           :: IPNT_VOL
     integer                           :: IPNT_UCX
     integer                           :: IPNT_UCY
     integer                           :: IPNT_UCZ
@@ -395,6 +400,7 @@ subroutine init_valobs_pointers()
    IVAL_WAVEU      = 0
    IVAL_TAUX       = 0
    IVAL_TAUY       = 0
+   IVAL_VOL        = 0
    IVAL_UCX        = 0
    IVAL_UCY        = 0
    IVAL_UCZ        = 0
@@ -595,6 +601,7 @@ subroutine init_valobs_pointers()
 
 !  3D, layer centered
    i0=i;
+   i=i+1;               IVAL_VOL        = i
    i=i+1;               IVAL_UCX        = i
    i=i+1;               IVAL_UCY        = i
    if ( kmx.gt.0 ) then
@@ -691,6 +698,7 @@ subroutine init_valobs_pointers()
    IPNT_BL    = ivalpoint(IVAL_BL,    kmx, nlyrs)
    IPNT_SMX   = ivalpoint(IVAL_SMX,   kmx, nlyrs)
    IPNT_CMX   = ivalpoint(IVAL_CMX,   kmx, nlyrs)
+   IPNT_VOL   = ivalpoint(IVAL_VOL,   kmx, nlyrs)
    IPNT_UCX   = ivalpoint(IVAL_UCX,   kmx, nlyrs)
    IPNT_UCY   = ivalpoint(IVAL_UCY,   kmx, nlyrs)
    IPNT_UCZ   = ivalpoint(IVAL_UCZ,   kmx, nlyrs)

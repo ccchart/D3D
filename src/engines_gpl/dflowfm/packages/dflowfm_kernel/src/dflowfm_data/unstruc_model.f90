@@ -157,6 +157,7 @@ implicit none
     character(len=255) :: md_foufile       = ' ' !< File containing fourier modes to be analyzed
 
     character(len=255) :: md_hisfile       = ' ' !< Output history file for monitoring  (e.g., *_his.nc)
+    character(len=255) :: md_his3dfile     = ' ' !< Output his3D   file for monitoring, 3D quantities only (e.g., *_3d_his.nc)
     character(len=255) :: md_mapfile       = ' ' !< Output map     file for full flow fields (e.g., *_map.nc)
     character(len=255) :: md_map3dfile     = ' ' !< Output map3D   file for full flow fields (e.g., *_3d_map.nc)
     character(len=255) :: md_classmapfile  = ' ' !< Output classmap file for full flow fields in classes (formerly: incremental file) (e.g., *_clm.nc)
@@ -343,6 +344,7 @@ use unstruc_channel_flow
     md_rugfile = ' '
     md_foufile = ' '
     md_hisfile = ' '
+    md_his3dfile = ' '
     md_mapfile = ' '
     md_map3dfile = ' '
     md_classmapfile = ' '
@@ -1712,6 +1714,22 @@ subroutine readMDUFile(filename, istat)
     call prop_get_doubles(md_ptr, 'output', 'HisInterval'   ,  ti_his_array, 3, success)
     if (ti_his_array(1) .gt. 0d0) ti_his_array(1) = max(ti_his_array(1) , dt_user)
     call getOutputTimeArrays(ti_his_array, ti_hiss, ti_his, ti_hise, success)
+
+    call prop_get_string(md_ptr, 'output', 'His3DFile', md_his3dfile, success)
+
+    ti_his_array = 0d0
+    call prop_get_doubles(md_ptr, 'output', 'His3DInterval'   ,  ti_his_array, 3, success)
+    if (ti_his_array(1) .gt. 0d0) ti_his_array(1) = max(ti_his_array(1) , dt_user)
+    call getOutputTimeArrays(ti_his_array, ti_his3ds, ti_his3d, ti_his3de, success)
+
+    if (ti_his3d /= 0d0 .and. kmx <= 0) then
+       ti_his3d  = 0d0
+       ti_his3ds = 0d0
+       ti_his3de = 0d0
+
+       write(msgbuf, '(a,f9.3)') 'Separate 3D his file only relevant when number of layers > 0) (see His3DInterval and kmx). Falling back to single his file now.'
+       call warn_flush()
+    end if
 
     call prop_get_double(md_ptr, 'output', 'XLSInterval', ti_xls, success)
 
@@ -3652,6 +3670,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     call prop_set(prop_ptr, 'output', 'FouUpdateStep', md_fou_step,    'Fourier update step type: 0=every user time step, 1=every computational timestep, 2=same as history output.')
 
     call prop_set(prop_ptr, 'output', 'HisFile',     trim(md_hisfile), 'HisFile name *_his.nc')
+    call prop_set(prop_ptr, 'output', 'His3DFile',   trim(md_his3dfile), 'His3DFile name *_3d_his.nc')
     call prop_set(prop_ptr, 'output', 'MapFile',     trim(md_mapfile), 'MapFile name *_map.nc')
     call prop_set(prop_ptr, 'output', 'Map3DFile',   trim(md_map3dfile), 'Map3DFile name *_3d_map.nc')
 
@@ -3659,6 +3678,14 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     ti_his_array(2) = ti_hiss
     ti_his_array(3) = ti_hise
     call prop_set(prop_ptr, 'output', 'HisInterval', ti_his_array, 'History times (s), interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period')
+
+    if (ti_his3d > 0d0 .or. writeall) then
+       ti_his_array(1) = ti_his3d
+       ti_his_array(2) = ti_his3ds
+       ti_his_array(3) = ti_his3de
+       call prop_set(prop_ptr, 'output', 'His3DInterval', ti_map_array, 'Separate 3D his times (s) interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period' )
+    end if
+
     call prop_set(prop_ptr, 'output', 'XLSInterval', ti_xls,           'Interval (s) XLS history' )
 
     ti_map_array(1) = ti_map
@@ -3670,7 +3697,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
        ti_map_array(1) = ti_map3d
        ti_map_array(2) = ti_map3ds
        ti_map_array(3) = ti_map3de
-       call prop_set(prop_ptr, 'output', 'Map3DInterval', ti_map_array, 'Separate 3D map time (s) interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period' )
+       call prop_set(prop_ptr, 'output', 'Map3DInterval', ti_map_array, 'Separate 3D map times (s) interval, starttime, stoptime (s), if starttime, stoptime are left blank, use whole simulation period' )
     end if
 
     ti_rst_array(1) = ti_rst

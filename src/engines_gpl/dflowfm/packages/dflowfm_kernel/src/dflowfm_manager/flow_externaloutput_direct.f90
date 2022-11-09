@@ -39,9 +39,10 @@ subroutine flow_externaloutput_direct()
    use m_flowtimes
    use unstruc_messages
    use time_module
-   use unstruc_netcdf, only: UNC_DIM_ALL
+   use unstruc_netcdf, only: UNC_DIM_1D, UNC_DIM_2D, UNC_DIM_3D, UNC_DIM_ALL, hisids, hisids3d
    implicit none
    integer :: iyear, imonth, iday, ihour, imin, isec
+   integer :: ihisdim
 
    call mess(LEVEL_INFO, 'Performing direct write of solution state...')
 
@@ -53,8 +54,20 @@ subroutine flow_externaloutput_direct()
 
    call wrimap(time1, UNC_DIM_ALL, .false.)
 
-   call unc_write_his(time1)
-
+   if (ti_his > 0) then
+      if (ti_his3d > 0) then
+         ihisdim = UNC_DIM_1D + UNC_DIM_2D  ! 1D/2D in this file, 3D below in a separate file.
+      else
+         ihisdim = UNC_DIM_ALL ! 1D/2D and 3D in same file
+      end if
+      call unc_write_his(hisids, time1, ihisdim)
+   end if
+   
+   if (ti_his3d > 0) then
+      ihisdim = UNC_DIM_3D
+      call unc_write_his(hisids3d, time1, ihisdim)
+   end if
+   
    call wrirst(time1)
 
    call mess(LEVEL_INFO, 'Done writing solution state.')

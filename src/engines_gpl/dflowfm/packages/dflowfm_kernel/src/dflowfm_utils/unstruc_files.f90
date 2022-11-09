@@ -225,6 +225,9 @@ function defaultFilename(filecat, timestamp, prefixWithDirectory, allowWildcard)
     case ('his')
         activeFile = md_hisfile
         suffix     = '_his.nc'
+    case ('his3d')
+        activeFile = md_his3dfile
+        suffix     = '_3d_his.nc'
     case ('inc_s1')
         activeFile =  ''
         suffix     = '_inc_s1.nc'
@@ -363,7 +366,7 @@ function defaultFilename(filecat, timestamp, prefixWithDirectory, allowWildcard)
     
     ! Output files are generally stored in a subfolder, so prefix them here with that.
     select case (trim(filecat))
-    case ('his', 'map', 'map3d', 'clm', 'rstold', 'rst', 'bal', 'histek', 'inc_s1', 'tec', 'map.plt', 'net.plt', 'avgwavquant', &
+    case ('his', 'his3d', 'map', 'map3d', 'clm', 'rstold', 'rst', 'bal', 'histek', 'inc_s1', 'tec', 'map.plt', 'net.plt', 'avgwavquant', &
           'com','avgsedquant', 'mba', 'mbacsvm', 'mbacsvmb', 'wq_lsp', 'bloom', 'timers', 'timers_init','sedtrails')
         if (prefix_dir) then
             defaultFilename = trim(getoutputdir())//trim(defaultFilename)

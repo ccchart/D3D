@@ -64,7 +64,7 @@
  character(len=16)            :: filepostfix
  integer                      :: numomp
  double precision             :: tem_dif
- integer                      :: imapdim
+ integer                      :: imapdim, ihisdim
  logical                      :: is_last_map_time
 
 
@@ -73,7 +73,12 @@
    if (ti_his > 0) then
       if (comparereal(tim, time_his, eps10)>= 0) then
          if ( jampi.eq.0 .or. ( jampi.eq.1 .and. my_rank.eq.0 ) ) then
-            call unc_write_his(tim)   ! wrihis
+            if (ti_his3d > 0) then
+               ihisdim = UNC_DIM_1D + UNC_DIM_2D  ! 1D/2D in this file, 3D below in a separate file.
+            else
+               ihisdim = UNC_DIM_ALL ! 1D/2D and 3D in same file
+            end if
+            call unc_write_his(hisids, tim, ihisdim)   ! wrihis
          endif
          if (nrug>0) then
             ! needs to be done at exactly ti_his, but over all domains, so cannot go in wrihis
@@ -91,6 +96,28 @@
          endif
       endif
    endif
+
+   ! Separate his3D output file:
+   if (ti_his3d > 0) then
+      if (comparereal(tim, time_his3d, eps10) >= 0) then
+         if ( jampi.eq.0 .or. ( jampi.eq.1 .and. my_rank.eq.0 ) ) then
+            ihisdim = UNC_DIM_3D
+            call unc_write_his(hisids3d, tim, ihisdim)
+         end if
+         if (comparereal(time_his3d, ti_his3de, eps10) == 0) then
+            time_his3d = tstop_user + 1
+         else
+            tem_dif = (tim - ti_his3ds)/ti_his3d
+            time_his3d = max(ti_his3ds + (floor(tem_dif + 0.001d0) +1)*ti_his3d,ti_his3ds)
+
+            if (comparereal(time_his3d, ti_his3de, eps10) == 1) then
+               ! next time_his3d would be beyond end of his3d-window, write one last his3d exactly at that end.
+               time_his3d = ti_his3de
+            endif
+         endif
+      endif
+   endif
+
 
    if (.not. allocated(ti_mpt) ) then
       allocate ( ti_mpt(1), ti_mpt_rel(1) ) ; ti_mpt(1) = 0 ; ti_mpt_rel(1) = 0

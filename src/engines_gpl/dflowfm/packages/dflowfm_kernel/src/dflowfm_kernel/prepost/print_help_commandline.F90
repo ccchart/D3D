@@ -137,7 +137,7 @@ endif
    write (*,*) ' --cutcells NETFILE'
    write (*,*) '      Cut the unstructured grid in NETFILE with the polygons specified'
    write (*,*) '      in a file called ''cutcellpolygons.lst''.'
-   write (*,*) ' --convertlongculverts PREFIX'
+   write (*,*) ' --convertlongculverts PREFIX MDUFILE'
    write (*,*) '      Convert long culverts in mdu specified structure file to a netfile + crs definition file'
    write (*,*) '      with file prefix PREFIX''.'
    write (*,*) ' '

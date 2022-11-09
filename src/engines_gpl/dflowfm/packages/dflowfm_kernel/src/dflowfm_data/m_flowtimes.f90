@@ -94,6 +94,9 @@
  double precision                  :: ti_his      !< history interval (s)
  double precision                  :: ti_hiss     !< Start of his output period (as assigned in mdu-file) (s)
  double precision                  :: ti_hise     !< End   of his output period (as assigned in mdu-file) (s)
+ double precision                  :: ti_his3d    !< history interval for separate 3D his files (s) (When not set, both 1D, 2D and 3D are in one normal his file)
+ double precision                  :: ti_his3ds   !< Start of his3D output period (as assigned in mdu-file) (s)
+ double precision                  :: ti_his3de   !< End   of his3D output period (as assigned in mdu-file) (s)
  double precision                  :: ti_wav      !< averaging interval spatial wave quantities (s)
  double precision                  :: ti_wavs     !< averaging interval spatial wave quantities
  double precision                  :: ti_wave     !< averaging interval spatial wave quantities
@@ -140,6 +143,7 @@
  double precision                  :: time_sed      !< Time-avg'd output interval sedmor
  double precision                  :: time_st       !< Time-avg'd output interval sedtrails
  double precision                  :: time_his      !< Next time for his output
+ double precision                  :: time_his3d    !< Next time for his3D output
  double precision                  :: time_xls      !< Next time for his output
  double precision                  :: time_rst      !< Next time for restart output
  double precision                  :: time_classmap !< Next time for class map output
@@ -159,7 +163,6 @@
  integer                           :: it_wav      !< Nr of snapshots presently in time-avg'd wave output file JRE
  integer                           :: it_sed      !< Nr of snapshots presently in time-avg'd sedmor output file JRE
  integer                           :: it_map_tec  !< Nr of snapshots presently in map file, Tecplot format
- integer                           :: it_his      !< Nr of snapshots presently in his file
  integer                           :: it_inc      !< Nr of lines     presently in inc file
  integer                           :: it_rst      !< Nr of snapshots presently in rst file
  integer                           :: it_waq      !< Nr of snapshots presently in delwaq files.
@@ -243,6 +246,9 @@ subroutine default_flowtimes()
     ti_his      = 120d0             !< history interval (s)
     ti_hiss     = 0d0               !< Start history output (s)
     ti_hise     = 0d0               !< End   history output (s)
+    ti_his3d    = 0d0               !< his3D interval (s)
+    ti_his3ds   = 0d0               !< Start his3D output (s)
+    ti_his3de   = 0d0               !< End   his3D output (s)
     ti_sed      = 0d0               !< Time-avg'd output interval sedmor (s), (Default: off)
     ti_seds     = 0d0               !< Start time-avg'd output sedmor (s)
     ti_sede     = 0d0               !< End   time-avg'd output sedmor (s)
@@ -301,6 +307,7 @@ subroutine reset_flowtimes()
     time_sed     = tstart_user       !< same, morstats
     time_st      = tstart_user       !< same, sedtrails
     time_his     = tstart_user       !< next time for his output
+    time_his3d   = tstart_user       !< next time for his 3D output
     time_xls     = tstart_user       !< next time for his output
     time_rst     = tstart_user       !< next time for restart output
     time_classmap= tstart_user       !< next time for class map output
@@ -331,7 +338,6 @@ subroutine reset_flowtimes()
     it_sed       = 0                 !< Nr of snapshots presently in time-avg'd sed file JRE
     it_st        = 0                 !< Nr of snapshots presently in time-avg'd sedtrails file JRE
     it_map_tec   = 0                 !< Nr of snapshots presently in map file
-    it_his       = 0                 !< Nr of snapshots presently in his file
     it_inc       = 0                 !< Nr of lines     presently in inc file
     it_rst       = 0                 !< Nr of snapshots presently in rst file
     it_waq       = 0                 !< Nr of snapshots presently in waq couple files
