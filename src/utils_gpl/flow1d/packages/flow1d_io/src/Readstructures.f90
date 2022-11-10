@@ -1523,6 +1523,11 @@ module m_readstructures
          call prop_get_double(md_ptr, 'Structure', 'threshold', dambr%failThreshold, success)
          if (.not. success) return
 
+         ! read failFraction, and store it as crestLeveMin when using fragility curve as the dambreak algorithm
+         ! (initial crest level - bed level) will decrease by a factor of failFraction upon failure of structure
+         call prop_get_double(md_ptr, 'Structure', 'failFraction', dambr%crestLevelMin, success)
+         if (.not. success) return
+
       endif
 
       ! optional extra fields

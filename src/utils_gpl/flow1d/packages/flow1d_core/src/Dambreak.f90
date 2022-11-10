@@ -42,7 +42,8 @@
    integer, parameter, public :: ST_FC_VELMAG     = 2
    integer, parameter, public :: ST_FC_ENERGYHGHT = 3
    integer, parameter, public :: ST_FC_RELDEPTH   = 4
-   integer, parameter, public :: IDBMAX_NQUANT    = 4
+   integer, parameter, public :: ST_FC_BEDLEVEL   = 5
+   integer, parameter, public :: IDBMAX_NQUANT    = 5 ! changed from 4 to 5 to include new parameter ST_FC_BEDLEVEL
 
    type, public :: t_dambreak
       double precision :: startLocationX

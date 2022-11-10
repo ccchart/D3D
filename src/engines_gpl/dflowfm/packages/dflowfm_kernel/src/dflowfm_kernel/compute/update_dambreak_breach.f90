@@ -156,6 +156,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
             dambreakMaximum(n, ST_FC_VELMAG    ) = u
             dambreakMaximum(n, ST_FC_ENERGYHGHT) = e
             dambreakMaximum(n, ST_FC_RELDEPTH  ) = h
+            dambreakMaximum(n, ST_FC_BEDLEVEL  ) = zb ! use max bed level along dam to determine failure crest level; subpar if dambreak spans multiple flow links
          endif
       enddo
       do i = 1, nDambreakLocationsDownstream
@@ -172,6 +173,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
             dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
             dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
             dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH)  , h)
+            dambreakMaximum(n, ST_FC_BEDLEVEL  ) = max(dambreakMaximum(n, ST_FC_BEDLEVEL  ), zb) ! use max bed level along dam to determine failure crest level
          endif
       enddo
       do i = 1, nDambreakAveragingUpstream
@@ -197,6 +199,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
                   dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
                   dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
                   dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH  ), h)
+                  dambreakMaximum(n, ST_FC_BEDLEVEL  ) = max(dambreakMaximum(n, ST_FC_BEDLEVEL  ), zb) ! use max bed level along dam to determine failure crest level
                endif
             endif
          enddo
@@ -224,6 +227,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
                   dambreakMaximum(n, ST_FC_VELMAG    ) = max(dambreakMaximum(n, ST_FC_VELMAG    ), u)
                   dambreakMaximum(n, ST_FC_ENERGYHGHT) = max(dambreakMaximum(n, ST_FC_ENERGYHGHT), e)
                   dambreakMaximum(n, ST_FC_RELDEPTH  ) = max(dambreakMaximum(n, ST_FC_RELDEPTH  ), h)
+                  dambreakMaximum(n, ST_FC_BEDLEVEL  ) = max(dambreakMaximum(n, ST_FC_BEDLEVEL  ), zb) ! use max bed level along dam to determine failure crest level
                endif
             endif
          enddo
@@ -274,8 +278,8 @@ subroutine update_dambreak_breach(startTime, deltaTime)
 
             else if (network%sts%struct(istru)%dambreak%algorithm == ST_DB_FRAGCURVE) then ! fragility curve
                if (dambreakMaximum(n, network%sts%struct(istru)%dambreak%failQuantity) > network%sts%struct(istru)%dambreak%failValue) then
-                  ! if breaching condition is satisfied, break completely
-                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelMin
+                  ! if breaching condition is satisfied, break width completely, but lower structure by failFraction * (initial crest level - bed level), where failFraction was stored as crestLeveMin during read
+                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelIni - network%sts%struct(istru)%dambreak%crestLevelMin * max(0d0, network%sts%struct(istru)%dambreak%crestLevelIni - dambreakMaximum(n, ST_FC_BEDLEVEL))
                   network%sts%struct(istru)%dambreak%width = maximumDambreakWidths(n)
                endif
 
