@@ -4157,6 +4157,8 @@ module m_ec_provider
    integer                          ::    dimid(1), dim_size
    character(len=NF90_MAX_NAME)     ::    dim_name  
    ! Make a list of standard names of variables available in the netcdf file 
+   success = .False.
+   
    nvar = 0 
    ierror = nf90_inquire(fileReaderPtr%fileHandle, nvariables = nvar)
    if (ierror/=NF90_NOERR) then

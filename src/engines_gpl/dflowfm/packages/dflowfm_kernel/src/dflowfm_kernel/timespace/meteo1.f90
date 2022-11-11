@@ -8071,7 +8071,7 @@ module m_meteo
                   if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, item_apwxwy_c)
                   if (success) success = ecAddItemConnection(ecInstancePtr, item_apwxwy_c, connectionId)
                endif
-            else if (ec_filetype == provFile_spiderweb) then
+            else if (ec_filetype == provFile_spiderweb .or. ec_filetype == provFile_ncspiderweb) then
                if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, item_apwxwy_x)
                if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, item_apwxwy_y)
                if (success) success = ecAddConnectionTargetItem(ecInstancePtr, connectionId, item_apwxwy_p)

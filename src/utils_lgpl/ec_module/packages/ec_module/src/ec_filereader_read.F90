@@ -666,7 +666,7 @@ module m_ec_filereader_read
 
       !> Read the next record from a spiderweb file.
       !! meteo1: reaspwtim
-      function ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, t0t1, nranges, nangles, timesndx) result(success)
+      function ecNetcdfSpiderwebReadBlock(fileReaderPtr, item1, item2, item3, item4, item5, item6, t0t1, nangles, nranges, timesndx) result(success)
          use netcdf
          
          logical                         :: success       !< function status
@@ -821,7 +821,7 @@ module m_ec_filereader_read
              ! read data
              allocate(data_block(nranges-1, nangles-1, 1), stat = istat)
              if (istat /= 0) then ! handle exception
-                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while allocation data_block.")
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:error while allocation data_block.")
                  return
              endif
              ierror = nf90_get_var(fileReaderPtr%fileHandle, item%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/nranges-1, nangles-1, 1/))
@@ -846,7 +846,7 @@ module m_ec_filereader_read
              ! read data
              allocate(data_block(nangles-1, nranges-1, 1), stat = istat)
              if (istat /= 0) then ! handle exception
-                 call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while allocation data_block.")
+                 call setECMessage("ecNetcdfSpiderwebReadBlock:error while allocation data_block.")
                  return
              endif
              ierror = nf90_get_var(fileReaderPtr%fileHandle, item%QuantityPtr%ncid, data_block, start=(/1, 1, timesndx/), count=(/nangles-1, nranges-1, 1/))
@@ -870,7 +870,7 @@ module m_ec_filereader_read
          endif
          deallocate(data_block, stat = istat)
          if (istat /= 0) then ! handle exception
-             call setECMessage("ecNetcdfSpiderwebReadBlock:NetCDF:error while deallocation data_block.")
+             call setECMessage("ecNetcdfSpiderwebReadBlock:error while deallocation data_block.")
              return
          endif
          icode = 0
