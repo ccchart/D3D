@@ -96,21 +96,27 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
 !
     type(tree_data)             , pointer     :: sedfil_tree
     type(tree_data)             , pointer     :: morfil_tree
+    type(tree_data)             , pointer     :: slufil_tree
     integer                   :: istat
     integer                   :: lstsci
     integer                   :: nto
     integer                   :: nmaxus
     integer                   :: nmlb
     integer                   :: nmub
+    integer                   :: kmax_dummy
     integer                   :: l
     !
     integer                   , parameter    :: NPARDEF = 20
     integer, dimension(2,NPARDEF)            :: ipardef
     real(fp), dimension(NPARDEF)             :: rpardef
+    real(fp)                                 :: rhow_dummy    ! To be specified correctly
+    real(fp)                                 :: ag_dummy      ! To be specified correctly
 !
 !! executable statements -------------------------------------------------------
 !
     error = .false.
+    rhow_dummy = -999.0_fp
+    ag_dummy   = -999.0_fp
     !
     allocate(stm%sedpar , stat = istat)
     allocate(stm%morpar , stat = istat)
@@ -129,6 +135,7 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     nmaxus = griddim%nmax
     nmlb   = griddim%nmlb
     nmub   = griddim%nmub
+    kmax_dummy = -999
     nto    = size(nambnd,1)
     !
     ! Open filsed file and determine the number of sediment fractions
@@ -171,8 +178,8 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     !
     call rdsed  (lundia, error, lsal, ltem, stm%lsedsus, &
                & stm%lsedtot, lstsci, ltur, stm%namcon, &
-               & stm%morpar%iopsus, nmlb, nmub, filsed, &
-               & sedfil_tree, stm%sedpar, stm%trapar, griddim)
+               & stm%morpar%iopsus, nmlb, nmub, kmax_dummy, filsed, &
+               & sedfil_tree, slufil_tree, stm%sedpar, stm%trapar, griddim)
     if (error) goto 999
     ! 
     !  For 1D branches read the node relation definitions
@@ -221,7 +228,7 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     ! Echo sediment and transport parameters
     !
     call echosed(lundia, error, stm%lsedsus, stm%lsedtot, &
-               & stm%morpar%iopsus, stm%sedpar, stm%trapar)
+               & stm%morpar%iopsus, rhow_dummy, ag_dummy   , stm%sedpar, stm%trapar)
     if (error) goto 999
     !
     ! Echo morphology parameters

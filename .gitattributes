@@ -3116,6 +3116,7 @@ src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/Makefile.am -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/adjust_bedload.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/avalan.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/bndmorlyr.f90 -text
+src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/bngham.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/bott3d.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/compthick.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/dredge_comm.f90 -text
@@ -18726,6 +18727,7 @@ src/utils_gpl/morphology/packages/morphology_kernel/src/santoss_ripple.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/santoss_rrr12.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/santoss_sfltd99.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/sed_support_routines.f90 -text
+src/utils_gpl/morphology/packages/morphology_kernel/src/shearsettle.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/sortindices.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/soursin_2d.f90 -text
 src/utils_gpl/morphology/packages/morphology_kernel/src/soursin_3d.f90 -text
