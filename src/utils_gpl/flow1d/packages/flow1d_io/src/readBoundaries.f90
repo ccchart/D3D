@@ -40,7 +40,7 @@ module m_readBoundaries
    use string_module
 
    use m_ec_module
-   use time_module, only : offset_reduced_jd
+   use time_module, only : offset_modified_jd
    use m_temperature, only : tempPars
 
    implicit none
