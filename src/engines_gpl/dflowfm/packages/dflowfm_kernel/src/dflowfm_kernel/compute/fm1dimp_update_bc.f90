@@ -79,8 +79,8 @@ do k=1,f1dimppar%nhstat
     f1dimppar%table(ktab+1)=time1+1d0 !It does not matter, as the query time will be <time1>
     !y (var)
     ktab=maxtab*table_length+table_number*table_length-1
-    f1dimppar%table(ktab)=zbndz(1) !FM1DIMP2DO: this will have to check which BC in case of more than 1
-    f1dimppar%table(ktab+1)=zbndz(1)
+    f1dimppar%table(ktab)=zbndz(k) 
+    f1dimppar%table(ktab+1)=zbndz(k)
 end do
 !   q
 
@@ -100,8 +100,8 @@ do k=1,f1dimppar%nqstat
     nq=k
     n=L1qbnd(nq)!, L2qbnd(nq)
     L=kbndu(3,n)
-    f1dimppar%table(ktab)=zbndq(1)*au(L) !FM1DIMP2DO: this will have to check which BC in case of more than 1
-    f1dimppar%table(ktab+1)=zbndq(1)*au(L)
+    f1dimppar%table(ktab)=zbndq(k)*au(L) 
+    f1dimppar%table(ktab+1)=zbndq(k)*au(L)
 end do
 
 !f1dimppar%table=(/ 0d0,86400d0,0d0,10000d0,1.00666656855963d0,1.00666656855963d0,100d0,100d0 /)

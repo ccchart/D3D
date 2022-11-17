@@ -40,7 +40,7 @@ use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1dIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
+use m_flow, only: s0, s1, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
 use m_fm_erosed, only: link1sign2
 use m_oned_functions, only: gridpoint2cross
@@ -136,7 +136,7 @@ integer :: idx_crs
 integer :: n1, n2, nint, nout, pointscount, i, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, idx_fm, nl, L
+integer :: idx_i, idx_f, idx_fm, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2
 integer :: idx_sre
 integer :: j
 
@@ -244,6 +244,16 @@ endif
 allocate(f1dimppar%idx_cs(ngrid))
 idx_cs => f1dimppar%idx_cs
 
+if (allocated(f1dimppar%hpack)) then
+    deallocate(f1dimppar%hpack)
+endif
+allocate(f1dimppar%hpack(ngrid,3)) 
+
+if (allocated(f1dimppar%qpack)) then
+    deallocate(f1dimppar%qpack)
+endif
+allocate(f1dimppar%qpack(ngrid,3))
+
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
@@ -279,15 +289,17 @@ do k=1,nbran
         endif
     enddo
     
-    !cross-section
     pointscount=network%BRS%BRANCH(k)%GRIDPOINTSCOUNT !FM1DIMP2DO: also make pointer?
     lin      => network%brs%branch(k)%lin
     grd      => network%brs%branch(k)%grd
     
     do i=1,pointscount
         idx_sre=idx_sre+1
-        k1=grd(i)
+        idx_fm=grd(i) 
+        !idx_fm_r=ln(1,idx_fm)
+        !idx_fm_l=ln(2,idx_fm)
         
+        !cross-section
         !FM1DIMP2DO: This part of the code is part of <set_cross_sections_to_gridpoints>, could be modularized.
         !->start
         if (i==1 .or. i==pointscount) then
@@ -297,8 +309,8 @@ do k=1,nbran
            else
               L = lin(pointscount-1)
            endif
-           do j = 1,nd(k1)%lnx
-              if (L == iabs(nd(k1)%ln(j))) then
+           do j = 1,nd(idx_fm)%lnx
+              if (L == iabs(nd(idx_fm)%ln(j))) then
                  jpos = j
               endif
            enddo
@@ -307,14 +319,38 @@ do k=1,nbran
         endif  
         !-> end
         
-        idx_cs(idx_sre)=gridpoint2cross(k1)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+        idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
         !if there is not a unique cross-section per gridpoint per branch, <ic=-999>. It is not needed to check
         !this here because it is already checked in <flow_sedmorinit>, which is called before <initialize_flow1d_implicit>
         
         !icd=network%crs%cross(ic) !cross-section associated to the FM gridpoint per branch
-    enddo
-    !branch
+        
+        !initial condition
+        do k2=1,3 !< time step [before, intermediate, after]
+            f1dimppar%hpack(idx_sre,k2)=s1(idx_fm)
+            if (nd(idx_fm)%lnx>2) then
+                !if (i==1) then
+                !    idx_l1
+                !else
+                !    idx_l1
+                !endif
+                !f1dimppar%qpack(idx_sre,k2)=au(idx_l1)*u1(idx_l1) 
+            else
+                idx_l1=abs(nd(idx_fm)%ln(1))
+                idx_l2=abs(nd(idx_fm)%ln(2))
+                f1dimppar%qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
+            endif
+        end do !k2
+    enddo !i
     
+    
+    do k2=1,3 !< time step [before, intermediate, after]
+        f1dimppar%qpack(idx_sre-pointscount,k2)=f1dimppar%qpack(idx_sre-pointscount+1,k2) !begin of branch
+        f1dimppar%qpack(idx_sre            ,k2)=f1dimppar%qpack(idx_sre-1            ,k2) !end of branch
+    enddo
+        
+    
+    !branch    
     branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
     branch(2,k)=network%BRS%BRANCH(k)%NODEINDEX(2)
     branch(3,k)=idx_i
@@ -419,16 +455,6 @@ if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
 endif
 allocate(f1dimppar%nlev(ngrid)) 
-
-if (allocated(f1dimppar%hpack)) then
-    deallocate(f1dimppar%hpack)
-endif
-allocate(f1dimppar%hpack(ngrid,3)) 
-
-if (allocated(f1dimppar%qpack)) then
-    deallocate(f1dimppar%qpack)
-endif
-allocate(f1dimppar%qpack(ngrid,3))
 
 if (allocated(f1dimppar%waoft)) then
     deallocate(f1dimppar%waoft)
@@ -546,10 +572,14 @@ do k=1,ngrid
     
     !dependent variables
     !
-    do k2=1,3 !< time step [before, intermediate, after]
-        f1dimppar%hpack(k,k2)=s0(idx_fm)
-        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
-    end do !k2
+    !do k2=1,3 !< time step [before, intermediate, after]
+    !    f1dimppar%hpack(k,k2)=s0(idx_fm)
+    !    if (nd(idx_fm)%lnx>2) then
+    !        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
+    !    else
+    !        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
+    !    endif
+    !end do !k2
     
     !waoft
     !FM1DIMP2DO: needs to be interpolated from link to cell centre
