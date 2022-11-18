@@ -259,7 +259,7 @@ c
 c     
 c     internal
 c
-      integer kgrid, kbran, knode
+      integer kgrid, kbran, knode, kbc, idx_bc
 c
 c     Originally read from memory pool
 c
@@ -833,8 +833,18 @@ c
       flwpar(19 )      =dhtyp  
       flwpar(20 )      =exrstp 
       
-c     Initialize BC. FM1DIMP2DO: make general
-      hstat(1) = table(ntab(3,1))
+c     Initialize BC. 
+      idx_bc=0
+c         H-boundary
+      do kbc=1,nhstat
+          idx_bc=idx_bc+1
+          hstat(kbc) = table(ntab(3,idx_bc))
+      enddo
+c         Q-boundary
+      do kbc=1,nqstat
+          idx_bc=idx_bc+1
+          qstat(kbc) = table(ntab(3,idx_bc))
+      enddo
       qstat(1) = table(ntab(3,2))
       
 #if !  defined (SHR_MEM)
@@ -882,6 +892,12 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hpack(:,2)
       write(42,*) 'h3'
       write(42,*) hpack(:,3)
+      write(42,*) 'q1'
+      write(42,*) qpack(:,1)
+      write(42,*) 'q2'
+      write(42,*) qpack(:,2)
+      write(42,*) 'q3'
+      write(42,*) qpack(:,3)
       endif
       
       call sre_flow (time ,dtf,steady,iter  ,istep ,itim  ,nbran,
@@ -962,6 +978,12 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hpack(:,2)
       write(42,*) 'h3'
       write(42,*) hpack(:,3)
+      write(42,*) 'q1'
+      write(42,*) qpack(:,1)
+      write(42,*) 'q2'
+      write(42,*) qpack(:,2)
+      write(42,*) 'q3'
+      write(42,*) qpack(:,3)
       endif
       
       call soconv (ngrid ,epsh   ,epsq   ,hpack  ,

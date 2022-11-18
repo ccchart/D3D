@@ -73,7 +73,7 @@ integer                                  , pointer :: table_length
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
 integer, dimension(:)                    , pointer :: grd_sre_fm
-integer, dimension(:)                    , pointer :: idx_cs
+integer, dimension(:)                    , pointer :: idx_cs !FM1DIMP2DO: not a good name. Rename to <grd_sre_cs>
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
       
@@ -131,12 +131,12 @@ integer, pointer :: fm1dimp_debug_k1
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
-integer :: k, k1, k2 !FM1DIMP2DO: make the variables names consistent
+integer :: k, k1, k2, kbe !FM1DIMP2DO: make the variables names consistent
 integer :: idx_crs
 integer :: n1, n2, nint, nout, pointscount, i, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, idx_fm, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2
+integer :: idx_i, idx_f, idx_fm, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c
 integer :: idx_sre
 integer :: j
 
@@ -152,6 +152,8 @@ integer, allocatable, dimension(:)   :: kcol
 !integer, allocatable, dimension(:,:) :: nodnod_aux
 
 real :: swaoft
+
+double precision :: wu_int, au_int
 
 !point
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
@@ -248,11 +250,20 @@ if (allocated(f1dimppar%hpack)) then
     deallocate(f1dimppar%hpack)
 endif
 allocate(f1dimppar%hpack(ngrid,3)) 
+hpack => f1dimppar%hpack
 
 if (allocated(f1dimppar%qpack)) then
     deallocate(f1dimppar%qpack)
 endif
 allocate(f1dimppar%qpack(ngrid,3))
+qpack => f1dimppar%qpack
+
+if (allocated(f1dimppar%waoft)) then
+    deallocate(f1dimppar%waoft)
+endif
+allocate(f1dimppar%waoft(ngrid,18))
+waoft => f1dimppar%waoft
+swaoft=size(f1dimppar%waoft,dim=2)
 
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
@@ -296,8 +307,10 @@ do k=1,nbran
     do i=1,pointscount
         idx_sre=idx_sre+1
         idx_fm=grd(i) 
-        !idx_fm_r=ln(1,idx_fm)
-        !idx_fm_l=ln(2,idx_fm)
+        
+        !links connected to a given fm grid node
+        idx_l1=abs(nd(idx_fm)%ln(1))
+        idx_l2=abs(nd(idx_fm)%ln(2))
         
         !cross-section
         !FM1DIMP2DO: This part of the code is part of <set_cross_sections_to_gridpoints>, could be modularized.
@@ -326,29 +339,62 @@ do k=1,nbran
         !icd=network%crs%cross(ic) !cross-section associated to the FM gridpoint per branch
         
         !initial condition
-        do k2=1,3 !< time step [before, intermediate, after]
-            f1dimppar%hpack(idx_sre,k2)=s1(idx_fm)
-            if (nd(idx_fm)%lnx>2) then
-                !if (i==1) then
-                !    idx_l1
-                !else
-                !    idx_l1
-                !endif
-                !f1dimppar%qpack(idx_sre,k2)=au(idx_l1)*u1(idx_l1) 
-            else
-                idx_l1=abs(nd(idx_fm)%ln(1))
-                idx_l2=abs(nd(idx_fm)%ln(2))
-                f1dimppar%qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
-            endif
+        do k2=1,3 !< time step in SRE [before, intermediate, after]
+            !water level
+            !there is water level information everywhere in the FM domain
+            hpack(idx_sre,k2)=s1(idx_fm)
+
+            !discharge
+            qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
+            !!values inside the branch for sure have only two links
+            !if (nd(idx_fm)%lnx.eq.2) then
+            !endif
         end do !k2
-    enddo !i
-    
-    
-    do k2=1,3 !< time step [before, intermediate, after]
-        f1dimppar%qpack(idx_sre-pointscount,k2)=f1dimppar%qpack(idx_sre-pointscount+1,k2) !begin of branch
-        f1dimppar%qpack(idx_sre            ,k2)=f1dimppar%qpack(idx_sre-1            ,k2) !end of branch
-    enddo
         
+        !waoft
+        wu_int=0.5*(wu(idx_l1)+wu(idx_l2))
+        au_int=0.5*(au(idx_l1)+au(idx_l2))
+        
+        !FM1DIMP2DO: needs to be separated between flow and total
+        !check right order in <FLNORM> and not in documentation. 
+
+        waoft(idx_sre,1)=real(wu_int) !wf = actual flow width 
+        waoft(idx_sre,2)=real(wu_int) !wt = actual total width
+        waoft(idx_sre,3)=real(au_int) !af = actual flow area
+        waoft(idx_sre,4)=real(au_int) !at = actual total area n
+        waoft(idx_sre,5)=real(au_int) !at = actual total area n+1
+        waoft(idx_sre,6)=real(au_int/wu_int) !o = actual wetted perimeter
+        do k2=7,swaoft
+            waoft(idx_sre,k2)=0
+        enddo
+                
+    enddo !i
+
+    !deal with values at begin and end of the branch
+    !copying the value after and before, respectively
+    !as there is information at the link, which is closer to the
+    !end and beginning of the SRE node we are filling than 
+    !the previous (or later) SRE node, it would be more accurate
+    !to fill using the link info rather than the SRE info. 
+    do kbe=1,2 !upstream and downstram
+        if (kbe.eq.1) then !begin of branch
+            idx_sre_p=idx_sre-pointscount+1 !paste
+            idx_sre_c=idx_sre-pointscount+2 !copy
+        else !end of branch
+            idx_sre_p=idx_sre !paste
+            idx_sre_c=idx_sre-1 !copy
+        endif 
+    
+        do k2=1,3 !< time step in SRE [before, intermediate, after]
+            !discharge
+            qpack(idx_sre_p,k2)=qpack(idx_sre_c,k2) 
+        enddo
+        
+        !waoft
+        do k2=1,swaoft
+            waoft(idx_sre_p,k2)=waoft(idx_sre_c,k2)
+        enddo
+    enddo !kbe
     
     !branch    
     branch(1,k)=network%BRS%BRANCH(k)%NODEINDEX(1)
@@ -455,12 +501,6 @@ if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
 endif
 allocate(f1dimppar%nlev(ngrid)) 
-
-if (allocated(f1dimppar%waoft)) then
-    deallocate(f1dimppar%waoft)
-endif
-allocate(f1dimppar%waoft(ngrid,18))
-swaoft=size(f1dimppar%waoft,dim=2)
 
     !cross-sectional information (gridpoint,level)
 if (allocated(f1dimppar%wft)) then
@@ -580,27 +620,21 @@ do k=1,ngrid
     !        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
     !    endif
     !end do !k2
-    
-    !waoft
-    !FM1DIMP2DO: needs to be interpolated from link to cell centre
-    !FM1DIMP2DO: needs to be separated between flow and total
-    !FM1DIMP2DO: wetted perimeter get from results
-    !check right order in <FLNORM> and not in documentation. 
-    f1dimppar%waoft(k,1)=real(wu(idx_fm)) !wf = actual flow width 
-    f1dimppar%waoft(k,2)=real(wu(idx_fm)) !wt = actual total width
-    f1dimppar%waoft(k,3)=real(au(idx_fm)) !af = actual flow area
-    f1dimppar%waoft(k,4)=real(au(idx_fm)) !at = actual total area n
-    f1dimppar%waoft(k,5)=real(au(idx_fm)) !at = actual total area n+1
-    f1dimppar%waoft(k,6)=real(au(idx_fm)/wu(idx_fm)) !o = actual wetted perimeter
-    do k2=7,swaoft
-        f1dimppar%waoft(k,k2)=0
-    enddo
 
 end do !k
     
 ! 
 !boundary conditions
 !
+
+!<table> will contain 4 elements per BC:
+!   -X1 (time)
+!   -X2 (time)
+!   -Y1 (variable, e.g., water level)
+!   -Y2 (variable, e.g., water level)
+!the order in <table> is:
+!   -H-boundaries 
+!   -Q-boundaires
 
 if (allocated(f1dimppar%ntab)) then
     deallocate(f1dimppar%ntab)
@@ -746,7 +780,7 @@ do k=1,nnode
         iresult=1
     endif
     
-    numnod(k)=network%NDS%NODE(k)%NUMBEROFCONNECTIONS
+    numnod(k)=network%NDS%NODE(k)%NUMBEROFCONNECTIONS+1
     
 end do
 

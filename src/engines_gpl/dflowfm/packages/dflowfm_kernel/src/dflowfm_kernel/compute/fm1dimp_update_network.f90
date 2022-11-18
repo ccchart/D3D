@@ -53,7 +53,7 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 !local
 integer :: k
 integer :: k2
-integer :: idx_crs, idx_fm
+integer :: idx_crs!, idx_fm
 
 !!
 !! CALC
@@ -63,8 +63,10 @@ iresult=0
 
 do k=1,f1dimppar%ngrid
     
-    idx_fm=f1dimppar%grd_sre_fm(k) !index of the global grid point in fm for the global gridpoint <k> in SRE
-    idx_crs=network%ADM%gpnt2cross(idx_fm)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
+    !idx_fm=f1dimppar%grd_sre_fm(k) !index of the global grid point in fm for the global gridpoint <k> in SRE
+    !idx_crs=network%ADM%gpnt2cross(idx_fm)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
+    
+    idx_crs=f1dimppar%idx_cs(k)
     
     !update cross-section flow variables after bed level changes
     !FM1DIMP2DO: remove debug
@@ -88,8 +90,6 @@ do k=1,f1dimppar%ngrid
         f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
         f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
         f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
-        !FM1DIMP2DO: deal with (at least error) case of rectangular cross-section with only two elevation points. 
-        !In this case, the area for the low point is 0. This causes a huge interpolation error in SRE. 
         f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
         f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
         f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
