@@ -453,7 +453,7 @@
                   cycle
                end if
 
-               aub = min(hu(La), dambreakInitialCrestLevel(L) - network%sts%struct(istru)%dambreak%crl) *dambreakLinksBreachLength(L)
+               aub = min(hu(La), dambreakInitialCrestLevel(L) - network%sts%struct(istru)%dambreak%crl) * dambreakLinksBreachLength(L)
                valdambreak(1,n)  = valdambreak(1,n)  + dambreakLinksBreachLength(L)
                if (au(La) > 0) then
                   valdambreak(2,n)  = valdambreak(2,n)  + q1(La)*dir*(aub/au(La)) ! breach discharge

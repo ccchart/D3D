@@ -167,10 +167,10 @@ subroutine findexternalboundarypoints()             ! find external boundary poi
             kce = 0; ke = 0; kez = 0; keu = 0; kes = 0; ketm = 0; kesd = 0; keuxy = 0; ket = 0; ken = 0; ke1d2d = 0; keg = 0; ked = 0; kep=  0; keklep=0  ; kevalv=0  ; itpez = 0; itpenz = 0; itpeu = 0 ; itpenu = 0 ; kew = 0; ftpet = 1d6
  allocate ( kegen(nx), ds_gen(nx), stat=ierr )
  call aerr('kegen(nx), ds_gen(nx)',ierr, nx)
-            kegen=0  ; ds_gen = 0d0
+            kegen = 0  ; ds_gen = 0d0
  allocate ( kedb(nx), db_ghost(nx), db_ds(nx), stat=ierr )
  call aerr('kedb(nx), db_ghost(nx), db_ds(nx)',ierr, nx)
-            kedb=0  ; db_ghost(nx) = 0; db_ds = 0d0
+            kedb = 0  ; db_ghost = 0; db_ds = 0d0
 
  if (allocated(ketr) ) deallocate(ketr)          
  allocate ( ketr(nx,1), stat = ierr )

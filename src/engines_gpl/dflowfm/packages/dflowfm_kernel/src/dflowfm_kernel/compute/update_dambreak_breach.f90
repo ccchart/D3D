@@ -42,7 +42,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
    use m_meteo
    use m_flowexternalforcings
    use m_flowtimes
-   use parallel_dambreaks, only: mpi_dambreak3
+   use parallel_dambreaks, only: mpi_dambreak_exchange_max_avg
 
    implicit none
 
@@ -88,7 +88,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          dambreakAveraging(2,dambreakLocationsUpstreamMapping, IDB_S1U) = 1d0
       endif
       do i = 1, nDambreakAveragingUpstream
-         n = dambreakAverigingUpstreamMapping(i)
+         n = dambreakAveragingUpstreamMapping(i)
          do l = L1dambreaksg(n), L2dambreaksg(n)
             Lf = abs(kdambreak(3,l))
             if (Lf == 0) cycle
@@ -111,7 +111,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          dambreakAveraging(2,dambreakLocationsDownstreamMapping, IDB_S1D) = 1d0
       endif
       do i = 1, nDambreakAveragingDownstream
-         n = dambreakAverigingDownstreamMapping(i)
+         n = dambreakAveragingDownstreamMapping(i)
          do l = L1dambreaksg(n), L2dambreaksg(n)
             Lf = abs(kdambreak(3,l))
             if (Lf == 0) cycle
@@ -177,7 +177,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          endif
       enddo
       do i = 1, nDambreakAveragingUpstream
-         n = dambreakAverigingUpstreamMapping(i)
+         n = dambreakAveragingUpstreamMapping(i)
          do k = L1dambreaksg(n), L2dambreaksg(n)
             if (.not. db_ghost(k)) then
                L = kdambreak(3,k)
@@ -205,7 +205,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          enddo
       enddo
       do i = 1, nDambreakAveragingDownstream
-         n = dambreakAverigingDownstreamMapping(i)
+         n = dambreakAveragingDownstreamMapping(i)
          do k = L1dambreaksg(n), L2dambreaksg(n)
             if (.not. db_ghost(k)) then
                L = kdambreak(3,k)
@@ -233,7 +233,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          enddo
       enddo
 
-      call mpi_dambreak3()
+      call mpi_dambreak_exchange_max_avg()
 
       !
       ! Water level upstream of breach
@@ -255,10 +255,10 @@ subroutine update_dambreak_breach(startTime, deltaTime)
             waterLevelsDambreakDownStream(n)  = dambreakAveraging(1,n, IDB_S1D)/dambreakAveraging(2,n, IDB_S1D)
          else if (startTime >= network%sts%struct(dambreaks(n))%dambreak%t0) then
             waterLevelsDambreakDownStream(n) = dambreakAveraging(3,n, IDB_S1D)
-            else
-               continue
-            endif
-         enddo
+         else
+            continue
+         endif
+      enddo
       !
       ! Velocity through breach
       !
@@ -268,7 +268,7 @@ subroutine update_dambreak_breach(startTime, deltaTime)
          endif
       enddo
 
-      !Compute dambreak widths
+      ! Compute dambreak widths
       do n = 1, ndambreaksg
          istru = dambreaks(n)
          if (istru.ne.0) then
@@ -278,8 +278,9 @@ subroutine update_dambreak_breach(startTime, deltaTime)
 
             else if (network%sts%struct(istru)%dambreak%algorithm == ST_DB_FRAGCURVE) then ! fragility curve
                if (dambreakMaximum(n, network%sts%struct(istru)%dambreak%failQuantity) > network%sts%struct(istru)%dambreak%failValue) then
-                  ! if breaching condition is satisfied, break width completely, but lower structure by failFraction * (initial crest level - bed level), where failFraction was stored as crestLeveMin during read
-                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelIni - network%sts%struct(istru)%dambreak%crestLevelMin * max(0d0, network%sts%struct(istru)%dambreak%crestLevelIni - dambreakMaximum(n, ST_FC_BEDLEVEL))
+                  ! if breaching condition is satisfied, break width completely, but lower structure by failFraction * (initial crest level - bed level)
+                  ! dambreakCrestLevel = dambreakInitialCrestLevel - network%sts%struct(istru)%dambreak%failFraction * max(0d0, dambreakInitialCrestLevel - dambreakBedLevel)
+                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelIni - network%sts%struct(istru)%dambreak%failFraction * max(0d0, network%sts%struct(istru)%dambreak%crestLevelIni - dambreakMaximum(n, ST_FC_BEDLEVEL))
                   network%sts%struct(istru)%dambreak%width = maximumDambreakWidths(n)
                endif
 

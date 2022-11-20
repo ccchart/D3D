@@ -72,6 +72,7 @@
       character(Charln):: levelsAndWidths                   = ''
       character(IdLen) :: fragilityCurve                    = ''
       integer          :: failQuantity                      = ST_FC_UNSET
+      double precision :: failFraction                      = 1.0d0
       double precision :: failValue                         = -999d0
       double precision :: failThreshold                     = -1.0d0
 

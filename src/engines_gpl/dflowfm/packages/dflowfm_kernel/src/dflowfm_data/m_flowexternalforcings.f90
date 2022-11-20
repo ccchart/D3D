@@ -398,13 +398,13 @@
  integer         , allocatable           :: dambreakLocationsUpstreamMapping(:)        !< mapping of dambreak locations upstream
  integer         , allocatable           :: dambreakLocationsUpstream(:)               !< store cell ids for water level locations upstream
  integer                                 :: nDambreakAveragingUpstream                 !< nr of dambreak signals upstream with averaging
- integer         , allocatable           :: dambreakAverigingUpstreamMapping(:)        !< mapping of dambreak averaging upstream
+ integer         , allocatable           :: dambreakAveragingUpstreamMapping(:)        !< mapping of dambreak averaging upstream
  ! Downstream water level
  integer                                 :: nDambreakLocationsDownstream               !< nr of dambreak signals with locations downstream
  integer         , allocatable           :: dambreakLocationsDownstreamMapping(:)      !< mapping of dambreak locations downstream
  integer         , allocatable           :: dambreakLocationsDownstream(:)             !< store cell ids for water level locations downstream
  integer                                 :: nDambreakAveragingDownstream               !< nr of dambreak signals downstream with averaging
- integer         , allocatable           :: dambreakAverigingDownstreamMapping(:)      !< mapping of dambreak averaging in the dambreak arrays
+ integer         , allocatable           :: dambreakAveragingDownstreamMapping(:)      !< mapping of dambreak averaging in the dambreak arrays
 ! parameters
  integer         , parameter             :: IDB_S1U    = 1 !< index for water level upstream of breach in dambreakAveraging
  integer         , parameter             :: IDB_S1D    = 2 !< index for water level downstream of breach in dambreakAveraging

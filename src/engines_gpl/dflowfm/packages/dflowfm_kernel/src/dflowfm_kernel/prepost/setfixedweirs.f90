@@ -397,6 +397,9 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
              endif
              !! write (msgbuf,'(a,2i5,7f10.3)') 'Projected fixed weir', L, iweirtyp(L), zc, bobL, dzsillu(L), dzsilld(L),crestlen(L),taludu(L),taludd(L); call msg_flush()
           else                                                       ! use global type definition
+             if (zc > zcrest(L)) then
+                zcrest(L) = zc
+             endif
              if (ifixedweirscheme == 7) then
                 iadv(L)    = 23    !  Rajaratnam
              else if (ifixedweirscheme == 8) then
@@ -424,16 +427,16 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
           nh = nh + 1                                            ! just raised bobs
        endif
     else
+       !
+       ! check whether crestlevel is higher
+       !
+       if (zc > zcrest(L)) then
+          zcrest(L) = zc
+          !! write (msgbuf,'(a,i5,f10.3)') 'Higher crest level: ', L,  zcrest(L); call msg_flush()
+       endif
        if ( ifirstweir(L) == 0 .and. jakol45 == 2) then !  .and. (ifixedweirscheme == 8 .or. ifixedweirscheme == 9) ) then   !  only for fixed weirs under the bed level for Tabellenboek or Villemonte and not for the first time that a fixed weir is set on this link
           ! check for larger ground height height values if at this link already a fixed weir exist
 
-          !
-          ! check whether crestlevel is higher
-          !
-          if (zc > zcrest(L)) then
-             zcrest(L) = zc
-             !! write (msgbuf,'(a,i5,f10.3)') 'Higher crest level: ', L,  zcrest(L); call msg_flush()
-          endif
           if (jakol45/=0) then
              call normalout( XPL(k), YPL(k), XPL(k+1), YPL(k+1) , xn, yn, jsferic, jasfer3D, dmiss, dxymis)  ! test EdG
              zhu =  (1d0-sl)*dzl(k) + sl*dzl(k+1)

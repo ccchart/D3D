@@ -62,7 +62,7 @@ use string_module, only: str_lower, strcmpi
 use iso_c_binding
 use m_inquire_flowgeom
 use m_partitioninfo, only: idomain, my_rank
-use parallel_dambreaks, only: mpi_dambreak1, mpi_dambreak2
+use parallel_dambreaks, only: mpi_dambreak1, mpi_dambreak2, mpi_dambreak3
 use kdtree2Factory, only: treeglob
 
 implicit none
@@ -1369,7 +1369,7 @@ if (ndambreaksg > 0) then
 
    if (allocated(LStartBreach)) deallocate(LStartBreach)
    allocate(LStartBreach(ndambreaksg))
-   LStartBreach     = - 1
+   LStartBreach     = -1
 
    if (allocated(dsStartBreach)) deallocate(dsStartBreach)
    allocate(dsStartBreach(ndambreaksg))
@@ -1435,9 +1435,9 @@ if (ndambreaksg > 0) then
    allocate(dambreakLocationsUpstream(ndambreaksg))
    dambreakLocationsUpstream = 0.0d0
 
-   if(allocated(dambreakAverigingUpstreamMapping)) deallocate(dambreakAverigingUpstreamMapping)
-   allocate(dambreakAverigingUpstreamMapping(ndambreaksg))
-   dambreakAverigingUpstreamMapping = 0.0d0
+   if(allocated(dambreakAveragingUpstreamMapping)) deallocate(dambreakAveragingUpstreamMapping)
+   allocate(dambreakAveragingUpstreamMapping(ndambreaksg))
+   dambreakAveragingUpstreamMapping = 0.0d0
 
    nDambreakLocationsUpstream = 0
    nDambreakAveragingUpstream = 0
@@ -1451,9 +1451,9 @@ if (ndambreaksg > 0) then
    allocate(dambreakLocationsDownstream(ndambreaksg))
    dambreakLocationsDownstream = 0.0d0
 
-   if(allocated(dambreakAverigingDownstreamMapping)) deallocate(dambreakAverigingDownstreamMapping)
-   allocate(dambreakAverigingDownstreamMapping(ndambreaksg))
-   dambreakAverigingDownstreamMapping = 0.0d0
+   if(allocated(dambreakAveragingDownstreamMapping)) deallocate(dambreakAveragingDownstreamMapping)
+   allocate(dambreakAveragingDownstreamMapping(ndambreaksg))
+   dambreakAveragingDownstreamMapping = 0.0d0
 
    nDambreakLocationsDownstream = 0
    nDambreakAveragingDownstream = 0
@@ -1570,7 +1570,7 @@ if (ndambreaksg > 0) then
                endif
             else
                nDambreakAveragingUpstream = nDambreakAveragingUpstream + 1
-               dambreakAverigingUpstreamMapping(nDambreakAveragingUpstream) = n
+               dambreakAveragingUpstreamMapping(nDambreakAveragingUpstream) = n
             endif
          endif
 
@@ -1598,7 +1598,7 @@ if (ndambreaksg > 0) then
                endif
             else
                nDambreakAveragingDownstream = nDambreakAveragingDownstream + 1
-               dambreakAverigingDownstreamMapping(nDambreakAveragingDownstream) = n
+               dambreakAveragingDownstreamMapping(nDambreakAveragingDownstream) = n
             endif
          endif
 
@@ -1693,6 +1693,7 @@ if (ndambreaksg > 0) then
    enddo
    
    call mpi_dambreak2()
+   call mpi_dambreak3()
    
    ! set initial dambreak values (used for algorithms 1 and 2, and written to output file)
    do n = 1, ndambreaksg

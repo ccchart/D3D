@@ -41,6 +41,7 @@ private
 public mpi_dambreak1
 public mpi_dambreak2
 public mpi_dambreak3
+public mpi_dambreak_exchange_max_avg
 
 contains
 
@@ -265,18 +266,16 @@ subroutine mpi_dambreak1(lftopol)
    deallocate(tmp_kedb, tmp_db_ghost, tmp_db_ds, tmp_L1dambreaksg, tmp_L2dambreaksg, tmp_lftopol)
 end subroutine mpi_dambreak1
 
+
 !> subroutine to make dambreak information consistent across parallel partitions (call 2)
 subroutine mpi_dambreak2()
-   use m_flowexternalforcings, only: ndambreaksg, dsStartBreach, LStartBreach, L1dambreaksg, L2dambreaksg, db_ndomains, ndambreak_glob, dambreakLinksEffectiveLength, maximumDambreakWidths, kdambreak, dambreakCrestLevel, dambreakUpstreamBedLevel, dambreakDownstreamBedLevel
-   use m_flowgeom, only: bob, bob0
-   use m_partitioninfo, only: jampi, DFM_COMM_DFMWORLD !, ndomains, my_rank, idomain, link_ghostdata
+   use m_flowexternalforcings, only: ndambreaksg, dsStartBreach, LStartBreach, L1dambreaksg, L2dambreaksg, db_ndomains, ndambreak_glob, dambreakLinksEffectiveLength, maximumDambreakWidths
+   use m_partitioninfo, only: jampi, DFM_COMM_DFMWORLD
    use m_timer, only: jatimer, starttimer, stoptimer, IMPIREDUCE
    use mpi, only: MPI_MIN, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_INTEGER
    
    implicit none
    
-   double precision, allocatable, dimension(:,:) :: dbLevels           !< characteristic levels at dambreak breach link filled with local values
-   double precision, allocatable, dimension(:,:) :: dbLevels_glob      !< characteristic levels at dambreak breach link filled with all values (global)
    double precision, allocatable, dimension(:)   :: dblEffLen          !< dambreak link effective (=maximum) length filled with local values
    double precision, allocatable, dimension(:)   :: dblEffLen_glob     !< dambreak link effective (=maximum) length filled with all values (global)
    double precision, allocatable, dimension(:)   :: dsStartBreach_glob !< distance between specified breach point and nearest link
@@ -344,6 +343,25 @@ subroutine mpi_dambreak2()
       endif
    enddo
    deallocate(dsStartBreach_glob, LStartBreach_glob)
+end subroutine mpi_dambreak2
+
+
+!> subroutine to make dambreak information consistent across parallel partitions (call 3)
+subroutine mpi_dambreak3()
+   use m_flowexternalforcings, only: ndambreaksg, LStartBreach, kdambreak, dambreakCrestLevel, dambreakUpstreamBedLevel, dambreakDownstreamBedLevel
+   use m_flowgeom, only: bob, bob0
+   use m_partitioninfo, only: jampi, DFM_COMM_DFMWORLD
+   use m_timer, only: jatimer, starttimer, stoptimer, IMPIREDUCE
+   use mpi, only: MPI_DOUBLE_PRECISION, MPI_MAX
+   
+   implicit none
+   
+   double precision, allocatable, dimension(:,:) :: dbLevels           !< characteristic levels at dambreak breach link filled with local values
+   double precision, allocatable, dimension(:,:) :: dbLevels_glob      !< characteristic levels at dambreak breach link filled with all values (global)
+   integer                                       :: ierr               !< communication error flag
+   integer                                       :: l
+   integer                                       :: Lf
+   integer                                       :: n
    
    allocate(dbLevels(3,ndambreaksg), dbLevels_glob(3,ndambreaksg))
    dbLevels = 0d0
@@ -364,11 +382,15 @@ subroutine mpi_dambreak2()
          dbLevels(3,n) = max(bob(1,Lf),bob(2,Lf))
       endif
    enddo
-   if ( jatimer == 1 ) call starttimer(IMPIREDUCE)
+   if (jampi) then
+      if ( jatimer == 1 ) call starttimer(IMPIREDUCE)
 #ifdef HAVE_MPI
-   call MPI_allreduce(dbLevels,dbLevels_glob,3*ndambreaksg,MPI_DOUBLE_PRECISION,MPI_MAX,DFM_COMM_DFMWORLD, ierr)
+      call MPI_allreduce(dbLevels,dbLevels_glob,3*ndambreaksg,MPI_DOUBLE_PRECISION,MPI_MAX,DFM_COMM_DFMWORLD, ierr)
 #endif
-   if ( jatimer == 1 ) call stoptimer(IMPIREDUCE)
+      if ( jatimer == 1 ) call stoptimer(IMPIREDUCE)
+   else
+      dbLevels_glob = dbLevels
+   endif
    allocate(dambreakUpstreamBedLevel(ndambreaksg), dambreakDownstreamBedLevel(ndambreaksg),dambreakCrestLevel(ndambreaksg))
    do n = 1, ndambreaksg
       dambreakUpstreamBedLevel(n)   = dbLevels_glob(1,n)
@@ -376,11 +398,11 @@ subroutine mpi_dambreak2()
       dambreakCrestLevel(n)         = dbLevels_glob(3,n)
    enddo
    deallocate(dbLevels, dbLevels_glob)
-end subroutine mpi_dambreak2
+end subroutine mpi_dambreak3
 
 
-!> subroutine to make dambreak information consistent across parallel partitions (call 3)
-subroutine mpi_dambreak3()
+!> subroutine to make dambreak information consistent across parallel partitions (call to exchange dambreakMaximum and dambreakAveraging during time step)
+subroutine mpi_dambreak_exchange_max_avg()
    use m_flowexternalforcings, only: ndambreaksg, dambreakAveraging, dambreakMaximum, IDB_NQUANT, IDBMAX_NQUANT
    use m_partitioninfo, only: jampi, DFM_COMM_DFMWORLD
    use m_timer, only: jatimer, starttimer, stoptimer, IMPIREDUCE
@@ -405,6 +427,6 @@ subroutine mpi_dambreak3()
    dambreakAveraging = dambreakAveraging_glob
    dambreakMaximum   = dambreakMaximum_glob
    deallocate(dambreakAveraging_glob, dambreakMaximum_glob)
-end subroutine mpi_dambreak3
+end subroutine mpi_dambreak_exchange_max_avg
 
 end module parallel_dambreaks
