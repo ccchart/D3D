@@ -58,7 +58,7 @@ logical, pointer                                           :: ice_apply_pressure
 logical, pointer                                           :: ice_apply_friction           !< module pointer to flag apply_friction inside ice_data
 logical, pointer                                           :: ice_reduce_surface_fluxes    !< module pointer to flag reduce_surface_fluxes inside ice_data
 logical, pointer                                           :: ice_reduce_waves             !< module pointer to flag reduce_waves inside ice_data
-logical, pointer                                           :: ice_reduce_wind              !< module pointer to flag reduce_wind inside ice_data
+integer, pointer                                           :: ice_modify_winddrag          !< module pointer to flag modify_winddrag inside ice_data
 
 integer, pointer                                           :: ja_icecover                  !< module pointer to modeltype flag inside ice_data that specifies the ice cover model
 integer, pointer                                           :: ice_frctp                    !< module pointer to frict_type inside ice_data
@@ -118,15 +118,15 @@ subroutine fm_ice_update_all_pointers()
     ice_hisout => ice_data%hisout
     ice_mapout => ice_data%mapout
     
-    ice_apply_pressure => ice_data%apply_pressure
-    ice_apply_friction => ice_data%apply_friction
-    ice_reduce_waves   => ice_data%reduce_waves
-    ice_reduce_wind    => ice_data%reduce_wind
+    ice_apply_pressure  => ice_data%apply_pressure
+    ice_apply_friction  => ice_data%apply_friction
+    ice_reduce_waves    => ice_data%reduce_waves
+    ice_modify_winddrag => ice_data%modify_winddrag
     
-    ice_albedo => ice_data%ice_albedo
-    ice_dens   => ice_data%ice_dens
-    ice_frctp  => ice_data%frict_type
-    ice_frcuni => ice_data%frict_val
+    ice_albedo          => ice_data%ice_albedo
+    ice_dens            => ice_data%ice_dens
+    ice_frctp           => ice_data%frict_type
+    ice_frcuni          => ice_data%frict_val
     
     snow_albedo => ice_data%snow_albedo
     
@@ -325,5 +325,26 @@ subroutine update_icecover()
         ! by default no growth
     end select
 end subroutine update_icecover
+
+
+!> determine effective drag coefficient when ice may be present
+pure function fm_ice_drag_effect(ice_af, cdw) result (cdeff)
+!!--declarations----------------------------------------------------------------
+    implicit none
+    !
+    ! Function/routine arguments
+    !
+    real(fp)                                   , intent(in)    :: ice_af   !> ice area fraction (-)
+    real(fp)                                   , intent(in)    :: cdw      !> wind drag excerted via open water
+    real(fp)                                                   :: cdeff    !> effective wind drag coefficient
+    !
+    ! Local variables
+    !
+    ! NONE
+!
+!! executable statements -------------------------------------------------------
+!
+    cdeff = ice_drag_effect(ice_data, ice_af, cdw)
+end function fm_ice_drag_effect
 
 end module m_fm_icecover

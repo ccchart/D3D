@@ -33,8 +33,10 @@
  subroutine setwindstress()
  use m_flowgeom
  use m_flow
+ use m_fm_icecover, only: fm_ice_drag_effect, ice_modify_winddrag, ICE_WINDDRAG_NONE, ice_af
  implicit none
  double precision :: uwi, cdw, tuwi, roro, wxL, wyL, uL, vL, uxL, uyL
+ double precision :: local_ice_af
  integer          :: L, numwav, k   ! windstuff
 
  windxav = 0d0
@@ -77,6 +79,10 @@
              cdb(1) = wcharnock(L)
           endif
           call setcdwcoefficient(uwi,cdw,L)
+          if (ice_modify_winddrag /= ICE_WINDDRAG_NONE) then
+              local_ice_af = 0.5d0 * (ice_af(ln(1,L)) + ice_af(ln(2,L)))
+              cdw = fm_ice_drag_effect(local_ice_af, cdw)
+          endif
           if (jatem == 5) then
              cdwcof(L) = cdw
           endif

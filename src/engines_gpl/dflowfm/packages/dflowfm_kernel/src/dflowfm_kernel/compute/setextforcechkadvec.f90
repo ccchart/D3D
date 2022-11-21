@@ -40,7 +40,7 @@
  use m_wind
  use m_sferic
  use m_xbeach_data, only: Fx, Fy, swave, Lwave, hminlw, xb_started !, facmax, Trep
- use m_fm_icecover, only: ice_p, fm_ice_update_press, ice_apply_pressure, ice_reduce_wind, ice_reduce_waves, ice_af, ice_apply_friction, ice_frctp, ice_frcuni, FRICT_AS_DRAG_COEFF
+ use m_fm_icecover, only: ice_p, fm_ice_update_press, ice_apply_pressure, ice_reduce_waves, ice_af, ice_apply_friction, ice_frctp, ice_frcuni, FRICT_AS_DRAG_COEFF
 
  implicit none
 
@@ -65,9 +65,6 @@ if (jawind > 0) then
                      wfac = min( 1d0, hu(LL) / Dzk )
                   endif
                endif
-               if (ice_reduce_wind) then
-                  wfac = wfac * (1.0d0 - 0.5d0 * (ice_af(ln(1,LL)) + ice_af(ln(2,LL))))
-               endif
                ! wdsu/huvli = [(m^2/s^2)*m^-1]
                if (jawindhuorzwsbased == 0) then
                   adve(LL) = adve(LL) - wdsu(LL)*wfac/hu(LL)
@@ -87,9 +84,6 @@ if (jawind > 0) then
                   if (Dzk > 0d0) then
                      wfac = min( 1d0, hu(LL) / Dzk )
                   endif
-               endif
-               if (ice_reduce_wind) then
-                  wfac = wfac * (1.0d0 - 0.5d0 * (ice_af(ln(1,LL)) + ice_af(ln(2,LL))))
                endif
 
                Lt = Ltop(LL)

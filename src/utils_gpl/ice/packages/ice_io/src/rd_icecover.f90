@@ -43,7 +43,9 @@ contains
 subroutine rd_icecover(icecover, md_ptr, chapter, error)
 !!--declarations----------------------------------------------------------------
     use precision
-    use icecover_module, only: icecover_type, alloc_icecover, select_icecover_model, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF
+    use icecover_module, only: icecover_type, alloc_icecover, select_icecover_model, &
+        & ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF, &
+        & ICE_WINDDRAG_NONE, ICE_WINDDRAG_CUBIC, ICE_WINDDRAG_LB05, ICE_WINDDRAG_AN10, ICE_WINDDRAG_LINEAR
     use MessageHandling, only: mess, LEVEL_ERROR
     use properties
     !
@@ -96,7 +98,25 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     call prop_get(md_ptr,chapter,'ApplyFriction',icecover%apply_friction)
     call prop_get(md_ptr,chapter,'ReduceSurfExch',icecover%reduce_surface_exchange)
     call prop_get(md_ptr,chapter,'ReduceWaves',icecover%reduce_waves)
-    call prop_get(md_ptr,chapter,'ReduceWind',icecover%reduce_wind)
+    call prop_get(md_ptr,chapter,'ModifyWindDrag',tmp)
+    call str_lower(tmp,len(tmp))
+    select case (tmp)
+    case ('none')
+       model =  ICE_WINDDRAG_NONE
+    case ('linear')
+       model =  ICE_WINDDRAG_LINEAR
+    case ('cubic')
+       model =  ICE_WINDDRAG_CUBIC
+    case ('lupkes_birnbaum')
+       model =  ICE_WINDDRAG_LB05
+    case ('andreas')
+       model =  ICE_WINDDRAG_AN10
+    case default
+       call mess(LEVEL_ERROR, 'invalid wind drag option "'//trim(tmp)//'"')
+       error = .true.
+       return
+    end select
+    icecover%modify_winddrag = model
     !
     ! Parameters
     !
@@ -143,7 +163,9 @@ end subroutine rd_icecover
 function echo_icecover(icecover, lundia) result (error)
 !!--declarations----------------------------------------------------------------
     use precision
-    use icecover_module, only: icecover_type, alloc_icecover, ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF
+    use icecover_module, only: icecover_type, alloc_icecover, &
+        & ICECOVER_NONE, ICECOVER_EXT, ICECOVER_KNMI, ICECOVER_SEMTNER, FRICT_AS_DRAG_COEFF, &
+        & ICE_WINDDRAG_NONE, ICE_WINDDRAG_CUBIC, ICE_WINDDRAG_LB05, ICE_WINDDRAG_AN10, ICE_WINDDRAG_LINEAR
     use MessageHandling, only: mess, LEVEL_ERROR
     !
     implicit none
@@ -169,7 +191,7 @@ function echo_icecover(icecover, lundia) result (error)
     !
     write (lundia, '(a)' ) '*** Start  of ice cover input'
     
-    txtput1 = '  Ice Cover Model'
+    txtput1 = '  Ice cover model'
     select case (icecover%modeltype)
     case (ICECOVER_EXT)
         txtput2 = 'external'
@@ -183,10 +205,10 @@ function echo_icecover(icecover, lundia) result (error)
     write (lundia, '(3a)') txtput1, ': ', txtput2
     
     if (icecover%modeltype == ICECOVER_EXT) then
-       txtput1 = '  Area Fraction Forcing'
+       txtput1 = '  Area fraction forcing'
        call write_logical(lundia, txtput1, icecover%areafrac_forcing_available /= 0)
 
-       txtput1 = '  Ice Thickness Forcing'
+       txtput1 = '  Ice thickness forcing'
        call write_logical(lundia, txtput1, icecover%thick_ice_forcing_available /= 0)
        
        if (icecover%areafrac_forcing_available == 0 .and. icecover%thick_ice_forcing_available == 0) then
@@ -203,20 +225,32 @@ function echo_icecover(icecover, lundia) result (error)
     !
     ! process flags
     !
-    txtput1 = '  Apply Pressure'
+    txtput1 = '  Apply pressure'
     call write_logical(lundia, txtput1, icecover%apply_pressure)
 
-    txtput1 = '  Apply Friction'
+    txtput1 = '  Apply friction'
     call write_logical(lundia, txtput1, icecover%apply_friction)
 
-    txtput1 = '  Reduce Surface Exchange'
+    txtput1 = '  Reduce surface exchange'
     call write_logical(lundia, txtput1, icecover%reduce_surface_exchange)
 
-    txtput1 = '  Reduce Waves'
+    txtput1 = '  Reduce waves'
     call write_logical(lundia, txtput1, icecover%reduce_waves)
 
-    txtput1 = '  Reduce Wind'
-    call write_logical(lundia, txtput1, icecover%reduce_wind)
+    txtput1 = '  Modify wind drag'
+    select case (icecover%modify_winddrag)
+    case (ICE_WINDDRAG_NONE)
+        txtput2 = 'No'
+    case (ICE_WINDDRAG_CUBIC)
+        txtput2 = 'Cubic (Chapman & Massey)'
+    case (ICE_WINDDRAG_LB05)
+        txtput2 = 'Lupes & Birnbaum (2005)'
+    case (ICE_WINDDRAG_AN10)
+        txtput2 = 'Andreas et al (2010)'
+    case (ICE_WINDDRAG_LINEAR)
+        txtput2 = 'No drag below ice'
+    end select
+    write (lundia, '(3a)') txtput1, ': ', txtput2
 
     !
     ! parameters
@@ -228,7 +262,7 @@ function echo_icecover(icecover, lundia) result (error)
     txtput1 = '  Ice Density'
     write (lundia, '(2a,e20.4)') txtput1, ': ', icecover%ice_dens
 
-    txtput1 = '  Ice Cover Friction Type'
+    txtput1 = '  Ice cover friction type'
     select case (icecover%frict_type)
     case (FRICT_AS_DRAG_COEFF)
         txtput2 = 'drag coefficient'

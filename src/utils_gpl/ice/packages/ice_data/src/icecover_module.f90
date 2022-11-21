@@ -50,6 +50,12 @@ integer, parameter, public :: ICECOVER_SEMTNER = 3 !> ice thickness computed bas
 
 integer, parameter, public :: FRICT_AS_DRAG_COEFF = 11 ! should be extension of D-Flow FM friction numbers
 
+integer, parameter, public :: ICE_WINDDRAG_NONE    = 0 !> no effect, normal wind drag
+integer, parameter, public :: ICE_WINDDRAG_CUBIC   = 1 !> Based on ADCIRC (Chapman & Massey)
+integer, parameter, public :: ICE_WINDDRAG_LB05    = 2 !> Lupkes and Birnbaum (2005)
+integer, parameter, public :: ICE_WINDDRAG_AN10    = 3 !> Andreas et al (2010)
+integer, parameter, public :: ICE_WINDDRAG_LINEAR  = 4 !> no wind drag below ice
+
 !
 ! public routines
 !
@@ -60,6 +66,7 @@ public alloc_icecover
 public clr_icecover
 !public update_icecover
 public update_icepress
+public ice_drag_effect
 
 ! ice cover type
 type icecover_type
@@ -73,7 +80,7 @@ type icecover_type
     logical  :: apply_friction                    !> flag indicating whether ice cover friction should be applied
     logical  :: reduce_surface_exchange           !> flag indicating whether precipitation, evaporation and heat exchange should be reduced
     logical  :: reduce_waves                      !> flag indicating whether waves should be reduced
-    logical  :: reduce_wind                       !> flag indicating whether wind should be reduced
+    integer  :: modify_winddrag                   !> flag indicating option to modify the wind drag coefficient (one of ICE_WINDDRAG_...)
     !
     integer  :: modeltype                         !> type of the ice cover (one of ICECOVER_...)
     integer  :: frict_type                        !> friction type excerted by the ice cover
@@ -192,17 +199,13 @@ function select_icecover_model(icecover, modeltype) result(istat)
     
     if (modeltype == ICECOVER_NONE) then
        icecover%apply_pressure            = .false.
-       icecover%apply_friction            = .false.
-       icecover%reduce_surface_exchange   = .false.
-       icecover%reduce_waves              = .false.
-       icecover%reduce_wind               = .false.
     else
        icecover%apply_pressure            = .true.
-       icecover%apply_friction            = .false.
-       icecover%reduce_surface_exchange   = .false.
-       icecover%reduce_waves              = .false.
-       icecover%reduce_wind               = .false.
     endif
+    icecover%apply_friction            = .false.
+    icecover%reduce_surface_exchange   = .false.
+    icecover%reduce_waves              = .false.
+    icecover%modify_winddrag           = ICE_WINDDRAG_NONE
 
     icecover%ice_albedo                = 0.75_fp
     icecover%snow_albedo               = 0.9_fp
@@ -357,5 +360,79 @@ subroutine update_icepress(icecover, ag)
         ! + optionally snow or is that weight always negligible?
     enddo
 end subroutine update_icepress
+
+
+!> determine effective drag coefficient when ice may be present
+pure function ice_drag_effect(icecover, ice_af, cdw) result (cdeff)
+!!--declarations----------------------------------------------------------------
+    implicit none
+    !
+    ! Function/routine arguments
+    !
+    type (icecover_type)                       , intent(in)    :: icecover  !> data structure containing ice cover data
+    real(fp)                                   , intent(in)    :: ice_af    !> area fraction covered by ice (-) 
+    real(fp)                                   , intent(in)    :: cdw       !> wind drag excerted via open water
+    real(fp)                                                   :: cdeff     !> effective wind drag coefficient
+    !
+    ! Local variables
+    !
+    real(fp) :: c0     !> constant coefficient of cubic drag formula
+    real(fp) :: c1     !> linear coefficient of cubic drag formula
+    real(fp) :: c2     !> quadratic coefficient of cubic drag formula
+    real(fp) :: c3     !> cubic coefficient of cubic drag formula 
+    real(fp) :: cdf    !> wind drag excerted via ice floes
+    real(fp) :: cdi    !> wind drag excerted via ice cover
+    real(fp) :: wat_af !> open water area fraction
+    real(fp) :: num    !> numerator
+    real(fp) :: den    !> denominator
+!
+!! executable statements -------------------------------------------------------
+!
+    wat_af = 1.0_fp - ice_af
+    
+    select case (icecover%modify_winddrag)
+    case (ICE_WINDDRAG_CUBIC) ! Chapman & Massey (ADCIRC)
+        
+        ! drag formula:
+        ! cdrag = c0 + c1*A + c2*A^2 + c3*A^3 with A = ice_af
+        !
+        ! where drag coefficients c0, c1, c2, c3 follow from the following conditions:
+        ! cdrag(A = 0) = 0.000075
+        ! cdrag(A = 0.5) = 0.0025
+        ! d cdrag/d A (A = 0.5) = 0
+        ! cdrag(A = 1) = 0.00125
+        !
+        c0 = 0.000075_fp
+        c1 = 0.010875_fp
+        c2 = -0.0144_fp
+        c3 = 0.0047_fp
+        cdi = c0 + (c1 + (c2 + c3 * ice_af) * ice_af ) * ice_af
+        cdeff = max(cdi, cdw)
+        
+        ! Jensen & Ebersole (2012) ERDC/CHL TR-12-26
+        ! Modeling of Lake Michigan Storm Waves and Water Levels
+        ! state: Chapman et al(2005, 2009)
+        ! cdeff = 0.001_fp * (0.125_fp + 0.5_fp * ice_af * (1.0_fp – ice_af))
+    case (ICE_WINDDRAG_LB05) ! Lupkes and Birnbaum (2005)
+        
+        cdi = 1.5e-3_fp
+        num = wat_af * (wat_af**0.8_fp + 0.5_fp * (1.0_fp - 0.5_fp * ice_af)**2)
+        den = 31.0_fp + 90.0_fp * ice_af * wat_af
+        cdf = 0.34e-3_fp * ice_af * ice_af * num / den
+        
+        cdefF = wat_af * cdw + ice_af * cdi + cdf
+        
+    case (ICE_WINDDRAG_AN10) ! Andreas et al (2010)
+        
+        c0 = 1.5e-3_fp
+        c1 = 2.233e-3_fp
+        cdefF = c0 + c1 * ice_af * wat_af
+
+    case (ICE_WINDDRAG_LINEAR)
+        
+        cdefF = wat_af * cdw
+        
+    end select
+end function ice_drag_effect
 
 end module icecover_module
