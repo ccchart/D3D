@@ -98,10 +98,11 @@ subroutine rd_icecover(icecover, md_ptr, chapter, error)
     call prop_get(md_ptr,chapter,'ApplyFriction',icecover%apply_friction)
     call prop_get(md_ptr,chapter,'ReduceSurfExch',icecover%reduce_surface_exchange)
     call prop_get(md_ptr,chapter,'ReduceWaves',icecover%reduce_waves)
+    tmp = ' '
     call prop_get(md_ptr,chapter,'ModifyWindDrag',tmp)
     call str_lower(tmp,len(tmp))
     select case (tmp)
-    case ('none')
+    case ('none',' ')
        model =  ICE_WINDDRAG_NONE
     case ('linear')
        model =  ICE_WINDDRAG_LINEAR

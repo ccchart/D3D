@@ -246,7 +246,7 @@ type t_unc_mapids
    integer :: id_patm(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_aice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_area_fraction
    integer :: id_hice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_thickness
-   integer :: id_pice(MAX_ID_VAR)        = -1 !< Variable ID for the pressure excerted by the sea ice cover
+   integer :: id_pice(MAX_ID_VAR)        = -1 !< Variable ID for the pressure exerted by the sea ice cover
    integer :: id_tair(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_rhum(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_clou(MAX_ID_VAR)        = -1 !< Variable ID for
@@ -5004,7 +5004,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       if (ice_mapout) then
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice,  nf90_double, UNC_LOC_S, 'aice',  'sea_ice_area_fraction', 'Fraction of surface area covered by floating ice', '1', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice,  nf90_double, UNC_LOC_S, 'hice',  'sea_ice_area_fraction', 'Thickness of the floating ice cover', 'm', jabndnd=jabndnd_)
-         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice,  nf90_double, UNC_LOC_S, 'pice',  '', 'Pressure excerted by the floating ice cover', 'N m-2', jabndnd=jabndnd_)
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice,  nf90_double, UNC_LOC_S, 'pice',  '', 'Pressure exerted by the floating ice cover', 'N m-2', jabndnd=jabndnd_)
       end if
 
       if ((jamapwind > 0 .or. jamapwindstress > 0) .and. jawind /= 0) then
@@ -8278,7 +8278,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
         if (ice_mapout) then
             call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'aice'  , 'Fraction of the surface area covered by floating ice', '1', 'FlowElem_xcc FlowElem_ycc')
             call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'hice'  , 'Thickness of floating ice cover', 'm', 'FlowElem_xcc FlowElem_ycc')
-            call definencvar(imapfile,id_pice(iid)   ,nf90_double,idims,2, 'pice'  , 'Pressure excerted by the floating ice cover', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
+            call definencvar(imapfile,id_pice(iid)   ,nf90_double,idims,2, 'pice'  , 'Pressure exerted by the floating ice cover', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
         endif
 
         if ((jamapwind > 0 .or. jamapwindstress > 0 .or. jaseparate_==2) .and. jawind /= 0) then

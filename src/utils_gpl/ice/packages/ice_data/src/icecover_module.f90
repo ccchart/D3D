@@ -83,7 +83,7 @@ type icecover_type
     integer  :: modify_winddrag                   !> flag indicating option to modify the wind drag coefficient (one of ICE_WINDDRAG_...)
     !
     integer  :: modeltype                         !> type of the ice cover (one of ICECOVER_...)
-    integer  :: frict_type                        !> friction type excerted by the ice cover
+    integer  :: frict_type                        !> friction type exerted by the ice cover
     !
     integer  :: areafrac_forcing_available        !> flag indicating whether ice area fraction is available via external forcing
     integer  :: thick_ice_forcing_available       !> flag indicating whether ice thickness is available via external forcing
@@ -371,7 +371,7 @@ pure function ice_drag_effect(icecover, ice_af, cdw) result (cdeff)
     !
     type (icecover_type)                       , intent(in)    :: icecover  !> data structure containing ice cover data
     real(fp)                                   , intent(in)    :: ice_af    !> area fraction covered by ice (-) 
-    real(fp)                                   , intent(in)    :: cdw       !> wind drag excerted via open water
+    real(fp)                                   , intent(in)    :: cdw       !> wind drag exerted via open water
     real(fp)                                                   :: cdeff     !> effective wind drag coefficient
     !
     ! Local variables
@@ -380,8 +380,8 @@ pure function ice_drag_effect(icecover, ice_af, cdw) result (cdeff)
     real(fp) :: c1     !> linear coefficient of cubic drag formula
     real(fp) :: c2     !> quadratic coefficient of cubic drag formula
     real(fp) :: c3     !> cubic coefficient of cubic drag formula 
-    real(fp) :: cdf    !> wind drag excerted via ice floes
-    real(fp) :: cdi    !> wind drag excerted via ice cover
+    real(fp) :: cdf    !> wind drag exerted via ice floes
+    real(fp) :: cdi    !> wind drag exerted via ice cover
     real(fp) :: wat_af !> open water area fraction
     real(fp) :: num    !> numerator
     real(fp) :: den    !> denominator
@@ -391,6 +391,10 @@ pure function ice_drag_effect(icecover, ice_af, cdw) result (cdeff)
     wat_af = 1.0_fp - ice_af
     
     select case (icecover%modify_winddrag)
+    case (ICE_WINDDRAG_NONE) ! no wind drag modification
+        
+        cdeff = cdw
+        
     case (ICE_WINDDRAG_CUBIC) ! Chapman & Massey (ADCIRC)
         
         ! drag formula:

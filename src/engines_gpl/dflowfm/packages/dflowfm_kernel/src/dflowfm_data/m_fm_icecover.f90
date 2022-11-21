@@ -335,7 +335,7 @@ pure function fm_ice_drag_effect(ice_af, cdw) result (cdeff)
     ! Function/routine arguments
     !
     real(fp)                                   , intent(in)    :: ice_af   !> ice area fraction (-)
-    real(fp)                                   , intent(in)    :: cdw      !> wind drag excerted via open water
+    real(fp)                                   , intent(in)    :: cdw      !> wind drag exerted via open water
     real(fp)                                                   :: cdeff    !> effective wind drag coefficient
     !
     ! Local variables
