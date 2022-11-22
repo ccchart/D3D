@@ -151,7 +151,14 @@
          istru = dambreaks(n)
          if (istru /= 0) then
             ! Update the crest levels stored in the bob array
-            call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, maximumDambreakWidths(n), network%sts%struct(istru)%dambreak%crl,  LStartBreach(n), L1dambreaksg(n), L2dambreaksg(n), network%sts%struct(istru)%id)
+            call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, &
+                                              & maximumDambreakWidths(n), &
+                                              & network%sts%struct(istru)%dambreak%crestLevelIni, &
+                                              & network%sts%struct(istru)%dambreak%crl, &
+                                              & LStartBreach(n), &
+                                              & L1dambreaksg(n), &
+                                              & L2dambreaksg(n), &
+                                              & network%sts%struct(istru)%id)
          endif
       enddo
       do L = 1,lnx

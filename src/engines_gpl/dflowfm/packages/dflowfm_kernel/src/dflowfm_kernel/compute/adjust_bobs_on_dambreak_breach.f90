@@ -31,7 +31,7 @@
 ! $HeadURL$
 
  !> Calculate the links affected by the dam break and sets bobs accordingly
-subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1, L2, strucid)
+subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crlIni, crl, startingLink, L1, L2, strucid)
 
    use m_flowgeom
    use m_flowexternalforcings
@@ -40,7 +40,7 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
    implicit none
 
    !input
-   double precision, intent(in) :: width, crl, maxwidth
+   double precision, intent(in) :: width, crlIni, crl, maxwidth
    integer, intent(in)          :: startingLink, L1, L2
    character(len=*), intent(in) :: strucid
    !local variables
@@ -56,8 +56,8 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
       dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crl)
       activeDambreakLinks(startingLink) = 1
    else
-      ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
-      dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1, Lf))
+      ! no breach, keep at unbreached level ... assumes constant initial height
+      dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crlIni)
    endif
    
    ! distribute remaining breach width
@@ -107,8 +107,8 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
          endif
          activeDambreakLinks(k) = 1
       else
-         ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
-         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1,Lf))
+         ! no breach, keep at unbreached level ... assumes constant initial height
+         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crlIni)
       endif
       if (leftBreachWidth >= dambreakLinksEffectiveLength(k)) then
          dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
@@ -129,8 +129,8 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
          endif
          activeDambreakLinks(k) = 1
       else
-         ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
-         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1,Lf))
+         ! no breach, keep at unbreached level ... assumes constant initial height
+         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crlIni)
       endif
       if (rightBreachWidth>=dambreakLinksEffectiveLength(k)) then
          dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
