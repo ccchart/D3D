@@ -20,7 +20,7 @@
 #
 
 global version
-set version "2.17"
+set version "2.19"
 
 global debug
 set debug 0
@@ -38,11 +38,8 @@ set scriptscreated {}
 global platform
 set platform "unknown"
 
-# arch: subdirectory containing the binaries
-# platform=linux: arch=lnx64 or lnx64_gnu
-# platform=windows: arch=win32 or win64
-global arch
-set arch "unknown"
+global D3D_HOME
+set D3D_HOME "unknown"
 
 # OperatingSystem: Needed to distinct XP and Vista when platform=win32
 global OS
@@ -202,7 +199,6 @@ proc printUsage { } {
 proc setPlatform { } {
    global env
    global platform
-   global arch
    global slash
    global OS
    global clusterName
@@ -212,14 +208,9 @@ proc setPlatform { } {
    } else {
       set platform "linux"
    }
-   if {![info exists env(ARCH)]} {
-      puts "ERROR: Environment parameter \"ARCH\" not defined"
-      exit
-   }
    if {[info exists env(SGE_CLUSTER_NAME)]} {
       set clusterName $env(SGE_CLUSTER_NAME)
    }
-   set arch $env(ARCH)
    set mainVersion [string range $::tcl_platform(osVersion) 0 0]
    if {$platform == "windows"} {
       set slash "\\"
@@ -521,6 +512,45 @@ proc checkFil { fildir filnam } {
 }
 
 
+# --------------------------------------------------------------------
+#   Procedure: setD3DHOME
+#   Author:    Adri Mourits
+#   Purpose:   Set internal parameter D3D_HOME, based on a path to a
+#              executable or script
+#   Context:   -
+#   Summary:
+#
+#   Arguments:
+#      aPath   Path to an executable or script inside the binary set
+#   Return value:
+#              On Linux:
+#                  The executable/script is assumed to be located in 
+#                  D3D_HOME/bin
+#                  Return aPath minus the last component
+#              On Windows:
+#                  The executable/script is assumed to be located in 
+#                  D3D_HOME/<kernel>/bin
+#                  Return aPath minus the last two components
+#   Note:
+#       1. This procedure is introduced to replace the usage of 
+#          environment parameter "ARCH"
+#       2. This internal parameter D3D_HOME intentionally contains
+#          ARCH (e.g. "path/to/installation/lnx64" or "path/to/installation/x64")
+#          to be able to replace the usage of "ARCH"
+# --------------------------------------------------------------------
+proc setD3DHOME { aPath } {
+    global platform
+    global D3D_HOME
+
+    set pathSplit [file split $aPath]
+    if { $platform == "linux" } {
+        set D3D_HOME [file join {*}[lrange $pathSplit 0 end-1] ]
+    } else {
+        set D3D_HOME [file join {*}[lrange $pathSplit 0 end-2] ]
+    }
+    putsDebug "\nInternal parameter D3D_HOME is set to: $D3D_HOME"
+}
+
 
 # --------------------------------------------------------------------
 #   Procedure: readInputFile
@@ -548,6 +578,7 @@ proc readInputFile { inputfilename iflist } {
    global localhost
 
    set runscript       " "
+   set runscriptargs   " "
    set dimrexedir      " "
    set dimrexename     "run_dimr"
    set dimrargs        " "
@@ -574,6 +605,9 @@ proc readInputFile { inputfilename iflist } {
       switch -- $keyword {
          "runscript" {
             set runscript $value
+         }
+         "runscriptargs" {
+            set runscriptargs $value
          }
          "dimrexedir" {
             set dimrexedir $value
@@ -762,12 +796,22 @@ proc readInputFile { inputfilename iflist } {
       }
    }
    #
+   # reset runscriptdir, to use pwd notation
+   #
+   cd $curdir
+   if { ! [string equal $runscript " "] } {
+      cd [file dirname $runscript]
+      set runscript [file join [file nativename [pwd] ] [file tail $runscript] ]
+      setD3DHOME [file dirname $runscript]
+   }
+   #
    # reset dimrexedir, to use pwd notation
    #
    cd $curdir
    if { ! [string equal $dimrexedir " "] } {
       cd $dimrexedir
       set dimrexedir [file nativename [pwd] ]
+      setD3DHOME $dimrexedir
    }
    #
    # reset flowexedir, to use pwd notation
@@ -776,6 +820,7 @@ proc readInputFile { inputfilename iflist } {
    if { ! [string equal $flowexedir " "] } {
       cd $flowexedir
       set flowexedir [file nativename [pwd] ]
+      setD3DHOME $flowexedir
    }
    #
    # reset mormergeexedir, to use pwd notation
@@ -805,6 +850,7 @@ proc readInputFile { inputfilename iflist } {
    cd $curdir
 
    set infillist(runscript)      $runscript
+   set infillist(runscriptargs)  $runscriptargs
    set infillist(dimrexedir)     $dimrexedir
    set infillist(dimrexename)    $dimrexename
    set infillist(dimrargs)       $dimrargs
@@ -1093,7 +1139,6 @@ proc getRunids { flowargs dimrargs runscript inputdir numdoms rids} {
 # --------------------------------------------------------------------
 proc waitForNodes { mergedir alist inflist } {
    global version
-   global arch
    global scriptscreated
    global waittime
    global queuesys
@@ -1121,10 +1166,8 @@ proc waitForNodes { mergedir alist inflist } {
       if {$clusterName != "h5" && $clusterName != "h6"} {
          puts $scriptfile "\n. /opt/sge/InitSGE\n"
       }
-      puts $scriptfile "export ARCH=$arch"
       puts $scriptfile "qsub -V -q $queue -pe distrib $infillist(numnodes) $scriptnamego"
    } else {
-      puts $scriptfile "export ARCH=$arch"
       puts $scriptfile "qsub -l nodes=$infillist(numnodes) $scriptnamego"
    }
    puts $scriptfile "\n# End of script\n"
@@ -1149,7 +1192,6 @@ proc waitForNodes { mergedir alist inflist } {
       # Put it in SGE_LocalTempDir and read it from the main loop
       puts $scriptfile "\nexport SGE_LocalTempDir=\$DELTAQ_LocalTempDir\n"
    }
-   puts $scriptfile "export ARCH=$arch"
    if {$infillist(workdir) == "sgestage"} {
       puts $scriptfile "cd .."
       puts $scriptfile "StageIn -v\n"
@@ -1296,6 +1338,7 @@ proc spaceSafe { apath } {
       regsub -all {/} $result {"\\"} result
       # Then: Remove the first one and add one at the end
       regsub {"} $result {} result
+      # To get the syntax highlighting working in Notepad: "
       set result "$result\""
    }
    return $result
@@ -1323,7 +1366,6 @@ proc startMormerge { inputfilename workdir mergeexe localrun runid node } {
    global syncdir
    global version
    global scriptscreated
-   global arch
    global idstring
    global waittime
    global maxWaitCount
@@ -1331,6 +1373,7 @@ proc startMormerge { inputfilename workdir mergeexe localrun runid node } {
    global debug
    global DELTAQ_LocalTempDir
    global platform
+   global D3D_HOME
    global remoteShell
    global clusterName
    global localhost
@@ -1345,14 +1388,6 @@ proc startMormerge { inputfilename workdir mergeexe localrun runid node } {
    set rundir [file nativename [file join $rootdir "merge"] ]
    # Collect some directories to be added to PATH/LD_LIBRARY_PATH
    set exedir [file dirname $mergeexe]
-   if {$platform == "linux"} {
-      set archpos [string last "bin" $exedir]
-      set homedir [string range $mergeexe 0 [expr $archpos-2]]
-   } else {
-      set archpos [string last $arch $exedir]
-      set homedir [string range $mergeexe 0 [expr $archpos-2]]
-   }
-
    set screenfile [format "mormerge_%s.scr" $runid]
    set logfile [format "mormerge_%s.log" $runid]
    file delete -force [file nativename [file join $rundir $screenfile] ]
@@ -1361,7 +1396,7 @@ proc startMormerge { inputfilename workdir mergeexe localrun runid node } {
    set scriptfile [open "$sfilname" "w"]
    if {$platform == "linux"} {
       # Get lib directory
-      set libdir [file join $homedir "lib"]
+      set libdir [file join $D3D_HOME "lib"]
       #
       puts $scriptfile "#!/bin/bash"
       puts $scriptfile "#\$ -V"
@@ -1416,7 +1451,7 @@ proc startMormerge { inputfilename workdir mergeexe localrun runid node } {
    } else {
       # win32
       # Get share directory
-      set sharedir [file join $homedir "$arch" "share" "bin"]
+      set sharedir [file join $D3D_HOME "share" "bin"]
       #
       puts $scriptfile "@ echo off"
       puts $scriptfile "\nrem This script file is automatically generated by mormerge.tcl, version $version\n"
@@ -1548,7 +1583,7 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
    global syncdir
    global version
    global scriptscreated
-   global arch
+   global D3D_HOME
    global OS
    global idstring
    global waittime
@@ -1582,18 +1617,13 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
       set exedir "not defined"
       set exename "noet defined"
    }
-   if {$platform == "linux"} {
-      set archpos [string last "bin" $exedir]
-      set flowhomedir [string range $exedir 0 [expr $archpos-2]]
-   } else {
-      set archpos [string last $arch $exedir]
-      set flowhomedir [string range $exedir 0 [expr $archpos-2]]
-   }
    if { $waveonline } {
       set waveexedir [file dirname $waveexe]
-      set archpos [string last $arch $waveexedir]
-      set wavehomedir [string range $waveexe 0 [expr $archpos-2]]
-      set swanexedir [file join $wavehomedir "$arch" "swan" "bin"]
+      if {$platform == "linux"} {
+         set swanexedir [file join $D3D_HOME "bin"]
+      } else {
+         set swanexedir [file join $D3D_HOME "swan" "bin"]
+      }
       set swanbatdir $infillist(swanbatdir)
    }
 
@@ -1601,7 +1631,7 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
    set scriptfile [open "$sfilname" "w"]
    if {$platform == "linux"} {
       # Get lib directory
-      set libdir [file join $flowhomedir "lib"]
+      set libdir [file join $D3D_HOME "lib"]
       #
       puts $scriptfile "#!/bin/bash"
       puts $scriptfile "#\$ -V"
@@ -1613,9 +1643,6 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
             puts $scriptfile "\n. /opt/sge/InitSGE\n"
          }
       }
-      puts $scriptfile "\n# Set some environment parameters\n"
-      puts $scriptfile "export D3D_HOME=$flowhomedir"
-      puts $scriptfile "export ARCH=$arch"
       # Needed when compiled with newer Gnu compiler than the default on the calculation machine:
       # puts $scriptfile "export LD_PRELOAD=[file join $exedir libgfortran.so.3]"
       # puts $scriptfile  "# TEMPORARY SOLUTION: setting LD_PRELOAD"
@@ -1650,8 +1677,8 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
          puts $scriptfile "\n# Start $infillist(dimrexename)\n"
          puts $scriptfile "\"$dimrexe\" $infillist(dimrargs) >$infillist(dimrexename).scr 2>&1 &"
       } elseif { $infillist(runscript) != " " } {
-         puts $scriptfile "\n# Start $infillist(runscript)\n"
-         puts $scriptfile "\"$infillist(runscript)\" >runscript.scr 2>&1 &"
+         puts $scriptfile "\n# Start $infillist(runscript) $infillist(runscriptargs)\n"
+         puts $scriptfile "\"$infillist(runscript)\" $infillist(runscriptargs) >runscript.scr 2>&1 &"
       } else {
          puts $scriptfile "\n# Start $infillist(flowexename)\n"
          puts $scriptfile "export LD_LIBRARY_PATH=$libdir:\$LD_LIBRARY_PATH"
@@ -1680,14 +1707,12 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
    } else {
       # win64
       # Get share directory
-      set sharedir [file join $flowhomedir "$arch" "share" "bin"]
+      set sharedir [file join $D3D_HOME "share" "bin"]
       #
       set rootconddir [file nativename [file join $rootdir $condition] ]
       puts $scriptfile "@ echo off"
       puts $scriptfile "\nrem This script file is automatically generated by mormerge.tcl, version $version\n"
       puts $scriptfile "\nrem Set some environment parameters\n"
-      puts $scriptfile "set D3D_HOME=$flowhomedir"
-      puts $scriptfile "set ARCH=$arch"
       if { $infillist(localrun) } {
          set worksubdir $idstring
          puts $scriptfile "\nrem Running locally\nrem Copy modeldir to workdir\n"
@@ -1717,7 +1742,6 @@ proc startFlow { inflist alist condition runids waveonline tdatomexe flowexe wav
          puts $scriptfile "start /b [spaceSafe $flowexe] $infillist(flowargs) >$infillist(flowexename).scr 2>&1"
          if { $waveonline } {
             puts $scriptfile "\nrem Start wave\n"
-            puts $scriptfile "set D3D_HOME=$wavehomedir"
             puts $scriptfile "set PATH=$swanbatdir;$swanexedir;$waveexedir;$sharedir;%PATH%"
             puts $scriptfile "start /b [spaceSafe $waveexe] $infillist(waveargs) >wave.scr 2>&1"
          }
@@ -1982,6 +2006,7 @@ putsDebug "waveexedir        : $infillist(waveexedir)"
 putsDebug "waveargs          : $infillist(waveargs)"
 putsDebug "swanbatdir        : $infillist(swanbatdir)"
 putsDebug "runscript         : $infillist(runscript)"
+putsDebug "runscriptargs     : $infillist(runscriptargs)"
 putsDebug "mormergeexedir    : $infillist(mormergeexedir)"
 putsDebug "$infillist(numconditions) conditions:"
 for {set i 0} {$i < $infillist(numconditions)} {incr i} {

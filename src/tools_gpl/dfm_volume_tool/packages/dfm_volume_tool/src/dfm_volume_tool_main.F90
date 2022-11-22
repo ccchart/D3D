@@ -71,13 +71,16 @@ character(len=Idlen) :: output_type
 character(len=Idlen) :: output_file
 character(len=Idlen) :: var_name
 type(c_ptr)          :: xptr
-integer,pointer              :: numpoints, numlinks
+integer              :: numpoints, numlinks, lnx, numbnd
+integer, pointer     :: count
 logical              :: computeTotal
 logical              :: computeOnBranches
 
 
 real(c_double), pointer, dimension(:,:) :: volume
 real(c_double), pointer, dimension(:,:) :: surface
+real(c_double), pointer, dimension(:,:) :: storage
+real(c_double), pointer, dimension(:,:) :: deadstorage
 real(c_double), pointer, dimension(:) :: levels
 real(C_double), pointer, dimension(:) :: help
 
@@ -89,6 +92,11 @@ type(t_voltable), dimension(:,:), pointer       :: volumetableOnLinks
 type(t_network),                  pointer       :: network
 type(t_branch),   dimension(:),   pointer       :: branches
 integer,          dimension(:),   allocatable   :: mask
+integer,          dimension(:,:), pointer       :: bndindex
+integer,          dimension(:,:), pointer       :: ln2nd
+double precision, dimension(:),   pointer       :: bndvalues
+double precision, dimension(:,:),   pointer     :: inslevtube
+double precision, dimension(:),   allocatable   :: wl_deadstorage
 
 ! externals
 
@@ -168,10 +176,25 @@ if (ierr==0) then
    call dfm_generate_volume_tables(dfm, increment)
    
    ! Retrieve data from the D-FLOW FM dll
+   call bmi_get_var(dfm, 'lnx1D', numlinks, 1)
+   call bmi_get_var(dfm, 'lnx', lnx, 1)
    call get_variable_pointer(dfm, string_to_char_array('numpoints'), xptr)
-   call c_f_pointer(xptr, numpoints)
-   call get_variable_pointer(dfm, string_to_char_array('numlinks'), xptr)
-   call c_f_pointer(xptr, numlinks)
+   call c_f_pointer(xptr, count)
+   numpoints = count
+   call get_variable_pointer(dfm, string_to_char_array('nbndz'), xptr)
+   call c_f_pointer(xptr, count)
+   numbnd = count
+   
+   allocate(inslevtube(2,lnx), ln2nd(2,lnx), bndvalues(numbnd), bndindex(6,numbnd))
+   call bmi_get_var(dfm, 'bob', inslevtube, 2*lnx)
+   call bmi_get_var(dfm, 'zbndz', bndvalues, numbnd)
+
+   call get_variable_pointer(dfm, string_to_char_array('ln'), xptr)
+   call c_f_pointer(xptr, ln2nd, (/2, lnx/))
+   
+   call get_variable_pointer(dfm, string_to_char_array('kbndz'), xptr)
+   call c_f_pointer(xptr, bndindex, (/6, numbnd/))
+   
    call get_variable_pointer(dfm, string_to_char_array('vltb'), xptr)
    call c_f_pointer(xptr, volumetable, (/numpoints/))
    call get_variable_pointer(dfm, string_to_char_array('vltbOnLinks'), xptr)
@@ -198,7 +221,9 @@ if (ierr==0) then
       numids = numbranches + 1 
    endif
       
-   allocate(surface(numlevels,numids),volume(numlevels,numids), levels(numlevels), ids(numids), mask(numpoints))
+   allocate(surface(numlevels,numids),volume(numlevels,numids), storage(numlevels,numids), deadstorage(numlevels,numids))
+   allocate(levels(numlevels), ids(numids), mask(numpoints), wl_deadstorage(numpoints))
+   
    surface = 0d0
    volume  = 0d0
 
@@ -208,17 +233,19 @@ if (ierr==0) then
    tableincrement = increment
    idindex = 0
    
-   !> setup the mask array for the complete model
+   call calculateDeadStorage(wl_deadstorage, network, bndvalues, inslevtube, bndindex, ln2nd, numlinks, numpoints, numbnd)
+
    if (computeTotal) then
       idIndex = 1
+      !> setup the mask array for the complete model
       do i = 1, numpoints
          mask(i) = i
       enddo
       
       !> Calculate the total volumes and surfaces for this model
       ids(1) = 'Total'
-      call generateVolumeTableDataOnGridPoints(volume(:,1), surface(:,1), volumetable, bedlevel, increment, &
-                  numpoints, numlevels, mask)
+      call generateTotalVolumeTable(volume(:,1), surface(:,1), storage(:,1), deadstorage(:,1), &
+                  wl_deadstorage, volumetable, bedlevel, increment, numpoints, numlevels, mask)
                   
    endif
    
@@ -227,14 +254,15 @@ if (ierr==0) then
       do i = 1, numbranches
          idindex = idindex + 1
          ids(idindex) = branches(i)%id
-         call generateVolumeTableDataOnLinks(volume(:,idindex), surface(:,idindex), volumetableOnLinks, bedlevel, &
-         increment, branches(i)%uPointsCount, numlevels, branches(i)%lin)
+         call generateVolumeTableOnBranches(volume(:,idindex), surface(:,idindex), storage(:,idindex), deadstorage(:,idindex), &
+                        wl_deadstorage, volumetableOnLinks, bedlevel, &
+                        increment, branches(i)%uPointsCount, numlevels, branches(i)%lin, ln2nd)
       enddo
    endif
    
    ! Write the output to the netcdf file
    ioutput = nc_create(output_file)
-   call nc_write(ioutput, ids, levels, volume, surface, numlevels, numids)
+   call nc_write(ioutput, ids, levels, volume, surface, storage, deadstorage, numlevels, numids)
                   
    deallocate(surface,volume, levels, ids, mask)
 endif

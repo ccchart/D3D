@@ -221,7 +221,12 @@ rem ===============
     call :delpar
     call :wave
     call :wave_exe
+    call :cf_dll
+    call :flow1d2d
+    call :d_hydro
     call :flow2d3d
+    call :rr_dll
+    call :rtc
 
 goto :endproc
 
@@ -318,7 +323,9 @@ rem =============================================================
     call :copyFile "!checkout_src_root!\third_party_open\netcdf\netCDF 4.6.1\bin\*"                                          !dest_bin!  
     call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                             !dest_bin!
     call :copyFile "!checkout_src_root!\third_party_open\expat\x64\x64\%configuration%\libexpat.dll"                         !dest_bin!
+    if !compiler_redist_dir!=="" (
     call :copyFile "!checkout_src_root!\third_party_open\intelredist\lib\x64\\*.*"                                           !dest_bin!
+    )
     call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\\*.dll"                                            !dest_bin!
     call :copyFile "!checkout_src_root!\third_party_open\Tecplot\lib\x64\\*.dll"                                             !dest_bin!
     call :copyFile "!checkout_src_root!\third_party_open\GISInternals\release-1911-x64\bin\xerces-c_3_2.dll"                 !dest_bin!
@@ -457,6 +464,42 @@ rem =============================================================
 
 goto :endproc
 
+rem =============================================================
+rem === copies runtime libraries for flow1d                   ===
+rem =============================================================
+:copyFlow1DDependentRuntimeLibraries
+
+    set destination=%~1
+    call :copyMPI                                                                                                       !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\netcdf\netCDF 4.6.1\bin\*"                                     !destination!  
+    call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                        !destination!
+
+goto :endproc
+
+rem =============================================================
+rem === copies runtime libraries for flow1d2d                 ===
+rem =============================================================
+:copyFlow1D2DDependentRuntimeLibraries
+
+    set destination=%~1
+    call :copyMPI                                                                                                       !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\netcdf\netCDF 4.6.1\bin\*"                                     !destination!  
+    call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                        !destination!
+
+goto :endproc
+
+
+rem =============================================================
+rem === copies runtime libraries for D_HYDRO        ===
+rem =============================================================
+:copyDHydroDependentRuntimeLibraries
+
+    set destination=%~1
+    call :copyMPI                                                                                                       !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                        !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\expat\x64\x64\%configuration%\libexpat.dll"                    !destination!
+
+goto :endproc
 
 
 rem =============================================================
@@ -473,6 +516,29 @@ rem =============================================================
 goto :endproc
 
 
+rem =============================================================
+rem === copies runtime libraries for RR                       ===
+rem =============================================================
+:copyRRDependentRuntimeLibraries
+
+    set destination=%~1
+    call :copyMPI                                                                                                       !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\netcdf\netCDF 4.6.1\bin\*"                                     !destination!  
+    call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                        !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\expat\x64\x64\%configuration%\libexpat.dll"                    !destination!
+
+goto :endproc
+
+rem =============================================================
+rem === copies runtime libraries for RTC                      ===
+rem =============================================================
+:copyRTCDependentRuntimeLibraries
+
+    set destination=%~1
+    call :copyMPI                                                                                                       !destination!
+    call :copyFile "!checkout_src_root!\third_party_open\pthreads\bin\x64\*.dll"                                        !destination!
+
+goto :endproc
 
 rem ==========================
 rem === POST_BUILD_DFLOWFM_DLL
@@ -1327,6 +1393,142 @@ rem ==========================
 goto :endproc
 
 rem ==========================
+rem === cf_dll (flow1d)
+rem ==========================
+:cf_dll
+
+    echo "postbuild cf_dll . . ."
+
+    if "%configuration%" == "Debug" (
+    
+    echo "Debug postbuild"
+        set dest_bin="%install_dir%\x64\Debug"
+        
+        set dest_bin="!install_dir!\x64\Debug"
+        set dest_default="!install_dir!\x64\Debug"
+        set dest_scripts="!install_dir!\x64\Debug"
+        set dest_plugins="!install_dir!\x64\Debug"
+        set dest_share="!install_dir!\x64\Debug"
+    
+    call :makeDir !dest_bin!
+        call :copyFlow1DDependentRuntimeLibraries                                                                             !dest_bin!
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\delftflow\!configuration!\cf_dll.*"                                                      !dest_bin!
+    )
+
+    if "%configuration%" == "Release" (
+    
+    echo "Release postbuild"
+    
+        set dest_bin="!install_dir!\x64\Release\flow1d\bin"
+        set dest_default="!install_dir!\x64\Release\flow1d\default"
+        set dest_scripts="!install_dir!\x64\Release\flow1d\scripts"
+        set dest_plugins="!install_dir!\x64\Release\plugins\bin"
+        set dest_share="!install_dir!\x64\Release\share\bin"
+    
+        call :makeAllDirs
+        call :copyFlow1DDependentRuntimeLibraries                                                                             !dest_bin!
+    
+        rem Temporarily rename dest_bin to share_bin to copy libraries there as well
+        set dest_bin=!dest_share!
+        call :copyFlow1DDependentRuntimeLibraries                                                                             !dest_bin!
+        set dest_bin="!install_dir!\x64\Release\flow1d\bin"
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\delftflow\!configuration!\cf_dll.*"                                                      !dest_bin! 
+    )
+
+goto :endproc
+
+rem ==========================
+rem === flow1d2d
+rem ==========================
+:flow1d2d
+
+    echo "postbuild flow1d2d . . ."
+
+    if "%configuration%" == "Debug" (
+    
+    echo "Debug postbuild"
+        set dest_bin="%install_dir%\x64\Debug"
+        
+    set dest_bin="!install_dir!\x64\Debug"
+        set dest_default="!install_dir!\x64\Debug"
+        set dest_scripts="!install_dir!\x64\Debug"
+        set dest_plugins="!install_dir!\x64\Debug"
+        set dest_share="!install_dir!\x64\Debug"
+    
+    call :makeDir !dest_bin!
+        call :copyRFlow1D2DDependentRuntimeLibraries                                                                             !dest_bin!
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\flow1d2d\!configuration!\flow1d2d.*"                                                      !dest_bin!
+    )
+
+    if "%configuration%" == "Release" (
+    
+    echo "Release postbuild"
+    
+        set dest_bin="!install_dir!\x64\Release\flow1d2d\bin"
+        set dest_default="!install_dir!\x64\Release\flow1d2d\default"
+        set dest_scripts="!install_dir!\x64\Release\flow1d2d\scripts"
+        set dest_plugins="!install_dir!\x64\Release\plugins\bin"
+        set dest_share="!install_dir!\x64\Release\share\bin"
+    
+        call :makeAllDirs
+        call :copyRFlow1D2DDependentRuntimeLibraries                                                                             !dest_bin!
+    
+        rem Temporarily rename dest_bin to share_bin to copy libraries there as well
+        set dest_bin=!dest_share!
+        call :copyRFlow1D2DDependentRuntimeLibraries                                                                             !dest_bin!
+        set dest_bin="!install_dir!\x64\Release\drr\bin"
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\flow1d2d\!configuration!\flow1d2d.*"                                                      !dest_bin! 
+    )
+
+goto :endproc
+
+rem ==========================
+rem === POST_BUILD_D_HYDRO
+rem ==========================
+:d_hydro
+    echo "postbuild d_hydro . . ."
+    
+    if "%configuration%" == "Debug" (
+    
+    echo "Debug postbuild"
+    set dest_bin="!install_dir!\x64\Debug"
+
+    call :makeDir !dest_bin!
+
+    call :copyDHydroDependentRuntimeLibraries                                                                               !dest_bin!
+    call :copyFile "!build_dir!\d_hydro\!configuration!\d_hydro.*"                                                              !dest_bin!
+    )
+    
+    
+    if "%configuration%" == "Release" (
+    
+    echo "Release postbuild"
+
+    set dest_bin="!install_dir!\x64\Release\d_hydro\bin"
+    set dest_default="!install_dir!\x64\Release\d_hydro\default"
+    set dest_scripts="!install_dir!\x64\Release\d_hydro\scripts"
+    set dest_plugins="!install_dir!\x64\Release\plugins\bin"
+    set dest_share="!install_dir!\x64\Release\share\bin"
+    set dest_schema="!install_dir!\x64\Release\d_hydro\schema"
+
+    call :makeAllDirs
+    call :copyDHydroDependentRuntimeLibraries                                                                             !dest_share!
+    call :copyFile "!build_dir!\d_hydro\!configuration!\d_hydro.exe"                                                          !dest_bin!
+
+    call :copyFile "!checkout_src_root!\engines_gpl\d_hydro\scripts\create_config_xml.tcl"                              !dest_menu!
+    )
+
+goto :endproc
+ 
+rem ==========================
 rem === POST_BUILD_flow2d3d
 rem ==========================
 :flow2d3d
@@ -1380,23 +1582,120 @@ rem ==========================
     
 goto :endproc
 
+rem ==========================
+rem === rr_dll
+rem ==========================
+:rr_dll
+
+    echo "postbuild rr_dll. . ."
+
+    if "%configuration%" == "Debug" (
+    
+    echo "Debug postbuild"
+        set dest_bin="%install_dir%\x64\Debug"
+        
+    set dest_bin="!install_dir!\x64\Debug"
+        set dest_default="!install_dir!\x64\Debug"
+        set dest_scripts="!install_dir!\x64\Debug"
+        set dest_plugins="!install_dir!\x64\Debug"
+        set dest_share="!install_dir!\x64\Debug"
+    
+    call :makeDir !dest_bin!
+        call :copyRRDependentRuntimeLibraries                                                                             !dest_bin!
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\rr_dll\!configuration!\rr_dll.*"                                                      !dest_bin!
+    )
+
+    if "%configuration%" == "Release" (
+    
+    echo "Release postbuild"
+    
+        set dest_bin="!install_dir!\x64\Release\drr\bin"
+        set dest_default="!install_dir!\x64\Release\drr\default"
+        set dest_scripts="!install_dir!\x64\Release\drr\scripts"
+        set dest_plugins="!install_dir!\x64\Release\plugins\bin"
+        set dest_share="!install_dir!\x64\Release\share\bin"
+    
+        call :makeAllDirs
+        call :copyRRDependentRuntimeLibraries                                                                             !dest_bin!
+    
+        rem Temporarily rename dest_bin to share_bin to copy libraries there as well
+        set dest_bin=!dest_share!
+        call :copyRRDependentRuntimeLibraries                                                                             !dest_bin!
+        set dest_bin="!install_dir!\x64\Release\drr\bin"
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\rr_dll\!configuration!\rr_dll.*"                                                      !dest_bin! 
+    )
+
+goto :endproc
+
+rem ==========================
+rem === rtc
+rem ==========================
+:rtc
+
+    echo "Postbuild RTC (Real Time Control . . ."
+    
+    if "%configuration%" == "Debug" (
+    
+    echo "Debug postbuild"
+        set dest_bin="%install_dir%\x64\Debug"
+        
+    set dest_bin="!install_dir!\x64\Debug"
+        set dest_default="!install_dir!\x64\Debug"
+        set dest_scripts="!install_dir!\x64\Debug"
+        set dest_plugins="!install_dir!\x64\Debug"
+        set dest_share="!install_dir!\x64\Debug"
+
+    call :makeDir !dest_bin!
+        call :copyRTCDependentRuntimeLibraries                                                                             !dest_bin!
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\rtc\!configuration!\rtc.*"                                                      !dest_bin!
+    )
+    
+    if "%configuration%" == "Release" (
+    
+    echo "Release postbuild"
+    
+        set dest_bin="!install_dir!\x64\Release\rtc\bin"
+        set dest_default="!install_dir!\x64\Release\rtc\default"
+        set dest_scripts="!install_dir!\x64\Release\rtc\scripts"
+        set dest_plugins="!install_dir!\x64\Release\plugins\bin"
+        set dest_share="!install_dir!\x64\Release\share\bin"
+    
+        call :makeAllDirs 
+        call :copyRTCDependentRuntimeLibraries                                                                             !dest_bin!
+    
+        rem Temporarily rename dest_bin to share_bin to copy libraries there as well
+        set dest_bin=!dest_share!
+        call :copyRTCDependentRuntimeLibraries                                                                             !dest_bin!
+        set dest_bin="!install_dir!\x64\Release\rtc\bin"
+        
+        rem copy binaries and dll 
+        call :copyFile "!build_dir!\rtc\!configuration!\rtc.*"                                                      !dest_bin! 
+    )
+
+goto :endproc
 rem ===========================
 rem === POST_BUILD_GRIDGEOM_DLL
 rem ===========================
 :gridgeom_dll
     echo "postbuild gridgeom_dll. . ."
-
+    
     if "%configuration%" == "Debug" (
     
     echo "Debug postbuild"
     set dest_bin="!install_dir!\x64\Debug"
-    
-    call :makeDir !dest_bin!
-    
-    call :copyFile "!build_dir!\gridgeom\!configuration!\gridgeom.dll"                                           !dest_bin!
-    
-    )
 
+    call :makeDir !dest_bin!
+
+    call :copyFile "!build_dir!\gridgeom\!configuration!\gridgeom.dll"                                           !dest_bin!
+
+    )
+    
     if "%configuration%" == "Release" (
     
     echo "Release postbuild"
@@ -1555,7 +1854,7 @@ rem === POST_BUILD_TEST_DELTARES_COMMON
 rem ===================================
 :test_deltares_common
     echo "postbuild test_deltares_common . . ."
-    
+
     if "%configuration%" == "Debug" (
     
     echo "Debug postbuild"
@@ -1565,8 +1864,8 @@ rem ===================================
 
     call :copyFile "!build_dir!\test_deltares_common\!configuration!\test_deltares_common.*"                              !dest_bin!
 
-    )
-    
+  )
+
     if "%configuration%" == "Release" (
     
     echo "Release postbuild"
@@ -1627,7 +1926,7 @@ goto :endproc
 :end
 echo oss-post_build.cmd finished
 if NOT %ErrorLevel% EQU 0 (
-      rem
+   rem
       rem Only jump to :end when the script is completely finished
       rem
       exit %ErrorLevel%

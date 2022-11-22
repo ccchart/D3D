@@ -601,7 +601,7 @@ end function unc_add_uuid
 !! Input are parameters in seconds since refdat; this subroutine will take
 !! care of date calculations, time zones and string conversion.
 function unc_add_time_coverage(ncid, start_since_ref, end_since_ref, resolution) result(ierr)
-   use time_module, only: duration_to_string, datetime_to_string, ymd2reduced_jul
+   use time_module, only: duration_to_string, datetime_to_string, ymd2modified_jul
    use m_flowtimes, only: refdat, tzone
    use dfm_error
    implicit none
@@ -616,7 +616,7 @@ function unc_add_time_coverage(ncid, start_since_ref, end_since_ref, resolution)
 
    ierr = DFM_NOERR
 
-   success_ = ymd2reduced_jul(refdat, refdate_rjul)
+   success_ = ymd2modified_jul(refdat, refdate_rjul)
    if (.not. success_) then
       ierr = DFM_WRONGINPUT
       return
@@ -6107,14 +6107,14 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          call reconstructucz(0)
          if (jamapucvec == 1) then 
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, UNC_LOC_S3D, ucz, jabndnd=jabndnd_)
-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxa, UNC_LOC_S, ucxq, jabndnd=jabndnd_)
-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucya, UNC_LOC_S, ucyq, jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxa, UNC_LOC_S, ucx(1:ndxndxi), jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucya, UNC_LOC_S, ucy(1:ndxndxi), jabndnd=jabndnd_)
          end if
 
          if (jamapucmag == 1) then    
             call realloc(work1d, ndkx, keepExisting = .false., fill=0d0)
-            do k=1,size(ucxq)                            ! NOTE: this does not include Stokes drift, no Eulerian velocities here!
-               work1d(k) = sqrt(ucxq(k)**2 + ucyq(k)**2) ! TODO: this does not include vertical/w-component now.
+            do k=1,ndxndxi                               ! NOTE: this does not include Stokes drift, no Eulerian velocities here!
+               work1d(k) = sqrt(ucx(k)**2 + ucy(k)**2)   ! TODO: this does not include vertical/w-component now.
             end do
             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmaga, UNC_LOC_S, work1d, jabndnd=jabndnd_)
          end if
@@ -7104,7 +7104,8 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
               call realloc(wavout2,lnkx,keepExisting=.false.,fill=0d0)
               wavout=0d0; wavout2=0d0
               if (kmx==0) then
-                 do L= 1, lnx
+              do i = 1,  wetLinkCount
+                    L = onlyWetLinks(i)
                     k1 = ln(1,L); k2=ln(2,L)
                     windx(k1)  = windx(k1) + wcx1(L)*wavfu(L)*hu(L)*rhomean
                     windx(k2)  = windx(k2) + wcx2(L)*wavfu(L)*hu(L)*rhomean
