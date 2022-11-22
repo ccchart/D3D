@@ -1369,11 +1369,15 @@ if (ndambreaksg > 0) then
 
    if (allocated(LStartBreach)) deallocate(LStartBreach)
    allocate(LStartBreach(ndambreaksg))
-   LStartBreach     = -1
+   LStartBreach = -1
+
+   if (allocated(dambreakNewCrestLevel)) deallocate(dambreakNewCrestLevel)
+   allocate(dambreakNewCrestLevel(lnx))
+   dambreakNewCrestLevel = -huge(1d0)
 
    if (allocated(dsStartBreach)) deallocate(dsStartBreach)
    allocate(dsStartBreach(ndambreaksg))
-   dsStartBreach     = 0.0d0
+   dsStartBreach = 0.0d0
 
    if (allocated(waterLevelsDambreakDownStream)) deallocate(waterLevelsDambreakDownStream)
    allocate(waterLevelsDambreakDownStream(ndambreaksg))

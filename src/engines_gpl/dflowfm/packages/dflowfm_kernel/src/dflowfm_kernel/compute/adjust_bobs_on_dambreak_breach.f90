@@ -49,22 +49,25 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
    double precision             :: leftside, rightside
    double precision             :: remainder, leftfrac
 
-   !nothing is open
-   if (width<=0) return
-
-   !something is open
+   ! process the breach at the starting link
    Lf = iabs(kdambreak(3,startingLink))
-   if (Lf > 0) then
-      bob(1,Lf) = max(bob0(1, Lf), crl)
-      bob(2,Lf) = max(bob0(2, Lf), crl)
+   if (Lf > 0 .and. width > 0d0) then
+      ! some breach, set to breached crest level
+      dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crl)
       activeDambreakLinks(startingLink) = 1
+   else
+      ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
+      dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1, Lf))
    endif
-   if ((width - dambreakLinksEffectiveLength(startingLink))<= 0) then
+   
+   ! distribute remaining breach width
+   if ((width - dambreakLinksEffectiveLength(startingLink)) <= 0) then
       ! breach width still less than width of starting link
       dambreakLinksBreachLength(startingLink) = width
-      return
+      leftBreachWidth = 0d0
+      rightBreachWidth = 0d0
    else
-      !breach width larger than width of starting link
+      ! breach width larger than width of starting link
       dambreakLinksBreachLength(startingLink) = dambreakLinksEffectiveLength(startingLink)
       leftside  = sum(dambreakLinksEffectiveLength(L1:startingLink-1))
       rightside = sum(dambreakLinksEffectiveLength(startingLink+1:L2))
@@ -92,43 +95,56 @@ subroutine adjust_bobs_on_dambreak_breach(width, maxwidth, crl, startingLink, L1
             leftBreachWidth = remainder - rightside
          endif
       endif
-      do k = startingLink - 1, L1, -1
-         Lf = iabs(kdambreak(3,k))
+   endif
+   
+   ! process dam "left" of initial breach segment
+   do k = startingLink - 1, L1, -1
+      Lf = iabs(kdambreak(3,k))
+      if (leftBreachWidth > 0d0) then
+         ! some breach, set to breached crest level
          if (Lf > 0) then
-            bob(1,Lf) = max(bob0(1, Lf), crl)
-            bob(2,Lf) = max(bob0(2, Lf), crl)
+            dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crl)
          endif
          activeDambreakLinks(k) = 1
-         if (leftBreachWidth>=dambreakLinksEffectiveLength(k)) then
-            dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
-            leftBreachWidth = leftBreachWidth - dambreakLinksEffectiveLength(k)
-         else
-            dambreakLinksBreachLength(k) = leftBreachWidth
-            leftBreachWidth = 0d0
-            exit
-         endif
-      enddo
-      !right from the breach point
-      do k = startingLink + 1, L2
-         Lf = iabs(kdambreak(3,k))
+      else
+         ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
+         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1,Lf))
+      endif
+      if (leftBreachWidth >= dambreakLinksEffectiveLength(k)) then
+         dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
+         leftBreachWidth = leftBreachWidth - dambreakLinksEffectiveLength(k)
+      else
+         dambreakLinksBreachLength(k) = leftBreachWidth
+         leftBreachWidth = 0d0
+      endif
+   enddo
+   
+   ! process dam "right" of initial breach segment
+   do k = startingLink + 1, L2
+      Lf = iabs(kdambreak(3,k))
+      if (rightBreachWidth > 0d0) then
+         ! some breach, set to breached crest level
          if (Lf > 0) then
-            bob(1,Lf) = max(bob0(1, Lf), crl)
-            bob(2,Lf) = max(bob0(2, Lf), crl)
+            dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), crl)
          endif
          activeDambreakLinks(k) = 1
-         if (rightBreachWidth>=dambreakLinksEffectiveLength(k)) then
-            dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
-            rightBreachWidth = rightBreachWidth - dambreakLinksEffectiveLength(k)
-         else
-            dambreakLinksBreachLength(k) = rightBreachWidth
-            rightBreachWidth = 0d0
-            exit
-         endif
-      enddo
-      if (leftBreachWidth > 1.0d-6 * maxwidth .or. rightBreachWidth > 1.0d-6 * maxwidth) then
-         write (msgbuf, '(3a)' ) 'The breach width of dam ''', trim(strucid), ''' is wider than the actual dam width.'
-         call SetMessage(LEVEL_WARN, msgbuf)
-      end if
+      else
+         ! no breach, keep at previous level, note that bob(1,.) and bob(2,.) should be equal
+         dambreakNewCrestLevel(Lf) = max(dambreakNewCrestLevel(Lf), bob(1,Lf))
+      endif
+      if (rightBreachWidth>=dambreakLinksEffectiveLength(k)) then
+         dambreakLinksBreachLength(k) = dambreakLinksEffectiveLength(k)
+         rightBreachWidth = rightBreachWidth - dambreakLinksEffectiveLength(k)
+      else
+         dambreakLinksBreachLength(k) = rightBreachWidth
+         rightBreachWidth = 0d0
+      endif
+   enddo
+   
+   ! check for any unprocessed breach width
+   if (leftBreachWidth > 1.0d-6 * maxwidth .or. rightBreachWidth > 1.0d-6 * maxwidth) then
+      write (msgbuf, '(3a)' ) 'The breach width of dam ''', trim(strucid), ''' is wider than the actual dam width.'
+      call SetMessage(LEVEL_WARN, msgbuf)
    endif
 
 end subroutine adjust_bobs_on_dambreak_breach

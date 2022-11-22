@@ -388,6 +388,7 @@
  double precision, allocatable           :: dambreakCrestLevel(:)                 !< crest level at starting link LStartBreach
  double precision, allocatable           :: dambreakUpstreamBedLevel(:)           !< upstream ed level at starting link LStartBreach
  double precision, allocatable           :: dambreakDownstreamBedLevel(:)         !< downstream bed level at starting link LStartBreach
+ double precision, allocatable           :: dambreakNewCrestLevel(:)              !< crest level for new time step (lnx)
  double precision, allocatable           :: dsStartBreach(:)                      !< distance between the starting link and the specified breach point
  integer         , allocatable           :: kdambreak(:,:)                        !< dambreak links index array
  double precision, allocatable, target   :: dambreakLevelsAndWidthsFromTable(:)   !< dambreak widths and heights

@@ -48,6 +48,7 @@
 
     integer :: L0
     integer          :: ng, k1, k2, L, n, istru, icompound, i
+    double precision :: no_crest  !< missing value for the dambreakNewCrestLevel array
 
     do ng = 1,ncdamsg                                   ! loop over cdam signals, sethu
        zcdamn = zcdam(ng)
@@ -142,16 +143,26 @@
     enddo
 
 
-   !Adjust bobs for dambreak
+   ! Adjust bobs for dambreak
    if (ndambreak > 0) then ! needed, because ndambreaksg may be > 0, but ndambreak==0, and then arrays are not available.
-   do n = 1, ndambreaksg
-      istru = dambreaks(n)
-      if (istru.ne.0) then
-         ! Update the bottom levels
-         call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, maximumDambreakWidths(n), network%sts%struct(istru)%dambreak%crl,  LStartBreach(n), L1dambreaksg(n), L2dambreaksg(n), network%sts%struct(istru)%id)
-      endif
-   enddo
+      no_crest = -huge(1d0)
+      dambreakNewCrestLevel = no_crest
+      do n = 1, ndambreaksg
+         istru = dambreaks(n)
+         if (istru /= 0) then
+            ! Update the crest levels stored in the bob array
+            call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, maximumDambreakWidths(n), network%sts%struct(istru)%dambreak%crl,  LStartBreach(n), L1dambreaksg(n), L2dambreaksg(n), network%sts%struct(istru)%id)
+         endif
+      enddo
+      do L = 1,lnx
+         if (dambreakNewCrestLevel(L) /= no_crest) then
+            ! dambreakNewCrestLevel should always be less or equal to old bob
+            bob(1,L) = max(bob0(1,L), dambreakNewCrestLevel(L))
+            bob(2,L) = max(bob0(2,L), dambreakNewCrestLevel(L))
+         else
+            ! bob remains unchanged
+         endif
+      enddo
    end if
 
-   return
    end subroutine adjust_bobs_for_dams_and_structs
