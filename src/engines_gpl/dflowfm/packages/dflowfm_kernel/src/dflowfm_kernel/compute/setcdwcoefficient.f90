@@ -156,6 +156,10 @@
     bfit   = (bvis**p + balf**p)**pinv
     cd10   = (vonkarw/bfit)**2
 
+ else if (icdtyp == 8) then   ! Garratt, J. R., 1977: Review of Drag Coefficients over Oceans and Continents. Mon. Wea. Rev., 105, 915–929.
+     
+     cd10 = min(1.0d-3 * (0.75d0 + 0.067d0 * uwi), 0.0035d0)
+     
  endif
 
  if (jalightwind == 1 .and. icdtyp .ne. 7 .and. icdtyp .ne. 5) then
