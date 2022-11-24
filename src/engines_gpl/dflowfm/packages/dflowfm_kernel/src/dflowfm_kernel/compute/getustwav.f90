@@ -30,7 +30,7 @@
 ! $Id$
 ! $HeadURL$
 
-subroutine getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, costu, uorbu) ! at u-point, get ustarwave and get ustokes
+subroutine getustwav(LL, z00, umod, deltau, uorbu) ! at u-point, get ustarwave and get ustokes
    use m_flow
    use m_flowgeom
    use m_waves
@@ -52,7 +52,7 @@ subroutine getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, cost
    integer                         :: k1, k2 , Lb, Lt, L,Lmin
    double precision                :: Tsig, Hrms, asg, rk, shs, astar, phiw, phi1, phi2, dks, aks, omeg, f1u, f2u, f3u, zu, sintu
    double precision                :: qsto, usto3Dav , usto2D, p1, p2, h, z, ustoktb, uusto, uwi, fac, tcw, dfcw, fcw, ka
-   double precision                :: rolthk,rmax,erol,crol,mass
+   double precision                :: rolthk,rmax,erol,crol,mass, huL
 
    Dfu = 0d0; Dfuc = 0d0; deltau = 0d0; uorbu = 0d0; csw = 1d0 ; snw = 0d0; costu = 1d0; fw = 0d0
 
@@ -73,29 +73,28 @@ subroutine getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, cost
    csw = 0.5d0*(cos(phi1*dg2rd)+cos(phi2*dg2rd))
    snw = 0.5d0*(sin(phi1*dg2rd)+sin(phi2*dg2rd))
  
-
-   call getwavenr(hu(LL), tsig ,rk)
+   huL    = hu(LL) 
+   rk     = kwL(L)
    Hrms   = 0.5d0*( hwav(k1)   + hwav(k2) )
-   Hrms   = min(hrms,gammax*hu(LL))
+   Hrms   = min(hrms,gammax*huL)
    asg    = 0.5d0*Hrms                              ! Wave amplitude = 0.5*Hrms
-   shs    = sinhsafei(rk*hu(LL))
+   shs    = sinhsafei(rk*huL)
    costu  =  csw*csu(LL) + snw*snu(LL)              ! and compute stokes drift
    sintu  = -csw*snu(LL) + snw*csu(LL)
 
    if (jawaveStokes == 1) then
-      uusto          =  0.5d0*omeg*asg*asg/hu(LL)
+      uusto          =  0.5d0*omeg*asg*asg/huL
       ustokes(Lb:Lt) =  costu*uusto
       vstokes(Lb:Lt) =  sintu*uusto
       ustokes(LL)    =  costu*uusto      ! for convenience
       vstokes(LL)    =  sintu*uusto
-   else if (jawaveStokes >= 2) then ! to do: add 3D roller contribution for roller model
+   else if (jawaveStokes >= 2) then      ! timing in Matlab: using linear theory is 10% faster
       f1u    = omeg*rk*asg**2
-      h      = hu(LL)
-      f3u    = (1d0 - exp(-2d0*rk*h ) )**2
+      f3u    = (1d0 - exp(-2d0*rk*huL ) )**2
 
       do L   = Lb, Lt
          z   = 0.5d0*( hu(L) + hu(L-1) )         ! here, z is vertical coordinate upward, bed = 0, (not z = 0 at average wl)
-         p1  = max(-25d0,  2d0*rk*(z - h))
+         p1  = max(-25d0,  2d0*rk*(z - huL))
          p2  = max(-25d0, -4d0*rk*(z    ))       ! maximisation not necessary
          f2u = exp(p1) * ( 1d0 + exp(p2) )
          uusto      = f1u   * f2u / f3u
@@ -103,8 +102,8 @@ subroutine getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, cost
          vstokes(L) = sintu * uusto
       enddo
       ! depth averaged
-      ustokes(LL) = costu*ag*asg*asg*rk/omeg/2d0/hu(LL)    ! these are needed, also for 3D models (see u bnd furu)
-      vstokes(LL) = sintu*ag*asg*asg*rk/omeg/2d0/hu(LL)
+      ustokes(LL) = costu*ag*asg*asg*rk/omeg/2d0/huL    ! these are needed, also for 3D models (see u bnd furu)
+      vstokes(LL) = sintu*ag*asg*asg*rk/omeg/2d0/huL
 
       ! add 3D roller contribution to stokes drift
       if (jawave==4 .and. roller==1) then
@@ -137,34 +136,11 @@ subroutine getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, cost
 
    endif
 
-   if (shs > eps10) then
-      if (jauorb>0) then
-         fac = 1d0
+      if (shs > eps10) then
+         uorbu  = omeg*asg*shs*fac                     ! Orbital velocity, sqrt factor to match delft3d
       else
-         fac = sqrt(pi)/2d0
+         uorbu  = 0d0
       endif
-      uorbu  = omeg*asg*shs*fac                     ! Orbital velocity, sqrt factor to match delft3d
-      call  Swart(Tsig, uorbu, z00, fw, ustw2)
-      ustw2  = ftauw*ustw2                          ! ustar wave squared times calibrationcoeff ftauw
 
-      dks    = 33d0*z00                             ! should be 30 for consistency with getust
-      aks    = asg*shs/dks*fac                      ! uorbu/(omega*ks), uorbu/omega = particle excursion length
-
-      deltau = 0.09d0 * dks * aks**0.82d0           ! thickness of wave boundary layer from Fredsoe and Deigaard
-      deltau = alfdeltau*max(deltau, ee*z00 )       ! alfaw = 20d0
-      deltau = min(0.5d0*hu(LL), deltau)            !
-
-      call soulsby( tsig, uorbu, z00, fw)           ! streaming with different calibration fac fwfac + soulsby fws
-      Dfu =    0.28d0 * fw * uorbu**3               ! random waves: 0.28=1/2sqrt(pi) (m3/s3)
-      Dfu    = fwfac*Dfu/deltau                     ! divided by deltau    (m2/s3), missing rho divided out in adve denominator rho*delta
-      Dfuc   = Dfu*rk/omeg*costu                    ! Dfuc = dfu/c/delta,  (m /s2) is contribution to adve
-
-   else
-      ustw2  = 0d0
-      Dfu    = 0d0
-      Dfuc   = 0d0
-      deltau = 0d0
-      uorbu  = 0d0
-   endif
 
 end subroutine getustwav

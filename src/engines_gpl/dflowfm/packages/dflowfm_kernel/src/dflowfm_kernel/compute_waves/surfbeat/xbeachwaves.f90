@@ -819,7 +819,7 @@ subroutine xbeach_wave_init()
       kwav=25d0
       cwav = sqrt(ag*epshs)
       nwav = 1.d0
-      cgwav= sqrt(ag*epshs)
+      cgwav= cwav
    end where
    
    end subroutine xbeach_dispersion

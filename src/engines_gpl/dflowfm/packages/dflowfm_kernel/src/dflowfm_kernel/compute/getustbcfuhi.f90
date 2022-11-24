@@ -52,7 +52,6 @@
    double precision :: csw, snw                                ! wave direction cosines
    double precision :: Dfu, Dfu0, Dfu1, htop, dzu              ! wave dissipation by bed friction, / (rhomean*c*deltau)
    double precision :: deltau                                  ! wave dissipation layer thickness
-   double precision :: hrmsLL                                  ! wave height on link
    double precision :: zbot, ztop, u2dh, frac
    double precision :: z0urouL, cf, ust, rz, umod1, rhoL, dzuu, uorbu
    double precision :: cwall
@@ -120,15 +119,6 @@
 10    continue
 
       umod = sqrt( u1Lb*u1Lb + v(Lb)*v(Lb) )
-      ! updated ustokes needed before conversion to eulerian velocities
-      if (jawave>0 .and. .not. flowwithoutwaves) then
-         ! get ustar wave squared, fw and wavedirection cosines based upon Swart, ustokes
-         call getustwav(LL, z00, umod, fw, ustw2, csw, snw, Dfu, Dfuc, deltau, costu, uorbu)
-         !
-         if (jawaveStokes >= 1) then      ! ustokes correction at bed
-            umod  = sqrt( (u1Lb-ustokes(Lb))*(u1Lb-ustokes(Lb)) + (v(Lb)-vstokes(Lb))*(v(Lb)-vstokes(Lb)) )
-         endif
-      endif
 
       if (umod == 0d0) then            ! from dry to wet
          umod = max(umodeps, dts*ag*dxi(LL)*min( abs( s1(ln(1,LL)) - s1(ln(2,LL)) ), 0.333333d0*hu(LL) ) )
@@ -138,121 +128,40 @@
 
       ustbLL = sqcf*umod                                   ! ustar based upon bottom layer/layer integral velocity
 
-    if (jawave > 0 .and. .not. flowWithoutWaves) then
-         rhoL = rhomean      ! for now
-         if (ustw2 > 1d-8) then
+      if (jawave>0 .and. .not. flowWithoutWaves) then
+         !
+         ! get stokes drift and some wave parameters
+         call getustwav(LL, z00, umod, uorbu)
+         ac1 = acl(LL); ac2 = 1d0-ac1
+         k1  = ln(1,LL); k2 = ln(2,LL)
+         ! Overwrite ustbLL with Nguyen version
+         hrmsLL = ac1*hwav(k1) + ac2*hwav(k2)
+         twavLL = ac1*twav(k1) + ac2*twav(k2)
+         omeg   = twopi/twavLL
+         aorb   = uorbu/omeg
+         kn     = 30d0*z00
+         !
+         if (hrmsLL<1d-3) then                              !current only
+            deltau = z00*ee
+         elseif (abs(umod).lt.(0.1*uorbu)) then             !wave only
+            deltau = 0.072*aorb*(aorb/kn)**(-0.25)          !Johnsen and Carlsen (1976)
+         else    !wave + current
             !
-            ! Virtual 2dh velocity, delft3d style
-            if (LL==Lb) then    ! take into account layer integral approach on bnd
-               u2dh = umod
-            else
-               ! here we assume that z0/dzb is small and c9of1==1, ie we use jaustarint==1 approach, cf 3D validation doc Mohamed
-               !u2dh = umod*(log((1d0+hu(LL))/z0urou(LL))-1d0)/(log(dzb/z0urou(LL))-1d0)
-
-               ! UNST-6297 formulation above gives u2dh of order too big in very shallow water
-
-               ! Delft3D:
-               !u2dh = (umod/hu(LL)                                             &
-               !     & *((hu(LL) + z0urou(LL))*log(1d0 + hu(LL)/z0urou(LL))     &
-               !     & - hu(LL)))/log(1d0 + 0.5d0*(max(dzb,0.01d0))/z0urou(LL))
-
-               ! use available depth-averaged u1, v
-               u2dh = sqrt((u1(LL)-ustokes(LL))**2 + &
-                           (v(LL)-vstokes(LL))**2)
-            endif
-            !
-            if (cz > 0d0) then
-               cdrag  = ag/(cz*cz)
-               !
-               ustc2  = cdrag*u2dh**2
-            else
-               ustc2 = 0d0
-            endif
-            !
-            uu = u1Lb-ustokes(Lb)
-            vv = v(Lb)-vstokes(Lb)
-            !
-            if (modind < 9 .and. modind>0) then                   ! wave-current interaction Soulsby (1997), depth-averaged!
-               cphi = csw*csu(LL)+snw*snu(LL)
-               sphi = -csw*snu(LL)+snw*csu(LL)
-               abscos = abs(cphi*uu + sphi*vv) / umod
-               call getsoulsbywci(modind, z00, ustc2, ustw2, fw, cdrag, umod, abscos, taubpuLL, taubxuLL)
-               ! ustbLL = sqrt(umod*taubpuLL)
-            else if (modind == 9) then                            ! wave-current interaction van Rijn (2004)
-               call getvanrijnwci(LL, umod, u2dh, taubpuLL, z0urouL)
-               taubxuLL = rhoL*(ustc2+ustw2)                      ! depth-averaged, see taubot
-            elseif (modind==10) then                              ! Ruessink 2001
-               if (cz > 0d0) then
-                  taubpuLL = cdrag*sqrt(umod**2+(1.16d0*uorbu*fsqrtt)**2)
-                  taubxuLL = rhoL*(ustc2+ustw2)
-               else
-                  taubpuLL = 0d0
-                  taubxuLL = 0d0
-               endif
-            else if (modind==0) then    ! exception where you don't want wave influence on bed shear stress with jawave>0
-               if (sqcf>0d0) then                  
-                  z0urouL  = dzb*exp(-vonkar/sqcf - 1d0)            ! inverse of jaustarint == 1 above  
-                  taubpuLL = ustbLL*ustbLL/umod                     ! use flow ustar
-                  taubxuLL = rhoL*taubpuLL*umod
-               else
-                  z0urouL  = epsz0
-                  taubpuLL = 0d0
-                  taubxuLL = 0d0
-               endif
-            endif
-            ustbLL = sqrt(umod*taubpuLL)                           ! taubpu = (g*U)/C**2 = tau/rho/u
-            sqcf   = max(sqcf,ustbLL / umod )                      ! waveps not needed, see umod = max(umod, 1d-5) line above
-            !
-            taubu(LL)  = taubpuLL*rhoL*(u1Lb+ustokes(Lb))          ! bed shear stress for output. Plus ustokes!
-            taubxu(LL) = taubxuLL
-            !
-            ! set wave enhanced z0 for turbulence and morphology
-            if (sqcf>0d0) then
-               z0urou(LL) = dzb*exp(-vonkar/sqcf - 1d0)            ! inverse of jaustarint == 1 above, updated ustar        
-               z0urou(LL) = min(z0urou(LL), 10d0)
-            else
-               z0urou(LL) = epsz0
-            endif   
-            if (modind==9 .or. modind==0) then
-               z0urou(LL) = z0urouL
-            endif
-            z00 = z0urou(LL)                                       ! wave enhanced z0 for turbulence     
-            !
-            if (stm_included) wblt(LL) = deltau
-            !
-            ! Streaming below deltau with linear distribution
-            if (jawavestreaming == 1 .and. deltau > 1d-7)  then     ! Streaming below deltau with linear distribution                                
-               Dfu0  = Dfuc                                        ! (m/s2)
-               do L  = Lb, Ltop(LL)
-                  if (hu(L) <= deltau) then
-                     htop   = min( hu(L), deltau )                 ! max height within waveboundarylayer
-                     alin   = 1d0 -  htop / deltau                 ! linear from 1 at bed to 0 at deltau
-                     Dfu1   = Dfuc*alin
-                     dzu    = htop-hu(L-1)
-                     adve(L) = adve(L) - 0.5d0*(Dfu0 + Dfu1)*dzu / deltau
-                     Dfu0    = Dfu1
-                  endif
-                  if (hu(L) > deltau) then
-                     if (L==Lb) then
-                        adve(L) = adve(L)-Dfuc*deltau/(2.0*hu(L))                  ! everything in bottom layer   
-                     endif
-                     exit
-                  endif
-               enddo
-            endif
-         else
-            if (sqcf>0d0) then
-               ! taubu for too small wave case needs to be filled
-               z0urou(LL)  = z00                                    ! just use current only z0  
-               taubpuLL    = ustbLL*ustbLL/umod                     ! use flow ustar
-               taubxuLL    = rhoL*taubpuLL*umod
-            else
-               taubu(LL)    = 0d0
-               taubxu(LL)   = 0d0
-               z0urou(LL)   = epsz0
-            endif
+            deltau = 0.2*aorb*(aorb/kn)**(-0.25) * (1.+abs(umod/uorbu))                 ! Modified van Rijn 2011 by Nguyen (2021)
          endif
-      endif          ! end jawave
+         ka       = 30d0*deltau/ee
+         fc       = 0.242/(log10(12.*huLL/ka))**2
+         fc0      = 0.242/(log10(12.*huLL/kn))**2
+         tauw     = 0.5d0*rhomean*fw*uorbu**2
+         !     According to Feddersen (2000) (for random waves)
+         tauwc    = 0.5*rhomean*fc*sqrt(umod**2+0.5*(1.16*uorbu)**2)*u1Lb               ! Feddersen (2000) (for random waves)
+         tauc0    = 0.5*rhomean*fc0*umod*u1Lb
+         !
+         ustar_c  = sqrt(abs(tauc0)/rhomean)                                            ! should correspond to ustbLL above 
+         !
+         taub     = tauwc*(1d0+1.2d0*(tauw/(tauw+abs(tauwc))**3.2))                     ! Soulsby(1997)
+         ustar_cw = sqrt(abs(taub)/rhomean)-ustar_c
+      endif
 
       cfuhiLL   = sqcf*sqcf/hu(Lb)                              ! cfuhiLL   = g / (H.C.C) = (g.K.K) / (A.A)
       cfuhi3D   = cfuhiLL*umod                                  ! cfuhi3D = frc. contr. to diagonal

@@ -90,6 +90,23 @@ module m_waves
  double precision, allocatable              :: ust_mag(:)
  double precision, allocatable              :: fwav_mag(:)
 
+!////////////////////////////////////////////////////////
+! Arrays for Duoc's 3D wave approach; to be incorporated 
+! in existing data structure
+ double precision, allocatable, dimension(:)  :: kw     ! wave number magnitude CC [rad/m]
+ double precision, allocatable, dimension(:)  :: kwL    ! wave number magnitude L [rad/m]
+ double precision, allocatable, dimension(:)  :: kwx    ! wave number x component [rad/m]
+ double precision, allocatable, dimension(:)  :: kwy    ! wave number y component [rad/m]
+ double precision, allocatable, dimension(:)  :: kwn    ! wave number n/u component [rad/m]
+ double precision, allocatable, dimension(:)  :: kwt    ! wave number t/v component [rad/m]
+ double precision, allocatable, dimension(:)  :: dwb    ! wave breaker dissipation [W/m2/m/s]
+ double precision, allocatable, dimension(:)  :: dwf    ! wave bottom dissipation [W/m2/m/s]
+ 
+ 
+
+!///////////////////////////////////////////////////////
+
+
  ! parameters, may be overwritten by user in mdu-file
  double precision                           :: gammax               !< Maximum wave height/water depth ratio
  double precision                           :: alfdeltau = 20d0     !< coeff for thickness of wave bed boundary layer
