@@ -8277,7 +8277,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
 
         if (ice_mapout) then
             call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'aice'  , 'Fraction of the surface area covered by floating ice', '1', 'FlowElem_xcc FlowElem_ycc')
-            call definencvar(imapfile,id_aice(iid)   ,nf90_double,idims,2, 'hice'  , 'Thickness of floating ice cover', 'm', 'FlowElem_xcc FlowElem_ycc')
+            call definencvar(imapfile,id_hice(iid)   ,nf90_double,idims,2, 'hice'  , 'Thickness of floating ice cover', 'm', 'FlowElem_xcc FlowElem_ycc')
             call definencvar(imapfile,id_pice(iid)   ,nf90_double,idims,2, 'pice'  , 'Pressure exerted by the floating ice cover', 'N m-2', 'FlowElem_xcc FlowElem_ycc')
         endif
 
