@@ -553,7 +553,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
     integer(pntrsize)                    , pointer :: typbnd
     integer(pntrsize)                    , pointer :: clyint
     integer(pntrsize)                    , pointer :: sltint
-    integer(pntrsize)                    , pointer :: sndin    
+    integer(pntrsize)                    , pointer :: sndint
 !
     include 'tri-dyn.igd'
 !

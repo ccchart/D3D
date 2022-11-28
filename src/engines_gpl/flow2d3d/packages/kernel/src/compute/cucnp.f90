@@ -295,6 +295,8 @@ subroutine cucnp(dischy    ,icreep    ,dpdksi    ,s0        ,u0        , &
     real(fp)                   :: umod
     real(fp)                   :: uuu
     real(fp)                   :: uweir
+    real(fp)                   :: vicd
+    real(fp)                   :: vicu
     real(fp)                   :: viz1
     real(fp)                   :: viz2
     real(fp)                   :: vvv

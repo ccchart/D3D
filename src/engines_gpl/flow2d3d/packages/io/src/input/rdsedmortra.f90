@@ -224,7 +224,7 @@ subroutine rdsedmortra(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     ! Echo sediment and transport parameters
     !
     call echosed(lundia    ,error     ,lsed      ,lsedtot   , &
-               & iopsus    ,gdp%gdsedpar, gdp%gdtrapar)
+               & iopsus    ,1000.0_fp, 9.81_fp, gdp%gdsedpar, gdp%gdtrapar)
     if (error) goto 999
     !
     ! Echo morphology parameters

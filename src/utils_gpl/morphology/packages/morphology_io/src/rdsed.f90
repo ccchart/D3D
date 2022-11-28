@@ -43,8 +43,8 @@ contains
 
 subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
                & lsedtot   ,lstsci    ,ltur      ,namcon    ,iopsus    , &
-               & nmlb      ,nmub      ,filsed    ,sed_ptr   , &
-               & sedpar    ,trapar    ,griddim   )
+               & nmlb      ,nmub      ,kmax      ,filsed    ,sed_ptr   , &
+               & slu_ptr   ,sedpar    ,trapar    ,griddim   )
 !!--description-----------------------------------------------------------------
 !
 ! Read sediment parameters from an input file
@@ -138,6 +138,7 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
     integer                                  , intent(out) :: iopsus
     integer                                  , intent(in)  :: nmlb
     integer                                  , intent(in)  :: nmub
+    integer                                  , intent(in)  :: kmax
     character(len=*)                         , intent(in)  :: filsed
     type(tree_data)                          , pointer     :: sed_ptr
     type(tree_data)                          , pointer     :: slu_ptr
@@ -550,8 +551,6 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
        bsskin = .false.
        call prop_get_logical(sed_ptr, 'SedimentOverall', 'BsSkin', bsskin)
        if (bsskin) then
-          kssilt = 0.0_fp ?
-          kssand = 0.0_fp ?
           call prop_get(sed_ptr, 'SedimentOverall', 'KsSilt', kssilt)
           call prop_get(sed_ptr, 'SedimentOverall', 'KsSand', kssand)
           !
@@ -1008,14 +1007,17 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
           !
           if (l <= lsed) then
              if (sedpar%eroschel) then
-                erouni(l) = sedpar%erosk1*(sedpar%eroscv/sedpar%eroscu)* &
-                                  (cdryb(l)*cdryb(l)/rhosol(l)/(10.*sedpar%erosd50))
-                !
-                ! Schelde formulations: Erosion = M*(taub-taucr)
-                !         for consistanct with general formulation (taub/taucr - 1)
-                !         M = Mschel*taucr
-                !
-                erouni(l) = erouni(l)*tceuni(l)
+                call write_error('eroschel code needs migration', unit=lundia)
+                error = .true.
+                return
+                !erouni(l) = sedpar%erosk1*(sedpar%eroscv/sedpar%eroscu)* &
+                !                  (cdryb(l)*cdryb(l)/rhosol(l)/(10.*sedpar%erosd50))
+                !!
+                !! Schelde formulations: Erosion = M*(taub-taucr)
+                !!         for consistanct with general formulation (taub/taucr - 1)
+                !!         M = Mschel*taucr
+                !!
+                !erouni(l) = erouni(l)*tceuni(l)
              endif
              call prop_get(sedblock_ptr, '*', 'FacDSS', facdss(l))
           endif
@@ -1272,7 +1274,7 @@ end subroutine opensedfil
 
 
 subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
-                 & iopsus    ,sedpar    ,trapar    )
+                 & iopsus    ,rhow      ,ag        ,sedpar    ,trapar    )
 !!--description-----------------------------------------------------------------
 !
 ! Report sediment parameter to diag file
@@ -1360,6 +1362,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
     character(45)             :: txtput1
     character(10)             :: txtput2
     character(256)            :: errmsg
+    real(fp), intent(in) :: rhow
+    real(fp), intent(in) :: ag
 !
 !! executable statements -------------------------------------------------------
 !
@@ -1573,7 +1577,7 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        ! Scheldt river
        !
        plasin    = 254.*(nclay - .101)
-       sedpar%tcrint(1) = 0.163*sedpar%erosk2_int*plasin**0.84
+       !sedpar%tcrint(1) = 0.163*sedpar%erosk2_int*plasin**0.84
        !
        ! Consolidation coefficient CV
        !
@@ -2045,7 +2049,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        if (sedpar%ero_intfc) then
           txtput1 = '  tcrint'
-          write (lundia, '(a,a,e14.6)') txtput1,':',sedpar%tcrint(l)
+          write(lundia,'(A)') 'ERROR: SEDPAR%TCRINT not yet defined'
+          !write (lundia, '(a,a,e14.6)') txtput1,':',sedpar%tcrint(l)
        endif
        !
        if (sedpar%flnrd(l) /= ' ') then
