@@ -1697,12 +1697,12 @@ subroutine GetCSParsTotalInterpolate(cross1, cross2, f, dpt, totalArea, totalWid
 
 end subroutine GetCSParsTotalInterpolate
 
-subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOption, hysteresis, doSummerDike)
+subroutine GetCSParsTotalCross(cross, depth, totalArea, totalWidth, calculationOption, hysteresis, doSummerDike)
 
    use m_GlobalParameters
    ! Global Variables
    type (t_CrossSection), intent(in) :: cross           !< cross section
-   double precision, intent(in)      :: dpt             !< water depth at cross section
+   double precision, intent(in)      :: depth             !< water depth at cross section
    double precision, intent(out)     :: totalArea       !< total area for given DPT
    double precision, intent(out)     :: totalWidth      !< total width of water surface
                                                         !> type of total area computation, possible values:\n
@@ -1717,17 +1717,16 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
    ! Local Variables
    type(t_CSType), pointer           :: crossDef
    double precision                  :: wetperimeter
+   double precision                  :: dpt
    double precision                  :: conv
    double precision                  :: cz = 60.0d0
    double precision                  :: u1 = 0.0d0
    double precision                  :: wlev            !< water level at cross section
    logical                           :: getSummerDikes
    double precision                  :: af_sub(3), perim_sub(3), width_sub(3)
-   if (dpt <= 0.0d0) then
-      totalArea = 0.0d0
-      totalWidth = sl
-      return
-   endif
+   
+   dpt = max(depth, thresholdFlood)
+   
 
    crossDef => cross%tabdef
 
@@ -1750,6 +1749,12 @@ subroutine GetCSParsTotalCross(cross, dpt, totalArea, totalWidth, calculationOpt
       case default
          call SetMessage(LEVEL_ERROR, 'INTERNAL ERROR: Unknown type of cross section')
       end select
+   
+   if (depth <= 0.0d0) then
+      totalArea = 0.0d0
+   elseif (depth <= thresholdFlood) then
+      totalArea = (depth/thresholdFlood) * totalarea
+   endif
 
 end subroutine GetCSParsTotalCross
 
