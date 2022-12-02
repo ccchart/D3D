@@ -77,7 +77,8 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
    !! In case of C/C++ calling side, construct an MPI communicator, and call
    !! MPI_Fint MPI_Comm_c2f(MPI_Comm comm) to convert the C comm handle
    !! to a FORTRAN comm handle.
-   integer, target :: DFM_COMM_DFMWORLD = NAMECLASH_MPI_COMM_WORLD !< [-] The MPI communicator for dflowfm (FORTRAN handle). {"rank": 0}
+   integer, target :: DFM_COMM_DFMWORLD ! = NAMECLASH_MPI_COMM_WORLD !< [-] The MPI communicator for dflowfm (FORTRAN handle). {"rank": 0}
+   integer, target :: DFM_COMM_ALLWORLD                              !< [-] The MPI communicator for dflowfm including the fetch proc (FORTRAN handle). {"rank": 0}
 #endif
    type tghost
       integer, dimension(:), allocatable   :: list               !< list of ghost nodes or links, in order of their corresponding other domain, dim(1:number of ghost nodes/links)
@@ -91,6 +92,9 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
    integer                                 :: ndomains = 0       !< number of domains
    integer                                 :: numranks = 1       !< number of ranks
    integer                                 :: my_rank            !< own rank
+
+   integer                                 :: use_fetch_proc = 0   !< if 1, then a separate proc is dedicated to calculate fetch parlength and depth
+   integer                                 :: fetch_proc_rank = -1 !< the rank of the fetch proc. it is the last proc of the entire proc group when it is active 
    
    character(len=4)                        :: sdmn               !< domain number string
 
@@ -2106,7 +2110,7 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
 
    !     restore polygon
          call restorepol()
-      else
+      else 
 !         call partition_make_sendlist_MPI(ITYPE_S,numlaymax)
 !         call partition_make_sendlist_MPI(ITYPE_Sall,numlaymax)
 !         call partition_make_sendlist_MPI(ITYPE_u,numlaymax)
@@ -3787,7 +3791,7 @@ end subroutine partition_make_globalnumbers
       integer                :: key_all
    
       integer                :: ierror
-      if (jampi == 1) then
+      if (jampi == 1) then 
    !     take maximum key of all domains
          call mpi_allreduce(key,key_all,1,mpi_integer,mpi_max,DFM_COMM_DFMWORLD,ierror)
          key = key_all
@@ -3918,7 +3922,7 @@ end subroutine partition_make_globalnumbers
       integer, dimension(N)                         :: dum
       
       integer :: ierror
-      
+         
 #ifdef HAVE_MPI
       call MPI_allreduce(var,dum,N,mpi_integer,mpi_max,DFM_COMM_DFMWORLD,ierror)
       var = dum
@@ -5342,7 +5346,7 @@ end subroutine gatherv_int_data_mpi_dif
       implicit none
       integer :: ierr
 #ifdef HAVE_MPI      
-      call MPI_Abort(DFM_COMM_DFMWORLD, DFM_GENERICERROR, ierr)
+      call MPI_Abort(DFM_COMM_ALLWORLD, DFM_GENERICERROR, ierr)
 #endif
       return
    end subroutine abort_all
@@ -5358,14 +5362,14 @@ end subroutine gatherv_int_data_mpi_dif
 
       integer             :: ierr
 
-      call MPI_barrier(DFM_COMM_DFMWORLD,ierr)
+      call MPI_barrier(DFM_COMM_ALLWORLD,ierr)
 
       if ( my_rank.eq.0 ) then
          write(6,*) "press a key from rank 0..."
          read(5,*)
       end if
 
-      call MPI_barrier(DFM_COMM_DFMWORLD,ierr)
+      call MPI_barrier(DFM_COMM_ALLWORLD,ierr)
 #else
       write(6,*) "press a key..."
       read(5,*)

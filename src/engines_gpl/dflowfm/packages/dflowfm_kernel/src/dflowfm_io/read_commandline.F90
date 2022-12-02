@@ -108,6 +108,8 @@ function read_commandline() result(istat)
             iarg_usecaching = 0
          case ('findcells')
             md_findcells = 1
+        case ('usefetchproc')
+            use_fetch_proc = 1
          case ('partition')
             md_japartition = 1
             jaGUI = 0 ! batch-mode only, no GUI needed.

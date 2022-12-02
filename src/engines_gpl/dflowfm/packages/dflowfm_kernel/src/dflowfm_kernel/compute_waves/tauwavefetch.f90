@@ -38,23 +38,18 @@ subroutine tauwavefetch(tim)               ! fetchlength and fetchdepth based si
  use m_waves, only: fetch, nwf, fetdp, uorb, twav, hwav
  use m_flowtimes
  use m_partitioninfo
- use unstruc_display, only: jaGUI
- USE M_OBSERVATIONS
- use geometry_module, only: getdx, getdy, dbdistance, cross, normalout, normalin
- use m_missing, only: dmiss
  use m_sferic
- use m_plotdots
 
  implicit none
 
  double precision :: tim
 
- double precision :: U10, fetchL, fetchd, hsig, tsig, tlim, rl, rl0, sqrt2, rk, ust, xkk1, ykk1, xkk2, ykk2
- double precision :: dir, uwin, vwin, prin, cs, sn, fetc, fetd, xn, yn, sumw, www , dsk2, dum
- double precision :: SL,SM,XCR,YCR,CRP, alfa1, alfa2, wdep,  xzk, yzk, dist, distmin, celsiz
- double precision :: sind, cosd, ustx1, ustx2, usty1, usty2
- integer          :: k, L, kk, kkk, k1, k2, kup, n, ndone, ierr, nup, nupf, jacros, nw1, nw2, nodenum, LL, knw = 5, kb
- INTEGER          :: NDIR, NWND, NSTAT, MOUT, ndoneprevcycle, kkmin, ndoner, k12, ks, ke, ki, msam = 0, jaopen
+ integer            :: ierr, k, kb, ki, k1, k2, kkk, L, n, ndoner
+ integer, external  :: initialise_fetch_proc_data
+ logical, external  :: should_fetch_computation_be_stopped
+ logical, parameter :: call_from_tauwavefetch=.true.
+ double precision   :: U10, fetchL, fetchd, hsig, tsig, sqrt2, dum
+ 
  double precision, dimension(:), allocatable :: wxc, wyc
 
  integer :: ndraw
@@ -71,7 +66,7 @@ subroutine tauwavefetch(tim)               ! fetchlength and fetchdepth based si
       call aerr('fetdp(nwf, ndx)', ierr ,  ndx*nwf)
 
       ndx2dr = 0
-      if (jampi == 1) then
+      if (jampi == 1 .and. use_fetch_proc == 0 ) then
          allocate ( fett(2, ndx) , stat = ierr)
          call aerr('fett(2, ndx)', ierr ,  ndx*2)
 
@@ -86,178 +81,47 @@ subroutine tauwavefetch(tim)               ! fetchlength and fetchdepth based si
              if (kcs(k) == 2) ndx2dr = ndx2dr + 1
          end do
       endif
-
+             
+      if ( use_fetch_proc > 0 ) then
+         ierr = initialise_fetch_proc_data()
+      endif
+     
  endif
 
  if (tim >= time_fetch) then
 
-      ! call mpi_barrier(DFM_COMM_DFMWORLD,ierr)
-
-      time_fetch = max(tim, time_fetch + tifetch )
-      if (tifetch == 0d0) time_fetch = 1d30
-
-      fetch = dmiss ; fetdp = dmiss
-mainloop:do n  = 1, nwf
-         if (jagui > 0) then
-            call cls1()
-            call setcol(221)
-            ! numdots = 0
-         endif
-         dir   = twopi *real (n-1) / real(nwf-1)
-         uwin  = cos(dir) ; vwin = sin(dir)
-         ndone = 0
-
-         do k = 1,ndxi
-            if (kcs(k) .ne. 2) cycle
-            kkmin = 0 ; distmin = 1d10; celsiz = 0d0
-            if (jampi == 1) then
-               if (idomain(k) .ne. my_rank) cycle
+    do !  inifinite loop for the fetch proc
+        
+        if ( use_fetch_proc > 0 ) then
+            if ( should_fetch_computation_be_stopped(call_from_tauwavefetch) ) then
+                return
             endif
-            do kk = 1,netcell(k)%n
-               L  = netcell(k)%lin(kk)
-               k1 = netcell(k)%nod(kk)
-               if (kk == netcell(k)%n) then
-                  k2 = netcell(k)%nod(1)
-               else
-                  k2 = netcell(k)%nod(kk+1)
-               endif
-               celsiz = max(celsiz, dbdistance(xk(k1), yk(k1), xk(k2), yk(k2), jsferic, jasfer3D, dmiss) )
-            enddo
-            if (jsferic == 1) celsiz=celsiz*rd2dg/ra
+        endif
+                
+        if ( use_fetch_proc == 1  ) then
+           call send_s1_to_fetch_proc()
+        endif
+     
+        time_fetch = max(tim, time_fetch + tifetch )
+        if (tifetch == 0d0) time_fetch = 1d30
 
-            jaopen = 0
-            do kk = 1,nd(k)%lnx
-               L  = iabs( nd(k)%ln(kk) )
-               if (ln(1,L) > ndxi) then
-                  jaopen = 1
-               endif
-            enddo
-
-            do kk = 1,netcell(k)%n
-               L  = netcell(k)%lin(kk)
-               k1 = netcell(k)%nod(kk)
-               if (kk == netcell(k)%n) then
-                  k2 = netcell(k)%nod(1)
-               else
-                  k2 = netcell(k)%nod(kk+1)
-               endif
-
-               wdep   = s1(k) - min(zk(k1),zk(k2))
-               if (lnn(L) == 1 .or.  wdep < 0.5d0 .or. kn(3,L) == 0 .or. jaopen == 1) then    ! link shallow or closed => start fetch here
-                  call normalout(xk(k1), yk(k1), xk(k2), yk(k2), xn, yn, jsferic, jasfer3D, dmiss, dxymis)
-                  prin = uwin*xn + vwin*yn
-                  if ( prin < 0d0 ) then                   ! if upwind
-                     crp  = xn ; xn  = -yn ; yn = crp
-                     crp  = 0d0
-                     xkk1 = xk(k1) - 2*celsiz*xn
-                     ykk1 = yk(k1) - 2*celsiz*yn
-                     xkk2 = xk(k2) + 2*celsiz*xn
-                     ykk2 = yk(k2) + 2*celsiz*yn
-                     CALL CROSS(Xkk1,Ykk1,Xkk2,Ykk2,Xzw(k),Yzw(k),Xzw(k)-1d4*uwin,Yzw(k)-1d4*vwin, &
-                                JACROS,SL,SM,XCR,YCR,CRP,jsferic, dmiss)
-                     if (jacros == 1) then
-                        dist = dbdistance(xz(k), yz(k), xcr, ycr, jsferic, jasfer3D, dmiss)
-                        if (dist < distmin) then
-                           distmin = dist ; kkmin = kk        ! closest crossed upwind edge
-                        endif
-                     endif
-                  endif
-               endif
-            enddo
-            if (kkmin > 0) then
-                if (jaopen == 1) then
-                   fetch(n,k) = 1d5
-                else
-                   fetch(n,k) = min(distmin, celsiz)
-                endif
-                fetdp(n,k) = max( s1(k) - bl(k), .1d0)
-                if (jagui > 0) then
-                   !CALL rCIRc(Xz(k),Yz(k) ) !, fetch(n,k))
-                   !call adddot(Xz(k),Yz(k),1d0)
-                endif
-                ndone      = ndone + 1
-            endif
-
-         enddo
-
-         if (jampi == 1) then
-             call reducefett(n)
-             call reduce_int_sum(ndone,ndoner)
-             ndone = ndoner
-         endif
-
-         if (jagui > 0) call setcol(31)
-         do while ( ndone < ndx2dr )
-
-            ndoneprevcycle = ndone
-            ndone          = 0
-
-555         continue
-            do k = 1,ndxi
-               if (kcs(k) .ne. 2) cycle
-               if (jampi == 1) then
-                  if (idomain(k) .ne. my_rank) cycle
-               endif
-
-               if (fetch(n,k) .eq. dmiss) then
-                  kup = 0 ; fetc = 0; fetd = 0; sumw = 0; nup = 0; nupf = 0
-                  do kk = 1,nd(k)%lnx
-                     L  = iabs( nd(k)%ln(kk) )
-                     k2 = ln(1,L) ; if (k2 == k) k2 = ln(2,L)
-                     if ( kcs(k2) == 2 ) then  ! internal
-                        !prin = uwin*getdx(xz(k2),yz(k2),xz(k),yz(k), jsferic) + vwin*getdy( xz(k2),yz(k2),xz(k),yz(k), jsferic)
-                        !dsk2 = dbdistance(xz(k2),yz(k2),xz(k),yz(k), jsferic, jasfer3D, dmiss)
-                        !cs   = min(max(prin/dsk2,-1d0),1d0)
-
-                        cs   = uwin*csu(L) + vwin*snu(L)
-                        if (L .ne. nd(k)%ln(kk) ) cs = -1d0*cs
-                        dsk2 = dx(L)
-                        prin = dsk2*cs
-
-                        if (cs > 0) then ! internal upwind points
-                           nup = nup + 1
-                           if (fetch(n,k2) .ne. dmiss) then ! do not look at open boundaries
-                               nupf = nupf + 1
-                               sn   = sqrt( 1d0 - cs*cs)
-                               ! www  = (1d0-sn)/dsk2               ! first attempt
-                               www  = (cs   + 0.05d0*sn)*wu(L)/dsk2 ! some diffusion
-                               fetc = fetc  + www*(fetch(n,k2) + prin)
-                               fetd = fetd  + www*(fetch(n,k2) + prin)*max(.1d0, 0.8d0*fetdp(n,k2) + 0.2d0*(s1(k)-bl(k)) )
-                               sumw = sumw  + www
-                           endif
-                        endif
-                     endif
-                  enddo
-                  if ( nup == nupf .and. sumw > 0d0) then
-                     fetch(n,k) = fetc/sumw
-                     fetdp(n,k) = fetd/ ( sumw*fetch(n,k) )
-                     ndone      = ndone + 1
-                     if (jagui > 0) then
-                        !CALL rCIRc(Xz(k),Yz(k) )
-                        !call adddot(Xz(k),Yz(k),2d0)
-                         call KCIR(Xz(k),Yz(k),1d0)
-                     end if
-                  endif
-               else
-                  ndone = ndone + 1
-               endif
-            enddo ! k
-
-            if (jampi == 1) then
-               call reducefett(n)
-               call reduce_int_sum(ndone,ndoner)
-               ndone = ndoner
-            endif
-
-            if ( ndone.eq.ndoneprevcycle ) then
-               call QNERROR('connectivity issue in fetch', ' ', ' ')
-               exit mainloop
-            end if
-
-         enddo
-
-    enddo mainloop
-
+        if (use_fetch_proc == 0 .or. my_rank == fetch_proc_rank ) then
+           call calculate_fetch_values()
+        endif
+      
+        if ( use_fetch_proc == 1  ) then
+           call get_fetch_values_from_fetch_proc()
+        endif
+        
+        ! writing for testing purpose
+        !call write_dp_data_over_cells("fetch", 1, 1, nwf, ndx, fetch)
+        !call mpi_barrier(DFM_COMM_ALLWORLD,ierr)
+        !stop
+        
+        if (use_fetch_proc == 0 .or. my_rank /= fetch_proc_rank) then
+           exit
+        endif
+      enddo
  endif
 
  sqrt2 = sqrt(2d0)
@@ -339,6 +203,192 @@ mainloop:do n  = 1, nwf
     phiwav(kb) = phiwav(ki)    
  enddo  
  
-
-
 end subroutine tauwavefetch
+ 
+!> calculates fetch length and depth  
+subroutine calculate_fetch_values()
+ 
+ use m_sediment                             
+ use m_netw                                 
+ use m_flowgeom                             
+ use m_flow
+ use m_waves,         only: nwf, fetch, fetdp
+ use m_partitioninfo
+ use unstruc_display, only: jagui
+ use geometry_module, only: getdx, getdy, dbdistance, cross, normalout, normalin
+ use m_missing,       only: dmiss
+ use m_sferic
+
+ implicit none
+ 
+ integer          :: k, kk, kkmin, l, k1, k2, kup, n, ndone, ndoner, ndoneprevcycle, nup, nupf, jaopen, jacros
+ double precision :: dir, uwin, vwin, prin, dist, distmin, celsiz, wdep, xn, yn, crp, xkk1, ykk1, xkk2, ykk2
+ double precision :: sl, sm, xcr, ycr, fetc, fetd, sumw, cs, sn, dsk2, www
+ 
+ fetch = dmiss ; fetdp = dmiss
+ do n  = 1, nwf
+    if (jagui > 0) then
+        call cls1()
+        call setcol(221)
+        ! numdots = 0
+    endif
+	
+    dir   = twopi *real(n - 1) / real(nwf - 1)
+    uwin  = cos(dir) ; vwin = sin(dir)
+    ndone = 0
+
+    do k = 1,ndxi
+        if ( kcs(k) /= 2 ) cycle
+        kkmin = 0 ; distmin = 1d10; celsiz = 0d0
+        if ( jampi == 1  .and. use_fetch_proc == 0 ) then
+            if ( idomain(k) /= my_rank) cycle
+        endif
+        do kk  = 1,netcell(k)%n
+            L  = netcell(k)%lin(kk)
+            k1 = netcell(k)%nod(kk)
+            if ( kk == netcell(k)%n ) then
+                k2 = netcell(k)%nod(1)
+            else
+                k2 = netcell(k)%nod(kk+1)
+            endif
+            celsiz = max(celsiz, dbdistance(xk(k1), yk(k1), xk(k2), yk(k2), jsferic, jasfer3D, dmiss) )
+        enddo
+        if (jsferic == 1) celsiz=celsiz*rd2dg/ra ! Herman questioned this line 17.11.2022
+
+        jaopen = 0
+        do kk  = 1,nd(k)%lnx
+            L  = iabs( nd(k)%ln(kk) )
+            if ( ln(1,L) > ndxi ) then
+                jaopen = 1
+            endif
+        enddo
+
+        do kk  = 1,netcell(k)%n
+            L  = netcell(k)%lin(kk)
+            k1 = netcell(k)%nod(kk)
+            if ( kk == netcell(k)%n ) then
+                k2 = netcell(k)%nod(1)
+            else
+                k2 = netcell(k)%nod(kk+1)
+            endif
+
+            wdep = s1(k) - min(zk(k1),zk(k2))
+            if ( lnn(L) == 1 .or.  wdep < 0.5d0 .or. kn(3,L) == 0 .or. jaopen == 1 ) then    ! link shallow or closed => start fetch here
+                call normalout(xk(k1), yk(k1), xk(k2), yk(k2), xn, yn, jsferic, jasfer3D, dmiss, dxymis)
+                prin = uwin*xn + vwin*yn
+                if ( prin < 0d0 ) then                   ! if upwind
+                    crp  = xn ; xn  = -yn ; yn = crp
+                    crp  = 0d0
+                    xkk1 = xk(k1) - 2*celsiz*xn
+                    ykk1 = yk(k1) - 2*celsiz*yn
+                    xkk2 = xk(k2) + 2*celsiz*xn
+                    ykk2 = yk(k2) + 2*celsiz*yn
+                    call cross(xkk1,ykk1,xkk2,ykk2,xzw(k),yzw(k),xzw(k)-1d4*uwin,yzw(k)-1d4*vwin, &
+                                jacros,sl,sm,xcr,ycr,crp,jsferic, dmiss)
+                    if ( jacros == 1 ) then
+                        dist = dbdistance(xz(k), yz(k), xcr, ycr, jsferic, jasfer3D, dmiss)
+                        if ( dist < distmin ) then
+                           distmin = dist ; kkmin = kk        ! closest crossed upwind edge
+                        endif
+                    endif
+                endif
+            endif
+        enddo
+		
+        if ( kkmin > 0 ) then
+            if ( jaopen == 1 ) then
+                fetch(n,k) = 1d5
+            else
+                fetch(n,k) = min(distmin, celsiz)
+            endif
+            fetdp(n,k) = max( s1(k) - bl(k), .1d0)
+            if ( jagui > 0 ) then
+                   !CALL rCIRc(Xz(k),Yz(k) ) !, fetch(n,k))
+                   !call adddot(Xz(k),Yz(k),1d0)
+            endif
+            ndone = ndone + 1
+        endif
+
+    enddo
+
+    if ( jampi == 1 .and. use_fetch_proc == 0 ) then
+        call reducefett(n)
+        call reduce_int_sum(ndone,ndoner)
+        ndone = ndoner
+    endif
+
+    if ( jagui > 0 ) call setcol(31)
+	
+    do while ( ndone < ndx2dr )
+
+        ndoneprevcycle = ndone
+        ndone          = 0
+
+        do k = 1, ndxi
+            if ( kcs(k) /= 2 ) cycle
+            if ( jampi == 1 .and. use_fetch_proc == 0 ) then
+                if ( idomain(k) /= my_rank ) cycle
+            endif
+
+            if ( fetch(n,k) == dmiss ) then
+                kup = 0 ; fetc = 0; fetd = 0; sumw = 0; nup = 0; nupf = 0
+                do kk  = 1,nd(k)%lnx
+                    L  = iabs( nd(k)%ln(kk) )
+                    k2 = ln(1,L) ; if (k2 == k) k2 = ln(2,L)
+                    if ( kcs(k2) == 2 ) then  ! internal
+                        !prin = uwin*getdx(xz(k2),yz(k2),xz(k),yz(k), jsferic) + vwin*getdy( xz(k2),yz(k2),xz(k),yz(k), jsferic)
+                        !dsk2 = dbdistance(xz(k2),yz(k2),xz(k),yz(k), jsferic, jasfer3D, dmiss)
+                        !cs   = min(max(prin/dsk2,-1d0),1d0)
+
+                        cs   = uwin*csu(L) + vwin*snu(L)
+                        if ( L /= nd(k)%ln(kk) ) cs = -1d0*cs
+                        dsk2 = dx(L)
+                        prin = dsk2*cs
+
+                        if ( cs > 0 ) then ! internal upwind points
+                            nup = nup + 1
+                            if ( fetch(n,k2) .ne. dmiss ) then ! do not look at open boundaries
+                               nupf = nupf + 1
+                               sn   = sqrt( 1d0 - cs*cs)
+                               ! www  = (1d0-sn)/dsk2               ! first attempt
+                               www  = (cs   + 0.05d0*sn)*wu(L)/dsk2 ! some diffusion
+                               fetc = fetc  + www*(fetch(n,k2) + prin)
+                               fetd = fetd  + www*(fetch(n,k2) + prin)*max(.1d0, 0.8d0*fetdp(n,k2) + 0.2d0*(s1(k)-bl(k)) )
+                               sumw = sumw  + www
+                            endif
+                        endif
+                    endif
+                enddo
+                if ( nup == nupf .and. sumw > 0d0 ) then
+                    fetch(n,k) = fetc/sumw
+                    fetdp(n,k) = fetd/ ( sumw*fetch(n,k) )
+                    ndone      = ndone + 1
+                    if ( jagui > 0 ) then
+                        !CALL rCIRc(Xz(k),Yz(k) )
+                        !call adddot(Xz(k),Yz(k),2d0)
+                        call KCIR(Xz(k),Yz(k),1d0)
+                    endif
+                endif
+            else
+                ndone = ndone + 1
+            endif
+        enddo ! k
+
+        if ( jampi == 1 .and. use_fetch_proc == 0 ) then
+            call reducefett(n)
+            call reduce_int_sum(ndone,ndoner)
+            ndone = ndoner
+        endif
+
+        if ( ndone == ndoneprevcycle ) then
+            call qnerror('connectivity issue in fetch', ' ', ' ')
+            return
+        endif
+
+    enddo
+
+enddo 
+
+end subroutine calculate_fetch_values
+
+
