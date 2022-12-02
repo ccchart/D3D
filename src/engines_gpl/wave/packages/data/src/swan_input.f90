@@ -2397,7 +2397,7 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
     integer                        , intent(in)  :: calccount
     integer                        , intent(in)  :: itide
     integer                        , intent(in)  :: nttide
-    character(*), intent(in)  :: filnam
+    character(*)                   ,intent(in)  :: filnam
     type(swan_type)                              :: sr
     type(wave_data_type)                         :: wavedata
     integer                        , intent(in)  :: inest
@@ -2410,8 +2410,9 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
     integer           :: loc_tstop
     integer           :: loc_hotstart
     integer           :: loc_hotsave
+    integer           :: ierr
     character(256)    :: rec
-    character(180)    :: line !BS same length as in write_swan_inp
+    character(256)    :: line !BS same length as in write_swan_inp: 180. Is it a Swan limit? Double check.
     character(15)               :: tbegc
     character(15)               :: tendc
     character(15), external     :: datetime_to_string
@@ -2420,71 +2421,68 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
 !! executable statements -------------------------------------------------------
 !
     write(*,'(2a)') 'Updating pre-existing INPUT file: ',trim(filnam)
-    
-    open (newunit=old_input, file = filnam, form = 'formatted', status = 'old',err=6666)
+    !
+    open (newunit=old_input, file = filnam, form = 'formatted', status = 'old',iostat=ierr)
+    if(ierr /= 0) then
+        write(*,'(2a)') '*** ERROR: Unable to find file ',trim(filnam)
+        close(old_input)
+        call wavestop(1, 'Unable to find file '//trim(filnam))
+    endif
+    !
     open (newunit=new_input, file = 'INPUT', form = 'formatted', status = 'replace')
     
-10  continue
-    read(old_input,'(a)',end=7777,err=8888) rec
-    !=============================================================================
-    !               WITH TAGS
-    !=============================================================================
-    ! look for $TSTART$, $TSTOP$, $HOTSTART$, $HOTSAVE$
-    loc_tstart   = index(rec,'$TSTART$'  )
-    loc_tstop    = index(rec,'$TSTOP$'   )
-    loc_hotstart = index(rec,'$HOTSTART$')
-    loc_hotsave  = index(rec,'$HOTSAVE$' )
-    !
-    if(loc_tstart/=0 .and. loc_tstop /=0) then
-        tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-        tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
-        line = ' '
-        line(1:loc_tstart-1) = rec(1:loc_tstart-1)
-        line(loc_tstart+16:) = rec(loc_tstart+8:)
-        write(line(loc_tstart:loc_tstart+15),'(a)') tbegc
-        loc_tstop = index(line,'$TSTOP$')
-        write(line(loc_tstop:loc_tstop+15),'(a)') tendc
-        write(new_input,'(a)') line
-        !
-    elseif(loc_tstart/=0) then
-        tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-        line = ' '
-        line(1:loc_tstart-1) = rec(1:loc_tstart-1)
-        line(loc_tstart+16:) = rec(loc_tstart+8:)
-        write(line(loc_tstart:loc_tstart+15),'(a)') tbegc
-        write(new_input,'(a)') line
-        !
-    elseif(loc_tstop/=0) then
-        tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
-        line = ' '
-        line(1:loc_tstop-1) = rec(1:loc_tstop-1)
-        line(loc_tstop+16:) = rec(loc_tstop+8:)
-        write(line(loc_tstop:loc_tstop+15),'(a)') tendc
-        write(new_input,'(a)') line
-        !
-    elseif(loc_hotstart/=0) then
-        ! check for existence of hotfile, if found, use it. done with a new routine 
-        call write_swan_inp_hotstart(inest,fname,luninp,sr)
-    elseif(loc_hotsave/=0) then
-        ! SPEC for netcdf hotfiles, with format hot_inest_date_time.nc
-        call write_swan_inp_hotfile(fname,inest,luninp,sr,wavedata)
-    else
-        write(new_input,'(a)') rec
-    endif
+    read(old_input,'(a)',iostat=ierr) rec
+    do while (ierr == 0) 
+            !
     
+        if (ierr /= 0) then
+            write(*,'(2a)') '*** ERROR: Unable to read file ',trim(filnam)
+            close(old_input)
+            close(new_input)
+            call wavestop(1, 'Unable to read file '//trim(filnam))
+        endif
     
-    goto 10
+        !=============================================================================
+        !               WITH TAGS
+        !=============================================================================
+        ! look for $TSTART$, $TSTOP$, $HOTSTART$, $HOTSAVE$
+        loc_tstart   = index(rec,'$TSTART$'  )
+        loc_tstop    = index(rec,'$TSTOP$'   )
+        loc_hotstart = index(rec,'$HOTSTART$')
+        loc_hotsave  = index(rec,'$HOTSAVE$' )
+        !
+        line = rec
+        !
+        if(loc_tstart /= 0) then
+            tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
+            line = ' ' ! I'll leave it for now. I want to make sure things got written correctly before removing this 
+            line(1:loc_tstart-1) = rec(1:loc_tstart-1)
+            line(loc_tstart+16:) = rec(loc_tstart+8:)
+            write(line(loc_tstart:loc_tstart+15),'(a)') tbegc
+        endif
+        if(loc_tstop /= 0) then
+            tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
+            line = ' '
+            line(1:loc_tstop-1) = rec(1:loc_tstop-1)
+            line(loc_tstop+16:) = rec(loc_tstop+8:)
+            write(line(loc_tstop:loc_tstop+15),'(a)') tendc
+        endif
+        if(loc_hotstart /= 0) then
+            ! check for existence of hotfile, if found, use it. done with a new routine 
+            call create_hotstart_line(inest,fname,line,sr) ! there is an actual WRITING here. Remove.
+        endif
+        if(loc_hotsave /= 0) then
+            ! SPEC for netcdf hotfiles, with format hot_inest_date_time.nc
+            call create_hotfile_line(fname,inest,line,sr,wavedata)
+        endif
+        write(new_input,'(a)') line
+        line       = ' '
+        line(1:2) = ' $ '
+        !
+        read(old_input,'(a)',iostat=ierr) rec
+    end do
 
-6666 continue
-     write(*,'(2a)') '*** ERROR: Unable to find file ',trim(filnam)
-     close(old_input)
-     call wavestop(1, 'Unable to find file '//trim(filnam))
-8888 continue
-     write(*,'(2a)') '*** ERROR: Unable to read file ',trim(filnam)
-     close(old_input)
-     close(new_input)
-     call wavestop(1, 'Unable to read file '//trim(filnam))
-7777 continue     
+    
     close(old_input)
     close(new_input)
     
@@ -2632,7 +2630,7 @@ subroutine write_swan_inp (wavedata, calccount, &
     character(37)               :: aicefil
     character(60)               :: lijn
     character(60)               :: outfirst
-    character(85)               :: line
+    character(256)               :: line
     character(79)               :: pointname
     character(256)              :: fname
     character(4)                :: copy
@@ -3343,7 +3341,8 @@ subroutine write_swan_inp (wavedata, calccount, &
     !
     if (sr%hotfile) then
        !BS 
-       call write_swan_inp_hotstart(inest,fname,luninp,sr)
+       call create_hotstart_line(inest,fname,line,sr)
+       write (luninp, '(1X,A)') line
     endif
     !
 !-----------------------------------------------------------------------
@@ -3968,8 +3967,8 @@ subroutine write_swan_inp (wavedata, calccount, &
     endif
     !
     !BS UNST-6233 routine to write hotfile commmand on INPUT file
-    call write_swan_inp_hotfile(fname,inest,luninp,sr,wavedata)
-    
+    call create_hotfile_line(fname,inest,line,sr,wavedata)
+    write (luninp, '(1X,A)') line
     !========================================================================================================== CUT HERE start
     ! replaced code
     !========================================================================================================== CUT HERE stop
@@ -4150,7 +4149,7 @@ end subroutine outputCurvesFromFile
 end subroutine write_swan_inp
 !
 !===============================================================================
-subroutine write_swan_inp_hotfile(fname,inest,luninp,sr,wavedata)
+subroutine create_hotfile_line(fname,inest,line,sr,wavedata)
     use precision_basics
     use wave_data
     !
@@ -4158,14 +4157,13 @@ subroutine write_swan_inp_hotfile(fname,inest,luninp,sr,wavedata)
     !
     ! Global variables
     integer       , intent(in)  :: inest
-    integer       , intent(in)  :: luninp
     character(*)                :: fname
+    character(256)            :: line
     
     type(swan_type)             :: sr
     type(wave_data_type)        :: wavedata
     
     ! Local variables
-    character(85)            :: line
     character(15), external     :: datetime_to_string
     
     ! Default: put current time in writehottime
@@ -4192,31 +4190,27 @@ subroutine write_swan_inp_hotfile(fname,inest,luninp,sr,wavedata)
        !
        write (fname,'(a,i0,5a)') 'hot_', inest, '_', trim(sr%writehottime(1:8)), '_', trim(sr%writehottime(10:15)), '.nc'
        line = "SPEC 'COMPGRID' RELATIVE '" // trim(fname) // "'"    
-       write (luninp, '(1X,A)') line ! luninp is still here... can I get rid of it?
     endif
-    line       = ' '
-    line(1:2) = '$ '
-    write (luninp, '(1X,A)') line ! we write here, I don't want to pass luninp (associated with the INPUT file)
     
     
     
     
-end subroutine write_swan_inp_hotfile
+    
+end subroutine create_hotfile_line
 !
 !===============================================================================
-subroutine write_swan_inp_hotstart(inest,fname,luninp,sr)
+subroutine create_hotstart_line(inest,fname,line,sr)
     implicit none
     
       ! Global variables
     integer       , intent(in)  :: inest
-    integer       , intent(in)  :: luninp
+    character(256)              :: line
     character(*)                :: fname
     
     type(swan_type)             :: sr
     type(wave_data_type)        :: wavedata
     
     ! Local variables
-    character(85)               :: line
     character(15), external     :: datetime_to_string
     logical                     :: exists
 
@@ -4232,7 +4226,6 @@ subroutine write_swan_inp_hotstart(inest,fname,luninp,sr)
        inquire (file = trim(fname), exist = exists)
        if (exists) then
            line  = "INITIAL HOTSTART '"  // trim(fname) //  "' NETCDF"
-          write (luninp, '(1X,A)') line
           write(*,'(2a)') '  Using SWAN hotstart file: ',trim(fname)
        else ! check if there exists at least 1 partioned hotfile
           write (fname,'(a,i0,5a,i3.3,a)') 'hot_', inest, '_', trim(sr%usehottime(1:8)), '_', trim(sr%usehottime(10:15)), '-', 1, '.nc'
@@ -4240,15 +4233,15 @@ subroutine write_swan_inp_hotstart(inest,fname,luninp,sr)
           if (exists) then
              write (fname,'(a,i0,5a)') 'hot_', inest, '_', trim(sr%usehottime(1:8)), '_', trim(sr%usehottime(10:15)), '.nc' ! swan input needs filename without partition no
              line  = 'INITIAL HOTSTART ''' // trim(fname) // ''''' NETCDF'
-             write (luninp, '(1X,A)') line
              write(*,'(2a)') '  Using SWAN hotstart file: ',trim(fname)
           else   
              ! No hotfile, set usehottime to 0.0 to flag that it isn't used
              sr%usehottime    = '00000000.000000'
+             line = ' $ ' !BS do nothing 
           endif
        endif
 
-end subroutine write_swan_inp_hotstart
+end subroutine create_hotstart_line
 !
 !===============================================================================
 subroutine adjustinput(sr)
