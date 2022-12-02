@@ -73,8 +73,8 @@ integer :: jaoldstr !< tmp backwards comp: we cannot mix structures from EXT and
  integer, parameter :: IVAL_AREA_OVER  = NUMVALS_COMMON + 14 !< Index of flow area over gate
  integer, parameter :: IVAL_AREA_UNDER = NUMVALS_COMMON + 15 !< Index of flow area under gate
  integer, parameter :: IVAL_VEL_OPEN   = NUMVALS_COMMON + 16 !< Index of velocity through gate opening
- integer, parameter :: IVAL_VEL_OVER   = NUMVALS_COMMON + 17 !< Index of velocity over gate opening
- integer, parameter :: IVAL_VEL_UNDER  = NUMVALS_COMMON + 18 !< Index of velocity under gate opening
+ integer, parameter :: IVAL_VEL_OVER   = NUMVALS_COMMON + 17 !< Index of velocity over gate
+ integer, parameter :: IVAL_VEL_UNDER  = NUMVALS_COMMON + 18 !< Index of velocity under gate
  integer, parameter :: IVAL_COUNT      = NUMVALS_COMMON + 19 !< Index of counters of partitions for parallel
 
  integer, parameter :: NUMEXTVALS_GENSTRU = 19 ! Number of extra variables for general structure, including last one as a counter
