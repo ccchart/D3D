@@ -1726,6 +1726,7 @@ subroutine GetCSParsTotalCross(cross, depth, totalArea, totalWidth, calculationO
    double precision                  :: af_sub(3), perim_sub(3), width_sub(3)
    
    dpt = max(depth, thresholdFlood)
+   dpt = depth
    
 
    crossDef => cross%tabdef
@@ -1751,8 +1752,10 @@ subroutine GetCSParsTotalCross(cross, depth, totalArea, totalWidth, calculationO
       end select
    
    if (depth <= 0.0d0) then
+      totalwidth = totalArea/thresholdFlood
       totalArea = 0.0d0
    elseif (depth <= thresholdFlood) then
+      totalwidth = totalArea/thresholdFlood
       totalArea = (depth/thresholdFlood) * totalarea
    endif
 
