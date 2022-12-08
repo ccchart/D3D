@@ -1725,9 +1725,7 @@ subroutine GetCSParsTotalCross(cross, depth, totalArea, totalWidth, calculationO
    logical                           :: getSummerDikes
    double precision                  :: af_sub(3), perim_sub(3), width_sub(3)
    
-   dpt = max(depth, thresholdFlood)
-   dpt = depth
-   
+   dpt = max(depth, thresholdFlood)   
 
    crossDef => cross%tabdef
 
