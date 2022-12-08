@@ -588,7 +588,7 @@ subroutine setfixedweirs()      ! override bobs along pliz's, jadykes == 0: only
 
  deallocate(ihu, csh, snh, zcrest, dzsillu, dzsilld, crestlen, taludu, taludd, vegetat, iweirtyp, ztoeu, ztoed)
  if (jatabellenboekorvillemonte == 0 .and. jashp_fxw == 0 .and. allocated(shlxw) ) then
-    deallocate(shlxw, shrxw, crestlevxw, crestlxw, taludlxw, taludrxw, vegxw, iweirtxw)
+    deallocate(shlxw, shrxw, crestlxw, taludlxw, taludrxw, vegxw, iweirtxw)
  endif
 
  do i = 1, nfxw
