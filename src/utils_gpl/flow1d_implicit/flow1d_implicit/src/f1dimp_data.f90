@@ -36,11 +36,24 @@ module m_f1dimp_data
    ! Contains variables and parameters related to flow 1d implicit module
    !
    use precision
+   !use m_flowgeom
    
    implicit none
    
    public f1dimppar_type
    
+   !FM1DIMP2DO: this is a copy of the <type> in <m_flowgeom>. I wonder wether we should make that public. 
+   type tnode                                          !< node administration
+     integer                         :: lnx            !< max nr of links attached to this node
+     integer, allocatable            :: ln (:)         !< linknrs attached to this node, >0: to this flownode, <0: from this flownode
+   
+     integer, allocatable            :: nod(:)         !< Mapping to net nodes
+     !double precision, allocatable   :: x  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
+     !double precision, allocatable   :: y  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
+     !integer                         :: nwx            !< nr of walls attached
+     !integer, allocatable            :: nw (:)         !< wallnrs attached to this node
+   end type tnode
+ 
    type f1dimppar_type
 
       ! 
@@ -138,9 +151,9 @@ module m_f1dimp_data
       !dependent on gridpoints 
       !*******
       integer, allocatable, dimension(:)               :: nlev   !< Number of h-levels for every cross-section.
-      
       integer, allocatable, dimension(:)               :: grd_sre_fm   !< Conversion between gridpoint number in SRE and in FM. For <grd_sre_fm(i)> one obtains the FM global gridpoint associated to SRE global gridpoint <i>
       integer, allocatable, dimension(:)               :: idx_cs       !< Map from 
+      integer, allocatable, dimension(:)               :: kcs_sre      !< <kcs> mask of grid for SRE.
       
       integer, allocatable, dimension(:,:)             :: grd_fmL_sre  !< Conversion between internal link in FM and SRE global gridpoints. For <grd_fmL_sre(i)> one obtains the two gridpoints in SRE associated to <i>
       integer, allocatable, dimension(:,:)             :: grd_fmLb_sre !< Conversion between boundary link <L> in FM and SRE global gridpoint (in position (k,1)) and the FM cell-centre (in position (k,2)), where  <k=[lnxi+1:lnx1Db]-lnxi+1>
@@ -167,7 +180,9 @@ module m_f1dimp_data
       
       real   , allocatable, dimension(:,:)             :: waoft ! <waoft>: P, double(<ngrid>,14): cross-sectional variables
       
-      double precision, allocatable, dimension(:,:)    :: hpack  !<hpack>: I, double(<ngrid,3>). Water level:
+      double precision, allocatable, dimension(:)      :: bedlevel  !lowest level of the cross-section
+      
+      double precision, allocatable, dimension(:,:)    :: hpack  !<hpack>: I, double(<ngrid,3>). Water level:            
                                                                  ! <hpack(i,1)>: at time $n$.
                                                                  ! <hpack(i,2)>: at time $*$.
                                                                  ! <hpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
@@ -175,6 +190,7 @@ module m_f1dimp_data
                                                                  ! <qpack(i,1)>: at time $n$.
                                                                  ! <qpack(i,2)>: at time $*$.
                                                                  ! <qpack(i,3)>: at time $n+1$ (the one to be filled for initial condition).
+      
 
       
       
@@ -248,7 +264,18 @@ module m_f1dimp_data
       !*******
       integer :: fm1dimp_debug_k1 
       integer :: debug_wr 
+
+      !*******
+      !stucture variable
+      !*******
+      type(tnode), allocatable :: nd(:)
+      
+
       
    end type f1dimppar_type
    
+   !type nd_type
+   !    integer, allocatable, dimension(:) :: ln
+   !end type nd_type
+      
 end module m_f1dimp_data

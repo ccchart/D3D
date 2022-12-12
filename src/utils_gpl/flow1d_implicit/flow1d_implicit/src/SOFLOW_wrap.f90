@@ -233,7 +233,7 @@ nodnod => f1dimppar%nodnod
 debug_wr         => f1dimppar%debug_wr
 fm1dimp_debug_k1 => f1dimppar%fm1dimp_debug_k1
 
-debug_wr=0
+debug_wr=1
 
 if (debug_wr>0) then
 write(42,*) 'SOFLOW_wrap'

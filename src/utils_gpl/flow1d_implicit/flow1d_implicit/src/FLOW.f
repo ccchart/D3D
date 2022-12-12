@@ -426,6 +426,12 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
 c
 c     Put last computed approximations of new h and q in positions *
@@ -446,6 +452,12 @@ c     FM1DIMP2DO: remove debug
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
 c
 c

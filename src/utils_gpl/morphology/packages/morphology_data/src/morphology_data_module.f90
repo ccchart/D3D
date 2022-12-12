@@ -444,6 +444,7 @@ type morpar_type
                            !  3: 
     integer :: telform     !  switch for thickness of exchange layer
                            !  1: fixed (user-spec.) thickness
+    integer :: ndx_mor     ! <ndx> for morphodynamics. `ndx_mor=ndx` for `flowsolver=1` and `ndx_mor=ngrid` for `flowsolver=2`
     !
     ! pointers
     !

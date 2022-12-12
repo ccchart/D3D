@@ -95,6 +95,9 @@ do k=1,f1dimppar%ngrid
         f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
     end do !k2
 
+    !bed level
+    f1dimppar%bedlevel(k)=network%crs%cross(idx_crs)%bedLevel
+    
 end do !k
 
 end subroutine fm1dimp_update_network

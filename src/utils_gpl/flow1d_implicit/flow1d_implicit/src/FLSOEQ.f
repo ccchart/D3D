@@ -280,6 +280,12 @@ c
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)  
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)  
       write(42,*) 'delh'
       write(42,*) delh
       endif
@@ -347,6 +353,12 @@ c
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)  
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)  
       write(42,*) 'delh'
       write(42,*) delh
       endif

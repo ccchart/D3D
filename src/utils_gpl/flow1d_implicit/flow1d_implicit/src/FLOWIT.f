@@ -425,6 +425,12 @@ c     Debug variables FM1DIMP2DO: remove
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
       
       if (ker .eq. fatal) goto 1000
@@ -467,6 +473,12 @@ c     mozart parameters
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
       
       if (ker .eq. fatal) goto 1000
@@ -517,6 +529,12 @@ c
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3) 
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
 c
 c     Compute nodal administration matrix and solve this matrix
@@ -545,6 +563,12 @@ c
       write(42,*) hp(:,2)
       write(42,*) 'h3'
       write(42,*) hp(:,3)  
+      write(42,*) 'q1'
+      write(42,*) qp(:,1)
+      write(42,*) 'q2'
+      write(42,*) qp(:,2)
+      write(42,*) 'q3'
+      write(42,*) qp(:,3)
       endif
 c
 c     Exception

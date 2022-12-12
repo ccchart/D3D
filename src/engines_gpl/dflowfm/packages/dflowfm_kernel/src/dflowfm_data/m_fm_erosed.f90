@@ -71,6 +71,8 @@
 
    implicit none
 
+   integer                                        :: ndx_mor 
+      
    integer, dimension(:),                 pointer :: link1 => NULL()
    integer, dimension(:),                 pointer :: link1sign => NULL()
    integer, dimension(:),                 pointer :: link1sign2 => NULL() !sign of the link for FM1DIMP. It should converge with <link1sign>, but I am not sure of the use of <link1sign>. 
@@ -93,7 +95,7 @@
    !     stmpar
    integer,                               pointer :: lsed
    integer,                               pointer :: lsedtot
-
+   !integer,                               pointer :: ndx_mor 
    !     sedpar
    integer                              , pointer :: nmudfrac
    real(fp)         , dimension(:)      , pointer :: rhosol

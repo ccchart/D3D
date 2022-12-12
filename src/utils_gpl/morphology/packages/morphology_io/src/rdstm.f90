@@ -53,6 +53,7 @@ type stmtype
     type(t_nodereldata)                      , pointer     :: nrd
     integer                                                :: lsedsus
     integer                                                :: lsedtot
+    !integer                                                :: ndx_mor !FM1DIMP2DO: I am not sure it is the best location 
     real(fp)      , dimension(:), allocatable              :: facdss
     real(fp)      , dimension(:,:), allocatable            :: ws
     character(20) , dimension(:), allocatable              :: namcon

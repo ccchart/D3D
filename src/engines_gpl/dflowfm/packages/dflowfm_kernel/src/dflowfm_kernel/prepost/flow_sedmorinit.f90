@@ -58,7 +58,8 @@ subroutine flow_sedmorinit()
     use MessageHandling
     use dfm_error
     use m_mormerge
-
+    use m_fm_erosed, only: ndx_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
+    
     implicit none
 
     logical :: error, have_mudbnd, have_sandbnd, ex, success
@@ -125,6 +126,9 @@ subroutine flow_sedmorinit()
        end select
     end if
 
+    !if `flowsolver=2` (implicit for 1D), <ndx_mor> is overwritten in <initialize_flow1d_implicit>
+    ndx_mor=ndx 
+    
     call rdstm(stmpar, griddim, md_sedfile, md_morfile, filtrn='', lundia=mdia, lsal=jasal, ltem=jatem, ltur=ltur_, lsec=jasecflow, lfbedfrm=bfm_included, julrefday=julrefdat, dtunit='Tunit='//md_tunit, nambnd=nambnd, error=error)
     if (error) then
         call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Error in subroutine rdstm.')

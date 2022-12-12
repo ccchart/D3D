@@ -36,13 +36,13 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1dIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au !<ucmag> is velocity at cell centres, but we initialize <u1>
+use m_flow, only: s0, s1, u1, au, u_to_umain !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
-use m_fm_erosed, only: link1sign2
+use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor !ucx_mor, ucy_mor, 
 use m_oned_functions, only: gridpoint2cross
 !use m_meteo !boundary conditions -> eventually done every time step
 
@@ -76,6 +76,7 @@ integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: idx_cs !FM1DIMP2DO: not a good name. Rename to <grd_sre_cs>
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
+integer, dimension(:)                    , pointer :: kcs_sre
       
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
@@ -131,7 +132,7 @@ integer, pointer :: fm1dimp_debug_k1
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
-integer :: k, k1, k2, kbe !FM1DIMP2DO: make the variables names consistent
+integer :: k, k1, k2, kbe, klnx !FM1DIMP2DO: make the variables names consistent
 integer :: idx_crs
 integer :: n1, n2, nint, nout, pointscount, i, jpos
 integer :: table_number
@@ -265,6 +266,32 @@ allocate(f1dimppar%waoft(ngrid,18))
 waoft => f1dimppar%waoft
 swaoft=size(f1dimppar%waoft,dim=2)
 
+!add links at bifurcations and confluences
+if (allocated(f1dimppar%nd)) then
+    deallocate(f1dimppar%nd)
+endif
+allocate(f1dimppar%nd(ngrid))
+
+if (allocated(f1dimppar%kcs_sre)) then
+    deallocate(f1dimppar%kcs_sre)
+endif
+allocate(f1dimppar%kcs_sre(ngrid))
+kcs_sre => f1dimppar%kcs_sre 
+kcs_sre=1
+    
+!allocate(f1dimppar%nd(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+!we cannot make a pointer to it because it has the same variable name
+!do k=1,ndx
+!    f1dimppar%nd(k)%lnx=nd(k)%lnx
+!    f1dimppar%nd(k)%ln=nd(k)%ln
+!enddo
+
+!add links at bifurcations and confluences
+!if (allocated(f1dimppar%nd%ln)) then
+!    deallocate(f1dimppar%nd%ln)
+!endif
+!allocate(f1dimppar%nd%ln(lnx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
@@ -273,6 +300,7 @@ swaoft=size(f1dimppar%waoft,dim=2)
 
 idx_i=1
 idx_sre=0
+klnx=lnx
 do k=1,nbran
     !update index final
     idx_f=idx_i+network%BRS%BRANCH(k)%GRIDPOINTSCOUNT-1
@@ -280,7 +308,7 @@ do k=1,nbran
     grd_sre_fm(idx_i:idx_f)=network%BRS%BRANCH(k)%GRD
     x(idx_i:idx_f)=network%BRS%BRANCH(k)%GRIDPOINTSCHAINAGES !chainage
 
-    nl=network%BRS%BRANCH(k)%UPOINTSCOUNT
+    nl=network%BRS%BRANCH(k)%UPOINTSCOUNT !only internal
     do k2=1,nl
         L=network%BRS%BRANCH(k)%LIN(k2)
         grd_fmL_sre(L,:)=(/ idx_i+k2-1, idx_i+k2 /)
@@ -307,7 +335,7 @@ do k=1,nbran
     do i=1,pointscount
         idx_sre=idx_sre+1
         idx_fm=grd(i) 
-        
+
         !links connected to a given fm grid node
         idx_l1=abs(nd(idx_fm)%ln(1))
         idx_l2=abs(nd(idx_fm)%ln(2))
@@ -316,6 +344,7 @@ do k=1,nbran
         !FM1DIMP2DO: This part of the code is part of <set_cross_sections_to_gridpoints>, could be modularized.
         !->start
         if (i==1 .or. i==pointscount) then
+            
            ! search for correct location
            if (i==1) then 
               L = lin(1)
@@ -327,8 +356,30 @@ do k=1,nbran
                  jpos = j
               endif
            enddo
+           
+           !fill <nd>
+           if (nd(idx_fm)%lnx>2) then
+               klnx=klnx+1
+               f1dimppar%nd(idx_sre)%lnx=2
+               if (allocated(f1dimppar%nd(idx_sre)%ln)) then
+                  deallocate(f1dimppar%nd(idx_sre)%ln)
+               endif
+               allocate(f1dimppar%nd(idx_sre)%ln(2))
+               if (i==1) then 
+                  f1dimppar%nd(idx_sre)%ln(1)=klnx
+                  f1dimppar%nd(idx_sre)%ln(2)=nd(idx_fm)%ln(jpos)
+               else
+                  f1dimppar%nd(idx_sre)%ln(1)=nd(idx_fm)%ln(jpos)
+                  f1dimppar%nd(idx_sre)%ln(2)=-klnx
+               endif
+           endif
+           
         else
            jpos = 1
+           
+           !fill <nd>
+           f1dimppar%nd(idx_sre)%lnx=nd(idx_fm)%lnx
+           f1dimppar%nd(idx_sre)%ln=nd(idx_fm)%ln
         endif  
         !-> end
         
@@ -367,7 +418,7 @@ do k=1,nbran
         do k2=7,swaoft
             waoft(idx_sre,k2)=0
         enddo
-                
+        
     enddo !i
 
     !deal with values at begin and end of the branch
@@ -404,7 +455,7 @@ do k=1,nbran
     
     !update index initial
     idx_i=idx_f+1
-enddo
+enddo !branch
 
 if (allocated(f1dimppar%grd_fmLb_sre)) then
     deallocate(f1dimppar%grd_fmLb_sre)
@@ -432,8 +483,11 @@ do L=lnxi+1,lnx1Db !boundary links
         endif
     enddo
     
-    grd_fmLb_sre(k,1)=idx_aux
+    grd_fmLb_sre(k,1)=idx_aux !SRE index of the boundary cell
     grd_fmLb_sre(k,2)=nout !FM index of the ghost cell centre associated to link <L>
+    
+    !mask grid
+    kcs_sre(idx_aux)=-1 !FM1DIMP2DO: I am not sure I need this or I better deal with directions in <fm_erosed> and here just set to 1 but the right dimensions.
 enddo
 
 !ngrid=network%numk !total number of mesh nodes (internal water level points)
@@ -501,6 +555,11 @@ if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
 endif
 allocate(f1dimppar%nlev(ngrid)) 
+
+if (allocated(f1dimppar%bedlevel)) then
+    deallocate(f1dimppar%bedlevel)
+endif
+allocate(f1dimppar%bedlevel(ngrid))
 
     !cross-sectional information (gridpoint,level)
 if (allocated(f1dimppar%wft)) then
@@ -708,6 +767,7 @@ if (allocated(f1dimppar%node)) then
 endif 
 allocate(f1dimppar%node(4,nnode))
 node => f1dimppar%node
+node = -999 !we use this value to check that it has not been filled.
 
 if (allocated(f1dimppar%numnod)) then
     deallocate(f1dimppar%numnod)
@@ -752,7 +812,7 @@ do k=1,nnode
             endif
         enddo !nhstat
         
-        if (node(1,k) .eq. 0) then !it is not hbdpar, we search in qbdpar
+        if (node(1,k) .eq. -999) then !it is not hbdpar, we search in qbdpar
         
             do k2=1,nqstat !search in hbdpar
                 if (qbdpar(1,k2) .eq. network%NDS%NODE(k)%GRIDNUMBER) then
@@ -838,8 +898,23 @@ f1dimppar%fm1dimp_debug_k1=1
 !I am not sure that implementation is correct though. 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     stmpar%morpar%mornum%pure1d=1
+    ndx_mor=ngrid
+   
+    !these variables cannot be allocated in <inipointers_erosed> because at that point we have not initialized 1dimp
+    !if (allocated(ucxq_mor)) then
+    !    deallocate(ucxq_mor,ucyq_mor,hs_mor) !ucx_mor,ucy_mor
+    !endif
+    allocate(ucxq_mor(1:ndx_mor), ucyq_mor(1:ndx_mor), hs_mor(1:ndx_mor), stat=iresult)   !ucx_mor(1:ndx_mor), ucy_mor(1:ndx_mor)
+    ucxq_mor = 0d0; ucyq_mor = 0d0; hs_mor = 0d0 
+    !ucx_mor = 0d0; ucy_mor = 0d0
+    if (allocated(u_to_umain)) then
+        deallocate(u_to_umain)
+    endif
+    allocate(u_to_umain(1:ndx_mor))
 
 
+    
+    
 !the most downstream link points inside and we have to consider this for the flux.
 call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call to call it here and it will not be called again because it will be allocated. 
 !FM1DIMP2DO: I don't know why it fails compiling in case I ask to allocate here. It does not have the allocatable attribute, but neither it does <link1sign> 

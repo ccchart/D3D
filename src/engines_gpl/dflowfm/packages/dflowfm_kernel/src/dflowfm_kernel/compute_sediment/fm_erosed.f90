@@ -73,7 +73,7 @@
    use m_missing
    use m_physcoef, only: frcuni, ifrctypuni
    use m_turbulence, only: vicwws, turkinepsws, rhowat
-   use m_flowparameters, only: jasal, jatem, jawave, epshs, jasecflow, eps10, jasourcesink, v2dwbl, flowWithoutWaves
+   use m_flowparameters, only: jasal, jatem, jawave, epshs, jasecflow, eps10, jasourcesink, v2dwbl, flowWithoutWaves, flowsolver
    use m_fm_erosed
    use m_bedform
    use m_xbeach_data
@@ -82,6 +82,8 @@
    use m_tables, only: interpolate
    use m_partitioninfo
    use compbsskin_module, only: compbsskin, get_alpha_fluff
+   use m_f1dimp, only: f1dimppar
+   
    !
    implicit none
    !
@@ -234,6 +236,14 @@
    real(fp), dimension(:,:), allocatable :: sb_in         !< sum of incoming sediment transport at 1d node
    integer, dimension(:,:,:), allocatable :: sb_dir       !< direction of transport at node (nnod, lsedtot, nbr) (-1 = incoming or no transport, +1 = outgoing)
    integer, dimension(:), allocatable :: branInIDLn       !< ID of Incoming Branch (If there is only one) (nnod)
+   
+   !changed from standard to mor type
+   !integer :: ndx_mor
+   double precision, dimension(:), allocatable :: s0_mor !< s0 in <erosed>
+   double precision, dimension(:), allocatable :: s1_mor !< s1 in <erosed>
+   double precision, dimension(:), allocatable :: bl_mor !< bl in <erosed>
+   double precision, dimension(:), allocatable :: u1_mor !< u1 in <erosed>
+   
    !
    !! executable statements -------------------------------------------------------
    !
@@ -242,24 +252,49 @@
    error = .false.
    if (.not.stm_included) return
    ubot_from_com = jauorbfromswan>0
+   
+   !
+   !! Select case regular solver vs. implicit 1D solver
+   !
+   if (flowsolver.eq.1) then !regular solver
+       !ndx_mor=ndx
+       s1_mor=s0
+       s1_mor=s1
+       bl_mor=bl
+       u1_mor=u1
+   else !FM1DIMP
+       !ndx_mor=f1dimppar%ngrid
+       s0_mor=f1dimppar%hpack(:,1)
+       s1_mor=f1dimppar%hpack(:,3)
+       bl_mor=f1dimppar%bedlevel
+       u1_mor=f1dimppar%qpack(:,3)/f1dimppar%waoft(:,3) !if needed at several places, make a variable with it    
+   endif
+
    !
    ! Allocate memory
-   allocate(dzdx(1:ndx), dzdy(1:ndx), stat=istat)
+   allocate(dzdx(1:ndx_mor), dzdy(1:ndx_mor), stat=istat)
    if (istat == 0) allocate(localpar (npar), stat = istat)
-   if (istat == 0) allocate(ua(1:ndx), va(1:ndx), stat=istat)
-   if (istat == 0) allocate(z0rouk(1:ndx), z0curk(1:ndx), deltas(1:ndx), stat=istat)
+   if (istat == 0) allocate(ua(1:ndx_mor), va(1:ndx_mor), stat=istat)
+   if (istat == 0) allocate(z0rouk(1:ndx_mor), z0curk(1:ndx_mor), deltas(1:ndx_mor), stat=istat)
    if (istat == 0) allocate(qb_out(network%nds%Count), stat = istat)
    if (istat == 0) allocate(width_out(network%nds%Count), stat = istat)
    if (istat == 0) allocate(sb_in(network%nds%Count, lsedtot), stat = istat)
    if (istat == 0) allocate(sb_dir(network%nds%Count, lsedtot, network%nds%maxnumberofconnections), stat = istat)
    if (istat == 0) allocate(branInIDLn(network%nds%Count), stat = istat)
-
+   
+   !FM1DIMP2DO: move to a function and call inside above select case on `flowsolver`?
+   !we do not need to allocate memory for it
+   !
+   !if (istat == 0) allocate(s0_mor(ndx_mor),stat=istat)
+   !if (istat == 0) allocate(s1_mor(ndx_mor),stat=istat)
+   !if (istat == 0) allocate(bl_mor(ndx_mor),stat=istat)
+   
    localpar = 0.0_fp
    ua = 0d0; va = 0d0; z0rouk = 0d0; z0curk=0d0
    qb_out = 0d0; width_out = 0d0; sb_in = 0d0; sb_dir = -1
    BranInIDLn = 0
 
-   if ((istat == 0) .and. (.not. allocated(u1_tmp))) allocate(u1_tmp(1:lnx), ucxq_tmp(1:ndx), ucyq_tmp(1:ndx), stat=ierr)
+   if ((istat == 0) .and. (.not. allocated(u1_tmp))) allocate(u1_tmp(1:lnx), ucxq_tmp(1:ndx_mor), ucyq_tmp(1:ndx_mor), stat=ierr)
 
    if (istat /= 0) then
       error = .true.
@@ -282,10 +317,10 @@
    !
    ! Use Eulerian velocities if jatranspvel > 0
    !
-   u1_tmp = u1 * u_to_umain
+   u1_tmp = u1_mor * u_to_umain
 
    if (jatranspvel > 0 .and. jawave > 0) then
-      u1_tmp = u1 - ustokes
+      u1_tmp = u1_mor - ustokes
       call setucxucy_mor (u1_tmp)
    else
    !   Calculate cell centre velocities ucxq, ucyq
@@ -306,7 +341,7 @@
    if ((.not. (jawave==4 .or. jawave==3 .or. jawave==6)) .or. flowWithoutWaves) then
       ktb=0d0     ! no roller turbulence
    else
-      do k=1, ndx
+      do k=1, ndx_mor
          call rollerturbulence(k)  ! sets ktb values
       end do
    end if
@@ -329,7 +364,7 @@
    !
    ! Reset Sourse and Sinkse arrays for all (l,nm)
    !
-   do k = 1, ndx
+   do k = 1, ndx_mor
       call getkbotktop(k, kb, kt)
       kmxsed(k,:)  = kb
    end do
@@ -380,8 +415,8 @@
       end select
    end if
 
-   do nm = 1, ndx
-      if ((s1(nm) - bl(nm)) > sedthr) then
+   do nm = 1, ndx_mor
+      if ((s1_mor(nm) - bl_mor(nm)) > sedthr) then
          kfsed(nm) = 1
       else
          kfsed(nm) = 0
@@ -393,7 +428,7 @@
    !
    if (lsedtot > 1) then
       call getfrac(stmpar%morlyr,frac      ,anymud    ,mudcnt    , &
-         & mudfrac      ,1         ,ndx)
+         & mudfrac      ,1         ,ndx_mor)
    endif
 
    ! 3D:
@@ -404,8 +439,8 @@
    ! half of internal velocity in direction of any
    ! closed boundary or dry point.
    !
-   do k = 1,ndx                            ! This interpolation is done by considering constant waterdepth per each flow-cell
-      h1 = s1(k) - bl(k)                   ! To ensure to get the same results from interpolation based on constant frcu and ifrcutp in the cell centre
+   do k = 1,ndx_mor                            ! This interpolation is done by considering constant waterdepth per each flow-cell
+      h1 = s1_mor(k) - bl_mor(k)                   ! To ensure to get the same results from interpolation based on constant frcu and ifrcutp in the cell centre
                                            ! with considering hs
       z0curk(k) = eps10                    ! safety if nd(k)%lnx==0. Happens sometimes in case of thin dams
       do LL = 1,nd(k)%lnx
@@ -449,12 +484,12 @@
       endif
       zcc = 0d0
 
-      do kk = 1, ndx
+      do kk = 1, ndx_mor
          call getkbotktop(kk,kb,kt)
          do k = kb, kt
             zcc  = 0.5d0*(zws(k-1)+zws(k))         ! cell centre position in vertical layer admin, using absolute height
             kmxvel = k
-            if (zcc>=(bl(kk)+maxdepfrac*hs(kk)) .or. zcc>=(bl(kk)+deltas(kk))) then
+            if (zcc>=(bl_mor(kk)+maxdepfrac*hs(kk)) .or. zcc>=(bl_mor(kk)+deltas(kk))) then
                exit
             endif
          enddo
@@ -462,21 +497,21 @@
          uuu(kk)   = ucxq_tmp(kmxvel)                  ! discharge based cell centre velocities
          vvv(kk)   = ucyq_tmp(kmxvel)
          umod(kk)  = sqrt(uuu(kk)*uuu(kk) + vvv(kk)*vvv(kk))
-         zumod(kk) = zcc-bl(kk)
+         zumod(kk) = zcc-bl_mor(kk)
       end do
 
       ! If secondary flow, then we consider the bed shear stress magnitude as computed in 3D,
       ! but the direction as computed by the 1DV solution of the secondary flow. Here the
       ! near bed vector is projected back to the original depth averaged direction of the flow.
       if (jasecflow > 0) then
-         do kk = 1, ndx
+         do kk = 1, ndx_mor
             uuu(kk) = spiratx(kk)*umod(kk)
             vvv(kk) = spiraty(kk)*umod(kk)
          enddo
       end if
 
    else
-      do kk = 1, ndx
+      do kk = 1, ndx_mor
          uuu(kk)   = ucxq_mor(kk)
          vvv(kk)   = ucyq_mor(kk)
          umod(kk)  = sqrt(uuu(kk)*uuu(kk) + vvv(kk)*vvv(kk))
@@ -486,7 +521,7 @@
    !
    ! set velocities to zero if not active point for transport
    !
-   do nm = 1, ndx
+   do nm = 1, ndx_mor
       if (kfsed(nm) == 0) then
          uuu  (nm) = 0.0_fp
          vvv  (nm) = 0.0_fp
@@ -501,8 +536,8 @@
    !
    dtmor = dts * morfac
    !
-   call getfixfac(stmpar%morlyr, 1        , ndx     , lsedtot, &                    ! Update underlayer bookkeeping system for erosion/sedimentation
-                & ndx          , fixfac   , ffthresh  )
+   call getfixfac(stmpar%morlyr, 1        , ndx_mor     , lsedtot, &                    ! Update underlayer bookkeeping system for erosion/sedimentation
+                & ndx_mor          , fixfac   , ffthresh  )
    !
    ! Set fixfac to 1.0 for tracer sediments and adjust frac
    !
@@ -516,7 +551,7 @@
             !
             ! Compute SRCMAX (only used for cohesive sediments)
             !
-            do nm = 1, ndx
+            do nm = 1, ndx_mor
                !
                ! If user-specified THRESH is <= 0.0, the erosion flux is effectively not limited by FIXFAC since ffthresh is 1e-10
                ! but by the amount of sediment that is available
@@ -529,7 +564,7 @@
          if (sedtrcfac(l)>0.0_fp) then
             grkg = 1.0_fp / (rhosol(l)*pi*sedd50(l)**3/6.0_fp) ! Number of grains per kg
             grm2 = 0.5_fp / (pi*sedd50(l)**2) ! Number of grains per m^2 -- Not quite correct: maximum area of grain is pi*r^2 not pi*d^2, using porosity factor of 0.5
-            do nm = 1, ndx
+            do nm = 1, ndx_mor
                fixfac(nm, l) = 1.0_fp
                grlyrs = bodsed(l, nm) * grkg / grm2 ! Number of grain layers
                frac(nm, l) = min(max(0.0_fp, grlyrs), 1.0_fp)*sedtrcfac(l)
@@ -550,21 +585,21 @@
       ! calculate percentiles Dxx
       !
       call compdiam(frac      ,sedd50    ,sedd50    ,sedtyp    ,lsedtot   , &
-         & logsedsig ,nseddia   ,logseddia ,ndx       ,1         , &
-         & ndx       ,xx        ,nxx       ,sedd50fld ,dm        , &
+         & logsedsig ,nseddia   ,logseddia ,ndx_mor       ,1         , &
+         & ndx_mor       ,xx        ,nxx       ,sedd50fld ,dm        , &
          & dg        ,dxx       ,dgsd      )
       !
       ! determine hiding & exposure factors
       !
-      call comphidexp(frac      ,dm        ,ndx       ,lsedtot   , &
+      call comphidexp(frac      ,dm        ,ndx_mor       ,lsedtot   , &
          & sedd50    ,hidexp    ,ihidexp   ,asklhe    , &
-         & mwwjhe    ,1         ,ndx      )
+         & mwwjhe    ,1         ,ndx_mor      )
       !
       ! compute sand fraction
       !
-      call compsandfrac(frac   ,sedd50       ,ndx       ,lsedtot   , &
+      call compsandfrac(frac   ,sedd50       ,ndx_mor       ,lsedtot   , &
          & sedtyp    ,sandfrac     ,sedd50fld , &
-         & 1         ,ndx         )
+         & 1         ,ndx_mor         )
    endif
    !
    ! compute normal component of bed slopes at edges    (e_xxx refers to edges)
@@ -576,10 +611,10 @@
       ! Bottom slopes are positive on downsloping parts, cf bedbc2004.f90 and info from Bert Jagers
       ! So bl(k1)-bl(k2) instead of other way round
       k1 = ln(1,L); k2 = ln(2,L)
-      dzdx(k1) = dzdx(k1) - wcx1(L)*(bl(k2)-bl(k1))*dxi(L)
-      dzdy(k1) = dzdy(k1) - wcy1(L)*(bl(k2)-bl(k1))*dxi(L)
-      dzdx(k2) = dzdx(k2) - wcx2(L)*(bl(k2)-bl(k1))*dxi(L)
-      dzdy(k2) = dzdy(k2) - wcy2(L)*(bl(k2)-bl(k1))*dxi(L)
+      dzdx(k1) = dzdx(k1) - wcx1(L)*(bl_mor(k2)-bl_mor(k1))*dxi(L)
+      dzdy(k1) = dzdy(k1) - wcy1(L)*(bl_mor(k2)-bl_mor(k1))*dxi(L)
+      dzdx(k2) = dzdx(k2) - wcx2(L)*(bl_mor(k2)-bl_mor(k1))*dxi(L)
+      dzdy(k2) = dzdy(k2) - wcy2(L)*(bl_mor(k2)-bl_mor(k1))*dxi(L)
    enddo
    !   boundary conditions:
    !      dz/dn = 0
@@ -603,7 +638,7 @@
       ! Interpolate back to links
       k1 = ln(1,L); k2 = ln(2,L)
       !       e_dzdn(L) = acl(L)*(csu(L)*dzdx(k1) + snu(L)*dzdy(k1)) + (1d0-acl(L))*(csu(L)*dzdx(k2) + snu(L)*dzdy(k2))
-      e_dzdn(L) = -dxi(L)*(bl(ln(2,L))-bl(ln(1,L)))                                                              ! more accurate near boundaries
+      e_dzdn(L) = -dxi(L)*(bl_mor(ln(2,L))-bl_mor(ln(1,L)))                                                              ! more accurate near boundaries
       e_dzdt(L) = acl(L)*(-snu(L)*dzdx(k1) + csu(L)*dzdy(k1))+(1d0-acl(L))*(-snu(L)*dzdx(k2) + csu(L)*dzdy(k2))  ! affected near boundaries due to interpolation
    end do
    !
@@ -616,12 +651,12 @@
    ! coefficients, and bed-load transport vector components at water
    ! level points
    !
-   do nm = 1, ndx
+   do nm = 1, ndx_mor
       !
       ! do not calculate sediment sources, sinks, and bed load
       ! transport in areas with very shallow water.
       !
-      if ((s1(nm)-bl(nm))<epshs) cycle     ! dry
+      if ((s1_mor(nm)-bl_mor(nm))<epshs) cycle     ! dry
       !
       call getkbotktop(nm, kb, kt)
       if (kfsed(nm) == 0) then             ! shallow but not dry
@@ -646,8 +681,8 @@
       !
       ! kfsed(nm) == 1
       !
-      h0   = max(0.01_fp, s0(nm) - bl(nm))
-      h1   = max(0.01_fp, s1(nm) - bl(nm))
+      h0   = max(0.01_fp, s0_mor(nm) - bl_mor(nm))
+      h1   = max(0.01_fp, s1_mor(nm) - bl_mor(nm))
 
       kmaxlc = kmx
       if (kmx>0) then
@@ -1232,7 +1267,7 @@
 
    do l = 1,lsedtot                                   ! this is necessary for next calls to upwbed
       if (sedtyp(l)/=SEDTYP_COHESIVE) then
-         do nm = 1, ndx
+         do nm = 1, ndx_mor
             sxtot(nm, l) = sbcx(nm, l) + sbwx(nm, l) + sswx(nm, l)
             sytot(nm, l) = sbcy(nm, l) + sbwy(nm, l) + sswy(nm, l)
          enddo
@@ -1290,7 +1325,7 @@
             !
             wb1d = wu_mor(L)
             !
-            if (u1(L)*Ldir < 0d0) then
+            if (u1_mor(L)*Ldir < 0d0) then
                ! Outgoing discharge
                qb1d = -qa(L)*Ldir  ! replace with junction advection: to do WO
                width_out(inod) = width_out(inod) + wb1d
@@ -1475,7 +1510,7 @@
    ! Update sourse fluxes due to sand-mud interaction
    !
    allocate(evel(lsedtot), stat=istat)
-   do nm = 1, ndx
+   do nm = 1, ndx_mor
       if (pmcrit(nm)<0.0_fp) cycle
       if (mudfrac(nm)<=0.0_fp .or. mudfrac(nm)>=1.0_fp) cycle
       !
@@ -1508,7 +1543,7 @@
    ! Add implicit part of source term to sinkse
    !
    do l = 1, lsed
-      do nm = 1, ndx
+      do nm = 1, ndx_mor
          sinkse(nm, l) = sinkse(nm, l) + sour_im(nm, l)
       enddo
    enddo
