@@ -36,15 +36,14 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl
 use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1dIMP2DO: do I need it?
+use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, u_to_umain, frcu_mor !<ucmag> is velocity at cell centres, but we initialize <u1>
+use m_flow, only: s0, s1, u1, au, u_to_umain, frcu_mor, ifrcutp !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
 use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor !ucx_mor, ucy_mor, 
 use m_oned_functions, only: gridpoint2cross
-!use m_meteo !boundary conditions -> eventually done every time step
 
 implicit none
 
@@ -159,6 +158,9 @@ real :: swaoft
 double precision :: wu_int, au_int
 
 double precision, allocatable, dimension(:) :: frcu_mor_fm
+double precision, allocatable, dimension(:) :: ifrcutp_fm
+
+double precision, allocatable, dimension(:,:) :: wcl_fm
 
 !point
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
@@ -472,25 +474,54 @@ lnx_mor=klnx !store new number of links (considering ghost links)
 !END OF LOOP ON BRANCHES
 !
 
-***repeat story with <ifrcutp>
+!BEGIN (FAAL)
+!
+!Fill Arrays that need Additional Link
+!
+!FM1DIMP2DO: If friction varies with time, <frcu_mor> is updated. The subroutine that
+!does that must be modified to also adapt the friction in the ghost links.
 
-!fill arrays that need additional link
-frcu_mor_fm=frcu_mor
+    !allocate
+frcu_mor_fm=frcu_mor !copy to temporary array
 if (allocated(frcu_mor)) then
     deallocate(frcu_mor)
 endif
 allocate(frcu_mor(lnx_mor)) 
+frcu_mor_fm=frcu_mor
 
-    !links existing in FM
+ifrcutp_fm=ifrcutp !copy to temporary array
+if (allocated(ifrcutp)) then
+    deallocate(ifrcutp)
+endif
+allocate(ifrcutp(lnx_mor)) 
+
+wcl_fm=wcl !copy to temporary array
+if (allocated(wcl)) then
+    deallocate(wcl)
+endif
+allocate(wcl(2,lnx_mor)) 
+
+    !copy data from links existing in FM
 do klnx=1,lnx
     frcu_mor(klnx)=frcu_mor_fm(klnx)
-enddo
+    ifrcutp(klnx)=ifrcutp_fm(klnx)
+    
+    do L=1,2
+        wcl(L,klnx)=wcl_fm(L,klnx)
+    enddo !L
+enddo !klnx
 
-    !new links
+    !add data of closest link to new links
 do klnx=lnx+1,lnx_mor
     frcu_mor(klnx)=frcu_mor_fm(grd_ghost_link_closest(klnx))
-enddo
+    ifrcutp(klnx)=ifrcutp_fm(grd_ghost_link_closest(klnx))
+    
+    do L=1,2
+        wcl(L,klnx)=1-wcl(L,grd_ghost_link_closest(klnx)) !it should be equal to 0.5
+    enddo !L
+enddo !klnx
  
+!END (FAAL)
 
 if (allocated(f1dimppar%grd_fmLb_sre)) then
     deallocate(f1dimppar%grd_fmLb_sre)
