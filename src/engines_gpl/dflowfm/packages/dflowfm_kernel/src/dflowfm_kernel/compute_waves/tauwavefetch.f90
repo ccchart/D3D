@@ -46,7 +46,6 @@ subroutine tauwavefetch(tim)
  use m_flowtimes
  use m_partitioninfo
  use timers
- use fetch_testing
 
  implicit none
 
@@ -81,9 +80,7 @@ subroutine tauwavefetch(tim)
       
       call timstop(handle_fetch)
       if ( use_fetch_proc > 0 ) then
-         call timstrt('Ext.fetchmpi', handle_fetchmpi)
          error = initialise_fetch_proc_data()
-         call timstop(handle_fetchmpi)
       endif
  endif
 
@@ -91,19 +88,13 @@ subroutine tauwavefetch(tim)
 
     do !  inifinite loop for the fetch proc
         if ( use_fetch_proc > 0 ) then
-            call timstrt('Ext.fetchmpi', handle_fetchproc)
             if ( stop_fetch_computation(call_from_tauwavefetch) ) then
-                call timstop(handle_fetchproc)
                 return
             endif
-            call timstop(handle_fetchproc)
         endif
-        number_of_fetch_updates = number_of_fetch_updates + 1
                
         if ( use_fetch_proc == 1  ) then
-           call timstrt('Ext.fetchmpi', handle_fetchmpi)
            call send_s1_to_fetch_proc()
-           call timstop(handle_fetchmpi)
         endif
      
         time_fetch = max(tim, time_fetch + tifetch )
@@ -114,9 +105,7 @@ subroutine tauwavefetch(tim)
         endif
       
         if ( use_fetch_proc == 1  ) then
-           call timstrt('Ext.fetchmpi', handle_fetchmpi)
            call get_fetch_values_from_fetch_proc()
-           call timstop(handle_fetchmpi)
         endif
 
         if (use_fetch_proc == 0 .or. my_rank /= fetch_proc_rank) then
@@ -124,8 +113,6 @@ subroutine tauwavefetch(tim)
         endif
       enddo
  endif
-
- number_of_fetch_calculations = number_of_fetch_calculations + 1
 
  rsqrt2 = 1.0d0 / sqrt(2d0)
  do cell = 1, ndx2d
@@ -187,7 +174,6 @@ subroutine calculate_fetch_values_for_all_wind_directions(total_nr_cells)
  use unstruc_display, only: jagui
  use m_missing,       only: dmiss
  use m_sferic
- use fetch_testing
  use m_fetch_local_data
 
  implicit none
@@ -226,14 +212,8 @@ subroutine calculate_fetch_values_for_all_wind_directions(total_nr_cells)
     call search_starting_cells(u_wind, v_wind, nr_cells_done)
 
     if ( jampi == 1 .and. use_fetch_proc == 0 ) then
-        number_of_communications = number_of_communications + 4 *( ndomains-1) 
-        total_length_of_communications = total_length_of_communications + 2*(nghostlist_sall(ndomains-1) + nsendlist_sall(ndomains-1))
-        call timstop(handle_fetch)
-        call timstrt('Ext.fetchmpi', handle_fetchmpi)
         call update_ghosts(ITYPE_SaLL, 2, ndx, fetch_temp, error)
         call reduce_int_sum(nr_cells_done,nr_cells_done_red)
-        call timstop(handle_fetchmpi)
-        call timstrt('Ext.forcings fetch', handle_fetch)
         nr_cells_done = nr_cells_done_red
     endif
 
@@ -353,7 +333,6 @@ use unstruc_display, only: jagui
 use geometry_module, only: getdx, getdy, dbdistance, cross, normalout, normalin
 use m_missing,       only: dmiss
 use m_sferic
-use fetch_testing
 use m_fetch_local_data
 use m_alloc
 
@@ -368,11 +347,6 @@ double precision :: sl, sm, xcr, ycr
 double precision :: prin, dist, min_distance, max_cell_size, wdep, xn, yn, crp, xnode1, ynode1, xnode2, ynode2
 
 nr_cells_done = 0
-!if ( my_rank == 0 ) then
- ! open(888, file='D:\ApplicationModels\2procs-debug\test0-new.dat')
-  !else
-!open(888, file='D:\ApplicationModels\2procs-debug\test1-new.dat')
- ! endif
   do cell = 1,ndxi
     if ( kcs(cell) /= 2 ) then
         calculate_for(cell) = .false.
@@ -444,7 +418,6 @@ nr_cells_done = 0
         else
             fetch_temp(1,cell) = min(min_distance, max_cell_size)
         endif
- !       write(888,'(a,i5,f10.5,i5)')'k=',cell,fetch_temp(1,cell),nr_cells_done
         fetch_temp(2,cell) = max( s1(cell) - bl(cell), .1d0)
         if ( jagui > 0 ) then
                    !CALL rCIRc(xz(k),yz(k) ) !, fetch(n,k))
@@ -454,8 +427,6 @@ nr_cells_done = 0
     endif
 
 enddo
-  !  close(888)
-   ! stop
 end subroutine search_starting_cells
     
 !< calculates fetch length and depth for a given wind direction    
@@ -468,7 +439,6 @@ subroutine calculate_fetch_values(nr_cells_done, total_nr_cells)
  use m_partitioninfo
  use unstruc_display, only: jagui
  use m_missing,       only: dmiss
- use fetch_testing
  use m_fetch_local_data
 
 implicit none
@@ -479,19 +449,11 @@ integer, intent(in)    :: total_nr_cells
 integer          :: cell, index_upwind_cell, upwind_cell, nr_cells_done_red, nr_cells_done_prev_cycle, error
 double precision :: prin, fetch_length, fetch_depthw, sumw, www
 
-!if ( my_rank == 0 ) then
-!  open(888, file='D:\ApplicationModels\2procs-debug\test0-new.dat')
-!  else
-!open(888, file='D:\ApplicationModels\2procs-debug\test1-new.dat')
-!endif
-
-
 do while ( nr_cells_done < total_nr_cells )
         
-    total_number_of_fetch_cycles = total_number_of_fetch_cycles + 1
     nr_cells_done_prev_cycle     = nr_cells_done
     nr_cells_done                = 0
-!write (888,*) 'cycle=',total_number_of_fetch_cycles,' ndone=',nr_cells_done_prev_cycle
+
 cell_loop: do cell = 1, ndxi
         if ( calculate_for(cell) ) then
             if ( fetch_temp(1,cell) /=dmiss ) then ! just in case, to be removed later
@@ -507,7 +469,6 @@ cell_loop: do cell = 1, ndxi
                 if ( fetch_temp(1,upwind_cell) == dmiss ) then
                     cycle cell_loop
                 endif
-                !write (888,*) 'kk=',index_upwind_cell-number_of_upwind_cells(cell - 1),upwind_cell,fetch_temp(1,upwind_cell)
                 www  = data_at_upwind_cells(1,index_upwind_cell)
                 prin = data_at_upwind_cells(2,index_upwind_cell)
                 fetch_length = fetch_length + www*(fetch_temp(1,upwind_cell) + prin)
@@ -520,7 +481,6 @@ cell_loop: do cell = 1, ndxi
                 fetch_temp(1, cell) = fetch_length / sumw
                 fetch_temp(2, cell) = fetch_depthw / fetch_length
                 nr_cells_done       = nr_cells_done + 1
-                !write (888,*) 'ndone=',nr_cells_done,cell,fetch_temp(1,cell)
                 if ( jagui > 0 ) then
                     !CALL rCIRc(xz(k),yz(k) )
                     !call adddot(xz(k),yz(k),2d0)
@@ -534,14 +494,8 @@ cell_loop: do cell = 1, ndxi
     enddo cell_loop
 
     if ( jampi == 1 .and. use_fetch_proc == 0 ) then
-        number_of_communications = number_of_communications + 4 *( ndomains-1) 
-        total_length_of_communications = total_length_of_communications + 2*(nghostlist_sall(ndomains-1) + nsendlist_sall(ndomains-1))
-        call timstop(handle_fetch)
-        call timstrt('Ext.fetchmpi', handle_fetchmpi)
         call update_ghosts(ITYPE_SaLL, 2, ndx, fetch_temp, error)
         call reduce_int_sum(nr_cells_done,nr_cells_done_red)
-        call timstop(handle_fetchmpi)
-        call timstrt('Ext.forcings fetch', handle_fetch)
         nr_cells_done = nr_cells_done_red
     endif
 
@@ -549,8 +503,6 @@ cell_loop: do cell = 1, ndxi
         call qnerror('connectivity issue in fetch', ' ', ' ')
         return
     endif
-    !close(888)
-    !     stop
 enddo
     
 end subroutine calculate_fetch_values

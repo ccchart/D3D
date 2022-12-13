@@ -146,8 +146,6 @@
 
  write(msgbuf,'(a,F25.10)') 'time setexternalforc.  (s)  :' , tim_get_wallclock(handle_ext)    ; call msg_flush()
  write(msgbuf,'(a,F25.10)') 'time setext.forc.fetch (s)  :' , tim_get_wallclock(handle_fetch)  ; call msg_flush()
- write(msgbuf,'(a,F25.10)') 'time setext.fetch mpi  (s)  :' , tim_get_wallclock(handle_fetchmpi); call msg_flush()
- write(msgbuf,'(a,F25.10)') 'time setext.fetch wait (s)  :' , tim_get_wallclock(handle_fetchproc); call msg_flush()
  write(msgbuf,'(a,F25.10)') 'time setexternalfbnd.  (s)  :' , tim_get_wallclock(handle_extbnd) ; call msg_flush()
  write(msgbuf,'(a,F25.10)') 'time steps             (s)  :' , tim_get_wallclock(handle_steps)  ; call msg_flush()
  write(msgbuf,'(a,F25.10)') 'fraction solve/steps   ( )  :' , frac                       ; call msg_flush()

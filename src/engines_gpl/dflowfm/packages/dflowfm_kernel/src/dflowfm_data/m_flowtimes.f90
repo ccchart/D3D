@@ -174,8 +174,6 @@
  integer                           :: handle_ext      !< timer handle for externalforcings
  integer                           :: handle_extbnd   !< timer handle for externalforcingsonbnd
  integer                           :: handle_fetch    !< timer handle for externalforcings fetch model
- integer                           :: handle_fetchmpi !< timer handle for externalforcings fetch model mpi communications
- integer                           :: handle_fetchproc!< timer handle for externalforcings fetch model waiting time using the fetch proc
  integer                           :: handle_extra(90)!< timer handles for extra timers
 
  double precision                  :: dsetb       !< number of setbacks ()
@@ -363,8 +361,6 @@ subroutine reset_timers()
    handle_ext     = 0
    handle_extbnd  = 0
    handle_fetch   = 0
-   handle_fetchmpi  = 0
-   handle_fetchproc = 0
    handle_extra   = 0
 
    call timstrt('All', handle_all)

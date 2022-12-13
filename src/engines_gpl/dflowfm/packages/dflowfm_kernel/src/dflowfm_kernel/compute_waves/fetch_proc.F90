@@ -44,15 +44,6 @@ integer     :: dflowfm_group            !< this group includes all procs except 
 
 end module fetch_proc_operation_data
     
-!> data for fetch model testing
-module fetch_testing
-integer :: number_of_fetch_updates       = 0
-integer :: total_number_of_fetch_cycles  = 0
-integer :: number_of_communications      = 0
-double precision :: total_length_of_communications = 0d0
-integer :: number_of_fetch_calculations  = 0
-end module fetch_testing
-
 !> initialize data for the fetch proc operation     
 integer function initialise_fetch_proc_data() result(iresult)   
 
@@ -183,7 +174,6 @@ end function initialise_fetch_proc_data
 subroutine send_s1_to_fetch_proc()
 
 use fetch_proc_operation_data
-use fetch_testing
 #ifdef HAVE_MPI
 use mpi
 use m_partitioninfo, only : my_rank, fetch_proc_rank, DFM_COMM_ALLWORLD
@@ -201,8 +191,6 @@ integer                             :: index_loop, flow_node, error, source, tag
 
 #ifdef HAVE_MPI
 if ( my_rank < fetch_proc_rank ) then
-    number_of_communications = number_of_communications + 1
-    total_length_of_communications = total_length_of_communications + ndx
     call mpi_send(s1, ndx, MPI_Double_precision, fetch_proc_rank, tag, DFM_COMM_ALLWORLD, error)
 else
     do index_loop = 1, fetch_proc_rank
@@ -212,8 +200,6 @@ else
         if ( icount /= ndx_over_procs(source) ) then
            stop
         endif
-        number_of_communications = number_of_communications + 1
-        total_length_of_communications = total_length_of_communications + ndx_over_procs(source)
         call mpi_recv(s1_buffer, ndx_over_procs(source), MPI_Double_precision, source, tag, DFM_COMM_ALLWORLD, status, error)
         do flow_node = 1, ndx_over_procs(source)
             s1(iglobal_s_procs(flow_node,source)) = s1_buffer(flow_node)
@@ -227,7 +213,6 @@ end subroutine send_s1_to_fetch_proc
 subroutine   get_fetch_values_from_fetch_proc()
 
 use fetch_proc_operation_data
-use fetch_testing
 #ifdef HAVE_MPI
 use mpi
 use m_partitioninfo, only : my_rank, fetch_proc_rank, DFM_COMM_ALLWORLD
@@ -245,8 +230,6 @@ integer          :: destination, flow_node, wind_direction, error, tag=200
 
 #ifdef HAVE_MPI
 if ( my_rank /= fetch_proc_rank ) then
-    number_of_communications = number_of_communications + 2
-    total_length_of_communications = total_length_of_communications + 2 * nwf * ndx
     call mpi_recv(fetch, nwf*ndx, MPI_Double_precision, fetch_proc_rank, tag, DFM_COMM_ALLWORLD, status, error)
     call mpi_recv(fetdp, nwf*ndx, MPI_Double_precision, fetch_proc_rank, tag, DFM_COMM_ALLWORLD, status, error)
 else
@@ -257,8 +240,6 @@ else
                 f_buffer(wind_direction,flow_node)=fetch(wind_direction,iglobal_s_procs(flow_node,destination))
             enddo
         enddo
-        number_of_communications = number_of_communications + 2
-        total_length_of_communications = total_length_of_communications + 2 * nwf * ndx_over_procs(destination)
         call mpi_send(f_buffer, nwf*ndx_over_procs(destination), MPI_Double_precision, destination, tag, DFM_COMM_ALLWORLD, error)
         do flow_node = 1, ndx_over_procs(destination)
             do wind_direction = 1, nwf
@@ -377,7 +358,6 @@ subroutine finish_fetch_proc()
 use m_partitioninfo,          only : my_rank, fetch_proc_rank, use_fetch_proc
 use m_waves,                  only : nwf
 use fetch_proc_operation_data
-use fetch_testing
 use m_flowtimes
 use MessageHandling
 use Timers
@@ -386,38 +366,9 @@ implicit none
 
 logical, external         :: stop_fetch_computation
 logical                   :: log_dump, call_from_tauwavefetch=.false.
-integer                   :: number_of_wind_directions = 1
    
-write(msgbuf,'(a,i3)')     'Fetch model statistics, rank  :', my_rank 
-call msg_flush()
-write(msgbuf,'(a,i3,i10)')    'number_of_fetch_calculations  :', my_rank, number_of_fetch_calculations
-call msg_flush()
-write(msgbuf,'(a,i3,i10)')    'number_of_fetch_updates       :', my_rank, number_of_fetch_updates
-call msg_flush()
-if ( number_of_fetch_updates == 0 ) number_of_fetch_updates = 1
-if ( nwf > 0 ) then
-    number_of_wind_directions = nwf
-endif
-write(msgbuf,'(a,i3,2i10)')   'total_number_of_fetch_cycles  :', my_rank, total_number_of_fetch_cycles, &
-    total_number_of_fetch_cycles/number_of_fetch_updates/number_of_wind_directions
-call msg_flush()
-write(msgbuf,'(a,i3,2i10)')   'number_of_communications      :', my_rank, number_of_communications, &
-    number_of_communications/number_of_fetch_updates/number_of_wind_directions
-call msg_flush()
-if ( number_of_communications == 0 ) number_of_communications = 1
-write(msgbuf,'(a,i3,3e15.5)') 'total_length_of_communications:', my_rank, total_length_of_communications,&
-    total_length_of_communications/number_of_communications, &
-    total_length_of_communications/number_of_fetch_updates/number_of_wind_directions
-call msg_flush()
-
 if ( use_fetch_proc > 0 ) then
-    if ( my_rank == fetch_proc_rank ) then
-       write(msgbuf,'(a)') 'Fetch processor             :' ; call msg_flush()
-       write(msgbuf,*)     ' ndx over procs             :', ndx_over_procs; call msg_flush()   
-       write(msgbuf,'(a,F25.10)') 'time setext.forc.fetch (s)  :' , tim_get_wallclock(handle_fetch)  ; call msg_flush()
-       write(msgbuf,'(a,F25.10)') 'time setext.fetch mpi  (s)  :' , tim_get_wallclock(handle_fetchmpi); call msg_flush()
-       write(msgbuf,'(a,F25.10)') 'time setext.fetch wait (s)  :' , tim_get_wallclock(handle_fetchproc); call msg_flush()
-    else
+    if ( my_rank /= fetch_proc_rank ) then
        log_dump = stop_fetch_computation(call_from_tauwavefetch)       
     endif
     call clean_fetch_proc_settings()
