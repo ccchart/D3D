@@ -68,11 +68,13 @@
    use sediment_basics_module
    use m_sediment, only: stmpar, sedtra, stm_included, mtd
    use m_ini_noderel
+   use m_flowgeom, only: tnode
 
    implicit none
 
-   integer                                        :: ndx_mor 
-      
+   integer                                        :: ndx_mor !< copy of <ndx> for morphodynamics
+   type(tnode), allocatable                       :: nd_mor(:) !< copy of <nd> for morphodynamics
+   
    integer, dimension(:),                 pointer :: link1 => NULL()
    integer, dimension(:),                 pointer :: link1sign => NULL()
    integer, dimension(:),                 pointer :: link1sign2 => NULL() !sign of the link for FM1DIMP. It should converge with <link1sign>, but I am not sure of the use of <link1sign>. 
@@ -95,7 +97,7 @@
    !     stmpar
    integer,                               pointer :: lsed
    integer,                               pointer :: lsedtot
-   !integer,                               pointer :: ndx_mor 
+
    !     sedpar
    integer                              , pointer :: nmudfrac
    real(fp)         , dimension(:)      , pointer :: rhosol

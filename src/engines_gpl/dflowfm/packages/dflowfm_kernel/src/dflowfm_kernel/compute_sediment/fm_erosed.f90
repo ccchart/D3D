@@ -238,11 +238,12 @@
    integer, dimension(:), allocatable :: branInIDLn       !< ID of Incoming Branch (If there is only one) (nnod)
    
    !changed from standard to mor type
-   !integer :: ndx_mor
    double precision, dimension(:), allocatable :: s0_mor !< s0 in <erosed>
    double precision, dimension(:), allocatable :: s1_mor !< s1 in <erosed>
    double precision, dimension(:), allocatable :: bl_mor !< bl in <erosed>
    double precision, dimension(:), allocatable :: u1_mor !< u1 in <erosed>
+   
+   !type(tnode), allocatable :: nd_mor(:) !type defined in <m_f1dimp_data>
    
    !
    !! executable statements -------------------------------------------------------
@@ -257,17 +258,15 @@
    !! Select case regular solver vs. implicit 1D solver
    !
    if (flowsolver.eq.1) then !regular solver
-       !ndx_mor=ndx
        s1_mor=s0
        s1_mor=s1
        bl_mor=bl
        u1_mor=u1
    else !FM1DIMP
-       !ndx_mor=f1dimppar%ngrid
        s0_mor=f1dimppar%hpack(:,1)
        s1_mor=f1dimppar%hpack(:,3)
        bl_mor=f1dimppar%bedlevel
-       u1_mor=f1dimppar%qpack(:,3)/f1dimppar%waoft(:,3) !if needed at several places, make a variable with it    
+       u1_mor=f1dimppar%qpack(:,3)/f1dimppar%waoft(:,3) !if needed at several places, make a variable with it  
    endif
 
    !
@@ -443,8 +442,8 @@
       h1 = s1_mor(k) - bl_mor(k)                   ! To ensure to get the same results from interpolation based on constant frcu and ifrcutp in the cell centre
                                            ! with considering hs
       z0curk(k) = eps10                    ! safety if nd(k)%lnx==0. Happens sometimes in case of thin dams
-      do LL = 1,nd(k)%lnx
-         Lf = nd(k)%ln(LL)
+      do LL = 1,nd_mor(k)%lnx
+         Lf = nd_mor(k)%ln(LL)
          L = abs( Lf )
          if (frcu_mor(L)>0) then
             call getczz0(h1, frcu_mor(L), ifrcutp(L), czu, z0u)
@@ -712,8 +711,8 @@
       ! Slope taken from link, similar to Delft 3D
       !
       maxslope = 0.0_fp
-      do Lf = 1, nd(nm)%lnx
-         L = abs(nd(nm)%ln(Lf))
+      do Lf = 1, nd_mor(nm)%lnx
+         L = abs(nd_mor(nm)%ln(Lf))
          maxslope = max(maxslope, abs(e_dzdn(L)))
       end do
       !
@@ -1319,9 +1318,9 @@
       pnod => network%nds%node(inod)
       if (pnod%numberofconnections > 1) then
          k3 = pnod%gridnumber ! TODO: Not safe in parallel models (check gridpointsseq as introduced in UNST-5013)
-         do j=1,nd(k3)%lnx
-            L = iabs(nd(k3)%ln(j))
-            Ldir = sign(1,nd(k3)%ln(j))
+         do j=1,nd_mor(k3)%lnx
+            L = iabs(nd_mor(k3)%ln(j))
+            Ldir = sign(1,nd_mor(k3)%ln(j))
             !
             wb1d = wu_mor(L)
             !
@@ -1352,9 +1351,9 @@
       if (pnod%numberofconnections == 1) cycle
       if (pnod%nodeType == nt_LinkNode) then  ! connection node
          k1 = pnod%gridnumber ! TODO: Not safe in parallel models (check gridpointsseq as introduced in UNST-5013)
-         do j=1,nd(k1)%lnx
-            L = iabs(nd(k1)%ln(j))
-            Ldir = sign(1,nd(k1)%ln(j))
+         do j=1,nd_mor(k1)%lnx
+            L = iabs(nd_mor(k1)%ln(j))
+            Ldir = sign(1,nd_mor(k1)%ln(j))
             !
             wb1d = wu_mor(L)
             do ised = 1, lsedtot
@@ -1389,9 +1388,9 @@
 
             ! loop over branches and determine redistribution of incoming sediment
             k3 = pnod%gridnumber ! TODO: Not safe in parallel models (check gridpointsseq as introduced in UNST-5013)
-            do j=1,nd(k3)%lnx
-               L = iabs(nd(k3)%ln(j))
-               Ldir = sign(1,nd(k3)%ln(j))
+            do j=1,nd_mor(k3)%lnx
+               L = iabs(nd_mor(k3)%ln(j))
+               Ldir = sign(1,nd_mor(k3)%ln(j))
                qb1d = -qa(L)*Ldir
                wb1d = wu_mor(L)
 
@@ -1459,8 +1458,8 @@
             ! Correct Total Outflow
             if ((facCheck /= 1.0_fp) .and. (facCheck > 0.0_fp)) then
                ! loop over branches and correct redistribution of incoming sediment
-               do j=1,nd(k3)%lnx
-                  L = iabs(nd(k3)%ln(j))
+               do j=1,nd_mor(k3)%lnx
+                  L = iabs(nd_mor(k3)%ln(j))
                   if (sb_dir(inod, ised, j) == -1) then
                      e_sbcn(L,ised) = e_sbcn(L,ised)/facCheck
                   endif

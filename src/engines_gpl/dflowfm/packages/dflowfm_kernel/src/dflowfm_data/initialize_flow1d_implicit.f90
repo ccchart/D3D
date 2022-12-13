@@ -36,13 +36,13 @@ subroutine initialize_flow1d_implicit(iresult)
 !use m_flowparameters
 use m_f1dimp
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1dIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, u_to_umain !<ucmag> is velocity at cell centres, but we initialize <u1>
+use m_flow, only: s0, s1, u1, au, u_to_umain, frcu_mor !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
-use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor !ucx_mor, ucy_mor, 
+use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor !ucx_mor, ucy_mor, 
 use m_oned_functions, only: gridpoint2cross
 !use m_meteo !boundary conditions -> eventually done every time step
 
@@ -125,6 +125,9 @@ double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
 
+!type(tnode)    , allocatable :: nd_mor(:) !type defined in <m_f1dimp_data>
+!type(tnode_sre), pointer     :: nd_mor(:) !type defined in <m_f1dimp_data>
+
 !debug
 integer, pointer :: fm1dimp_debug_k1
 
@@ -140,6 +143,7 @@ integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, idx_fm, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c
 integer :: idx_sre
 integer :: j
+integer :: lnx_mor 
 
 !move to function
 integer :: idx_aux
@@ -148,13 +152,13 @@ integer :: min_1, min_2
 !integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: node_processed !< flag (connection) nodes processed while checking cross sections
-
-!integer, allocatable, dimension(:,:) :: nodnod_aux
+integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 
 real :: swaoft
 
 double precision :: wu_int, au_int
+
+double precision, allocatable, dimension(:) :: frcu_mor_fm
 
 !point
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
@@ -266,11 +270,11 @@ allocate(f1dimppar%waoft(ngrid,18))
 waoft => f1dimppar%waoft
 swaoft=size(f1dimppar%waoft,dim=2)
 
-!add links at bifurcations and confluences
-if (allocated(f1dimppar%nd)) then
-    deallocate(f1dimppar%nd)
+if (allocated(nd_mor)) then
+    deallocate(nd_mor)
 endif
-allocate(f1dimppar%nd(ngrid))
+allocate(nd_mor(ngrid))
+!nd_mor => nd_mor_sre
 
 if (allocated(f1dimppar%kcs_sre)) then
     deallocate(f1dimppar%kcs_sre)
@@ -279,24 +283,27 @@ allocate(f1dimppar%kcs_sre(ngrid))
 kcs_sre => f1dimppar%kcs_sre 
 kcs_sre=1
     
-!allocate(f1dimppar%nd(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+!allocate(nd_mor(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 !we cannot make a pointer to it because it has the same variable name
 !do k=1,ndx
-!    f1dimppar%nd(k)%lnx=nd(k)%lnx
-!    f1dimppar%nd(k)%ln=nd(k)%ln
+!    nd_mor(k)%lnx=nd(k)%lnx
+!    nd_mor(k)%ln=nd(k)%ln
 !enddo
 
-!add links at bifurcations and confluences
-!if (allocated(f1dimppar%nd%ln)) then
-!    deallocate(f1dimppar%nd%ln)
-!endif
-!allocate(f1dimppar%nd%ln(lnx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+if (allocated(grd_ghost_link_closest)) then
+    deallocate(grd_ghost_link_closest)
+endif
+allocate(grd_ghost_link_closest(lnx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
 !allocate(node_processed(ndxi))
 !node_processed=0
+
+!
+!BEGIN OF LOOP ON BRANCHES
+!
 
 idx_i=1
 idx_sre=0
@@ -342,7 +349,7 @@ do k=1,nbran
         
         !cross-section
         !FM1DIMP2DO: This part of the code is part of <set_cross_sections_to_gridpoints>, could be modularized.
-        !->start
+        !->start 01
         if (i==1 .or. i==pointscount) then
             
            ! search for correct location
@@ -357,31 +364,34 @@ do k=1,nbran
               endif
            enddo
            
-           !fill <nd>
+           !add ghost link
            if (nd(idx_fm)%lnx>2) then
                klnx=klnx+1
-               f1dimppar%nd(idx_sre)%lnx=2
-               if (allocated(f1dimppar%nd(idx_sre)%ln)) then
-                  deallocate(f1dimppar%nd(idx_sre)%ln)
+               nd_mor(idx_sre)%lnx=2
+               if (allocated(nd_mor(idx_sre)%ln)) then
+                  deallocate(nd_mor(idx_sre)%ln)
                endif
-               allocate(f1dimppar%nd(idx_sre)%ln(2))
+               allocate(nd_mor(idx_sre)%ln(2))
                if (i==1) then 
-                  f1dimppar%nd(idx_sre)%ln(1)=klnx
-                  f1dimppar%nd(idx_sre)%ln(2)=nd(idx_fm)%ln(jpos)
+                  nd_mor(idx_sre)%ln(1)=klnx
+                  nd_mor(idx_sre)%ln(2)=nd(idx_fm)%ln(jpos)
                else
-                  f1dimppar%nd(idx_sre)%ln(1)=nd(idx_fm)%ln(jpos)
-                  f1dimppar%nd(idx_sre)%ln(2)=-klnx
+                  nd_mor(idx_sre)%ln(1)=nd(idx_fm)%ln(jpos)
+                  nd_mor(idx_sre)%ln(2)=-klnx
                endif
+               
+               !array with next link to the ghost link
+               grd_ghost_link_closest(klnx)=abs(nd(idx_fm)%ln(jpos))
            endif
            
         else
            jpos = 1
            
            !fill <nd>
-           f1dimppar%nd(idx_sre)%lnx=nd(idx_fm)%lnx
-           f1dimppar%nd(idx_sre)%ln=nd(idx_fm)%ln
+           nd_mor(idx_sre)%lnx=nd(idx_fm)%lnx
+           nd_mor(idx_sre)%ln=nd(idx_fm)%ln
         endif  
-        !-> end
+        !-> end 01
         
         idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
         !if there is not a unique cross-section per gridpoint per branch, <ic=-999>. It is not needed to check
@@ -456,6 +466,31 @@ do k=1,nbran
     !update index initial
     idx_i=idx_f+1
 enddo !branch
+lnx_mor=klnx !store new number of links (considering ghost links)
+
+!
+!END OF LOOP ON BRANCHES
+!
+
+***repeat story with <ifrcutp>
+
+!fill arrays that need additional link
+frcu_mor_fm=frcu_mor
+if (allocated(frcu_mor)) then
+    deallocate(frcu_mor)
+endif
+allocate(frcu_mor(lnx_mor)) 
+
+    !links existing in FM
+do klnx=1,lnx
+    frcu_mor(klnx)=frcu_mor_fm(klnx)
+enddo
+
+    !new links
+do klnx=lnx+1,lnx_mor
+    frcu_mor(klnx)=frcu_mor_fm(grd_ghost_link_closest(klnx))
+enddo
+ 
 
 if (allocated(f1dimppar%grd_fmLb_sre)) then
     deallocate(f1dimppar%grd_fmLb_sre)
@@ -907,12 +942,17 @@ if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     allocate(ucxq_mor(1:ndx_mor), ucyq_mor(1:ndx_mor), hs_mor(1:ndx_mor), stat=iresult)   !ucx_mor(1:ndx_mor), ucy_mor(1:ndx_mor)
     ucxq_mor = 0d0; ucyq_mor = 0d0; hs_mor = 0d0 
     !ucx_mor = 0d0; ucy_mor = 0d0
+    
     if (allocated(u_to_umain)) then
         deallocate(u_to_umain)
     endif
     allocate(u_to_umain(1:ndx_mor))
 
-
+    
+    !if (allocated(kfsed)) then
+    !    deallocate(kfsed)
+    !endif
+    allocate(kfsed(1:ndx_mor))
     
     
 !the most downstream link points inside and we have to consider this for the flux.

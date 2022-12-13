@@ -36,23 +36,24 @@ module m_f1dimp_data
    ! Contains variables and parameters related to flow 1d implicit module
    !
    use precision
-   !use m_flowgeom
+   !use m_flowgeom, only: tnode !you cannot because <flow1d_implicit> project does not depend on <dflowfm_kernel>
    
    implicit none
    
+   !public f1dimppar_type, tnode
    public f1dimppar_type
    
-   !FM1DIMP2DO: this is a copy of the <type> in <m_flowgeom>. I wonder wether we should make that public. 
-   type tnode                                          !< node administration
+   !FM1DIMP2DO: this is a copy of the <type> in <m_flowgeom>. It cannot be called the same, as both are available in <initialize_flow1d_implicit>
+   type tnode_sre                                          !< node administration
      integer                         :: lnx            !< max nr of links attached to this node
      integer, allocatable            :: ln (:)         !< linknrs attached to this node, >0: to this flownode, <0: from this flownode
    
      integer, allocatable            :: nod(:)         !< Mapping to net nodes
-     !double precision, allocatable   :: x  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
-     !double precision, allocatable   :: y  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
-     !integer                         :: nwx            !< nr of walls attached
-     !integer, allocatable            :: nw (:)         !< wallnrs attached to this node
-   end type tnode
+     double precision, allocatable   :: x  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
+     double precision, allocatable   :: y  (:)         !< for now, this is only for quick/aligned plotting, the corners of a cell
+     integer                         :: nwx            !< nr of walls attached
+     integer, allocatable            :: nw (:)         !< wallnrs attached to this node
+   end type tnode_sre
  
    type f1dimppar_type
 
@@ -268,7 +269,7 @@ module m_f1dimp_data
       !*******
       !stucture variable
       !*******
-      type(tnode), allocatable :: nd(:)
+      type(tnode_sre), allocatable :: nd_sre(:)
       
 
       
