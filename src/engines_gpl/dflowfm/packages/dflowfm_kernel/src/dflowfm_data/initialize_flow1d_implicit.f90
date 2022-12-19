@@ -42,7 +42,7 @@ use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
 use m_flow, only: s0, s1, u1, au, u_to_umain, frcu_mor, ifrcutp !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
-use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor !ucx_mor, ucy_mor, 
+use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod !ucx_mor, ucy_mor, 
 use m_oned_functions, only: gridpoint2cross
 
 implicit none
@@ -979,6 +979,8 @@ if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     endif
     allocate(u_to_umain(1:ndx_mor))
 
+    allocate(uuu(1:ndx_mor),vvv(1:ndx_mor),umod(1:ndx_mor),zumod(1:ndx_mor))
+    uuu=0.0_fp; vvv=0.0_fp; umod=0.0_fp; zumod=0.0_fp
     
     !if (allocated(kfsed)) then
     !    deallocate(kfsed)
