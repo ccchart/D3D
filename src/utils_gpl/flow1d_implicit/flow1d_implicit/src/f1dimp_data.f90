@@ -153,6 +153,7 @@ module m_f1dimp_data
       !*******
       integer, allocatable, dimension(:)               :: nlev   !< Number of h-levels for every cross-section.
       integer, allocatable, dimension(:)               :: grd_sre_fm   !< Conversion between gridpoint number in SRE and in FM. For <grd_sre_fm(i)> one obtains the FM global gridpoint associated to SRE global gridpoint <i>
+      integer, allocatable, dimension(:)               :: grd_fm_sre   !< Conversion between gridpoint number in FM and in SRE. For <grd_fm_sre(i)> one obtains the SRE global gridpoint associated to FM global gridpoint <i>. It includes additional nodes due to multivaluedness starting from ndx.
       integer, allocatable, dimension(:)               :: idx_cs       !< Map from 
       integer, allocatable, dimension(:)               :: kcs_sre      !< <kcs> mask of grid for SRE.
       

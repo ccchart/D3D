@@ -41,12 +41,12 @@ subroutine flow_finalize_fm1dimp_timestep()
 !MODULES
 !
 
-use m_flow, only: s1, u1
+use m_flow, only: s1, u1, s0
 use m_flowgeom, only: lnx1d, ndxi, ln, lnx1Db, lnxi
 !use unstruc_channel_flow, only: network
 !use m_CrossSections, only: CalcConveyance
 !use m_flowgeom
-!use m_fm_erosed, only: link1, link1sign
+use m_fm_erosed, only: ndx_mor
 use m_f1dimp 
 
 implicit none
@@ -60,6 +60,7 @@ implicit none
 integer                                  , pointer :: ngrid
 
 integer, dimension(:)                    , pointer :: grd_sre_fm
+integer, dimension(:)                    , pointer :: grd_fm_sre
 
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
@@ -73,7 +74,8 @@ double precision, dimension(:,:)         , pointer :: qpack
 
 !locals
 
-integer :: L, n1, n2, nint, nout, idx_fm, k, ksre
+!FM1DIMP2DO: clean variables name
+integer :: L, n1, n2, nint, nout, idx_fm, idx_sre, k, ksre, kndx
 
 !
 !SET POINTERS
@@ -86,6 +88,7 @@ hpack  => f1dimppar%hpack
 qpack  => f1dimppar%qpack
 ngrid  => f1dimppar%ngrid
 grd_sre_fm   => f1dimppar%grd_sre_fm
+grd_fm_sre   => f1dimppar%grd_fm_sre
 grd_fmL_sre  => f1dimppar%grd_fmL_sre
 grd_fmLb_sre => f1dimppar%grd_fmLb_sre
 
@@ -95,10 +98,16 @@ grd_fmLb_sre => f1dimppar%grd_fmLb_sre
 !    idx_fm=grd_sre_fm(N) !index of the global grid point in fm for the global gridpoint <k> in SRE
 !    s1(idx_fm)=hpack(N,3)
 !enddo
- do ksre=1,ngrid  
-    idx_fm=grd_sre_fm(ksre) !index of the global grid point in fm for the global gridpoint <k> in SRE
-    s1(idx_fm)=hpack(ksre,3)
- enddo
+!do ksre=1,ngrid  
+!   idx_fm=grd_sre_fm(ksre) !index of the global grid point in fm for the global gridpoint <k> in SRE
+!   s1(idx_fm)=hpack(ksre,3)
+!enddo
+do kndx=1,ndx_mor  !loop on FM nodes
+   idx_sre=grd_fm_sre(kndx) 
+   s0(kndx)=hpack(idx_sre,1)
+   s1(kndx)=hpack(idx_sre,3)
+enddo
+
  
 do L=1,lnx1d !internal links
     !n1 = ln(1,L) 
