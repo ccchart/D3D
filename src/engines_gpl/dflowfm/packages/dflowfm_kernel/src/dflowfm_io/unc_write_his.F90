@@ -622,15 +622,17 @@ subroutine unc_write_his(hisids, tim, ihisdim)            ! wrihis
             endif
 
             if ((jasal > 0 .or. jatem > 0 .or. jased > 0) .and. jahisrho > 0) then
-               if ( kmx.gt.0  .and. ja3d > 0) then
-                  idims(1) = hisids%id_laydim
-                  jawrizc = 1
-                  call definencvar(hisids%ncid,hisids%id_varrhop,nf90_double, idims,3,'potential_density'       , 'potential_density'         , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
-                  if (idensform > 10) then 
-                  call definencvar(hisids%ncid,hisids%id_varrho ,nf90_double, idims,3,'density'                 , 'density'                   , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
-                  endif
-                  idims(1) = hisids%id_laydimw
-                  call definencvar(hisids%ncid,hisids%id_bruv   ,nf90_double, idims,3,'Brunt_Vaisala_N2'  , 'Brunt_Vaisala_N2'  , '1/s2'   ,  trim(statcoordstring) // ' zcoordinate_w', station_geom_container_name, fillVal = dmiss)
+               if (kmx.gt.0) then
+                  if (ja3d > 0) then
+                     idims(1) = hisids%id_laydim
+                     jawrizc = 1
+                     call definencvar(hisids%ncid,hisids%id_varrhop,nf90_double, idims,3,'potential_density'       , 'potential_density'         , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
+                     if (idensform > 10) then 
+                     call definencvar(hisids%ncid,hisids%id_varrho ,nf90_double, idims,3,'density'                 , 'density'                   , 'kg m-3' ,  trim(statcoordstring) // ' zcoordinate_c', station_geom_container_name, fillVal = dmiss)
+                     endif
+                     idims(1) = hisids%id_laydimw
+                     call definencvar(hisids%ncid,hisids%id_bruv   ,nf90_double, idims,3,'Brunt_Vaisala_N2'  , 'Brunt_Vaisala_N2'  , '1/s2'   ,  trim(statcoordstring) // ' zcoordinate_w', station_geom_container_name, fillVal = dmiss)
+                  end if
                else
                   call definencvar(hisids%ncid,hisids%id_varrhop,nf90_double, idims,2,'potential_density'       , 'potential_density'         , 'kg m-3' ,  trim(statcoordstring)                    , station_geom_container_name, fillVal = dmiss)
                end if  ! en misschien kan iemand de kmx > 0 repetitie ook in definencvar afvangen en // ' zcoordinate_c' en idims,3  automatisch maken voor kmx>0
@@ -2703,7 +2705,7 @@ subroutine unc_write_his(hisids, tim, ihisdim)            ! wrihis
 
     if (timon) call timstrt ('unc_write_his time data', handle_extra(64))
 
-    ierr = nf90_put_var(hisids%ncid, hisids%id_time, time_his, (/ hisids%idx_curtime /))
+    ierr = nf90_put_var(hisids%ncid, hisids%id_time, tim, (/ hisids%idx_curtime /))
     ierr = nf90_put_var(hisids%ncid, hisids%id_timestep, dts, (/ hisids%idx_curtime /))
     if (timon) call timstop ( handle_extra(64))
 

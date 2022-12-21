@@ -17554,8 +17554,8 @@ function unc_put_3d_or_depthaveraged_valobs(hisids, id_var, ipnt_var, ja3d) resu
                nlayb = 1
             end if
             klayb0 = nlayb - 1
-            klayt  = nlayb + kt-kb
-            ! After being filled in fill_valobs(), the valobs array is filled with nt-nb values, on indexes IPNT_VAR+nlayb-1:IPNT_VAR+nlayb+nt-nb.
+            klayt  = nlayb + kt-kb - 1
+            ! After being filled in fill_valobs(), the valobs array is filled with kt-kb+1 values, on indexes IPNT_VAR+nlayb-1:IPNT_VAR+nlayb+nt-nb-1.
             voltot_node = sum(valobs(IPNT_VOL+klayb0:IPNT_VOL+klayt,i))
             if (voltot_node > 0d0) then
                val_depthavg(i) = dot_product(valobs(ipnt_var+klayb0:ipnt_var+klayt,i), valobs(IPNT_VOL+klayb0:IPNT_VOL+klayt,i)) / voltot_node
