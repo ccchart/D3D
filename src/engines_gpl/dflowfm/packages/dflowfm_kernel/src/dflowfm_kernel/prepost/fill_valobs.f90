@@ -357,8 +357,8 @@ subroutine fill_valobs()
             if( jasal > 0 .or. jatem > 0 .or. jased > 0 ) then
                valobs(IPNT_RHOP+klay-1,i) = setrhofixedp(kk, 0d0)
                if (idensform > 10 ) then  
-               valobs(IPNT_RHO+klay-1,i) = rho(kk)
-            end if
+                  valobs(IPNT_RHO+klay-1,i) = rho(kk)
+               end if
                if (kk < kt) then
                    if (idensform > 10 ) then           
                       prsappr = ag*rhomean*( zws(kt) - zws(kk) )  
