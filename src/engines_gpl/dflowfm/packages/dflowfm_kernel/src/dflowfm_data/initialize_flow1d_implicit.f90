@@ -37,14 +37,15 @@ subroutine initialize_flow1d_implicit(iresult)
 use m_f1dimp
 use m_alloc
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, u_to_umain, frcu_mor, ifrcutp !<ucmag> is velocity at cell centres, but we initialize <u1>
+use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa !<ucmag> is velocity at cell centres, but we initialize <u1>
 use m_sediment, only: stmpar, jased, stm_included
 use m_fm_erosed, only: link1sign2, ndx_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod !ucx_mor, ucy_mor, 
 use m_oned_functions, only: gridpoint2cross
+use m_waves, only: taubxu
 
 implicit none
 
@@ -156,7 +157,7 @@ integer, allocatable, dimension(:)   :: kcol
 integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 integer, allocatable, dimension(:)   :: node_fm_processed
 integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:)   :: Lv
+integer, allocatable, dimension(:,:) :: ln_fm
 
 real :: swaoft
 
@@ -557,23 +558,40 @@ ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 
 !nodes
     !allocate
-call reallocate_fill(s0,grd_fmmv_fmsv,ndx,ndx_mor)
-call realloc(s0,ndx_mor)
-call realloc(s1,ndx_mor)
+call reallocate_fill(s0,grd_fmmv_fmsv,ndx,ndx_mor) 
+call reallocate_fill(s1,grd_fmmv_fmsv,ndx,ndx_mor) 
 
-    !fill
-do kndx=ndx+1,ndx_mor
-    s1(kndx)=s1(grd_fmmv_fmsv(kndx))
-    s0(kndx)=s0(grd_fmmv_fmsv(kndx))
-enddo
+!FM1DIMP2DO: how do I <realloc> with more than 1 dimension?
+
+
+!call realloc(s0,ndx_mor)
+!call realloc(s1,ndx_mor)
+!
+!    !fill
+!do kndx=ndx+1,ndx_mor
+!
+!enddo
 
 !links
     !allocate
-call realloc(u1,lnx_mor)
-call realloc(au,lnx_mor)
-call realloc(frcu_mor,lnx_mor)
-call realloc(ifrcutp,lnx_mor)
+call reallocate_fill(u1,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(au,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(hu,grd_ghost_link_closest,lnx,lnx_mor)
+call reallocate_fill(dx,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(wu,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(frcu_mor,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(frcu,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(qa,grd_ghost_link_closest,lnx,lnx_mor) 
 
+call reallocate_fill_int(ifrcutp,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill_int(kcu,grd_ghost_link_closest,lnx,lnx_mor)
+
+!call realloc(u1,lnx_mor)
+!call realloc(au,lnx_mor)
+!call realloc(wu,lnx_mor)
+!call realloc(frcu_mor,lnx_mor)
+!call realloc(ifrcutp,lnx_mor)
+!
 !FM1DIMP2DO: how do I <realloc> with more than 1 dimension?
 !call realloc(wcl,lnx_mor) 
 wcl_fm=wcl !copy to temporary array
@@ -582,6 +600,12 @@ if (allocated(wcl)) then
 endif
 allocate(wcl(2,lnx_mor)) 
 
+ln_fm=ln
+if (allocated(ln)) then
+    deallocate(ln)
+endif
+allocate(ln(2,lnx_mor))
+
     !copy data from links existing in FM
 do kl=1,lnx
 !    frcu_mor(klnx)=frcu_mor_fm(klnx)
@@ -589,18 +613,21 @@ do kl=1,lnx
     
     do kd=1,2
         wcl(kd,kl)=wcl_fm(kd,kl)
+        ln(kd,kl)=ln_fm(kd,kl)
     enddo !kl
 enddo !klnx
 
     !fill
 do kl=lnx+1,lnx_mor
-    u1(kl)=u1(grd_ghost_link_closest(kl))
-    au(kl)=au(grd_ghost_link_closest(kl))
-    frcu_mor(kl)=frcu_mor(grd_ghost_link_closest(kl))
-    ifrcutp(kl)=ifrcutp(grd_ghost_link_closest(kl))
+    !u1(kl)=u1(grd_ghost_link_closest(kl))
+    !au(kl)=au(grd_ghost_link_closest(kl))
+    !wu(kl)=wu(grd_ghost_link_closest(kl))
+    !frcu_mor(kl)=frcu_mor(grd_ghost_link_closest(kl))
+    !ifrcutp(kl)=ifrcutp(grd_ghost_link_closest(kl))
     
     do kd=1,2
         wcl(kd,kl)=1-wcl(kd,grd_ghost_link_closest(kl)) !it should be equal to 0.5
+        ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
     enddo !L
 enddo
 
@@ -624,14 +651,9 @@ do ksre=1,ngrid
         !initial condition
         do k2=1,3 !< time step in SRE [before, intermediate, after]
             !water level
-            !there is water level information everywhere in the FM domain
             hpack(idx_sre,k2)=s1(idx_fm)
-
             !discharge
             qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
-            !!values inside the branch for sure have only two links
-            !if (nd(idx_fm)%lnx.eq.2) then
-            !endif
         enddo !k2
         
         !waoft
@@ -1163,8 +1185,10 @@ endif
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
-    end subroutine initialize_flow1d_implicit
+    contains
 
+    !FM1DIMP2DO: Move to module
+    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !END MAIN SUBROUTINE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1179,7 +1203,7 @@ use m_alloc
 
 implicit none
 
-double precision, dimension(idxi), intent(inout) :: val
+double precision, dimension(:), allocatable, intent(inout) :: val
 integer, dimension(idxf), intent(in) :: idx_mask
 integer, intent(in) :: idxi, idxf
 
@@ -1195,5 +1219,38 @@ enddo
 end subroutine reallocate_fill
     
 !
-!BEGIN reallocate_fill
+!END reallocate_fill_int
 !
+
+!
+!BEGIN reallocate_fill_int
+!
+
+!FM1DIMP2DO: There must be a better way to do it. This is just the same but for integers
+    
+subroutine reallocate_fill_int(val,idx_mask,idxi,idxf)
+
+use m_alloc
+
+implicit none
+
+integer, dimension(:), allocatable, intent(inout) :: val
+integer, dimension(idxf), intent(in) :: idx_mask
+integer, intent(in) :: idxi, idxf
+
+integer :: k
+
+
+call realloc(val,idxf)
+
+do k=idxi+1,idxf
+    val(k)=val(idx_mask(k))
+enddo
+
+end subroutine reallocate_fill_int
+    
+!
+!END reallocate_fill
+!
+
+    end subroutine initialize_flow1d_implicit

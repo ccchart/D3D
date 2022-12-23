@@ -42,7 +42,7 @@ subroutine flow_finalize_fm1dimp_timestep()
 !
 
 use m_flow, only: s1, u1, s0
-use m_flowgeom, only: lnx1d, ndxi, ln, lnx1Db, lnxi
+use m_flowgeom, only: lnx1d, ndxi, ln, lnx1Db, lnxi, ndx
 !use unstruc_channel_flow, only: network
 !use m_CrossSections, only: CalcConveyance
 !use m_flowgeom
@@ -103,6 +103,12 @@ grd_fmLb_sre => f1dimppar%grd_fmLb_sre
 !   s1(idx_fm)=hpack(ksre,3)
 !enddo
 do kndx=1,ndx_mor  !loop on FM nodes
+    
+    !skip boundary nodes, for which there is no SRE
+    if ((kndx>ndxi).and.(kndx<=ndx)) then 
+        cycle
+    endif
+
    idx_sre=grd_fm_sre(kndx) 
    s0(kndx)=hpack(idx_sre,1)
    s1(kndx)=hpack(idx_sre,3)

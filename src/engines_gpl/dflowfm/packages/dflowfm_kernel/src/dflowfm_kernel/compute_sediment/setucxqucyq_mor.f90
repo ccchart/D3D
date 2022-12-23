@@ -31,16 +31,15 @@
 ! $HeadURL$
 
    subroutine setucxqucyq_mor (u1, ucxq, ucyq)
-   use m_fm_erosed, only: ucxq_mor, ucyq_mor, hs_mor, link1, link1sign, ndx_mor
+   use m_fm_erosed, only: ucxq_mor, ucyq_mor, hs_mor, link1, link1sign
    use m_flowgeom, only: ndx, lnx, lnxi, ln, nd, wcx1, wcx2, wcy1, wcy2, csu, snu, bl, ndxi, lnx1D, kcs
    use m_flow, only: hs, hu, zws, kmx, kmxL, au, q1, ucx_mor, ucy_mor, lnkx, ndkx
-   use m_flowparameters ,only: jacstbnd, epshs, eps10, flowsolver
+   use m_flowparameters ,only: jacstbnd, epshs, eps10
    use m_sediment, only: stmpar
    use m_turbulence, only:ln0
    use m_CrossSections, only: GetCSParsFlow
    use unstruc_channel_flow, only: network
-   use m_f1dimp, only: f1dimppar
-   
+
    implicit none
    double precision, dimension(lnkx), intent(in ) :: u1
    double precision, dimension(ndkx), intent(in ) :: ucxq
@@ -49,8 +48,6 @@
    double precision :: wcxu, wcyu, cs, sn, uin, huL
    logical, pointer :: maximumwaterdepth
    double precision, dimension(:), allocatable :: area
-   double precision, dimension(:), allocatable :: hs_loc !water depth used in this function
-   double precision, dimension(:), allocatable :: kcs_loc !grid mask used in this function
    integer                                     :: qsign
    double precision :: area_L
    double precision :: width_L
@@ -59,21 +56,11 @@
 
    maximumwaterdepth => stmpar%morpar%mornum%maximumwaterdepth
 
-   allocate(area(ndx_mor))
+   allocate(area(ndx))
 
-   !FM1DIMP2DO: This is not the best solution I guess. <hs_loc> could be made input and passed. Then we only need one switch in <flowsolver>
-   !Also, why is <area> not deallocated?
-   if (flowsolver.eq.1) then !regular solver
-       hs_loc=hs
-       kcs_loc=kcs
-   else !FM1DIMP
-       hs_loc=f1dimppar%hpack(:,3)-f1dimppar%bedlevel
-       kcs_loc=f1dimppar%kcs_sre
-   endif   
-   
-   do k = 1,ndx_mor
-       hs_mor(k) = hs_loc(k)
-       if (kcs_loc(k) == 1) then
+   do k = 1,ndx
+       hs_mor(k) = hs(k)
+       if (kcs(k) == 1) then
            ucxq_mor(k) = 0d0
            ucyq_mor(k) = 0d0
            area(k)= 0d0
@@ -89,7 +76,7 @@
        k1 = ln(1,L)
        k2 = ln(2,L)
        nstruc = network%adm%lin2str(L)
-       if (kcs_loc(k1) == 1) then ! link pointing away from the node
+       if (kcs(k1) == 1) then ! link pointing away from the node
            if (link1(k1) == L) then
                qsign = 1
            else
@@ -100,14 +87,14 @@
            if (.true.) then !nstruc > 0) then
               ! link has structure
               ! see getprof_1D: if this is not a boundary link, we can use L to index line2cross.
-              call GetCSParsFlow(network%adm%line2cross(L, 2), network%crs%cross, hs_loc(k1), area_L, perim_L, width_L)
+              call GetCSParsFlow(network%adm%line2cross(L, 2), network%crs%cross, hs(k1), area_L, perim_L, width_L)
            else
               ! no structure on link
               area_L = au(L)
            endif
            area(k1)     = area(k1) + area_L
        endif
-       if (kcs_loc(k2) == 1) then ! link pointing towards the node
+       if (kcs(k2) == 1) then ! link pointing towards the node
            if (link1(k2) == L) then
                qsign = 1
            else
@@ -117,7 +104,7 @@
            if (.true.) then !nstruc > 0) then ! link has structure?
               ! link has structure
               ! see getprof_1D: if this is not a boundary link, we can use L to index line2cross.
-              call GetCSParsFlow(network%adm%line2cross(L, 2), network%crs%cross, hs_loc(k2), area_L, perim_L, width_L)
+              call GetCSParsFlow(network%adm%line2cross(L, 2), network%crs%cross, hs(k2), area_L, perim_L, width_L)
            else
               ! no structure on link
               area_L = au(L)
@@ -126,8 +113,8 @@
        endif
    enddo
 
-   do k = 1,ndx_mor
-       if (kcs_loc(k) == 1) then
+   do k = 1,ndx
+       if (kcs(k) == 1) then
            ucxq_mor(k) = ucxq_mor(k)/area(k)
            ucyq_mor(k) = 0d0
        else
@@ -143,16 +130,16 @@
 
    if( .not. maximumwaterdepth ) then
       if (kmx<1) then
-         do k = 1,ndx_mor
+         do k = 1,ndx
             ucxq_mor(k) = ucxq(k)
             ucyq_mor(k) = ucyq(k)
-            hs_mor(k)   = hs_loc(k)
+            hs_mor(k)   = hs(k)
          enddo
       else
-         do k=1,ndx_mor
+         do k=1,ndx
             ucxq_mor(k) = ucxq(k)   ! depth-averaged values
             ucyq_mor(k) = ucyq(k)
-            hs_mor(k)    = hs_loc(k)
+            hs_mor(k)    = hs(k)
             call getkbotktop(k,kb,kt)
             do kk=kb,kt
                ucxq_mor(kk) = ucxq(kk)
@@ -191,15 +178,15 @@
          end if
       enddo
 
-      do k = 1,ndx_mor
-         hs_mor(k) = hs_loc(k)
+      do k = 1,ndx
+         hs_mor(k) = hs(k)
          do L = 1,nd(k)%lnx
             LL = abs( nd(k)%ln(L) )
             hs_mor(k) = max( hs_mor(k), hu(LL) )
          enddo
       enddo
 
-      do k = 1,ndx_mor
+      do k = 1,ndx
          if( hs_mor(k) > epshs) then
             ucxq_mor(k) = ucxq_mor(k) / hs_mor(k)
             ucyq_mor(k) = ucyq_mor(k) / hs_mor(k)
@@ -242,8 +229,8 @@
          enddo
       enddo
       !
-      do k = 1,ndx_mor
-         hs_mor(k) = hs_loc(k)
+      do k = 1,ndx
+         hs_mor(k) = hs(k)
          do L = 1,nd(k)%lnx
             LL = abs( nd(k)%ln(L) )
             hs_mor(k) = max( hs_mor(k), hu(LL) )
@@ -259,7 +246,7 @@
          enddo
       enddo
       !
-      do k = 1,ndxi !FM1DIMP2DO: consistency issue. For FM1DIMP we do not need <ndxi_mor> so it is not allocated, but looks strange here. 
+      do k = 1,ndxi
         if (hs_mor(k) > eps10)  then
            call getkbotktop(k,kb,kt)
            ucxq_mor(k) = sum(ucxq_mor(kb:kt)) / hs_mor(k)
