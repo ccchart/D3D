@@ -45,6 +45,10 @@ module m_modelbounds
    double precision :: mb_latmin !< Smallest latitude-value (of 2D cell vertices/1D nodes).
    double precision :: mb_latmax !< Largest  latitude-value (of 2D cell vertices/1D nodes).
 
+   double precision :: mb_lonmin_glob !< Smallest longitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_lonmin).
+   double precision :: mb_lonmax_glob !< Largest  longitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_lonmax).
+   double precision :: mb_latmin_glob !< Smallest latitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_latmin).
+   double precision :: mb_latmax_glob !< Largest  latitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_latmax).
    contains
 
    !> Sets ALL (scalar) variables in this module to their default values.
@@ -67,6 +71,11 @@ module m_modelbounds
       mb_lonmax = -huge(1d0) !< Largest  longitude-value (of 2D cell vertices/1D nodes).
       mb_latmin =  huge(1d0) !< Smallest latitude-value (of 2D cell vertices/1D nodes).
       mb_latmax = -huge(1d0) !< Largest  latitude-value (of 2D cell vertices/1D nodes).
+
+      mb_lonmin_glob =  huge(1d0) !< Smallest longitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_lonmin).
+      mb_lonmax_glob = -huge(1d0) !< Largest  longitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_lonmax).
+      mb_latmin_glob =  huge(1d0) !< Smallest latitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_latmin).
+      mb_latmax_glob = -huge(1d0) !< Largest  latitude-value (of 2D cell vertices/1D nodes) of global model extent, for MPI-parallel runs (otherwise equal to mb_latmax).
    end subroutine reset_modelbounds
 
 end module m_modelbounds

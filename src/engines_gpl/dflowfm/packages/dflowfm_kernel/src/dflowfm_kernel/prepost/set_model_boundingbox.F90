@@ -46,9 +46,13 @@ use m_alloc
 use m_missing, only: dmiss
 use unstruc_netcdf, only: crs
 use unstruc_messages
+use m_partitioninfo
 #ifdef HAVE_PROJ
 use coordinate_reference_system, only: transform_coordinates, WGS84_PROJ_STRING
 use proj
+#endif
+#ifdef HAVE_MPI
+   use mpi
 #endif
 implicit none
 
@@ -59,6 +63,7 @@ implicit none
    integer :: n, k, kk, nv
 
    double precision, pointer :: lonn(:), latn(:)
+   double precision :: buflatlon(2)
    integer :: make_latlon
 
    ierr = DFM_NOERR
@@ -152,6 +157,22 @@ implicit none
    end if
    if (mb_latmax == -huge(1d0)) then
       mb_latmax = dmiss
+   end if
+
+#ifdef HAVE_MPI
+   ! Reduce model extents of all partitions to the global model extent on rank 0:
+   if (jampi > 0) then
+      call mpi_reduce((/ mb_lonmin, mb_latmin /), buflatlon, 2, MPI_DOUBLE_PRECISION, MPI_MIN, 0, DFM_COMM_DFMWORLD, ierr)
+      mb_lonmin_glob = buflatlon(1); mb_latmin_glob = buflatlon(2)
+      call mpi_reduce((/ mb_lonmax, mb_latmax /), buflatlon, 2, MPI_DOUBLE_PRECISION, MPI_MAX, 0, DFM_COMM_DFMWORLD, ierr)
+      mb_lonmax_glob = buflatlon(1); mb_latmax_glob = buflatlon(2)
+   end if
+#endif
+   if (jampi == 0) then
+      mb_lonmin_glob = mb_lonmin
+      mb_lonmax_glob = mb_lonmax
+      mb_latmin_glob = mb_latmin
+      mb_latmax_glob = mb_latmax
    end if
 
 888 continue

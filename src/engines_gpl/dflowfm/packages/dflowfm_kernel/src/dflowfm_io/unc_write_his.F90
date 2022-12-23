@@ -51,6 +51,8 @@ subroutine unc_write_his(hisids, tim, ihisdim)            ! wrihis
     use unstruc_netcdf, only: unc_add_time_coverage
     use unstruc_netcdf, only: unc_check_dimension, UNC_DIM_1D, UNC_DIM_2D, UNC_DIM_3D, UNC_DIM_ALL
     use unstruc_netcdf, only: t_unc_hisids, unc_put_3d_or_depthaveraged_valobs
+    use m_modelbounds
+    use io_netcdf_acdd, only: ionc_add_geospatial_bounds
     use unstruc_messages
     use m_sferic, only: jsferic
     use m_partitioninfo
@@ -2492,6 +2494,11 @@ subroutine unc_write_his(hisids, tim, ihisdim)            ! wrihis
         if ( japart.gt.0 .and. janormalhis > 0) then
 !          write partiles header to hisfile
            call unc_write_part_header(hisids%ncid,hisids%id_timedim,hisids%id_partdim,hisids%id_parttime,hisids%id_partx,hisids%id_party,hisids%id_partz)
+        end if
+
+        ! Geospatial boundaries in global properties, based on entire model extent.
+        if (mb_latmin_glob /= dmiss .and. mb_latmax_glob /= dmiss .and. mb_lonmin_glob /= dmiss .and. mb_lonmax_glob /= dmiss) then
+           ierr = ionc_add_geospatial_bounds(hisids%ncid, mb_latmin_glob, mb_latmax_glob, mb_lonmin_glob, mb_lonmax_glob)
         end if
 
         ierr = nf90_enddef(hisids%ncid)
