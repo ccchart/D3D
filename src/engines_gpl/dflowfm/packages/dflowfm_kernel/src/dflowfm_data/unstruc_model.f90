@@ -39,6 +39,7 @@ use tree_structures
 use unstruc_messages
 use m_globalparameters, only : t_filenames
 use time_module, only : JULIAN
+use m_fm_icecover, only: ice_mapout
 
 implicit none
 
@@ -762,6 +763,7 @@ subroutine readMDUFile(filename, istat)
     double precision :: tim
     integer :: major, minor
     external :: unstruc_errorhandler
+    integer :: jamapice
 
     hkad = -999
     istat = 0 ! Success
@@ -1808,6 +1810,7 @@ subroutine readMDUFile(filename, istat)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_bnd', jamapbnd, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_Qin', jamapqin, success)
     call prop_get_integer(md_ptr, 'output', 'Wrimap_every_dt', jaeverydt, success)
+    call prop_get_integer(md_ptr, 'output', 'Wrimap_ice', jamapice, success)
 
     if (md_mapformat /= 4 .and. jamapwindstress /= 0) then
        call mess(LEVEL_ERROR, 'writing windstress to mapfile is only implemented for NetCDF - UGrid (mapformat=4)')
@@ -1825,6 +1828,9 @@ subroutine readMDUFile(filename, istat)
       jamapsal = 0
       jahissal = 0
     end if
+    if (jamapice ==1) then
+        ice_mapout = .true.
+    endif     
 
     call prop_get_integer(md_ptr, 'output', 'Richardsononoutput', jaRichardsononoutput, success)
 

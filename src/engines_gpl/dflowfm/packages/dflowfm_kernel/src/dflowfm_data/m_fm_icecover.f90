@@ -44,9 +44,11 @@ type(icecover_type), target                                :: ice_data          
 real(fp), dimension(:), pointer                            :: ice_af                       !< module pointer to array ice areafrac inside ice_data
 real(fp), dimension(:), pointer                            :: ice_h                        !< module pointer to array ice thickness inside ice_data
 real(fp), dimension(:), pointer                            :: ice_p                        !< module pointer to array pressure inside ice_data
+real(fp), dimension(:), pointer                            :: ice_t                        !< module pointer to array temperature inside ice_data
 real(fp), dimension(:), pointer                            :: qh_air2ice                   !< module pointer to array qh_air2ice inside ice_data
 real(fp), dimension(:), pointer                            :: qh_ice2wat                   !< module pointer to array qh_ice2wat inside ice_data
 real(fp), dimension(:), pointer                            :: snow_h                       !< module pointer to array snow thickness inside ice_data
+real(fp), dimension(:), pointer                            :: snow_t                       !< module pointer to array snow temperature inside ice_data
 
 integer, pointer                                           :: ja_aice_read                 !< flag indicating whether ice area fraction is available via EC module
 integer, pointer                                           :: ja_hice_read                 !< flag indicating whether ice thickness is available via EC module
@@ -65,9 +67,13 @@ integer, pointer                                           :: ice_frctp         
 
 real(fp), pointer                                          :: ice_dens                     !< module pointer to ice_dens inside ice_data
 real(fp), pointer                                          :: ice_albedo                   !< module pointer to ice_albedo inside ice_data
+real(fp), pointer                                          :: ice_conduc                   !< module pointer to ice_conduc inside ice_data
+real(fp), pointer                                          :: ice_lh                       !< module pointer to ice_lh inside ice_data
 real(fp), pointer                                          :: ice_frcuni                   !< module pointer to frict_val inside ice_data
 
 real(fp), pointer                                          :: snow_albedo                  !< module pointer to snow_albedo inside ice_data
+real(fp), pointer                                          :: snow_conduc                  !< module pointer to snow_conduc inside ice_data
+real(fp), pointer                                          :: snow_lh                      !< module pointer to snow_lh inside ice_data
 
 
 contains
@@ -124,11 +130,15 @@ subroutine fm_ice_update_all_pointers()
     ice_modify_winddrag => ice_data%modify_winddrag
     
     ice_albedo          => ice_data%ice_albedo
+    ice_conduc          => ice_data%ice_conductivity
+    ice_lh              => ice_data%ice_latentheat
     ice_dens            => ice_data%ice_dens
     ice_frctp           => ice_data%frict_type
     ice_frcuni          => ice_data%frict_val
     
-    snow_albedo => ice_data%snow_albedo
+    snow_albedo         => ice_data%snow_albedo
+    snow_conduc         => ice_data%snow_conductivity
+    snow_lh             => ice_data%snow_latentheat
     
     call fm_ice_update_spatial_pointers()
 end subroutine fm_ice_update_all_pointers
@@ -151,10 +161,12 @@ subroutine fm_ice_update_spatial_pointers()
 !
     ice_af => ice_data%areafrac
     ice_h  => ice_data%thick_ice
+    ice_t  => ice_data%temp_ice
     ice_p  => ice_data%pressure
     qh_air2ice => ice_data%qh_air2ice
     qh_ice2wat => ice_data%qh_ice2wat
     snow_h => ice_data%thick_snow
+    snow_t => ice_data%temp_snow
 end subroutine fm_ice_update_spatial_pointers
 
 
@@ -288,12 +300,175 @@ subroutine fm_ice_update_press(ag)
 end subroutine fm_ice_update_press
 
 
+!> preprocessing for ice cover, because in subroutine HEATUN some ice cover quantities have to be computed
+!> this subroutine is comparable with subroutine HEA_ICE.F90 of the Delft3D-FLOW ice module
+subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
+!!--declarations----------------------------------------------------------------
+    use MessageHandling
+    use m_flow                         ! test om tair(.) te gebruiken
+    use m_flowgeom   , only: ndx
+    use m_flowtimes  , only: dts
+    use m_physcoef   , only: vonkar
+    use m_heatfluxes , only: cpw
+    use unstruc_files, only: mdia
+    implicit none
+    !
+    ! Function/routine arguments
+    !
+    integer                                    , intent (in)   :: n             !> node number
+    double precision                           , intent(in)    :: Qlong_ice     !> xx
+    double precision                           , intent(in)    :: tempwat       !> xx
+    double precision                           , intent(in)    :: wind          !> xx
+    double precision                           , intent(in)    :: timhr         !> xx
+    !
+    ! Local variables
+    !
+    integer          :: iter
+    double precision :: b, p_r, p_rt, kin_vis, t_freeze
+    double precision :: b_t, c_tz, tm
+    double precision :: conduc, D_t, D_ice, tsi, coef1, coef2, alpha
+    logical          :: converged
+    double precision :: z00, ustar,hdz, rhow, Qlong  
+    
+!
+!! executable statements -------------------------------------------------------
+!
+    ! Initialization
+    b = 3.0_fp             ! empirical constant in computation of C_tz
+    p_r  = 13.0            ! molecular Prandtl number
+    p_rt  = 0.85_fp        ! turbulent Prandtl number
+    kin_vis = 0.0000018_fp ! kinematic viscosity of sea water
+    t_freeze = 0.0_fp      ! freezing temperature of sea water
+    rhow     = 1000.0_fp   ! density of water
+    z00      = 2e-4_fp     ! Open sea roughness heigth 
+    hdz      = 1.0_fp      ! rough estimate
+    ustar = 0.025 * wind   ! See Eq. (12.5) ustar = sqrt(C_D) * U_10
+    
+    select case (ja_icecover)
+    case (ICECOVER_KNMI)
+        ! follow De Bruin & Wessels (1975)
+        ! not implemented yet
+        
+    case (ICECOVER_SEMTNER)
+        ! follow Semtner (1975)
+        !
+        ! Compute conductivity, depending oo presence of both ice and snow 
+        ! 
+        if ( snow_h(n) < 0.001_fp ) then
+           conduc = ice_conduc 
+           D_ice = max (0.01, ice_h(n))
+           tsi = ice_t(n)
+        else
+           conduc = (ice_conduc * snow_conduc)
+           D_ice = ( max (0.01_fp, ice_h(n)) * snow_conduc + max (0.01_fp, snow_h(n)) * ice_conduc)
+           tsi = snow_t(n)
+        endif    
+        !
+        ! Compute longwave radiation flux from ice surface according to Eq. (7) in (Wang, 2005)
+        ! including an iteration proces
+        !
+        do iter =1,5
+           coef1 = Qlong_ice * (tsi + 273.15_fp)**4.0_fp
+           coef2 = 4.0_fp * Qlong_ice * (tsi + 273.15_fp)**3.0_fp
+           D_t = (qh_air2ice(n) - coef1 - conduc * tsi / D_ice) / (coef2 + conduc / D_ice)
+           tsi = tsi + D_t    
+           if (abs(D_t) .lt. 1e-2 ) then
+              converged = .true.
+              Qlong = coef1 + coef2 * D_t
+              if (Qlong .lt. 0.0_fp) then
+                  Qlong = 0.0_fp
+              endif
+              if (tsi .gt. 0.0_fp) then
+                 !
+                 ! in case of melting recompute qbl
+                 !
+                 Qlong = Qlong_ice * (tsi + 273.15_fp)**4.0_fp
+              endif
+              !
+              ! apply relaxation for stability reasons
+              !
+              alpha = 0.5_fp
+              if (snow_h(n) < 0.001 ) then
+                 ice_t(n) = alpha * tsi + (1.0_fp - alpha) * ice_t(n)
+              else
+                 snow_t(n) = alpha * tsi + (1.0_fp - alpha) * snow_t(n)
+              endif
+              !
+              ! limit ice and snow temperature
+              !
+              if (ice_h(n) > 0.001) then
+                  ice_t(n)  = min (0.0_fp,  ice_t(n))
+                  ice_t(n)  = max (-25.0_fp, ice_t(n))
+              endif    
+              if (snow_h(n) > 0.001) then
+                  snow_t(n) = min (0.0_fp,  snow_t(n))
+                  snow_t(n) = max (-25.0_fp, snow_t(n))
+              endif    
+              !
+              qh_air2ice(n) = qh_air2ice(n) - Qlong
+              !
+              ! no freezing in case of air temperatures above zero
+              !
+              if (tair(n) .gt. 0.0_fp .and. qh_air2ice(n) .lt. 0.0_fp) then
+                 qh_air2ice(n) = 0.0_fp
+              endif 
+              !
+              ! no melting in case of air temperatures below zero
+              !
+              if (tair(n) .lt. 0.0_fp .and. qh_air2ice(n) .gt. 0.0_fp) then
+                 qh_air2ice(n) = 0.0_fp
+              endif 
+              goto 123  ! jump out of the iteration proces         
+           endif
+        enddo
+123     continue
+        !
+        if (.not. converged) then
+            !! write (lundia,*) 'Ice iteration not converged for NM =',nm
+        endif    
+        !
+        ! Compute ice to water flux according to Wang (2015)
+        !
+        ! Calculate the molecular sublayer correction b_t
+        !
+        b_t  = b * sqrt(z00 * ustar / kin_vis ) * (p_r)**0.666
+        !
+        ! Calculate heat transfer coefficient c_tz
+        !
+        c_tz = ustar / ( b_t + p_rt * log (hdz/z00) / vonkar )
+        !
+        ! Calculate heat flux out of the ocean
+        !
+        qh_ice2wat(n) = rhow * cpw * c_tz * ( t_freeze - max(0.01_fp,tempwat) ) 
+        !
+        ! extra output for ice testbasin
+        ! if (n==25) then
+            ! write (msgbuf,'(a,i5,10f10.3)') 'ice fluxes:',n,timhr/24,qh_air2ice(n), qh_ice2wat(n), ice_h(n), ice_t(n), tempwat, tair(n), tsi; call msg_flush()
+        ! endif
+        !
+        ! adaptation if QH_ICE2WAT conform KNMI approach (QH_ICE2WAT = 2.4 W/m2) 
+        !
+        !! qh_ice2wat(n) = -2.4_fp 
+        !
+        if ( isnan(qh_ice2wat(n)) ) then
+           write (msgbuf,'(a,i5,10f10.3)') 'NAN in PREPROCESS_ICECOVER',n,qh_ice2wat(n); call msg_flush()
+        endif
+        ! 
+    case default
+        ! no preparation needed
+    end select
+end subroutine preprocess_icecover
+
+
+
 !> update the ice cover -- initial coding here with full access to D-Flow FM arrays via use statements
 !> let's see if we can make it gradually more modular and move functionality to the icecover_module.
 subroutine update_icecover()
 !!--declarations----------------------------------------------------------------
-    use m_flowgeom , only: ndx
-    use m_flowtimes, only: dts
+    use m_flowgeom   , only: ndx
+    use m_flowtimes  , only: dts
+    use m_wind       , only: tair
+    use unstruc_files, only: mdia
     implicit none
     !
     ! Function/routine arguments
@@ -302,23 +477,44 @@ subroutine update_icecover()
     !
     ! Local variables
     !
-    integer :: k
+    integer          :: n
+    double precision :: ice_growth, ice_melt, snow_melt
 !
 !! executable statements -------------------------------------------------------
 !
+  
     select case (ja_icecover)
     case (ICECOVER_KNMI)
         ! follow De Bruin & Wessels (1975)
         
     case (ICECOVER_SEMTNER)
         ! follow Semtner (1975)
-        do k = 1, ndx
-            if (qh_air2ice(k) > 0.0_fp) then
-                ! melting
-            else
-                ! freezing
-            endif
-            ice_h(k) = ice_h(k) + 0.1_fp * dts ! not sure that dts is actually known before the time step ...
+ 
+        do n = 1, ndx
+           if (tair(n) < 0.0_fp .or. ice_h(n) > 0.001 ) then
+               if (qh_air2ice(n) > 0.0_fp) then
+                   if ( snow_h(n) < 0.001 ) then
+                       ! melting of ice
+                       !
+                       ice_melt = dts * ( 0.0_fp - qh_air2ice(n) ) / ice_lh
+                       ice_h(n) = ice_h(n) + dts * ( -qh_air2ice(n) + qh_ice2wat(n) ) / ice_lh
+                   else
+                       ! melting of snow
+                       !
+                       snow_melt  = dts / snow_lh * ( 0.0_fp - qh_air2ice(n) )
+                       snow_h(n) = snow_h(n) + (dts / snow_lh) * ( 0.0_fp - qh_air2ice(n) )
+                   endif    
+               else
+                   ! freezing of ice
+                   !
+                   ice_growth = (dts /ice_lh) * ( -qh_air2ice(n) + qh_ice2wat(n) ) 
+                   ice_h(n) = ice_h(n) + ice_growth
+                   !
+                   ! Maximize ice growth to 10 m
+                   !
+                   ice_h(n) = min(10.0_fp, ice_h(n)) 
+               endif
+           endif
         enddo
         
     case default
