@@ -310,7 +310,6 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
     use m_flowtimes  , only: dts
     use m_physcoef   , only: vonkar
     use m_heatfluxes , only: cpw
-    use unstruc_files, only: mdia
     implicit none
     !
     ! Function/routine arguments
@@ -468,8 +467,7 @@ subroutine update_icecover()
 !!--declarations----------------------------------------------------------------
     use m_flowgeom   , only: ndx
     use m_flowtimes  , only: dts
-    use m_wind       , only: tair, rain, evap
-    use unstruc_files, only: mdia
+    use m_wind       , only: tair, rain, jarain
     implicit none
     !
     ! Function/routine arguments
@@ -492,12 +490,14 @@ subroutine update_icecover()
     case (ICECOVER_SEMTNER)
         ! follow Semtner (1975)
  
-        ! Compute snow growth (NB. presense of ice is required)
-        do n = 1, ndx
-           if (tair(n) < 0.0_fp .and. ice_h(n) > 0.01_fp .and. rain(n) > 0.0_fp ) then
-              snow_h(n) = snow_h(n) + dts * rain(n) * conv_factor
-           endif
-        enddo
+        ! Compute snow growth (NB. presence of ice is required)
+        if (jarain == 1) then   ! check whether rainfall input is prescribed
+            do n = 1, ndx
+               if (tair(n) < 0.0_fp .and. ice_h(n) > 0.01_fp .and. rain(n) > 0.0_fp ) then
+                  snow_h(n) = snow_h(n) + dts * rain(n) * conv_factor
+               endif
+            enddo   
+        endif
     
         ! Compute ice growth or melt or melting of snow
         do n = 1, ndx
