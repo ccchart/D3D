@@ -122,16 +122,27 @@ if (jatem == 3) then                 ! excess
 
 else if (jatem == 5) then
 
-   ! Set TSURF either to TWATN or to ice_t(n) and change albedo parameter in case of ice
+   ! Set TSURF either to TWATN or to ice_t(n) or to snow_t(n) and change albedo parameter in case of ice and/or snow
    !
    if (ja_icecover == ICECOVER_SEMTNER) then
-       if (ice_h(n)  > 0.001_fp) then
+       if (ice_h(n)  > 0.001_fp .and. snow_h(n) < 0.001_fp) then
+          !
+          ! ice but no snow 
           albedo = ice_albedo
           tsurf  = ice_t(n)
-      else   
-         tsurf  = twatn
-      endif   
+       else if (ice_h(n)  > 0.001_fp .and. snow_h(n) > 0.001_fp) then
+         !
+         ! ice and snow  
+         albedo = snow_albedo
+         tsurf  = snow_t(n)
+       else
+          !
+          ! no ice and no snow, but ice_modelling switched on
+          tsurf  = twatn 
+       endif   
    else
+      !
+      ! ice_modelling switched off 
       tsurf  = twatn
    endif 
 
@@ -248,6 +259,8 @@ else if (jatem == 5) then
    !
    if (ja_icecover == ICECOVER_SEMTNER) then
        if (ice_h(n)  > 0.001_fp) then
+           !
+           ! in case of ice (and snow)
            ch = 0.00232
        endif
    endif 

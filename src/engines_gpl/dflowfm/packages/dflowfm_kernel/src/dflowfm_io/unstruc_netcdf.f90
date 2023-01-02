@@ -246,6 +246,7 @@ type t_unc_mapids
    integer :: id_patm(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_aice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_area_fraction
    integer :: id_hice(MAX_ID_VAR)        = -1 !< Variable ID for sea_ice_thickness
+   integer :: id_hsnow(MAX_ID_VAR)       = -1 !< Variable ID for snow_thickness
    integer :: id_pice(MAX_ID_VAR)        = -1 !< Variable ID for the pressure exerted by the sea ice cover
    integer :: id_tair(MAX_ID_VAR)        = -1 !< Variable ID for
    integer :: id_rhum(MAX_ID_VAR)        = -1 !< Variable ID for
@@ -4604,7 +4605,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    use m_hydrology_data, only : jadhyd, ActEvap, PotEvap, interceptionmodel, DFM_HYD_NOINTERCEPT, InterceptHs
    use m_subsidence, only: jasubsupl, subsout, subsupl, subsupl_t0
    use Timers
-   use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p
+   use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p, snow_h
    implicit none
 
    type(t_unc_mapids), intent(inout) :: mapids   !< Set of file and variable ids for this map-type file.
@@ -5005,6 +5006,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice,  nf90_double, UNC_LOC_S, 'aice',  'sea_ice_area_fraction', 'Fraction of surface area covered by floating ice', '1', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice,  nf90_double, UNC_LOC_S, 'hice',  'sea_ice_area_fraction', 'Thickness of the floating ice cover', 'm', jabndnd=jabndnd_)
          ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice,  nf90_double, UNC_LOC_S, 'pice',  '', 'Pressure exerted by the floating ice cover', 'N m-2', jabndnd=jabndnd_)
+         ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hsnow, nf90_double, UNC_LOC_S, 'hsnow', '', 'Thickness of the snow layer', 'm', jabndnd=jabndnd_)
       end if
 
       if ((jamapwind > 0 .or. jamapwindstress > 0) .and. jawind /= 0) then
@@ -6712,6 +6714,7 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_aice  , UNC_LOC_S, ice_af, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hice  , UNC_LOC_S, ice_h, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_pice  , UNC_LOC_S, ice_p, jabndnd=jabndnd_)
+      ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_hsnow , UNC_LOC_S, snow_h, jabndnd=jabndnd_)
    endif
 
    if (jawind /= 0 .and. jamapwindstress > 0) then
@@ -6973,7 +6976,7 @@ subroutine unc_write_map_filepointer(imapfile, tim, jaseparate) ! wrimap
     use m_partitioninfo, only: jampi
     use string_module, only: replace_multiple_spaces_by_single_spaces
     use netcdf_utils, only: ncu_append_atts
-    use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p
+    use m_fm_icecover, only: ice_mapout, ice_af, ice_h, ice_p, snow_h
 
     implicit none
 

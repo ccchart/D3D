@@ -442,9 +442,10 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
         qh_ice2wat(n) = rhow * cpw * c_tz * ( t_freeze - max(0.01_fp,tempwat) ) 
         !
         ! extra output for ice testbasin
-        ! if (n==25) then
-            ! write (msgbuf,'(a,i5,10f10.3)') 'ice fluxes:',n,timhr/24,qh_air2ice(n), qh_ice2wat(n), ice_h(n), ice_t(n), tempwat, tair(n), tsi; call msg_flush()
-        ! endif
+        !if (n==25) then
+        !    write (msgbuf,'(a,3f10.3,a,4f10.3,a,3f10.3)') 'ice fluxes:',timhr/24,qh_air2ice(n), qh_ice2wat(n), ' ice/snow h/t:', ice_h(n), ice_t(n), snow_h(n), snow_t(n), &
+        !                                    ' rest:',tempwat, tair(n), tsi; call msg_flush()
+        !endif
         !
         ! adaptation if QH_ICE2WAT conform KNMI approach (QH_ICE2WAT = 2.4 W/m2) 
         !
@@ -467,7 +468,7 @@ subroutine update_icecover()
 !!--declarations----------------------------------------------------------------
     use m_flowgeom   , only: ndx
     use m_flowtimes  , only: dts
-    use m_wind       , only: tair
+    use m_wind       , only: tair, rain, evap
     use unstruc_files, only: mdia
     implicit none
     !
@@ -478,11 +479,12 @@ subroutine update_icecover()
     ! Local variables
     !
     integer          :: n
-    double precision :: ice_growth, ice_melt, snow_melt
+    double precision :: conv_factor
 !
 !! executable statements -------------------------------------------------------
 !
-  
+
+    conv_factor = 1.0_fp / (1000.0_fp * 86400.0_fp)
     select case (ja_icecover)
     case (ICECOVER_KNMI)
         ! follow De Bruin & Wessels (1975)
@@ -490,29 +492,30 @@ subroutine update_icecover()
     case (ICECOVER_SEMTNER)
         ! follow Semtner (1975)
  
+        ! Compute snow growth (NB. presense of ice is required)
+        do n = 1, ndx
+           if (tair(n) < 0.0_fp .and. ice_h(n) > 0.01_fp .and. rain(n) > 0.0_fp ) then
+              snow_h(n) = snow_h(n) + dts * rain(n) * conv_factor
+           endif
+        enddo
+    
+        ! Compute ice growth or melt or melting of snow
         do n = 1, ndx
            if (tair(n) < 0.0_fp .or. ice_h(n) > 0.001 ) then
                if (qh_air2ice(n) > 0.0_fp) then
                    if ( snow_h(n) < 0.001 ) then
                        ! melting of ice
                        !
-                       ice_melt = dts * ( 0.0_fp - qh_air2ice(n) ) / ice_lh
                        ice_h(n) = ice_h(n) + dts * ( -qh_air2ice(n) + qh_ice2wat(n) ) / ice_lh
                    else
                        ! melting of snow
                        !
-                       snow_melt  = dts / snow_lh * ( 0.0_fp - qh_air2ice(n) )
                        snow_h(n) = snow_h(n) + (dts / snow_lh) * ( 0.0_fp - qh_air2ice(n) )
                    endif    
                else
                    ! freezing of ice
                    !
-                   ice_growth = (dts /ice_lh) * ( -qh_air2ice(n) + qh_ice2wat(n) ) 
-                   ice_h(n) = ice_h(n) + ice_growth
-                   !
-                   ! Maximize ice growth to 10 m
-                   !
-                   ice_h(n) = min(10.0_fp, ice_h(n)) 
+                   ice_h(n) = ice_h(n) + (dts /ice_lh) * ( -qh_air2ice(n) + qh_ice2wat(n) )
                endif
            endif
         enddo
