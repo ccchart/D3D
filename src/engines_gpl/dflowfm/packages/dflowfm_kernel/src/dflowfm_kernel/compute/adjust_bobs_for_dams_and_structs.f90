@@ -149,7 +149,7 @@
       dambreakNewCrestLevel = no_crest
       do n = 1, ndambreaksg
          istru = dambreaks(n)
-         if (istru /= 0) then
+         if (istru /= 0 .and. L1dambreaksg(n) <= L2dambreaksg(n)) then
             ! Update the crest levels stored in the bob array
             call adjust_bobs_on_dambreak_breach(network%sts%struct(istru)%dambreak%width, &
                                               & maximumDambreakWidths(n), &
