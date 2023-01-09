@@ -88,15 +88,13 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     real(fp)                    :: d50
     real(fp)                    :: ctot
     real(fp)                    :: csoil
-    real(fp)                    :: dzb
-    real(fp)                    :: h
     real(fp)                    :: s
     real(fp)                    :: spm
-    real(fp)                    :: taub
-    real(fp)                    :: tke
+    real(fp)                    :: tdiss
+    real(fp)                    :: tshear
     real(fp)                    :: vonkar
     real(fp)                    :: settling_flux
-    real(fp)                    :: floc_ratio
+    real(fp)                    :: macro_frac  ! macro floc fraction
     real(fp)                    :: ws_macro
     real(fp)                    :: ws_micro
     real(fp)                    :: vcmol
@@ -223,24 +221,23 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        ! Settling velocity for macro flocs according Manning and Dyer
        !
        spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
-       tke    = real(dll_reals(WS_RP_KTUR ),fp)
-       call macro_floc_settling_manning( spm, tke, wsloc )
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       call macro_floc_settling_manning( spm, tshear, wsloc )
 
     case (WS_FORM_MANNING_DYER_MICRO)
        !
        ! Settling velocity for micro flocs according Manning and Dyer
        !
-       tke    = real(dll_reals(WS_RP_KTUR ),fp)
-       call micro_floc_settling_manning( tke, wsloc )
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       call micro_floc_settling_manning( tshear, wsloc )
 
     case (WS_FORM_MANNING_DYER)
        !
        ! Settling velocity based on flocculation model by Manning and Dyer
        !
        spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
-       tke    = real(dll_reals(WS_RP_KTUR ),fp)
-       call floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro )
-       wsloc  = (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       call floc_manning( spm, tshear, wsloc, macro_frac, ws_macro, ws_micro )
 
     case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
        !
@@ -248,12 +245,11 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
-       taub   = real(dll_reals(WS_RP_TAUB ),fp)
-       h      = real(dll_reals(WS_RP_WDEPT),fp)
-       dzb    = real(dll_reals(WS_RP_DZB  ),fp)
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
-       call macro_floc_settling_chassagne( spm, taub, h, h-dzb, ag, vcmol, rhow, wsloc )
+       call macro_floc_settling_chassagne( spm, tshear, tdiss, ag, vcmol, rhow, wsloc )
 
     case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
        !
@@ -261,12 +257,11 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
-       taub   = real(dll_reals(WS_RP_TAUB ),fp)
-       h      = real(dll_reals(WS_RP_WDEPT),fp)
-       dzb    = real(dll_reals(WS_RP_DZB  ),fp)
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
-       call micro_floc_settling_chassagne( taub, h, h-dzb, ag, vcmol, rhow, wsloc )
+       call micro_floc_settling_chassagne( tshear, tdiss, ag, vcmol, rhow, wsloc )
 
     case (WS_FORM_CHASSAGNE_SAFAR)
        !
@@ -274,13 +269,11 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
-       taub   = real(dll_reals(WS_RP_TAUB ),fp)
-       h      = real(dll_reals(WS_RP_WDEPT),fp)
-       dzb    = real(dll_reals(WS_RP_DZB  ),fp)
+       tshear = real(dll_reals(WS_RP_SHTUR),fp)
+       tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
-       call floc_chassagne( spm, taub, h, h-dzb, ag, vcmol, rhow, settling_flux, floc_ratio, ws_macro, ws_micro )
-       wsloc  = (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+       call floc_chassagne( spm, tshear, tdiss, ag, vcmol, rhow, wsloc, macro_frac, ws_macro, ws_micro )
 
     case (WS_FORM_USER_ROUTINE)
        !

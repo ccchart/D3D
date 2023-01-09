@@ -345,7 +345,7 @@
     !
 !    call setucxucyucxuucyu()
     call setucxucy_mor (u1)
-    call fm_flocculate()               ! fraction transitions due to floccution
+    call fm_flocculate()               ! fraction transitions due to flocculation
     call fm_fallve()                   ! update fall velocities
     call fm_erosed()                   ! source/sink, bedload/total load
     if ( jatimer.eq.1 ) call stoptimer(IEROSED)

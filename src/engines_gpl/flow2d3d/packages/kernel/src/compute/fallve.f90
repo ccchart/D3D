@@ -5,7 +5,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
                 & icx       ,icy       ,lundia    ,dps       ,s0        , &
                 & umean     ,vmean     ,z0urou    ,z0vrou    ,kfu       , &
                 & kfv       ,zmodel    ,kfsmx0    ,kfsmn0    ,dzs0      , &
-                & lstsci    ,gdp       )
+                & taubmx    ,lstsci    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2022.                                
@@ -48,6 +48,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     use precision
     use mathconsts, only: ee
     use morphology_data_module
+    use flocculation, only: get_tshear_tdiss
     use globaldata
     !
     implicit none
@@ -111,6 +112,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub,0:kmax,ltur), intent(in)  :: rtur0  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: s0     !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: taubmx !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: umean  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: vmean  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: z0urou !  Description and declaration in esm_alloc_real.f90
@@ -138,17 +140,16 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     integer                     :: m
     logical                     :: error
     real(fp)                    :: chezy
-    real(fp)                    :: dzb
     real(fp)                    :: h0
     real(fp)                    :: kn
     real(fp)                    :: rhoint
     real(fp)                    :: sag
     real(fp)                    :: salint
-    real(fp)                    :: taub
     real(fp)                    :: temint
     real(fp)                    :: tka
     real(fp)                    :: tkb
     real(fp)                    :: tkt
+    real(fp)                    :: tshear
     real(fp)                    :: tur_eps
     real(fp)                    :: tur_k
     real(fp)                    :: u
@@ -263,13 +264,11 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
                 kbe = max(k, kfsmn0(nm))
                 tka = dzs0(nm,kab)
                 tkb = dzs0(nm,kbe)
-                dzb = 0.0_fp
              else
                 kab = k
                 kbe = min(k + 1, kmax)
                 tka = thick(kab)
                 tkb = thick(kbe)
-                dzb = 0.0_fp * h0
              endif
              tkt = tka + tkb
              !
@@ -306,6 +305,20 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
                 tur_eps = -999.0_fp
              endif
              !
+             if (kmax == 0) then ! 2D
+                call get_tshear_tdiss( tshear, tur_eps, 2, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0 )
+             elseif (ltur == 0) then ! algebraic
+                ! ldepth = sum(thick above interface) or sig*h0
+                !call get_tshear_tdiss( tshear, tur_eps, 3, 0, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0, localdepth = ldepth)
+                tshear = -999.0_fp
+             elseif (ltur == 1) then ! k-L
+                ! L to be computed using Eq (9.101)
+                !call get_tshear_tdiss( tshear, tur_eps, 3, 1, tke = tur_k, tlength = L)
+                tshear = -999.0_fp
+             else ! k-eps
+                call get_tshear_tdiss( tshear, tur_eps, 3, 2, tke = tur_k )
+             endif
+             !
              if (max_reals < WS_MAX_RP) then
                 write(errmsg,'(a,a,a)') 'Insufficient space to pass real values to settling routine.'
                 call write_error(errmsg, unit=lundia)
@@ -337,9 +350,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              dll_reals(WS_RP_UMEAN) = real(um        ,hp)
              dll_reals(WS_RP_VMEAN) = real(vm        ,hp)
              dll_reals(WS_RP_CHEZY) = real(chezy     ,hp)
-             dll_reals(WS_RP_DZB  ) = real(dzb       ,hp)
-             dll_reals(WS_RP_TAUB ) = real(taub      ,hp)
-             dll_reals(WS_RP_VNKAR) = real(vonkar    ,hp)
+             dll_reals(WS_RP_SHTUR) = real(tshear    ,hp)
              !
              if (max_integers < WS_MAX_IP) then
                 write(errmsg,'(a,a,a)') 'Insufficient space to pass integer values to settling routine.'

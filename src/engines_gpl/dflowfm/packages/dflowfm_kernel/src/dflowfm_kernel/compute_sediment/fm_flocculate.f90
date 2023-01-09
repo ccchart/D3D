@@ -95,7 +95,7 @@
       endif
       do kk = kb, kt
          !
-         ! collect clay floc concentrations
+         ! collect clay floc concentrations, convert to g/m3
          !
          do j = 1, nflocsizes
             do i = 1, nflocpop
@@ -108,7 +108,7 @@
          !
          call flocculate(cfloc, adt, flocmod)
          !
-         ! update clay floc concentrations
+         ! update clay floc concentrations, convert back to kg/m3
          !
          do j = 1, nflocsizes
             do i = 1, nflocpop

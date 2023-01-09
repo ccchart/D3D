@@ -1584,6 +1584,8 @@ subroutine z_trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           !
           if (lsed > 0) then
              call timer_start(timer_fallve, gdp)
+             call d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, &
+                     & r(r0), i(kfs), i(kfsmn0), i(kfsmx0), hdt, gdp)
              call fallve(kmax    ,nmmax     ,lsal      ,ltem      ,lsed      , &
                      & i(kcs)    ,i(kfs)    ,r(wrkb1)  ,r(u0)     ,r(v0)     , &
                      & r(wphy)   ,r(r0)     ,r(rtur0)  ,ltur      ,r(thick)  , &
@@ -1591,7 +1593,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                      & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
                      & r(umean)  ,r(vmean)  ,r(z0urou) ,r(z0vrou) ,i(kfu)    , &
                      & i(kfv)    ,zmodel    ,i(kfsmx0) ,i(kfsmn0) ,r(dzs0)   , &
-                     & lstsci    ,gdp       )
+                     & r(taubmx) ,lstsci    ,gdp       )
              call timer_stop(timer_fallve, gdp)
           endif
           !
@@ -2375,6 +2377,8 @@ subroutine z_trisol(dischy    ,solver    ,icreep    ,ithisc    , &
           !
           if (lsed > 0) then
              call timer_start(timer_fallve, gdp)
+             call d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, &
+                     & r(r0), i(kfs), i(kfsmn0), i(kfsmx0), hdt, gdp)
              call fallve(kmax    ,nmmax     ,lsal      ,ltem      ,lsed      , &
                      & i(kcs)    ,i(kfs)    ,r(wrkb1)  ,r(u0)     ,r(v0)     , &
                      & r(wphy)   ,r(r0)     ,r(rtur0)  ,ltur      ,r(thick)  , &
@@ -2382,7 +2386,7 @@ subroutine z_trisol(dischy    ,solver    ,icreep    ,ithisc    , &
                      & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
                      & r(umean)  ,r(vmean)  ,r(z0urou) ,r(z0vrou) ,i(kfu)    , &
                      & i(kfv)    ,zmodel    ,i(kfsmx0) ,i(kfsmn0) ,r(dzs0)   , &
-                     & lstsci    ,gdp       )
+                     & r(taubmx) ,lstsci    ,gdp       )
              call timer_stop(timer_fallve, gdp)
           endif
           !

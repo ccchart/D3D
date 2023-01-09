@@ -3096,6 +3096,7 @@ src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/avalan.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/bndmorlyr.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/bott3d.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/compthick.f90 -text
+src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/d3d4_flocculate.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/dredge_comm.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/dredge_d3d4.f90 -text
 src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/dredge_initialize_d3d4.f90 -text

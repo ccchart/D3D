@@ -43,9 +43,8 @@ module flocculation
     real(fp), parameter        :: PARAM_SOULSBY = 3.0  ! Coefficient of proportionality according to Soulsby (see Manning and Dyer)
 
 contains
-
-
-subroutine macro_floc_settling_manning( spm, tke, ws_macro )
+    
+subroutine macro_floc_settling_manning( spm, tshear, ws_macro )
 
 !!--description-----------------------------------------------------------------
 !
@@ -62,17 +61,14 @@ subroutine macro_floc_settling_manning( spm, tke, ws_macro )
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(in)  :: tke                  !< Turbulent kinetic energy (as a measure for turbulent shear stress; N/m2)
-    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs (m/s)
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress [N/m2]
+    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs [m/s]
 
 !
 ! Local variables and parameters
 !
-    real(fp), parameter   :: param_soulsby = 3.0  ! Coefficient of proportionality according to Soulsby (see Manning and Dyer)
-    real(fp)              :: tshear               ! Turbulent shear stress
-
-    tshear = param_soulsby * tke
+!   NONE
 
     !
     ! Settling velocity of macro flocs
@@ -87,7 +83,7 @@ subroutine macro_floc_settling_manning( spm, tke, ws_macro )
     endif
 
     !
-    ! Settling flux for both macro flocs
+    ! Settling velocity for both macro flocs
     ! (Convert to m/s - the settling velocities as calculated above are in mm/s)
     !
     ws_macro      = 0.001_fp * ws_macro
@@ -95,7 +91,7 @@ subroutine macro_floc_settling_manning( spm, tke, ws_macro )
 end subroutine macro_floc_settling_manning
 
 
-subroutine micro_floc_settling_manning( tke, ws_micro )
+subroutine micro_floc_settling_manning( tshear, ws_micro )
 
 !!--description-----------------------------------------------------------------
 !
@@ -112,15 +108,13 @@ subroutine micro_floc_settling_manning( tke, ws_micro )
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: tke                  !< Turbulent kinetic energy (as a measure for turbulent shear stress; N/m2)
-    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs (m/s)
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress [N/m2]
+    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs [m/s]
 
 !
 ! Local variables and parameters
 !
-    real(fp)              :: tshear               ! Turbulent shear stress
-
-    tshear = PARAM_SOULSBY * tke
+!   NONE
 
     !
     ! Settling velocity of micro flocs
@@ -133,7 +127,7 @@ subroutine micro_floc_settling_manning( tke, ws_micro )
     endif
 
     !
-    ! Settling flux for both micro flocs
+    ! Settling velocity for both micro flocs
     ! (Convert to m/s - the settling velocities as calculated above are in mm/s)
     !
     ws_micro      = 0.001_fp * ws_micro
@@ -141,11 +135,11 @@ subroutine micro_floc_settling_manning( tke, ws_micro )
 end subroutine micro_floc_settling_manning
 
 
-subroutine macro_micro_floc_manning( spm, floc_ratio )
+subroutine macro_floc_frac_manning( spm, macro_frac )
 
 !!--description-----------------------------------------------------------------
 !
-! Calculate the equilibrium ratio of macro and micro flocs using the formulation
+! Calculate the equilibrium fraction of macro flocs using the formulation
 ! by Manning and Dyer
 !
 !!--pseudo code and references--------------------------------------------------
@@ -158,27 +152,28 @@ subroutine macro_micro_floc_manning( spm, floc_ratio )
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(out) :: floc_ratio           !< Mass ratio of macro flocs versus micro flocs (-)
-
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(out) :: macro_frac           !< Fraction of macro flocs mass of total spm mass [-]
+    
 !
 ! Local variables
 !
-!   NONE
+    real(fp)              :: floc_ratio           !< Mass ratio of macro flocs versus micro flocs [-]
 
     !
     ! Distribution of macro and micro flocs
     !
     floc_ratio = 0.815_fp + 3.18e-3 * spm - 1.4e-7_fp * spm ** 2
+    macro_frac = floc_ratio / (1.0_fp + macro_frac)
 
-end subroutine macro_micro_floc_manning
+end subroutine macro_floc_frac_manning
 
 
-subroutine floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro )
+subroutine floc_manning( spm, tshear, ws_avg, macro_frac, ws_macro, ws_micro )
 
 !!--description-----------------------------------------------------------------
 !
-! Calculate the settling flux of suspended particulate matter using the formulation
+! Calculate the settling velocities of suspended particulate matter using the formulation
 ! by Manning and Dyer
 !
 !!--pseudo code and references--------------------------------------------------
@@ -191,12 +186,12 @@ subroutine floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(in)  :: tke                  !< Turbulent kinetic energy (as a measure for turbulent shear stress; N/m2)
-    real(fp), intent(out) :: settling_flux        !< Downward flux of SPM due to settling (g/m2/s)
-    real(fp), intent(out) :: floc_ratio           !< Mass ratio of macro flocs versus micro flocs
-    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs (m/s)
-    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs (m/s)
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress (N/m2)
+    real(fp), intent(out) :: ws_avg               !< Effective settling velocity of SPM [m/s]
+    real(fp), intent(out) :: macro_frac           !< Fraction of macro flocs mass of total spm mass [-]
+    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs [m/s]
+    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs [m/s]
 
 !
 ! Local variables
@@ -206,27 +201,27 @@ subroutine floc_manning( spm, tke, settling_flux, floc_ratio, ws_macro, ws_micro
     !
     ! Settling velocity of macro flocs
     !
-    call macro_floc_settling_manning( spm, tke, ws_macro )
+    call macro_floc_settling_manning( spm, tshear, ws_macro )
 
     !
     ! Settling velocity of micro flocs
     !
-    call micro_floc_settling_manning( tke, ws_micro )
+    call micro_floc_settling_manning( tshear, ws_micro )
 
     !
-    ! Mass ratio for macro/micro flocs
+    ! Mass fraction of macro flocs
     !
-    call macro_micro_floc_manning( spm, floc_ratio )
+    call macro_floc_frac_manning( spm, macro_frac )
 
     !
-    ! Settling flux for both macro and micro flocs together
+    ! Effective settling velocity for both macro and micro flocs together
     !
-    settling_flux = spm * (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+    ws_avg = ws_micro + macro_frac * (ws_macro - ws_micro)
 
 end subroutine floc_manning
 
 
-subroutine macro_floc_settling_chassagne( spm, tau, totaldepth, localdepth, grav, viscosity, rho_water, ws_macro )
+subroutine macro_floc_settling_chassagne( spm, tshear, tdiss, grav, viscosity, rho_water, ws_macro )
 
 !!--description-----------------------------------------------------------------
 !
@@ -242,52 +237,39 @@ subroutine macro_floc_settling_chassagne( spm, tau, totaldepth, localdepth, grav
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(in)  :: tau                  !< Bed shear stress (N/m2)
-    real(fp), intent(in)  :: totaldepth           !< Distance between bottom and surface (m)
-    real(fp), intent(in)  :: localdepth           !< Distance between current segment and surface (m)
-    real(fp), intent(in)  :: grav                 !< Gravitational acceleration (m/s2)
-    real(fp), intent(in)  :: viscosity            !< Viscosity of water (kg/sm)
-    real(fp), intent(in)  :: rho_water            !< Water density (kg/m3)
-    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs (m/s)
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress [N/m2]
+    real(fp), intent(in)  :: tdiss                !< Turbulent dissipation [m2/s3]
+    real(fp), intent(in)  :: grav                 !< Gravitational acceleration [m/s2]
+    real(fp), intent(in)  :: viscosity            !< Viscosity of water [kg/sm]
+    real(fp), intent(in)  :: rho_water            !< Water density [kg/m3]
+    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs [m/s]
 
 !
 ! Local variables
 !
-    real(fp)              :: ustar
-    real(fp)              :: zlocal, zcorr
     real(fp)              :: factor1, factor2, factor3, factor4
     
-    real(fp)              :: d_macro
-    real(fp)              :: ustar_macro
+    real(fp), parameter   :: d_micro     = 1.0e-4_fp ! Characteristic diameter of micro flocs [m]
+    real(fp), parameter   :: ustar_macro = 0.067_fp  ! Characteristic shear velocity of macro flocs [m/s]
 
     !
-    ! Constants provided in the article
+    ! Compute dimensionless terms
     !
-    ustar_macro = 0.067_fp ! (m/s)
-    d_macro     = 1.0e-4_fp ! (m)
-
-    !
-    ! Calculate the gouverning parameters
-    !
-    ustar      = sqrt( tau / rho_water )                  ! shear stress velocity
-    zlocal     = totaldepth - localdepth                  ! height above the bottom
-    zcorr      = zlocal / (1.0_fp - zlocal / totaldepth ) ! "Z" in the article
-
-    !
-    ! Settling velocity of macro flocs (m/s)
-    !
-    factor1  = (ustar**3 * d_macro ** 4 / zcorr / viscosity ** 3) ** 0.166_fp
+    factor1  = (tdiss * d_micro ** 4 / viscosity ** 3) ** 0.166_fp
     factor2  = (spm / rho_water) ** 0.22044_fp
-    factor3  = sqrt(zcorr * viscosity / ustar ** 3)
-    factor4  = ustar_macro / ustar * sqrt(zcorr/zlocal)
+    factor3  = sqrt(viscosity / tdiss)
+    factor4  = sqrt(rho_water * ustar_macro ** 2 / tshear)
 
-    ws_macro = 0.095_fp * grav * factor1 * factor2 * factor3 * exp( - factor4 ** 0.463_fp )
+    !
+    ! Settling velocity of macro flocs [m/s]
+    !
+    ws_macro = 0.129_fp * grav * factor1 * factor2 * factor3 * exp( - factor4 ** 0.463_fp )
 
 end subroutine macro_floc_settling_chassagne
 
 
-subroutine micro_floc_settling_chassagne( tau, totaldepth, localdepth, grav, viscosity, rho_water, ws_micro )
+subroutine micro_floc_settling_chassagne( tshear, tdiss, grav, viscosity, rho_water, ws_micro )
 
 !!--description-----------------------------------------------------------------
 !
@@ -303,54 +285,41 @@ subroutine micro_floc_settling_chassagne( tau, totaldepth, localdepth, grav, vis
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: tau                  !< Bed shear stress (N/m2)
-    real(fp), intent(in)  :: totaldepth           !< Distance between bottom and surface (m)
-    real(fp), intent(in)  :: localdepth           !< Distance between current segment and surface (m)
-    real(fp), intent(in)  :: grav                 !< Gravitational acceleration (m/s2)
-    real(fp), intent(in)  :: viscosity            !< Viscosity of water (kg/sm)
-    real(fp), intent(in)  :: rho_water            !< Water density (kg/m3)
-    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs (m/s)
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress [N/m2]
+    real(fp), intent(in)  :: tdiss                !< Turbulent dissipation [m2/s3]
+    real(fp), intent(in)  :: grav                 !< Gravitational acceleration [m/s2]
+    real(fp), intent(in)  :: viscosity            !< Viscosity of water [kg/sm]
+    real(fp), intent(in)  :: rho_water            !< Water density [kg/m3]
+    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs [m/s]
 
 !
 ! Local variables
 !
-    real(fp)              :: ustar
-    real(fp)              :: zlocal, zcorr
     real(fp)              :: factor1, factor2, factor3, factor4
 
-    real(fp)              :: d_micro
-    real(fp)              :: ustar_micro
+    real(fp), parameter   :: d_1         = 1.0e-5_fp ! Characteristic diameter of elementary particles [m]
+    real(fp), parameter   :: ustar_micro = 0.025_fp  ! Characteristic shear velocity of micro flocs [m/s]
 
     !
-    ! Constants provided in the article
+    ! Compute dimensionless terms
     !
-    ustar_micro = 0.025_fp ! (m/s)
-    d_micro     = 1.0e-5_fp ! (m)
+    factor1  = (tdiss * d_1 ** 4 / viscosity ** 3) ** 0.166_fp
+    factor3  = sqrt(viscosity / tdiss)
+    factor4  = sqrt(rho_water * ustar_micro ** 2 / tshear)
 
     !
-    ! Calculate the gouverning parameters
-    !
-    ustar      = sqrt( tau / rho_water )                  ! shear stress velocity
-    zlocal     = totaldepth - localdepth                  ! height above the bottom
-    zcorr      = zlocal / (1.0_fp - zlocal / totaldepth ) ! "Z" in the article
-
-    !
-    ! Settling velocity of micro flocs (m/s)
-    !
-    factor1  = (ustar**3 * d_micro ** 4 / zcorr / viscosity ** 3) ** 0.166_fp
-    factor3  = sqrt(zcorr * viscosity / ustar ** 3)
-    factor4  = ustar_micro / ustar * sqrt(zcorr/zlocal)
-
-    ws_micro = 0.5372_fp * grav * factor1 * factor3 * exp( - factor4 ** 0.66_fp )
+    ! Settling velocity of macro flocs [m/s]
+    !    
+    ws_micro = 0.594_fp * grav * factor1 * factor3 * exp( - factor4 ** 0.66_fp )
 
 end subroutine micro_floc_settling_chassagne
 
 
-subroutine macro_micro_floc_chassagne( spm, floc_ratio )
+subroutine macro_floc_frac_chassagne( spm, macro_frac )
 
 !!--description-----------------------------------------------------------------
 !
-! Calculate the equilibrium ratio of macro and micro flocs using the formulation
+! Calculate the equilibrium fraction of macro flocs using the formulation
 ! by Chassagne and Safar
 !
 !!--pseudo code and references--------------------------------------------------
@@ -362,8 +331,8 @@ subroutine macro_micro_floc_chassagne( spm, floc_ratio )
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(out) :: floc_ratio           !< Mass ratio of macro flocs versus micro flocs (-)
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(out) :: macro_frac           !< Fraction of macro flocs mass of total spm mass [-]
 
 !
 ! Local variables
@@ -373,23 +342,20 @@ subroutine macro_micro_floc_chassagne( spm, floc_ratio )
     !
     ! Distribution of macro and micro flocs
     !
-    floc_ratio = 0.1_fp
-    if ( spm <= 0.1_fp ) then
-        floc_ratio = 0.1_fp
-    elseif ( spm >= 1174.0_fp ) then
-        floc_ratio = 1.0_fp
+    if ( spm <= 1.0_fp ) then
+        macro_frac = 0.1_fp
     else
-        floc_ratio = 0.1_fp + 0.221_fp * log10( spm )
+        macro_frac = min(0.1_fp + 0.221_fp * log10( spm ), 1.0_fp)
     endif
 
-end subroutine macro_micro_floc_chassagne
+end subroutine macro_floc_frac_chassagne
 
 
-subroutine floc_chassagne( spm, tau, totaldepth, localdepth, grav, viscosity, rho_water, settling_flux, floc_ratio, ws_macro, ws_micro )
+subroutine floc_chassagne( spm, tshear, tdiss, grav, viscosity, rho_water, ws_avg, macro_frac, ws_macro, ws_micro )
 
 !!--description-----------------------------------------------------------------
 !
-! Calculate the settling flux of suspended particulate matter using the formulation
+! Calculate the settling velocities of suspended particulate matter using the formulation
 ! by Chassagne and Safar
 !
 ! Explicit assumption:
@@ -408,17 +374,16 @@ subroutine floc_chassagne( spm, tau, totaldepth, localdepth, grav, viscosity, rh
 !
 ! Global variables
 !
-    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter; g/m3)
-    real(fp), intent(in)  :: tau                  !< Bed shear stress (N/m2)
-    real(fp), intent(in)  :: totaldepth           !< Distance between bottom and surface (m)
-    real(fp), intent(in)  :: localdepth           !< Distance between current segment and surface (m)
-    real(fp), intent(in)  :: grav                 !< Gravitational acceleration (m/s2)
-    real(fp), intent(in)  :: viscosity            !< Viscosity of water (kg/sm)
-    real(fp), intent(in)  :: rho_water            !< Water density (kg/m3)
-    real(fp), intent(out) :: settling_flux        !< Downward flux of SPM due to settling (g/m2/s)
-    real(fp), intent(out) :: floc_ratio           !< Mass ratio of macro flocs versus micro flocs (-)
-    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs (m/s)
-    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs (m/s)
+    real(fp), intent(in)  :: spm                  !< (Total) concentration of suspended particulate matter (not including organic matter) [g/m3]
+    real(fp), intent(in)  :: tshear               !< Turbulent shear stress [N/m2]
+    real(fp), intent(in)  :: tdiss                !< Turbulent dissipation [m2/s3]
+    real(fp), intent(in)  :: grav                 !< Gravitational acceleration [m/s2]
+    real(fp), intent(in)  :: viscosity            !< Viscosity of water [kg/sm]
+    real(fp), intent(in)  :: rho_water            !< Water density [kg/m3]
+    real(fp), intent(out) :: ws_avg               !< Downward flux of SPM due to settling [g/m2/s]
+    real(fp), intent(out) :: macro_frac           !< Fraction of macro flocs mass of total spm mass [-]
+    real(fp), intent(out) :: ws_macro             !< Settling velocity of macro flocs [m/s]
+    real(fp), intent(out) :: ws_micro             !< Settling velocity of micro flocs [m/s]
 
 !
 ! Local variables 
@@ -426,24 +391,24 @@ subroutine floc_chassagne( spm, tau, totaldepth, localdepth, grav, viscosity, rh
 !   NONE
 
     !
-    ! Distribution of macro and micro flocs
+    ! Mass fraction of macro flocs
     !
-    call macro_micro_floc_chassagne( spm, floc_ratio )
+    call macro_floc_frac_chassagne( spm, macro_frac )
 
     !
     ! Settling velocity of macro flocs (m/s)
     !
-    call macro_floc_settling_chassagne( spm, tau, totaldepth, localdepth, grav, viscosity, rho_water, ws_macro )
+    call macro_floc_settling_chassagne( spm, tshear, tdiss, grav, viscosity, rho_water, ws_macro )
 
     !
     ! Settling velocity of micro flocs (m/s)
     !
-    call micro_floc_settling_chassagne( tau, totaldepth, localdepth, grav, viscosity, rho_water, ws_micro )
+    call micro_floc_settling_chassagne( tshear, tdiss, grav, viscosity, rho_water, ws_micro )
 
     !
-    ! Settling flux for both macro and micro flocs together
+    ! Settling velocity for both macro and micro flocs together
     !
-    settling_flux = spm * (floc_ratio * ws_macro + ws_micro) / (floc_ratio + 1.0_fp)
+    ws_avg = ws_micro + macro_frac * (ws_macro - ws_micro)
 
 end subroutine floc_chassagne
 
@@ -472,10 +437,7 @@ subroutine flocculate(cfloc, adt, flocmod)
     real(fp) :: tcpop          !< Total concentration of specific clay population [g/m3]
     real(fp) :: eq_cfloc_micro !< Equilibrium concentration of micro flocs within specific clay population [g/m3]
     real(fp) :: eq_cfloc_macro !< Equilibrium concentration of macro flocs within specific clay population [g/m3]
-    real(fp) :: settling_flux  !< DUMMY - Downward flux of SPM due to settling [g/m2/s]
-    real(fp) :: floc_ratio     !< Mass ratio of macro flocs versus micro flocs [-]
-    real(fp) :: ws_macro       !< DUMMY - Settling velocity of macro flocs [m/s]
-    real(fp) :: ws_micro       !< DUMMY - Settling velocity of micro flocs [m/s]
+    real(fp) :: macro_frac     !< Fraction of macro flocs mass of total spm mass [-]
     !
     nflocpop = size(cfloc,1)
     nflocsizes = size(cfloc,2)
@@ -489,11 +451,11 @@ subroutine flocculate(cfloc, adt, flocmod)
 
     select case (flocmod)
     case (FLOC_MANNING_DYER)
-       call macro_micro_floc_manning( tcclay, floc_ratio )
+       call macro_floc_frac_manning( tcclay, macro_frac )
        do i = 1, nflocpop
           tcpop = cfloc(i,1) + cfloc(i,2)
           !
-          eq_cfloc_macro = floc_ratio / (1.0_fp + floc_ratio) * tcpop
+          eq_cfloc_macro = macro_frac * tcpop
           eq_cfloc_micro = tcpop - eq_cfloc_macro
           !
           cfloc(i,1) = adt * eq_cfloc_micro + (1.0_fp - adt) * cfloc(i,1)
@@ -501,11 +463,11 @@ subroutine flocculate(cfloc, adt, flocmod)
        enddo
     
     case (FLOC_CHASSAGNE_SAFAR)
-       call macro_micro_floc_chassagne( tcclay, floc_ratio )
+       call macro_floc_frac_chassagne( tcclay, macro_frac )
        do i = 1, nflocpop
           tcpop = cfloc(i,1) + cfloc(i,2)
           !
-          eq_cfloc_macro = floc_ratio / (1.0_fp + floc_ratio) * tcpop
+          eq_cfloc_macro = macro_frac * tcpop
           eq_cfloc_micro = tcpop - eq_cfloc_macro
           !
           cfloc(i,1) = adt * eq_cfloc_micro + (1.0_fp - adt) * cfloc(i,1)
@@ -518,5 +480,68 @@ subroutine flocculate(cfloc, adt, flocmod)
     end select
    
 end subroutine flocculate
+
+
+subroutine get_tshear_tdiss( tshear, tdiss, i2d3d, iturb, taub, rho_water, waterdepth, localdepth, tke, tlength, timtur )
+
+!!--description-----------------------------------------------------------------
+!
+! Calculate the turbulent shear and dissipation for different flow models
+!
+!!--pseudo code and references--------------------------------------------------
+!!--declarations----------------------------------------------------------------
+!
+! Global variables
+!
+    real(fp), intent(out)           :: tshear     !< Turbulent shear stress [N/m2)
+    real(fp), intent(inout)         :: tdiss      !< Turbulent dissipation epsilon [m2/s3]
+    integer, intent(in)             :: i2d3d      !< Flag indicating whether the model runs in 2D (i2d3d = 2) or 3D (= 3)
+    integer, optional, intent(in)   :: iturb      !< Flag indicating turbulence model: algebraic (0), k-L (1), k-eps (2)
+    real(fp), optional, intent(in)  :: taub       !< Bed shear stress [N/m2]
+    real(fp), optional, intent(in)  :: rho_water  !< Water density [kg/m3]
+    real(fp), optional, intent(in)  :: waterdepth !< Total water depth [m]
+    real(fp), optional, intent(in)  :: localdepth !< Depth below water surface [m]
+    real(fp), optional, intent(in)  :: tke        !< Turbulent kinetic energy lk [N/m2]
+    real(fp), optional, intent(in)  :: tlength    !< Turbulent length scale L [m]
+    real(fp), optional, intent(in)  :: timtur     !< Turbulent time scale tau [s]
+
+!
+! Local variables 
+!
+    real(fp), parameter :: kappa = 0.4   ! von Karman constant [-]
+    real(fp), parameter :: cd = 0.1925   ! turbulence constant [-]
+    
+    real(fp) :: ustar         ! shear velocity [m/s]
+    real(fp) :: z             ! height above the bed [m]
+    real(fp) :: xi            ! relative depth [-]
+
+    if (i2d3d == 2) then ! 2D
+       ustar = sqrt(taub / rho_water)
+       tshear = 0.5_fp * taub
+       tdiss = ustar ** 3 / (kappa * waterdepth)
+        
+    else ! 3D
+       if (iturb == 0) then ! no turbulence model or algebraic
+          z = waterdepth - localdepth
+          xi = localdepth/waterdepth
+          ustar = sqrt(taub / rho_water)
+          tshear = xi * taub
+          tdiss = (xi * ustar ** 3) / (kappa * z)
+          
+       elseif (iturb == 1) then ! k-L model --> k (tke) and L (tlength) provided
+          tshear = PARAM_SOULSBY * tke
+          tdiss = cd * tke ** 1.5_fp / tlength
+          
+       elseif (iturb == 2) then ! k-epsilon model --> k (tke) and epsilon (tdiss) provided
+          tshear = PARAM_SOULSBY * tke
+          ! tdiss already set
+          
+       elseif (iturb == 3) then ! k-tau model --> k (tke) and tau (timtur) provided
+          tshear = PARAM_SOULSBY * tke
+          tdiss = tke * timtur
+          
+       endif
+    endif
+end subroutine get_tshear_tdiss
 
 end module flocculation

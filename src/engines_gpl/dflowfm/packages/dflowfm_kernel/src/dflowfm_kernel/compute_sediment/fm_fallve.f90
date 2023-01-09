@@ -51,7 +51,8 @@
    use message_module, only: write_error
    use unstruc_files, only: mdia
    use m_alloc
-   use m_fm_erosed, only: ucxq_mor, ucyq_mor
+   use m_fm_erosed, only: ucxq_mor, ucyq_mor, taub
+   use flocculation, only: get_tshear_tdiss
    !
    implicit none
    !
@@ -96,6 +97,7 @@
    double precision                    :: tka
    double precision                    :: tkb
    double precision                    :: tkt
+   double precision                    :: tshear
    double precision                    :: tur_eps
    double precision                    :: tur_k
    double precision                    :: u
@@ -250,6 +252,11 @@
                else
                   tur_eps = -999.0d0
                endif
+               if (iturbulencemodel == 3) then ! k-eps
+                  call get_tshear_tdiss( tshear, tur_eps, 3, 2, tke = tur_k )
+               else
+                  call get_tshear_tdiss( tshear, tur_eps, 3, 0, taub = taub(k), rho_water = rhoint, waterdepth = h0, localdepth = s1(k) - zws(kk))
+               endif
                !
                ! Pass to DLL, decoupling because of treatment per layer interface
                !
@@ -284,6 +291,7 @@
                dll_reals(WS_RP_UMEAN) = real(um(k)      ,hp)
                dll_reals(WS_RP_VMEAN) = real(vm(k)      ,hp)
                dll_reals(WS_RP_CHEZY) = real(chezy      ,hp)
+               dll_reals(WS_RP_SHTUR) = real(tshear     ,hp)
                !
                if (max_integers < WS_MAX_IP) then
                   write(errmsg,'(a,a,a)') 'Insufficient space to pass integer values to settling routine.'
@@ -337,6 +345,7 @@
             w       = -999d0   ! z component
             tur_k   = -999d0
             tur_eps = -999d0
+            call get_tshear_tdiss( tshear, tur_eps, 2, taub = taub(k), rho_water = rhoint, waterdepth = h0 )
             !
             ! Pass to DLL
             !
@@ -371,6 +380,7 @@
             dll_reals(WS_RP_UMEAN) = real(um(k)      ,hp)
             dll_reals(WS_RP_VMEAN) = real(vm(k)      ,hp)
             dll_reals(WS_RP_CHEZY) = real(chezy      ,hp)
+            dll_reals(WS_RP_SHTUR) = real(tshear     ,hp)
             !
             if (max_integers < WS_MAX_IP) then
                write(errmsg,'(a,a,a)') 'Insufficient space to pass integer values to settling routine.'
