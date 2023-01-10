@@ -2397,7 +2397,7 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
     integer                        , intent(in)  :: calccount
     integer                        , intent(in)  :: itide
     integer                        , intent(in)  :: nttide
-    character(*)                   ,intent(in)  :: filnam
+    character(*)                   , intent(in)  :: filnam
     type(swan_type)                              :: sr
     type(wave_data_type)                         :: wavedata
     integer                        , intent(in)  :: inest
@@ -2406,10 +2406,7 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
 !
     integer           :: old_input
     integer           :: new_input
-    integer           :: loc_tstart
-    integer           :: loc_tstop
-    integer           :: loc_hotstart
-    integer           :: loc_hotsave
+    integer           :: loc_tag
     integer           :: ierr
     character(256)    :: rec
     character(256)    :: line !BS same length as in write_swan_inp: 180. Is it a Swan limit? Double check.
@@ -2446,32 +2443,28 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
         !               WITH TAGS
         !=============================================================================
         ! look for $TSTART$, $TSTOP$, $HOTSTART$, $HOTSAVE$
-        loc_tstart   = index(rec,'$TSTART$'  )
-        loc_tstop    = index(rec,'$TSTOP$'   )
-        loc_hotstart = index(rec,'$HOTSTART$')
-        loc_hotsave  = index(rec,'$HOTSAVE$' )
         !
         line = rec
         !
-        if(loc_tstart /= 0) then
+        loc_tag   = index(rec,'$TSTART$'  )
+        if(loc_tag /= 0) then
             tbegc = datetime_to_string(wavedata%time%refdate, wavedata%time%timsec)
-            line = ' ' ! I'll leave it for now. I want to make sure things got written correctly before removing this 
-            line(1:loc_tstart-1) = rec(1:loc_tstart-1)
-            line(loc_tstart+16:) = rec(loc_tstart+8:)
-            write(line(loc_tstart:loc_tstart+15),'(a)') tbegc
+            line(loc_tag+16:) = rec(loc_tag+8:)
+            write(line(loc_tag:loc_tag+15),'(a)') tbegc
+            rec = line
         endif
-        if(loc_tstop /= 0) then
+        loc_tag   = index(rec,'$TSTOP$'  )
+        if(loc_tag /= 0) then
             tendc = datetime_to_string(wavedata%time%refdate, wavedata%time%calctimtscale* real(wavedata%time%tscale,hp))
-            line = ' '
-            line(1:loc_tstop-1) = rec(1:loc_tstop-1)
-            line(loc_tstop+16:) = rec(loc_tstop+8:)
-            write(line(loc_tstop:loc_tstop+15),'(a)') tendc
+            write(line(loc_tag:loc_tag+15),'(a)') tendc
         endif
-        if(loc_hotstart /= 0) then
-            ! check for existence of hotfile, if found, use it. done with a new routine 
-            call create_hotstart_line(inest,fname,line,sr) ! there is an actual WRITING here. Remove.
+        loc_tag   = index(rec,'$HOTSTART$'  )
+        if(loc_tag /= 0) then
+            ! check for existence of hotfile
+            call create_hotstart_line(inest,fname,line,sr)
         endif
-        if(loc_hotsave /= 0) then
+        loc_tag   = index(rec,'$HOTSAVE$'  )
+        if(loc_tag /= 0) then
             ! SPEC for netcdf hotfiles, with format hot_inest_date_time.nc
             call create_hotfile_line(fname,inest,line,sr,wavedata)
         endif
