@@ -34,7 +34,7 @@ module morphology_data_module
 !
 !!--module declarations---------------------------------------------------------
 use precision
-use sediment_basics_module, only: SEDTYP_SAND, SEDTYP_SILT
+use sediment_basics_module, only: SEDTYP_SILT, SEDTYP_SAND
 use flocculation, only: FLOC_NONE
 use handles, only:handletype
 use properties, only:tree_data
@@ -155,29 +155,30 @@ integer, parameter, public :: WS_FORM_CHASSAGNE_SAFAR_MICRO = 7
 integer, parameter, public :: WS_FORM_CHASSAGNE_SAFAR       = 8
 integer, parameter, public :: WS_FORM_USER_ROUTINE          = 15
 
-integer, parameter, public :: WS_RP_TIME  =  1
-integer, parameter, public :: WS_RP_ULOC  =  2
-integer, parameter, public :: WS_RP_VLOC  =  3
-integer, parameter, public :: WS_RP_WLOC  =  4
-integer, parameter, public :: WS_RP_SALIN =  5
-integer, parameter, public :: WS_RP_TEMP  =  6
-integer, parameter, public :: WS_RP_RHOWT =  7
-integer, parameter, public :: WS_RP_CFRCB =  8
-integer, parameter, public :: WS_RP_CTOT  =  9
-integer, parameter, public :: WS_RP_KTUR  = 10
-integer, parameter, public :: WS_RP_EPTUR = 11
-integer, parameter, public :: WS_RP_D50   = 12
-integer, parameter, public :: WS_RP_DSS   = 13
-integer, parameter, public :: WS_RP_RHOSL = 14
-integer, parameter, public :: WS_RP_CSOIL = 15
+integer, parameter, public :: WS_RP_TIME  =  1 ! Time
+integer, parameter, public :: WS_RP_ULOC  =  2 ! Horizontal velocity component 1 [m/s]
+integer, parameter, public :: WS_RP_VLOC  =  3 ! Horizontal velocity component 2 [m/s]
+integer, parameter, public :: WS_RP_WLOC  =  4 ! Vertical velocity [m/s]
+integer, parameter, public :: WS_RP_SALIN =  5 ! Salinity [ppt]
+integer, parameter, public :: WS_RP_TEMP  =  6 ! Water temperature [degC]
+integer, parameter, public :: WS_RP_RHOWT =  7 ! Water density [kg/m3]
+integer, parameter, public :: WS_RP_CFRCB =  8 ! Concentration of fraction [kg/m3]
+integer, parameter, public :: WS_RP_CTOT  =  9 ! Total sediment concentration [kg/m3]
+integer, parameter, public :: WS_RP_KTUR  = 10 ! Turbulent kinetic energy [m2/s2]
+integer, parameter, public :: WS_RP_EPTUR = 11 ! Turbulent dissipation [m2/s3]
+integer, parameter, public :: WS_RP_D50   = 12 ! Median grainsize [m]
+integer, parameter, public :: WS_RP_DSS   = 13 ! Median grainsize in suspension [m]
+integer, parameter, public :: WS_RP_RHOSL = 14 ! Mineral density [kg/m3]
+integer, parameter, public :: WS_RP_CSOIL = 15 ! Hindered settling reference density [kg/m3]
 integer, parameter, public :: WS_RP_GRAV  = 16 ! Gravitational acceleration [m/s2]
 integer, parameter, public :: WS_RP_VICML = 17 ! Molecular viscosity
 integer, parameter, public :: WS_RP_WDEPT = 18 ! Water depth [m]
-integer, parameter, public :: WS_RP_UMEAN = 19
-integer, parameter, public :: WS_RP_VMEAN = 20
+integer, parameter, public :: WS_RP_UMEAN = 19 ! Depth-averaged flow velocity component 1 [m/s]
+integer, parameter, public :: WS_RP_VMEAN = 20 ! Depth-averaged flow velocity component 2 [m/s]
 integer, parameter, public :: WS_RP_CHEZY = 21 ! Chezy roughness
 integer, parameter, public :: WS_RP_SHTUR = 22 ! Turbulent shear stress [N/m2]
-integer, parameter, public :: WS_MAX_RP   = 22
+integer, parameter, public :: WS_RP_CCLAY = 23 ! Clay concenrtration [kg/m3]
+integer, parameter, public :: WS_MAX_RP   = 23
 !
 integer, parameter, public :: WS_IP_NM    =  1
 integer, parameter, public :: WS_IP_N     =  2

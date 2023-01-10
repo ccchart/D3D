@@ -86,10 +86,10 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     real(fp)                    :: dss
     real(fp)                    :: ag
     real(fp)                    :: d50
+    real(fp)                    :: cclay
     real(fp)                    :: ctot
     real(fp)                    :: csoil
     real(fp)                    :: s
-    real(fp)                    :: spm
     real(fp)                    :: tdiss
     real(fp)                    :: tshear
     real(fp)                    :: vonkar
@@ -220,9 +220,9 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity for macro flocs according Manning and Dyer
        !
-       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
-       call macro_floc_settling_manning( spm, tshear, wsloc )
+       call macro_floc_settling_manning( cclay, tshear, wsloc )
 
     case (WS_FORM_MANNING_DYER_MICRO)
        !
@@ -235,27 +235,26 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity based on flocculation model by Manning and Dyer
        !
-       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
-       call floc_manning( spm, tshear, wsloc, macro_frac, ws_macro, ws_micro )
+       call floc_manning( cclay, tshear, wsloc, macro_frac, ws_macro, ws_micro )
 
     case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
        !
        ! Settling velocity for macro flocs according Chassagne and Safar
        !
-       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
-       call macro_floc_settling_chassagne( spm, tshear, tdiss, ag, vcmol, rhow, wsloc )
+       call macro_floc_settling_chassagne( cclay, tshear, tdiss, ag, vcmol, rhow, wsloc )
 
     case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
        !
        ! Settling velocity for macro flocs according Chassagne and Safar
        !
-       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
@@ -267,13 +266,13 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity based on flocculation model by Chassagne and Safar
        !
-       spm    = real(dll_reals(WS_RP_CFRCB),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
-       call floc_chassagne( spm, tshear, tdiss, ag, vcmol, rhow, wsloc, macro_frac, ws_macro, ws_micro )
+       call floc_chassagne( cclay, tshear, tdiss, ag, vcmol, rhow, wsloc, macro_frac, ws_macro, ws_micro )
 
     case (WS_FORM_USER_ROUTINE)
        !

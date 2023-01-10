@@ -1897,7 +1897,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
              call d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, &
                        & r(r0), i(kfs), i(kfsmn0), i(kfsmx0), hdt, gdp)
              call fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
-                       & i(kcs)    ,i(kfs)    ,r(wrkb1)  ,r(u0)     ,r(v0)     , &
+                       & i(kcs)    ,i(kfs)    ,r(u0)     ,r(v0)     , &
                        & r(wphy)   ,r(r0)     ,r(rtur0)  ,ltur      ,r(thick)  , &
                        & saleqs    ,temeqs    ,r(rhowat) ,r(ws)     , &
                        & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
@@ -2967,7 +2967,7 @@ subroutine trisol(dischy    ,solver    ,icreep    ,ithisc    , &
              call d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, &
                        & r(r0), i(kfs), i(kfsmn0), i(kfsmx0), hdt, gdp)
              call fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
-                       & i(kcs)    ,i(kfs)    ,r(wrkb1)  ,r(u0)     ,r(v0)     , &
+                       & i(kcs)    ,i(kfs)    ,r(u0)     ,r(v0)     , &
                        & r(wphy)   ,r(r0)     ,r(rtur0)  ,ltur      ,r(thick)  , &
                        & saleqs    ,temeqs    ,r(rhowat) ,r(ws)     , &
                        & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
