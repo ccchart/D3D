@@ -2409,7 +2409,7 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
     integer           :: loc_tag
     integer           :: ierr
     character(256)    :: rec
-    character(256)    :: line !BS same length as in write_swan_inp: 180. Is it a Swan limit? Double check.
+    character(256)    :: line !BS length as in write_swan_inp: 180. Is it a Swan limit? Double check.
     character(15)               :: tbegc
     character(15)               :: tendc
     character(15), external     :: datetime_to_string
@@ -2429,16 +2429,13 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
     open (newunit=new_input, file = 'INPUT', form = 'formatted', status = 'replace')
     
     read(old_input,'(a)',iostat=ierr) rec
+    if (ierr /= 0) then
+        write(*,'(2a)') '*** ERROR: Unable to read file ',trim(filnam)
+        close(old_input)
+        close(new_input)
+        call wavestop(1, 'Unable to read file '//trim(filnam))
+    endif
     do while (ierr == 0) 
-            !
-    
-        if (ierr /= 0) then
-            write(*,'(2a)') '*** ERROR: Unable to read file ',trim(filnam)
-            close(old_input)
-            close(new_input)
-            call wavestop(1, 'Unable to read file '//trim(filnam))
-        endif
-    
         !=============================================================================
         !               WITH TAGS
         !=============================================================================
@@ -2474,8 +2471,6 @@ subroutine update_swan_inp(filnam,itide,nttide,calccount,inest,sr,wavedata)
         !
         read(old_input,'(a)',iostat=ierr) rec
     end do
-
-    
     close(old_input)
     close(new_input)
     
