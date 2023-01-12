@@ -413,7 +413,7 @@ subroutine floc_chassagne( spm, tshear, tdiss, grav, viscosity, rho_water, ws_av
 end subroutine floc_chassagne
 
 
-subroutine flocculate(cfloc, adt, flocmod)
+subroutine flocculate(cfloc, flocdt, breakdt, flocmod)
 !!--description-----------------------------------------------------------------
 !
 ! Update the mass distribution of clay over the various floc sizes.
@@ -423,7 +423,8 @@ subroutine flocculate(cfloc, adt, flocmod)
 ! Global variables
 !
     real(fp), dimension(:,:), intent(inout)  :: cfloc   !< Concentration split per clay fraction and floc size [g/m3]
-    real(fp),                 intent(in)     :: adt     !< Relaxation factor towards equilibrium [-]
+    real(fp),                 intent(in)     :: flocdt  !< Relaxation factor towards equilibrium with more macro flocs [-]
+    real(fp),                 intent(in)     :: breakdt !< Relaxation factor towards equilibrium with less macro flocs [-]
     integer,                  intent(in)     :: flocmod !< Flocculation model being used [-]
     
 !
@@ -433,11 +434,12 @@ subroutine flocculate(cfloc, adt, flocmod)
     integer  :: j              !< Floc size index
     integer  :: nflocpop       !< Number of clay populations
     integer  :: nflocsizes     !< Number of floc size classes
-    real(fp) :: tcclay         !< Total clay concentration [g/m3]
-    real(fp) :: tcpop          !< Total concentration of specific clay population [g/m3]
-    real(fp) :: eq_cfloc_micro !< Equilibrium concentration of micro flocs within specific clay population [g/m3]
-    real(fp) :: eq_cfloc_macro !< Equilibrium concentration of macro flocs within specific clay population [g/m3]
+    real(fp) :: adt            !< Relaxation factor towards equilibtium [-]
+    real(fp) :: eq_cfloc_micro !< Equilibrium concentration of micro flocs within specific clay population [kg/m3]
+    real(fp) :: eq_cfloc_macro !< Equilibrium concentration of macro flocs within specific clay population [kg/m3]
     real(fp) :: macro_frac     !< Fraction of macro flocs mass of total spm mass [-]
+    real(fp) :: tcclay         !< Total clay concentration [kg/m3]
+    real(fp) :: tcpop          !< Total concentration of specific clay population [kg/m3]
     !
     nflocpop = size(cfloc,1)
     nflocsizes = size(cfloc,2)
@@ -450,28 +452,26 @@ subroutine flocculate(cfloc, adt, flocmod)
     enddo
 
     select case (flocmod)
-    case (FLOC_MANNING_DYER)
-       call macro_floc_frac_manning( tcclay, macro_frac )
+    case (FLOC_MANNING_DYER, FLOC_CHASSAGNE_SAFAR)
+       if (flocmod == FLOC_MANNING_DYER) then
+          call macro_floc_frac_manning( tcclay, macro_frac )
+       else
+          call macro_floc_frac_chassagne( tcclay, macro_frac )
+       endif
+       
        do i = 1, nflocpop
           tcpop = cfloc(i,1) + cfloc(i,2)
           !
           eq_cfloc_macro = macro_frac * tcpop
           eq_cfloc_micro = tcpop - eq_cfloc_macro
           !
-          cfloc(i,1) = adt * eq_cfloc_micro + (1.0_fp - adt) * cfloc(i,1)
-          cfloc(i,2) = adt * eq_cfloc_macro + (1.0_fp - adt) * cfloc(i,2)
-       enddo
-    
-    case (FLOC_CHASSAGNE_SAFAR)
-       call macro_floc_frac_chassagne( tcclay, macro_frac )
-       do i = 1, nflocpop
-          tcpop = cfloc(i,1) + cfloc(i,2)
-          !
-          eq_cfloc_macro = macro_frac * tcpop
-          eq_cfloc_micro = tcpop - eq_cfloc_macro
-          !
-          cfloc(i,1) = adt * eq_cfloc_micro + (1.0_fp - adt) * cfloc(i,1)
-          cfloc(i,2) = adt * eq_cfloc_macro + (1.0_fp - adt) * cfloc(i,2)
+          if (eq_cfloc_macro > cfloc(i,2)) then ! towards more macro flocs, use flocculation time scale
+             adt = flocdt
+          else ! towards less macro flocs, use break-up time scale
+             adt = breakdt
+          endif
+          cfloc(i,1) = cfloc(i,1) + adt * (eq_cfloc_micro - cfloc(i,1))
+          cfloc(i,2) = cfloc(i,2) + adt * (eq_cfloc_macro - cfloc(i,2))
        enddo
 
     case (FLOC_VERNEY_ETAL)

@@ -463,6 +463,8 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
           endif
           !
           call prop_get(sed_ptr, 'SedimentOverall', 'TFloc', sedpar%tfloc)
+          sedpar%tbreakup = sedpar%tfloc
+          call prop_get(sed_ptr, 'SedimentOverall', 'TBreakUp', sedpar%tbreakup)
        endif
        !
        sedpar%flnrd(0) = ' '
@@ -1363,6 +1365,8 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        txtput1 = 'Flocculation time scale'
        write (lundia, '(2a,e12.4)') txtput1, ':', sedpar%tfloc
+       txtput1 = 'Floc break-up time scale'
+       write (lundia, '(2a,e12.4)') txtput1, ':', sedpar%tbreakup
     endif
     if (bsskin) then
        txtput1 = 'Skin friction Soulsby 2004'

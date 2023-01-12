@@ -122,6 +122,7 @@
    integer                              , pointer :: nflocpop
    integer                              , pointer :: nflocsizes
    integer          , dimension(:, :)   , pointer :: floclist
+   real(fp)                             , pointer :: tbreakup
    real(fp)                             , pointer :: tfloc
 
    ! morpar

@@ -46,7 +46,7 @@
    use m_flow    , only: kmx, s1
    use m_flowparameters, only: epshs
    use m_transport, only: constituents, ised1
-   use m_fm_erosed, only: floclist, flocmod, nflocpop, nflocsizes, tfloc
+   use m_fm_erosed, only: floclist, flocmod, nflocpop, nflocsizes, tbreakup, tfloc
    implicit none
    
    !
@@ -60,7 +60,8 @@
    integer                               :: kk             !< 3D cell index
    integer                               :: kt             !< Index of topmost cell
    integer                               :: ll             !< Sediment fraction index
-   real(fp)                              :: adt            !< Relaxation factor towards equilibrium [-]
+   real(fp)                              :: breakdt        !< Relaxation factor towards equilibrium with less macro flocs [-]
+   real(fp)                              :: flocdt         !< Relaxation factor towards equilibrium with more macro flocs [-]
    real(fp), dimension(:,:), allocatable :: cfloc          !< Concentration split per clay fraction and floc size [g/m3]
 
    !
@@ -72,10 +73,17 @@
    !
    if (tfloc < 0.04_fp * dts) then
       ! go to equilibrium immediately
-      adt = 1.0_fp
+      flocdt = 1.0_fp
    else
       ! (some) relaxation effect
-      adt = exp(-dts/tfloc)
+      flocdt = exp(-dts/tfloc)
+   endif
+   if (tbreakup < 0.04_fp * dts) then
+      ! go to equilibrium immediately
+      breakdt = 1.0_fp
+   else
+      ! (some) relaxation effect
+      breakdt = exp(-dts/tbreakup)
    endif
    allocate(cfloc(nflocpop, nflocsizes), stat = istat)
    
@@ -106,7 +114,7 @@
          !
          ! apply flocculation model
          !
-         call flocculate(cfloc, adt, flocmod)
+         call flocculate(cfloc, flocdt, breakdt, flocmod)
          !
          ! update clay floc concentrations, convert back to kg/m3
          !

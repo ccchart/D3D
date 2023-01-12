@@ -84,6 +84,7 @@
    nflocpop            => stmpar%sedpar%nflocpop
    nflocsizes          => stmpar%sedpar%nflocsizes
    floclist            => stmpar%sedpar%floclist
+   tbreakup            => stmpar%sedpar%tbreakup
    tfloc               => stmpar%sedpar%tfloc
 
    ! morpar

@@ -42,6 +42,7 @@ subroutine d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, r0, kfs, kfs
     integer, pointer :: nflocpop                   !  number of floc populations (groups of clay fractions that exchange mass)
     integer, pointer :: nflocsizes                 !  number of floc sizes distinguished in the flocculation model
     integer, dimension(:,:), pointer :: floclist   !  Table of groups of clay fractions that belong together (flocculation)
+    real(fp), pointer :: tbreakup                  !  relaxation time scale for break-up of flocs [s]
     real(fp), pointer :: tfloc                     !  relaxation time scale for flocculation [s]
 
 !
@@ -70,8 +71,9 @@ subroutine d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, r0, kfs, kfs
    integer                               :: kt             !< Index of topmost cell
    integer                               :: ll             !< Sediment fraction index
    integer                               :: lst            !< Maximum index of salinity/temperature, offset for sediment
-   real(fp)                              :: adt            !< Relaxation factor towards equilibrium [-]
-   real(fp), dimension(:,:), allocatable :: cfloc          !< Concentration split per clay fraction and floc size [g/m3]
+   real(fp)                              :: breakdt        !< Relaxation factor towards equilibrium with less macroflocs [-]
+   real(fp)                              :: flocdt         !< Relaxation factor towards equilibrium with more macroflocs [-]
+   real(fp), dimension(:,:), allocatable :: cfloc          !< Concentration split per clay fraction and floc size [kg/m3]
 
 !
 !! executable statements -------------------------------------------------------
@@ -93,10 +95,17 @@ subroutine d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, r0, kfs, kfs
    !
    if (tfloc < 0.04_fp * dts) then
       ! go to equilibrium immediately
-      adt = 1.0_fp
+      flocdt = 1.0_fp
    else
       ! (some) relaxation effect
-      adt = exp(-dts/tfloc)
+      flocdt = exp(-dts/tfloc)
+   endif
+   if (tbreakup < 0.04_fp * dts) then
+      ! go to equilibrium immediately
+      breakdt = 1.0_fp
+   else
+      ! (some) relaxation effect
+      breakdt = exp(-dts/tbreakup)
    endif
    allocate(cfloc(nflocpop, nflocsizes), stat = istat)
    
@@ -125,7 +134,7 @@ subroutine d3d4_flocculate(nmmax, kmax, lstsci, lsal, ltem, zmodel, r0, kfs, kfs
          !
          ! apply flocculation model
          !
-         call flocculate(cfloc, adt, flocmod)
+         call flocculate(cfloc, flocdt, breakdt, flocmod)
          !
          ! update clay floc concentrations, convert back to kg/m3
          !

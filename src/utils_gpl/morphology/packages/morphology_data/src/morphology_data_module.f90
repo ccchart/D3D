@@ -543,6 +543,7 @@ type sedpar_type
     real(fp) :: sc_cmf1   !  lower critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
     real(fp) :: sc_cmf2   !  upper critical mud factor for determining bed roughness length for Soulsby & Clarke (2005)
     real(fp) :: sc_flcf   !  fraction of ParFluff0/ParFluff1 when the fluff layer fully covers the bed for Soulsby & Clarke (2005)
+    real(fp) :: tbreakup  !  relaxation time scale for break-up of flocs [s]
     real(fp) :: tfloc     !  relaxation time scale for flocculation [s]
     real(fp) :: version   !  interpreter version
     !
@@ -1197,6 +1198,7 @@ subroutine nullsedpar(sedpar)
     sedpar%sc_flcf  = 0.5_fp
     sedpar%kssand   = 0.0_fp
     sedpar%version  = 2.0_fp
+    sedpar%tbreakup = 0.0_fp
     sedpar%tfloc    = 0.0_fp
     !
     sedpar%flocmod        = FLOC_NONE
