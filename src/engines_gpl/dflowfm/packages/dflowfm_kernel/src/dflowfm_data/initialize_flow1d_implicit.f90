@@ -41,11 +41,12 @@ use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa 
-use m_sediment, only: stmpar, jased, stm_included
-use m_fm_erosed, only: link1sign2, ndx_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd
+use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx
+use m_sediment, only: stmpar, jased, stm_included, sedtra
+use m_fm_erosed, only: link1sign2, ndx_mor, lnx_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd
 use m_oned_functions, only: gridpoint2cross
 use m_waves, only: taubxu
+use morphology_data_module, only: allocsedtra
 
 implicit none
 
@@ -145,7 +146,7 @@ integer :: table_number
 integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c
 integer :: j
-integer :: lnx_mor 
+!integer :: lnx_mor 
 
 !move to function
 integer :: idx_aux
@@ -155,7 +156,7 @@ integer :: min_1, min_2
 
 integer, allocatable, dimension(:)   :: kcol
 integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-integer, allocatable, dimension(:)   :: node_fm_processed
+!integer, allocatable, dimension(:)   :: node_fm_processed
 integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
 integer, allocatable, dimension(:,:) :: ln_fm
 
@@ -302,7 +303,7 @@ kcs_sre => f1dimppar%kcs_sre
 kcs_sre=1
     
 !FM1DIMP2DO: add check on allocation
-allocate(node_fm_processed(ndx+network%NDS%COUNT)) !more than we need
+!allocate(node_fm_processed(ndx+network%NDS%COUNT)) !more than we need
 allocate(grd_fmmv_fmsv(ndx+network%NDS%COUNT)) !more than we need
 
 !allocate(nd_mor(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
@@ -391,46 +392,34 @@ do kbr=1,nbran
                
            !add ghost link
            if (nd(idx_fm)%lnx>2) then !bifurcation
-           
-               !if (node_fm_processed(idx_fm).eq.0) then !not yet processed. We only add the links and nodes once per bifurcation. 
-                   !node_fm_processed(idx_fm)=1 !set to processed
-                   
-                   !do kl=1,nd(idx_fm)%lnx !loop on number links attached to the bifurcation mesh node
-                       c_lnx=c_lnx+1 !update link number to ghost link
-                       grd_ghost_link_closest(c_lnx)=abs(nd_o(idx_fm)%ln(jpos))
-                       nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to bifurcation node
-                       
-                       c_ndx=c_ndx+1 !update node number to multivalued node
-                       
-                       nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
-                       allocate(nd_mor(c_ndx)%ln(2))
-                       if (kn==1) then 
-                          nd_mor(c_ndx)%ln(1)=c_lnx !new ghost link
-                          nd_mor(c_ndx)%ln(2)=grd_ghost_link_closest(c_lnx) !existing link
-                       else
-                          nd_mor(c_ndx)%ln(1)=grd_ghost_link_closest(c_lnx) !existing link
-                          nd_mor(c_ndx)%ln(2)=-c_lnx !new ghost link
-                       endif
-                       grd_fmmv_fmsv(c_ndx)=idx_fm
-                   !enddo !kl
-                       grd_fm_sre(c_ndx)=idx_sre
-                       
-               !else
-                       grd_fm_sre(c_ndx)=idx_sre
-               !endif !(node_fm_processed(idx_f).eq.0)
-               
-               !if (jpos.ne.1) then 
-               !   c_ndx=c_ndx+1
-               !   grd_fm_sre(c_ndx)=idx_sre
-               !   grd_fmmv_fmsv(c_ndx)=idx_fm
-               !else
-               !    grd_fm_sre(idx_fm)=idx_sre
-               !endif !(jpos.ne.1)
-           !else
-               !grd_fm_sre(idx_fm)=idx_sre
+                c_lnx=c_lnx+1 !update link number to ghost link
+                grd_ghost_link_closest(c_lnx)=abs(nd_o(idx_fm)%ln(jpos))
+                nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to bifurcation node
+                
+                c_ndx=c_ndx+1 !update node number to multivalued node
+                
+                nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
+                allocate(nd_mor(c_ndx)%ln(2))
+                if (kn==1) then 
+                   nd_mor(c_ndx)%ln(1)=c_lnx !new ghost link
+                   nd_mor(c_ndx)%ln(2)=grd_ghost_link_closest(c_lnx) !existing link
+                else
+                   nd_mor(c_ndx)%ln(1)=grd_ghost_link_closest(c_lnx) !existing link
+                   nd_mor(c_ndx)%ln(2)=-c_lnx !new ghost link
+                endif
+                grd_fmmv_fmsv(c_ndx)=idx_fm
+                grd_fm_sre(c_ndx)=idx_sre
+                
+                !node <idx_fm> does not play any role anymore. Still, 
+                !we save here the index of one of the SRE points associated
+                !to it for the sake of writing a value for output. 
+                grd_fm_sre(idx_fm)=idx_sre
+           else !not a bifurcation
+               grd_fmmv_fmsv(idx_fm)=idx_fm
+               grd_fm_sre(idx_fm)=idx_sre
            endif !(nd(idx_fm)%lnx>2)
            
-        else !internal point of a branch, not beginning of end. 
+        else !internal point of a branch, not beginning or end. 
            jpos = 1
            
            !fill <nd_mor>
@@ -438,7 +427,6 @@ do kbr=1,nbran
            nd_mor(idx_fm)%ln=nd(idx_fm)%ln
            
            grd_fmmv_fmsv(idx_fm)=idx_fm
-           
            grd_fm_sre(idx_fm)=idx_sre 
         endif  
         
@@ -488,6 +476,8 @@ enddo !branch
 lnx_mor=c_lnx !store new number of links (considering ghost links)
 ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !collocated. 
+
+!ndkx=ndx_mor !used to preallocate <ucxq_mor> and similar. !Cannot be changed because it is used in output data. The only solution is to specifically reallocate these variables. 
 
 !
 !END (LOB)
@@ -556,6 +546,11 @@ ndxi_mor=ndx_mor !collocated.
 !
 !Fill FM Arrays
 
+!morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
+!It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
+call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx_mor, 1, lnx_mor, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
+call inipointers_erosed()
+    
 !FM1DIMP2DO: When not having a morhodynamic simulation, morpho variables are not initialized. The best
 !would be to <return> in <reallocate_fill>
 
@@ -575,7 +570,7 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(ucxq_mor,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(ucyq_mor,grd_fmmv_fmsv,ndx,ndx_mor)
 
-call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !multidimensional nodes
 
@@ -587,14 +582,14 @@ call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
 !allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy pointers to temporary array
-dbodsd_fm=dbodsd 
-allocate(dbodsd(lsedtot,ndx_mor))
+!dbodsd_fm=dbodsd 
+!allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy data from nodes existing in FM
 do kn=1,ndx
     !arrays sediment
     do ksed=1,lsedtot
-        dbodsd(ksed,kn)=dbodsd_fm(ksed,kn)
+        !dbodsd(ksed,kn)=dbodsd_fm(ksed,kn)
     enddo !ksed
 enddo !kn
 
@@ -602,7 +597,7 @@ enddo !kn
 do kn=ndx+1,ndx_mor    
     !arrays sediment
     do ksed=1,lsedtot
-        dbodsd(ksed,kn)=dbodsd(ksed,grd_fmmv_fmsv(kn))
+        !dbodsd(ksed,kn)=dbodsd(ksed,grd_fmmv_fmsv(kn))
     enddo !ksed
 enddo !kl
 
@@ -624,7 +619,7 @@ call reallocate_fill(wu_mor  ,grd_ghost_link_closest,lnx,lnx_mor)
 call reallocate_fill_int(ifrcutp,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill_int(kcu,grd_ghost_link_closest,lnx,lnx_mor)
 
-call reallocate_fill_pointer(e_dzdn  ,grd_ghost_link_closest,lnx,lnx_mor) 
+!call reallocate_fill_pointer(e_dzdn  ,grd_ghost_link_closest,lnx,lnx_mor) 
 
 !multidimensional links
 
@@ -642,11 +637,11 @@ endif
 allocate(ln(2,lnx_mor))
 
     !copy pointers to temporary array
-e_sbcn_fm=e_sbcn 
-allocate(e_sbcn(lnx_mor,lsedtot))
-
-e_sbn_fm=e_sbn
-allocate(e_sbn(lnx_mor,lsedtot))
+!e_sbcn_fm=e_sbcn 
+!allocate(e_sbcn(lnx_mor,lsedtot))
+!
+!e_sbn_fm=e_sbn
+!allocate(e_sbn(lnx_mor,lsedtot))
 
     !copy data from links existing in FM
 do kl=1,lnx
@@ -657,8 +652,8 @@ do kl=1,lnx
     enddo !kd
     !arrays sediment
     do ksed=1,lsedtot
-        e_sbcn(kl,ksed)=e_sbcn_fm(kl,ksed)
-        e_sbn (kl,ksed)=e_sbn_fm (kl,ksed)
+        !e_sbcn(kl,ksed)=e_sbcn_fm(kl,ksed)
+        !e_sbn (kl,ksed)=e_sbn_fm (kl,ksed)
     enddo !ksed
 enddo !kl
 
@@ -671,8 +666,8 @@ do kl=lnx+1,lnx_mor
     enddo !kd
     !arrays sediment
     do ksed=1,lsedtot
-        e_sbcn(kl,ksed)=e_sbcn(grd_ghost_link_closest(kl),ksed)
-        e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
+        !e_sbcn(kl,ksed)=e_sbcn(grd_ghost_link_closest(kl),ksed)
+        !e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
     enddo !ksed
 enddo !kl
 
@@ -1186,7 +1181,6 @@ if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
             link1sign2(kl)=-1
         endif
     enddo
-
 endif !jased
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section

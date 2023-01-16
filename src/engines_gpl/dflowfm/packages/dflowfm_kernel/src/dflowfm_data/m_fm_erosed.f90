@@ -83,6 +83,7 @@
    
    integer                                        :: ndx_mor !< copy of <ndx> for morphodynamics
    integer                                        :: ndxi_mor !< copy of <ndxi> for morphodynamics
+   integer                                        :: lnx_mor !< copy of <lnx> for morphodynamics
    type(tnode), allocatable                       :: nd_mor(:) !< copy of <nd> for morphodynamics
    
    integer, dimension(:),                 pointer :: link1 => NULL()

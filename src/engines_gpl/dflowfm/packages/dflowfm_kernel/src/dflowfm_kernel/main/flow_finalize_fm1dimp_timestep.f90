@@ -103,21 +103,21 @@ grd_fmLb_sre => f1dimppar%grd_fmLb_sre
 !   s1(idx_fm)=hpack(ksre,3)
 !enddo
 do kndx=1,ndx_mor  !loop on FM nodes
-    
+
+   idx_sre=grd_fm_sre(kndx)
+   
     !skip boundary nodes, for which there is no SRE
-    if ((kndx>ndxi).and.(kndx<=ndx)) then 
+    if (idx_sre.eq.0) then
+    !if ((kndx>ndxi).and.(kndx<=ndx)) then 
         cycle
     endif
-
-   idx_sre=grd_fm_sre(kndx) 
+    
    s0(kndx)=hpack(idx_sre,1)
    s1(kndx)=hpack(idx_sre,3)
 enddo
 
- 
+!<u1> is only for output. Does not enter in the flow solver nor morphodynamics.  
 do L=1,lnx1d !internal links
-    !n1 = ln(1,L) 
-    !n2 = ln(2,L)
     n1=grd_fmL_sre(L,1)
     n2=grd_fmL_sre(L,2)
     u1(L)=0.5*qpack(n1,3)/waoft(n1,3)+0.5*qpack(n2,3)/waoft(n2,3)
