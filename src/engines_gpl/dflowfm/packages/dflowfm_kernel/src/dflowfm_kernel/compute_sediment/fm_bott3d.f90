@@ -516,7 +516,7 @@
          !
          ! loop over internal (ndxi) nodes - don't update the boundary nodes
          !
-         do nm=1,Ndxi
+         do nm=1,Ndxi_mor
             trndiv  = 0d0
             sedflx  = 0d0
             eroflx  = 0d0
@@ -528,8 +528,8 @@
                   !
                   sumflux = 0d0
                   if (kmx>0) then
-                     do ii=1,nd(nm)%lnx
-                        LL = nd(nm)%ln(ii)
+                     do ii=1,nd_mor(nm)%lnx
+                        LL = nd_mor(nm)%ln(ii)
                         Lf = iabs(LL)
                         call getLbotLtop(Lf,Lb,Lt)
                         if (Lt<Lb) cycle
@@ -545,8 +545,8 @@
                         end if
                      end do
                   else
-                     do ii=1,nd(nm)%lnx
-                        LL = nd(nm)%ln(ii)
+                     do ii=1,nd_mor(nm)%lnx
+                        LL = nd_mor(nm)%ln(ii)
                         Lf = iabs(LL)
 
                         flux = fluxhortot(j,Lf)
@@ -589,8 +589,8 @@
                   ! add suspended transport correction vector
                   !
                   sumflux = 0d0
-                  do ii=1,nd(nm)%lnx
-                     LL = nd(nm)%ln(ii)
+                  do ii=1,nd_mor(nm)%lnx
+                     LL = nd_mor(nm)%ln(ii)
                      Lf = iabs(LL)
                      flux = e_scrn(Lf,l)*wu(Lf)
 
@@ -605,8 +605,8 @@
             endif
             if (bed /= 0.0d0) then
                sumflux = 0d0
-               do ii=1,nd(nm)%lnx
-                  LL = nd(nm)%ln(ii)
+               do ii=1,nd_mor(nm)%lnx
+                  LL = nd_mor(nm)%ln(ii)
                   Lf = iabs(LL)
                   flux = e_sbn(Lf,l)*wu_mor(Lf)
 
@@ -621,8 +621,8 @@
             !
             if (duneavalan) then   ! take fluxes out of timestep restriction
                sumflux = 0d0       ! drawback: avalanching fluxes not included in total transports
-               do ii=1,nd(nm)%lnx
-                  LL = nd(nm)%ln(ii)
+               do ii=1,nd_mor(nm)%lnx
+                  LL = nd_mor(nm)%ln(ii)
                   Lf = iabs(LL)
                   flux = avalflux(Lf,l)*wu_mor(Lf)
                   if ( LL>0 ) then  ! inward
@@ -672,7 +672,7 @@
       ! Re-distribute erosion near dry and shallow points to allow erosion
       ! of dry banks
       !
-      do nm = 1, ndxi
+      do nm = 1, ndxi_mor
          !
          ! If this is a cell in which sediment processes are active then ...
          !
@@ -701,8 +701,8 @@
             bamin      = ba(nm)
             totfixfrac = 0d0
             !
-            do L=1,nd(nm)%lnx
-               k1 = ln(1,iabs(nd(nm)%ln(L))); k2 = ln(2,iabs(nd(nm)%ln(L)))
+            do L=1,nd_mor(nm)%lnx
+               k1 = ln(1,iabs(nd_mor(nm)%ln(L))); k2 = ln(2,iabs(nd_mor(nm)%ln(L)))
                if (k2 == nm) then
                   knb = k1
                else
@@ -745,9 +745,9 @@
                   ! adjust bedload transport rates to include this erosion
                   ! process.
                   !
-                  do L=1,nd(nm)%lnx
-                     k1 = ln(1,iabs(nd(nm)%ln(L))); k2 = ln(2,iabs(nd(nm)%ln(L)))
-                     Lf = iabs(nd(nm)%ln(L))
+                  do L=1,nd_mor(nm)%lnx
+                     k1 = ln(1,iabs(nd_mor(nm)%ln(L))); k2 = ln(2,iabs(nd_mor(nm)%ln(L)))
+                     Lf = iabs(nd_mor(nm)%ln(L))
                      ! cutcells
                      if (wu_mor(Lf)==0d0) cycle
                      !
@@ -760,7 +760,7 @@
                         dv              = thet * fixfac(knb, ll)*frac(knb, ll)
                         dbodsd(ll, knb) = dbodsd(ll, knb) - dv*bai_mor(knb)
                         dbodsd(ll, nm)  = dbodsd(ll, nm)  + dv*bai_mor(nm)
-                        e_sbn(Lf,ll)    = e_sbn(Lf,ll)    + dv/(dtmor*wu_mor(Lf)) * sign(1d0,nd(nm)%ln(L)+0d0)
+                        e_sbn(Lf,ll)    = e_sbn(Lf,ll)    + dv/(dtmor*wu_mor(Lf)) * sign(1d0,nd_mor(nm)%ln(L)+0d0)
                      end if
                   end do ! L
                enddo ! ll
@@ -776,6 +776,8 @@
       !
       ! Modifications for running parallel conditions (mormerge)
       !
+      !
+      !FM1DIMP2DO: The 1D implicit solver is not parallelized. This should be dealt with. 
       !
       if (stmpar%morpar%multi) then
          jamerge = .false.

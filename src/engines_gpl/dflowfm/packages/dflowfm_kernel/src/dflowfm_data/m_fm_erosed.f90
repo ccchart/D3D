@@ -72,7 +72,17 @@
 
    implicit none
 
+   !FM1DIMP2DO: I am not sure both <ndx_mor> and <ndxi_mor> are needed. 
+   !Use:
+   !<ndx_mor>
+   !    -allocate in <initialize_flow1d_implicit>. Anything could be used.
+   !    -loop in <flow_finalize_fm1dimp_timestep>. Anything could be used.
+   !
+   !<ndxi_mor>
+   !    -loop in <fm_bott3d>
+   
    integer                                        :: ndx_mor !< copy of <ndx> for morphodynamics
+   integer                                        :: ndxi_mor !< copy of <ndxi> for morphodynamics
    type(tnode), allocatable                       :: nd_mor(:) !< copy of <nd> for morphodynamics
    
    integer, dimension(:),                 pointer :: link1 => NULL()
