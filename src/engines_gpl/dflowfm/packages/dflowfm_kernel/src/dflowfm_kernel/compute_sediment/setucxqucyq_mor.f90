@@ -276,16 +276,20 @@
    else !SRE solver
        do kd=1,ndx_mor  !loop on FM nodes
            
-           
+          idx_sre=f1dimppar%grd_fm_sre(kd) 
+          
           !skip boundary nodes, for which there is no SRE
-           !FM1DIMP2DO: we could initialize <grd_fm_sre> with zeros and skip if 0. 
-          if ((kd>ndxi).and.(kd<=ndx)) then 
-              cycle
+          !if ((kd>ndxi).and.(kd<=ndx)) then 
+          if (idx_sre.eq.0) then
+              ucxq_mor(kd)=0
+              hs_mor(kd)=0
+          else
+              ucxq_mor(kd)=f1dimppar%qpack(idx_sre,3)/f1dimppar%waoft(idx_sre,3)
+              hs_mor(kd)=f1dimppar%hpack(idx_sre,3)-f1dimppar%bedlevel(idx_sre)              
           endif
        
-          idx_sre=f1dimppar%grd_fm_sre(kd) 
-          ucxq_mor(kd)=f1dimppar%qpack(idx_sre,3)/f1dimppar%waoft(idx_sre,3)
-       enddo
+       enddo !kd
+       
     endif !flowsolver
     
    end subroutine setucxqucyq_mor

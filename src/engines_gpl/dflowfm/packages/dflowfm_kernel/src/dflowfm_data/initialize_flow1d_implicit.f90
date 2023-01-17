@@ -43,10 +43,13 @@ use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
 use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx
 use m_sediment, only: stmpar, jased, stm_included, sedtra
-use m_fm_erosed, only: link1sign2, ndx_mor, lnx_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd
+use m_fm_erosed, only: link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit
 use m_oned_functions, only: gridpoint2cross
 use m_waves, only: taubxu
 use morphology_data_module, only: allocsedtra
+use m_turbulence, only: rhowat
+use m_xbeach_data, only: ktb
+use m_bedform, only: bfmpar
 
 implicit none
 
@@ -158,19 +161,19 @@ integer, allocatable, dimension(:)   :: kcol
 integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 !integer, allocatable, dimension(:)   :: node_fm_processed
 integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-integer, allocatable, dimension(:,:) :: ln_fm
+integer, allocatable, dimension(:,:) :: ln_o
 
 real :: swaoft
 
 double precision :: wu_int, au_int
 
-double precision, allocatable, dimension(:) :: frcu_mor_fm
-double precision, allocatable, dimension(:) :: ifrcutp_fm
+!double precision, allocatable, dimension(:) :: frcu_mor_fm
+!double precision, allocatable, dimension(:) :: ifrcutp_fm
 
 double precision, allocatable, dimension(:,:) :: wcl_fm
-double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: dbodsd_fm
+!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
+!double precision, allocatable, dimension(:,:) :: e_sbn_fm
+double precision, allocatable, dimension(:,:) :: bodsed_fm
 
 !point
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
@@ -305,6 +308,11 @@ kcs_sre=1
 !FM1DIMP2DO: add check on allocation
 !allocate(node_fm_processed(ndx+network%NDS%COUNT)) !more than we need
 allocate(grd_fmmv_fmsv(ndx+network%NDS%COUNT)) !more than we need
+!FM1DIMP2DO: the association to itself can then be removed. 
+!allocate every node with itself
+do kd=1,ndx+network%NDS%COUNT
+    grd_fmmv_fmsv(kd)=kd
+enddo
 
 !allocate(nd_mor(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 !we cannot make a pointer to it because it has the same variable name
@@ -313,6 +321,18 @@ allocate(grd_fmmv_fmsv(ndx+network%NDS%COUNT)) !more than we need
 !    nd_mor(k)%ln=nd(k)%ln
 !enddo
 nd_o=nd
+
+ln_o=ln
+if (allocated(ln)) then
+    deallocate(ln)
+endif
+allocate(ln(2,lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+do kl=1,lnx
+    do kd=1,2
+        ln(kd,kl)=ln_o(kd,kl)
+    enddo
+enddo
+
 
 if (allocated(grd_ghost_link_closest)) then
     deallocate(grd_ghost_link_closest)
@@ -323,6 +343,14 @@ do kl=1,lnx
     grd_ghost_link_closest(kl)=kl
 enddo
 
+stmpar%morpar%mornum%pure1d=1
+call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call it here and it will not be called again because it will be allocated. 
+
+allocate(link1sign(lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+link1sign=1
+
+allocate(link1sign2(lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+    
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
@@ -392,10 +420,29 @@ do kbr=1,nbran
                
            !add ghost link
            if (nd(idx_fm)%lnx>2) then !bifurcation
+               
+               !link
                 c_lnx=c_lnx+1 !update link number to ghost link
+                
                 grd_ghost_link_closest(c_lnx)=abs(nd_o(idx_fm)%ln(jpos))
+                
                 nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to bifurcation node
                 
+                if (kn==1) then 
+                   link1sign2(c_lnx)=1 !link direction for morphodynamics
+                else
+                   link1sign2(c_lnx)=-1
+                endif
+                
+                n1=ln_o(1,grd_ghost_link_closest(c_lnx))
+                n2=ln_o(2,grd_ghost_link_closest(c_lnx))
+                if (idx_fm.eq.n1) then
+                    grd_fmmv_fmsv(c_ndx)=n2
+                else
+                    grd_fmmv_fmsv(c_ndx)=n1
+                endif
+                
+                !node
                 c_ndx=c_ndx+1 !update node number to multivalued node
                 
                 nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
@@ -403,31 +450,51 @@ do kbr=1,nbran
                 if (kn==1) then 
                    nd_mor(c_ndx)%ln(1)=c_lnx !new ghost link
                    nd_mor(c_ndx)%ln(2)=grd_ghost_link_closest(c_lnx) !existing link
+                   ln(1,c_lnx)=c_ndx
+                   ln(2,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 else
                    nd_mor(c_ndx)%ln(1)=grd_ghost_link_closest(c_lnx) !existing link
                    nd_mor(c_ndx)%ln(2)=-c_lnx !new ghost link
+                   ln(2,c_lnx)=c_ndx
+                   ln(1,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 endif
-                grd_fmmv_fmsv(c_ndx)=idx_fm
+                !grd_fmmv_fmsv(c_ndx)=idx_fm !FM1DIMP2DO not sure this is correct. It should be the closest flownode in the same branch and not the bifurcation node itself.
+
                 grd_fm_sre(c_ndx)=idx_sre
                 
-                !node <idx_fm> does not play any role anymore. Still, 
+                !node <idx_fm> (at the junction) does not play any role anymore in <nd_mor>. Still, 
                 !we save here the index of one of the SRE points associated
                 !to it for the sake of writing a value for output. 
                 grd_fm_sre(idx_fm)=idx_sre
+                
            else !not a bifurcation
-               grd_fmmv_fmsv(idx_fm)=idx_fm
-               grd_fm_sre(idx_fm)=idx_sre
+                !FM1DIMP2DO: This part could be condensed. The same is called above and below but just changed the index. 
+                !copy values from <nd_o>
+                nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
+                nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
+                
+                grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
+                grd_fm_sre(idx_fm)=idx_sre 
+                
+                !link direction for morphodynamics
+                if (kn==1) then 
+                   link1sign2(idx_fm)=1
+                else
+                   link1sign2(idx_fm)=-1
+                endif
            endif !(nd(idx_fm)%lnx>2)
            
         else !internal point of a branch, not beginning or end. 
            jpos = 1
            
-           !fill <nd_mor>
-           nd_mor(idx_fm)%lnx=nd(idx_fm)%lnx
-           nd_mor(idx_fm)%ln=nd(idx_fm)%ln
+           !copy values from <nd_o>
+           nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
+           nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
            
-           grd_fmmv_fmsv(idx_fm)=idx_fm
+           grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
            grd_fm_sre(idx_fm)=idx_sre 
+           
+           link1sign2(idx_fm)=1 !link direction for morphodynamics
         endif  
         
         idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
@@ -474,8 +541,9 @@ do kbr=1,nbran
     idx_i=idx_f+1
 enddo !branch
 lnx_mor=c_lnx !store new number of links (considering ghost links)
+lnxi_mor=lnx_mor !there are no ghosts in SRE
 ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
-ndxi_mor=ndx_mor !collocated. 
+ndxi_mor=ndx_mor !there are no ghosts in SRE
 
 !ndkx=ndx_mor !used to preallocate <ucxq_mor> and similar. !Cannot be changed because it is used in output data. The only solution is to specifically reallocate these variables. 
 
@@ -556,9 +624,11 @@ call inipointers_erosed()
 
 !nodes
     !allocate
-call reallocate_fill(s0      ,grd_fmmv_fmsv,ndx,ndx_mor) 
-call reallocate_fill(s1      ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill(s0     ,grd_fmmv_fmsv,ndx,ndx_mor) 
+call reallocate_fill(s1     ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill(bai_mor,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill(rhowat ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill(ktb    ,grd_fmmv_fmsv,ndx,ndx_mor) !FM1DIMP2DO: It could be better to allocate the wave part with <ndx_mor>. To limit the mess it is now done here. 
 call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !FM1DIMP2DO
 !The value of <bl> here is not correct, as it copies the value from the closest node. 
@@ -567,29 +637,33 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !the cross-sections, which are treated independently. Nevertheless, we could here fill
 !the right value from cross-sections. 
 
-call reallocate_fill_pointer(ucxq_mor,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(ucyq_mor,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(ucxq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(ucyq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(hs_mor     ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !multidimensional nodes
 
     !copy arrays to temporary array
-!dbodsd_fm=dbodsd
+!dbodsd_fm=dbodsd 
 !if (allocated(dbodsd)) then
 !    deallocate(dbodsd)
 !endif
 !allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy pointers to temporary array
-!dbodsd_fm=dbodsd 
-!allocate(dbodsd(lsedtot,ndx_mor))
+bodsed_fm=stmpar%morlyr%state%bodsed
+allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
     !copy data from nodes existing in FM
 do kn=1,ndx
     !arrays sediment
     do ksed=1,lsedtot
-        !dbodsd(ksed,kn)=dbodsd_fm(ksed,kn)
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_fm(ksed,kn)
     enddo !ksed
 enddo !kn
 
@@ -597,7 +671,7 @@ enddo !kn
 do kn=ndx+1,ndx_mor    
     !arrays sediment
     do ksed=1,lsedtot
-        !dbodsd(ksed,kn)=dbodsd(ksed,grd_fmmv_fmsv(kn))
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_fm(ksed,grd_fmmv_fmsv(kn))
     enddo !ksed
 enddo !kl
 
@@ -630,11 +704,11 @@ if (allocated(wcl)) then
 endif
 allocate(wcl(2,lnx_mor)) 
 
-ln_fm=ln
-if (allocated(ln)) then
-    deallocate(ln)
-endif
-allocate(ln(2,lnx_mor))
+!ln_fm=ln
+!if (allocated(ln)) then
+!    deallocate(ln)
+!endif
+!allocate(ln(2,lnx_mor))
 
     !copy pointers to temporary array
 !e_sbcn_fm=e_sbcn 
@@ -648,7 +722,7 @@ do kl=1,lnx
     !arrays left-right
     do kd=1,2
         wcl(kd,kl)=wcl_fm(kd,kl)
-        ln(kd,kl)=ln_fm(kd,kl)
+        !ln(kd,kl)=ln_fm(kd,kl)
     enddo !kd
     !arrays sediment
     do ksed=1,lsedtot
@@ -662,7 +736,7 @@ do kl=lnx+1,lnx_mor
     !arrays left-right
     do kd=1,2
         wcl(kd,kl)=1-wcl(kd,grd_ghost_link_closest(kl)) !it should be equal to 0.5
-        ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
+        !ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
     enddo !kd
     !arrays sediment
     do ksed=1,lsedtot
@@ -1157,30 +1231,45 @@ f1dimppar%fm1dimp_debug_k1=1
 !we use the pure1d morpho implementation, only data on x!
 !I am not sure that implementation is correct though. 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-    stmpar%morpar%mornum%pure1d=1
+    !stmpar%morpar%mornum%pure1d=1
     
     !the most downstream link points inside and we have to consider this for the flux.
-    call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call to call it here and it will not be called again because it will be allocated. 
+    !call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call it here and it will not be called again because it will be allocated. 
     !FM1DIMP2DO: I don't know why it fails compiling in case I ask to allocate here. It does not have the allocatable attribute, but neither it does <link1sign> 
     !if (allocated(link1sign2)) then
     !    deallocate(link1sign2)
     !endif 
-    allocate(link1sign2(lnx)) 
-    do kl=1,lnx1d !internal links
-        link1sign2(kl)=1
-    enddo
-    do kl=lnxi+1,lnx1Db !boundary links
-        !FM1DIMP2DO: we could create a variable with this mapping to prevent computation of max, min and x(nint) every timestep
-        n1 = ln(1,kl) 
-        n2 = ln(2,kl)
-        nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
-        nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
-        if (f1dimppar%x(nint).eq.0) then !upstream
-            link1sign2(kl)=1 
-        else ! downstream
-            link1sign2(kl)=-1
-        endif
-    enddo
+    !allocate(link1sign(lnx_mor))
+    !allocate(link1sign2(lnx_mor)) 
+    !do kl=1,lnx_mor 
+    !    link1sign(kl)=1
+    !    link1sign2(kl)=1
+    !    
+    !enddo
+    !do kl=lnxi+1,lnx1Db !boundary links
+    !    n1 = ln(1,kl) 
+    !    n2 = ln(2,kl)
+    !    nint=min(n1,n2) !from the two cells that this link connects, the minimum is internal, and hence we have data
+    !    nout=max(n1,n2) !from the two cells that this link connects, the maximum is extrernal, and it is the one in which we have to set the water level
+    !    if (f1dimppar%x(nint).eq.0) then !upstream
+    !        link1sign2(kl)=1 
+    !    else ! downstream
+    !        link1sign2(kl)=-1
+    !    endif
+    !enddo
+    !FM1DIMP2DO: Ghost links will be rechanged in the nodal point relation. Not sure we need them here. 
+    !do kn=1,ndx_mor 
+    !    n1=grd_fm_sre(nd_mor(kn)%ln(1))
+    !    n2=grd_fm_sre(nd_mor(kn)%ln(2))
+    !    if (f1dimppar%x(nint).eq.0) then !upstream
+    !        link1sign2(kl)=1 
+    !    else ! downstream
+    !        link1sign2(kl)=-1
+    !    endif
+    !        
+    !    !link1sign2(kl)
+    !enddo 
+    
 endif !jased
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section

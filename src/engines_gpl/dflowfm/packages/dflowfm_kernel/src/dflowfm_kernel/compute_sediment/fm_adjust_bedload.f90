@@ -48,8 +48,8 @@
    !! Global variables
    !!
    logical                               ,          intent(in)           :: avalan
-   real(fp)  , dimension(1:lnx,1:lsedtot),          intent(inout)        :: sbn     !  sbcuu, sbwuu, or sswuu
-   real(fp)  , dimension(1:lnx,1:lsedtot),          intent(inout)        :: sbt     !  sbcvv, sbwvv, or sswvv
+   real(fp)  , dimension(1:lnx_mor,1:lsedtot),          intent(inout)        :: sbn     !  sbcuu, sbwuu, or sswuu
+   real(fp)  , dimension(1:lnx_mor,1:lsedtot),          intent(inout)        :: sbt     !  sbcvv, sbwvv, or sswvv
    real(fp)  , dimension(:)  ,          allocatable                      :: sbncor    ! corrected values
    real(fp)  , dimension(:)  ,          allocatable                      :: sbtcor
    !!
@@ -66,8 +66,8 @@
    !! executable statements -------------------------------------------------------
    !
    ! n: normal to cell face, t: along cell face
-   call realloc(sbncor, lnx)    ! corrected values
-   call realloc(sbtcor, lnx)
+   call realloc(sbncor, lnx_mor)    ! corrected values
+   call realloc(sbtcor, lnx_mor)
 
    !
    ! Make assumptions for friction angle
@@ -75,7 +75,7 @@
    phi  = 30d0 / 180d0 * pi
    tphi = tan(phi)
 
-   do Lf = 1, Lnx
+   do Lf = 1, Lnx_mor
       ! for cutcell
       if (wu_mor(Lf)==0d0) cycle
       !

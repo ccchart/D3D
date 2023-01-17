@@ -58,7 +58,7 @@ subroutine flow_sedmorinit()
     use MessageHandling
     use dfm_error
     use m_mormerge
-    use m_fm_erosed, only: ndx_mor, ndxi_mor, nd_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
+    use m_fm_erosed, only: ndx_mor, ndxi_mor, lnx_mor, lnxi_mor, nd_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
     
     implicit none
 
@@ -130,6 +130,8 @@ subroutine flow_sedmorinit()
     ndx_mor=ndx 
     ndxi_mor=ndxi
     nd_mor=nd
+    lnx_mor=lnx
+    lnxi_mor=lnxi
     
     call rdstm(stmpar, griddim, md_sedfile, md_morfile, filtrn='', lundia=mdia, lsal=jasal, ltem=jatem, ltur=ltur_, lsec=jasecflow, lfbedfrm=bfm_included, julrefday=julrefdat, dtunit='Tunit='//md_tunit, nambnd=nambnd, error=error)
     if (error) then

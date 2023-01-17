@@ -37,13 +37,13 @@
    use unstruc_messages
    use m_sediment, only: stmpar, jabndtreatment  ! debug
    use sediment_basics_module
-   use m_fm_erosed, only: link1, link1sign, link1sign2
+   use m_fm_erosed, only: link1, link1sign, link1sign2, lnx_mor, lnxi_mor, ndx_mor
    implicit none
 
    integer,                                  intent(in)  :: lsedtot        !< number of sediment fractions
-   double precision, dimension(Ndx,lsedtot), intent(in)  :: sx, sy         !< cell (flownode)-based quantity
-   double precision, dimension(Ndx,lsedtot), intent(in)  :: sxtot, sytot   !< cell (flownode)-based fluxes
-   double precision, dimension(Lnx,lsedtot), intent(out) :: e_sn, e_st     !< edge (flowlink)-based quantity, normal and tangential components
+   double precision, dimension(Ndx_mor,lsedtot), intent(in)  :: sx, sy         !< cell (flownode)-based quantity
+   double precision, dimension(Ndx_mor,lsedtot), intent(in)  :: sxtot, sytot   !< cell (flownode)-based fluxes
+   double precision, dimension(Lnx_mor,lsedtot), intent(out) :: e_sn, e_st     !< edge (flowlink)-based quantity, normal and tangential components
 
    double precision                                      :: sutot1, sutot2
 
@@ -58,9 +58,9 @@
    !end if
 
    if (jabndtreatment==0) then
-      lnxlnxi = lnx
+      lnxlnxi = lnx_mor
    else if (jabndtreatment==1) then
-      lnxlnxi = lnxi
+      lnxlnxi = lnxi_mor
    end if
 
    ! internal flowlinks (and boundary flowlinks if jabndtreatment==0 -- default)
