@@ -556,8 +556,9 @@ lnxi_mor=lnx_mor !there are no ghosts in SRE
 ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !there are no ghosts in SRE
 
-allocate(link1(lnx_max))
-do L = 1,lnx_max
+allocate(link1(ndx_mor)) !we allocate with
+link1=0
+do L = 1,lnx_mor
     k1 = ln(1,L)
     !k2 = ln(2,L)
     link1(k1) = L
