@@ -43,7 +43,7 @@ use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
 use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx
 use m_sediment, only: stmpar, jased, stm_included, sedtra
-use m_fm_erosed, only: link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit
+use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit
 use m_oned_functions, only: gridpoint2cross
 use m_waves, only: taubxu
 use morphology_data_module, only: allocsedtra
@@ -142,6 +142,7 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
 integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed !FM1DIMP2DO: make the variables names consistent
+integer :: ndx_max, lnx_max
 integer :: c_lnx, c_ndx !counters
 integer :: idx_crs, idx_sre, idx_fm !indices
 integer :: n1, n2, nint, nout, pointscount, jpos
@@ -175,7 +176,10 @@ double precision, allocatable, dimension(:,:) :: wcl_fm
 !double precision, allocatable, dimension(:,:) :: e_sbn_fm
 double precision, allocatable, dimension(:,:) :: bodsed_fm
 
-!point
+!!
+!! POINT
+!!
+
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
 
 table_length => f1dimppar%table_length
@@ -234,6 +238,9 @@ do kbr=1,nbran
     !nlink=nlink+network%BRS%BRANCH(k)%UPOINTSCOUNT
 enddo
 
+ndx_max=ndx+network%NDS%COUNT !maximum number of multivalued flownodes
+lnx_max=lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT !maximum number of links considering added ghost links
+
 !construct branches
 
 if (allocated(f1dimppar%grd_sre_fm)) then
@@ -245,7 +252,7 @@ grd_sre_fm => f1dimppar%grd_sre_fm
 if (allocated(f1dimppar%grd_fm_sre)) then
     deallocate(f1dimppar%grd_fm_sre)
 endif
-allocate(f1dimppar%grd_fm_sre(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+allocate(f1dimppar%grd_fm_sre(ndx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 grd_fm_sre => f1dimppar%grd_fm_sre
 grd_fm_sre=0
 
@@ -295,7 +302,7 @@ swaoft=size(f1dimppar%waoft,dim=2)
 if (allocated(nd_mor)) then
     deallocate(nd_mor)
 endif
-allocate(nd_mor(ndx+network%NDS%COUNT)) !more than we need
+allocate(nd_mor(ndx_max)) !more than we need
 !nd_mor => nd_mor_sre
 
 if (allocated(f1dimppar%kcs_sre)) then
@@ -306,15 +313,15 @@ kcs_sre => f1dimppar%kcs_sre
 kcs_sre=1
     
 !FM1DIMP2DO: add check on allocation
-!allocate(node_fm_processed(ndx+network%NDS%COUNT)) !more than we need
-allocate(grd_fmmv_fmsv(ndx+network%NDS%COUNT)) !more than we need
+!allocate(node_fm_processed(ndx_max)) !more than we need
+allocate(grd_fmmv_fmsv(ndx_max)) !more than we need
 !FM1DIMP2DO: the association to itself can then be removed. 
 !allocate every node with itself
-do kd=1,ndx+network%NDS%COUNT
+do kd=1,ndx_max
     grd_fmmv_fmsv(kd)=kd
 enddo
 
-!allocate(nd_mor(ndx+network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+!allocate(nd_mor(ndx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 !we cannot make a pointer to it because it has the same variable name
 !do k=1,ndx
 !    nd_mor(k)%lnx=nd(k)%lnx
@@ -326,7 +333,7 @@ ln_o=ln
 if (allocated(ln)) then
     deallocate(ln)
 endif
-allocate(ln(2,lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+allocate(ln(2,lnx_max))
 do kl=1,lnx
     do kd=1,2
         ln(kd,kl)=ln_o(kd,kl)
@@ -337,19 +344,23 @@ enddo
 if (allocated(grd_ghost_link_closest)) then
     deallocate(grd_ghost_link_closest)
 endif
-allocate(grd_ghost_link_closest(lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes. 
+allocate(grd_ghost_link_closest(lnx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes. 
 
 do kl=1,lnx
     grd_ghost_link_closest(kl)=kl
 enddo
 
+!FM1DIMP2DO: I am now adapting the input for using the morphodynamic implementation of Pure 1D. However, 
+!I amnot sure it is the best. THis should be revisited with Bert :). 
 stmpar%morpar%mornum%pure1d=1
 call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call it here and it will not be called again because it will be allocated. 
 
-allocate(link1sign(lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+allocate(link1sign(lnx_max))
 link1sign=1
 
-allocate(link1sign2(lnx+network%NDS%maxnumberofconnections*network%NDS%COUNT))
+
+   
+allocate(link1sign2(lnx_max))
     
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
@@ -433,7 +444,10 @@ do kbr=1,nbran
                 else
                    link1sign2(c_lnx)=-1
                 endif
-                
+
+                !node
+                c_ndx=c_ndx+1 !update node number to multivalued node
+
                 n1=ln_o(1,grd_ghost_link_closest(c_lnx))
                 n2=ln_o(2,grd_ghost_link_closest(c_lnx))
                 if (idx_fm.eq.n1) then
@@ -441,9 +455,6 @@ do kbr=1,nbran
                 else
                     grd_fmmv_fmsv(c_ndx)=n1
                 endif
-                
-                !node
-                c_ndx=c_ndx+1 !update node number to multivalued node
                 
                 nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
                 allocate(nd_mor(c_ndx)%ln(2))
@@ -544,6 +555,13 @@ lnx_mor=c_lnx !store new number of links (considering ghost links)
 lnxi_mor=lnx_mor !there are no ghosts in SRE
 ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !there are no ghosts in SRE
+
+allocate(link1(lnx_max))
+do L = 1,lnx_max
+    k1 = ln(1,L)
+    !k2 = ln(2,L)
+    link1(k1) = L
+enddo
 
 !ndkx=ndx_mor !used to preallocate <ucxq_mor> and similar. !Cannot be changed because it is used in output data. The only solution is to specifically reallocate these variables. 
 

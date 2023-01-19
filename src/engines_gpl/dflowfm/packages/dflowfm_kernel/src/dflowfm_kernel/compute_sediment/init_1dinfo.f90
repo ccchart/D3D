@@ -62,11 +62,5 @@
        endif    
    enddo
    
-
-   do L=1,lnx1Db
-        link1sign(L)=1 !V: I am overwriting the value because I think it is wrong. 
-        link1sign2(L)=1 !V: we here set it to 1 to do nothing unless we modify it when initializing fm1dimp.
-   enddo
-   
    link1_initialized = .true.
    end subroutine init_1dinfo
