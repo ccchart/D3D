@@ -36,7 +36,7 @@
    use m_flowgeom
    use m_sediment
    use m_partitioninfo
-   use m_fm_erosed, only: sxtot, sytot, cdryb, morfac, lsedtot
+   use m_fm_erosed, only: sxtot, sytot, cdryb, morfac, lsedtot, ndx_mor, nd_mor, ln_mor
 
    implicit none
 
@@ -45,7 +45,7 @@
 
    dtmaxmor = huge(0d0)
 
-   do k = 1, ndx
+   do k = 1, ndx_mor
       dum = 0.d0
       if (kcsmor(k)==0) then
          cycle
@@ -53,10 +53,10 @@
 
       do ised = 1, lsedtot
          !
-         do kk = 1, nd(k)%lnx
-            L = iabs(nd(k)%ln(kk))
-            k1 = ln(1,L)
-            k2 = ln(2,L)
+         do kk = 1, nd_mor(k)%lnx
+            L = iabs(nd_mor(k)%ln(kk))
+            k1 = ln_mor(1,L)
+            k2 = ln_mor(2,L)
             ac1 = acl(L)
             ac2 = 1d0-ac1
 

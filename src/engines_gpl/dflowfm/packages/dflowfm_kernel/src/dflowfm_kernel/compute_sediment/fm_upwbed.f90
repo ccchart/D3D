@@ -37,10 +37,10 @@
    use unstruc_messages
    use m_sediment, only: stmpar, jabndtreatment  ! debug
    use sediment_basics_module
-   use m_fm_erosed, only: link1, link1sign, link1sign2, lnx_mor, lnxi_mor, ndx_mor
+   use m_fm_erosed, only: link1, link1sign, link1sign2, lnx_mor, lnxi_mor, ndx_mor, ln_mor
    implicit none
 
-   integer,                                  intent(in)  :: lsedtot        !< number of sediment fractions
+   integer,                                      intent(in)  :: lsedtot        !< number of sediment fractions
    double precision, dimension(Ndx_mor,lsedtot), intent(in)  :: sx, sy         !< cell (flownode)-based quantity
    double precision, dimension(Ndx_mor,lsedtot), intent(in)  :: sxtot, sytot   !< cell (flownode)-based fluxes
    double precision, dimension(Lnx_mor,lsedtot), intent(out) :: e_sn, e_st     !< edge (flowlink)-based quantity, normal and tangential components
@@ -68,8 +68,8 @@
       !     check if flowlink is active and if it connects two active sediment flownodes
       if ( hu(Lf)>epshu ) then
          !        find left and right neighboring flownodes
-         k1 = ln(1,Lf)
-         k2 = ln(2,Lf)
+         k1 = ln_mor(1,Lf)
+         k2 = ln_mor(2,Lf)
 
          do l=1,lsedtot
             if (stmpar%sedpar%sedtyp(l) == SEDTYP_COHESIVE) cycle   ! conform with d3d
@@ -135,8 +135,8 @@
       do Lf=Lnxi+1,Lnx
          if ( hu(Lf)>epshu .and. u1(Lf)<=0d0) then
             ! find left and right neighboring flownodes
-            k1 = ln(1,Lf)  ! boundary node
-            k2 = ln(2,Lf)  ! internal node
+            k1 = ln_mor(1,Lf)  ! boundary node
+            k2 = ln_mor(2,Lf)  ! internal node
 
             do l=1,lsedtot
                if (pure1d_mor .and. kcu(Lf) == -1) then

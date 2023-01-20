@@ -37,14 +37,14 @@ subroutine initialize_flow1d_implicit(iresult)
 use m_f1dimp
 use m_alloc
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol
+use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
+use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
 use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac
+use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
 use m_oned_functions, only: gridpoint2cross
 use m_waves, only: taubxu
 use morphology_data_module, only: allocsedtra
@@ -163,7 +163,7 @@ integer, allocatable, dimension(:)   :: kcol
 integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 !integer, allocatable, dimension(:)   :: node_fm_processed
 integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-integer, allocatable, dimension(:,:) :: ln_o
+!integer, allocatable, dimension(:,:) :: ln_o
 
 real :: swaoft
 
@@ -332,14 +332,15 @@ enddo
 !enddo
 nd_o=nd
 
-ln_o=ln
-if (allocated(ln)) then
-    deallocate(ln)
+!ln_o=ln
+if (allocated(ln_mor)) then
+    deallocate(ln_mor)
 endif
-allocate(ln(2,lnx_max))
+allocate(ln_mor(2,lnx_max))
 do kl=1,lnx
     do kd=1,2
-        ln(kd,kl)=ln_o(kd,kl)
+        !ln(kd,kl)=ln_o(kd,kl)
+        ln_mor(kd,kl)=ln(kd,kl)
     enddo
 enddo
 
@@ -361,10 +362,14 @@ call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>.
 allocate(link1sign(lnx_max))
 link1sign=1
 
-
-   
 allocate(link1sign2(lnx_max))
-    
+do kl=1,lnxi
+    link1sign2(kl)=1
+enddo
+do kl=lnxi+1,lnx
+    link1sign2(kl)=-1
+enddo
+
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
@@ -448,8 +453,6 @@ do kbr=1,nbran
                 else
                    link1sign2(c_lnx)=-1
                 endif
-                
-                
 
                 !node
                 c_ndx=c_ndx+1 !update node number to multivalued node
@@ -457,15 +460,15 @@ do kbr=1,nbran
                 !save the flownode closest to the junction node in the branch under consideration
                 !and
                 !change the flownode connected to the first link connected to the junction flownode along the branch under consideration to the new flownode
-                n1=ln_o(1,grd_ghost_link_closest(c_lnx)) !flownode 1 associated to new link
-                n2=ln_o(2,grd_ghost_link_closest(c_lnx)) !flownode 2 associated to new link
+                n1=ln(1,grd_ghost_link_closest(c_lnx)) !flownode 1 associated to new link
+                n2=ln(2,grd_ghost_link_closest(c_lnx)) !flownode 2 associated to new link
                 !either <n1> or <n2> is the junction node <idx_fm>. We take the other one. 
                 if (idx_fm.eq.n1) then
                     grd_fmmv_fmsv(c_ndx)=n2
-                    ln(1,grd_ghost_link_closest(c_lnx))=c_ndx
+                    ln_mor(1,grd_ghost_link_closest(c_lnx))=c_ndx
                 else
                     grd_fmmv_fmsv(c_ndx)=n1
-                    ln(2,grd_ghost_link_closest(c_lnx))=c_ndx
+                    ln_mor(2,grd_ghost_link_closest(c_lnx))=c_ndx
                 endif
                 
                 nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
@@ -473,13 +476,13 @@ do kbr=1,nbran
                 if (kn==1) then 
                    nd_mor(c_ndx)%ln(1)=c_lnx !new ghost link
                    nd_mor(c_ndx)%ln(2)=grd_ghost_link_closest(c_lnx) !existing link
-                   ln(1,c_lnx)=c_ndx
-                   ln(2,c_lnx)=grd_fmmv_fmsv(c_ndx)
+                   ln_mor(1,c_lnx)=c_ndx
+                   ln_mor(2,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 else
                    nd_mor(c_ndx)%ln(1)=grd_ghost_link_closest(c_lnx) !existing link
                    nd_mor(c_ndx)%ln(2)=-c_lnx !new ghost link
-                   ln(2,c_lnx)=c_ndx
-                   ln(1,c_lnx)=grd_fmmv_fmsv(c_ndx)
+                   ln_mor(2,c_lnx)=c_ndx
+                   ln_mor(1,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 endif
                 !grd_fmmv_fmsv(c_ndx)=idx_fm !FM1DIMP2DO not sure this is correct. It should be the closest flownode in the same branch and not the bifurcation node itself.
 
@@ -500,12 +503,12 @@ do kbr=1,nbran
                 grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
                 grd_fm_sre(idx_fm)=idx_sre 
                 
-                !link direction for morphodynamics
-                if (kn==1) then 
-                   link1sign2(idx_fm)=1
-                else
-                   link1sign2(idx_fm)=-1
-                endif
+                !!link direction for morphodynamics
+                !if (kn==1) then 
+                !   link1sign2(idx_fm)=1
+                !else
+                !   link1sign2(idx_fm)=-1
+                !endif
            endif !(nd(idx_fm)%lnx>2)
            
         else !internal point of a branch, not beginning or end. 
@@ -518,7 +521,7 @@ do kbr=1,nbran
            grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
            grd_fm_sre(idx_fm)=idx_sre 
            
-           link1sign2(idx_fm)=1 !link direction for morphodynamics
+           !link1sign2(idx_fm)=1 !link direction for morphodynamics
         endif  
         
         idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
@@ -575,7 +578,7 @@ ndkx_mor=ndx_mor
 allocate(link1(ndx_mor)) !we allocate with
 link1=0
 do L = 1,lnx_mor
-    k1 = ln(1,L)
+    k1 = ln_mor(1,L)
     !k2 = ln(2,L)
     link1(k1) = L
 enddo
@@ -661,6 +664,7 @@ enddo
 call reallocate_fill(s0     ,grd_fmmv_fmsv,ndx,ndx_mor) 
 call reallocate_fill(s1     ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill(bai_mor,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill(ba     ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill(rhowat ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill(ktb    ,grd_fmmv_fmsv,ndx,ndx_mor) !FM1DIMP2DO: It could be better to allocate the wave part with <ndx_mor>. To limit the mess it is now done here. 
 call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
@@ -670,6 +674,8 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !depth is above or below threshold. The bed level value for computing flow comes from
 !the cross-sections, which are treated independently. Nevertheless, we could here fill
 !the right value from cross-sections. 
+
+
 
 !call reallocate_fill_pointer(ucxq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
 !call reallocate_fill_pointer(ucyq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
@@ -715,6 +721,7 @@ call reallocate_fill(u1      ,grd_ghost_link_closest,lnx,lnx_mor)
 call reallocate_fill(au      ,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(hu      ,grd_ghost_link_closest,lnx,lnx_mor)
 call reallocate_fill(dx      ,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(dxi     ,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(wu      ,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(frcu_mor,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(frcu    ,grd_ghost_link_closest,lnx,lnx_mor) 
@@ -723,6 +730,12 @@ call reallocate_fill(acl     ,grd_ghost_link_closest,lnx,lnx_mor)
 call reallocate_fill(snu     ,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(csu     ,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill(wu_mor  ,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(z0urou  ,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(taubxu  ,grd_ghost_link_closest,lnx,lnx_mor) 
+call reallocate_fill(wcx1    ,grd_ghost_link_closest,lnx,lnx_mor)
+call reallocate_fill(wcx2    ,grd_ghost_link_closest,lnx,lnx_mor)
+call reallocate_fill(wcy1    ,grd_ghost_link_closest,lnx,lnx_mor)
+call reallocate_fill(wcy2    ,grd_ghost_link_closest,lnx,lnx_mor)
 
 call reallocate_fill_int(ifrcutp,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill_int(kcu,grd_ghost_link_closest,lnx,lnx_mor)
@@ -789,10 +802,14 @@ call flow_sedmorinit()
 !call inipointers_erosed()
 !call initsedtra(sedtra, stmpar%sedpar, stmpar%trapar, stmpar%morpar, stmpar%morlyr, rhomean, ag, vismol, 1, ndx_mor, ndx_mor, stmpar%lsedsus, stmpar%lsedtot)
 
-!needs to be after <flow_sedmorinit>, where it is allocated
+!We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
+!call flow_waveinit()
+
+!needs to be after <flow_sedmorinit>, where it is allocated. 
+!FM1DIMP2DO: Ideally, these variables are allocated in <flow_sedmorinit>
 call reallocate_fill_pointer(pmcrit                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor)
-
+call reallocate_fill_int(kcsmor  ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 stmpar%morlyr%settings%nmub=ndx_mor
 

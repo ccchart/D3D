@@ -80,8 +80,8 @@
       if (wu_mor(Lf)==0d0) cycle
       !
       if (hu(Lf) > 0d0) then
-         k1 = ln(1, Lf)
-         k2 = ln(2, Lf)
+         k1 = ln_mor(1, Lf)
+         k2 = ln_mor(2, Lf)
          call getLbotLtop(Lf, Lb, Lt)
          if (Lt<Lb) cycle
          do l = 1, lsedtot

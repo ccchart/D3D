@@ -259,7 +259,7 @@
    qb_out = 0d0; width_out = 0d0; sb_in = 0d0; sb_dir = -1
    BranInIDLn = 0
 
-   if ((istat == 0) .and. (.not. allocated(u1_tmp))) allocate(u1_tmp(1:lnx), ucxq_tmp(1:ndx_mor), ucyq_tmp(1:ndx_mor), stat=ierr)
+   if ((istat == 0) .and. (.not. allocated(u1_tmp))) allocate(u1_tmp(1:lnx_mor), ucxq_tmp(1:ndx_mor), ucyq_tmp(1:ndx_mor), stat=ierr)
 
    if (istat /= 0) then
       error = .true.
@@ -429,8 +429,8 @@
    !
    !if (jawave>0 .and. .not. flowWithoutWaves) then
       z0rouk = 0d0; taub = 0d0
-      do L=1,lnx
-         k1=ln(1,L); k2=ln(2,L)
+      do L=1,lnx_mor
+         k1=ln_mor(1,L); k2=ln_mor(2,L)
          z0rouk(k1) = z0rouk(k1)+wcl(1,L)*z0urou(L)
          z0rouk(k2) = z0rouk(k2)+wcl(2,L)*z0urou(L)
          taub(k1)   = taub(k1)+wcl(1,L)*taubxu(L)
@@ -444,7 +444,7 @@
       if (jawave>0 .and. v2dwbl>0) then
          deltas = 0d0
          do L=1,lnx
-            k1=ln(1,L); k2=ln(2,L)
+            k1=ln_mor(1,L); k2=ln_mor(2,L)
             deltas(k1) =  deltas(k1) + wcl(1,L)*wblt(L)
             deltas(k2) =  deltas(k2) + wcl(2,L)*wblt(L)
          end do
@@ -574,11 +574,11 @@
 
    dzdx = 0d0; dzdy = 0d0
 
-   do L = 1, lnx
+   do L = 1, lnx_mor
       ! Get the bottom slope components in the cell centres; keep these, needed later on
       ! Bottom slopes are positive on downsloping parts, cf bedbc2004.f90 and info from Bert Jagers
       ! So bl(k1)-bl(k2) instead of other way round
-      k1 = ln(1,L); k2 = ln(2,L)
+      k1 = ln_mor(1,L); k2 = ln_mor(2,L)
       dzdx(k1) = dzdx(k1) - wcx1(L)*(bl(k2)-bl(k1))*dxi(L)
       dzdy(k1) = dzdy(k1) - wcy1(L)*(bl(k2)-bl(k1))*dxi(L)
       dzdx(k2) = dzdx(k2) - wcx2(L)*(bl(k2)-bl(k1))*dxi(L)
@@ -587,8 +587,8 @@
    !   boundary conditions:
    !      dz/dn = 0
    do L=Lnxi+1,Lnx
-      k1 = ln(1,L)
-      k2 = ln(2,L)
+      k1 = ln_mor(1,L)
+      k2 = ln_mor(2,L)
       !     project in normal and tangential direction
       dzdn =  dzdx(k2) * csu(L) + dzdy(k2) * snu(L)
       dzds = -dzdx(k2) * snu(L) + dzdy(k2) * csu(L)
@@ -602,11 +602,11 @@
 
    !   Note: at closed boundaries, effectively dzdn=0 is applied
 
-   do L = 1, lnx
+   do L = 1, lnx_mor
       ! Interpolate back to links
-      k1 = ln(1,L); k2 = ln(2,L)
+      k1 = ln_mor(1,L); k2 = ln_mor(2,L)
       !       e_dzdn(L) = acl(L)*(csu(L)*dzdx(k1) + snu(L)*dzdy(k1)) + (1d0-acl(L))*(csu(L)*dzdx(k2) + snu(L)*dzdy(k2))
-      e_dzdn(L) = -dxi(L)*(bl(ln(2,L))-bl(ln(1,L)))                                                              ! more accurate near boundaries
+      e_dzdn(L) = -dxi(L)*(bl(ln_mor(2,L))-bl(ln_mor(1,L)))                                                              ! more accurate near boundaries
       e_dzdt(L) = acl(L)*(-snu(L)*dzdx(k1) + csu(L)*dzdy(k1))+(1d0-acl(L))*(-snu(L)*dzdx(k2) + csu(L)*dzdy(k2))  ! affected near boundaries due to interpolation
    end do
    !
@@ -1218,14 +1218,14 @@
    !
    ! Distribute velocity asymmetry to links
    !
-   do L = 1, lnxi
-      k1 = ln(1,L); k2=ln(2,L)
+   do L = 1, lnxi !FM1DIMP2DO inconsistency with <lnx_mor>? 
+      k1 = ln_mor(1,L); k2=ln_mor(2,L)
       uau(L) = (acL(L)*ua(k1) + (1d0-acL(L))*ua(k2)) * csu(L) +   &
          (acL(L)*va(k1) + (1d0-acL(L))*va(k2)) * snu(L)
    end do
    !
    do L = lnxi+1, lnx   ! Boundaries: neumann
-      k = ln(2,L)
+      k = ln_mor(2,L)
       uau(L) = ua(k)*csu(L) + va(k)*snu(L)
    end do
    !
@@ -1470,7 +1470,7 @@
    e_sbt = 0d0
    do l = 1,lsedtot
       if (sedtyp(l)/=SEDTYP_COHESIVE) then
-         do nm = 1, lnx
+         do nm = 1, lnx_mor
             e_sbn(nm, l) = e_sbcn(nm, l) + e_sbwn(nm, l) + e_sswn(nm, l)
             e_sbt(nm, l) = e_sbct(nm, l) + e_sbwt(nm, l) + e_sswt(nm, l)
          enddo

@@ -58,7 +58,7 @@ subroutine flow_sedmorinit()
     use MessageHandling
     use dfm_error
     use m_mormerge
-    use m_fm_erosed, only: ndx_mor, ndxi_mor, lnx_mor, lnxi_mor, nd_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
+    use m_fm_erosed, only: ndx_mor, ndxi_mor, lnx_mor, lnxi_mor, nd_mor, ln_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
     use m_f1dimp, only: f1dimp_initialized
     
     implicit none
@@ -134,6 +134,7 @@ subroutine flow_sedmorinit()
         lnx_mor=lnx
         lnxi_mor=lnxi
         ndkx_mor=ndkx
+        ln_mor=ln
     endif
     
     if (.not.f1dimp_initialized) then

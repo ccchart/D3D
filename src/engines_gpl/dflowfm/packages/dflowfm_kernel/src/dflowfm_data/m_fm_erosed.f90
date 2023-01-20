@@ -85,6 +85,9 @@
    integer                                        :: ndxi_mor !< copy of <ndxi> for morphodynamics
    integer                                        :: lnx_mor !< copy of <lnx> for morphodynamics
    integer                                        :: lnxi_mor !< copy of <lnxi> for morphodynamics
+   
+   integer, dimension(:,:),           allocatable :: ln_mor  !< copy of <ln> for morphodynamics. Kept allocatable rather than pointer for consistency with the original
+    
    type(tnode), allocatable                       :: nd_mor(:) !< copy of <nd> for morphodynamics
    
    integer, dimension(:),                 pointer :: link1 => NULL()
