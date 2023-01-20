@@ -36,7 +36,7 @@
    subroutine inipointers_erosed()
    use m_fm_erosed
    use m_flowgeom, only: ndx, lnx
-   use m_flow, only: ndkx, ucx_mor, ucy_mor
+   use m_flow, only: ndkx, ndkx_mor, ucx_mor, ucy_mor
    implicit none
    integer :: ierr
 
@@ -221,9 +221,9 @@
    rca                 => sedtra%rca
    statqnt             => sedtra%statqnt
 
-   allocate(ucxq_mor(1:ndkx), ucyq_mor(1:ndkx), hs_mor(1:ndkx), stat=ierr)   ! JRE TODO
+   allocate(ucxq_mor(1:ndkx_mor), ucyq_mor(1:ndkx_mor), hs_mor(1:ndkx_mor), stat=ierr)   ! JRE TODO
    ucxq_mor = 0d0; ucyq_mor = 0d0; hs_mor = 0d0
-   allocate(ucx_mor(1:ndkx), ucy_mor(1:ndkx), stat=ierr)
+   allocate(ucx_mor(1:ndkx_mor), ucy_mor(1:ndkx_mor), stat=ierr)
    ucx_mor = 0d0; ucy_mor = 0d0
    allocate(q_zeta(2,lnx), stat=ierr)
    q_zeta = 0d0

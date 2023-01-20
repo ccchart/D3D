@@ -33,7 +33,7 @@
 subroutine flow_sedmorinit()
     use m_sediment
     use m_rdstm
-    use m_flow, only: kmx, ndkx, lnkx, iturbulencemodel
+    use m_flow, only: kmx, ndkx, lnkx, iturbulencemodel, ndkx_mor
     use morphology_data_module !, only: nullsedtra, allocsedtra
     use sediment_basics_module
     use message_module, only: clearstack, initstack
@@ -47,7 +47,7 @@ subroutine flow_sedmorinit()
     use m_rdmorlyr, only: rdinimorlyr
     use m_flowexternalforcings, only: sfnames, numfracs, nopenbndsect, openbndname, openbndlin, nopenbndlin
     use m_transport, only: ISED1, ISEDN, ifrac2const, const_names, constituents
-    use m_flowparameters, only: jatransportmodule, jasecflow, ibedlevtyp, jasal, jatem
+    use m_flowparameters, only: jatransportmodule, jasecflow, ibedlevtyp, jasal, jatem, flowsolver
     use m_bedform, only: bfmpar, bfm_included
     use unstruc_channel_flow
     use m_branch
@@ -59,6 +59,7 @@ subroutine flow_sedmorinit()
     use dfm_error
     use m_mormerge
     use m_fm_erosed, only: ndx_mor, ndxi_mor, lnx_mor, lnxi_mor, nd_mor !FM1DIMP2DO: It is strange no other variable of this module was used here. This may imply that it is not the right place for the assignment. 
+    use m_f1dimp, only: f1dimp_initialized
     
     implicit none
 
@@ -126,19 +127,23 @@ subroutine flow_sedmorinit()
        end select
     end if
 
-    !if `flowsolver=2` (implicit for 1D), <ndx_mor> is overwritten in <initialize_flow1d_implicit>
-    ndx_mor=ndx 
-    ndxi_mor=ndxi
-    nd_mor=nd
-    lnx_mor=lnx
-    lnxi_mor=lnxi
+    if (.not.f1dimp_initialized) then
+        ndx_mor=ndx 
+        ndxi_mor=ndxi
+        nd_mor=nd
+        lnx_mor=lnx
+        lnxi_mor=lnxi
+        ndkx_mor=ndkx
+    endif
     
-    call rdstm(stmpar, griddim, md_sedfile, md_morfile, filtrn='', lundia=mdia, lsal=jasal, ltem=jatem, ltur=ltur_, lsec=jasecflow, lfbedfrm=bfm_included, julrefday=julrefdat, dtunit='Tunit='//md_tunit, nambnd=nambnd, error=error)
-    if (error) then
-        call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Error in subroutine rdstm.')
-        return
-    end if
-
+    if (.not.f1dimp_initialized) then
+        call rdstm(stmpar, griddim, md_sedfile, md_morfile, filtrn='', lundia=mdia, lsal=jasal, ltem=jatem, ltur=ltur_, lsec=jasecflow, lfbedfrm=bfm_included, julrefday=julrefdat, dtunit='Tunit='//md_tunit, nambnd=nambnd, error=error)
+        if (error) then
+            call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Error in subroutine rdstm.')
+            return
+        end if
+    endif
+    
     do i = 1, stmpar%lsedtot
        if (stmpar%trapar%iform(i) == 19 .or. stmpar%trapar%iform(i) == 20) then
           if (jawave .ne. 4) then
@@ -160,7 +165,7 @@ subroutine flow_sedmorinit()
     end if
     !
     call nullsedtra(sedtra)
-    call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx, 1, lnx, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
+    call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx_mor, 1, lnx_mor, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
 
     morbnd              => stmpar%morpar%morbnd
     do k = 1,nopenbndsect
@@ -279,12 +284,12 @@ subroutine flow_sedmorinit()
     end if
 
     ! ad hoc allocation of dummy variables
-    allocate(mtd%dzbdt(ndx))
+    allocate(mtd%dzbdt(ndx_mor))
     allocate(mtd%uau(lnkx))
-    allocate(mtd%seddif(stmpar%lsedsus,ndkx))
-    allocate(mtd%sed(stmpar%lsedsus,ndkx))
-    allocate(mtd%ws(ndkx,stmpar%lsedsus))
-    allocate(mtd%blchg(Ndx))
+    allocate(mtd%seddif(stmpar%lsedsus,ndkx_mor))
+    allocate(mtd%sed(stmpar%lsedsus,ndkx_mor))
+    allocate(mtd%ws(ndkx_mor,stmpar%lsedsus))
+    allocate(mtd%blchg(Ndx_mor))
     allocate(mtd%messages)
     call initstack     (mtd%messages)
     !
@@ -313,7 +318,7 @@ subroutine flow_sedmorinit()
     end if
     !    set pointers
     call inipointers_erosed()
-    call initsedtra(sedtra, stmpar%sedpar, stmpar%trapar, stmpar%morpar, stmpar%morlyr, rhomean, ag, vismol, 1, ndx, ndx, stmpar%lsedsus, stmpar%lsedtot)
+    call initsedtra(sedtra, stmpar%sedpar, stmpar%trapar, stmpar%morpar, stmpar%morlyr, rhomean, ag, vismol, 1, ndx_mor, ndx_mor, stmpar%lsedsus, stmpar%lsedtot)
     !
     !   for boundary conditions: map suspended fractions index to total fraction index
     !

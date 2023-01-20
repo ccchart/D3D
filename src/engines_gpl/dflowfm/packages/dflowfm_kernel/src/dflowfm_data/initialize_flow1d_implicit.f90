@@ -37,13 +37,14 @@ subroutine initialize_flow1d_implicit(iresult)
 use m_f1dimp
 use m_alloc
 use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl
+use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim
 use unstruc_channel_flow, only: network
 use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx
-use m_sediment, only: stmpar, jased, stm_included, sedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit
+use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor
+use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol
+use m_initsedtra, only: initsedtra
+use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac
 use m_oned_functions, only: gridpoint2cross
 use m_waves, only: taubxu
 use morphology_data_module, only: allocsedtra
@@ -174,7 +175,8 @@ double precision :: wu_int, au_int
 double precision, allocatable, dimension(:,:) :: wcl_fm
 !double precision, allocatable, dimension(:,:) :: e_sbcn_fm
 !double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_fm
+double precision, allocatable, dimension(:,:) :: bodsed_o
+double precision, allocatable, dimension(:,:) :: frac_o
 
 !!
 !! POINT
@@ -199,6 +201,7 @@ idx_cs       => f1dimppar%idx_cs
 !! CALC
 !!
 
+f1dimp_initialized=.true.
 iresult=0
 
 !<flwpar>
@@ -437,23 +440,32 @@ do kbr=1,nbran
                 
                 grd_ghost_link_closest(c_lnx)=abs(nd_o(idx_fm)%ln(jpos))
                 
-                nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to bifurcation node
+                !In <nd> we keep the junction node <idx_fm> connected to several branches via the ghost link, as <nd> is used for the nodal point relation.
+                nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to junction flownode
                 
                 if (kn==1) then 
                    link1sign2(c_lnx)=1 !link direction for morphodynamics
                 else
                    link1sign2(c_lnx)=-1
                 endif
+                
+                
 
                 !node
                 c_ndx=c_ndx+1 !update node number to multivalued node
 
-                n1=ln_o(1,grd_ghost_link_closest(c_lnx))
-                n2=ln_o(2,grd_ghost_link_closest(c_lnx))
+                !save the flownode closest to the junction node in the branch under consideration
+                !and
+                !change the flownode connected to the first link connected to the junction flownode along the branch under consideration to the new flownode
+                n1=ln_o(1,grd_ghost_link_closest(c_lnx)) !flownode 1 associated to new link
+                n2=ln_o(2,grd_ghost_link_closest(c_lnx)) !flownode 2 associated to new link
+                !either <n1> or <n2> is the junction node <idx_fm>. We take the other one. 
                 if (idx_fm.eq.n1) then
                     grd_fmmv_fmsv(c_ndx)=n2
+                    ln(1,grd_ghost_link_closest(c_lnx))=c_ndx
                 else
                     grd_fmmv_fmsv(c_ndx)=n1
+                    ln(2,grd_ghost_link_closest(c_lnx))=c_ndx
                 endif
                 
                 nd_mor(c_ndx)%lnx=2 !in <nd_mor> only two links are connected to each node. For ghost nodes these are:
@@ -477,6 +489,7 @@ do kbr=1,nbran
                 !we save here the index of one of the SRE points associated
                 !to it for the sake of writing a value for output. 
                 grd_fm_sre(idx_fm)=idx_sre
+                
                 
            else !not a bifurcation
                 !FM1DIMP2DO: This part could be condensed. The same is called above and below but just changed the index. 
@@ -551,10 +564,13 @@ do kbr=1,nbran
     !update index initial
     idx_i=idx_f+1
 enddo !branch
+
+!new dimensions
 lnx_mor=c_lnx !store new number of links (considering ghost links)
 lnxi_mor=lnx_mor !there are no ghosts in SRE
 ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !there are no ghosts in SRE
+ndkx_mor=ndx_mor
 
 allocate(link1(ndx_mor)) !we allocate with
 link1=0
@@ -633,11 +649,10 @@ enddo
 !
 !Fill FM Arrays
 
-!morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
-!It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
-call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx_mor, 1, lnx_mor, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
-call inipointers_erosed()
-    
+!frac_o=frac !needs to be copied before <allocsedtra>
+
+
+
 !FM1DIMP2DO: When not having a morhodynamic simulation, morpho variables are not initialized. The best
 !would be to <return> in <reallocate_fill>
 
@@ -656,12 +671,12 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !the cross-sections, which are treated independently. Nevertheless, we could here fill
 !the right value from cross-sections. 
 
-call reallocate_fill_pointer(ucxq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(ucyq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(hs_mor     ,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_pointer(ucxq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_pointer(ucyq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_pointer(hs_mor     ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
+!call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
 
@@ -675,14 +690,14 @@ call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy pointers to temporary array
-bodsed_fm=stmpar%morlyr%state%bodsed
+bodsed_o=stmpar%morlyr%state%bodsed
 allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
     !copy data from nodes existing in FM
 do kn=1,ndx
     !arrays sediment
     do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_fm(ksed,kn)
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
     enddo !ksed
 enddo !kn
 
@@ -690,7 +705,7 @@ enddo !kn
 do kn=ndx+1,ndx_mor    
     !arrays sediment
     do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_fm(ksed,grd_fmmv_fmsv(kn))
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
     enddo !ksed
 enddo !kl
 
@@ -763,6 +778,23 @@ do kl=lnx+1,lnx_mor
         !e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
     enddo !ksed
 enddo !kl
+
+!morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
+!It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
+!We have to copy <bodsed> before initialization.
+!griddim%nmub=ndx_mor !This is used for allocating in <rdsed>. We change it here and then back to the original for not messing up with other calls. -> This does not work because the code is only passed if `if (.not. associated(sedpar%sedd50)) then`
+call flow_sedmorinit()
+!griddim%nmub=ndx 
+!call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx_mor, 1, lnx_mor, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
+!call inipointers_erosed()
+!call initsedtra(sedtra, stmpar%sedpar, stmpar%trapar, stmpar%morpar, stmpar%morlyr, rhomean, ag, vismol, 1, ndx_mor, ndx_mor, stmpar%lsedsus, stmpar%lsedtot)
+
+!needs to be after <flow_sedmorinit>, where it is allocated
+call reallocate_fill_pointer(pmcrit                   ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor)
+
+
+stmpar%morlyr%settings%nmub=ndx_mor
 
 !
 !END (FFMA)
