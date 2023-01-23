@@ -149,7 +149,7 @@ integer :: idx_crs, idx_sre, idx_fm !indices
 integer :: n1, n2, nint, nout, pointscount, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c
+integer :: idx_i, idx_f, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
 integer :: j
 !integer :: lnx_mor 
 
@@ -306,6 +306,10 @@ if (allocated(nd_mor)) then
     deallocate(nd_mor)
 endif
 allocate(nd_mor(ndx_max)) !more than we need
+do kd=1,ndx
+    nd_mor(kd)=nd(kd)
+enddo
+
 !nd_mor => nd_mor_sre
 
 if (allocated(f1dimppar%kcs_sre)) then
@@ -363,6 +367,7 @@ allocate(link1sign(lnx_max))
 link1sign=1
 
 allocate(link1sign2(lnx_max))
+link1sign2=0
 do kl=1,lnxi
     link1sign2(kl)=1
 enddo
@@ -446,12 +451,19 @@ do kbr=1,nbran
                 grd_ghost_link_closest(c_lnx)=abs(nd_o(idx_fm)%ln(jpos))
                 
                 !In <nd> we keep the junction node <idx_fm> connected to several branches via the ghost link, as <nd> is used for the nodal point relation.
-                nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to junction flownode
+                !nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to junction flownode
                 
+                !FM1DIMP2DO: The link sign is set to positive for all cases and the sign is given in <link1sign2>. This should be revisited
+                !when revisiting <fm_upwbed>. -> NO, set sign in <nd>
+                !Impact on nodal point relation. I kept the signs there. 
+                
+                !FM1DIMP2DO: It seems all links point toward a junction in the standard scheme (based on nodal point relation). Is it true?
                 if (kn==1) then 
                    link1sign2(c_lnx)=1 !link direction for morphodynamics
+                   nd(idx_fm)%ln(jpos)=-c_lnx !set ghost link as the one connected to junction flownode
                 else
-                   link1sign2(c_lnx)=-1
+                   link1sign2(c_lnx)=1
+                   nd(idx_fm)%ln(jpos)=c_lnx !set ghost link as the one connected to junction flownode
                 endif
 
                 !node
@@ -475,7 +487,7 @@ do kbr=1,nbran
                 allocate(nd_mor(c_ndx)%ln(2))
                 if (kn==1) then 
                    nd_mor(c_ndx)%ln(1)=c_lnx !new ghost link
-                   nd_mor(c_ndx)%ln(2)=grd_ghost_link_closest(c_lnx) !existing link
+                   nd_mor(c_ndx)%ln(2)=-grd_ghost_link_closest(c_lnx) !existing link
                    ln_mor(1,c_lnx)=c_ndx
                    ln_mor(2,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 else
@@ -494,14 +506,23 @@ do kbr=1,nbran
                 grd_fm_sre(idx_fm)=idx_sre
                 
                 
-           else !not a bifurcation
+           else !not a bifurcation (i.e., boundary)
                 !FM1DIMP2DO: This part could be condensed. The same is called above and below but just changed the index. 
                 !copy values from <nd_o>
-                nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
-                nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
+                !nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
+                !nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
                 
                 grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
                 grd_fm_sre(idx_fm)=idx_sre 
+                
+                !relate ghost flownode also to <idx_sre>
+                idx_l1=abs(nd_o(idx_fm)%ln(1))
+                idx_l2=abs(nd_o(idx_fm)%ln(2))
+                L=max(idx_l1,idx_l2) !there are only two links, the one which is external (the largest of the two) points to the ghost flownode
+                n1=ln(1,L)
+                n2=ln(2,L)
+                idx_n=max(n1,n2) !the maximum flownode is the ghost one
+                grd_fm_sre(idx_n)=idx_sre
                 
                 !!link direction for morphodynamics
                 !if (kn==1) then 
@@ -515,8 +536,8 @@ do kbr=1,nbran
            jpos = 1
            
            !copy values from <nd_o>
-           nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
-           nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
+           !nd_mor(idx_fm)%lnx=nd_o(idx_fm)%lnx
+           !nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
            
            grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
            grd_fm_sre(idx_fm)=idx_sre 
@@ -810,6 +831,8 @@ call flow_sedmorinit()
 call reallocate_fill_pointer(pmcrit                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_int(kcsmor  ,grd_fmmv_fmsv,ndx,ndx_mor)
+
+ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 
 stmpar%morlyr%settings%nmub=ndx_mor
 

@@ -73,7 +73,7 @@
    use m_missing
    use m_physcoef, only: frcuni, ifrctypuni
    use m_turbulence, only: vicwws, turkinepsws, rhowat
-   use m_flowparameters, only: jasal, jatem, jawave, epshs, jasecflow, eps10, jasourcesink, v2dwbl, flowWithoutWaves
+   use m_flowparameters, only: jasal, jatem, jawave, epshs, jasecflow, eps10, jasourcesink, v2dwbl, flowWithoutWaves, flowsolver
    use m_fm_erosed
    use m_bedform
    use m_xbeach_data
@@ -1329,10 +1329,23 @@
             wb1d = wu_mor(L)
             do ised = 1, lsedtot
                sb1d = e_sbcn(L, ised) * Ldir  ! first compute all outgoing sed. transport.
-               ! this works for one incoming branch TO DO: WO
-               if (sb_dir(inod, ised, j) == -1) then
-                  sb_in(inod, ised) = sb_in(inod, ised) + max(-wb1d*sb1d, 0.0_fp)  ! outgoing transport is negative
+               if (flowsolver.eq.1) then !standard
+               !V: In the standard scheme, at the <e_sbcn> of the outgoing links we have the upwind transport, i.e., 
+               !part of the transport in the junction node. By summing over all of them we have the total transport at
+               !the junction node, which we then redistribute.
+                    ! this works for one incoming branch TO DO: WO
+                    if (sb_dir(inod, ised, j) == -1) then
+                       sb_in(inod, ised) = sb_in(inod, ised) + max(-wb1d*sb1d, 0.0_fp)  ! outgoing transport is negative
+                    endif
+               else !FM1DIMP
+               !In the FM1DIMP scheme at <e_sbcn> of the incoming links we have the upwind transport, i.e., the transport
+               !in the ghost cell for multivaluedness of each branch. By summing over all of them we have the total 
+               !transport incoming to the junction, which we want to redistribute. 
+                    if (sb_dir(inod, ised, j) == 1) then
+                       sb_in(inod, ised) = sb_in(inod, ised) + wb1d*sb1d ! incoming transport is positive
+                    endif                   
                endif
+               
             enddo
          enddo
       endif
@@ -1366,13 +1379,13 @@
                wb1d = wu_mor(L)
 
                ! Get Nodal Point Relation Data
-               nrd_idx = get_noderel_idx(inod, pFrac, pnod%gridnumber, branInIDLn(inod), pnod%numberofconnections)
+               nrd_idx = get_noderel_idx(inod, pFrac, pnod%gridnumber, branInIDLn(inod), pnod%numberofconnections) !V: This could be done once rather than every time step?
 
                pNodRel => pFrac%noderelations(nrd_idx)
 
                if (sb_dir(inod, ised, j) == -1) then ! is outgoing
 
-                  if (qb_out(inod) > 0.0_fp) then
+                  if (qb_out(inod) > 0.0_fp) then !V: is it really needed if the direction has been already checked based on velocity?
 
                      if (pNodRel%Method == 'function') then
 

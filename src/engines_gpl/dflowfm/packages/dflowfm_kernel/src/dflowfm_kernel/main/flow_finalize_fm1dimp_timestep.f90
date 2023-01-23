@@ -46,7 +46,7 @@ use m_flowgeom, only: lnx1d, ndxi, ln, lnx1Db, lnxi, ndx
 !use unstruc_channel_flow, only: network
 !use m_CrossSections, only: CalcConveyance
 !use m_flowgeom
-use m_fm_erosed, only: ndx_mor
+use m_fm_erosed, only: ndx_mor, lnx_mor, ln_mor
 use m_f1dimp 
 
 implicit none
@@ -116,32 +116,39 @@ do kndx=1,ndx_mor  !loop on FM nodes
    s1(kndx)=hpack(idx_sre,3)
 enddo
 
-!<u1> is only for output. Does not enter in the flow solver nor morphodynamics.  
-do L=1,lnx1d !internal links
-    n1=grd_fmL_sre(L,1)
-    n2=grd_fmL_sre(L,2)
+do L=1,lnx_mor
+    n1=grd_fm_sre(ln_mor(1,L))
+    n2=grd_fm_sre(ln_mor(2,L))
     u1(L)=0.5*qpack(n1,3)/waoft(n1,3)+0.5*qpack(n2,3)/waoft(n2,3)
+    !FM1DIMP2DO: VERY IMPORTANT. Check that <qa> is correctly updated, as it feeds into the nodal point relation
 enddo
 
-k=0
-do L=lnxi+1,lnx1Db !boundary links
-    k=k+1
-    nint=grd_fmLb_sre(k,1)
-    nout=grd_fmLb_sre(k,2)
-    !we could have a better reconstruction of <u1(L)> with the slope of the previous value rather than just copying the value.
-    
-    !not sure if x=0 is enough to order the branch. Another option is to get the next internal cell connected to the identified
-    !internal cell and compute <dx>. If positive it is in the direction of the flow and viceversa.
-    
-    !FM1DIMP2DO: this is prone to error and tricky. I am assuming that the upstream end, where the discharge is specified, is a chainage 0
-    !The difficulty is to set a direction of the branch that defines what it means that the velocity of SRE is positive. 
-    if (x(nint).eq.0) then !upstream
-        u1(L)=qpack(nint,3)/waoft(nint,3) 
-    else ! downstream
-        u1(L)=-qpack(nint,3)/waoft(nint,3) !we could have a better reconstruction with the slope of the previous value
-    endif
-    
-    s1(nout)=s1(nint)
-enddo
+!!<u1> is only for output. Does not enter in the flow solver nor morphodynamics.  
+!do L=1,lnx1d !internal links
+!    n1=grd_fmL_sre(L,1)
+!    n2=grd_fmL_sre(L,2)
+!    u1(L)=0.5*qpack(n1,3)/waoft(n1,3)+0.5*qpack(n2,3)/waoft(n2,3)
+!enddo
+!
+!k=0
+!do L=lnxi+1,lnx1Db !boundary links
+!    k=k+1
+!    nint=grd_fmLb_sre(k,1)
+!    nout=grd_fmLb_sre(k,2)
+!    !we could have a better reconstruction of <u1(L)> with the slope of the previous value rather than just copying the value.
+!    
+!    !not sure if x=0 is enough to order the branch. Another option is to get the next internal cell connected to the identified
+!    !internal cell and compute <dx>. If positive it is in the direction of the flow and viceversa.
+!    
+!    !FM1DIMP2DO: this is prone to error and tricky. I am assuming that the upstream end, where the discharge is specified, is a chainage 0
+!    !The difficulty is to set a direction of the branch that defines what it means that the velocity of SRE is positive. 
+!    if (x(nint).eq.0) then !upstream
+!        u1(L)=qpack(nint,3)/waoft(nint,3) 
+!    else ! downstream
+!        u1(L)=-qpack(nint,3)/waoft(nint,3) !we could have a better reconstruction with the slope of the previous value
+!    endif
+!    
+!    s1(nout)=s1(nint)
+!enddo
 
 end subroutine flow_finalize_fm1dimp_timestep

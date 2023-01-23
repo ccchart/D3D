@@ -520,6 +520,12 @@
             trndiv  = 0d0
             sedflx  = 0d0
             eroflx  = 0d0
+            !FM1DIMP2DO: I do not like this, but I cannot think of a better way.
+            !The added flownodes at junctions are after the boundary ghost nodes. 
+            !We have to skip the boundaries but loop over the added flownodes. 
+            if ((nm>ndxi).and.(nm<ndx+1)) then
+                cycle
+            endif
             if (sus/=0d0 .and. .not. bedload) then
                if (neglectentrainment) then
                   !
