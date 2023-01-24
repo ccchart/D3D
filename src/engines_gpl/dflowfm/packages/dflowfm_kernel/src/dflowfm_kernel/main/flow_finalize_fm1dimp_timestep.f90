@@ -107,10 +107,10 @@ do kndx=1,ndx_mor  !loop on FM nodes
    idx_sre=grd_fm_sre(kndx)
    
     !skip boundary nodes, for which there is no SRE
-    if (idx_sre.eq.0) then
+    !if (idx_sre.eq.0) then
     !if ((kndx>ndxi).and.(kndx<=ndx)) then 
-        cycle
-    endif
+    !    cycle
+    !endif
     
    s0(kndx)=hpack(idx_sre,1)
    s1(kndx)=hpack(idx_sre,3)

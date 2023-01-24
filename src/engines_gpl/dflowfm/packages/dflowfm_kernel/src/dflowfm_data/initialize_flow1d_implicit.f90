@@ -45,7 +45,7 @@ use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb,
 use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
 use m_initsedtra, only: initsedtra
 use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross
+use m_oned_functions, only: gridpoint2cross, t_gridp2cs
 use m_waves, only: taubxu
 use morphology_data_module, only: allocsedtra
 use m_turbulence, only: rhowat
@@ -134,6 +134,7 @@ double precision, dimension(:,:)         , pointer :: hlev
 
 type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
 !type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
+type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
 
 !debug
 integer, pointer :: fm1dimp_debug_k1
@@ -149,7 +150,7 @@ integer :: idx_crs, idx_sre, idx_fm !indices
 integer :: n1, n2, nint, nout, pointscount, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
+integer :: idx_i, idx_f, nl, L, L2, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
 integer :: j
 !integer :: lnx_mor 
 
@@ -368,18 +369,46 @@ link1sign=1
 
 allocate(link1sign2(lnx_max))
 link1sign2=0
+!All internal links have direction 1
 do kl=1,lnxi
     link1sign2(kl)=1
 enddo
-do kl=lnxi+1,lnx
-    link1sign2(kl)=-1
-enddo
+!do kl=lnxi+1,lnx
+!    link1sign2(kl)=1
+!enddo
 
 !if (allocated(node_processed)) then
 !    deallocate(node_processed)
 !endif
 !allocate(node_processed(ndxi))
 !node_processed=0
+
+!copy to <gridpoint2cross_o>
+if (allocated(gridpoint2cross_o)) then
+    deallocate(gridpoint2cross_o)
+endif
+allocate(gridpoint2cross_o(ndx_max))
+do kd=1,ndxi
+    gridpoint2cross_o(kd)=gridpoint2cross(kd) 
+    !if (gridpoint2cross_o(kd)%num_cross_sections>1) then
+    !     write (msgbuf, '(a)') 'There is more than 1 cross-section per node (this error should have been captured before).'
+    !     call err_flush()
+    !     iresult=1
+    !endif
+enddo
+!allocate
+if (allocated(gridpoint2cross)) then
+    deallocate(gridpoint2cross)
+endif
+allocate(gridpoint2cross(ndx_max))
+!internal cross-sections are the same as they were (1 CS per flownode).
+do kd=1,ndxi
+    gridpoint2cross(kd)=gridpoint2cross_o(kd) 
+enddo
+!at ghost-boundary flownodes we set the number of CS to 0 to prevent looping on them (there is no CS)
+do kd=ndxi+1,ndx
+    gridpoint2cross(kd)%num_cross_sections=0 !This prevents it is looped in <fm_update_crosssections>
+enddo
 
 
 !
@@ -496,7 +525,6 @@ do kbr=1,nbran
                    ln_mor(2,c_lnx)=c_ndx
                    ln_mor(1,c_lnx)=grd_fmmv_fmsv(c_ndx)
                 endif
-                !grd_fmmv_fmsv(c_ndx)=idx_fm !FM1DIMP2DO not sure this is correct. It should be the closest flownode in the same branch and not the bifurcation node itself.
 
                 grd_fm_sre(c_ndx)=idx_sre
                 
@@ -505,6 +533,16 @@ do kbr=1,nbran
                 !to it for the sake of writing a value for output. 
                 grd_fm_sre(idx_fm)=idx_sre
                 
+                !add CS at multivalued-ghost flownode
+                gridpoint2cross(c_ndx)%num_cross_sections=1
+                allocate(gridpoint2cross(c_ndx)%cross(gridpoint2cross(c_ndx)%num_cross_sections))
+                gridpoint2cross(c_ndx)%cross(1)=gridpoint2cross(idx_fm)%cross(jpos)
+                
+
+           
+                !remove CS at junction flownode
+                gridpoint2cross(idx_fm)%num_cross_sections=0 !This prevents it is looped in <fm_update_crosssections>
+                !gridpoint2cross(idx_fm)%cross(jpos)=-999 !This prevents it is passed in <fm_update_crosssections> -> NO. -999 causes error when parsing the number of CS per node. 
                 
            else !not a bifurcation (i.e., boundary)
                 !FM1DIMP2DO: This part could be condensed. The same is called above and below but just changed the index. 
@@ -518,18 +556,24 @@ do kbr=1,nbran
                 !relate ghost flownode also to <idx_sre>
                 idx_l1=abs(nd_o(idx_fm)%ln(1))
                 idx_l2=abs(nd_o(idx_fm)%ln(2))
-                L=max(idx_l1,idx_l2) !there are only two links, the one which is external (the largest of the two) points to the ghost flownode
+                !there are only two links
+                L=max(idx_l1,idx_l2) !the one which is external (the largest of the two) points to the ghost flownode
+                L2=min(idx_l1,idx_l2) !the one which is internal (the smallest of the two) points to the internal cell
                 n1=ln(1,L)
                 n2=ln(2,L)
                 idx_n=max(n1,n2) !the maximum flownode is the ghost one
                 grd_fm_sre(idx_n)=idx_sre
                 
-                !!link direction for morphodynamics
-                !if (kn==1) then 
-                !   link1sign2(idx_fm)=1
-                !else
-                !   link1sign2(idx_fm)=-1
-                !endif
+                !link direction for morphodynamics
+                link1sign2(L2)=1
+                if (kn==1) then 
+                   link1sign2(L)=1
+                else
+                   link1sign2(L)=-1
+                endif
+                
+                !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
+                !idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
            endif !(nd(idx_fm)%lnx>2)
            
         else !internal point of a branch, not beginning or end. 
@@ -542,10 +586,16 @@ do kbr=1,nbran
            grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
            grd_fm_sre(idx_fm)=idx_sre 
            
-           !link1sign2(idx_fm)=1 !link direction for morphodynamics
+           !link1sign2()=1 !link direction for morphodynamics
+           
+           !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
+           !idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
         endif  
         
-        idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+
+                !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
+                idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+                
         !if there is not a unique cross-section per gridpoint per branch, <ic=-999>. It is not needed to check
         !this here because it is already checked in <flow_sedmorinit>, which is called before <initialize_flow1d_implicit>
         

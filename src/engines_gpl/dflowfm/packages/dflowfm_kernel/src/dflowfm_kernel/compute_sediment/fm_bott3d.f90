@@ -708,7 +708,7 @@
             totfixfrac = 0d0
             !
             do L=1,nd_mor(nm)%lnx
-               k1 = ln(1,iabs(nd_mor(nm)%ln(L))); k2 = ln(2,iabs(nd_mor(nm)%ln(L)))
+               k1 = ln_mor(1,iabs(nd_mor(nm)%ln(L))); k2 = ln_mor(2,iabs(nd_mor(nm)%ln(L)))
                if (k2 == nm) then
                   knb = k1
                else

@@ -46,6 +46,7 @@
    use m_CrossSections, only: t_CSType, CS_TABULATED
    use m_flow, only: s1
    use MessageHandling
+   use m_fm_erosed, only: ndxi_mor
 
    real(fp), dimension(:), intent(inout) :: blchg         !< Bed level change (> 0 = sedimentation, < 0 = erosion)
 
@@ -73,7 +74,7 @@
    !
    ! upon entry blchg contains the bed level change averaged over the total cell area
    !
-   do nm = ndx2D + 1, ndxi ! only for internal 1D nodes
+   do nm = ndx2D + 1, ndxi_mor ! only for internal 1D nodes
          do j = 1, gridpoint2cross(nm)%num_cross_sections
             c = gridpoint2cross(nm)%cross(j)
             if (c == -999) cycle
@@ -207,6 +208,7 @@
    use precision
    use m_oned_functions, only:gridpoint2cross
    use m_flowgeom, only: acl, dx, ln, nd ! lnx, lnx1d, lnxi, lnx1Db, wu, wu_mor, LBND1D, bai, ba_mor, bai_mor, ndx, ndx2D, ndx1Db
+   use m_fm_erosed, only: nd_mor
 
    integer, intent(in) :: nm   !< flow node index
    integer, intent(in) :: j    !< local link (branch) index at flow node nm (only used on points with multiple branches)
@@ -221,8 +223,8 @@
       ! compute the total cell length
       !
       ds = 0d0
-      do i = 1,nd(nm)%lnx
-         LL = nd(nm)%ln(i)
+      do i = 1,nd_mor(nm)%lnx
+         LL = nd_mor(nm)%ln(i)
          L = iabs(LL)
          if (LL < 0) then
             ds = ds+dx(L)*acl(L)
@@ -231,7 +233,7 @@
          endif
       enddo
    else
-      LL = nd(nm)%ln(j)
+      LL = nd_mor(nm)%ln(j)
       L = iabs(LL)
       if (LL < 0) then
          ds = dx(L)*acl(L)

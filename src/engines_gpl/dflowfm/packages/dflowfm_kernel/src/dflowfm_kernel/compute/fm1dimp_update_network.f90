@@ -38,6 +38,8 @@ subroutine fm1dimp_update_network(iresult)
 use m_f1dimp
 use unstruc_channel_flow, only: network
 use m_CrossSections, only: createTablesForTabulatedProfile
+use m_fm_erosed, only: ndx_mor
+use m_oned_functions, only: gridpoint2cross
 !use unstruc_messages
 
 implicit none
@@ -51,9 +53,9 @@ implicit none
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
-integer :: k
+integer :: kd
 integer :: k2
-integer :: idx_crs!, idx_fm
+integer :: idx_crs, idx_sre
 
 !!
 !! CALC
@@ -61,13 +63,21 @@ integer :: idx_crs!, idx_fm
 
 iresult=0
 
-do k=1,f1dimppar%ngrid
+do kd=1,ndx_mor
+!do k=1,f1dimppar%ngrid
     
     !idx_fm=f1dimppar%grd_sre_fm(k) !index of the global grid point in fm for the global gridpoint <k> in SRE
     !idx_crs=network%ADM%gpnt2cross(idx_fm)%C1 !< index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node 		
     
-    idx_crs=f1dimppar%idx_cs(k)
+    !skip the boundary-ghost flownodes, for which there is no cross-section
+    idx_sre=f1dimppar%grd_fm_sre(kd)
+    if (gridpoint2cross(kd)%NUM_CROSS_SECTIONS.eq.0) then
+        cycle
+    endif
     
+    
+    !idx_crs=f1dimppar%idx_cs(k)
+    idx_crs=gridpoint2cross(kd)%cross(1)
     !update cross-section flow variables after bed level changes
     !FM1DIMP2DO: remove debug
     !if (idx_crs.eq.1) then
@@ -85,20 +95,31 @@ do k=1,f1dimppar%ngrid
     !FM1DIMP2DO: move to a subroutine?
     
     !nlev
-    f1dimppar%nlev(k)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
-    do k2=1,f1dimppar%nlev(k)
-        f1dimppar%wft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
-        f1dimppar%aft(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
-        f1dimppar%wtt(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
-        f1dimppar%att(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
-        f1dimppar%of(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
-        f1dimppar%hlev(k,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
+    f1dimppar%nlev(idx_sre)=network%CRS%CROSS(idx_crs)%TABDEF%LEVELSCOUNT
+    do k2=1,f1dimppar%nlev(idx_sre)
+        f1dimppar%wft (idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWWIDTH(k2) 
+        f1dimppar%aft (idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%FLOWAREA(k2)  
+        f1dimppar%wtt (idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALWIDTH(k2) 
+        f1dimppar%att (idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%TOTALAREA(k2)    
+        f1dimppar%of  (idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%WETPERIMETER(k2)     
+        f1dimppar%hlev(idx_sre,k2)=network%CRS%CROSS(idx_crs)%TABDEF%HEIGHT(k2)
     end do !k2
 
     !bed level
-    f1dimppar%bedlevel(k)=network%crs%cross(idx_crs)%bedLevel
+    f1dimppar%bedlevel(idx_sre)=network%crs%cross(idx_crs)%bedLevel
     
-end do !k
+        !FM1DIMP2DO: remove debug
+    !write(42,*) idx_sre, idx_crs
+    !write(42,*) f1dimppar%wft (idx_sre,:)
+    !write(42,*) f1dimppar%aft (idx_sre,:)
+    !write(42,*) f1dimppar%wtt (idx_sre,:)
+    !write(42,*) f1dimppar%att (idx_sre,:)
+    !write(42,*) f1dimppar%of (idx_sre,:)
+    !write(42,*) f1dimppar%hlev (idx_sre,:)
+    !write(42,*) f1dimppar%bedlevel (idx_sre)
+    
+enddo !kd
+
 
 end subroutine fm1dimp_update_network
 
