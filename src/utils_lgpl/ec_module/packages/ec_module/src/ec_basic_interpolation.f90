@@ -879,7 +879,7 @@
 
       !        restore jsferic
       jsferic = jsferic_store
-
+      treeglob%itreestat=ITREE_EMPTY
       call build_kdtree(treeglob, numtri, xx, yy, ierror,jsferic, dmiss)
 
       !           deallocate
