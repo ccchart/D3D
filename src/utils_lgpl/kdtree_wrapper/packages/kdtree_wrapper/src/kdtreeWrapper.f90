@@ -114,12 +114,16 @@ module kdtree2Factory
 
    !LC call mess(LEVEL_INFO, 'done')
 
-   !  allocate query vector
-   allocate(treeinst%qv(NTREEDIM))
 
-   !  allocate results array
-   IRESULTSIZE = INIRESULTSIZE
-   allocate(treeinst%results(IRESULTSIZE))
+      !  allocate query vector
+     allocate(treeinst%qv(NTREEDIM))
+   
+      !  allocate results array
+      IRESULTSIZE = INIRESULTSIZE
+      if (allocated(treeinst%results)) then
+         deallocate(treeinst%results)
+      endif
+      allocate(treeinst%results(IRESULTSIZE))
 
    treeinst%itreestat = ITREE_OK
 
