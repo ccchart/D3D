@@ -56,7 +56,7 @@
    ucxq_mor = 0d0 ; ucyq_mor = 0d0           ! zero arrays
    ucx_mor  = 0d0 ; ucy_mor  = 0d0
 
-   if (kmx < 1) then                                   ! original 2D coding
+   if (kmx==0) then                                   ! original 2D coding
       do L = 1,lnx1D
          if (u1_loc(L) .ne. 0d0 .and. kcu(L) .ne. 3) then  ! link flows ; in 2D, the loop is split to save kcu check in 2D
             k1 = ln(1,L) ; k2 = ln(2,L)
@@ -128,7 +128,7 @@
       enddo
    endif
 
-   if (kmx < 1) then ! original 2D coding
+   if (kmx ==0) then ! original 2D coding
       !$OMP PARALLEL DO           &
       !$OMP PRIVATE(k)
       do k = 1,ndxi
@@ -207,8 +207,6 @@
             endif
             if (jased > 0 .and. stm_included) then
                dischcorrection = hs(k2) / hs(kb)
-               !ucx_mor(kb)  = ucx_mor(kb)  * dischcorrection
-               !ucy_mor(kb)  = ucy_mor(kb)  * dischcorrection
                ucxq_mor(kb) = ucxq_mor(kb) * dischcorrection
                ucyq_mor(kb) = ucyq_mor(kb) * dischcorrection
             endif
@@ -222,7 +220,6 @@
                   uin = nod2linx(LL,2,ucx_mor(k2k),ucy_mor(k2k))*cs + nod2liny(LL,2,ucx_mor(k2k),ucy_mor(k2k))*sn
                   ucx_mor(kbk)  = uin*lin2nodx(LL,1,cs,sn)
                   ucy_mor(kbk)  = uin*lin2nody(LL,1,cs,sn)
-                  !uin = nod2linx(LL,2,ucxq_mor(k2k),ucyq_mor(k2k))*cs + nod2liny(LL,2,ucxq_mor(k2k),ucyq_mor(k2k))*sn
                   ucxq_mor(kbk) = uin*lin2nodx(LL,1,cs,sn)
                   ucyq_mor(kbk) = uin*lin2nody(LL,1,cs,sn)
                else
@@ -248,13 +245,6 @@
                   ucyq_mor(kbk) = ucyq_mor(k2k)
                endif
             endif
-            !if (jased > 0 .and. stm_included) then   ! similar as 2D, JRE to check
-            !   dischcorrection = hs(k2) / hs(kb)
-            !   !ucx_mor(kb)  = ucx_mor(kb)  * dischcorrection
-            !   !ucy_mor(kb)  = ucy_mor(kb)  * dischcorrection
-            !   ucxq_mor(kbk) = ucxq_mor(kbk) * dischcorrection
-            !   ucyq_mor(kbk) = ucyq_mor(kbk) * dischcorrection
-            !endif
          enddo
       endif
    enddo
@@ -321,8 +311,6 @@
             endif
             if (jased > 0 .and. stm_included) then
                dischcorrection = hs(k2) / hs(kb)
-               !ucx_mor(kb)  = ucx_mor(kb)  * dischcorrection
-               !ucy_mor(kb)  = ucy_mor(kb)  * dischcorrection
                ucxq_mor(kb) = ucxq_mor(kb) * dischcorrection
                ucyq_mor(kb) = ucyq_mor(kb) * dischcorrection
             endif
