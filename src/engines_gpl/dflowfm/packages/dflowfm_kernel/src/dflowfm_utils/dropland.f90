@@ -83,7 +83,7 @@
           do kk=1,nn
              k = nd(n)%nod(kk)
              zk(k) = zk(k) + dropstep
-             if (jaceneqtr == 2 .and.jased > 0) then
+             if (jaceneqtr == 2 .and.jased > 0 .and. jased<4) then
                 do j = 1,mxgr
                    grainlay(j, k ) = max(0d0, grainlay(j, k ) + dropstep/mxgr)
                 enddo
