@@ -1,0 +1,1327 @@
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/unstruc_netcdf.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/unstruc_netcdf.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_io/unstruc_netcdf.f90	(working copy)
+@@ -6107,14 +6107,14 @@
+          call reconstructucz(0)
+          if (jamapucvec == 1) then 
+             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucz, UNC_LOC_S3D, ucz, jabndnd=jabndnd_)
+-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxa, UNC_LOC_S, ucxq, jabndnd=jabndnd_)
+-            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucya, UNC_LOC_S, ucyq, jabndnd=jabndnd_)
++            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucxa, UNC_LOC_S, ucx(1:ndxndxi), jabndnd=jabndnd_)
++            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucya, UNC_LOC_S, ucy(1:ndxndxi), jabndnd=jabndnd_)
+          end if
+ 
+          if (jamapucmag == 1) then    
+             call realloc(work1d, ndkx, keepExisting = .false., fill=0d0)
+-            do k=1,size(ucxq)                            ! NOTE: this does not include Stokes drift, no Eulerian velocities here!
+-               work1d(k) = sqrt(ucxq(k)**2 + ucyq(k)**2) ! TODO: this does not include vertical/w-component now.
++            do k=1,ndxndxi                               ! NOTE: this does not include Stokes drift, no Eulerian velocities here!
++               work1d(k) = sqrt(ucx(k)**2 + ucy(k)**2)   ! TODO: this does not include vertical/w-component now.
+             end do
+             ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ucmaga, UNC_LOC_S, work1d, jabndnd=jabndnd_)
+          end if
+@@ -7089,7 +7089,7 @@
+            call realloc(ust_x, ndkx, keepExisting=.false.)
+            call realloc(ust_y, ndkx, keepExisting=.false.)
+            call reconstruct_cc_stokesdrift(ndkx,ust_x, ust_y)
+-        
++           
+            ! then write:
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_ustokes      , iLocS, ust_x, jabndnd=jabndnd_)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_vstokes      , iLocS, ust_y, jabndnd=jabndnd_)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/furu.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/furu.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/furu.f90	(working copy)
+@@ -347,7 +347,7 @@
+ 
+  call furusobekstructures()
+ 
+- if (jawave==3 .or. jawave==6 .and. .not. flowWithoutWaves) then
++ if ((jawave==3 .or. jawave==6) .and. .not. flowWithoutWaves) then
+     if (kmx==0) then
+        !   add wave-induced mass fluxes on boundaries to convert euler input to GLM
+        do L=Lnxi+1,Lnx
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/settaubxu_nowave.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/settaubxu_nowave.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/settaubxu_nowave.f90	(working copy)
+@@ -45,7 +45,7 @@
+       call getLbotLtop(L,Lb,Lt)
+       if (Lt<Lb) cycle
+       if (hu(L)>epshu) then
+-         if (frcu(L)>0d0) then       ! input, or result from trachytopes
++         if (frcu(L)>0d0) then                               ! input, or result from trachytopes/vegetation
+             call getcz(hu(L), frcu(L), ifrcutp(L), cz, L)
+             z0urou(L) = hu(L)*exp(-1d0 - vonkar*cz/sag)         ! getczz0
+             rz        = max(hu(Lb),epshu)/ee/z0urou(L)          ! cz/sag, jaustarint=1, compatible with getustbcfuhi
+@@ -59,4 +59,4 @@
+      endif
+    enddo
+ 
+-   end subroutine
++   end subroutine settaubxu_nowave
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyu.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyu.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyu.f90	(working copy)
+@@ -40,6 +40,7 @@
+  use m_sferic
+  implicit none
+ 
++ logical          :: make2dh
+  integer          :: L, KK, k1, k2, k, nw, Lb, Lt, LL, nn, n, kt,kb, kbk, k2k
+  integer          :: itpbn, newucxq=0
+  double precision :: uu, vv, uucx, uucy, wcxu, wcyu, cs, sn, adx, ac1, ac2, wuw, hdx, hul, dzz, uin, duxdn, duydn
+@@ -50,138 +51,142 @@
+  double precision, external :: lin2nodx, lin2nody
+ 
+  if (iperot /= -1) then
+- ucxq = 0d0 ; ucyq = 0d0           ! zero arrays
+- ucx = 0d0 ; ucy = 0d0
+-
+- if (kmx < 1) then                                   ! original 2D coding
+-
+-    do L = 1,lnx1D
+-       if (u1(L) .ne. 0d0) then  ! link flows ; in 2D, the loop is split to save kcu check in 2D
+-          if (( kcu(L)==3 .or. kcu(L)==4 .or. (iadv(L) >= 21 .and. iadv(L) <=29)) .and. ChangeVelocityAtStructures) then
+-             ! Apply only on some barrier-like hydraulic structures, and typically on 1D2D links for dambreaks
+-             u1L = q1(L)/au_nostrucs(L)
+-          else
+-             u1L = u1(L)
++    ucxq = 0d0 ; ucyq = 0d0           ! zero arrays
++    ucx = 0d0 ; ucy = 0d0
++    
++    make2dh = (kmx<1) .or. (kmx>0 .and. (jasedtrails>0 .or. jamapucmag>0 .or. jamapucvec>0)) 
++    
++    if (make2dh) then                                   ! original 2D coding
++    
++       do L = 1,lnx1D
++          if (u1(L) .ne. 0d0) then  ! link flows ; in 2D, the loop is split to save kcu check in 2D
++             if (( kcu(L)==3 .or. kcu(L)==4 .or. (iadv(L) >= 21 .and. iadv(L) <=29)) .and. ChangeVelocityAtStructures) then
++                ! Apply only on some barrier-like hydraulic structures, and typically on 1D2D links for dambreaks
++                u1L = q1(L)/au_nostrucs(L)
++             else
++                u1L = u1(L)
++             endif
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             wcxu      = wcx1(L)*u1L
++             ucx  (k1) = ucx  (k1) + wcxu
++             ucxq (k1) = ucxq (k1) + wcxu*hu(L)
++             wcyu      = wcy1(L)*u1L
++             ucy  (k1) = ucy  (k1) + wcyu
++             ucyq (k1) = ucyq (k1) + wcyu*hu(L)
++             wcxu      = wcx2(L)*u1L
++             ucx  (k2) = ucx  (k2) + wcxu
++             ucxq (k2) = ucxq (k2) + wcxu*hu(L)
++             wcyu      = wcy2(L)*u1L
++             ucy  (k2) = ucy  (k2) + wcyu
++             ucyq (k2) = ucyq (k2) + wcyu*hu(L)
+           endif
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          wcxu      = wcx1(L)*u1L
+-          ucx  (k1) = ucx  (k1) + wcxu
+-          ucxq (k1) = ucxq (k1) + wcxu*hu(L)
+-          wcyu      = wcy1(L)*u1L
+-          ucy  (k1) = ucy  (k1) + wcyu
+-          ucyq (k1) = ucyq (k1) + wcyu*hu(L)
+-          wcxu      = wcx2(L)*u1L
+-          ucx  (k2) = ucx  (k2) + wcxu
+-          ucxq (k2) = ucxq (k2) + wcxu*hu(L)
+-          wcyu      = wcy2(L)*u1L
+-          ucy  (k2) = ucy  (k2) + wcyu
+-          ucyq (k2) = ucyq (k2) + wcyu*hu(L)
+-       endif
+-    enddo
+-
+-    do L = lnx1D + 1,lnx
+-       if (jabarrieradvection == 3) then
+-          if ( struclink(L) == 1 ) cycle
+-       endif 
+-       if (u1(L) .ne. 0d0) then                      ! link flows
+-          if (( kcu(L)==3 .or. kcu(L)==4 .or. (iadv(L) >= 21 .and. iadv(L) <=29)) .and. ChangeVelocityAtStructures) then
+-             ! Apply only on some barrier-like hydraulic structures, and typically on 1D2D links for dambreaks
+-             u1L = q1(L)/au_nostrucs(L)
+-          else
+-             u1L = u1(L)
++       enddo
++    
++       do L = lnx1D + 1,lnx
++          if (jabarrieradvection == 3) then
++             if ( struclink(L) == 1 ) cycle
++          endif 
++          if (u1(L) .ne. 0d0) then                      ! link flows
++             if (( kcu(L)==3 .or. kcu(L)==4 .or. (iadv(L) >= 21 .and. iadv(L) <=29)) .and. ChangeVelocityAtStructures) then
++                ! Apply only on some barrier-like hydraulic structures, and typically on 1D2D links for dambreaks
++                u1L = q1(L)/au_nostrucs(L)
++             else
++                u1L = u1(L)
++             endif
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             wcxu      = wcx1(L)*u1L
++             ucx  (k1) = ucx  (k1) + wcxu
++             ucxq (k1) = ucxq (k1) + wcxu*hu(L)
++             wcyu      = wcy1(L)*u1L
++             ucy  (k1) = ucy  (k1) + wcyu
++             ucyq (k1) = ucyq (k1) + wcyu*hu(L)
++             wcxu      = wcx2(L)*u1L
++             ucx  (k2) = ucx  (k2) + wcxu
++             ucxq (k2) = ucxq (k2) + wcxu*hu(L)
++             wcyu      = wcy2(L)*u1L
++             ucy  (k2) = ucy  (k2) + wcyu
++             ucyq (k2) = ucyq (k2) + wcyu*hu(L)
+           endif
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          wcxu      = wcx1(L)*u1L
+-          ucx  (k1) = ucx  (k1) + wcxu
+-          ucxq (k1) = ucxq (k1) + wcxu*hu(L)
+-          wcyu      = wcy1(L)*u1L
+-          ucy  (k1) = ucy  (k1) + wcyu
+-          ucyq (k1) = ucyq (k1) + wcyu*hu(L)
+-          wcxu      = wcx2(L)*u1L
+-          ucx  (k2) = ucx  (k2) + wcxu
+-          ucxq (k2) = ucxq (k2) + wcxu*hu(L)
+-          wcyu      = wcy2(L)*u1L
+-          ucy  (k2) = ucy  (k2) + wcyu
+-          ucyq (k2) = ucyq (k2) + wcyu*hu(L)
+-       endif
+-    enddo
+-
+- else
+-    do LL = 1,lnx
+-       Lb = Lbot(LL) ; Lt = Lb - 1 + kmxL(LL)
+-       do L = Lb, Lt
+-          if (u1(L) .ne. 0d0) then                         ! link flows
+-             k1 = ln0(1,L)                                 ! use ln0 in reconstruction and in computing ucxu, use ln when fluxing
+-             k2 = ln0(2,L)
+-
+-             huL = hu(L)
+-             if (L>Lbot(LL)) then
+-                huL   = huL - hu(L-1)
++       enddo
++    endif
++    
++    if (kmx>0) then
++       do LL = 1,lnx
++          Lb = Lbot(LL) ; Lt = Lb - 1 + kmxL(LL)
++          do L = Lb, Lt
++             if (u1(L) .ne. 0d0) then                         ! link flows
++                k1 = ln0(1,L)                                 ! use ln0 in reconstruction and in computing ucxu, use ln when fluxing
++                k2 = ln0(2,L)
++    
++                huL = hu(L)
++                if (L>Lbot(LL)) then
++                   huL   = huL - hu(L-1)
++                endif
++                ucx (k1) = ucx (k1) + wcx1(LL)*u1(L)
++                ucxq(k1) = ucxq(k1) + wcx1(LL)*u1(L)*huL
++                ucy (k1) = ucy (k1) + wcy1(LL)*u1(L)
++                ucyq(k1) = ucyq(k1) + wcy1(LL)*u1(L)*huL
++                ucx (k2) = ucx (k2) + wcx2(LL)*u1(L)
++                ucxq(k2) = ucxq(k2) + wcx2(LL)*u1(L)*huL
++                ucy (k2) = ucy (k2) + wcy2(LL)*u1(L)
++                ucyq(k2) = ucyq(k2) + wcy2(LL)*u1(L)*huL
++    
+              endif
+-             ucx (k1) = ucx (k1) + wcx1(LL)*u1(L)
+-             ucxq(k1) = ucxq(k1) + wcx1(LL)*u1(L)*huL
+-             ucy (k1) = ucy (k1) + wcy1(LL)*u1(L)
+-             ucyq(k1) = ucyq(k1) + wcy1(LL)*u1(L)*huL
+-             ucx (k2) = ucx (k2) + wcx2(LL)*u1(L)
+-             ucxq(k2) = ucxq(k2) + wcx2(LL)*u1(L)*huL
+-             ucy (k2) = ucy (k2) + wcy2(LL)*u1(L)
+-             ucyq(k2) = ucyq(k2) + wcy2(LL)*u1(L)*huL
+-
++          enddo
++    
++          if (jazlayercenterbedvel == 1) then ! copy bed velocity down
++              do k1 = kbot(ln0(1,LL)), ln0(1,Lb) - 1
++                 ucx(k1) = ucx(k1) + wcx1(LL)*u1(Lb)
++                 ucy(k1) = ucy(k1) + wcy1(LL)*u1(Lb)
++              enddo
++              do k2 = kbot(ln0(2,LL)), ln0(2,Lb) - 1
++                 ucx(k2) = ucx(k2) + wcx2(LL)*u1(Lb)
++                 ucy(k2) = ucy(k2) + wcy2(LL)*u1(Lb)
++              enddo
+           endif
++    
+        enddo
+-
+-       if (jazlayercenterbedvel == 1) then ! copy bed velocity down
+-           do k1 = kbot(ln0(1,LL)), ln0(1,Lb) - 1
+-              ucx(k1) = ucx(k1) + wcx1(LL)*u1(Lb)
+-              ucy(k1) = ucy(k1) + wcy1(LL)*u1(Lb)
+-           enddo
+-           do k2 = kbot(ln0(2,LL)), ln0(2,Lb) - 1
+-              ucx(k2) = ucx(k2) + wcx2(LL)*u1(Lb)
+-              ucy(k2) = ucy(k2) + wcy2(LL)*u1(Lb)
+-           enddo
+-       endif
+-
+-    enddo
+-
+- endif
+-
+- if (kmx < 1) then ! original 2D coding
+-    !$OMP PARALLEL DO           &
+-    !$OMP PRIVATE(k)
+-    do k = 1,ndxi
+-       if (hs(k) > 0d0)  then
+-          ucxq(k) = ucxq(k)/hs(k)
+-          ucyq(k) = ucyq(k)/hs(k)
+-          if (iperot == 2) then
+-             ucx (k) = ucxq(k)
+-             ucy (k) = ucyq(k)
+-          endif
+-       endif
+-    enddo
+-    !$OMP END PARALLEL DO
+- else
+-    do nn = 1,ndxi
+-       if (hs(nn) > 0d0)  then
+-          kb = kbot(nn)
+-          kt = ktop(nn)
+-          ucxq(nn) = sum(ucxq(kb:kt)) / hs(nn) ! Depth-averaged cell center velocity in 3D, based on ucxq
+-          ucyq(nn) = sum(ucyq(kb:kt)) / hs(nn)
+-          do k = kb,kt
+-             dzz = zws(k) - zws(k-1)
+-             if (dzz > 0d0) then
+-                ucxq(k) = ucxq(k)/dzz
+-                ucyq(k) = ucyq(k)/dzz
+-             endif
++    
++    endif
++    
++    if (make2dh) then ! original 2D coding
++       !$OMP PARALLEL DO           &
++       !$OMP PRIVATE(k)
++       do k = 1,ndxi
++          if (hs(k) > 0d0)  then
++             ucxq(k) = ucxq(k)/hs(k)
++             ucyq(k) = ucyq(k)/hs(k)
+              if (iperot == 2) then
+-                ucx(k) = ucxq(k)
+-                ucy(k) = ucyq(k)
++                ucx (k) = ucxq(k)
++                ucy (k) = ucyq(k)
+              endif
+-          enddo
+-       endif
+-    enddo
+-
++          endif
++       enddo
++       !$OMP END PARALLEL DO
++    endif
++    
++    if (kmx>0) then
++       do nn = 1,ndxi
++          if (hs(nn) > 0d0)  then
++             kb = kbot(nn)
++             kt = ktop(nn)
++             ucxq(nn) = sum(ucxq(kb:kt)) / hs(nn) ! Depth-averaged cell center velocity in 3D, based on ucxq
++             ucyq(nn) = sum(ucyq(kb:kt)) / hs(nn)
++             do k = kb,kt
++                dzz = zws(k) - zws(k-1)
++                if (dzz > 0d0) then
++                   ucxq(k) = ucxq(k)/dzz
++                   ucyq(k) = ucyq(k)/dzz
++                endif
++                if (iperot == 2) then
++                   ucx(k) = ucxq(k)
++                   ucy(k) = ucyq(k)
++                endif
++             enddo
++          endif
++       enddo
++    endif
+  endif
+- endif
+ 
+  do n  = 1, nbndz                                     ! waterlevel boundaries
+     kb = kbndz(1,n)
+@@ -189,7 +194,7 @@
+     LL = kbndz(3,n)
+     itpbn = kbndz(4,n)
+     cs = csu(LL) ; sn = snu(LL)
+-    if (kmx == 0) then
++    if (make2dh) then
+        if (hs(kb) > epshs)  then
+           if ( jacstbnd.eq.0 .and. itpbn.ne.2 ) then    ! Neumann: always
+              if (jasfer3D == 1) then
+@@ -232,7 +237,9 @@
+              ucyq(kb) = ucyq(kb) * dischcorrection
+           endif
+        endif
+-    else
++    endif
++
++    if (kmx>0) then
+        call getLbotLtop(LL,Lb,Lt)
+        do L = Lb, Lt
+           kbk = ln(1,L) ; k2k = ln(2,L)
+@@ -267,14 +274,6 @@
+                 ucyq(kbk) = ucyq(k2k)
+              end if
+           end if
+-
+-          !if (jased > 0 .and. stm_included) then   ! similar as 2D, JRE to check
+-          !   dischcorrection = hs(k2) / hs(kb)
+-          !   !ucx(kb)  = ucx(kb)  * dischcorrection
+-          !   !ucy(kb)  = ucy(kb)  * dischcorrection
+-          !   ucxq(kbk) = ucxq(kbk) * dischcorrection
+-          !   ucyq(kbk) = ucyq(kbk) * dischcorrection
+-          !endif
+        enddo
+     endif
+  enddo
+@@ -304,7 +303,7 @@
+     k2 = kbndu(2,n)
+     LL = kbndu(3,n)
+     cs = csu(LL) ; sn = snu(LL)
+-    if (kmx == 0) then
++    if (make2dh) then
+        if (hs(kb) > epshs)  then
+           if ( jacstbnd.eq.0 ) then
+              if (jasfer3D == 1) then
+@@ -349,7 +348,9 @@
+              ucyq(kb) = ucyq(kb) * dischcorrection
+           endif
+        endif
+-    else
++    endif 
++
++    if (kmx>0) then
+        do k   = 1, kmxL(LL)
+           kbk = kbot(kb) - 1 + min(k,kmxn(kb))
+           k2k = kbot(k2) - 1 + min(k,kmxn(k2))
+@@ -467,26 +468,26 @@
+ 
+  newucxq = 0
+  if (newucxq == 1) then  ! test later, see testcase willem
+- if (jasfer3D == 1) then  ! boundary points ucxq, ucyq, independend of bnd types
+-    do L = lnxi+1, lnx
+-       kb = ln(1,L) ; k2 = ln(2,L)
+-       do LL = Lbot(L), Ltop(L)
+-          uinx     = nod2linx(LL,2,ucxq(k2),ucyq(k2))
+-          uiny     = nod2liny(LL,2,ucxq(k2),ucyq(k2))
+-          ucxq(kb) = lin2nodx(LL,1,uinx,uiny)
+-          ucyq(kb) = lin2nody(LL,1,uinx,uiny)
++    if (jasfer3D == 1) then  ! boundary points ucxq, ucyq, independend of bnd types
++       do L = lnxi+1, lnx
++          kb = ln(1,L) ; k2 = ln(2,L)
++          do LL = Lbot(L), Ltop(L)
++             uinx     = nod2linx(LL,2,ucxq(k2),ucyq(k2))
++             uiny     = nod2liny(LL,2,ucxq(k2),ucyq(k2))
++             ucxq(kb) = lin2nodx(LL,1,uinx,uiny)
++             ucyq(kb) = lin2nody(LL,1,uinx,uiny)
++          enddo
+        enddo
+-    enddo
+- else
+-    do L = lnxi+1, lnx
+-       kb = ln(1,L) ; k2 = ln(2,L)
+-       do LL = Lbot(L), Ltop(L)
+-          ucxq(kb) = ucxq(k2)
+-          ucyq(kb) = ucyq(k2)
++    else
++       do L = lnxi+1, lnx
++          kb = ln(1,L) ; k2 = ln(2,L)
++          do LL = Lbot(L), Ltop(L)
++             ucxq(kb) = ucxq(k2)
++             ucyq(kb) = ucyq(k2)
++          enddo
+        enddo
+-    enddo
++    endif
+  endif
+- endif
+ 
+ 
+ 
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyunew.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyunew.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setucxucyucxuucyunew.f90	(working copy)
+@@ -41,6 +41,7 @@
+  use m_sferic
+  implicit none
+ 
++ logical          :: make2dh
+  integer          :: L, KK, k1, k2, k, nw, Lb, Lt, LL, nn, n, kt,kb, kbk, k2k, n1, n2, ip, i12, La, nx, i
+  integer          :: itpbn, newucxq=0
+  double precision :: uu, vv, uucx, uucy, wcxu, wcyu, cs, sn, adx, ac1, ac2, wuw, hdx, hul, hsk, uin, duxdn, duydn, uhu, htrs
+@@ -54,12 +55,15 @@
+  double precision, external :: lin2nodx, lin2nody
+ 
+  ucxq = 0d0 ; ucyq = 0d0           ! zero arrays
++
++ ! keep track of depth averaged flow velocity
++ make2dh = (kmx<1) .or. (kmx>0 .and. (jasedtrails>0 .or. jamapucmag>0 .or. jamapucvec>0)) 
+  
+  if (iperot /= -1) then
+     ucx  = 0d0 ; ucy  = 0d0
+-
+-    if (kmx < 1) then                                   ! original 2D coding
+-
++    
++    if (make2dh) then                                   ! original 2D coding
++    
+        do i = 1, wetLink2D - 1
+           L = onlyWetLinks(i)
+           if (kcu(L) .ne. 3) then  ! link flows ; in 2D, the loop is split to save kcu check in 2D
+@@ -70,19 +74,19 @@
+              ucy(k2) = ucy(k2) + wcy2(L)*u1(L)
+           endif
+        enddo
+-
++    
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+           if (jabarrieradvection == 3) then
+              if ( struclink(L) == 1 ) cycle
+           endif
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          ucx(k1) = ucx(k1) + wcx1(L)*u1(L)
+-          ucy(k1) = ucy(k1) + wcy1(L)*u1(L)
+-          ucx(k2) = ucx(k2) + wcx2(L)*u1(L)
+-          ucy(k2) = ucy(k2) + wcy2(L)*u1(L)
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             ucx(k1) = ucx(k1) + wcx1(L)*u1(L)
++             ucy(k1) = ucy(k1) + wcy1(L)*u1(L)
++             ucx(k2) = ucx(k2) + wcx2(L)*u1(L)
++             ucy(k2) = ucy(k2) + wcy2(L)*u1(L)
+        enddo
+-
++    
+        if (ChangeVelocityAtStructures) then
+           ! Perform velocity correction for fixed weir and structures
+           ! In some cases the flow area of the hydraulic structure is larger than the flow area of the branch.
+@@ -102,9 +106,10 @@
+                ucy(k2) = ucy(k2) + wcy2(L)*u1correction
+              endif
+           enddo
+-       endif
+-
+-    else
++      endif
++   endif
++   
++   if (kmx >0) then
+        do LL = 1,lnx
+           Lb = Lbot(LL) ; Lt = Lb - 1 + kmxL(LL)
+           do L = Lb, Lt
+@@ -117,7 +122,7 @@
+                 ucy (k2) = ucy (k2) + wcy2(LL)*u1(L)
+              endif
+           enddo
+-    
++   
+           if (jazlayercenterbedvel == 1) then ! copy bed velocity down
+               do k1 = kbot(ln0(1,LL)), ln0(1,Lb) - 1
+                  ucx(k1) = ucx(k1) + wcx1(LL)*u1(Lb)
+@@ -128,11 +133,11 @@
+                  ucy(k2) = ucy(k2) + wcy2(LL)*u1(Lb)
+               enddo
+           endif
+-
++   
+        enddo
+-
++   
+     endif
+- endif
++ endif 
+ 
+ 
+  if (icorio == 5) then                                  ! original 2D coding hu weightings
+@@ -141,14 +146,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = hu(L)
+-          if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = hu(L)
++             if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -178,14 +183,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = hu(L)
+-          if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = hu(L)
++             if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -215,14 +220,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = acl(L)*hs(k1) + (1d0-acl(L))*hs(k2)
+-          if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = acl(L)*hs(k1) + (1d0-acl(L))*hs(k2)
++             if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -252,14 +257,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = acl(L)*hs(k1) + (1d0-acl(L))*hs(k2)
+-          if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = acl(L)*hs(k1) + (1d0-acl(L))*hs(k2)
++             if (hhtrshcor > 0) huL = max(huL, hhtrshcor )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -290,14 +295,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = acl(L)*vol1(k1) + (1d0-acl(L))*vol1(k2)
+-          if (hhtrshcor > 0)  huL = max(huL, hhtrshcor*( acl(L)*ba(k1) + (1d0-acl(L))*ba(k2) ) )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = acl(L)*vol1(k1) + (1d0-acl(L))*vol1(k2)
++             if (hhtrshcor > 0)  huL = max(huL, hhtrshcor*( acl(L)*ba(k1) + (1d0-acl(L))*ba(k2) ) )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -329,14 +334,14 @@
+ 
+        do i = wetLink2D, wetLinkCount
+           L = onlyWetLinks(i)
+-          k1 = ln(1,L) ; k2 = ln(2,L)
+-          huL = acl(L)*vol1(k1) + (1d0-acl(L))*vol1(k2)
+-          if (hhtrshcor > 0)  huL = max(huL, hhtrshcor*( acl(L)*ba(k1) + (1d0-acl(L))*ba(k2) ) )
+-          uhu = u1(L)*huL
+-          ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
+-          ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
+-          ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
+-          ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
++             k1 = ln(1,L) ; k2 = ln(2,L)
++             huL = acl(L)*vol1(k1) + (1d0-acl(L))*vol1(k2)
++             if (hhtrshcor > 0)  huL = max(huL, hhtrshcor*( acl(L)*ba(k1) + (1d0-acl(L))*ba(k2) ) )
++             uhu = u1(L)*huL
++             ucxq(k1) = ucxq(k1) + wcx1(L)*uhu
++             ucyq(k1) = ucyq(k1) + wcy1(L)*uhu
++             ucxq(k2) = ucxq(k2) + wcx2(L)*uhu
++             ucyq(k2) = ucyq(k2) + wcy2(L)*uhu
+        enddo
+ 
+     else
+@@ -609,7 +614,7 @@
+     LL = kbndz(3,n)
+     itpbn = kbndz(4,n)
+     cs = csu(LL) ; sn = snu(LL)
+-    if (kmx == 0) then
++    if (make2dh) then
+        if (hs(kb) > epshs)  then
+           if ( jacstbnd.eq.0 .and. itpbn.ne.2 ) then    ! Neumann: always
+              if (jasfer3D == 1) then
+@@ -633,7 +638,9 @@
+              endif
+           end if
+        endif
+-    else
++    endif
++
++    if (kmx>0) then
+        call getLbotLtop(LL,Lb,Lt)
+        do L = Lb, Lt
+           kbk = ln(1,L) ; k2k = ln(2,L)
+@@ -687,7 +694,7 @@
+     k2 = kbndu(2,n)
+     LL = kbndu(3,n)
+     cs = csu(LL) ; sn = snu(LL)
+-    if (kmx == 0) then
++    if (make2dh) then
+        if (hs(kb) > epshs)  then
+           if ( jacstbnd.eq.0 ) then
+              if (jasfer3D == 1) then
+@@ -711,7 +718,9 @@
+              end if
+           end if
+        endif
+-    else
++    endif
++
++    if (kmx>0) then
+        do k   = 1, kmxL(LL)
+           kbk = kbot(kb) - 1 + min(k,kmxn(kb))
+           k2k = kbot(k2) - 1 + min(k,kmxn(k2))
+@@ -814,7 +823,7 @@
+     k2      = kbnd1d2d(2,n)
+     LL      = kbnd1d2d(3,n)
+ 
+-    if (kmx == 0) then     ! 2D
++    if (make2dh) then     ! 2D
+        if (jasfer3D == 1) then
+           uinx = nod2linx(LL,2,ucx(k2),ucy(k2))
+           uiny = nod2liny(LL,2,ucx(k2),ucy(k2))
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setumod.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setumod.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute/setumod.f90	(working copy)
+@@ -92,7 +92,7 @@
+     if (newcorio == 1) then
+        call setucxucyucxuucyunew() !reconstruct cell-center velocities
+     else
+-    call setucxucyucxuucyu() !reconstruct cell-center velocities
++       call setucxucyucxuucyu() !reconstruct cell-center velocities
+     endif
+     u1     = u1_tmp
+     deallocate(u1_tmp)
+@@ -103,9 +103,9 @@
+     if (newcorio == 1) then
+        call setucxucyucxuucyunew()
+     else
+-    call setucxucyucxuucyu()
++       call setucxucyucxuucyu()
++    endif
+  endif
+- endif
+ 
+  !$OMP PARALLEL DO                           &
+  !$OMP PRIVATE(L,LL,Lb,Lt,k1,k2,cs,sn,hmin,fcor,vcor)
+@@ -367,8 +367,9 @@
+                 endif
+                 if (Smagorinsky > 0) then
+                    shearvar = 2d0*(dundn*dundn + dutdt*dutdt + dundt*dutdn) + dundt*dundt + dutdn*dutdn
+-
+-                   vicL     = vicL + Smagorinsky*Smagorinsky*sqrt(shearvar)/( dxi(L)*wui(L) )
++                   if (shearvar>1d-15) then
++                      vicL     = vicL + Smagorinsky*Smagorinsky*sqrt(shearvar)/( dxi(L)*wui(L) )
++                   endif
+                 endif
+ 
+              endif
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/comp_fluxver.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/comp_fluxver.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/comp_fluxver.f90	(working copy)
+@@ -122,7 +122,9 @@
+             qw_loc = qw(k)
+             if (jased < 4) then
+                qw_loc = qw(k) - wsf(j)*ba(kk)
+-            else  if ( stm_included .and. j.ge.ISED1 .and. j.le.ISEDN ) then
++            endif
++
++            if ( stm_included .and. j.ge.ISED1 .and. j.le.ISEDN ) then
+                ll = j-ISED1+1
+                if (k<sedtra%kmxsed(kk,ll)) then
+                   qw_loc = qw(k)     ! settling flux zero below kmxsed layer
+@@ -138,10 +140,6 @@
+                cf = 1d0                                             ! or always use it, is MUSCL = default
+             endif
+ 
+-            !if ( cf.gt.cflmx ) then
+-            !   continue
+-            !end if
+-
+             if ( thetavert(j).eq.1d0 ) cycle
+ 
+             sedL = sed(j,kL)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/get_dtmax.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/get_dtmax.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/get_dtmax.f90	(working copy)
+@@ -104,39 +104,28 @@
+       do k=1,Ndxi
+          dtmax(k) = dtmax_default
+ 
+-!         if ( s1(k)-bl(k).gt.epshu ) then
+ 
+-            if ( jalimitdtdiff.eq.0 ) then
+-               if ( squ(k).gt.eps10 ) then
+-                  dtmax(k) = min(dtmax(k),cflmx*vol1(k)/squ(k))
+-               end if
+-            else
+-               if ( sqi(k)+sumdifflim(k).gt. eps10 ) then
+-                  dtmax(k) = min(dtmax(k), cflmx*vol1(k)/(sqi(k)+sumdifflim(k)))
+-!                  dtmax = min(dtmax(k), cflmx*vol1(k)/(squ(k)+sumdifflim(k)))
+-               end if
++         if ( jalimitdtdiff.eq.0 ) then
++            if ( squ(k).gt.eps10 ) then
++               dtmax(k) = min(dtmax(k),cflmx*vol1(k)/squ(k))
+             end if
+-
+-! BEGIN DEBUG
+-!            do LL=1,nd(k)%lnx
+-!               L = iabs(nd(k)%ln(LL))
+-!               if ( hu(L).gt.0d0 .and. u1(L).gt.0d0 ) then
+-!                  dtmax(k) = min(dtmax(k),cflmx*Dx(L)/u1(L))
+-!               end if
+-!            end do
+-! END DEBUG
+-
+-            if ( jampi.eq.1 ) then
+-!              do not include ghost cells
+-               if ( idomain(k).ne.my_rank ) cycle
++         else
++            if ( sqi(k)+sumdifflim(k).gt. eps10 ) then
++               dtmax(k) = min(dtmax(k), cflmx*vol1(k)/(sqi(k)+sumdifflim(k)))
++!               dtmax = min(dtmax(k), cflmx*vol1(k)/(squ(k)+sumdifflim(k)))
+             end if
++         end if
++         
++         if ( jampi.eq.1 ) then
++!           do not include ghost cells
++            if ( idomain(k).ne.my_rank ) cycle
++         end if
++         
++         if ( dtmax(k).lt.dtmin_transp ) then
++            dtmin_transp = dtmax(k)
++            kk_dtmin = k
++         end if
+ 
+-            if ( dtmax(k).lt.dtmin_transp ) then
+-               dtmin_transp = dtmax(k)
+-               kk_dtmin = k
+-            end if
+-!         end if
+-
+       end do
+ 
+    else
+@@ -157,11 +146,11 @@
+                      end if
+                   end do
+                else
+-                  do k=kb,kt
+-                     if ( squ(k).gt.eps10 .or. sqi(k).gt.eps10 ) then
+-                        dtmax(kk) = min(dtmax(kk),vol1(k)/max(squ(k),sqi(k)))
+-                     end if
+-                  end do                  
++               do k=kb,kt
++                  if ( squ(k).gt.eps10 .or. sqi(k).gt.eps10 ) then
++                     dtmax(kk) = min(dtmax(kk),vol1(k)/max(squ(k),sqi(k)))
++                  end if
++               end do                  
+                endif
+             else
+                if (stm_included .and. ISED1>0) then
+@@ -174,13 +163,13 @@
+                         ! dtmax(kk) = min(dtmax(kk),vol1(k)/(squ(k)+sumdifflim(k)))
+                      end if
+                   enddo
+-               else
+-                  do k=kb,kt
+-                     if ( sqi(k)+sumdifflim(k).gt.eps10 ) then
+-                        dtmax(kk) = min(dtmax(kk),vol1(k)/(sqi(k)+sumdifflim(k)))
+-                        ! dtmax(kk) = min(dtmax(kk),vol1(k)/(squ(k)+sumdifflim(k)))
+-                     end if
+-                  end do
++            else
++               do k=kb,kt
++                  if ( sqi(k)+sumdifflim(k).gt.eps10 ) then
++                     dtmax(kk) = min(dtmax(kk),vol1(k)/(sqi(k)+sumdifflim(k)))
++                     ! dtmax(kk) = min(dtmax(kk),vol1(k)/(squ(k)+sumdifflim(k)))
++                  end if
++               end do
+                end if
+             end if
+             dtmax(kk) = cflmx*dtmax(kk)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/make_rhs.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/make_rhs.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/make_rhs.f90	(working copy)
+@@ -108,7 +108,7 @@
+          kt = ktop(kk)
+          do k=kb,kt
+             dvoli = 1d0/max(vol1(k),dtol)
+-            if (testdryflood == 2 ) dvoli = 1d0/max(vol1(k),epshu*ba(kk)/max(kt-kb+1,1))
++            if (testdryflood == 2 ) dvoli = 1d0/max(vol1(k),epshu*ba(kk))
+ 
+             do j=1,NUMCONST
+  !              rhs(j,k) = ((rhs(j,k) - (1d0-thetavert(j))*(fluxver(j,k) - fluxver(j,k-1)) - sed(j,k)*sq(k)) * dvoli + source(j,k))*dts + sed(j,k)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/solve_vertical.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/solve_vertical.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/solve_vertical.f90	(working copy)
+@@ -88,6 +88,7 @@
+ 
+    double precision                                          :: dt_loc
+    double precision                                          :: qw_loc
++   double precision                                          :: ksdfac
+ 
+    double precision, parameter                               :: dtol=1d-8
+ 
+@@ -102,9 +103,11 @@
+ 
+    ! construct and solve system
+    !$OMP PARALLEL DO                                                 &
+-   !$OMP PRIVATE(kk,kb,ktx,kt,a,b,c,sol,j,d,k,n,dvol1i,dvol2i,fluxfac,e,dtbazi,dtba,ozmid,bruns,qw_loc) &
++   !$OMP PRIVATE(kk,kb,ktx,kt,a,b,c,sol,j,d,k,n,dvol1i,dvol2i,fluxfac,e,dtbazi,dtba,ozmid,bruns,qw_loc,ll,ksdfac) &
+    !$OMP FIRSTPRIVATE(dt_loc)
+    do kk=1,Ndxi
++
++
+       if ( nsubsteps.gt.1 ) then
+          if ( jaupdate(kk).eq.0 ) then
+             cycle
+@@ -140,15 +143,12 @@
+          end do
+       end do
+ 
+-      ! if ( s1(kk)-bl(kk) > epshsdif ) then
+-      ! if ( s1(kk)-zws(kb-1) > epshsdif ) then
+-
+       do k=kb,kt-1   ! assume zero-fluxes at boundary and top
+          n = k-kb+1  ! layer number
+          dvol1i  = 1d0/max(vol1(k),dtol)                            ! dtol: safety
+-         if (testdryflood == 2 ) dvol1i = 1d0/max(vol1(k),epshu*ba(kk)/max(kt-kb+1,1))
++         if (testdryflood == 2 ) dvol1i = 1d0/max(vol1(k),epshu*ba(kk))
+          dvol2i  = 1d0/max(vol1(k+1),dtol)                          ! dtol: safety
+-         if (testdryflood == 2 ) dvol2i = 1d0/max(vol1(k+1),epshu*ba(kk)/max(kt-kb+1,1))
++         if (testdryflood == 2 ) dvol2i = 1d0/max(vol1(k+1),epshu*ba(kk))
+          dtba    = dt_loc*ba(kk)
+          dtbazi  = dtba / max(1d-4, 0.5d0*(zws(k+1)-zws(k-1)) )     ! another safety check
+ 
+@@ -162,19 +162,15 @@
+          endif
+ 
+          do j=1,NUMCONST
+-
+-!           ! diffusion
++!           ! diffusion and settling
+             if (jased > 3 .and. j >= ISED1 .and. j <= ISEDN) then  ! sediment d3d
+-               fluxfac = (ozmid + mtd%seddif(j-ISED1+1,k)/tpsnumber(j-ISED1+1) + difsed(j)          )*dtbazi
+-                        ! i.w.  + vicwws/van rijn                              + background (dicoww)
++               ll=j-ISED1+1
++               fluxfac = (ozmid + mtd%seddif(ll,k)/tpsnumber(ll) + difsed(j)          )*dtbazi
++                        ! i.w.  + vicwws/van rijn                + background (dicoww)
+             else
+                fluxfac = (sigdifi(j)*vicwws(k) + difsed(j) + ozmid)*dtbazi
+             end if
+-
+-!           BEGIN DEBUG
+-!            fluxfac = dt_loc * (difsed(j)) *ba(kk) / ( 0.5d0*(zws(k+1) - zws(k-1)) )  ! m3
+-!           END DEBUG
+-
++ 
+             b(n,j)   = b(n,j)   + fluxfac*dvol1i
+             c(n,j)   = c(n,j)   - fluxfac*dvol1i
+ 
+@@ -183,9 +179,6 @@
+ 
+ !           advection
+             if ( thetavert(j).gt.0d0 ) then ! semi-implicit, use central scheme
+-                ! BEGIN DEBUG
+-                ! if ( .false. .and. thetavert(j).gt.0d0 ) then ! semi-implicit, use central scheme
+-                ! END DEBUG
+ 
+                 if (jased < 4) then
+                    qw_loc = qw(k) - wsf(j)*a1(kk)
+@@ -207,12 +200,6 @@
+ 
+ !     solve system(s)
+       do j=1,NUMCONST
+-!         if ( kk.eq.2 .and. j.eq.1 ) then
+-!            do k=kb,kt
+-!               n = k-kb+1
+-!               write(6,*) n, a(n,j), b(n,j), c(n,j), d(n,j)
+-!            end do
+-!         end if
+ 
+          call tridag(a(1,j), b(1,j), c(1,j), d(1,j), e, sol, kt-kb+1)
+ 
+@@ -219,18 +206,6 @@
+          sed(j,kb:kt) = sol(1:kt-kb+1)
+          sed(j,kt+1:ktx) = sed(j,kt)
+ 
+-!        BEGIN DEBUG
+-!         do k=kb,kt
+-!            if ( j.eq.1 .and. ( sed(j,k).gt.30.0001 .or. sed(j,k).lt.-0.0001 ) ) then
+-!               continue
+-!               write(6,*) 'kk=', kk, 'lay=', k-kb+1
+-!               write(6,*) 'rhs=', rhs(j,k)
+-!               write(6,*) 'sed=', sed(j,k)
+-!               call qnerror(' ', ' ', ' ')
+-!            end if
+-!         end do
+-!        END DEBUG
+-
+       end do
+ 
+    end do
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/update_constituents.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/update_constituents.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_transport/update_constituents.f90	(working copy)
+@@ -76,7 +76,7 @@
+    use m_physcoef,   only: vicouv
+    use m_transport
+    use m_mass_balance_areas
+-   use m_flowparameters, only: limtypsa, limtyptm, limtypsed
++   use m_flowparameters, only: limtypsa, limtyptm, limtypsed, flowwithoutwaves
+    use m_alloc
+    use m_partitioninfo
+    use m_timer
+@@ -169,7 +169,7 @@
+                   q1sed(L) = q1(L)!+mtd%uau(L)*Au(L)
+                end do
+             end do
+-         else if (jatranspvel .eq. 2) then                        ! Eulerian approach
++         else if (jatranspvel .eq. 2 .and. .not. flowWithoutWaves) then                        ! Eulerian approach
+ !           stokes+asymmetry
+             do LL=1,Lnx
+                call getLbotLtop(LL,Lb,Lt)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/compute_wave_parameters.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/compute_wave_parameters.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/compute_wave_parameters.f90	(working copy)
+@@ -87,7 +87,7 @@
+          endif
+          hwav = min(hwav, gammax*hs)
+          call wave_uorbrlabda()
+-         if(kmx == 0) then
++         if (kmx == 0) then
+             call wave_comp_stokes_velocities()
+          end if
+       end if
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/surfbeat/xbeach_wave_boundary_update.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/surfbeat/xbeach_wave_boundary_update.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/surfbeat/xbeach_wave_boundary_update.f90	(working copy)
+@@ -2347,7 +2347,7 @@
+     real*8                                       :: stdzeta,stdeta,etot,perc,emean
+     real*8, dimension(:), allocatable            :: E_t
+ 
+-    ! Allocate variables for water level exitation and amplitude with and without
++    ! Allocate variables for water level excitation and amplitude with and without
+     ! directional spreading dependent envelope
+     allocate(zeta(npb,wp%tslen,ntheta))
+     allocate(Ampzeta(npb,wp%tslen,ntheta))
+@@ -2419,7 +2419,7 @@
+              tempcmplx=tempcmplx/sqrt(dble(size(tempcmplx)))
+ 
+              ! Superimpose gradual increase and decrease of energy input for
+-             ! current y-coordinate and computational diretional bin on
++             ! current y-coordinate and computational directional bin on
+              ! instantaneous water level excitation
+              !
+              ! Robert: use final wave elevation from last iteration to startup
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/tauwave.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/tauwave.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/tauwave.f90	(working copy)
+@@ -69,7 +69,7 @@
+ 
+    do L = 1,lnx
+       huL=hu(L)
+-      if (huL<=epshu) then
++      if (huL<=epshu .or. frcu(L)<eps10 .or. frcuni<eps10) then
+          taubu(L)  = 0d0 ! flow
+          taubxu(L) = 0d0 ! flow
+          z0urou(L) = epsz0 ! flow 
+@@ -132,7 +132,7 @@
+          !
+          ! wave friction factor and drag coefficient
+          !
+-         astar  = tpu*uorbu/max(z0,1d-5)
++         astar  = tpu*uorbu/max(z0,epsz0)
+ 
+          if (astar>astarc) then
+             fw = 0.00251d0*exp(14.1d0/(astar**0.19))
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/wave_comp_stokes_velocities.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/wave_comp_stokes_velocities.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/compute_waves/wave_comp_stokes_velocities.f90	(working copy)
+@@ -67,11 +67,11 @@
+    deltahmin = 0.1d0   ! should be a parameter
+    !
+    do k = 1,ndx
+-      massflux_max = 1d0/8d0*sag*(max(hs(k),0d0)**1.5)*gammax**2
++      massflux_max = 1d0/8d0*sag*(hs(k)**1.5)*(gammax**2)
+       mnorm  = min(sqrt(mxwav(k)**2+mywav(k)**2), massflux_max)
+       mangle = atan2(mywav(k), mxwav(k))
+-      mx(k)  = mnorm*dcos(mangle)
+-      my(k)  = mnorm*dsin(mangle)
++      mx(k)  = mnorm*cos(mangle)
++      my(k)  = mnorm*sin(mangle)
+    end do
+ 
+    if (jampi>0) then
+@@ -81,10 +81,10 @@
+ 
+    do L=1,Lnxi
+       if ( hu(L).gt.epshu ) then
+-         huL=hu(L)
+          k1 = ln(1,L); k2 = ln(2,L)
+          ac1 = acl(L); ac2=1d0-ac1
+          !
++         huL = max(hs(k1),hs(k2))
+          ! civilized behaviour in shallow surf zone
+          hwavL = 0.5d0*(hwav(k1)+hwav(k2))
+          gammal = hwavL/huL
+@@ -110,11 +110,11 @@
+ 
+    do L=lnxi+1,lnx                   ! Randen: Neumann
+       if (hu(L)>epshu)  then
+-         huL=hu(L)
+          k1 = ln(1,L) ! buiten
+          k2 = ln(2,L) ! binnen
+          !
+-         hwavL = 0.5d0*(hwav(k1)+hwav(k2))
++         huL = hs(k2)
++         hwavL = hwav(k2)
+          gammal = hwavL/huL
+          if (gammal>1.d0) then
+             hstokes = deltahmin*(gammal-1.d0)*hwavL+huL
+@@ -121,6 +121,7 @@
+          else
+             hstokes = huL
+          endif
++         !
+          Mx(k1) = Mx(k2);  My(k1) = My(k2)
+          !
+          Mu =    ac1 *(csu(L)*(Mx(k1)) + snu(L)*(My(k1))) + &
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/fill_valobs.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/fill_valobs.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/fill_valobs.f90	(working copy)
+@@ -315,8 +315,8 @@
+          end if
+ 
+          if (kmx>0) then
+-            valobs(IPNT_UCXQ,i) = ucxq(k)
+-            valobs(IPNT_UCYQ,i) = ucyq(k)
++            valobs(IPNT_UCXQ,i) = ucx(k)
++            valobs(IPNT_UCYQ,i) = ucy(k)
+          endif
+ 
+          do kk=kb,kt
+@@ -360,9 +360,9 @@
+                if (kk < kt) then
+                    if (idensform > 10 ) then           
+                       prsappr = ag*rhomean*( zws(kt) - zws(kk) )  
+-                      drhodz  = ( setrhofixedp(kk+1,prsappr) - setrhofixedp(kk,prsappr) ) / (0.5d0*(zws(kk+1) - zws(kk-1))) 
++                      drhodz  = ( setrhofixedp(kk+1,prsappr) - setrhofixedp(kk,prsappr) ) / max(0.5d0*(zws(kk+1) - zws(kk-1)),epshs)    ! FIXME!!!!
+                    else 
+-                      drhodz  = ( rho(kk+1) - rho(kk)                                   ) / (0.5d0*(zws(kk+1) - zws(kk-1))) 
++                      drhodz  = ( rho(kk+1) - rho(kk)                                   ) / max(0.5d0*(zws(kk+1) - zws(kk-1)),epshs) 
+                    endif
+                    rhomea  = 0.5d0*( rho(kk+1) + rho(kk) )
+                    valobs(IPNT_BRUV+klay-1,i) = -ag*drhodz/rhomea
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_initexternalforcings.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_initexternalforcings.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_initexternalforcings.f90	(working copy)
+@@ -2558,7 +2558,7 @@
+ 
+  if (javeg > 0) then
+     call realloc(  rnveg, Ndkx, keepExisting=.false., fill=0d0, stat=ierr)
+-    call aerr   (' rnveg (Ndkx)', ierr, Ndkx)
++    call aerr   ('rnveg (Ndkx)', ierr, Ndkx)
+     call realloc( diaveg, Ndkx, keepExisting=.false., fill=0d0, stat=ierr)
+     call aerr   ('diaveg (Ndkx)', ierr, Ndkx)
+ 
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_modelinit.F90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_modelinit.F90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/flow_modelinit.F90	(working copy)
+@@ -376,11 +376,11 @@
+     if (jampi==0) then
+        if (nwbnd==0) then
+           call mess(LEVEL_ERROR, 'unstruc::flow_modelinit - No wave boundary defined for surfbeat model')
+-             end if
+-          endif
++       end if
++    endif
+     call xbeach_wave_init()
+     call timstop(handle_extra(27))
+-       endif
++ endif
+ 
+  call timstrt('Observations init 2 ', handle_extra(28)) ! observations init 2
+  call flow_obsinit()                                 ! initialise stations and cross sections on flow grid + structure his (2nd time required to fill values in observation stations)
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/m_monitoring_runupgauges.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/m_monitoring_runupgauges.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/m_monitoring_runupgauges.f90	(working copy)
+@@ -258,10 +258,10 @@
+    integer :: i
+    ! Reset data for next iteration
+    do i=1, nrug
+-      rug(i)%maxruh = -huge(0d0)
+-      rug(i)%maxx   = 0d0
+-      rug(i)%maxy   = 0d0
++      rug(i)%maxruh  = -huge(0d0)
++      rug(i)%maxx    = 0d0
++      rug(i)%maxy    = 0d0
+    enddo
+-end subroutine
++end subroutine clearRunupGauges
+ 
+ end module
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sedtrails_stats.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sedtrails_stats.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/prepost/sedtrails_stats.f90	(working copy)
+@@ -105,32 +105,38 @@
+    !> Update the (time-)integral statistics for all flow nodes, typically after each time step.
+    subroutine update_sedtrails_stats()
+       use m_flowtimes, only: dts
+-      use m_flow, only: hs, ucx, ucy, taus
+-      use m_flowgeom, only: ndx, bl
++      use m_flow, only: hs, ucx, ucy, taus, kmx, ucxq, ucyq, hs, vol1
++      use m_flowgeom, only: ndx, bl, ba
+       use m_fm_erosed
+       use m_transport, only: constituents, ISED1
+       use m_sediment, only: sedtot2sedsus, stm_included, sedtra
+-      use m_flowparameters, only: jawave
++      use m_flowparameters, only: jawave, flowWithoutWaves, jawaveswartdelwaq,epshs
+ 
+       implicit none
+ 
+-      integer :: k, l
++      integer          :: k, l
++      integer          :: kk, kbot, ktop
++      double precision :: ssc
+ 
+       if (is_numndvals <= 0) then
+          return
+       end if
+       
+-      if (jawave<3) then      ! do not overwrite current+wave induced bed shear stresses from tauwave
+-         call gettaus(1, 1)   ! tausmax known from taubxu_nowave. This needs updating after JRE TRUNKMERGE
++      if (jawave==0 .or. flowWithoutWaves) then      ! do not overwrite current+wave induced bed shear stresses from tauwave
++         call gettaus(1, 1)                           
++      else
++         call gettauswave(jawaveSwartdelwaq)
+       endif
+    
+       do k=1,ndx
+          is_sumvalsnd(IDX_BL  , k, 1) = is_sumvalsnd(IDX_BL      ,k, 1) + dts * bl(k)
+          is_sumvalsnd(IDX_HS  , k, 1) = is_sumvalsnd(IDX_HS      ,k, 1) + dts * hs(k)
++         is_sumvalsnd(IDX_TAUS, k, 1) = is_sumvalsnd(IDX_TAUS    ,k, 1) + dts * taus(k)
++         
+          is_sumvalsnd(IDX_UCX , k, 1) = is_sumvalsnd(IDX_UCX     ,k, 1) + dts * ucx(k)     ! assumes depth-averaged value in base node index
+          is_sumvalsnd(IDX_UCY , k, 1) = is_sumvalsnd(IDX_UCY     ,k, 1) + dts * ucy(k)
+-         is_sumvalsnd(IDX_TAUS, k, 1) = is_sumvalsnd(IDX_TAUS    ,k, 1) + dts * taus(k)
+       enddo
++
+       
+       if (stm_included) then
+          do k=1,ndx
+@@ -146,11 +152,25 @@
+             enddo
+          end do 
+          
+-         do l=1, lsed
+-            do k=1,ndx
+-               is_sumvalsnd(IDX_SSC , k, sedtot2sedsus(l)) = is_sumvalsnd(IDX_SSC  ,k, sedtot2sedsus(l)) + dts * constituents(ISED1+l-1,k)   ! this works just for 2D now
++         if (kmx==0) then
++            do l=1, lsed
++               do k=1,ndx
++                  is_sumvalsnd(IDX_SSC , k, sedtot2sedsus(l)) = is_sumvalsnd(IDX_SSC  ,k, sedtot2sedsus(l)) + dts * constituents(ISED1+l-1,k)   ! this works just for 2D now
++               enddo   
+             enddo   
+-         enddo   
++         else
++            do l=1, lsed
++               do k=1,ndx
++                  if (hs(k)<=epshs) cycle
++                  call getkbotktop(k,kbot,ktop)
++                  ssc=0d0
++                  do kk=kbot,ktop
++                     ssc=ssc+constituents(ISED1+l-1,kk)*vol1(kk)
++                  enddo
++                  is_sumvalsnd(IDX_SSC , k, sedtot2sedsus(l)) = is_sumvalsnd(IDX_SSC  ,k, sedtot2sedsus(l)) + dts * ssc / ba(k) / hs(k) 
++               enddo   
++            enddo              
++         endif
+       endif
+       
+       is_dtint = is_dtint + dts
+Index: src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/timespace/flow_setexternalforcings.f90
+===================================================================
+--- src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/timespace/flow_setexternalforcings.f90	(revision 142413)
++++ src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/timespace/flow_setexternalforcings.f90	(working copy)
+@@ -181,7 +181,7 @@
+          enddo
+       endif
+ 
+-      if (jawave == 1 .or. jawave == 2) then
++      if (jawave == 1 .or. jawave == 2 .and. .not. flowWithoutWaves) then
+          call tauwavefetch(tim)
+       endif
+    endif
+Index: src/utils_lgpl/gridgeom/packages/gridgeom/src/gridoperations.F90
+===================================================================
+--- src/utils_lgpl/gridgeom/packages/gridgeom/src/gridoperations.F90	(revision 142413)
++++ src/utils_lgpl/gridgeom/packages/gridgeom/src/gridoperations.F90	(working copy)
+@@ -2881,7 +2881,7 @@
+       end if
+    end if
+    if (timon) call timstop(timerhandle(3))
+-   
++   jakdtree=0
+    if(allocated(connectionIndexes)) then
+       deallocate(connectionIndexes)
+    endif

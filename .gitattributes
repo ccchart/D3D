@@ -444,6 +444,7 @@ examples/run_all_examples_sp.sh -text
 examples/sed_in_file.tcl -text
 /gpl-3.0.txt -text
 /lgpl-2.1.txt -text
+/remaining_JR_code.patch -text
 src/AUTHORS -text
 src/COPYING -text
 src/ChangeLog -text
