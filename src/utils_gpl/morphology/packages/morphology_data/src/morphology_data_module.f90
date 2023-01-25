@@ -476,6 +476,7 @@ type morpar_type
     logical :: multi               !  Flag for merging bottoms of different parallel runs
     logical :: duneavalan          !  Flag for avalanching using wetslope and dryslope
     logical :: l_suscor            !  Flag for applying correction to doublecounting of sus/bed transport in 3d
+    logical :: integratesus        !  Flag for adding bed load to suspended transport
     !
     ! characters
     !
@@ -1359,6 +1360,7 @@ subroutine nullmorpar(morpar)
     logical                              , pointer :: eulerisoglm
     logical                              , pointer :: glmisoeuler
     logical                              , pointer :: l_suscor
+    logical                              , pointer :: integratesus
     character(256)                       , pointer :: bcmfilnam
     character(256)                       , pointer :: flcomp
     character(256)                       , pointer :: mmsyncfilnam
@@ -1468,6 +1470,7 @@ subroutine nullmorpar(morpar)
     eulerisoglm         => morpar%eulerisoglm
     glmisoeuler         => morpar%glmisoeuler
     l_suscor            => morpar%l_suscor
+    integratesus        => morpar%integratesus
     !
     call initmoroutput(morpar%moroutput)
     !
@@ -1555,6 +1558,7 @@ subroutine nullmorpar(morpar)
     eulerisoglm        = .false.    
     glmisoeuler        = .false.    
     l_suscor           = .true.    
+    integratesus       = .false.    
     densin             = .true.
     rouse              = .false.
     epspar             = .false.

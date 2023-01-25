@@ -168,6 +168,10 @@
    !
    ! calculate corrections
    !
+   if (integratesus) then
+      l_suscor = .false.
+   endif
+   !
    if (sus /= 0d0 .and. l_suscor) then
       !
       ! suspension transport correction vector only for 3D

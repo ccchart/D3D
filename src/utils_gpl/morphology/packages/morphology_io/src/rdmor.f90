@@ -135,6 +135,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     logical                                , pointer :: eulerisoglm
     logical                                , pointer :: glmisoeuler
     logical                                , pointer :: l_suscor
+    logical                                , pointer :: integratesus
     character(256)                         , pointer :: bcmfilnam
     character(256)                         , pointer :: flsthetsd
     character(20)          , dimension(:)  , pointer :: namsed
@@ -318,6 +319,7 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
     eulerisoglm         => morpar%eulerisoglm
     glmisoeuler         => morpar%glmisoeuler
     l_suscor            => morpar%l_suscor
+    integratesus        => morpar%integratesus
     flsthetsd           => morpar%flsthetsd
     thetsduni           => morpar%thetsduni
     !
@@ -592,6 +594,9 @@ subroutine rdmor(lundia    ,error     ,filmor    ,lsec      ,lsedtot   , &
        ! === flag for correction of doublecounting sus/bed transport below aks
        !
        call prop_get(mor_ptr, 'Morphology', 'SusCor', l_suscor)
+       !
+       !
+       call prop_get(mor_ptr, 'Morphology', 'IntegrateBedloadinSuspLoad', integratesus)
        !
        ! === phase lead for bed shear stress of Nielsen (1992) in TR2004
        !
@@ -1347,6 +1352,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     logical                                , pointer :: eulerisoglm
     logical                                , pointer :: glmisoeuler
     logical                                , pointer :: l_suscor    
+    logical                                , pointer :: integratesus    
     logical                                , pointer :: upwindbedload
     logical                                , pointer :: pure1d_mor
     character(256)                         , pointer :: bcmfilnam
@@ -1466,6 +1472,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     eulerisoglm         => morpar%eulerisoglm
     glmisoeuler         => morpar%glmisoeuler
     l_suscor            => morpar%l_suscor
+    integratesus        => morpar%integratesus
     flsthetsd           => morpar%flsthetsd
     thetsduni           => morpar%thetsduni
     upwindbedload       => mornum%upwindbedload
@@ -1621,6 +1628,13 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
     txtput3 = 'Correct 3D suspended load for doublecounting' //       &
              & ' below the reference height aks (SUSCOR)'
     if (l_suscor) then
+       txtput2 = '                 YES'
+    else
+       txtput2 = '                  NO'
+    endif
+    write (lundia, '(3a)') txtput3(1:82), ':', txtput2 
+    txtput3 = 'Integrate bedload transport into suspended load'
+    if (integratesus) then
        txtput2 = '                 YES'
     else
        txtput2 = '                  NO'

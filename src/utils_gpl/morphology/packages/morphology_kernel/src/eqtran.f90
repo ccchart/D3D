@@ -12,7 +12,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
                 & scour     ,ubot_from_com        ,camax     ,eps       , &
                 & iform     ,npar      ,par       ,numintpar ,numrealpar, &
                 & numstrpar ,dllfunc   ,dllhandle ,intpar    ,realpar   , &
-                & strpar    , &
+                & strpar    , integratesus, &
 !output:
                 & aks       ,caks      ,taurat    ,seddif    ,rsedeq    , &
                 & kmaxsd    ,conc2d    ,sbcu      ,sbcv      ,sbwu      , &
@@ -103,6 +103,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     logical                             , intent(in)    :: suspfrac !  suspended sediment fraction
     logical                             , intent(in)    :: ubot_from_com
     logical                             , intent(in)    :: wave
+    logical                             , intent(in)    :: integratesus
     character(256)                      , intent(in)    :: dllfunc
     character(256), dimension(numstrpar), intent(inout) :: strpar
 !
@@ -188,6 +189,8 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     real(fp)                    :: ua
     real(fp)                    :: va
     real(fp)                    :: uamg
+    real(fp)                    :: blmag
+    real(fp)                    :: suscont
     !
     ! Interface to dll is in High precision!
     !
@@ -275,6 +278,8 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
     ua     = 0.0_fp
     va     = 0.0_fp
     uamg   = 0.0_fp
+    blmag  = 0.0_fp
+    suscont= 0.0_fp
     sag    = sqrt(ag)
     bakdif = vicmol / sigmol
     !
@@ -735,11 +740,21 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
        ! In 2D case we need to provide: conc2d
        ! In 3D case we need to provide: aks and caks
        !
+       if (integratesus) then
+          ! If needed, integrate bedload transport into the suspended load
+          blmag   = hypot(sbcu,sbcv)
+          sbcu = 0.0_fp
+          sbcv = 0.0_fp
+          suscont = blmag / (utot+uamg+eps) / h1
+       endif
+       !
        if (iform <= 0) then
           !
           ! Van Rijn 1993 or 2004 formula
           ! NOTE: conc2d, aks, and caks have already been computed in Van Rijn
           ! specific manner.
+          !
+          conc2d    = conc2d + suscont*frac
           !
        else
           !
@@ -762,7 +777,7 @@ subroutine eqtran(sig       ,thick     ,kmax      ,ws        ,ltur      , &
           ! Concentration needs to be multiplied by frac to match Van Rijn
           ! formulae.
           !
-          conc2d    = cesus * frac
+          conc2d    = (cesus + suscont) * frac
           !
           ! Convert depth averaged concentration to reference concentration
           ! at distance aks from bed.

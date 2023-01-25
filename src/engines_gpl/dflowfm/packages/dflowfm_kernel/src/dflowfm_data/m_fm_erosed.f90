@@ -164,6 +164,7 @@
    logical                              , pointer :: eqmbcmud
    logical                              , pointer :: eulerisoglm
    logical                              , pointer :: l_suscor
+   logical                              , pointer :: integratesus
 
    ! trapar
    integer          , dimension(:)      , pointer :: iform

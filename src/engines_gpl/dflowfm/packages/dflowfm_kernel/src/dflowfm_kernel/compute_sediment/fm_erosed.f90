@@ -1105,7 +1105,7 @@
                       & scour           ,ubot_from_com              ,camax     ,eps       , &
                       & iform(l)        ,npar          ,localpar    ,max_integers,max_reals , &
                       & max_strings     ,dll_function(l) ,dll_handle(l) ,dll_integers,dll_reals , &
-                      & dll_strings     , &
+                      & dll_strings     , integratesus, &
                       & taks            ,caks          ,taurat(nm,l),sddflc    ,rsdqlc    , &
                       & kmaxsd          ,conc2d        ,sbcx(nm,l)  ,sbcy(nm,l),sbwx(nm,l) , &
                       & sbwy(nm,l)      ,sswx(nm,l)    ,sswy(nm,l)  ,tdss      ,caks_ss3d , &
@@ -1189,7 +1189,7 @@
                       & scour          ,ubot_from_com ,camax        ,eps       , &
                       & iform(l)       ,npar          ,localpar      ,max_integers ,max_reals , &
                       & max_strings    ,dll_function(l),dll_handle(l) ,dll_integers ,dll_reals , &
-                      & dll_strings    , &
+                      & dll_strings    , integratesus, &
                       & taks           ,caks          ,taurat(nm,l) ,sddf2d    ,rsdq2d    , &
                       & kmaxsd         ,trsedeq       ,sbcx(nm,l)   ,sbcy(nm,l),sbwx(nm,l) , &
                       & sbwy(nm,l)     ,sswx(nm,l)    ,sswy(nm,l)   ,tdss      ,caks_ss3d , &

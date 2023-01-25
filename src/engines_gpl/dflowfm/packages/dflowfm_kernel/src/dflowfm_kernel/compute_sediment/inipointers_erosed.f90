@@ -140,6 +140,7 @@
    thetsd              => stmpar%morpar%thetsd
    eulerisoglm         => stmpar%morpar%eulerisoglm
    l_suscor            => stmpar%morpar%l_suscor
+   integratesus        => stmpar%morpar%integratesus
 
    ! trapar
    iform               => stmpar%trapar%iform
