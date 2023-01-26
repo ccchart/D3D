@@ -832,7 +832,7 @@ end module m_petsc
          if (reason == KSP_DIVERGED_INDEFINITE_PC) then
             if (my_rank == 0) call mess(LEVEL_WARN, 'Divergence because of indefinite preconditioner')
          else if (Reason < 0) then
-            call mess(LEVEL_WARN, 'Other kind of divergence: this should not happen, reason = ', Reason)
+            call mess(LEVEL_ERROR, 'Other kind of divergence: this should not happen, reason = ', Reason)
 !            see http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/KSP/KSPConvergedReason.html for reason
          else 
             call KSPGetIterationNumber(Solver, its, ierr)
