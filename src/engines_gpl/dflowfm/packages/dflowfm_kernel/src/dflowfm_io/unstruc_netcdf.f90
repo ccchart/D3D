@@ -13305,6 +13305,9 @@ subroutine unc_read_map_or_rst(filename, ierr)
                 if (ierr == 0) ierr = nf90_inquire_dimension(imapfile, id_jmax, len =jmax)
                 ierr = nf90_inq_dimid (imapfile, trim(mesh1dname)//'_ncrs', id_ncrs)
                 if (ierr == 0) ierr = nf90_inquire_dimension(imapfile, id_ncrs, len =nCrs)
+                if (ierr /= 0) then
+                    call mess(LEVEL_ERROR, 'Cross section data not available on restart file, use RstIgnoreBl=1 to ignore this input')
+                endif 
                 if (allocated(work1d_z)) deallocate (work1d_z, work1d_n)
                 allocate (work1d_z(1:jmax,1:nCrs), work1d_n(1:jmax,1:nCrs))
                 ierr = nf90_inq_varid(imapfile, trim(mesh1dname)//'_mor_crs_z', id_flowelemcrsz)
