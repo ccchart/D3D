@@ -46,7 +46,7 @@
    use m_CrossSections, only: t_CSType, CS_TABULATED
    use m_flow, only: s1
    use MessageHandling
-   use m_fm_erosed, only: ndxi_mor
+   use m_fm_erosed, only: ndxi_mor, ndx_mor, e_sbn, nd_mor, lsedtot
    use m_f1dimp, only: f1dimppar
    use m_flowparameters, only: flowsolver
 
@@ -64,6 +64,8 @@
    integer :: ctype
    integer :: LL
    integer :: ncs
+   integer :: kd, kl
+   integer :: idx_l1, idx_l2, idx_ns
    double precision :: aref
    double precision :: blmin
    double precision :: da
@@ -72,6 +74,7 @@
    double precision :: fac
    double precision :: href
    double precision :: w_active
+   double precision :: e_sbn_tot_1, e_sbn_tot_2
    type(t_CSType), pointer :: cdef
    type(t_node), pointer :: pnod
    !
@@ -212,7 +215,21 @@
    !junction node FM1DIMP
    !
    if (flowsolver.eq.2) then
-       
+       do kd=ndx+1,ndx_mor !loop on multivalued-ghost nodes
+           !there can only be two links connected to the flownode
+           idx_l1=abs(nd_mor(kd)%ln(1))
+           idx_l2=abs(nd_mor(kd)%ln(2))
+           idx_ns=f1dimppar%grd_fmmv_fmsv(kd)
+           e_sbn_tot_1=0.0d0
+           e_sbn_tot_2=0.0d0
+           do kl=1,lsedtot
+               e_sbn_tot_1=e_sbn_tot_1+e_sbn(idx_l1,kl)
+               e_sbn_tot_2=e_sbn_tot_2+e_sbn(idx_l2,kl)
+           enddo !kl    
+           if (abs(e_sbn_tot_1-e_sbn_tot_2)<1e-10) then
+               blchg(kd)=blchg(idx_ns)
+           endif
+       enddo !kd    
    endif !flowsolver
    
    end subroutine fm_update_crosssections

@@ -82,6 +82,7 @@ integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
 integer, dimension(:)                    , pointer :: grd_sre_cs 
 integer, dimension(:)                    , pointer :: grd_ghost_link_closest
+integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
 integer, dimension(:)                    , pointer :: kcs_sre
@@ -166,7 +167,7 @@ integer :: min_1, min_2
 integer, allocatable, dimension(:)   :: kcol
 !integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 !integer, allocatable, dimension(:)   :: node_fm_processed
-integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
+!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
 !integer, allocatable, dimension(:,:) :: ln_o
 
 real :: swaoft
@@ -201,6 +202,7 @@ nhstat                 => f1dimppar%nhstat
 nqstat                 => f1dimppar%nqstat
 grd_sre_cs             => f1dimppar%grd_sre_cs
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
+grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
 
 !!
 !! CALC
@@ -299,8 +301,6 @@ do kd=1,ndx
     nd_mor(kd)=nd(kd)
 enddo
 
-!nd_mor => nd_mor_sre
-
 if (allocated(f1dimppar%kcs_sre)) then
     deallocate(f1dimppar%kcs_sre)
 endif
@@ -308,10 +308,11 @@ allocate(f1dimppar%kcs_sre(ngrid))
 kcs_sre => f1dimppar%kcs_sre 
 kcs_sre=1
     
-!FM1DIMP2DO: add check on allocation
-!allocate(node_fm_processed(ndx_max)) !more than we need
-allocate(grd_fmmv_fmsv(ndx_max)) !more than we need
-!FM1DIMP2DO: the association to itself can then be removed. 
+if (allocated(f1dimppar%grd_fmmv_fmsv)) then
+    deallocate(f1dimppar%grd_fmmv_fmsv)
+endif
+allocate(f1dimppar%grd_fmmv_fmsv(ndx_max)) !more than we need
+grd_fmmv_fmsv => f1dimppar%grd_fmmv_fmsv
 !allocate every node with itself
 do kd=1,ndx_max
     grd_fmmv_fmsv(kd)=kd
@@ -817,6 +818,9 @@ do kl=1,lnx_mor
     do kd=1,2
         wcl(kd,kl)=0.5d0 !each link corresponds to 50% of the flownode. 
     enddo
+enddo
+do kl=lnxi+1,lnx
+    wcl(1,kl)=1.0d0
 enddo
 
 !ln_fm=ln
