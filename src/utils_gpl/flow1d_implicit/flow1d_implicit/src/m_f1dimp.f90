@@ -160,4 +160,39 @@ end subroutine reallocate_fill_int_pointer
 !END reallocate_fill_int_pointer
 !
 
+!
+!BEGIN default_fm1dimp
+!
+
+subroutine default_fm1dimp()
+
+use m_f1dimp_data
+
+implicit none
+
+f1dimppar%omega=0.5d0 !check sensible value
+f1dimppar%psi=0.5d0
+f1dimppar%theta=1.0d0 !It is rewriten if steady flow is chosen anyhow
+f1dimppar%epsh=1.0d-5  
+f1dimppar%epsq=1.0d-5  
+f1dimppar%flitmx=100 
+f1dimppar%epsqrl=1.0d-10
+f1dimppar%lambda=0 
+f1dimppar%relstr=1.0d0
+f1dimppar%dhstru=1.0d-5
+f1dimppar%cflpse=1000.0d0
+f1dimppar%iterbc=100
+f1dimppar%resid=1.0d-8 !check sensible value
+f1dimppar%overlp=0 !change to summerdiketransitionheight -> check if <network%csdefinitions%cs(1)%summerdike> allocated?
+f1dimppar%lconv=1 !the input is converted to logical by calling soipar? setting to true we can break the simulation in FM code to handle the messages
+f1dimppar%omcfl=0.9d0 !default in SRE
+f1dimppar%dhtyp=0.1d0 !default in SRE
+f1dimppar%exrstp=0.0d0 !default in SRE
+
+end subroutine default_fm1dimp
+
+!
+!END default_fm1dimp
+!
+
 end module m_f1dimp

@@ -1367,6 +1367,13 @@
 
             facCheck = 0.d0
 
+            !V: Originally we cycled in case the number of connections was equal to 1. This implied that
+            !junctions between 2 branches were processed. It was not a problem as such, as it was giving 
+            !the exact same result as if there would be no junction. For the case of the implicit solver
+            !the junctions are supposed to join multivalued-ghost flowlinks which are virtually at the 
+            !same location. If processing these points, the sediment transport at the link downstream of 
+            !the junction will be exactly the same as the one upstream of it. As such, the bed level at 
+            !the junction node will not change. 
             if (pnod%numberofconnections < 3) cycle
 
 

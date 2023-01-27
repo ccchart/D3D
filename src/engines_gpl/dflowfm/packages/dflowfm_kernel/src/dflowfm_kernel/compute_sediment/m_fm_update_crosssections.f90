@@ -47,6 +47,8 @@
    use m_flow, only: s1
    use MessageHandling
    use m_fm_erosed, only: ndxi_mor
+   use m_f1dimp, only: f1dimppar
+   use m_flowparameters, only: flowsolver
 
    real(fp), dimension(:), intent(inout) :: blchg         !< Bed level change (> 0 = sedimentation, < 0 = erosion)
 
@@ -205,6 +207,14 @@
    !
    ! upon exit blchg contains the bed level change for deepest point
    !
+   
+   !
+   !junction node FM1DIMP
+   !
+   if (flowsolver.eq.2) then
+       
+   endif !flowsolver
+   
    end subroutine fm_update_crosssections
 
    !> Returns local grid cell length at a 1D computational node.

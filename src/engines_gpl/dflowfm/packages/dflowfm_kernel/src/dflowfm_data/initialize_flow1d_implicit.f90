@@ -211,25 +211,9 @@ iresult=0
 
 !<flwpar>
 f1dimppar%g=ag 
-f1dimppar%psi=0.5d0
-f1dimppar%theta=1.0d0 !I think it is rewriten if steady flow is chosen anyhow
-f1dimppar%epsh=1.0d-6 !FM1DIMP2DO: make input 
-f1dimppar%epsq=1.0d-6 !FM1DIMP2DO: make input 
+
 f1dimppar%rhow=rhomean 
-f1dimppar%flitmx=100 !FM1DIMP2DO: make input 
-f1dimppar%omega=0.5d0 !check sensible value
-f1dimppar%epsqrl=1.0d-10
-f1dimppar%lambda=0 
-f1dimppar%relstr=1.0d0
-f1dimppar%dhstru=1.0d-5
-f1dimppar%cflpse=1000.0d0
-f1dimppar%iterbc=100
-f1dimppar%resid=1.0d-8 !check sensible value
-f1dimppar%overlp=0 !change to summerdiketransitionheight -> check if <network%csdefinitions%cs(1)%summerdike> allocated?
-f1dimppar%lconv=1 !the input is converted to logical by calling soipar? setting to true we can break the simulation in FM code to handle the messages
-f1dimppar%omcfl=0.9d0 !default in SRE
-f1dimppar%dhtyp=0.1d0 !default in SRE
-f1dimppar%exrstp=0.0d0 !default in SRE
+
 
 !<SOFLOW> input
 f1dimppar%steady=.true.
@@ -824,11 +808,16 @@ call reallocate_fill_int(kcu,grd_ghost_link_closest,lnx,lnx_mor)
 !multidimensional links
 
     !copy arrays to temporary array
-wcl_fm=wcl 
+!wcl_fm=wcl 
 if (allocated(wcl)) then
     deallocate(wcl)
 endif
 allocate(wcl(2,lnx_mor)) 
+do kl=1,lnx_mor
+    do kd=1,2
+        wcl(kd,kl)=0.5d0 !each link corresponds to 50% of the flownode. 
+    enddo
+enddo
 
 !ln_fm=ln
 !if (allocated(ln)) then
@@ -844,32 +833,33 @@ allocate(wcl(2,lnx_mor))
 !allocate(e_sbn(lnx_mor,lsedtot))
 
     !copy data from links existing in FM
-do kl=1,lnx
-    !arrays left-right
-    do kd=1,2
-        wcl(kd,kl)=wcl_fm(kd,kl)
-        !ln(kd,kl)=ln_fm(kd,kl)
-    enddo !kd
-    !arrays sediment
-    do ksed=1,lsedtot
-        !e_sbcn(kl,ksed)=e_sbcn_fm(kl,ksed)
-        !e_sbn (kl,ksed)=e_sbn_fm (kl,ksed)
-    enddo !ksed
-enddo !kl
+!do kl=1,lnx
+!    !arrays left-right
+!    do kd=1,2
+!        wcl(kd,kl)=wcl_fm(kd,kl)
+!        !ln(kd,kl)=ln_fm(kd,kl)
+!    enddo !kd
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        !e_sbcn(kl,ksed)=e_sbcn_fm(kl,ksed)
+!        !e_sbn (kl,ksed)=e_sbn_fm (kl,ksed)
+!    enddo !ksed
+!enddo !kl
+!
+!    !fill
+!do kl=lnx+1,lnx_mor    
+!    !arrays left-right
+!    do kd=1,2
+!        wcl(kd,kl)=1-wcl(kd,grd_ghost_link_closest(kl)) !it should be equal to 0.5
+!        !ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
+!    enddo !kd
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        !e_sbcn(kl,ksed)=e_sbcn(grd_ghost_link_closest(kl),ksed)
+!        !e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
+!    enddo !ksed
+!enddo !kl
 
-    !fill
-do kl=lnx+1,lnx_mor    
-    !arrays left-right
-    do kd=1,2
-        wcl(kd,kl)=1-wcl(kd,grd_ghost_link_closest(kl)) !it should be equal to 0.5
-        !ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
-    enddo !kd
-    !arrays sediment
-    do ksed=1,lsedtot
-        !e_sbcn(kl,ksed)=e_sbcn(grd_ghost_link_closest(kl),ksed)
-        !e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
-    enddo !ksed
-enddo !kl
 
 !morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
 !It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>

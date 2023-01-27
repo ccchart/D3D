@@ -67,6 +67,8 @@
  use unstruc_caching
  use m_subsidence
  use m_sferic, only : default_sferic
+ use m_f1dimp
+ 
  implicit none
 
     ! Only reset counters and other scalars, allocatables should be
@@ -131,6 +133,8 @@
     call default_xbeach_avgoutput()
 
     call default_save_ugrid_state()
+    
+    call default_fm1dimp()
 
     !Reset samples:
     ns = 0

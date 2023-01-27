@@ -709,7 +709,8 @@ subroutine readMDUFile(filename, istat)
     use m_commandline_option, only: iarg_usecaching
     use m_subsidence, only: sdu_update_s1
     use unstruc_channel_flow
-
+    use m_f1dimp, only: f1dimppar
+    
     use m_sediment
     use m_waves, only: hwavuni, twavuni, phiwavuni
 
@@ -1197,7 +1198,26 @@ subroutine readMDUFile(filename, istat)
     call prop_get(md_ptr, 'numerics', 'Oceaneddyyoff'       , Oceaneddyyoff)
     call prop_get(md_ptr, 'numerics', 'Oceaneddyxoff'       , Oceaneddyxoff)
     call prop_get(md_ptr, 'numerics', 'FlowSolver'          , FlowSolver)
-
+    
+    call prop_get(md_ptr, 'numerics', 'OneDImpomega'        , f1dimppar%omega  )
+    call prop_get(md_ptr, 'numerics', 'OneDImppsi'          , f1dimppar%psi    )
+    call prop_get(md_ptr, 'numerics', 'OneDImptheta'        , f1dimppar%theta  )
+    call prop_get(md_ptr, 'numerics', 'OneDImpepsh'         , f1dimppar%epsh   )
+    call prop_get(md_ptr, 'numerics', 'OneDImpepsq'         , f1dimppar%epsq   )
+    call prop_get(md_ptr, 'numerics', 'OneDImpflitmx'       , f1dimppar%flitmx )
+    call prop_get(md_ptr, 'numerics', 'OneDImpepsqrl'       , f1dimppar%epsqrl )
+    call prop_get(md_ptr, 'numerics', 'OneDImplambda'       , f1dimppar%lambda )
+    call prop_get(md_ptr, 'numerics', 'OneDImprelstr'       , f1dimppar%relstr )
+    call prop_get(md_ptr, 'numerics', 'OneDImpdhstru'       , f1dimppar%dhstru )
+    call prop_get(md_ptr, 'numerics', 'OneDImpcflpse'       , f1dimppar%cflpse )
+    call prop_get(md_ptr, 'numerics', 'OneDImpiterbc'       , f1dimppar%iterbc )
+    call prop_get(md_ptr, 'numerics', 'OneDImpresid'        , f1dimppar%resid  )
+    call prop_get(md_ptr, 'numerics', 'OneDImpoverlp'       , f1dimppar%overlp )
+    call prop_get(md_ptr, 'numerics', 'OneDImplconv'        , f1dimppar%lconv  )
+    call prop_get(md_ptr, 'numerics', 'OneDImpomcfl'        , f1dimppar%omcfl  )
+    call prop_get(md_ptr, 'numerics', 'OneDImpdhtyp'        , f1dimppar%dhtyp  )
+    call prop_get(md_ptr, 'numerics', 'OneDImpexrstp'       , f1dimppar%exrstp )   
+    
     ! Physics
     call prop_get_double (md_ptr, 'physics', 'UnifFrictCoef'  , frcuni)
     call prop_get_integer(md_ptr, 'physics', 'UnifFrictType'  , ifrctypuni)
