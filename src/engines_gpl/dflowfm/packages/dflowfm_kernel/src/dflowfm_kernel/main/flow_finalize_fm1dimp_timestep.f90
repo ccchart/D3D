@@ -41,7 +41,7 @@ subroutine flow_finalize_fm1dimp_timestep()
 !MODULES
 !
 
-use m_flow, only: s1, u1, s0
+use m_flow, only: s1, u1, s0, au, qa, q1
 use m_flowgeom, only: lnx1d, ndxi, ln, lnx1Db, lnxi, ndx
 !use unstruc_channel_flow, only: network
 !use m_CrossSections, only: CalcConveyance
@@ -120,7 +120,9 @@ do L=1,lnx_mor
     n1=grd_fm_sre(ln_mor(1,L))
     n2=grd_fm_sre(ln_mor(2,L))
     u1(L)=0.5*qpack(n1,3)/waoft(n1,3)+0.5*qpack(n2,3)/waoft(n2,3)
-    !FM1DIMP2DO: VERY IMPORTANT. Check that <qa> is correctly updated, as it feeds into the nodal point relation
+    au(L)=0.5*waoft(n1,3)+0.5*waoft(n2,3)
+    !q1(L)=au(L)*u1(L) 
+    qa(L)=au(L)*u1(L) 
 enddo
 
 !!<u1> is only for output. Does not enter in the flow solver nor morphodynamics.  

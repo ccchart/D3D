@@ -61,9 +61,10 @@
           if (hu(L) > 0) then
              k1 = ln(1,L) ; k2 = ln(2,L)
              if (FlowSolver.eq.2) then !SRE solver
+                 !FM1DIMP2DO remove this and simply cicle this entire function in case we use this solver?
                  !u1(L)=u1(L) !not necessary, it is already available
-                 q1(L)=au(L)*u1(L) 
-                 qa(L)=q1(L)
+                 !q1(L)=au(L)*u1(L) 
+                 !qa(L)=q1(L)
              else !default case
                 u1(L) = ru(L) - fu(L)*( s1(k2) - s1(k1) )
                 q1(L) = au(L)*( teta(L)*u1(L) + (1d0-teta(L))*u0(L) )
