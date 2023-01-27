@@ -248,6 +248,9 @@ write(42,*) 'h3'
 write(42,*) hpack(:,3)
 write(42,*) 'waoft3'
 write(42,*) waoft(:,3)
+
+write(43,*) 'hlev'
+write(43,*) hlev
 endif
 
 call SOFLOW( &

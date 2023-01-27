@@ -61,6 +61,7 @@
    integer :: c
    integer :: ctype
    integer :: LL
+   integer :: ncs
    double precision :: aref
    double precision :: blmin
    double precision :: da
@@ -177,7 +178,15 @@
       if (pnod%nodeType == nt_LinkNode) then  ! connection node
          nm = pnod%gridnumber ! TODO: Not safe in parallel models (check gridpointsseq as introduced in UNST-5013)
          blmin = 999999d0
-         do j = 1, gridpoint2cross(nm)%num_cross_sections
+         !V: When using FM1DIMP, we set `gridpoint2cross(nm)%num_cross_sections=0` such that
+         !we do not loop over the cross-sections for updating the bed level. This is 
+         !necessary because the bed level change in <gridpoint2cross(nm)%cross(j)> does not
+         !depend on <blchg(nm)> but on the value of the multivalued-ghost node. However, 
+         !we need to update the bed level at the junction flownode because it is used, at
+         !least, to update the <hu> of the junction multivalued node. By looping over the size
+         !of <gridpoint2cross(nm)%cross> we do both things. 
+         ncs=size(gridpoint2cross(nm)%cross)
+         do j = 1, ncs
             c = gridpoint2cross(nm)%cross(j)
             if (c == -999) cycle
             cdef => network%crs%cross(c)%tabdef

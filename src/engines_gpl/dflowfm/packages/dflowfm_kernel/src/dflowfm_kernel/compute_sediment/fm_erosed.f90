@@ -1338,7 +1338,7 @@
                        sb_in(inod, ised) = sb_in(inod, ised) + max(-wb1d*sb1d, 0.0_fp)  ! outgoing transport is negative
                     endif
                else !FM1DIMP
-               !In the FM1DIMP scheme at <e_sbcn> of the incoming links we have the upwind transport, i.e., the transport
+               !V: In the FM1DIMP scheme at <e_sbcn> of the incoming links we have the upwind transport, i.e., the transport
                !in the ghost cell for multivaluedness of each branch. By summing over all of them we have the total 
                !transport incoming to the junction, which we want to redistribute. 
                     if (sb_dir(inod, ised, j) == 1) then
@@ -1367,7 +1367,7 @@
 
             facCheck = 0.d0
 
-            if (pnod%numberofconnections == 1) cycle
+            if (pnod%numberofconnections < 3) cycle
 
 
             ! loop over branches and determine redistribution of incoming sediment

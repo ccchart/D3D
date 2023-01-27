@@ -152,13 +152,14 @@ module m_f1dimp_data
       !dependent on gridpoints 
       !*******
       integer, allocatable, dimension(:)               :: nlev   !< Number of h-levels for every cross-section.
-      integer, allocatable, dimension(:)               :: grd_sre_fm   !< Conversion between gridpoint number in SRE and in FM. For <grd_sre_fm(i)> one obtains the FM global gridpoint associated to SRE global gridpoint <i>
-      integer, allocatable, dimension(:)               :: grd_fm_sre   !< Conversion between gridpoint number in FM and in SRE. For <grd_fm_sre(i)> one obtains the SRE global gridpoint associated to FM global gridpoint <i>. It includes additional nodes due to multivaluedness starting from ndx.
-      integer, allocatable, dimension(:)               :: idx_cs       !< Map from 
+      integer, allocatable, dimension(:)               :: grd_sre_fm             !< Map from gridpoint number in SRE to flownode      number in FM.  For <grd_sre_fm(i)> one obtains the FM  flownode     number associated to SRE gridpoint <i>.
+      integer, allocatable, dimension(:)               :: grd_fm_sre             !< Map from flownode  number in FM  to gridpoint     number in SRE. For <grd_fm_sre(i)> one obtains the SRE gridpoint    number associated to FM  flownode  <i>. It includes additional nodes due to multivaluedness starting from ndx.
+      integer, allocatable, dimension(:)               :: grd_sre_cs             !< Map from gridpoint number in SRE to cross-section number in FM.  For <grd_sre_cs(i)> one obtains the FM cross-section number associated to SRE gridpoint <i>.
+      integer, allocatable, dimension(:)               :: grd_ghost_link_closest !< Map from a link in FM to the closest link in FM in the same branch. 
       integer, allocatable, dimension(:)               :: kcs_sre      !< <kcs> mask of grid for SRE.
       
-      integer, allocatable, dimension(:,:)             :: grd_fmL_sre  !< Conversion between internal link in FM and SRE global gridpoints. For <grd_fmL_sre(i)> one obtains the two gridpoints in SRE associated to <i>
-      integer, allocatable, dimension(:,:)             :: grd_fmLb_sre !< Conversion between boundary link <L> in FM and SRE global gridpoint (in position (k,1)) and the FM cell-centre (in position (k,2)), where  <k=[lnxi+1:lnx1Db]-lnxi+1>
+      integer, allocatable, dimension(:,:)             :: grd_fmL_sre  !< Conversion between internal link in FM and SRE global flownodes. For <grd_fmL_sre(i)> one obtains the two flownodes in SRE associated to <i>
+      integer, allocatable, dimension(:,:)             :: grd_fmLb_sre !< Conversion between boundary link <L> in FM and SRE global flownode (in position (k,1)) and the FM cell-centre (in position (k,2)), where  <k=[lnxi+1:lnx1Db]-lnxi+1>
       
       real   , allocatable, dimension(:)               :: x      !  x-coordinate for each grid point.
       

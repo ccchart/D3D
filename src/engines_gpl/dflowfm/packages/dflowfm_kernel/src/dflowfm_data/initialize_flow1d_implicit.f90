@@ -80,7 +80,8 @@ integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
 integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: idx_cs !FM1DIMP2DO: not a good name. Rename to <grd_sre_cs>
+integer, dimension(:)                    , pointer :: grd_sre_cs 
+integer, dimension(:)                    , pointer :: grd_ghost_link_closest
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
 integer, dimension(:)                    , pointer :: kcs_sre
@@ -152,6 +153,8 @@ integer :: table_number
 integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, nl, L, L2, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
 integer :: j
+
+integer, dimension(1) :: idx_findloc
 !integer :: lnx_mor 
 
 !move to function
@@ -161,7 +164,7 @@ integer :: min_1, min_2
 !integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
-integer, allocatable, dimension(:)   :: grd_ghost_link_closest
+!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
 !integer, allocatable, dimension(:)   :: node_fm_processed
 integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
 !integer, allocatable, dimension(:,:) :: ln_o
@@ -185,18 +188,19 @@ double precision, allocatable, dimension(:,:) :: frac_o
 
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
 
-table_length => f1dimppar%table_length
-maxtab       => f1dimppar%maxtab
-nnode        => f1dimppar%nnode
-ntabm        => f1dimppar%ntabm
-nbran        => f1dimppar%nbran
-ngrid        => f1dimppar%ngrid
-nbrnod       => f1dimppar%nbrnod
-maxlev       => f1dimppar%maxlev
-ngridm       => f1dimppar%ngridm
-nhstat       => f1dimppar%nhstat
-nqstat       => f1dimppar%nqstat
-idx_cs       => f1dimppar%idx_cs
+table_length           => f1dimppar%table_length
+maxtab                 => f1dimppar%maxtab
+nnode                  => f1dimppar%nnode
+ntabm                  => f1dimppar%ntabm
+nbran                  => f1dimppar%nbran
+ngrid                  => f1dimppar%ngrid
+nbrnod                 => f1dimppar%nbrnod
+maxlev                 => f1dimppar%maxlev
+ngridm                 => f1dimppar%ngridm
+nhstat                 => f1dimppar%nhstat
+nqstat                 => f1dimppar%nqstat
+grd_sre_cs             => f1dimppar%grd_sre_cs
+grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 
 !!
 !! CALC
@@ -278,11 +282,11 @@ endif
 allocate(f1dimppar%x(ngrid))
 x => f1dimppar%x
 
-if (allocated(f1dimppar%idx_cs)) then
-    deallocate(f1dimppar%idx_cs)
+if (allocated(f1dimppar%grd_sre_cs)) then
+    deallocate(f1dimppar%grd_sre_cs)
 endif
-allocate(f1dimppar%idx_cs(ngrid))
-idx_cs => f1dimppar%idx_cs
+allocate(f1dimppar%grd_sre_cs(ngrid))
+grd_sre_cs => f1dimppar%grd_sre_cs
 
 if (allocated(f1dimppar%hpack)) then
     deallocate(f1dimppar%hpack)
@@ -350,11 +354,11 @@ do kl=1,lnx
 enddo
 
 
-if (allocated(grd_ghost_link_closest)) then
-    deallocate(grd_ghost_link_closest)
+if (allocated(f1dimppar%grd_ghost_link_closest)) then
+    deallocate(f1dimppar%grd_ghost_link_closest)
 endif
-allocate(grd_ghost_link_closest(lnx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes. 
-
+allocate(f1dimppar%grd_ghost_link_closest(lnx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes. 
+grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 do kl=1,lnx
     grd_ghost_link_closest(kl)=kl
 enddo
@@ -573,7 +577,7 @@ do kbr=1,nbran
                 endif
                 
                 !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
-                !idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+                !grd_sre_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
            endif !(nd(idx_fm)%lnx>2)
            
         else !internal point of a branch, not beginning or end. 
@@ -589,12 +593,12 @@ do kbr=1,nbran
            !link1sign2()=1 !link direction for morphodynamics
            
            !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
-           !idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+           !grd_sre_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
         endif  
         
 
                 !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
-                idx_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+                grd_sre_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
                 
         !if there is not a unique cross-section per gridpoint per branch, <ic=-999>. It is not needed to check
         !this here because it is already checked in <flow_sedmorinit>, which is called before <initialize_flow1d_implicit>
@@ -646,13 +650,9 @@ ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !there are no ghosts in SRE
 ndkx_mor=ndx_mor
 
-allocate(link1(ndx_mor)) !we allocate with
-link1=0
-do L = 1,lnx_mor
-    k1 = ln_mor(1,L)
-    !k2 = ln(2,L)
-    link1(k1) = L
-enddo
+
+
+
 
 !ndkx=ndx_mor !used to preallocate <ucxq_mor> and similar. !Cannot be changed because it is used in output data. The only solution is to specifically reallocate these variables. 
 
@@ -660,6 +660,8 @@ enddo
 !END (LOB)
 !
 
+
+!
 !BEGIN (FAAL)
 !
 !Fill Arrays that need Additional Link
@@ -725,7 +727,13 @@ enddo
 
 !frac_o=frac !needs to be copied before <allocsedtra>
 
-
+allocate(link1(ndx_mor)) !we allocate with
+link1=0
+do L = 1,lnx_mor
+    k1 = ln_mor(1,L)
+    !k2 = ln(2,L)
+    link1(k1) = L
+enddo
 
 !FM1DIMP2DO: When not having a morhodynamic simulation, morpho variables are not initialized. The best
 !would be to <return> in <reallocate_fill>
@@ -1095,7 +1103,7 @@ do ksre=1,ngrid
     
     
     !bfrictp
-    idx_crs=idx_cs(ksre)
+    idx_crs=grd_sre_cs(ksre)
     
     bfricp(1,ksre)=network%CRS%CROSS(idx_crs)%FRICTIONVALUEPOS(1)
     bfricp(2,ksre)=network%CRS%CROSS(idx_crs)%FRICTIONVALUENEG(1)
@@ -1415,6 +1423,26 @@ endif !jased
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
+!
+!BEGIN (CHK)
+!
+!CHecKs
+
+!all cross-sections must be mapped to an SRE gridpoint
+do kd=1,ngrid
+    idx_findloc=findloc(grd_sre_cs,kd)
+    if (idx_findloc(1).eq.0) then
+        write (msgbuf, '(a)') 'Not all SRE nodes are related to a cross-section.'
+        call err_flush()
+        iresult=1
+    endif
+enddo
+
+!
+!END (CHK)
+!
+
+
     contains
 
     !FM1DIMP2DO: Move to module
@@ -1422,124 +1450,5 @@ endif !jased
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !END MAIN SUBROUTINE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
-!
-!BEGIN reallocate_fill
-!
-    
-subroutine reallocate_fill(val,idx_mask,idxi,idxf)
 
-use m_alloc
-
-implicit none
-
-double precision, dimension(:), allocatable, intent(inout) :: val
-integer, dimension(idxf), intent(in) :: idx_mask
-integer, intent(in) :: idxi, idxf
-
-integer :: k
-
-
-call realloc(val,idxf)
-
-do k=idxi+1,idxf
-    val(k)=val(idx_mask(k))
-enddo
-
-end subroutine reallocate_fill
-    
-!
-!END reallocate_fill_int
-!
-
-!
-!BEGIN reallocate_fill_int
-!
-
-!FM1DIMP2DO: There must be a better way to do it. This is just the same but for integers
-    
-subroutine reallocate_fill_int(val,idx_mask,idxi,idxf)
-
-use m_alloc
-
-implicit none
-
-integer, dimension(:), allocatable, intent(inout) :: val
-integer, dimension(idxf), intent(in) :: idx_mask
-integer, intent(in) :: idxi, idxf
-
-integer :: k
-
-
-call realloc(val,idxf)
-
-do k=idxi+1,idxf
-    val(k)=val(idx_mask(k))
-enddo
-
-end subroutine reallocate_fill_int
-    
-!
-!END reallocate_fill_int
-!
-
-!
-!BEGIN reallocate_fill_pointer
-!
-
-!FM1DIMP2DO: There must be a better way to do it. This is just the same but for integers
-    
-subroutine reallocate_fill_pointer(val,idx_mask,idxi,idxf)
-
-use m_alloc
-
-implicit none
-
-real(fp), dimension(:), pointer, intent(inout) :: val
-integer, dimension(idxf), intent(in) :: idx_mask
-integer, intent(in) :: idxi, idxf
-
-integer :: k
-
-
-call reallocp(val,idxf)
-
-do k=idxi+1,idxf
-    val(k)=val(idx_mask(k))
-enddo
-
-end subroutine reallocate_fill_pointer
-    
-!
-!END reallocate_fill_pointer
-!
-
-!
-!BEGIN reallocate_fill_int_pointer
-!
-    
-subroutine reallocate_fill_int_pointer(val,idx_mask,idxi,idxf)
-
-use m_alloc
-
-implicit none
-
-integer, dimension(:), pointer, intent(inout) :: val
-integer, dimension(idxf), intent(in) :: idx_mask
-integer, intent(in) :: idxi, idxf
-
-integer :: k
-
-
-call reallocp(val,idxf)
-
-do k=idxi+1,idxf
-    val(k)=val(idx_mask(k))
-enddo
-
-end subroutine reallocate_fill_int_pointer
-    
-!
-!END reallocate_fill_int_pointer
-!
     end subroutine initialize_flow1d_implicit
