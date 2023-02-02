@@ -65,6 +65,7 @@ module m_f1dimp_data
       
       integer                          :: flitmx                 !< maximum number of iterationsteps
       integer                          :: iterbc                 !< Maximum iterations to be performed in BICGST
+      integer                          :: juer                   !< file identifier SRE
       
       !don't use <real(fp)>. In <FLOWIT> it is defined as <real>
       real                             :: g                      !< Value for gravity acceleration

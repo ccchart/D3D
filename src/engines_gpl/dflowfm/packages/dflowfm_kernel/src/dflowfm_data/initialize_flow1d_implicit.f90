@@ -75,6 +75,7 @@ integer                                  , pointer :: maxtab
 integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
 integer                                  , pointer :: table_length
+integer                                  , pointer :: juer
 
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
@@ -154,6 +155,9 @@ integer :: table_number
 integer :: idx_fr, idx_to
 integer :: idx_i, idx_f, nl, L, L2, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
 integer :: j
+integer :: stat
+
+character(len=512) :: msg
 
 integer, dimension(1) :: idx_findloc
 !integer :: lnx_mor 
@@ -203,10 +207,16 @@ nqstat                 => f1dimppar%nqstat
 grd_sre_cs             => f1dimppar%grd_sre_cs
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
+juer                   => f1dimppar%juer
 
 !!
 !! CALC
 !!
+
+!file for error
+open(newunit=juer, file="FM1DIMP.dia", status="replace", action="write", iostat=stat, iomsg=msg)
+!FM1DIMP2DO. Ideally we would use the message handlinf of FM. This implies changing all calls in SRE and make sure the message handling error module is accessible. 
+!Furthermore, closing of the file should be dealt with. I am not sure where to place it. 
 
 f1dimp_initialized=.true.
 iresult=0

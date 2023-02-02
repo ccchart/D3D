@@ -1,4 +1,4 @@
-      SUBROUTINE LUDCMP (A, N, NP, INDX, D, VV, KERLU)
+      SUBROUTINE SRE_LUDCMP (A, N, NP, INDX, D, VV, KERLU)
 
 c=======================================================================
 c            Rijkswaterstaat/RIZA and DELFT HYDRAULICS

@@ -14,7 +14,8 @@
      +                  hbdpar , qbdpar                            , 
      +                  table  , ntab                              ,
      +                  node   , numnod ,nodnod                    ,
-     +                  debug_wr
+     +                  debug_wr                                   ,
+     +                  juer
      +                  )
 c*******
 c    BEGIN original interface    
@@ -144,6 +145,7 @@ c      integer  itim(2),istep  ,filstp, cpredn ,
 c     +         juresi ,jufrou ,juresd ,justrd ,
 c     +         juer   ,ker    ,inocon ,jusold ,
 c     +         itstat(4)
+      integer juer
 c      logical  lsalt  ,lkalm  ,steady ,lfrou  , lrest,
 cc     mozart declaration plus groundwater switch
 c     +         lmoza, lgrwt

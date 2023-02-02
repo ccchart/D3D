@@ -321,7 +321,7 @@ c
 c        If BICGST fails
 c        solve the matrix by using LU decomposition.
 c
-         call ludcmp (mat    ,nnode  ,nnode  ,indx   ,d ,rhsvv(1,2) ,
+         call sre_ludcmp (mat    ,nnode  ,nnode  ,indx   ,d ,rhsvv(1,2) ,
      +                kerlu)
          if (kerlu.ne.0) then
 c           Matrix singular

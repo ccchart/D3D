@@ -46,6 +46,7 @@ implicit none
 !integer, intent(in) :: ndx
 !integer, intent(in) :: lnx
 !integer, intent(in) :: lnx1d
+!integer, intent(in) :: juer
 
 double precision, intent(in) :: time1
 
@@ -85,6 +86,7 @@ integer                                  , pointer :: nqstat
 integer                                  , pointer :: maxtab
 integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
+integer                                  , pointer :: juer
 
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
@@ -233,7 +235,10 @@ nodnod => f1dimppar%nodnod
 debug_wr         => f1dimppar%debug_wr
 fm1dimp_debug_k1 => f1dimppar%fm1dimp_debug_k1
 
-debug_wr=0
+!other
+juer             => f1dimppar%juer
+
+debug_wr=1
 
 if (debug_wr>0) then
 write(42,*) 'SOFLOW_wrap'
@@ -279,7 +284,9 @@ call SOFLOW( &
 !dependent on node
         &   node   , numnod ,nodnod                    , &
 !debug 
-        &   debug_wr,                                    &
+        &   debug_wr                                   , &
+!units  
+        &   juer                                       , &
 !close
         &)
     
