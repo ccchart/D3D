@@ -238,7 +238,7 @@ fm1dimp_debug_k1 => f1dimppar%fm1dimp_debug_k1
 !other
 juer             => f1dimppar%juer
 
-debug_wr=1
+debug_wr=0
 
 if (debug_wr>0) then
 write(42,*) 'SOFLOW_wrap'

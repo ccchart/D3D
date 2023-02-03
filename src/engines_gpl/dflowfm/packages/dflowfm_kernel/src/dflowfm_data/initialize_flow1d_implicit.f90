@@ -153,13 +153,14 @@ integer :: idx_crs, idx_sre, idx_fm !indices
 integer :: n1, n2, nint, nout, pointscount, jpos
 integer :: table_number
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_fm_r, idx_fm_l, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
+integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
 integer :: j
 integer :: stat
 
 character(len=512) :: msg
 
 integer, dimension(1) :: idx_findloc
+integer, dimension(:), allocatable :: grd_fm_sre2
 !integer :: lnx_mor 
 
 !move to function
@@ -259,6 +260,12 @@ endif
 allocate(f1dimppar%grd_fm_sre(ndx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
 grd_fm_sre => f1dimppar%grd_fm_sre
 grd_fm_sre=0
+
+if (allocated(grd_fm_sre2)) then
+    deallocate(grd_fm_sre2)
+endif
+allocate(grd_fm_sre2(ndx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
+grd_fm_sre2=0
 
 if (allocated(f1dimppar%grd_fmL_sre)) then
     deallocate(f1dimppar%grd_fmL_sre)
@@ -536,9 +543,7 @@ do kbr=1,nbran
                 gridpoint2cross(c_ndx)%num_cross_sections=1
                 allocate(gridpoint2cross(c_ndx)%cross(gridpoint2cross(c_ndx)%num_cross_sections))
                 gridpoint2cross(c_ndx)%cross(1)=gridpoint2cross(idx_fm)%cross(jpos)
-                
-
-           
+                           
                 !remove CS at junction flownode
                 gridpoint2cross(idx_fm)%num_cross_sections=0 !This prevents it is looped in <fm_update_crosssections>
                 !gridpoint2cross(idx_fm)%cross(jpos)=-999 !This prevents it is passed in <fm_update_crosssections> -> NO. -999 causes error when parsing the number of CS per node. 
@@ -550,8 +555,16 @@ do kbr=1,nbran
                 !nd_mor(idx_fm)%ln=nd_o(idx_fm)%ln
                 
                 grd_fmmv_fmsv(idx_fm)=idx_fm !the closest value is itself
-                grd_fm_sre(idx_fm)=idx_sre 
                 
+                !if <grd_fm_sre(idx_fm)> is not 0, it has already been filled. This implies
+                !it is a flownode in a junction of just two branches. We have to save both 
+                !sre indices for filling the initial condition.
+                if (grd_fm_sre(idx_fm) .ne. 0) then
+                    grd_fm_sre2(idx_fm)=idx_sre 
+                else
+                    grd_fm_sre(idx_fm)=idx_sre 
+                endif
+                                
                 !relate ghost flownode also to <idx_sre>
                 idx_l1=abs(nd_o(idx_fm)%ln(1))
                 idx_l2=abs(nd_o(idx_fm)%ln(2))
@@ -573,6 +586,8 @@ do kbr=1,nbran
                 
                 !FM1DIMP2DO: I wonder whether we need this or we can use the adapted <gridpoint2cross> in which there is a cross-section for 1:ndx_mor 
                 !grd_sre_cs(idx_sre)=gridpoint2cross(idx_fm)%cross(jpos) !cross-section index associated to the FM gridpoint per branch
+                
+                
            endif !(nd(idx_fm)%lnx>2)
            
         else !internal point of a branch, not beginning or end. 
@@ -608,25 +623,32 @@ do kbr=1,nbran
     !end and beginning of the SRE node we are filling than 
     !the previous (or later) SRE node, it would be more accurate
     !to fill using the link info rather than the SRE info. 
-    do kbe=1,2 !upstream and downstram
-        if (kbe.eq.1) then !begin of branch
-            idx_sre_p=idx_sre-pointscount+1 !paste
-            idx_sre_c=idx_sre-pointscount+2 !copy
-        else !end of branch
-            idx_sre_p=idx_sre !paste
-            idx_sre_c=idx_sre-1 !copy
-        endif 
-    
-        do k2=1,3 !< time step in SRE [before, intermediate, after]
-            !discharge
-            qpack(idx_sre_p,k2)=qpack(idx_sre_c,k2) 
-        enddo
-        
-        !waoft
-        do k2=1,swaoft
-            waoft(idx_sre_p,k2)=waoft(idx_sre_c,k2)
-        enddo
-    enddo !kbe
+    !
+    !Aftwerwards in FIC the values at the boundary are dealt with 
+    !again because the velocity at the boundaries is 0 and
+    !needs to be overwritten. 
+    !
+    !->this is nonsense because there are no qpack written anywhere!
+    !
+    !do kbe=1,2 !upstream and downstram
+    !    if (kbe.eq.1) then !begin of branch
+    !        idx_sre_p=idx_sre-pointscount+1 !paste
+    !        idx_sre_c=idx_sre-pointscount+2 !copy
+    !    else !end of branch
+    !        idx_sre_p=idx_sre !paste
+    !        idx_sre_c=idx_sre-1 !copy
+    !    endif 
+    !
+    !    do k2=1,3 !< time step in SRE [before, intermediate, after]
+    !        !discharge
+    !        qpack(idx_sre_p,k2)=qpack(idx_sre_c,k2) 
+    !    enddo
+    !    
+    !    !waoft
+    !    do k2=1,swaoft
+    !        waoft(idx_sre_p,k2)=waoft(idx_sre_c,k2)
+    !    enddo
+    !enddo !kbe
     
     !branch    
     branch(1,kbr)=network%BRS%BRANCH(kbr)%NODEINDEX(1)
@@ -908,39 +930,90 @@ stmpar%morlyr%settings%nmub=ndx_mor
 !Fill Initial Condition
 !
 !Data must be available already at ghost links and nodes
-do ksre=1,ngrid
-    idx_sre=ksre 
-    idx_fm=grd_sre_fm(idx_sre)
-    
-    !links connected to a given fm grid node
-    idx_l1=abs(nd(idx_fm)%ln(1))
-    idx_l2=abs(nd(idx_fm)%ln(2))
-        
-        !initial condition
-        do k2=1,3 !< time step in SRE [before, intermediate, after]
-            !water level
-            hpack(idx_sre,k2)=s1(idx_fm)
-            !discharge
-            qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
-        enddo !k2
-        
-        !waoft
-        wu_int=0.5*(wu(idx_l1)+wu(idx_l2))
-        au_int=0.5*(au(idx_l1)+au(idx_l2))
-        
-        !FM1DIMP2DO: needs to be separated between flow and total
-        !check right order in <FLNORM> and not in documentation. 
 
-        waoft(idx_sre,1)=real(wu_int) !wf = actual flow width 
-        waoft(idx_sre,2)=real(wu_int) !wt = actual total width
-        waoft(idx_sre,3)=real(au_int) !af = actual flow area
-        waoft(idx_sre,4)=real(au_int) !at = actual total area n
-        waoft(idx_sre,5)=real(au_int) !at = actual total area n+1
-        waoft(idx_sre,6)=real(au_int/wu_int) !o = actual wetted perimeter
-        do k2=7,swaoft
-            waoft(idx_sre,k2)=0
-        enddo !k2
+!velocity is 0 at ghost links. We copy from closest one. 
+!do kl=lnxi+1,lnx
+!!do kd=ndxi+1,ndx
+!    !nd(kd)
+!    n1=ln(1,kl)
+!    n2=ln(2,kl)
+!    idx_fm=min(n1,n2) !internal flownode closest to the boundary
+!    idx_l1=abs(nd(idx_fm)%ln(1))
+!    idx_l2=abs(nd(idx_fm)%ln(2))
+!    L=min(idx_l1,idx_l2)
+!    u1(kl)=u1(L) !velocity at the link closest to the boundary
+!enddo
+
+!do ksre=1,ngrid
+do kd=1,ndx_mor
+    !idx_sre=ksre 
+    !idx_fm=grd_sre_fm(idx_sre)
+    
+    idx_fm=kd
+    
+    !do not overwrite the values at the boundary
+    !which are correctly written above (LOB) and would be 
+    !filled incorrectly as the velocity at the ghost link
+    !in the boundaries is 0.
+    if (idx_fm>ndxi .and. idx_fm<ndx+1) then
+        cycle
+    endif
+    
+    if (nd_mor(idx_fm)%lnx.ne.2) then
+        cycle
+    endif
+    
+    !This is not the nicest, but it works. It is necessary to 
+    !fill the initial condition correctly at junctions of only
+    !two branches. We loop twice. The first time we use the regular 
+    !map between fm and sre <grd_fm_sre>. The second time, if the
+    !index in the auxiliary array <grd_fm_sre2> is not 0 it means
+    !that this FM flownode is of a junction of two branhces. 
+    !Hence, there are two gridpoints associated to it that must be 
+    !filled.
+
+    do k1=1,2
+        select case (k1)
+        case (1)
+            idx_sre=grd_fm_sre(idx_fm)
+        case (2)
+            idx_sre=grd_fm_sre2(idx_fm)
+            if (idx_sre.eq.0) then
+                cycle
+            endif
+        end select
+
+    !links connected to a given fm grid node
+    idx_l1=abs(nd_mor(idx_fm)%ln(1))
+    idx_l2=abs(nd_mor(idx_fm)%ln(2))
+        
+    !initial condition
+    do k2=1,3 !< time step in SRE [before, intermediate, after]
+        !water level
+        hpack(idx_sre,k2)=s1(idx_fm)
+        !discharge
+        qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
+    enddo !k2
+    
+    !waoft
+    wu_int=0.5*(wu(idx_l1)+wu(idx_l2))
+    au_int=0.5*(au(idx_l1)+au(idx_l2))
+    
+    !FM1DIMP2DO: needs to be separated between flow and total
+    !check right order in <FLNORM> and not in documentation. 
+
+    waoft(idx_sre,1)=real(wu_int) !wf = actual flow width 
+    waoft(idx_sre,2)=real(wu_int) !wt = actual total width
+    waoft(idx_sre,3)=real(au_int) !af = actual flow area
+    waoft(idx_sre,4)=real(au_int) !at = actual total area n
+    waoft(idx_sre,5)=real(au_int) !at = actual total area n+1
+    waoft(idx_sre,6)=real(au_int/wu_int) !o = actual wetted perimeter
+    do k2=7,swaoft
+        waoft(idx_sre,k2)=0
+    enddo !k2
+    enddo !k1
 enddo !ksre
+
 
 !END (FIC)       
         

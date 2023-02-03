@@ -409,49 +409,49 @@ c
         ifroud = i
    17   continue
         if ( froud1 .ge. 1. .or. froude .ge. 0.8) then
-           ibuf3n = mod(ibuf3,ngrid)+1
-           if (nint(solbuf(2,7,ibuf3n)).eq.-1) then
-c             Next record contains header so store it
-              istepb = solbuf(3,7,ibuf3n)
-              iterb  = solbuf(4,7,ibuf3n)
-           endif
-           indsp = solbuf(1,7,ibuf3)
-           if (istep.ne.nint(solbuf(3,7,indsp)) .or.
-     +         iter .ne.nint(solbuf(4,7,indsp))) then
-c
-c             A new iteration step
-c
-c             write header
-c
-              solbuf(1,7,ibuf3n) = ibuf3n
-              solbuf(2,7,ibuf3n) = -1
-              solbuf(3,7,ibuf3n) = istep
-              solbuf(4,7,ibuf3n) = iter
-              ibuf3 = ibuf3n
-              ibuf3n = mod(ibuf3,ngrid)+1
-              if (nint(solbuf(2,7,ibuf3n)).eq.-1) then
-c                Next record contains header so store it
-                 istepb = solbuf(3,7,ibuf3n)
-                 iterb  = solbuf(4,7,ibuf3n)
-              endif
-           endif
-c
-c          store Froude numbers
-c
-           solbuf(1,7,ibuf3n) = solbuf(1,7,ibuf3)
-           solbuf(2,7,ibuf3n) = ifroud
-           solbuf(3,7,ibuf3n) = froude
-           solbuf(4,7,ibuf3n) = froud1
-           ibuf3 = ibuf3n
-           ibuf3n = mod(ibuf3,ngrid)+1
-           if (nint(solbuf(2,7,ibuf3n)).gt.0) then
-c             Next record contains froude numbers so
-c             overwrite with iteration and step numbers.
-              solbuf(1,7,ibuf3n) = ibuf3n
-              solbuf(2,7,ibuf3n) = -1
-              solbuf(3,7,ibuf3n) = istepb
-              solbuf(4,7,ibuf3n) = iterb
-           endif
+c           ibuf3n = mod(ibuf3,ngrid)+1
+c           if (nint(solbuf(2,7,ibuf3n)).eq.-1) then
+cc             Next record contains header so store it
+c              istepb = solbuf(3,7,ibuf3n)
+c              iterb  = solbuf(4,7,ibuf3n)
+c           endif
+c           indsp = solbuf(1,7,ibuf3)
+c           if (istep.ne.nint(solbuf(3,7,indsp)) .or.
+c     +         iter .ne.nint(solbuf(4,7,indsp))) then
+cc
+cc             A new iteration step
+cc
+cc             write header
+cc
+c              solbuf(1,7,ibuf3n) = ibuf3n
+c              solbuf(2,7,ibuf3n) = -1
+c              solbuf(3,7,ibuf3n) = istep
+c              solbuf(4,7,ibuf3n) = iter
+c              ibuf3 = ibuf3n
+c              ibuf3n = mod(ibuf3,ngrid)+1
+c              if (nint(solbuf(2,7,ibuf3n)).eq.-1) then
+cc                Next record contains header so store it
+c                 istepb = solbuf(3,7,ibuf3n)
+c                 iterb  = solbuf(4,7,ibuf3n)
+c              endif
+c           endif
+cc
+cc          store Froude numbers
+cc
+c           solbuf(1,7,ibuf3n) = solbuf(1,7,ibuf3)
+c           solbuf(2,7,ibuf3n) = ifroud
+c           solbuf(3,7,ibuf3n) = froude
+c           solbuf(4,7,ibuf3n) = froud1
+c           ibuf3 = ibuf3n
+c           ibuf3n = mod(ibuf3,ngrid)+1
+c           if (nint(solbuf(2,7,ibuf3n)).gt.0) then
+cc             Next record contains froude numbers so
+cc             overwrite with iteration and step numbers.
+c              solbuf(1,7,ibuf3n) = ibuf3n
+c              solbuf(2,7,ibuf3n) = -1
+c              solbuf(3,7,ibuf3n) = istepb
+c              solbuf(4,7,ibuf3n) = iterb
+c           endif
            lfrou = .true.
            ifroud = ifroud + 1
            if ( ifroud .eq. i2 ) then
