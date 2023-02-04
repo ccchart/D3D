@@ -89,8 +89,12 @@ type icecover_type
     integer  :: thick_ice_forcing_available       !> flag indicating whether ice thickness is available via external forcing
     !
     real(fp) :: ice_albedo                        !> albedo of ice
-    real(fp) :: snow_albedo                       !> albedo of snow
+    real(fp) :: ice_conductivity                  !> conductivity of ice
+    real(fp) :: ice_latentheat                    !> latent heat of ice
     real(fp) :: ice_dens                          !> ice density
+    real(fp) :: snow_albedo                       !> albedo of snow
+    real(fp) :: snow_conductivity                 !> conductivity of snow
+    real(fp) :: snow_latentheat                   !> latent heat of snow
     real(fp) :: frict_val                         !> friction coefficient of ice cover (unit depends on frict_type)
     !
     ! state
@@ -98,6 +102,8 @@ type icecover_type
     real(fp), dimension(:), pointer :: areafrac   => null() !> area fraction covered by ice (-)
     real(fp), dimension(:), pointer :: thick_ice  => null() !> ice cover thickness (m)
     real(fp), dimension(:), pointer :: thick_snow => null() !> snow cover thickness (m)
+    real(fp), dimension(:), pointer :: temp_ice   => null() !> ice temperature (deg)
+    real(fp), dimension(:), pointer :: temp_snow  => null() !> snow temperature (deg)
     !
     ! extra
     !
@@ -208,8 +214,12 @@ function select_icecover_model(icecover, modeltype) result(istat)
     icecover%modify_winddrag           = ICE_WINDDRAG_NONE
 
     icecover%ice_albedo                = 0.75_fp
-    icecover%snow_albedo               = 0.9_fp
+    icecover%ice_conductivity          = 2.04_fp
+    icecover%ice_latentheat            = 302.0_fp * 1000000.0_fp
     icecover%ice_dens                  = 917.0_fp
+    icecover%snow_albedo               = 0.9_fp
+    icecover%snow_conductivity         = 0.31_fp
+    icecover%snow_latentheat           = 110.0_fp * 1000000.0_fp
     icecover%frict_type                = FRICT_AS_DRAG_COEFF
     icecover%frict_val                 = 0.005_fp
     
@@ -246,14 +256,18 @@ function alloc_icecover(icecover, nmlb, nmub) result(istat)
     if (icecover%modeltype /= ICECOVER_NONE) then
        if (istat==0) allocate(icecover%areafrac  (nmlb:nmub), STAT = istat)
        if (istat==0) allocate(icecover%thick_ice (nmlb:nmub), STAT = istat)
+       if (istat==0) allocate(icecover%temp_ice  (nmlb:nmub), STAT = istat)
        if (icecover%modeltype /= ICECOVER_EXT) then
           if (istat==0) allocate(icecover%thick_snow(nmlb:nmub), STAT = istat)
+          if (istat==0) allocate(icecover%temp_ice  (nmlb:nmub), STAT = istat)
        endif
        if (istat==0) then
           icecover%areafrac  = 0.0_fp
           icecover%thick_ice = 0.0_fp
+          icecover%temp_ice  = 0.0_fp
           if (icecover%modeltype /= ICECOVER_EXT) then
              icecover%thick_snow = 0.0_fp
+             icecover%temp_snow  = 0.0_fp
           endif
        endif
     endif
