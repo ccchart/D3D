@@ -847,7 +847,7 @@ c         Q-boundary
           idx_bc=idx_bc+1
           qstat(kbc) = table(ntab(3,idx_bc))
       enddo
-      qstat(1) = table(ntab(3,2))
+      
       
 #if !  defined (SHR_MEM)
 c ====  shared memory  ====
