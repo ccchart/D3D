@@ -259,7 +259,7 @@ function alloc_icecover(icecover, nmlb, nmub) result(istat)
        if (istat==0) allocate(icecover%temp_ice  (nmlb:nmub), STAT = istat)
        if (icecover%modeltype /= ICECOVER_EXT) then
           if (istat==0) allocate(icecover%thick_snow(nmlb:nmub), STAT = istat)
-          if (istat==0) allocate(icecover%temp_ice  (nmlb:nmub), STAT = istat)
+          if (istat==0) allocate(icecover%temp_snow (nmlb:nmub), STAT = istat)
        endif
        if (istat==0) then
           icecover%areafrac  = 0.0_fp

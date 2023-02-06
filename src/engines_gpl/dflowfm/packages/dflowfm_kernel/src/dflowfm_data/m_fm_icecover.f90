@@ -306,7 +306,7 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
 !!--declarations----------------------------------------------------------------
     use MessageHandling
     use m_flow                         ! test om tair(.) te gebruiken
-    use m_flowgeom   , only: ndx
+    use m_flowgeom   , only: ndx, nd
     use m_flowtimes  , only: dts
     use m_physcoef   , only: vonkar
     use m_heatfluxes , only: cpw
@@ -315,15 +315,15 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
     ! Function/routine arguments
     !
     integer                                    , intent (in)   :: n             !> node number
-    double precision                           , intent(in)    :: Qlong_ice     !> xx
-    double precision                           , intent(in)    :: tempwat       !> xx
-    double precision                           , intent(in)    :: wind          !> xx
-    double precision                           , intent(in)    :: timhr         !> xx
+    double precision                           , intent(in)    :: Qlong_ice     !> part of Qlong computed in HEATUN
+    double precision                           , intent(in)    :: tempwat       !> temperature of water
+    double precision                           , intent(in)    :: wind          !> wind speed 
+    double precision                           , intent(in)    :: timhr         !> time in hours
     !
     ! Local variables
     !
-    integer          :: iter
-    double precision :: b, p_r, p_rt, kin_vis, t_freeze
+    integer          :: iter, icount, LL
+    double precision :: b, p_r, p_rt, kin_vis, t_freeze, sum
     double precision :: b_t, c_tz, tm
     double precision :: conduc, D_t, D_ice, tsi, coef1, coef2, alpha
     logical          :: converged
@@ -340,8 +340,8 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
     t_freeze = 0.0_fp      ! freezing temperature of sea water
     rhow     = 1000.0_fp   ! density of water
     z00      = 2e-4_fp     ! Open sea roughness heigth 
-    hdz      = 1.0_fp      ! rough estimate
     ustar = 0.025 * wind   ! See Eq. (12.5) ustar = sqrt(C_D) * U_10
+    hdz      = 0.0_fp      ! is computed in this subroutine
     
     select case (ja_icecover)
     case (ICECOVER_KNMI)
@@ -431,6 +431,16 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
         ! Calculate the molecular sublayer correction b_t
         !
         b_t  = b * sqrt(z00 * ustar / kin_vis ) * (p_r)**0.666
+        !
+        ! Calculate HDZ to be used for the computation of c_tz (NB. In this implementation the same for 2D and 3D)
+        !
+        sum = 0.0_fp
+        icount = 0
+        do LL  = 1, nd(n)%lnx
+           sum = sum + hu(LL)
+           icount = icount +1
+        enddo
+        hdz = 0.5_fp * sum / max(1, icount)
         !
         ! Calculate heat transfer coefficient c_tz
         !
