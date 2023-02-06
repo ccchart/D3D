@@ -1273,7 +1273,7 @@ hbdpar       => f1dimppar%hbdpar
 do k1=1,nhstat
     table_number=table_number+1
     
-    hbdpar(1,k1)=kbndz(2,k1) !< first s1 point on the inside of the domain
+    hbdpar(1,k1)=grd_fm_sre(kbndz(2,k1)) !< first s1 point on the inside of the domain
     hbdpar(2,k1)=1
     hbdpar(3,k1)=table_number
     
@@ -1293,7 +1293,7 @@ qbdpar       => f1dimppar%qbdpar
 do k1=1,nqstat
     table_number=table_number+1
     
-    qbdpar(1,k1)=kbndu(2,k1) !< first s1 point on the inside of the domain
+    qbdpar(1,k1)=grd_fm_sre(kbndu(2,k1)) !< first s1 point on the inside of the domain
     qbdpar(2,k1)=1
     qbdpar(3,k1)=table_number !< table number after the ones of <hbdpar>
     
@@ -1364,7 +1364,7 @@ do knod=1,nnode
     if (network%NDS%NODE(knod)%NODETYPE .eq. 0) then !BC noce
         
         do k2=1,nhstat !search in hbdpar
-            if (hbdpar(1,k2) .eq. network%NDS%NODE(knod)%GRIDNUMBER) then
+            if (hbdpar(1,k2) .eq. grd_fm_sre(network%NDS%NODE(knod)%GRIDNUMBER)) then
                 node(1,knod)=2 !H boundary
                 node(2,knod)=hbdpar(1,k2) !gridpoint
                 node(3,knod)=k2
@@ -1375,7 +1375,7 @@ do knod=1,nnode
         if (node(1,knod) .eq. -999) then !it is not hbdpar, we search in qbdpar
         
             do k2=1,nqstat !search in hbdpar
-                if (qbdpar(1,k2) .eq. network%NDS%NODE(knod)%GRIDNUMBER) then
+                if (qbdpar(1,k2) .eq. grd_fm_sre(network%NDS%NODE(knod)%GRIDNUMBER)) then
                     node(1,knod)=3 !Q boundary
                     node(2,knod)=qbdpar(1,k2) !gridpoint
                     node(3,knod)=k2
