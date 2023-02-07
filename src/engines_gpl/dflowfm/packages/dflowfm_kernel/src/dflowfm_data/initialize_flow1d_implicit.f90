@@ -1014,6 +1014,24 @@ do kd=1,ndx_mor
     enddo !k1
 enddo !ksre
 
+!at junctions of more than 2 branches we set the same water level for
+!all SRE nodes. 
+do kn=1,network%nds%Count
+   if (network%nds%node(kn)%numberofconnections < 3) cycle
+      idx_fm=network%nds%node(kn)%gridnumber ! TODO: Not safe in parallel models (check gridpointsseq as introduced in UNST-5013)
+      !we search for the SRE gridpoint associated to the FM ghost flownode. 
+      !the FM ghostflownode is found in <ln_mor> which is found in <nd>
+      do kl=1,nd(idx_fm)%lnx
+          L=abs(nd(idx_fm)%ln(kl))
+          n1=ln_mor(1,L)
+          n2=ln_mor(2,L)
+          idx_n=max(n1,n2) !maximum is ghost flownode
+          idx_sre=grd_fm_sre(idx_n)
+          do kd=1,3
+            hpack(idx_sre,kd)=s1(idx_fm)
+          enddo !kd
+      enddo !kl
+enddo !kn
 
 !END (FIC)       
         
