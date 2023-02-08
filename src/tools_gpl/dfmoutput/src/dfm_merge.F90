@@ -153,6 +153,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
    character(len=4) :: fmtstr
    character(len=4096) :: tmpstr1, tmpstr2
    integer,                      allocatable :: varids(:,:,:)        !< Variable IDs for the selected variables in the input files. Support having different variables in differnt input files.
+   double precision,             allocatable :: varfill_value(:,:)   !< (maxnvars, maxTopodim) Fill value for the selected variables in the output file.
    integer,                      allocatable :: varids_out(:,:)      !< Variable IDs for the selected variables in the output file. Will typically not be equal to the var IDs in the input files, as we may not be copying *all* vars from input files.
    character(len=NF90_MAX_NAME), allocatable :: var_names(:,:)       !< Names of the selected variables.
    integer,                      allocatable :: var_types(:,:)       !< Data types of the selected variables.
@@ -723,6 +724,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
    !! Prepare for the big loop on mesh topology, i.e. allocating relative arrays.
    maxnvars = maxval(max_nvars)
    allocate(varids(nfiles, maxnvars, maxTopodim));
+   allocate(varfill_value(maxnvars, maxTopodim))
    allocate(varids_out(maxnvars, maxTopodim))
    allocate(var_names(maxnvars, maxTopodim))
    allocate(var_types(maxnvars, maxTopodim))
@@ -1754,6 +1756,8 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
          end if
 
          ierr = ncu_copy_atts(ncids(ifileScan), ncids(noutfile), varids(ifileScan, iv,itopo), varids_out(iv,itopo))
+         ierr = ncu_inq_var_fill(ncids(ifileScan), varids(ifileScan, iv,itopo), nofill, varfill_value(iv, itopo))
+         
          if (isNetCDF4) then
             new_ndx = min(ndx(itopo,noutfile), 2000)  ! ! must be equal to mapclass_chunksize_ndx
             ierr = ncu_copy_chunking_deflate(ncids(ifileScan), ncids(noutfile), varids(ifileScan, iv,itopo), varids_out(iv,itopo), new_ndx)
@@ -1762,7 +1766,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
          ! For Variable 'FlowLink', the flowelem might be outside the domain, and there might be no info. about such flowelem
          ! in mapfiles, so they are denoted by _FillValue.
          if (var_names(iv,itopo) .eq. 'FlowLink') then
-             ierr = nf90_put_att(ncids(noutfile), varids_out(iv,itopo), '_FillValue', intmiss)
+             ierr = nf90_put_att(ncids(noutfile), varids_out(iv,itopo), '_FillValue', int(varfill_value(iv, itopo)))
          end if
       end do
    end do ! itopo
@@ -2086,7 +2090,6 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
             if (.not. verbose_mode) goto 888
          end if
 
-         intfillv = dble(intmiss)
          if ((var_kxdimpos(iv,itopo) == -1 .and. var_laydimpos(iv,itopo) == -1  .and. var_wdimpos(iv,itopo) == -1) & ! 1D array with no layers and no vectormax (possibly time-dep)
               .or. (var_ndims(iv,itopo) == 1 .and. (var_laydimpos(iv,itopo) > 0 .or. var_wdimpos(iv,itopo) > 0))) then ! 1D array of vertical coordinates
             ! Already allocated at max(lnx, ndx, numk, numl), no risk of stack overflow
@@ -2106,13 +2109,13 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                tmpvarDim = 3
             else                                ! Only a vectormax dim
                if (var_types(iv,itopo) == nf90_double) then
-                  call realloc( tmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=dmiss)
+                  call realloc( tmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                   tmpvarptr(1:count_read(var_kxdimpos(iv,itopo)),1:1,1:maxitems)  =>  tmpvar2D(:,:)
-                  call realloc( tmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=dmiss)
+                  call realloc( tmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-                  call realloc(itmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=intfillv)
+                  call realloc(itmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                   itmpvarptr(1:count_read(var_kxdimpos(iv,itopo)),1:1,1:maxitems) => itmpvar2D(:,:)
-                  call realloc(itmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=intfillv)
+                  call realloc(itmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                else if (var_types(iv,itopo) == nf90_char) then ! for variables such as mesh1d_node_id
                   call realloc(ctmpvar2D, (/ count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill='')
                   call realloc(ctmpvar2D_tmp, (/ count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill='')
@@ -2121,24 +2124,24 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
             end if
          else if (var_laydimpos(iv,itopo) /= -1) then ! Only a laydim
             if (var_types(iv,itopo) == nf90_double) then
-               call    realloc(tmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=dmiss)
+               call    realloc(tmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                tmpvarptr(1:1,1:kmx(itopo,noutfile),1:maxitems)  =>  tmpvar2D(:,:)
-               call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=dmiss)
+               call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=intfillv)
+               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                itmpvarptr(1:1,1:kmx(itopo,noutfile),1:maxitems) => itmpvar2D(:,:)
-               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=intfillv)
+               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             end if
             tmpvarDim = 2
          else if (var_wdimpos(iv,itopo) /= -1) then
             if (var_types(iv,itopo) == nf90_double) then
-               call    realloc(tmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=dmiss)
+               call    realloc(tmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                tmpvarptr(1:1,1:kmx(itopo,noutfile)+1,1:maxitems)  =>  tmpvar2D(:,:)
-               call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=dmiss)
+               call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=intfillv)
+               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                itmpvarptr(1:1,1:kmx(itopo,noutfile)+1,1:maxitems) => itmpvar2D(:,:)
-               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=intfillv)
+               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             end if
             tmpvarDim = 2
          end if
@@ -2221,9 +2224,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                   else if (var_kxdimpos(iv,itopo) /= -1 .neqv. var_laydimpos(iv,itopo) /= -1) then ! Either a vectormax OR a laydim
                      if (var_types(iv,itopo) == nf90_double) then
                         if (jaread_sep == 1) then
-                           call realloc(tmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=dmiss)
+                           call realloc(tmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=varfill_value(iv, itopo))
                            ierr = nf90_get_var(ncids(ii), varids(ii,iv,itopo), tmpvar2D_tmpmax, count=count_read(is:ie), start=start_idx(is:ie))
-                           tmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = dmiss
+                           tmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = varfill_value(iv, itopo)
                            tmpvar2D(1:netfacemaxnodes(itopo,ii),nitemglob0+1:nitemglob0+count_read(ie)) = tmpvar2D_tmpmax(1:count_read(is),1:count_read(ie))
                            jaread_sep = 0
                         else
@@ -2236,9 +2239,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                         end if
                      else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
                         if (jaread_sep == 1) then
-                           call realloc(itmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=intfillv)
+                           call realloc(itmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=varfill_value(iv, itopo))
                            ierr = nf90_get_var(ncids(ii), varids(ii,iv,itopo), itmpvar2D_tmpmax, count=count_read(is:ie), start=start_idx(is:ie))
-                           itmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = intfillv
+                           itmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = varfill_value(iv, itopo)
                            itmpvar2D(1:netfacemaxnodes(itopo,ii),nitemglob0+1:nitemglob0+count_read(ie)) = itmpvar2D_tmpmax(1:count_read(is),1:count_read(ie))
                            jaread_sep = 0
                         else
@@ -2297,7 +2300,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                                  itmpvar2D_tmp(:,nitemglob) = itmpvar2D(:,nitemglob0+ip)
                                  do ikk = 1, netfacemaxnodes(itopo,ii)
                                      g1 = itmpvar2D_tmp(ikk,nitemglob)
-                                     if (g1 > 0) then
+                                     if (g1 /= int(varfill_value(iv, itopo))) then
                                          g1 = g1 + nnodecount(itopo)
                                          itmpvar2D_tmp(ikk,nitemglob) = node_c2g(g1,itopo)
                                      end if
@@ -2374,7 +2377,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                                          g1 = g1 + nfacecount(itopo)
                                          itmpvar2D_tmp(ikk,nitemglob) = face_c2g(g1,itopo)
                                      else if (g1 > nump(itopo,ii)) then
-                                         itmpvar2D_tmp(ikk,nitemglob) = intmiss
+                                         itmpvar2D_tmp(ikk,nitemglob) = int(varfill_value(iv, itopo))
                                      end if
                                  end do
                              end if
@@ -2780,6 +2783,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
    ierr = nf90_close(ncids(noutfile))
 
    if (allocated(varids))          deallocate(varids)
+   if (allocated(varfill_value))   deallocate(varfill_value)
    if (allocated(varids_out))      deallocate(varids_out)
    if (allocated(var_names))       deallocate(var_names)
    if (allocated(var_types))       deallocate(var_types)
