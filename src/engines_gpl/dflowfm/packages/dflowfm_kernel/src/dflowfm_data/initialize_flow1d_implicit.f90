@@ -61,7 +61,6 @@ implicit none
 
 logical                                  , pointer :: lconv                   
 logical                                  , pointer :: steady    
-                                         
 integer                                  , pointer :: flitmx                 
 integer                                  , pointer :: iterbc                 
 integer                                  , pointer :: ngrid   
@@ -76,6 +75,7 @@ integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
 integer                                  , pointer :: table_length
 integer                                  , pointer :: juer
+integer                                  , pointer :: nlyr
 
 integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
@@ -87,10 +87,9 @@ integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
 integer, dimension(:)                    , pointer :: kcs_sre
-      
+    
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-
 integer, dimension(:,:)                  , pointer :: branch
 integer, dimension(:,:)                  , pointer :: bfrict
 integer, dimension(:,:)                  , pointer :: hbdpar
@@ -134,6 +133,10 @@ double precision                         , pointer :: resid
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
+double precision, dimension(:,:)         , pointer :: bodsed
+double precision, dimension(:,:)         , pointer :: thlyr
+
+double precision, dimension(:,:,:)       , pointer :: msed
 
 type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
 !type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
@@ -146,7 +149,7 @@ integer, pointer :: fm1dimp_debug_k1
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed !FM1DIMP2DO: make the variables names consistent
+integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
 integer :: ndx_max, lnx_max
 integer :: c_lnx, c_ndx !counters
 integer :: idx_crs, idx_sre, idx_fm !indices
@@ -187,6 +190,9 @@ double precision, allocatable, dimension(:,:) :: wcl_fm
 !double precision, allocatable, dimension(:,:) :: e_sbn_fm
 double precision, allocatable, dimension(:,:) :: bodsed_o
 double precision, allocatable, dimension(:,:) :: frac_o
+double precision, allocatable, dimension(:,:) :: thlyr_o
+
+double precision, allocatable, dimension(:,:,:) :: msed_o
 
 !!
 !! POINT
@@ -194,6 +200,7 @@ double precision, allocatable, dimension(:,:) :: frac_o
 
 !pointer cannot be before the array is allocated, here only non-allocatable arrays
 
+!f1dimppar
 table_length           => f1dimppar%table_length
 maxtab                 => f1dimppar%maxtab
 nnode                  => f1dimppar%nnode
@@ -209,6 +216,12 @@ grd_sre_cs             => f1dimppar%grd_sre_cs
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
 juer                   => f1dimppar%juer
+
+!stmpar
+nlyr                   => stmpar%morlyr%SETTINGS%NLYR
+bodsed                 => stmpar%morlyr%state%bodsed
+msed                   => stmpar%morlyr%state%msed
+thlyr                  => stmpar%morlyr%state%thlyr
 
 !!
 !! CALC
@@ -792,14 +805,31 @@ call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
 !allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy pointers to temporary array
-bodsed_o=stmpar%morlyr%state%bodsed
-allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
+!we cannot check if allocated because these arrays are not <allocatable>. 
+!if (allocated(bodsed)) then
+!    deallocate(bodsed)
+!endif
 
+bodsed_o=bodsed
+allocate(bodsed(lsedtot,ndx_mor))
+
+msed_o=msed
+allocate(msed(lsedtot,nlyr,ndx_mor))
+
+thlyr_o=thlyr
+allocate(thlyr(nlyr,ndx_mor))
+
+!allocate
     !copy data from nodes existing in FM
 do kn=1,ndx
     !arrays sediment
     do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        !stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        do klyr=1,nlyr
+            msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
+            thlyr(klyr,kn)=thlyr_o(klyr,kn) !no sediment index, but we save writing another loop
+        enddo !klyr
     enddo !ksed
 enddo !kn
 
@@ -807,7 +837,12 @@ enddo !kn
 do kn=ndx+1,ndx_mor    
     !arrays sediment
     do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        !stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        do klyr=1,nlyr
+            msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
+            thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) !no sediment index, but we save writing another loop
+        enddo !klyr
     enddo !ksed
 enddo !kl
 
