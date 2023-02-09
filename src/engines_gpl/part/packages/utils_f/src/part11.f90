@@ -68,8 +68,8 @@
       integer  ( ip), intent(in   ) :: lgrid2(nmax,mmax)       !< total grid matrix
       real     ( rp), intent(in   ) :: xp    (nmax*mmax)       !< x of the grid cell corner
       real     ( rp), intent(in   ) :: yp    (nmax*mmax)       !< y of the grid cell corner
-      real     ( rp), intent(in   ) :: locdep(nmax*mmax,nolay) !< local depth of a gridcell
-      real     ( rp), intent(in   ) :: tcktot(nolay )          !< relative thickness of a layer
+      real     ( rp), intent(in   ) :: locdep(nmax*mmax,nolay + 1) !< local depth of a gridcell
+      real     ( rp), intent(in   ) :: tcktot(nolay +1 )          !< relative thickness of a layer, include in the setup the bed laer (if lsettl = true)
       real     ( rp), intent(in   ) :: dps   (nmax*mmax)       !< depth of the reference plain
       
 !      integer  ( ip), intent(in   ) :: laytop(nmax,mmax)       !< highest active layer in z-layer model

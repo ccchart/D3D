@@ -143,16 +143,16 @@ module rdhydr_mod
          write ( lunut, * ) ' Opening the flow   file:', fname(7)(1:len_trim(fname(7)))
          call openfl ( lunit(7), fname(7), ftype(2), 0 )
 
-         if ( lunit(20) .gt. 0 .and. fname(20) .ne. 'none' ) then
+         if ( lunit(20) .ne. 0 .and. fname(20) .ne. 'none' ) then
             write ( lunut, * ) ' Opening the vdf    file:', fname(20)(1:len_trim(fname(20)))
             call openfl ( lunit(20), fname(20), ftype(2), 3 )
             if ( lunit(20) .eq. 0 ) write ( lunut, * ) ' Warning the vdf file does not exist !'
          else
             lunit(20) = 0
          endif
-         if ( lunit(20) .eq. 0 ) vdiff = 0.0
+         if ( lunit(20) .ne. 0 ) vdiff = 0.0
 
-         if ( lunit(21) .gt. 0 .and. fname(21)(1:4) .ne. 'none' ) then
+         if ( lunit(21) .ne. 0 .and. fname(21)(1:4) .ne. 'none' ) then
             write ( lunut, * ) ' Opening the tau    file:', fname(21)(1:len_trim(fname(21)))
             call openfl ( lunit(21), fname(21), ftype(2), 3 )
             if ( lunit(21) .eq. 0 ) write ( lunut, * ) ' Warning the tau file does not exist !'
@@ -162,7 +162,7 @@ module rdhydr_mod
          caltau = .false.
          if ( lunit(21) .eq. 0 ) caltau = .true.
 
-         if ( lunit(22) .gt. 0 .and. fname(22)(1:4) .ne. 'none' ) then
+         if ( lunit(22) .ne. 0 .and. fname(22)(1:4) .ne. 'none' ) then
             write ( lunut, * ) ' Opening the salinity file:', fname(22)(1:len_trim(fname(22)))
             call openfl ( lunit(22), fname(22), ftype(2), 3 )
             if ( lunit(22) .eq. 0 ) write ( lunut, * ) ' Warning the salinity file does not exist !'
@@ -170,7 +170,7 @@ module rdhydr_mod
             lunit(22) = 0
          endif
 
-         if ( lunit(23) .gt. 0 .and. fname(23)(1:4) .ne. 'none' ) then
+         if ( lunit(23) .ne. 0 .and. fname(23)(1:4) .ne. 'none' ) then
             write ( lunut, * ) ' Opening the temperature file:', fname(23)(1:len_trim(fname(23)))
             call openfl ( lunit(23), fname(23), ftype(2), 3 )
             if ( lunit(23) .eq. 0 ) write ( lunut, * ) ' Warning the temperature file does not exist !'
@@ -231,7 +231,7 @@ module rdhydr_mod
 
 !.. vertical diffusions
 
-         if ( lunit(20) .gt. 0 ) then
+         if ( lunit(20) .ne. 0 ) then
             call dlwqbl ( lunit(20), lunut   , itime    , idtimd  , itimd1  ,   &
                           itimd2   , idelt   , noseg    , mnmaxk  , vdiff1  ,   &
                           vdiff    , cellpnt , fname(20), isflag  , ifflag  ,   &
@@ -255,7 +255,7 @@ module rdhydr_mod
 
 !.. salinity
 
-         if ( lunit(22) .gt. 0 ) then
+         if ( lunit(22) .ne. 0 ) then
             call dlwqbl ( lunit(22), lunut   , itime    , idtimt , itimt1 ,   &
                           itimt2   , idelt   , noseg    , mnmaxk , salin1 ,   &
                           salin    , cellpnt , fname(22), isflag , ifflag ,   &
@@ -264,7 +264,7 @@ module rdhydr_mod
 
 !.. temperature
 
-         if ( lunit(23) .gt. 0 ) then
+         if ( lunit(23) .ne. 0 ) then
             call dlwqbl ( lunit(23), lunut   , itime    , idtimt , itimt1 ,   &
                           itimt2   , idelt   , noseg    , mnmaxk , temper1,   &
                           temper   , cellpnt , fname(23), isflag , ifflag ,   &
@@ -314,7 +314,7 @@ module rdhydr_mod
 !
 !     end of routine
 !
-      if ( lunit(22) .gt. 0 .and. lunit(23) .gt. 0 ) then
+      if ( lunit(22) .ne. 0 .and. lunit(23) .ne. 0 ) then
          do i = 1, noseg
             rhowatc(i) = densty(max(0.0e0,salin1(i)), temper1(i))
          enddo

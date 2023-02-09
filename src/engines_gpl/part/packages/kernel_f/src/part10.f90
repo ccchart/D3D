@@ -319,6 +319,7 @@ contains
       logical       :: ldispo                  ! vertical diffusion is on (true) or off (false) for oil particle
       logical       :: lstick                  ! keeps the possibility to stick
       logical       :: oilmod                  ! = modtyp .eq. 4
+      logical       :: ibmmod                  ! = modtyp .eq. 7, the ibm module
       logical       :: threed                  ! = layt .gt. 1
       logical       :: twolay                  ! = modtyp .eq. 2
       logical       :: extract                 ! extract particle or not
@@ -505,6 +506,7 @@ contains
          coriol = abs(defang) .ge. 1.0e-6   !  deflection from the equator aparently
          twolay = modtyp .eq. 2
          oilmod = modtyp .eq. 4
+         ibmmod = modtyp .eq. 7
          threed = layt .gt. 1
          cdrag  = drand(3) / 100.0          !  wind drag as a fraction
          ptlay  = 1.0 - pblay
@@ -974,7 +976,8 @@ contains
           dvzs = wsettl(ipart)*itdelt/depthl          !  settling      ?? what is the effect of this?? jvb: no bouncing for settling particles
           dvzt = dvzs + dvz                           !  vertical diffusion
         else
-          dvzt = dvz                                  !  vertical diffusion
+          dvzs = wsettl(ipart)*itdelt/depthl     ! temporary check, without it the settling is removed when using hthe ibm
+          dvzt = dvzs + dvz                           !  vertical diffusion
         endif
         
 !**      oil: if floating, no vertical dispersion and no settling...
@@ -1508,6 +1511,16 @@ contains
          xnew  = xp + (dax - c1 * sin(wdirr + sangl) + dx_swim) / dxp
          ynew  = yp + (day - c1 * cos(wdirr + sangl) + dy_swim) / dyp
 
+!**      make the depth of the particle from the water surface
+         deppar = 0.0
+         n03d = n0
+         do kd = 1, kpp - 1                     ! volume of layers above
+            deppar = deppar + volume( n03d )    ! particle
+            n03d   = n03d + nmax*mmax
+         enddo
+         deppar = deppar + volume(n03d)*znew    ! + volume above particle
+         deppar = deppar / area(n0)             ! gives depth of particle
+
 !**      floating oil
 
          if ( threed .and. oilmod ) then
@@ -1517,24 +1530,27 @@ contains
                floil( ipart ) = 1             ! oil is floating
                vxw  = - wvelo(n0) * sin( wdirr + sangl )
                vyw  = - wvelo(n0) * cos( wdirr + sangl )
-!             drag on the difference vector: cd * (wind - flow)
+!             drag on the difference vector: cd * (wind - flow), if it is the ibm module, only transport particle close to the surface (less than 0.5 m, forces by input file)
                xnew = xnew  + (cdrag*(vxw-vxr)/dxp) * itdelt    !
                ynew = ynew  + (cdrag*(vyw-vyr)/dyp) * itdelt    !
             endif
          endif
+
+!**      ibm module let wind be used in 3D on near surface particles
+!        hardcoded depth less than 0.5 meters, then the wind is used for additional advection, but only if the wind option for that state is 1
+         if ( wpart(2,ipart) > 0 ) then
+            if ( threed .and. (ibmmod .and. deppar < 0.5d0 .and. wnd_part(int(wpart(2,ipart)))==1 )) then  ! hardcoded depth less than 0.5 meters, then the wind is used for additional advection.
+               vxw  = - wvelo(n0) * sin( wdirr + sangl )
+               vyw  = - wvelo(n0) * cos( wdirr + sangl )
+!                drag on the difference vector: cd * (wind - flow), if it is the ibm module, only transport particle close to the surface (less than 0.5 m, forces by input file)
+               xnew = xnew  + (cdrag*(vxw-vxr)/dxp) * itdelt    !
+               ynew = ynew  + (cdrag*(vyw-vyr)/dyp) * itdelt    !
+            endif
+        endif
+
          znew = zp
 
-!**      make the depth of the particle from the water surface
 !**      this is part of code that aims at bouncing if a particle meets the wall
-
-         deppar = 0.0
-         n03d = n0
-         do kd = 1, kpp - 1                     ! volume of layers above
-            deppar = deppar + volume( n03d )    ! particle
-            n03d   = n03d + nmax*mmax
-         enddo
-         deppar = deppar + volume(n03d)*znew    ! + volume above particle
-         deppar = deppar / area(n0)             ! gives depth of particle
 
          nboomtry = 1
          bouncefirsttry = .true.

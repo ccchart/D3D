@@ -12,7 +12,8 @@ implicit none
 
 contains
       subroutine larvm2 ( lunrep   , itime    , nosegl   , nolay    , nosubs   ,    &
-                          conc     )
+                          conc     , lsettl)              ! sed/erosion switch on or off
+
 
       ! function            : calculate larvae per m2 over the water column, output to map file
 
@@ -24,6 +25,8 @@ contains
       integer(ip), intent(in)    :: nolay               ! number of layers in calculation
       integer(ip), intent(in)    :: nosubs              ! number of substances per particle
       real   (sp), pointer       :: conc  ( : , : )     ! concentration array in transport grid
+      logical (ip),intent(in)    :: lsettl              ! sed/erosion switch on or off
+      
 
       ! function            : calculate larvae per m2 over the water column
 
@@ -35,11 +38,17 @@ contains
       integer, save                     :: notot
       integer                           :: iseg
       integer                           :: isegl
+      integer                           :: nolay_i
       integer                           :: ilay
       integer                           :: isys
       integer                           :: istage
       integer, save                     :: ifirst = 1
 
+      nolay_i = nolay
+      if ( lsettl ) then 
+          nolay_i = nolay + 1
+      endif
+      
       if ( ifirst .eq. 1 ) then
          ifirst = 0
          filmm2    = 'larvae_m2.map'
@@ -50,14 +59,14 @@ contains
          notot     = nosubs + 1
          allocate(syname(nosubs-3))
          allocate(c_m2(nosubs-3,nosegl))
-         syname(1) = 'sole'
+         syname(1) = 'abm_part'
          do isys = 2, nosubs-3
             istage = isys - 1
-            write(syname(isys),'(''sole'',i2.2,''stage'')') istage
+            write(syname(isys),'(''abm_part'',i2.2,''stage'')') istage
          enddo
          open (lunmm2, file=filmm2, form='binary')
          write(lunmm2) moname
-         write(lunmm2) nosubs-3,nosegl*nolay
+         write(lunmm2) nosubs-3,nosegl*nolay_i
          write(lunmm2) syname
       endif
 
@@ -76,9 +85,11 @@ contains
                   c_m2(1,isegl)        = c_m2(1,isegl) + conc(4+istage,iseg)*(conc(notot,iseg)-conc(notot,iseg-nosegl))
                   c_m2(1+istage,isegl) = c_m2(1+istage,isegl) + conc(4+istage,iseg)*(conc(notot,iseg)-conc(notot,iseg-nosegl))
                enddo
-               iseg = isegl + ilay*nosegl
-               c_m2(1,isegl)        = c_m2(1,isegl) + conc(4+istage,iseg)
-               c_m2(1+istage,isegl) = c_m2(1+istage,isegl) + conc(4+istage,iseg)
+               if (nolay == nolay_i -1) then ! if number of layer is larger than nolay there us a sediment layer
+                  iseg = isegl + (ilay-1)*nosegl
+                  c_m2(1,isegl)        = c_m2(1,isegl) + conc(4+istage,iseg)
+                  c_m2(1+istage,isegl) = c_m2(1+istage,isegl) + conc(4+istage,iseg)
+               endif
             enddo
 
          else
@@ -90,12 +101,13 @@ contains
                iseg = isegl + (ilay-1)*nosegl
                c_m2(1,isegl) = c_m2(1,isegl) + conc(1,iseg)*(conc(notot,iseg)-conc(notot,iseg-nosegl))
             enddo
-            iseg = isegl + ilay*nosegl
-            c_m2(1,isegl) = c_m2(1,isegl) + conc(1,iseg)
-
+            if (nolay == nolay_i - 1) then
+               iseg = isegl + (ilay-1)*nosegl
+               c_m2(1,isegl) = c_m2(1,isegl) + conc(1,iseg)
+            endif
          endif
       enddo
-      write(lunmm2) itime, (c_m2, ilay = 1, nolay) ! for consistency with the used lga/cco
+      write(lunmm2) itime, (c_m2, ilay = 1, nolay_i) ! for consistency with the used lga/cco
 
       return
       end subroutine

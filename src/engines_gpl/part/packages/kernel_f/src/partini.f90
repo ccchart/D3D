@@ -83,6 +83,8 @@ contains
       else
          nosubs_ext = 0
       endif
+      !            open( 50, file = idp_file,form = 'FORMATTED', status ='old')
+      nerr = 0
       write (*,*)' Reading initial particle distribution from file'
       do np = 1, nopart_ini
          do i = 1, nosubs
@@ -91,7 +93,9 @@ contains
          
          read (lun_ini,*,end=920,err=930) kpart(np),xpart(np),ypart(np), &
                                         (wpart(i,np),i=1,nosubs_ini),(rdummy,i=1,nosubs_ext)
-         iptime(np)  = 0
+         !iptime(np) = wpart(2, np) * 86400.
+         iptime(np)  = 0 ! assuming one type of ibm species ? is this correct so that particles are only release when they are older than 0 (time her in days)
+         !write(*,*)nosubs_ini, np, iptime(np), wpart(2,np)
 ! now conversion to mnk and local coordinates
 ! transform world coordinates (xx,yy) into cell-coordinates
 ! (xxcel,yycel)
@@ -117,7 +121,7 @@ contains
               zpart(np)     = 0.5   ! top of layer
 
 !            wpart(isub,nopart) = avgmass*conc2(np+1)  !mass of the particle is scaled with the factor in the dataset (to allow for concentration variations)
-              iptime(np)     = 0     ! age of particle
+              iptime(np)     = 0     ! age of particle, not needed to avoid resetting the age
             else
                 npart(np)=1
                 mpart(np)=1

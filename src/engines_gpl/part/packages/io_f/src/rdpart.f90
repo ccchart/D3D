@@ -71,7 +71,7 @@
       character( 32)                 cwork           ! small character workstring
       character(256)                 cbuffer         ! character buffer
       integer  ( ip)                 ibuffer         ! integer buffer
-      integer  ( ip)                 i, j, k         ! loop variables
+      integer  ( ip)                 i, j, k, ibin   ! loop variables
       integer  ( ip)                 ios             ! help variable io-status
       integer  ( ip)                 nodac           ! help variable nodye + nocont
       integer  ( ip)                 ifract          ! help variable oil fractions
@@ -387,7 +387,7 @@
          case ( 6 )
             write ( *, * ) ' You are using the probabilistic density driven settling model '
          case ( 7 )
-            write ( *, * ) ' You are using the general Individual Based Model (IBM)'
+            write ( *, * ) ' You are using the general Agent Based Model (ABM)'
             pblay  = 0.0
          case default
             write(lun2 , 2015) modtyp
@@ -694,7 +694,8 @@
       visc_t1 = 20.0
       sedscreen = .false.
       disp_dir = .false.
-
+      ibm_stoch = .false.
+      stage1_nobins = 0
 
 
       if ( gettoken( cbuffer, id, itype, ierr2 ) .ne. 0 ) then
@@ -709,6 +710,22 @@
             do while (itype .eq. 1)
                call str_lower(cbuffer, len(cbuffer))
                select case (trim(cbuffer))
+               case('ibm_stoch')
+                  if (modtyp /= 7) goto 9110
+                  write ( lun2, '(/a)' ) '  Found keyword "ibm_stoch".'
+                  write ( *   , '(/a)' ) '  Found keyword "ibm_stoch".'
+                  if (gettoken(stage1_nobins, ierr2 ) .ne. 0) goto 9104
+                  write ( lun2, * ) ' Number of bins specified: ',stage1_nobins
+                  write ( * , * )   ' Number of bins specified: ',stage1_nobins
+                  call alloc ( "duration_bin", duration_bin, stage1_nobins ) 
+                  call alloc ( "perc_dehisc", perc_dehisc, stage1_nobins ) 
+                  do ibin =1, stage1_nobins
+                     if (gettoken( duration_bin(ibin), ierr2 ) .ne. 0) goto 9111
+                     if (gettoken( perc_dehisc(ibin) , ierr2 ) .ne. 0) goto 9111
+                     write ( lun2, * ) ' Bin nr, duration, probability (%): ', ibin,  duration_bin(ibin), perc_dehisc(ibin)
+                     write ( *   , * ) ' Bin nr, duration, probability (%): ', ibin,  duration_bin(ibin), perc_dehisc(ibin)
+                  enddo
+                  ibm_stoch = .true.
                case('visc_temp')
                   if (gettoken (visc_t0, ierr2) .ne. 0) goto 9008
                   if (gettoken (visc_t1, ierr2) .ne. 0) goto 9009
@@ -1698,15 +1715,18 @@
          if ( idp_file .ne. ' ' ) then
             write ( *, * ) ' Reading number of initial particles from file:', idp_file(1:len_trim(idp_file))
             write ( lun2, * ) ' Reading number of initial particles from file:', idp_file(1:len_trim(idp_file))
-            call openfl ( lunfil, idp_file, ftype(2), 0 )
 !           get maximum no. of initial particles (nrespart), don't combine ini_oil with this!
             if (modtyp.eq.7) then
+               lunfil = 50
+               open( lunfil , file = idp_file,form = 'FORMATTED', status ='old')
               read ( lunfil , * ) nopart_res, idummy
             else
+              call openfl ( lunfil, idp_file, ftype(2), 0 )
             read ( lunfil ) idummy, nopart_res, idummy
             endif
-            
             close ( lunfil )
+            write( *, * ) ' Found ', nopart_res, ' particles in initial particles file.'            
+            write( lun2, * ) ' Found ', nopart_res, ' particles in initial particles file.'            
             npmax = nopart_res
          endif
          if ( gettoken( nosta, ierr2 ) .ne. 0 ) goto 4031
@@ -3007,6 +3027,12 @@
       call stop_exit(1)
 9107  write(lun2,'(/A,I3,A)') '  Error: ', plmissing, ' plastic(s) is/are not parametrised! '
       write(*   ,'(/A,I3,A)')  ' Error: ', plmissing, ' plastic(s) is/are not parametrised! '
+      call stop_exit(1)
+9110  write(lun2,*) '  Error: abm module not selected (modtyp 7) keyword not allowed'
+      write(*   ,*) '  Error: abm module not selected (modtyp 7) keyword not allowed'
+      call stop_exit(1)
+9111  write(lun2,*) '  Error: abm module reading parameter'
+      write(*   ,*) '  Error: abm module reading parameter'
       call stop_exit(1)
 9201  write(lun2,*) ' Error: expected leftside permeability of screeens!'
       write(*   ,*) ' Error: expected leftside permeability of screeens!'

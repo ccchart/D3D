@@ -18,7 +18,8 @@ contains
                           lgrid2   , lgrid3   , nopart   , npwndw   , nosubs   ,    &
                           npart    , mpart    , kpart    , xpart    , ypart    ,    &
                           zpart    , wpart    , iptime   , wsettl   , locdep   ,    &
-                          nocons   , const    , conc     , xa       , ya       )
+                          nocons   , const    , conc     , xa       , ya       ,    &
+                          lsettl )
 
       ! function  : calculates larval development and behaviour
 
@@ -54,6 +55,8 @@ contains
       real   (sp), pointer       :: conc  ( : , : )     ! concentration array in transport grid
       real   (sp), pointer       :: xa    ( : )         ! x-coordiante in real world
       real   (sp), pointer       :: ya    ( : )         ! y-coordinate in real world
+      logical (ip),intent(in)    :: lsettl              ! sed/erosion switch on or off
+
 
       ! external
 
@@ -244,7 +247,7 @@ contains
 
       if ( itime .ge. it_start_m2 .and. itime .le. it_stop_m2 .and. mod(itime-it_start_m2,idt_m2) .lt. idelt ) then
          call larvm2 ( lunrep   , itime    , nosegl   , nolay    , nosubs   ,    &
-                       conc     )
+                       conc     , lsettl )
       endif
 
       ! every day output position to csv file

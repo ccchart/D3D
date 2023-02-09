@@ -429,6 +429,14 @@ module spec_feat_par
       logical                                                   :: pldenstime
       logical                                                   :: pldragmod
       
+!     ibm module stochastic option
+      logical                  :: ibm_stoch        ! to use stochastic processes within the ibm module
+      integer                  :: stage1_nobins     ! number of bins for the stochastid distribution of stage 1 duration
+      real     ( sp)           , pointer, dimension (:        ) :: duration_bin  !length in days for stage in bins (distribution)
+      real     ( sp)           , pointer, dimension (:        ) :: perc_dehisc   ! percentage for that bin with that duration of duration_bin
+      real     ( sp)           , pointer, dimension (:        ) :: duration_p  ! sstochastic duration for each particle
+      real     ( sp)           , pointer, dimension (:        ) :: wnd_part    ! option to apply wind on this stage (only if 1 and ztop1/ztop[2 = 0)
+
 !     screens
       logical                  :: screens          ! are sceens active
       real     ( sp)           :: permealeft       ! leftside permeability of screeens

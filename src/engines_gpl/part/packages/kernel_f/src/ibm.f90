@@ -10,6 +10,8 @@ use timers
 !use stop_exit_mod           ! explicit interface
 use larvm2_mod              ! explicit interface
 use tidal_state_mod         ! explicit interface
+use spec_feat_par, only: ibm_stoch, stage1_nobins, duration_bin, perc_dehisc, duration_p, wnd_part
+
 !
 implicit none
 
@@ -20,9 +22,9 @@ contains
                           npart    , mpart    , kpart    , xpart    , ypart    ,    &
                           zpart    , wpart    , iptime   , wsettl   , locdep   ,    &
                           nocons   , const    , conc     , xa       , ya       ,    &
-                          angle    , vol1     , vol2     , volume   ,flow     , salin1   ,    &
+                          angle    , vol1     , vol2     , volume   , flow     , salin1   ,    &
                           temper1  , v_swim   , d_swim   , itstrtp  , vel1     ,    &
-                          vel2     )
+                          vel2     , npmax    , lsettl )
 
       ! function  : calculates individual based model specifics
 
@@ -37,6 +39,7 @@ contains
       integer(ip), intent(in)    :: nosegl              ! number segments per layer
       integer(ip), intent(in)    :: nolay               ! number of layers in calculation
       integer(ip), intent(in)    :: mnmaxk              ! total number of active grid cells
+      integer( ip),intent(in   ) :: npmax               !maximum number of particles
       real   (sp), intent(in   ) :: volume( * )         ! grid cell volume (full grid)
       integer(ip), pointer       :: lgrid ( : , : )     ! grid with active grid numbers, negatives for open boundaries
       integer(ip), pointer       :: lgrid2( : , : )     ! total grid
@@ -70,6 +73,7 @@ contains
       integer(ip), intent(in)    :: itstrtp             ! start time
       real   (sp), pointer       :: vel1  ( : )         ! velocity begin hydr step
       real   (sp), pointer       :: vel2  ( : )         ! velocity end hydr step
+      logical (ip),intent(in)    :: lsettl              ! sed/erosion switch on or off
 
       ! from input (const)
 
@@ -99,6 +103,7 @@ contains
       real(sp), allocatable,save :: ampli2(:)            ! amplitude of signal
       real(sp), allocatable,save :: vswim1(:)           ! swim velocity at begin of stage
       real(sp), allocatable,save :: vswim2(:)           ! swim velocity at end of stage
+      
       integer, save              :: istage_nursery      ! stage from where larvae can settle in nursery area
       integer, save              :: layer_release       ! layer where eggs are released
       integer, save              :: it_start_m2         ! start time m2 output
@@ -148,6 +153,7 @@ contains
       integer                    :: n                   ! n
       integer                    :: k                   ! k
       integer                    :: kb                  ! k
+      integer                    :: ibin                ! bin counter
       integer                    :: iseg                ! iseg
       integer                    :: isegl               ! isegl
       integer                    :: isegt               ! isegl
@@ -203,19 +209,44 @@ contains
       logical                    :: thd_n2                 ! thin dam towards n2
       logical                    :: thd_n3                 ! thin dam towards n3
       logical                    :: thd_n4                 ! thin dam towards n4
-
+      real   (sp), external      :: rnd                   ! random number function
+      real   (dp)                :: rbin                    ! random number to select bin
 
       real   , parameter         :: pi = 3.141592654
       real   , parameter         :: twopi = pi*2.0
+      real   (dp)                :: rseed  =  0.5d+00
       integer, parameter         :: nfix               = 9 ! fixed number of constants
-      integer, parameter         :: nvar               =20 ! variable number of constants per stage
+      integer, parameter         :: nvar               =21 ! variable number of constants per stage
 
       integer, save              :: ifirst = 1
       logical, save              :: l_larvae
       integer(4),save            :: ithndl = 0             ! handle to time this subroutine
-
+      real   (sp), save          :: hlength_def(3)         !local definition of herring length classes (in mm), three stages
+      real   (sp), allocatable, save          :: x_prev(:), y_prev(:)    ! x and y of previous timestep to ensure maintaining last x and y when settling
       if ( itime .eq. itstrtp ) then
-
+         allocate (duration_p(npmax))
+         allocate (x_prev(nopart))
+         allocate (y_prev(nopart))
+         x_prev = xa
+         y_prev = ya
+         if ( ibm_stoch ) then
+! here the duration of stage 1 is made stochastic for each particle in the model, 
+         ! if this is invoked then the parameters that fix it are not used TODO
+             write (*,*) ' Setting up stochastic stage 1 duration'
+             do ipart = npwndw, nopart
+                 rbin = rnd(rseed)     ! convert to the percentages used in the bins
+                 ! find bin
+                 ibin = 2 
+                 duration_p(ipart) = 0.0
+                 do while (rbin >= perc_dehisc(ibin-1) / 100. )  
+                   !duration here becomes uniformely distributed within that bin
+                    duration_p(ipart) =  (duration_bin(ibin) - duration_bin(ibin-1)) * rbin + duration_bin(ibin-1)
+                    ibin = ibin +1
+                 ! calculate here the duration per particle once.
+                 ! duration_bin(ibin), perc_dehisc(ibin),stage1_nobins
+                 enddo
+             enddo
+         endif
          if ( nocons .eq. 0 ) then
             write(lunrep,*) ' no constants, no larvae model activated'
             l_larvae = .false.
@@ -262,6 +293,7 @@ contains
          allocate(ztop2(nstage))
          allocate(zbot1(nstage))
          allocate(zbot2(nstage))
+         allocate(wnd_part(nstage))
          allocate(phase(nstage))
          allocate(phase_diurn(nstage))
          allocate(hbtype(nstage))
@@ -269,6 +301,10 @@ contains
          allocate(ampli2(nstage))
          allocate(vswim1(nstage))
          allocate(vswim2(nstage))
+         ! define the length classes in case herring behaviour is selected (three stages)
+         hlength_def(1) = 3.0    !growth in mm in stage 1 for herring
+         hlength_def(2) = 10.0   ! growth in mm in stage 2 for herring
+         hlength_def(3) = 500.0
 
          do istage = 1, nstage
             astage(istage) = const(nfix+(istage-1)*nvar+ 1)
@@ -279,7 +315,7 @@ contains
             tcmort(istage) = const(nfix+(istage-1)*nvar+ 6)
             buoy1(istage)  =-const(nfix+(istage-1)*nvar+ 7)/86400.   !buoyancy with a minus, so positive buoyance is a negative settling units are m/d
             buoy2(istage)  =-const(nfix+(istage-1)*nvar+ 8)/86400.
-            vzact1(istage) =-const(nfix+(istage-1)*nvar+ 9)/86400.
+            vzact1(istage) =-const(nfix+(istage-1)*nvar+ 9)/86400.   !vact also with a minus. meaning for a positive input value, it is rising
             vzact2(istage) =-const(nfix+(istage-1)*nvar+10)/86400.
             ztop1(istage)  = const(nfix+(istage-1)*nvar+11)
             ztop2(istage)  = const(nfix+(istage-1)*nvar+12)
@@ -291,10 +327,14 @@ contains
             hbtype(istage)  = const(nfix+(istage-1)*nvar+18)
             vswim1(istage)  = const(nfix+(istage-1)*nvar+19)
             vswim2(istage)  = const(nfix+(istage-1)*nvar+20)
+            wnd_part(istage) = const(nfix+(istage-1)*nvar+21)
+            if (wnd_part(istage)==1 .and. (ztop1(istage) <= 0.001) .and. (ztop2(istage) <= 0.001)) then ! use 0.001 as tolerance
+               wnd_part(istage)=1
+            else
+               wnd_part(istage)=0
+            endif
+            length(istage) = hlength_def(istage)
          enddo
-         length(1) = 3.0    !growth in mm in stage 1 for herring
-         length(2) = 10.0   ! growth in mm in stage 2 for herring
-         length(3) = 500.0
          allocate(ebb_flow(nosegl))
 
          ! set some stuff hard coded for the moment
@@ -324,7 +364,7 @@ contains
 
       if ( itime .ge. it_start_m2 .and. itime .le. it_stop_m2 .and. mod(itime-it_start_m2,idt_m2) .lt. idelt ) then
          call larvm2 ( lunrep   , itime    , nosegl   , nolay    , nosubs   ,    &
-                       conc     )
+                       conc     , lsettl)
       endif
 
       ! every day output position to csv file
@@ -361,6 +401,10 @@ contains
          isegt3  = lgrid3(n,m)+(k-1)*nosegl
          isegt  = lgrid2(n,m)+(k-1)*nmax*mmax
          volseg = volume(isegt)
+         if ( lsettl ) then
+            x_prev(ipart) = xa(ipart)
+            y_prev(ipart) = ya(ipart)
+         endif
 
          laydep = locdep(lgrid2(n,m),k)
          if( k .ne. 1 ) laydep = laydep - locdep(lgrid2(n,m),k-1)
@@ -397,8 +441,8 @@ contains
          stime  = stime+delt
          wpart(8,ipart)=0.0
 
-         if ( istage .eq. 0 ) then !still at the bottom
-            kpart(ipart) = nolay + 1
+         if ( istage .le. 0 ) then !still at the bottom and not active
+            if (lsettl) kpart(ipart) = nolay + 1
             if ( stime .gt. -(stage+delt) ) then
                stage  = 1.0
                istage = 1
@@ -414,18 +458,24 @@ contains
             b = bstage(istage)
             behaviour_type = btype(istage)
             
-            duration = exp(a+b*stemp) ! general duration curve
-            if (behaviour_type.eq.7) then
+            duration = exp(a+b*stemp) ! general duration curve, this needs to be overruled if ibm_stoch is invoked
+            if (behaviour_type.eq.7 .and. nstage.eq.3) then  ! for herring excaclty three stages are needed
               duration = length(istage)/(a * exp(b*stemp))
             endif
-            
+            if (ibm_stoch .and. istage ==1) then ! only a stochastic duration for stage 1
+              duration = duration_p(ipart)  
+            endif
 !            dur_20mm = 129.17*exp(-0.18*stemp) !in days, to be adapted for each stage
             if ( duration .lt. stime ) then
                istage = istage + 1
                istage = min(istage,5)
                stime  = 0.0
             endif
+            fstage = 0.0
+            if ( duration > 0 ) then
             fstage = stime/duration
+            endif
+                
             stage  = istage + fstage
             ! calculate actual herring length (after stage 0 length 7)
             select case (istage)
@@ -544,7 +594,7 @@ contains
                   zbot  = phase_diurn(istage)*ampli*2+(zbot1(istage)  + fstage*(zbot2(istage)-zbot1(istage))) !needs to be adapated for herring
                   buoy  = buoy1(istage)  + fstage*(buoy2(istage)-buoy1(istage))
                   vzact = vzact1(istage) + fstage*(vzact2(istage)-vzact1(istage))
-                  if ( zdepth .lt. ztop ) then
+                  if ( zdepth .lt. ztop ) then !these are positive values (depths) so this is when higher than parameterised 
                      vz = buoy
                   elseif ( zdepth .gt. ztop + zbot ) then
                      vz = vzact
@@ -754,7 +804,7 @@ contains
 !         if ( nosubs .ge. 4+nstage+3 ) wpart(4+nstage+3,ipart) = sdepth
 
          else
-            ! inactive
+            ! inactive - out of model domain (via the open boundaries)
 
          if ( l_csv_now ) then
             zdepth = -999.
@@ -762,7 +812,7 @@ contains
             ddepth = -999.
             stemp  = -999.
             dtemp  = -999.
-            write(luncsv,'(f10.2,'','',f10.2,5('','',f10.4),2('','',f10.1))') -999.,-999.,zdepth,sdepth,ddepth,stemp,-999.,-999.,-999.
+            write(luncsv,'(f10.2,'','',f10.2,5('','',f10.4),2('','',f10.1))') x_prev(ipart),y_prev(ipart),zdepth,sdepth,ddepth,stemp,-999.,-999.,-999.
          endif
 
          endif

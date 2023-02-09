@@ -177,7 +177,7 @@
                   endif
                   ! introduction of the time dependent density of the plastic, age of the plastic is
                   ! iptime(ipart0 in seconds
-                  if (pldenstime) then
+                  if (pldenstime .and. period_denstime(isub) > 0.0) then
                      rhopart(isub,ipart) = pldensity(isub) -(pldensity(isub)-end_pldenstime(isub)) * &
                                          min(max(0.0, iptime(ipart) / 86400.0e0 - delay_denstime(isub))/period_denstime(isub),1.0)
                   endif

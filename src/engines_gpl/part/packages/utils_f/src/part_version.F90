@@ -34,7 +34,7 @@ implicit none
     character(*),  public, parameter :: part_major        = '3'
     character(*),  public, parameter :: part_minor        = '81'
     character(*),  public, parameter :: part_revision     = '00'
-    character(*),  public, parameter :: part_build_number = '68798M'
+    character(*),  public, parameter :: part_build_number = '141674M'
 
     character(*),  public, parameter :: part_company      = 'Deltares'
     character(*),  public, parameter :: part_company_url  = 'http://www.deltares.nl'

@@ -713,6 +713,19 @@
 !     begin of main time-cycle loop
 
       do itime = itstrtp, itstopp, idelt
+      !      add dye release
+
+         if ( nodye .gt. 0 )           &
+         call part09 ( lun(2)   , itime    , nodye    , nwaste   , mwaste   ,    &
+                       xwaste   , ywaste   , iwtime   , amassd   , aconc    ,    &
+                       npart    , mpart    , xpart    , ypart    , zpart    ,    &
+                       wpart    , iptime   , nopart   , radius   , nrowswaste,   &
+                       xpolwaste           , ypolwaste           , lgrid    ,    &
+                       lgrid2   , nmaxp    , mmaxp    , xb       , yb       ,    &
+                       dx       , dy       , ndprt    , nosubs   , kpart    ,    &
+                       layt     , tcktot   , zmodel   , laytop   , laybot   ,    nplay    , kwaste   , nolayp   ,    &
+                       modtyp   , zwaste   , track    , nmdyer   , substi   ,    &
+                       rhopart)
 
          if ( ibmod .and. idp_file .ne. ' ' .and. itime .eq. iniday*86400 ) then ! release at day iniday - specific for IBM module (modtyp=7) FMK 13-2-2017
 !            call partini( nopart, nosubs, idp_file, wpart  , xpart , &
@@ -871,7 +884,7 @@
                              noconsp  , const    , concp    , xa       , ya       ,    &
                              angle    , vol1     , vol2     , volumep  ,flow     , salin1   ,    &
                              temper1  , v_swim   , d_swim   , itstrtp  , vel1     ,    &
-                             vel2     )
+                             vel2     , npmax    , lsettl)
 
          end select
 
@@ -887,17 +900,17 @@
 
 !      add dye release
 
-         if ( nodye .gt. 0 )           &
-         call part09 ( lun(2)   , itime    , nodye    , nwaste   , mwaste   ,    &
-                       xwaste   , ywaste   , iwtime   , amassd   , aconc    ,    &
-                       npart    , mpart    , xpart    , ypart    , zpart    ,    &
-                       wpart    , iptime   , nopart   , radius   , nrowswaste,   &
-                       xpolwaste           , ypolwaste           , lgrid    ,    &
-                       lgrid2   , nmaxp    , mmaxp    , xb       , yb       ,    &
-                       dx       , dy       , ndprt    , nosubs   , kpart    ,    &
-                       layt     , tcktot   , zmodel   , laytop   , laybot   ,    nplay    , kwaste   , nolayp   ,    &
-                       modtyp   , zwaste   , track    , nmdyer   , substi   ,    &
-                       rhopart)
+!         if ( nodye .gt. 0 )           &
+!         call part09 ( lun(2)   , itime    , nodye    , nwaste   , mwaste   ,    &
+!                       xwaste   , ywaste   , iwtime   , amassd   , aconc    ,    &
+!                       npart    , mpart    , xpart    , ypart    , zpart    ,    &
+!                       wpart    , iptime   , nopart   , radius   , nrowswaste,   &
+!                       xpolwaste           , ypolwaste           , lgrid    ,    &
+!                       lgrid2   , nmaxp    , mmaxp    , xb       , yb       ,    &
+!                       dx       , dy       , ndprt    , nosubs   , kpart    ,    &
+!                       layt     , tcktot   , zmodel   , laytop   , laybot   ,    nplay    , kwaste   , nolayp   ,    &
+!                       modtyp   , zwaste   , track    , nmdyer   , substi   ,    &
+!                       rhopart)
 
 !      add continuous release
 
