@@ -495,6 +495,11 @@ module m_flow1d_reader
          inputfile=''
          call prop_get_string(md_ptr, 'files', svDataKeywords(i), inputfile, success)
          inputfile = md_flow1d_file(1:posslash)//inputfile
+         if (success) then
+            call AddOrReplaceParameter('files', svDataKeywords(i), trim(inputfile), .true.)
+         else 
+            call AddOrReplaceParameter('files', svDataKeywords(i), '', .true.)
+         endif
          if (len_trim(inputfile) > 0) then
             call initSpaceVarMeteo1(inputfile, svDataQuantities(i), i)
          end if
