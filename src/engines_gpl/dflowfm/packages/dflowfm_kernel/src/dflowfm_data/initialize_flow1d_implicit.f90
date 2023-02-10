@@ -133,10 +133,10 @@ double precision                         , pointer :: resid
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
 double precision, dimension(:,:)         , pointer :: hlev
-double precision, dimension(:,:)         , pointer :: bodsed
-double precision, dimension(:,:)         , pointer :: thlyr
+!double precision, dimension(:,:)         , pointer :: bodsed
+!double precision, dimension(:,:)         , pointer :: thlyr
 
-double precision, dimension(:,:,:)       , pointer :: msed
+!double precision, dimension(:,:,:)       , pointer :: msed
 
 type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
 !type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
@@ -191,6 +191,9 @@ double precision, allocatable, dimension(:,:) :: wcl_fm
 double precision, allocatable, dimension(:,:) :: bodsed_o
 double precision, allocatable, dimension(:,:) :: frac_o
 double precision, allocatable, dimension(:,:) :: thlyr_o
+double precision, allocatable, dimension(:,:) :: sedshort_o
+double precision, allocatable, dimension(:,:) :: svfrac_o
+double precision, allocatable, dimension(:,:) :: preload_o
 
 double precision, allocatable, dimension(:,:,:) :: msed_o
 
@@ -219,9 +222,9 @@ juer                   => f1dimppar%juer
 
 !stmpar
 nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-bodsed                 => stmpar%morlyr%state%bodsed
-msed                   => stmpar%morlyr%state%msed
-thlyr                  => stmpar%morlyr%state%thlyr
+!bodsed                 => stmpar%morlyr%state%bodsed
+!msed                   => stmpar%morlyr%state%msed
+!thlyr                  => stmpar%morlyr%state%thlyr
 
 !!
 !! CALC
@@ -792,6 +795,8 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
 !call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(stmpar%morlyr%settings%thtrlyr,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
 
@@ -805,30 +810,57 @@ call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
 !allocate(dbodsd(lsedtot,ndx_mor))
 
     !copy pointers to temporary array
-!we cannot check if allocated because these arrays are not <allocatable>. 
-!if (allocated(bodsed)) then
-!    deallocate(bodsed)
-!endif
+!Variables in <stmpar%morlyr%state> with the initial condition need to be reallocated.
+!we cannot check if allocated because these arrays are not <allocatable>. Also, we 
+!cannot work with a pointer and we have to allocate <stmpar%morlyr%state%val> rather 
+!than creating <val> and point to it. This is because a pointer just points to the 
+!starting address of the variable it points to and allocating does not change that. A
+!different way of seeing it is to think that you should interpret the <alloc> call as
+!```
+!thlyr => new array(nlyr,ndx_mor)).
+!```
+!That's the way in which you would write it in C. Then it's immediately clear that 
+!it's just changing the local pointer and not the associated target pointer.
 
-bodsed_o=bodsed
-allocate(bodsed(lsedtot,ndx_mor))
+!state
+bodsed_o=stmpar%morlyr%state%bodsed
+allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
-msed_o=msed
-allocate(msed(lsedtot,nlyr,ndx_mor))
+msed_o=stmpar%morlyr%state%msed
+allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
 
-thlyr_o=thlyr
-allocate(thlyr(nlyr,ndx_mor))
+thlyr_o=stmpar%morlyr%state%thlyr
+allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
+
+sedshort_o=stmpar%morlyr%state%sedshort
+allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
+
+svfrac_o=stmpar%morlyr%state%svfrac
+allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
+
+preload_o=stmpar%morlyr%state%preload
+allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
+
+!settings
+!thtrlyr_o=stmpar%morlyr%settings%thtrlyr
+!allocate(stmpar%morlyr%settings%thtrlyr(ndx_mor))
+!
+!thexlyr_o=stmpar%morlyr%settings%thexlyr
+!allocate(stmpar%morlyr%settings%thexlyr(ndx_mor))
 
 !allocate
     !copy data from nodes existing in FM
 do kn=1,ndx
     !arrays sediment
     do ksed=1,lsedtot
-        !stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
-        bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
         do klyr=1,nlyr
-            msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
-            thlyr(klyr,kn)=thlyr_o(klyr,kn) !no sediment index, but we save writing another loop
+            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
+            !no sediment index, but we save writing another loop
+            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
+            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
+            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,kn)
         enddo !klyr
     enddo !ksed
 enddo !kn
@@ -837,11 +869,14 @@ enddo !kn
 do kn=ndx+1,ndx_mor    
     !arrays sediment
     do ksed=1,lsedtot
-        !stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
-        bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
         do klyr=1,nlyr
-            msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
-            thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) !no sediment index, but we save writing another loop
+            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
+            !no sediment index, but we save writing another loop
+            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
+            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn))
+            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,grd_fmmv_fmsv(kn)) 
         enddo !klyr
     enddo !ksed
 enddo !kl
@@ -950,6 +985,35 @@ call flow_sedmorinit()
 call reallocate_fill_pointer(pmcrit                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_int(kcsmor  ,grd_fmmv_fmsv,ndx,ndx_mor)
+
+do kn=1,ndx
+    !arrays sediment
+    do ksed=1,lsedtot
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
+       do klyr=1,nlyr
+           stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
+           !no sediment index, but we save writing another loop
+           stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
+           stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
+       enddo !klyr
+    enddo !ksed
+enddo !kn
+
+    !fill
+do kn=ndx+1,ndx_mor    
+    !arrays sediment
+    do ksed=1,lsedtot
+        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
+       do klyr=1,nlyr
+            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
+            !no sediment index, but we save writing another loop
+            stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
+            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn)) 
+       enddo !klyr
+    enddo !ksed
+enddo !kl
 
 ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 
