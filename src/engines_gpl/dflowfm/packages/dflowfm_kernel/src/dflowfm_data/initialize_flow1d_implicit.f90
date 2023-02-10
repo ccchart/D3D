@@ -848,38 +848,46 @@ allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
 !thexlyr_o=stmpar%morlyr%settings%thexlyr
 !allocate(stmpar%morlyr%settings%thexlyr(ndx_mor))
 
-!allocate
-    !copy data from nodes existing in FM
-do kn=1,ndx
-    !arrays sediment
-    do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
-        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
-        do klyr=1,nlyr
-            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
-            !no sediment index, but we save writing another loop
-            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
-            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
-            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,kn)
-        enddo !klyr
-    enddo !ksed
-enddo !kn
+!call reallocate_fill_manual_2(stmpar%morlyr%state%bodsed  ,bodsed_o  ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
+!call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
 
-    !fill
-do kn=ndx+1,ndx_mor    
-    !arrays sediment
-    do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
-        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
-        do klyr=1,nlyr
-            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
-            !no sediment index, but we save writing another loop
-            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
-            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn))
-            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,grd_fmmv_fmsv(kn)) 
-        enddo !klyr
-    enddo !ksed
-enddo !kl
+call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+
+call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
+
+!!allocate
+!    !copy data from nodes existing in FM
+!do kn=1,ndx
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
+!        do klyr=1,nlyr
+!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
+!            !no sediment index, but we save writing another loop
+!            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
+!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
+!            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,kn)
+!        enddo !klyr
+!    enddo !ksed
+!enddo !kn
+!
+!    !fill
+!do kn=ndx+1,ndx_mor    
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
+!        do klyr=1,nlyr
+!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
+!            !no sediment index, but we save writing another loop
+!            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
+!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn))
+!            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,grd_fmmv_fmsv(kn)) 
+!        enddo !klyr
+!    enddo !ksed
+!enddo !kl
 
 !links
     !allocate
@@ -970,12 +978,8 @@ enddo
 !morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
 !It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
 !We have to copy <bodsed> before initialization.
-!griddim%nmub=ndx_mor !This is used for allocating in <rdsed>. We change it here and then back to the original for not messing up with other calls. -> This does not work because the code is only passed if `if (.not. associated(sedpar%sedd50)) then`
+
 call flow_sedmorinit()
-!griddim%nmub=ndx 
-!call allocsedtra(sedtra, stmpar%morpar%moroutput, max(kmx,1), stmpar%lsedsus, stmpar%lsedtot, 1, ndx_mor, 1, lnx_mor, stmpar%morpar%nxx, stmpar%morpar%moroutput%nstatqnt)
-!call inipointers_erosed()
-!call initsedtra(sedtra, stmpar%sedpar, stmpar%trapar, stmpar%morpar, stmpar%morlyr, rhomean, ag, vismol, 1, ndx_mor, ndx_mor, stmpar%lsedsus, stmpar%lsedtot)
 
 !We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
 !call flow_waveinit()
@@ -984,36 +988,44 @@ call flow_sedmorinit()
 !FM1DIMP2DO: Ideally, these variables are allocated in <flow_sedmorinit>
 call reallocate_fill_pointer(pmcrit                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_int(kcsmor  ,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_int    (kcsmor                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 
-do kn=1,ndx
-    !arrays sediment
-    do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
-        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
-       do klyr=1,nlyr
-           stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
-           !no sediment index, but we save writing another loop
-           stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
-           stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
-       enddo !klyr
-    enddo !ksed
-enddo !kn
+call reallocate_fill_manual_2(stmpar%morlyr%state%bodsed  ,bodsed_o  ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
+call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
 
-    !fill
-do kn=ndx+1,ndx_mor    
-    !arrays sediment
-    do ksed=1,lsedtot
-        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
-        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
-       do klyr=1,nlyr
-            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
-            !no sediment index, but we save writing another loop
-            stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
-            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn)) 
-       enddo !klyr
-    enddo !ksed
-enddo !kl
+call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+
+call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
+
+!do kn=1,ndx
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
+!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
+!       do klyr=1,nlyr
+!           stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
+!           !no sediment index, but we save writing another loop
+!           stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
+!           stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
+!       enddo !klyr
+!    enddo !ksed
+!enddo !kn
+!
+!    !fill
+!do kn=ndx+1,ndx_mor    
+!    !arrays sediment
+!    do ksed=1,lsedtot
+!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
+!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
+!       do klyr=1,nlyr
+!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
+!            !no sediment index, but we save writing another loop
+!            stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
+!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn)) 
+!       enddo !klyr
+!    enddo !ksed
+!enddo !kl
 
 ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 

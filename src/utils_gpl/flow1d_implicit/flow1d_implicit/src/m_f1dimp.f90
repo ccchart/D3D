@@ -195,4 +195,78 @@ end subroutine default_fm1dimp
 !END default_fm1dimp
 !
 
+!
+!BEGIN reallocate_fill_manual_3
+!
+
+subroutine reallocate_fill_manual_3(val,val_o,idx_mask,idxi,idxf,idxf1,idxf2)
+
+implicit none
+
+double precision, dimension(:,:,:), intent(inout) :: val
+double precision, dimension(:,:,:), intent(in) :: val_o
+integer, dimension(idxf), intent(in) :: idx_mask
+integer, intent(in) :: idxi, idxf, idxf1, idxf2
+
+integer :: k, k1, k2
+
+    !copy
+do k=1,idxi
+    do k1=1,idxf1 !lsedtot
+       do k2=1,idxf2 !nlyr
+           val(k1,k2,k)=val_o(k1,k2,k)
+       enddo !k2
+    enddo !k1
+enddo !k
+
+    !fill
+do k=idxi+1,idxf    
+    do k1=1,idxf1 !lsedtot
+       do k2=1,idxf2 !nlyr
+            val(k1,k2,k)=val_o(k1,k2,idx_mask(k))
+       enddo !k2
+    enddo !k1
+enddo !kl
+
+end subroutine reallocate_fill_manual_3
+
+!
+!END reallocate_fill_manual_3
+!
+
+!
+!BEGIN reallocate_fill_manual_2
+!
+
+subroutine reallocate_fill_manual_2(val,val_o,idx_mask,idxi,idxf,idxf1)
+
+implicit none
+
+double precision, dimension(:,:), intent(inout) :: val
+double precision, dimension(:,:), intent(in) :: val_o
+integer, dimension(idxf), intent(in) :: idx_mask
+integer, intent(in) :: idxi, idxf, idxf1
+
+integer :: k, k1
+
+    !copy
+do k=1,idxi
+    do k1=1,idxf1 !lsedtot, nlyr
+        val(k1,k)=val_o(k1,k)
+    enddo !k1
+enddo !k
+
+    !fill
+do k=idxi+1,idxf    
+    do k1=1,idxf1 !lsedtot, nlyr
+        val(k1,k)=val_o(k1,idx_mask(k))
+    enddo !k1
+enddo !kl
+
+end subroutine reallocate_fill_manual_2
+
+!
+!END reallocate_fill_manual_2
+!
+
 end module m_f1dimp
