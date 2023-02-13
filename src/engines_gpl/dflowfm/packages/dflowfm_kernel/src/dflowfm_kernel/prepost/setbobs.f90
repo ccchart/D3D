@@ -164,10 +164,10 @@
     call setbobs_1d()
     jaupdbobbl1d = 0 ! update bobs and bl only at initialization. After initialisation bobs should only follow from bl, in particular for morphological updating. When considering nodal relations, some special treatment may be required
  else
-
+    if (.not. stm_included) then
     do L = 1,lnx1D                                       ! 1D
 
-       if (iadv(L) > 20 .and. iadv(L) < 30 .and. (.not. stm_included)) cycle        ! skip update of bobs for structures
+       if (iadv(L) > 20 .and. iadv(L) < 30) cycle        ! skip update of bobs for structures
 
        n1  = ln(1,L)   ; n2 = ln(2,L)                    ! flow ref
        k1  = lncn(1,L) ; k2 = lncn(2,L)                  ! net  ref
@@ -175,19 +175,11 @@
        zn2 = zk(k2)    ; if (zn2 == dmiss) zn2 = zkuni
 
        if ( kcu(L) == 1) then                            ! 1D link
-
           if (ibedlevtyp == 1 .or. ibedlevtyp == 6) then     ! tegeldieptes celcentra ! TODO: [TRUNKMERGE] WO/BJ: do we need stm_included in this if (consistent?)
-             if (stm_included) then
-                bl1      = bl(n1)
-                bl2      = bl(n2)
-                bob(1,L) = max( bl1, bl2 )
-                bob(2,L) = bob(1,L)
-             else ! Old non-MOR code for 1D in models with tiledepths
-                bob(1,L)  = zn1
-                bob(2,L)  = zn2
-                bl(n1)    = zn1
-                bl(n2)    = zn2
-             end if
+             bob(1,L)  = zn1
+             bob(2,L)  = zn2
+             bl(n1)    = zn1
+             bl(n2)    = zn2
           else
              blv = 0.5d0*( zn1 + zn2 )                      ! same as 2D, based on network, but now in flow link dir. In 2D this is net link dir
              bob(1,L)  = blv
@@ -198,6 +190,20 @@
        endif
     enddo
     bob0(:, 1:lnx1d) =bob(:, 1:lnx1d)
+    else !stm_included = true
+       do L = 1,lnx1D                                       ! 1D
+          if (kcu(L) == 1) then                             ! ibedlevtyp == 1 -> implicit in stm_included? 
+             n1  = ln(1,L)   ; n2 = ln(2,L)                 ! flow ref
+             bl1      = bl(n1)
+             bl2      = bl(n2)
+             bob0(1,L) = max( bl1, bl2 )                    ! set bob0 based on bed levels
+             bob0(2,L) = bob0(1,L)
+             if (iadv(L) .le. 20 .or. iadv(L) .ge. 30) then ! update bob when not a structure, else keep value already prescribed or from time series. 
+                bob(:,L) = bob0(:,L)
+             endif 
+          endif
+       enddo
+    endif
  endif
  do L = 1,lnx1D                                       ! 1D
     n1  = ln(1,L)   ; n2 = ln(2,L)                    ! flow ref
