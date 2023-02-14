@@ -221,10 +221,9 @@ grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
 juer                   => f1dimppar%juer
 
 !stmpar
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
 nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-!bodsed                 => stmpar%morlyr%state%bodsed
-!msed                   => stmpar%morlyr%state%msed
-!thlyr                  => stmpar%morlyr%state%thlyr
+endif
 
 !!
 !! CALC
@@ -382,9 +381,11 @@ do kl=1,lnx
 enddo
 
 !FM1DIMP2DO: I am now adapting the input for using the morphodynamic implementation of Pure 1D. However, 
-!I amnot sure it is the best. THis should be revisited with Bert :). 
-stmpar%morpar%mornum%pure1d=1
-call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call it here and it will not be called again because it will be allocated. 
+!I amnot sure it is the best. This should be revisited with Bert :). 
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
+    stmpar%morpar%mornum%pure1d=1
+    call init_1dinfo() !<initialize_flow1d_implicit> is called before <init_1dinfo>. We have to call it here and it will not be called again because it will be allocated. 
+endif 
 
 allocate(link1sign(lnx_max))
 link1sign=1
@@ -412,12 +413,25 @@ endif
 allocate(gridpoint2cross_o(ndx_max))
 do kd=1,ndxi
     gridpoint2cross_o(kd)=gridpoint2cross(kd) 
-    !if (gridpoint2cross_o(kd)%num_cross_sections>1) then
-    !     write (msgbuf, '(a)') 'There is more than 1 cross-section per node (this error should have been captured before).'
-    !     call err_flush()
-    !     iresult=1
-    !endif
-enddo
+    !a junction of only two branches has `num_cross_sections=2` but only one CS
+    if ((gridpoint2cross_o(kd)%num_cross_sections==1).or.(gridpoint2cross_o(kd)%num_cross_sections>2)) then 
+        do k2=1,gridpoint2cross_o(kd)%num_cross_sections
+            if (gridpoint2cross_o(kd)%cross(k2)==-999) then
+                iresult=1
+            endif
+        enddo
+    else !`num_cross_sections=2`
+        if (gridpoint2cross_o(kd)%cross(1)==-999) then !the only one is always in position 1
+            iresult=1
+        endif
+    endif
+enddo !kd
+if (iresult==1) then
+    write (msgbuf, '(a)') 'There is a node without cross-section.'
+    call err_flush()
+    return
+endif
+
 !allocate
 if (allocated(gridpoint2cross)) then
     deallocate(gridpoint2cross)
@@ -795,6 +809,8 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
 !call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
+
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
 call reallocate_fill_pointer(stmpar%morlyr%settings%thtrlyr,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,ndx_mor)
 
@@ -826,20 +842,22 @@ call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,nd
 bodsed_o=stmpar%morlyr%state%bodsed
 allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
-msed_o=stmpar%morlyr%state%msed
-allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
-
-thlyr_o=stmpar%morlyr%state%thlyr
-allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
-
-sedshort_o=stmpar%morlyr%state%sedshort
-allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
-
-svfrac_o=stmpar%morlyr%state%svfrac
-allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
-
-preload_o=stmpar%morlyr%state%preload
-allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
+if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
+    
+    msed_o=stmpar%morlyr%state%msed
+    allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
+    
+    thlyr_o=stmpar%morlyr%state%thlyr
+    allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
+    
+    sedshort_o=stmpar%morlyr%state%sedshort
+    allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
+    
+    svfrac_o=stmpar%morlyr%state%svfrac
+    allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
+    
+    preload_o=stmpar%morlyr%state%preload
+    allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
 
 !settings
 !thtrlyr_o=stmpar%morlyr%settings%thtrlyr
@@ -855,6 +873,10 @@ call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_f
 call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
 
 call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
+
+endif
+
+endif
 
 !!allocate
 !    !copy data from nodes existing in FM
@@ -979,6 +1001,8 @@ enddo
 !It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
 !We have to copy <bodsed> before initialization.
 
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
+    
 call flow_sedmorinit()
 
 !We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
@@ -991,13 +1015,17 @@ call reallocate_fill_pointer(stmpar%morlyr%state%dpsed,grd_fmmv_fmsv,ndx,ndx_mor
 call reallocate_fill_int    (kcsmor                   ,grd_fmmv_fmsv,ndx,ndx_mor)
 
 call reallocate_fill_manual_2(stmpar%morlyr%state%bodsed  ,bodsed_o  ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
-call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
 
-call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
-call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
+    
+    call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
+    
+    call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+    call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+    
+    call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
 
-call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
-
+endif
 !do kn=1,ndx
 !    !arrays sediment
 !    do ksed=1,lsedtot
@@ -1030,6 +1058,8 @@ call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_f
 ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 
 stmpar%morlyr%settings%nmub=ndx_mor
+
+endif
 
 !
 !END (FFMA)
@@ -1585,7 +1615,7 @@ f1dimppar%fm1dimp_debug_k1=1
 
 !we use the pure1d morpho implementation, only data on x!
 !I am not sure that implementation is correct though. 
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
+!if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     !stmpar%morpar%mornum%pure1d=1
     
     !the most downstream link points inside and we have to consider this for the flux.
@@ -1625,7 +1655,7 @@ if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     !    !link1sign2(kl)
     !enddo 
     
-endif !jased
+!endif !jased
 
 !because the <height> is used in the cross-sections of SRE, <shift> cannot be used in cross-section
 
@@ -1644,6 +1674,39 @@ do kd=1,ngrid
     endif
 enddo
 
+if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
+!for some strange reason <frac> seems to not be always fine. I do not know why. 
+!if repeating the run in debug mode, the problem is not there. 
+    
+if (stmpar%morlyr%SETTINGS%IUNDERLYR==1) then
+   
+do kd=1,ndx_mor
+    do ksed=1,lsedtot
+        if (frac(kd,ksed)>1) then
+            write (msgbuf, '(a)') 'Something is wrong with <frac>.'
+            call err_flush()
+            iresult=1
+        endif
+    enddo !ksed
+enddo!kd
+
+!elseif (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
+!    
+!do kd=1,ndx_mor
+!    do ksed=1,lsedtot
+!        do klyr=1,nlyr
+!            if (frac(kd,klyr,ksed)>1) then
+!                write (msgbuf, '(a)') 'Something is wrong with <frac>.'
+!                call err_flush()
+!                iresult=1
+!            endif
+!        enddo !klyr
+!    enddo !ksed
+!enddo!kd
+    
+endif
+
+endif !jased
 !
 !END (CHK)
 !
