@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -34,8 +34,6 @@
 !     FUNCTION            : Reads the binary proces definition file
 !
 !     LOGICAL UNITNUMBERS : LUREP   - report file
-!
-!     SUBROUTINES CALLED  : SRSTOP, stops execution
 !
 !     PARAMETERS          :
 !
@@ -128,19 +126,7 @@
          ELSE
             CALL ZOEK ( PROCID(IPROC), NO_ACT, ACTLST, 10    , IACT  )
             IF ( IACT .GT. 0 ) THEN
-!              ILIC = 0
-!              DO IC = 1 , NCONF
-!                 IPRCNF = (IPROC-1)*NCONF + IC
-!                 IF ( ICNPRO(IPRCNF).GT.0 .AND. LICONF(IC).GT.0 ) THEN
-!                    ILIC = 1
-!                 ENDIF
-!              ENDDO
-!              IF ( ILIC .EQ. 0 ) THEN
-!                 WRITE(LUREP,*)
-!    +               ' ERROR: no valid license for activated process:',
-!    +               PROCID(IPROC)
-!                 CALL SRSTOP(1)
-!              ENDIF
+
                IGET = 1
                ACTUSE(IACT) = 1
             ELSE
@@ -157,9 +143,6 @@
             dis = 0
             vel = 0
             NBPR = NBPR+1
-
-!           write (LUREP,'(''Process: '',a10)') procid(iproc)
-!           write (*,'(''+Process: '',a10)') procid(iproc)
 
 !------------------------------------------------------------------------c
 !           CONSTRUCT PROCESS

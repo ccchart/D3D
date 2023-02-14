@@ -1,4 +1,4 @@
-!!!  Copyright (C)  Stichting Deltares, 2022.
+!!!  Copyright (C)  Stichting Deltares, 2022-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -116,15 +116,15 @@ program maptonetcdf
     allocate( syname(nosys), conc(nosys,noseg) )
     allocate( volume(noseg), iknmrk(noseg) )
     allocate( syunit(nosys), sydesc(nosys), systd(nosys) )
-    allocate( wqid1(nosys,2), wqid2(nosys,2) )
+    allocate( wqid1(nosys,3), wqid2(nosys,3) )
     allocate( extreme(nosys,2) )
 
     read( 11 ) syname
 
     call cleanup_names( syname )
 
-    syunit = '?TODO?'  ! Dummy arrays ...
-    systd  = syname
+    syunit = ''  ! Dummy arrays ...
+    systd  = ''
     sydesc = syname
     iknmrk = 1
     volume = 1.0

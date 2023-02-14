@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -63,7 +63,6 @@
 !
       CALL DHGARG ( 1     , NAME  )
 
-!     write(*,*) 'AM: ',trim(name)
 !
 !     Get filename from steering file Delft3D
 !

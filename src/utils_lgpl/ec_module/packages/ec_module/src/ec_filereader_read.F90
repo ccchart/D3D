@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2022.
+!  Copyright (C)  Stichting Deltares, 2011-2023.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -792,7 +792,7 @@ module m_ec_filereader_read
                end if
             end if
 
-            valid_field = .False.
+            valid_field = (col1 == 0 .and. row1 == 0)
             do while (.not.valid_field)
                ! - 3 - Read a scalar data block.
                if (item%elementSetPtr%nCoordinates == 0) then
@@ -2112,6 +2112,7 @@ module m_ec_filereader_read
          integer                                       :: ierr
          integer                                       :: Nreadrow      !< number of rows read at once
          character(len=:), allocatable                 :: standard_name
+         character(len=64)                             :: stringBuffer
          integer, allocatable                          :: start(:), cnt(:)
 
          ierror = 1
@@ -2178,8 +2179,12 @@ module m_ec_filereader_read
                   if ( ierror /= 0 ) then
                      standard_name = ''
                      ierr = ncu_get_att(fileHandle, varid, 'standard_name', standard_name)
-                     if (ierr /= 0) write(standard_name,*) 'varid = ', varid
-                     call setECMessage("Read error in read_data_sparse for " // trim(standard_name))
+                     if (ierr /= 0) then
+                        write(stringBuffer,*) 'varid = ', varid
+                        call setECMessage("Read error in read_data_sparse for " // trim(stringBuffer))
+                     else
+                        call setECMessage("Read error in read_data_sparse for " // trim(standard_name))
+                     end if
                      goto 1234
                   endif
 

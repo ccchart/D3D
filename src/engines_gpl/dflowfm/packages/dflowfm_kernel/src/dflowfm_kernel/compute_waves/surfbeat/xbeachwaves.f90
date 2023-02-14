@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -1772,13 +1772,14 @@ subroutine xbeach_wave_bc()
       end if
       !
       do n = 1,nwbnd
+         Trep = 1d-1       ! safety for max reduction below
          LL1 = L1wbnd(n)
          LL2 = L2wbnd(n)
          if (LL1>LL2) cycle
          if (jampi==1) then
-            k = ln(2,LL1)
-            if (.not.(idomain(k)==my_rank) .or. LL2==0) then     ! then not a boundary domain, second check is safety
-               Trep = 1d-1       ! safety for max reduction below
+            !k = ln(2,LL1)
+            !if (.not.(idomain(k)==my_rank) .or. LL2==0) then     ! then not a boundary domain, second check is safety
+            if (LL2==0) then
                cycle
             endif
          endif
@@ -5061,8 +5062,8 @@ subroutine baldock (rho,g,alfa,gamma,k,hh,H,T,opt,Dw)
 end subroutine baldock
 !
 !
-! Copyright (C) 2010-2016 Samuel Ponce', Roxana Margine, Carla Verdi, Feliciano Giustino
-! Copyright (C) 2007-2009 Jesse Noffsinger, Brad Malone, Feliciano Giustino
+! Copyright (C) 2010-2023 Samuel Ponce', Roxana Margine, Carla Verdi, Feliciano Giustino
+! Copyright (C) 2007-2023 Jesse Noffsinger, Brad Malone, Feliciano Giustino
 !
 ! This file is distributed under the terms of the GNU General Public
 ! License. See the file `LICENSE' in the root directory of the

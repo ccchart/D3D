@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -139,29 +139,13 @@
          ! Write the version of the netcdf library
          write ( lunut , 2520 ) trim(nf90_inq_libvers())
 
-         ! Open the ugrid-file file
-!        inc_error = nf90_open(ugridf, nf90_nowrite, ncid )
-!        if (inc_error /= nf90_noerr ) then
-!           write ( lunut , 2530 ) trim(ugridf)
-!           goto 800
-!        end if
-!
-!        inc_error = dlwqnc_read_dims( ncid, dimsizes )
-!        if (inc_error /= nf90_noerr ) then
-!           write ( lunut , 2531 ) trim(ugridf)
-!           goto 800
-!        end if
 
          ! Create the new file
-#ifdef NetCDF4
          if ( ncopt(1) == 4 ) then
              inc_error = nf90_create( hncnam, ior(nf90_clobber,nf90_netcdf4), ncidhis )
          else
              inc_error = nf90_create( hncnam, ior(nf90_clobber,nf90_format_classic), ncidhis )
          endif
-#else
-         inc_error = nf90_create( hncnam, nf90_clobber, ncidhis )
-#endif
          if ( inc_error /= nf90_noerr ) then
              write ( lunut , 2560 ) trim(hncnam)
              goto 800
@@ -248,7 +232,7 @@
 
          mesh_name = 'history'
          t0string = moname(4)
-         inc_error = dlwqnc_create_wqtime( ncidhis, mesh_name, t0string, timeid, bndtimeid, ntimeid )
+         inc_error = dlwqnc_create_wqtime( ncidhis, t0string, timeid, bndtimeid, ntimeid )
          if ( inc_error /= nf90_noerr ) then
              write( lunut , 2581)
              goto 800

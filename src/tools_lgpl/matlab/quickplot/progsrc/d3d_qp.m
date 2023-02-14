@@ -6,7 +6,7 @@ function outdata=d3d_qp(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2022 Stichting Deltares.
+%   Copyright (C) 2011-2023 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -1219,11 +1219,16 @@ switch cmd
         d3d_qp updatedatafields
         
     case 'selectdomain'
-        domains=findobj(mfig,'tag','selectdomain');
-        Domains=get(domains,'string');
+        domains = findobj(mfig,'tag','selectdomain');
+        Domains = get(domains,'string');
         if ~isempty(cmdargs)
-            i=ustrcmpi(cmdargs{1},Domains);
-            if i<0
+            if ischar(cmdargs{1})
+                i = ustrcmpi(cmdargs{1},Domains);
+            elseif isnumeric(cmdargs{1})
+                i = cmdargs{1};
+                cmdargs{1} = sprintf('%g',i); % only for error handling
+            end
+            if i < 0 || i > length(Domains)
                 error('Cannot select field: %s',cmdargs{1})
             else
                 set(domains,'value',i);
@@ -2155,10 +2160,8 @@ switch cmd
                         end
                         if isempty(ax)
                             %Parent=qp_createaxes(pfig,'oneplot');
-                            Parent=axes('layer','top','color',qp_settings('defaultaxescolor')/255);
-                            if qp_settings('boundingbox')
-                                set(Parent,'box','on');
-                            end
+                            Parent = axes('Parent',pfig);
+                            qp_defaultaxessettings(Parent)
                         else
                             Parent=ax(1);
                         end
@@ -3084,7 +3087,7 @@ switch cmd
         
     case {'gridview','hidegridview'}
         currentstatus=get(UD.GridView.Fig,'visible');
-        if strcmp(cmd,'hidegridview'),
+        if strcmp(cmd,'hidegridview')
             currentstatus='on';
         end
         switch currentstatus
@@ -3966,6 +3969,15 @@ switch cmd
             auto = strcmp(lbl,'<automatic>');
         end
         %
+        set(XLblAuto,'value',auto)
+        if auto
+            if isappdata(ax,xlbl)
+                rmappdata(ax,xlbl)
+            end
+        else
+            setappdata(ax,xlbl,lbl)
+        end
+        %
         if auto
             lbl = '<automatic>';
             if isappdata(ax,[xlbl 'auto'])
@@ -3991,21 +4003,13 @@ switch cmd
         %
         switch x
             case 'title'
-                title(ax,expanded_lbl)
+                qp_title('update',ax)
             case 'x'
                 xlabel(ax,expanded_lbl)
             case 'y'
                 ylabel(ax,expanded_lbl)
             case 'z'
                 zlabel(ax,expanded_lbl)
-        end
-        set(XLblAuto,'value',auto)
-        if auto
-            if isappdata(ax,xlbl)
-                rmappdata(ax,xlbl)
-            end
-        else
-            setappdata(ax,xlbl,lbl)
         end
         if strcmp(cmd,'title')
             d3d_qp refreshaxes
@@ -4019,7 +4023,7 @@ switch cmd
         
     case 'zoomdown'
         zoom(gcbf,'down');
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'zoomin'
         %  putdowntext('zoomin',gcbo)
@@ -4076,7 +4080,7 @@ switch cmd
             h = zoom(gcbf);
             if strcmpi(get(gcbo,'State'),'on')
                 set(h,'Direction','in')
-                set(h,'ActionPostCallback',@updateaxes);
+                set(h,'ActionPostCallback',@qp_updateaxes);
                 set(h,'Enable','on');
             else
                 set(h,'Enable','off');
@@ -4132,7 +4136,7 @@ switch cmd
             h = zoom(gcbf);
             if strcmpi(get(gcbo,'State'),'on')
                 set(h,'Direction','out')
-                set(h,'ActionPostCallback',@updateaxes);
+                set(h,'ActionPostCallback',@qp_updateaxes);
                 set(h,'Enable','on');
             else
                 set(h,'Enable','off');
@@ -4191,7 +4195,7 @@ switch cmd
         else
             h = pan(gcbf);
             if strcmpi(get(gcbo,'State'),'on')
-                set(h,'ActionPostCallback',@updateaxes);
+                set(h,'ActionPostCallback',@qp_updateaxes);
                 set(h,'Enable','on');
             else
                 set(h,'Enable','off');
@@ -4237,7 +4241,7 @@ switch cmd
             end
         end
         %
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'zoomoutdown'
         WBDZOF = getappdata(gcbf,'WrappedButtonDownZoomOutFcn');
@@ -4276,7 +4280,7 @@ switch cmd
             end
         end
         %
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'zoominup'
         WBUPF = getappdata(gcbf,'WrappedButtonUpZoomInFcn');
@@ -4287,17 +4291,17 @@ switch cmd
             WBUPF = getappdata(gcbf,'WrappedButtonUpZoomInFcn0');
             WBUPF{1}(gcbf,[],WBUPF{2:end})
         end
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'zoomoutup'
         WBUPF = getappdata(gcbf,'WrappedButtonUpZoomOutFcn');
         WBUPF{1}(gcbf,[],WBUPF{2:end})
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'zoominout'
         WBUPF = getappdata(gcbf,'WrappedZoomInOutFcn');
         WBUPF{1}(gcbo,[],WBUPF{2})
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'pandown'
         WBDPF = getappdata(gcbf,'WrappedButtonDownPanFcn');
@@ -4314,12 +4318,12 @@ switch cmd
     case 'panup'
         WBUPF = getappdata(gcbf,'WrappedButtonUpPanFcn');
         WBUPF{1}(gcbf,[],WBUPF{2:end})
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'viewreset'
         WRF = getappdata(gcbf,'WrappedResetFcn');
         WRF{1}(gcbo,[],WRF{2})
-        updateaxes(gcbf,[])
+        qp_updateaxes(gcbf,[])
         
     case 'rotate3d'
         %  putdowntext('rotate3d',gcbo)
@@ -5121,44 +5125,6 @@ if ~isempty(names)
         'Please remove the overruling functions.')
     beep
 end
-
-function updateaxes(obj,evd)
-ax=get(obj,'currentaxes');
-setappdata(ax,'xlimmode','manual')
-setappdata(ax,'ylimmode','manual')
-if ~isempty(ax)
-    basicaxestype=getappdata(ax,'BasicAxesType');
-    if ischar(basicaxestype)
-        switch basicaxestype
-            case {'LimitingFactorsAxes','LimitingFactorsAxes2'}
-                if isequal(basicaxestype,'LimitingFactorsAxes2')
-                    ax2=ax;
-                    ax=getappdata(ax2,'LimitingFactorsAxes');
-                    set(ax,'xlim',get(ax2,'xlim'))
-                else
-                    ax2 = getappdata(ax,'LimitingFactorsAxes');
-                end
-                set(ax,'xticklabelmode','auto','xtickmode','auto');
-                tick(ax,'x','autodate');
-                set(ax2,'xlim',get(ax,'xlim'), ...
-                    'ylim',getappdata(ax2,'YLim'), ...
-                    'xtick',get(ax,'xtick'), ...
-                    'xticklabel',get(ax,'xticklabel'))
-                set(ax,'xticklabel','')
-            otherwise
-                setaxesprops(ax)
-        end
-    end
-end
-lat = getappdata(ax,'linkedaxestype');
-if strcmp(lat,'SecondY')
-    ax2 = getappdata(ax,'linkedaxes');
-    set(ax2,'xlim',get(ax,'xlim'))
-    setaxesprops(ax2)
-end
-mfig=findobj(allchild(0),'flat','tag','Delft3D-QUICKPLOT');
-UD=getappdata(mfig,'QPHandles');
-qp_plotmanager('refreshaxprop',UD)
 
 function clr = str2color(str)
 switch str

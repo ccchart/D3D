@@ -32,9 +32,12 @@ function print_usage_info {
     echo "-n, --numnode <N>"
     echo "       number of nodes, default 1"
     echo "-q, --queue <qname>"
-    echo "       queue, default normal-e3"
+    echo "       queue, default normal-e3-c7"
     echo "-s, --sequential"
     echo "       sequential (non-MPI) run, equivalent to -n 1 -c 1"
+    echo 
+    echo "Starting from the first option that is not in the above list,"
+    echo "all remaining command line options are passed to run_dimr.sh."
     exit 1
 }
 
@@ -49,7 +52,7 @@ corespernodedefault=1
 corespernode=$corespernodedefault
 debuglevel=-1
 configfile=dimr_config.xml
-queue=normal-e3
+queue=normal-e3-c7
 JOBNAME=dimr
 D3D_HOME=
 runscript_extraopts=
@@ -98,7 +101,7 @@ case $key in
     shift
     ;;
     --)
-    echo "-- sign detected, remained options are going to be passed to dimr"
+    echo "-- sign detected, remaining options are going to be passed to dimr"
     runscript_extraopts="$runscript_extraopts $*"
     break       # exit loop, stop shifting, all remaining arguments without dashes handled below
     ;;

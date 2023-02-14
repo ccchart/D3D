@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2017-2022.
+!  Copyright (C)  Stichting Deltares, 2017-2023.
 !
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).
 !
@@ -51,6 +51,7 @@ module m_longculverts
    public reduceFlowAreaAtLongculverts
    public get_valve_relative_opening_c_loc
    public find1d2dculvertlinks
+   public setlongculvert1d2dlinkangles
 
    !> Type definition for longculvert data.
    type, public :: t_longculvert
@@ -1262,6 +1263,26 @@ contains
      end if
    end associate
   end subroutine
+
+  subroutine setLongCulvert1D2DLinkAngles(i)
+  use m_flowgeom, only: csu, snu
+  integer, intent(in) :: i !index of current long culvert (this function is called in a loopt)
   
+  integer :: L 
+  
+  if (longculverts(i)%numlinks >= 3) then
+    L = abs(longculverts(i)%flowlinks(1))
+    if (L > 0) then
+      csu(L) = csu(abs(longculverts(i)%flowlinks(2)))
+      snu(L) = snu(abs(longculverts(i)%flowlinks(2)))
+    endif
+    L = abs(longculverts(i)%flowlinks(longculverts(i)%numlinks))
+    if (L > 0) then
+      csu(L) = csu(abs(longculverts(i)%flowlinks(longculverts(i)%numlinks-1)))
+      snu(L) = snu(abs(longculverts(i)%flowlinks(longculverts(i)%numlinks-1)))
+    endif
+  endif
+
+  end subroutine
 
 end module m_longculverts

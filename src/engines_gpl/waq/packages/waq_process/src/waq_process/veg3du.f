@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -152,7 +152,6 @@
 
          call dhkmrk(1,iknmrk(iseg),ikmrk1)
          call dhkmrk(2,iknmrk(iseg),ikmrk2)
-!         if (ikmrk1.eq.1 .or. ikmrk1 .eq. 3) then !=> NO TESTING ON IKMRK1, PROCESS IS ALLWAYS ON!
 
          ibotseg     = NINT(pmsa(ipnt(4)))
          inicovvbxx  = pmsa(ipoint( 19)+(ibotseg-1)*increm( 19)) / 100.

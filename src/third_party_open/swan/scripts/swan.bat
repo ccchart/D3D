@@ -7,6 +7,7 @@ if exist swan_bat.log del swan_bat.log
 
 set swanexec=%~dp0\..\bin\swan_omp.exe
 set PATH=%~dp0\..\bin;%PATH%
+set PATH=%~dp0\..\..\share\bin;%PATH%
 
 rem
 set OMP_NUM_THREADS_BACKUP=%OMP_NUM_THREADS%
@@ -37,24 +38,13 @@ del Errfile >>swan_bat.log 2>&1
 if exist errpts (
 del errpts >>swan_bat.log 2>&1
 )
-if exist %1.erf (
-del %1.erf >>swan_bat.log 2>&1
-)
-if exist %1.erp (
-del %1.erp >>swan_bat.log 2>&1
-)
+
+
 if not exist INPUT goto error1
 if not exist "%swanexec%" goto error2
 
 "%swanexec%" >>swan_bat.log
 
-copy PRINT %1.prt >>swan_bat.log 2>&1
-if exist errfile (
-copy errfile %1.erf >>swan_bat.log 2>&1
-)
-if exist errpts (
-copy errpts %1.erp >>swan_bat.log 2>&1
-)
 if exist swaninit (
 del swaninit >>swan_bat.log 2>&1
 )

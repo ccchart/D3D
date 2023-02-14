@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -298,7 +298,7 @@
         call TEKFN(4, 8, 1, turkin1(Lb0:Lt), hwref  , Lm1, vmin, vmax, zmin, zmax, KLPROF, 'tkin1'      , 0, 2 , 0d0,kplot+1)
      endif
 
-     if (jasal > 0 .and. jatem > 0 .and. idensform > 0)  then
+     if (jasal > 0 .and. jatem > 0 .and. idensform < 0)  then
         if (idensform == 13) then 
            do k = kb,kt
               rhop0 = setrhofixedp(k,0d0)
@@ -307,7 +307,7 @@
            call getvminmax(5,vmin,vmax,dijdij(1:km), km)
            call TEKFN(5,10, 1, dijdij(1:km) , hcref  , km, vmin, vmax, zmin, zmax, KLPROF, 'rhopot' , 1, 2 , 0d0,kplot)
         else         
-        call getvminmax(6,vmin,vmax,rho(kb:), kt-kb+1)
+           call getvminmax(6,vmin,vmax,rho(kb:), kt-kb+1)
            call TEKFN(5,10, 1, rho(kb:kt)  , hcref  , km, vmin, vmax, zmin, zmax, KLPROF, 'rhopot' , 1, 2 , 0d0,kplot)
         endif
      else
@@ -320,21 +320,7 @@
 
   endif
 
-
-  if (jasal > 0) then
-
-     vmin =  1d6 ; vmin = min(vmin, minval(constituents(iconst_cur,kb:kt)) )
-     vmax = -1d6 ; vmax = max(vmax, maxval(constituents(iconst_cur,kb:kt)) , vmin+1d-5 )
-     call TEKFN(6,11, 1, constituents(isalt, kb:kt) , hcref  , km, vmin, vmax, zmin, zmax, KLPROF, 'sal' , 1, 2 , 0d0,kplot)
-
-    ! do k = kb,kt-1
-    !    kk     = k-kb+1
-    !    drhodz    = ( rho(k+1) - rho(k) ) / (hcref(kk+1) - hcref(kk))
-    !    rhomea    = 0.5d0*( rho(k+1) + rho(k) )
-    !    bruva(kk) = coefn2*drhodz
-    ! enddo
-  
-  else if ( iconst_cur.gt.0 .and. iconst_cur.le.NUMCONST ) then
+  if ( iconst_cur.gt.0 .and. iconst_cur.le.NUMCONST ) then
 
       vmin =  1d2
       vmax = -1d2
@@ -382,7 +368,7 @@
         rhomea  = 0.5d0*( rho(k+1) + rho(k) )
         dijdij(kk) = -ag*drhodz/rhomea
      enddo
-     dijdij(0) = 0d0 ;       dijdij(km) = 0d0
+     dijdij(0) = 0d0 ;       dijdij(km) = dijdij(km-1) 
      vmin = minval(dijdij(1:km-1))
      vmax = maxval(dijdij(1:km-1))
      if (abs(vmin) < vmax) vmin = -vmax

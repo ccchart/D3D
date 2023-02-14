@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -162,9 +162,6 @@ boundio: &
         ! copy boundaries from other domains to the boundaries of this domain
 
         bound = wqParComm % bndget
-
-        ! if last step close communications, clean up datasets
-    !   call WQParClose(wqParComm) ! jvb waar zetten we deze, of een if met de tijd, of buiten deze routine wqParComm wordt dan argument
 
     endif boundio
 

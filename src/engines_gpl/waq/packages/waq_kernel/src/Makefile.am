@@ -22,12 +22,10 @@ FMODULES += \
         -I$(top_builddir)/engines_gpl/part/packages/io_f/src/ \
         -I$(top_builddir)/engines_gpl/part/packages/kernel_f/src/ \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/waq_utils \
-        -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_timings \
-        -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/mod_couplib \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_utils_f/src/dlwq_netcdf \
 		-I$(top_builddir)/engines_gpl/waq/packages/waq_process/src/bloom \
         -I$(top_builddir)/engines_gpl/waq/packages/waq_plugin_wasteload/src/ \
-        -I$(top_builddir)/utils_lgpl/delftio/packages/delftio/src/diof90 \
+        -I$(top_builddir)/engines_gpl/waq/packages/waq_delftio/packages/waq_delftio/src/diof90 \
 	-I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src/rd_token \
 	-I$(top_builddir)/utils_lgpl/deltares_common/packages/deltares_common/src
 
@@ -65,13 +63,9 @@ libWaqKernel_la_SOURCES = \
        dlconv.f \
        dldifu.f \
        dlflux.f \
-       dlforf.f \
        dlinit.f \
        dlmasb.f \
        dltest.f \
-       dlwq10.f \
-       dlwq11.f \
-       dlwq12.f \
        dlwq13.f \
        dlwq14.f \
        dlwq15.f \
@@ -88,7 +82,6 @@ libWaqKernel_la_SOURCES = \
        dlwq42.f \
        dlwq43.f \
        dlwq44.f \
-       dlwq45.f \
        dlwq46.f \
        dlwq50.f \
        dlwq51.f \
@@ -137,7 +130,6 @@ libWaqKernel_la_SOURCES = \
        dlwqh3.f \
        dlwqh6.f90 \
        dlwqi2.f \
-       dlwqia.f \
        dlwqib.f \
        dlwqio.f \
        dlwqip.f \
@@ -150,7 +142,6 @@ libWaqKernel_la_SOURCES = \
        dlwqm3.f \
        dlwqm4.f \
        dlwqm5.f \
-       dlwqm6.f \
        dlwqm7.f \
        dlwqm8.f \
        dlwqn0.f \
@@ -179,25 +170,17 @@ libWaqKernel_la_SOURCES = \
        dlwqnq.f \
        dlwqo2.f \
        dlwqo0.f \
-       dlwqpp.f \
        dlwqp0.f \
        dlwqt0.f \
        dlwqt1.f \
        dlwqt2.f \
        dlwqt3.f \
        dlwqt4.f \
-       dlwqt5.f \
        dlwqta.f \
        dlwqtb.f \
-       dlwqtc.f \
        dlwqtd.f \
        dlwqtk.f \
-       dlwqwq.f \
-       dlwqwx.f \
-       dlwqwy.f \
-       dlwsol.f \
        dmpval.f \
-       dumpconc.f \
        dryfld.f90 \
        dwtest.f \
        fioraa.f \
@@ -233,9 +216,6 @@ libWaqKernel_la_SOURCES = \
        psolve.f \
        putper.f \
        raatra.f \
-       saxpy.f \
-       scopy.f \
-       sdot.f \
        setset.f \
        sgemv.f \
        sgmres.f90 \
@@ -243,7 +223,6 @@ libWaqKernel_la_SOURCES = \
        sobbal.f \
        srot.f \
        srotg.f \
-       sscal.f \
        stepyn.f \
        strsv.f \
        usolve.f \

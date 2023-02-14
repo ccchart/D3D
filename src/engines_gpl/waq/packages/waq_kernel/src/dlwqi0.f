@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -60,7 +60,6 @@
       use waqmem
       use delwaq2_data
       use timers
-      use m_couplib
       use workspace
       use string_module  ! string manipulation tools
       use m_sysn          ! System characteristics
@@ -98,8 +97,6 @@
       CHARACTER*4   cext                          ! inital conditions file extention
 
       INTEGER       IERRIO
-
-      logical, save :: init_ixset = .true.
 
 !     Common to define external communications in SOBEK
 !     OLCFWQ             Flag indicating ONLINE running of CF and WQ
@@ -151,24 +148,13 @@
 !     This step is lacking in the original SRW version of SOBEK-RE
 !     ERRONEOUSLY!!
 
-!         write (*,*) ' GETPER CFtoWQ'
           call getpcf('CFtoWQ','DataCFtoWQ')
-!         write (*,*) ' DONE '
-!         write (*,*) ' Received permission to Start WQ i=0 '
       ENDIF
 
       IF ( OLCFWQ .OR. SRWACT ) THEN
 !         Pass the stick to WQInt and wait for it to come back! (0)
-!         write (*,*) ' Start WQI i=0'
-!          read  (*,*)
-!         write (*,*) ' PUTPEV WQtoWQI'
           call putpev ('WQtoWQI','DataWQtoWQI',0)
-!         write (*,*) ' DONE '
-!         write (*,*) ' GETPER WQItoWQ'
           call GETPER ('WQItoWQ','DataWQItoWQ')
-!         write (*,*) ' DONE '
-!         write (*,*) ' Stop WQI i=0 '
-!          read  (*,*)
       ENDIF
 !
 !     open binary system files for new input processing, if any
@@ -223,7 +209,7 @@
          CALL DLWQIO ( LUN(25) , LCHAR(25), LUN(19) , NOUTP   , NRVART  ,
      +                 NBUFMX  , J(IIOUT) , J(IIOPO), C(IONAM), C(IOSNM),
      +                 C(IOUNI), C(IODSC) , NOTOT   , C(ISSNM), C(ISUNI),
-     +                 C(ISDSC), LUN      , LCHAR   , MYPART  , IERR    )
+     +                 C(ISDSC), LUN      , LCHAR   , IERR    )
          CLOSE ( LUN(25) )
       ENDIF
 !
@@ -277,23 +263,10 @@
          enddo
       ENDIF
       CLOSE ( LUN( 8) )
-!
-!     determine mesh/grid partitioning for parallel computing
-!
-      CALL PARTIT ( LUN(19) , NOSSS   , NOLAY   , NOQTT   , J(IXPNT),
-     +              MYPART  , NPARTp  , J(IOWNS), J(IOWNQ), INTSRT  )
+
 
       IBFLAG = 0
       IF ( MOD(INTOPT,16) .GE. 8 ) IBFLAG = 1
-
-      if ( init_ixset ) then
-          init_ixset = .false.
-          CALL IXSETS ( LUN(19) , MYPART  , NOTOT   , NOSYS   ,
-     +                  NOSSS   , NOQ     , J(IXPNT), J(IOWNS),
-     +                  J(IOWNQ), NDMPAR  , NDMPS   , NTDMPQ  ,
-     +                  NDMPQ   , IBFLAG  , J(ISDMP), J(IPDMP),
-     +                  J(IQDMP) )
-      endif
 
 !
 !     locally/per processor adapt the feature array:
@@ -303,7 +276,7 @@
 !        feature 4 == segment belongs to own processor
 !
 
-      CALL CHKNMR ( LUN(19) , MYPART , nosss  , J(IOWNS) , J(IKNMR) )
+      CALL CHKNMR ( LUN(19) , nosss  , J(IKNMR) )
 
       ! determine top of the vertcical columns
 
@@ -373,17 +346,9 @@
 
       IF ( OLCFWQ ) THEN
 !     Synchronizing with CF(0) for on-line mode outside SRW only
-!         write (*,*) ' Stop WQ i=0 '
-!          read  (*,*)
-!         write (*,*) ' PUTPER WQtoCF'
           call putpcf('WQtoCF','DataWQtoCF')
-!         write (*,*) ' DONE '
 !     Synchronizing with CF(1) for on-line mode outside SRW only
-!         write (*,*) ' GETPER CFtoWQ'
           call getpcf('CFtoWQ','DataCFtoWQ')
-!         write (*,*) ' DONE '
-!         write (*,*) ' Start WQ i=1 '
-!          read  (*,*)
       ENDIF
 
 !         first read of relevant time varying arrays
@@ -392,16 +357,8 @@
 
       IF ( SRWACT .OR. OLCFWQ ) THEN
 !     Pass the stick to WQInt and wait for it to come back! (1)
-!         write (*,*) ' Start WQI i=1'
-!          read  (*,*)
-!         write (*,*) ' PUTPEV WQtoWQI'
           call putpev ('WQtoWQI','DataWQtoWQI',0)
-!         write (*,*) ' DONE '
-!         write (*,*) ' GETPER WQItoWQ'
           call GETPER ('WQItoWQ','DataWQItoWQ')
-!         write (*,*) ' DONE '
-!         write (*,*) ' Stop WQI i=1 '
-!          read  (*,*)
       ENDIF
 
       CALL DLWQT0 ( LUN     , ITSTRT  , ITIMEL  , A(IHARM), A(IFARR),
@@ -419,7 +376,6 @@
       call delpar00 ( lchar(45), noseg    , noq      , a(ivol)  , a(iflow) ,
      &                nosfun   , c(isfna) , a(isfun) )
 
-      if (mypart .eq.1) then
 !
 !     New bottomlayer processing
 !
@@ -431,7 +387,6 @@
      *                      C(ISFNA), J(IXPNT), A(IVOL ), A(IAREA), A(IFLOW),
      *                      A(ILENG))
 !
-      end if
 
       IF ( INTSRT .EQ. 6 .OR. INTSRT .EQ. 7 ) THEN
          NOSUBz = NOTOT
@@ -490,34 +445,11 @@
       endif
 
 !         deal with z-layers (inactive cells at the bottom side of the water column
-
-!     open  ( 336, file='kenmerk-test1.out', recl=8575 )
-!     write ( 336, '(2143i4)' ) (j(iknmr+k),k=0,noseg-1)
-!     open  ( 337, file='frmto-test1.out', recl=24040 )
-!     write ( 337, * ) 'FROM horizontaal'
-!     write ( 337, '(6009i4)' ) (j(ixpnt+k  ),k=0,(noq1+noq2)*4, 4 )
-!     write ( 337, * ) 'TO   horizontaal'
-!     write ( 337, '(6009i4)' ) (j(ixpnt+k+1),k=0,(noq1+noq2)*4, 4 )
-!     write ( 337, * ) 'FROM vertikaal'
-!     write ( 337, '(2143i4)' ) (j(ixpnt+k  ),k=(noq1+noq2)*4,noq*4-1,4)
-!     write ( 337, * ) 'TO   vertikaal'
-!     write ( 337, '(2143i4)' ) (j(ixpnt+k+1),k=(noq1+noq2)*4,noq*4-1,4)
       call zlayer ( noseg    , nosss    , nosys    , notot    , nolay    ,
      &              a(ivol)  , noq1+noq2, noq      , a(iarea) , nocons   ,
      &              c(icnam) , a(icons) , nopa     , c(ipnam) , a(iparm) ,
      &              nosfun   , c(isfna) , a(isfun) , a(iconc) , a(imass) ,
      &              j(iknmr) , iknmkv   , j(ixpnt) )
-!     open  ( 338, file='kenmerk-test2.out', recl=8575 )
-!     write ( 338, '(2143i4)' ) (j(iknmr+k),k=0,noseg-1)
-!     open  ( 339, file='frmto-test2.out', recl=24040 )
-!     write ( 339, * ) 'FROM horizontaal'
-!     write ( 339, '(6009i4)' ) (j(ixpnt+k  ),k=0,(noq1+noq2)*4, 4 )
-!     write ( 339, * ) 'TO   horizontaal'
-!     write ( 339, '(6009i4)' ) (j(ixpnt+k+1),k=0,(noq1+noq2)*4, 4 )
-!     write ( 339, * ) 'FROM vertikaal'
-!     write ( 339, '(2143i4)' ) (j(ixpnt+k  ),k=(noq1+noq2)*4,noq*4-1,4)
-!     write ( 339, * ) 'TO   vertikaal'
-!     write ( 339, '(2143i4)' ) (j(ixpnt+k+1),k=(noq1+noq2)*4,noq*4-1,4)
 
 !     temporary for closure error
 

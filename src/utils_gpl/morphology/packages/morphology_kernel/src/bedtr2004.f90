@@ -11,7 +11,7 @@ subroutine bedtr2004(u2dh      ,d50       ,d90       ,h1        ,rhosol    , &
                    & r         ,phi_phase ,uw_lt     )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2022.                                
+!  Copyright (C)  Stichting Deltares, 2011-2023.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -434,7 +434,11 @@ subroutine bedtr2004(u2dh      ,d50       ,d90       ,h1        ,rhosol    , &
           !
           ! Gamma has been reduced from 0.2 in TR2000 to 0.1 in TR2004
           !
-          ua    = 0.1_fp * p2 * (uon**4-uoff**4) / (uon**3+uoff**3)
+          if (abs(uon+uoff) < 1e-6_fp) then
+             ua = 0.0_fp
+          else
+             ua = 0.1_fp * p2 * (uon**4-uoff**4) / (uon**3+uoff**3)
+          endif
           uau   = ua * cosphiwav
           uav   = ua * sinphiwav
           !

@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -32,7 +32,7 @@
 
    !----- AGPL --------------------------------------------------------------------
    !
-   !  Copyright (C)  Stichting Deltares, 2017-2022.
+   !  Copyright (C)  Stichting Deltares, 2017-2023.
    !
    !  This file is part of Delft3D (D-Flow Flexible Mesh component).
    !
@@ -119,6 +119,7 @@
    ! morpar
    real(fp)                             , pointer :: thresh
    real(fp)                             , pointer :: sus
+   real(fp)                             , pointer :: suscorfac
    real(fp)                             , pointer :: bed
    real(fp)                             , pointer :: susw
    real(fp)                             , pointer :: sedthr

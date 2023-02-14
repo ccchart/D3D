@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -50,10 +50,8 @@
 !                          lun(23) , output, unformatted dump file
 !
 !     subroutines called : dlwqtr, user transport routine
-!                          dlwqwq, user waterquality routine
 !                          proces, delwaq proces system
 !                          dlwqo2, delwaq output system
-!                          dlwqpp, user postprocessing routine
 !                          dlwq13, system postpro-dump routine
 !                          dlwq14, scales waterquality
 !                          dlwq15, wasteload routine
@@ -106,8 +104,7 @@
       type(GridPointerColl)       :: GridPs     !< collection of all grid definitions
 
 !$    include "omp_lib.h"
-
-
+      
 !     common to define external communications in SOBEK
 !     olcfwq             flag indicating ONLINE running of CF and WQ
 !     srwact             flag indicating active data exchange with SRW
@@ -286,8 +283,7 @@
      &                 a(ileng) , a(iconc) , a(idisp) , a(icons) , a(iparm) ,
      &                 a(ifunc) , a(isfun) , a(idiff) , a(ivelo) , itime    ,
      &                 idt      , c(isnam) , nocons   , nofun    , c(icnam) ,
-     &                 c(ipnam) , c(ifnam) , c(isfna) , update   , ilflag   ,
-     &                 npartp   )
+     &                 c(ipnam) , c(ifnam) , c(isfna) , update   , ilflag   )
          if ( update ) updatr = .true.
 
 !jvb  Temporary ? set the variables grid-setting for the DELWAQ variables
@@ -324,16 +320,10 @@
      &                 j(ivtda), j(ivdag), j(ivtag), j(ivagg), j(iapoi),
      &                 j(iaknd), j(iadm1), j(iadm2), j(ivset), j(ignos),
      &                 j(igseg), novar   , a       , nogrid  , ndmps   ,
-     &                 c(iprna), intsrt  , j(iowns), j(iownq), mypart  ,
+     &                 c(iprna), intsrt  ,
      &                 j(iprvpt), j(iprdon), nrref , j(ipror), nodef   ,
      &                 surface  ,lun(19) )
 
-!     add user defined routine
-         call dlwqwq ( notot   , nosys   , noseg   , nopa    , nosfun  ,
-     &                 a(ivol) , a(iconc), a(icons), a(iparm), a(ifunc),
-     &                 a(isfun), a(iderv), itime   , idt     , a(ismas),
-     &                 ibflag  , c(isnam), nocons  , nofun   , c(icnam),
-     &                 c(ipnam), c(ifnam), c(isfna), nodump  , j(idump))
 
 !     communicate boundaries
          call dlwq_boundio( lun  (19), notot   , nosys   , noseg   , nobnd   ,
@@ -362,7 +352,7 @@
      &                 a(iconc), a(icons), a(iparm), a(ifunc), a(isfun),
      &                 a(ivol) , nocons  , nofun   , idt     , noutp   ,
      &                 lchar   , lun     , j(iiout), j(iiopo), a(iriob),
-     &                 c(iosnm), c(iouni), c(iodsc), c(issnm), c(isuni), c(isdsc), 
+     &                 c(iosnm), c(iouni), c(iodsc), c(issnm), c(isuni), c(isdsc),
      &                 c(ionam), nx      , ny      , j(igrid), c(iedit),
      &                 nosys   , a(iboun), j(ilp)  , a(imass), a(imas2),
      &                 a(ismas), nflux   , a(iflxi), isflag  , iaflag  ,
@@ -380,7 +370,7 @@
      &                 c(ibtyp), j(intyp), c(icnam), noq     , j(ixpnt),
      &                 intopt  , c(ipnam), c(ifnam), c(isfna), j(idmpb),
      &                 nowst   , nowtyp  , c(iwtyp), j(iwast), j(inwtyp),
-     &                 a(iwdmp), iknmkv  , j(iowns), mypart  , isegcol )
+     &                 a(iwdmp), iknmkv  , isegcol )
 
 ! zero cumulative arrays
          if ( imflag .or. ( ihflag .and. noraai .gt. 0 ) ) then
@@ -404,8 +394,7 @@
 
 !     add processes
          call dlwq14 ( a(iderv), notot , noseg   , itfact, a(imas2),
-     &                 idt     , iaflag, a(idmps), intopt, j(isdmp),
-     &                 j(iowns), mypart)
+     &                 idt     , iaflag, a(idmps), intopt, j(isdmp))
 
 !     get new volumes
          itimel = itime
@@ -423,7 +412,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivoll),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivol2), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivol2), dlwqd   )
                call dlwqf8 ( noseg   , noq     , j(ixpnt), idt     , iknmkv  ,
      &                       a(ivol ), a(iflow), a(ivoll), a(ivol2))
                updatr = .true.
@@ -434,7 +423,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivol2),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivoll), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivoll), dlwqd   )
          end select
 
 !     Update the info on dry volumes with the new volumes        ( dryfle )
@@ -458,7 +447,7 @@
      &                 j(inwtyp), j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv   , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ), a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp) , 1        , notot    , j(iowns ), mypart   )
+     &                 a(iwdmp) , 1        , notot     )
 
 !          Here we implement a loop that inverts the same matrix
 !          for series of subsequent substances having the same

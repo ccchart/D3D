@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -58,31 +58,24 @@
 
  integer          :: kk, k, nodval,N,L, k2
  double precision :: uu, seq(mxgr), wse(mxgr),hsk, dum, czc, taucurc,ustw2,U10,FetchL,FetchD,rkk, shs
- real(fp)       , dimension(:,:)   , pointer :: bedtmp
+ ! real(fp)       , dimension(:,:)   , pointer :: bedtmp
  integer :: istat, jawaveswartdelwaq_local
  double precision, external :: sinhsafei
 
  nodval = ndraw(28)
-
+ znod   = DMISS
  if ( kk.lt.1 ) then
-    znod = DMISS
-    return
+     return
  end if
-
- if (flowWithoutWaves) then
-    jawaveswartdelwaq_local = 0
- else
-    jawaveswartdelwaq_local = jawaveswartdelwaq
- endif
 
  k = kk
  if (kmx > 0) then
     if (kplotordepthaveraged == 1) then
        call getktoplot(kk,k)
+       if (k < 0) return
     endif
  endif
 
- znod = dmiss
 
  !if ( jampi.eq.1 ) then
  !   if ( idomain(k).ne.my_rank ) return
@@ -223,6 +216,11 @@ else if (nodval == 27) then
 
  else if (nodval == 39) then
 
+    if (flowWithoutWaves) then
+       jawaveswartdelwaq_local = 0
+    else
+       jawaveswartdelwaq_local = jawaveswartdelwaq
+    endif
     call gettau(kk, znod, czc, jawaveswartdelwaq_local)
 
  else if (nodval == 40) then
@@ -242,7 +240,11 @@ else if (nodval == 27) then
        znod = constituents(iconst_cur,k)
     end if
  else if (nodval == 46) then
-    znod =  turkinepsws(1,k)
+    if ( allocated(FrcInternalTides2D) ) then
+       znod = FrcInternalTides2D(kk)
+    else
+       znod = turkinepsws(1,k)
+    endif
  else if (nodval == 47 .and. (jagrw > 0 .or. jadhyd > 0)) then
     select case (grwhydopt)
     case (1) ! Ground water pressure

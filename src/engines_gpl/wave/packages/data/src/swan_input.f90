@@ -1,7 +1,7 @@
 module swan_input
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2022.                                
+!  Copyright (C)  Stichting Deltares, 2011-2023.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -262,7 +262,7 @@ module swan_input
        logical                                 :: varfri
        logical                                 :: windgrowth
        logical                                 :: flowLinkConnectivity ! false: (default) use netlink connectivity from DFlowFM, true: use flowlink connectivity from DFlowFM
-       logical                                 :: keepinput 
+       logical                                 :: keepinput
        !
        real                                    :: alpw
        real                                    :: alfa
@@ -2587,7 +2587,7 @@ subroutine write_swan_inp (wavedata, calccount, &
     integer                     :: rindx
     integer                     :: sect
     integer                     :: shape
-    integer                     :: loc    
+    integer                     :: loc
     integer                     :: nuerr
     logical                     :: exists
     logical                     :: frame
@@ -3767,7 +3767,6 @@ subroutine write_swan_inp (wavedata, calccount, &
     if (sr%output_points) then
        do loc = 1, sr%nloc
           pointname = get_pointname(sr%pntfilnam(loc))
-          pointname = get_pointname(sr%pntfilnam(loc))
 
           line(1:7)       = 'POINTS '
           i               = 8
@@ -3960,7 +3959,7 @@ subroutine write_swan_inp (wavedata, calccount, &
     !========================================================================================================== CUT HERE start
     ! replaced code
     !========================================================================================================== CUT HERE stop
-!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------    
     !
     !     Compute and test parameters
     !
@@ -3971,7 +3970,7 @@ subroutine write_swan_inp (wavedata, calccount, &
     line(36:)   = ' '
     write (luninp, '(1X,A)') line
     line       = ' '
-    !
+    ! 
     if (.not.sr%compmode) then
        line(1:1) = '$'
        line(2:)   = ' '
@@ -4177,7 +4176,7 @@ subroutine create_hotfile_line(fname,inest,line,sr,wavedata)
        ! line to ensure that SWAN is going to produce a hotfile
        !
        write (fname,'(a,i0,5a)') 'hot_', inest, '_', trim(sr%writehottime(1:8)), '_', trim(sr%writehottime(10:15)), '.nc'
-       line = "SPEC 'COMPGRID' RELATIVE '" // trim(fname) // "'"    
+       line = "SPEC 'COMPGRID' RELATIVE '" // trim(fname) // "' MDGRID"    
     endif
     
     

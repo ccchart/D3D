@@ -10,7 +10,7 @@ subroutine tram2 (numrealpar,realpar   ,wave      ,i2d3d     ,npar      , &
                 & message   )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2022.                                     
+!  Copyright (C)  Stichting Deltares, 2011-2023.                                     
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -233,6 +233,7 @@ subroutine tram2 (numrealpar,realpar   ,wave      ,i2d3d     ,npar      , &
     wform  = int(par(19))
     ! NOTE ADDING PARAMETERS HERE INFLUENCES SANTOSS PARAMETERS AS WELL: numbers in santoss.f90 continue from here!
     !
+    tp = max(tp, 1e-2_fp)
     drho  = (rhosol-rhowat) / rhowat
     !
     if (di50 < 1.5_fp*dsand) then

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -61,8 +61,6 @@
       if(bnew) ch(j) = ch(j) * ch(j)
       diam(j) = z(2)
       delth(j) = z(3)
-!     if(bnew) delth(j) = delth(j)*rt
-! change 5-11-92 NMdR
       gfw(j) = z(4)
       go to 30
 25    if (pf.ge.0 .and. ka(1).eq.blank) write (not,99994)(z(i),i=1,4)

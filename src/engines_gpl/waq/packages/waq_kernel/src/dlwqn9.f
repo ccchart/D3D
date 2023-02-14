@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -40,10 +40,6 @@
 !                          LUN(23) , output, restart file
 !
 !     SUBROUTINES CALLED : DLWQTR, user transport routine
-!                          DLWQWQ, user waterquality routine
-!                          DLWQPP, user postprocessing routine
-!                          DLWQ10, system monitoring routine
-!                          DLWQ11, system dump routine
 !                          DLWQ13, system postpro-dump routine
 !                          DLWQ80, convert water quality processes
 !                          DLWQ81, add waste loads
@@ -162,7 +158,7 @@
      *                 J(INRHA), J(INRH2), J(INRFT), NOSEG   , A(IVOL2),
      *                 J(IBULK), LCHAR   , ftype   , ISFLAG  , IVFLAG  ,
      *                 LDUMMY  , J(INISP), A(INRSP), J(INTYP), J(IWORK),
-     *                 LSTREC  , LREWIN  , A(IVOLL), MYPART  , dlwqd   )
+     *                 LSTREC  , LREWIN  , A(IVOLL), dlwqd   )
          CALL DLWQ65 ( A(IVOL2), A(IVOL) , IDT     , NOSEG   )
       ELSE
          CALL ZERO   ( A(IVOL2) , NOSEG )
@@ -186,16 +182,10 @@
      *              A(ILENG), A(ICONC), A(IDISP), A(ICONS), A(IPARM),
      *              A(IFUNC), A(ISFUN), A(IDIFF), A(IVELO), ITSTRT  ,
      *              IDT     , C(ISNAM), NOCONS  , NOFUN   , C(ICNAM),
-     *              C(IPNAM), C(IFNAM), C(ISFNA), LDUMMY  , ILFLAG  ,
-     *              NPARTp  )
+     *              C(IPNAM), C(IFNAM), C(ISFNA), LDUMMY  , ILFLAG  )
 !
 !          do the user water quality processes
 !
-      CALL DLWQWQ ( NOTOT   , NOSYS   , NOSEG   , NOPA    , NOSFUN  ,
-     *              A(IVOL) , A(ICONC), A(ICONS), A(IPARM), A(IFUNC),
-     *              A(ISFUN), A(IDERV), ITSTRT  , IDT     , A(ISMAS),
-     *              IBFLAG  , C(ISNAM), NOCONS  , NOFUN   , C(ICNAM),
-     *              C(IPNAM), C(IFNAM), C(ISFNA), NODUMP  , J(IDUMP))
       CALL DLWQ80 ( A(IDERV), NOTOT   , NOSEG   , ITFACT  , A(ITIMR),
      *              A(IMASS), A(IMAS2), IAFLAG  , A(IDMPS), INTOPT  ,
      *              J(ISDMP))
@@ -236,7 +226,7 @@
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , 1       , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
-     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC), 
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC),
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IDERV), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,
@@ -254,7 +244,7 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), NOQ     , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
+     +              A(IWDMP), iknmkv  , isegcol )
 !
 !          close files, except monitor file
 !
@@ -274,19 +264,6 @@
 !
       CALL DLWQ13 ( LUN      , LCHAR , A(ICONC) , ITSTRT, C(IMNAM) ,
      *              C(ISNAM) , NOTOT , NOSEG    )
-!
-!          user output routine
-!
-      CALL DLWQPP ( NOTOT   , NOSYS   , NOSEG   , NOPA    , NOSFUN  ,
-     *              ITSTRT  , IMFLAG  , IDFLAG  , IHFLAG  , C(IMNAM),
-     *              C(ISNAM), C(IDNAM), C(IWSID), J(IDUMP), NODUMP  ,
-     *              J(IWAST), NOWST   , A(ICONC), A(ICONS), A(IPARM),
-     *              A(IFUNC), A(ISFUN), A(IVOL ), A(IWSTE), A(IBOUN),
-     *              NOBND   , ITSTRT  , ITSTOP  , NX      , NY      ,
-     *              J(IGRID), NODISP  , NOVELO  , NOQ     , NOQ1    ,
-     *              NOQ2    , NOQ3    , A(IDISP), A(IVELO), A(ISMAS),
-     *              IBFLAG  , NOCONS  , NOFUN   , C(ICNAM), C(IPNAM),
-     *              C(IFNAM), C(ISFNA), C(IBNID))
 !
 !          output formats
 !

@@ -25,6 +25,8 @@ function print_usage_info {
     echo "- dimr"
     echo "- tests"
     echo "- swan"
+    echo "- delft3d4"
+    echo "- flow2d3d"
     echo
     echo "Options:"
     echo "-p, --prepareonly"
@@ -37,6 +39,19 @@ function print_usage_info {
     echo "About CMake: https://svn.oss.deltares.nl/repos/delft3d/trunk/src/cmake/doc/README"
     echo
     exit 1
+}
+
+# =========================
+# === CheckUtils        ===
+# =========================
+function CheckUtils () {
+    if ! command -v patchelf &> /dev/null; then
+       echo "'patchelf' is not found."
+    fi 
+
+    if ! command -v svnversion &> /dev/null; then
+       echo "'svnversion' is not found."
+    fi
 }
 
 
@@ -154,9 +169,12 @@ prepareonly=0
 mode=quiet
 config=
 generator="Unix Makefiles"
-compiler=intel18
+compiler=intel21
 buildtype=Release
 buildDirExtension=""
+
+## check if Deltares system
+isdeltares=$([ -f "/opt/apps/deltares/.nl" ] && echo "yes" || echo "no")
 
 #
 ## Start processing command line options:
@@ -206,6 +224,14 @@ case $key in
     config="swan"
     shift
     ;;
+    delft3d4)
+    config="delft3d4"
+    shift
+    ;;
+    flow2d3d)
+    config="flow2d3d"
+    shift
+    ;;
     --debug)
     buildtype=Debug
     buildDirExtension="_debug"
@@ -224,19 +250,20 @@ if [ -z $config ]; then
     print_usage_info
 fi
 
-echo
-echo "    config      : $config" "${buildtype}"
-echo "    compiler    : $compiler"
-echo "    prepareonly : $prepareonly"
-echo
-
-
 scriptdirname=`readlink \-f \$0`
 scriptdir=`dirname $scriptdirname`
 root=$scriptdir
 
-# On Deltares systems only:
-if [ -f "/opt/apps/deltares/.nl" ]; then
+
+if [ "$isdeltares" = "yes" ]; then
+    # On Deltares systems only
+    echo
+    echo "    config          : $config" "${buildtype}"
+    echo "    deltares system : $isdeltares"
+    echo "    compiler        : $compiler"
+    echo "    prepareonly     : $prepareonly"
+    echo
+
     # Check if modules exist
     module list > /dev/null
     if [ $? -ne 0 ]; then
@@ -252,8 +279,22 @@ if [ -f "/opt/apps/deltares/.nl" ]; then
         echo "Setenv.sh resulted in an error. Check log files."
         exit 1
     fi
+
+else
+    # On other systems
+    echo
+    echo "    config          : $config" "${buildtype}"
+    echo "    prepareonly     : $prepareonly"
+    echo
 fi
 
+# check required utilities
+chkutils=$(CheckUtils)
+if [ ! -z "$chkutils" ]; then
+    echo "$chkutils"
+    echo "Install missing programs and retry."
+    exit 1
+fi
 
 CreateCMakedir ${config} ${buildDirExtension}
 

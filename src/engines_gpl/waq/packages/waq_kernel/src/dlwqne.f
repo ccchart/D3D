@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -41,10 +41,8 @@
 !                          LUN(23) , output, unformatted dump file
 !
 !     SUBROUTINES CALLED : DLWQTR, user transport routine
-!                          DLWQWQ, user waterquality routine
 !                          PROCES, DELWAQ proces system
 !                          DLWQO2, DELWAQ output system
-!                          DLWQPP, user postprocessing routine
 !                          DLWQ13, system postpro-dump routine
 !                          DLWQ14, scales waterquality
 !                          DLWQ15, wasteload routine
@@ -72,8 +70,6 @@
 !
       use grids
       use timers
-      use m_couplib
-      use m_timers_waq
       use delwaq2_data
       use m_openda_exchange_items, only : get_openda_buffer
       use report_progress
@@ -225,8 +221,7 @@
      &                 a(ileng) , a(iconc) , a(idisp) , a(icons) , a(iparm) ,
      &                 a(ifunc) , a(isfun) , a(idiff) , a(ivelo) , itime    ,
      &                 idt      , c(isnam) , nocons   , nofun    , c(icnam) ,
-     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   ,
-     &                 npartp   )
+     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   )
 
 !jvb  Temporary ? set the variables grid-setting for the DELWAQ variables
 
@@ -262,7 +257,7 @@
      &                 j(ivtda) , j(ivdag) , j(ivtag) , j(ivagg) , j(iapoi) ,
      &                 j(iaknd) , j(iadm1) , j(iadm2) , j(ivset) , j(ignos) ,
      &                 j(igseg) , novar    , a        , nogrid   , ndmps    ,
-     &                 c(iprna) , intsrt   , j(iowns) , j(iownq) , mypart   ,
+     &                 c(iprna) , intsrt   ,
      &                 j(iprvpt), j(iprdon), nrref    , j(ipror) , nodef    ,
      &                 surface  , lun(19)  )
 
@@ -313,11 +308,10 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), noqtt   , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
+     +              A(IWDMP), iknmkv  , isegcol )
 
 !        zero cumulative arrays
 
-         call timer_start(timer_output)
          if ( imflag .or. ( ihflag .and. noraai .gt. 0 ) ) then
             call zercum ( notot   , nosys   , nflux   , ndmpar  , ndmpq   ,
      &                    ndmps   , a(ismas), a(iflxi), a(imas2), a(iflxd),
@@ -334,8 +328,7 @@
 !        add processes
 
          call dlwq14 ( a(iderv), notot   , noseg   , itfact  , a(imas2),
-     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp),
-     &                 j(iowns), mypart )
+     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp))
 
 !        get new volumes
 
@@ -354,7 +347,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivoll),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivol2), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivol2), dlwqd   )
                call dlwqf8 ( noseg   , noq     , j(ixpnt), idt     , iknmkv  ,
      &                       a(ivol ), a(iflow), a(ivoll), a(ivol2))
                updatr = .true.
@@ -365,7 +358,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivol2),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivoll), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivoll), dlwqd   )
          end select
 
 !        update the info on dry volumes with the new volumes
@@ -382,7 +375,7 @@
      &                 j(inwtyp), j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv   , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ), a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp) , 1        , notot    , j(iowns ), mypart   )
+     &                 a(iwdmp) , 1        , notot    )
 
 !          explicit part of the transport step, derivative
 
@@ -391,22 +384,14 @@
      &                 a(idnew) , a(ivnew) , a(iarea) , a(iflow) , a(ileng) ,
      &                 j(ixpnt) , iknmkv   , j(idpnw) , j(ivpnw) , a(iconc) ,
      &                 a(iboun) , intopt   , ilflag   , idt      , a(iderv) ,
-     &                 iaflag   , a(imas2) , ndmpq    , j(iqdmp) , a(idmpq) ,
-     &                 j(iowns) , mypart   )
+     &                 iaflag   , a(imas2) , ndmpq    , j(iqdmp) , a(idmpq))
 
 !          explicit part of transport done, volumes on diagonal
 
          call dlwq42 ( nosys    , notot    , nototp   , nosss    , a(ivol2) ,
      &                 surface  , a(imass) , a(iconc) , a(iderv) , idt      ,
-     &                 ivflag   , lun(19)  , j(iowns) , mypart   )
-!
-!          user water quality processes implicit part
-!
-      CALL DLWQWX ( NOTOT   , NOSYS   , nosss   , NOPA    , NOSFUN  ,
-     *              A(IVOL2), A(IDERV), A(ICONS), A(IPARM), A(IFUNC),
-     *              A(ISFUN), A(ICONC), ITIME   , IDT     , A(ISMAS),
-     *              IBFLAG  , C(ISNAM), NOCONS  , NOFUN   , C(ICNAM),
-     *              C(IPNAM), C(IFNAM), C(ISFNA), NODUMP  , J(IDUMP))
+     &                 ivflag   , lun(19)    )
+
 
 !          performs the implicit part of the transport step
 
@@ -415,16 +400,9 @@
      &              a(larea), a(lflow), a(lleng), j(lxpnt), iknmkv  ,
      &              j(idpnw), j(ivpnw), a(iconc), a(iboun), intopt  ,
      &              ilflag  , idt     , a(iderv), iaflag  , a(imas2),
-     &              j(iowns), mypart  , lun(19) , ndmpq   , j(lqdmp),
+     &              lun(19) , ndmpq   , j(lqdmp),
      &              a(idmpq), arhs    , adiag   , acodia  , bcodia  )
-!
-!          user water quality processes implicit part
-!
-      CALL DLWQWY ( NOTOT   , NOSYS   , nosss   , NOPA    , NOSFUN  ,
-     *              A(IVOL2), A(IDERV), A(ICONS), A(IPARM), A(IFUNC),
-     *              A(ISFUN), A(ICONC), ITIME   , IDT     , A(ISMAS),
-     *              IBFLAG  , C(ISNAM), NOCONS  , NOFUN   , C(ICNAM),
-     *              C(IPNAM), C(IFNAM), C(ISFNA), NODUMP  , J(IDUMP))
+
 
 !          new time values, volumes excluded
 
@@ -441,7 +419,7 @@
 !          update the nescessary arrays
 
          call dlwq44 ( nosys    , notot    , nosss    , a(ivol2) , a(imass) ,
-     &                 a(iconc) , a(iderv) , j(iowns) , mypart   )
+     &                 a(iconc) , a(iderv)   )
 
 !     calculate closure error
          if ( lrewin .and. lstrec ) then

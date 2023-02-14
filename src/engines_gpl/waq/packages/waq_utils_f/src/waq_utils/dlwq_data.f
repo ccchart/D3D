@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -736,18 +736,6 @@
          character(LEN=NAME_SIZE)         :: name_ucas
          integer                          :: i
          integer                          :: iaindx
-
-!        name_loc = name
-!        call dhucas(name_loc, name_ucas, NAME_SIZE)
-!
-!        iret = 0
-!        do i = 1 , dlwq_item%no_item
-!           call dhucas(dlwq_item%name(i), name_loc, NAME_SIZE)
-!           if ( name_loc .eq. name_ucas ) then
-!              iret = i
-!              exit
-!           endif
-!        end do
 
          iret = 0
          do i = 1 , dlwq_item%no_item

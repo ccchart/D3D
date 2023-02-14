@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -606,7 +606,7 @@
 !     spawning continues as long as conditions remain suitable
                if (DoSpawn > 0) then
                   if (( GSI > GSI_lower .AND. Temp > MinSpTemp ) .AND. R > 0 ) then
-!                    write(*,*) "Temp" , Temp, MinSpTemp
+
                      dSpw = (rSpawn * R + max(Pr,0.))                                    !(J/ind/d)
                      dSpw = min(dSpw,(R/DELT+min(Pr,0.)))
                   else

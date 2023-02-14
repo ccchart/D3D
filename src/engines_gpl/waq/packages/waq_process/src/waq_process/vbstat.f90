@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -165,7 +165,6 @@
             if ( SwWV .eq. 0) then
                if (ifirst(1) .eq. 0) then
                   nsfVB = Initnsf
-!                  WRITE (ILUMON, *) 'ifirst, iseg, nsf', ifirst, iseg, nsfvb
                endif
 
                if ( NINT(SwEmersion) .eq. 0 ) then

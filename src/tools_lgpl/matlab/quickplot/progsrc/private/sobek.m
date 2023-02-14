@@ -14,7 +14,7 @@ function Network=sobek(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2022 Stichting Deltares.                                     
+%   Copyright (C) 2011-2023 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -713,9 +713,10 @@ try
         else
             ty = S(5);
         end
-        if ~ismember(ty,{'1','2','3'})
+        if ~ismember(ty,{'0','1','2','3'})
+            % 0 = ? encountered in Geul model
             % 1 = Reservoir
-            % 2 = Closed - ifnore StreetArea
+            % 2 = Closed - ignore StreetArea
             % 3 = Loss - ignore StreetArea
             error('Unknown storage option %s while parsing line "%s" of "%s".',ty,Str,filename)
         else

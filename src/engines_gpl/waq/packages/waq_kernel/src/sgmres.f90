@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -42,21 +42,7 @@
 !>          - if no convergence at end of Krilov space, solver restarts
 !>          - if no convergence at maxiter the solver stops
 
-!     Created   : Nov. 1996 by Kian Tan
 
-!     Modified  : Dec. 1996, Kian Tan    : reorthogonalization added
-!                 Feb. 1997, Jan van Beek: added option LITREP (report file)
-!                 Feb. 1997, Robert Vos  : also each iteration printed
-!                 Sep. 1998, Robert Vos  : small2 introdcued for small values of bnrm2
-!                 July 2008, Leo Postma  : WAQ performance timers
-!                 July 2009, Leo Postma  : double precission version
-!                 June 2011, Leo Postma  : many trivial blas routines replaced by array instructions
-!                                          this improved basis (25% of solver time) with factor 2.
-!
-!                 The following blas routines remained:
-!                           saxpy  :
-!                           srot   :
-!                           srotg  :
 
       use timers                         ! WAQ performance timers
       implicit none
@@ -256,7 +242,7 @@
      &                  hess( I,SN )                            )
 
             RESID = ABS( WORK(I+1,S) ) / BNRM2
-!           WRITE (*,'(''GMRES'',I7,E13.5)') ITER, RESID
+
             IF ( LITREP ) THEN
                WRITE (LUREP,'(''GMRES'',I7,E13.5)') ITER, RESID
             ENDIF
@@ -331,8 +317,7 @@
      &          KLAY   , IOPTPC   , NOBND     , TRIWRK , iexseg   )
       work(i+1,s) = sqrt( sum(work(:,r)*work(:,r)) )
       RESID = WORK(I+1,S) / BNRM2
-!     WRITE (*,'(''T.U.P.E.RES,T.S.P.E.RES,BNRM2'',I6,3E13.5)')
-!    .      ITER, WORK(I+1,S),RESID,BNRM2
+
       IF ( LITREP ) THEN
          WRITE (LUREP,'(''Cycles,T.U.P.E.RES,T.S.P.E.RES,BNRM2'',                               &
      &         I8,3E13.5)')                                                                     &

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -111,7 +111,7 @@
             elseif ( swfloceq .eq. 2 ) then
                macro = im2
                micro = im3
-            else ! if ( swfloceq .eq. 3 ) then
+            else
                macro = im3
                micro = im2
             endif
@@ -142,7 +142,7 @@
                dflocim1   =  0.0
                dflocim2   =  dfloc
                dflocim3   = -dfloc
-            else ! if ( swfloceq .eq. 3 ) then
+            else
                dflocim1   =  0.0
                dflocim2   = -dfloc
                dflocim3   =  dfloc

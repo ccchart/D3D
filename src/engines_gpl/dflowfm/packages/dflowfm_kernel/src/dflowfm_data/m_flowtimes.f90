@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -335,10 +335,10 @@ subroutine reset_flowtimes()
     debugtimeon   = .false.          !< timing yes or no
 
     dsetb         = 0                !< number of setbacks ()
-    if (tlfsmo > 0d0 ) then
-        alfsmo = 0d0    
+    if (tlfsmo > 0d0 ) then          !  Smoothing period
+        alfsmo = 0d0                 !  Smoothing factor
     else 
-        alfsmo = 1d0                 !<
+        alfsmo = 1d0                 
     endif
 
 end subroutine reset_flowtimes

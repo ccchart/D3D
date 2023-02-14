@@ -1,7 +1,7 @@
 module test_time_module
    !----- LGPL --------------------------------------------------------------------
    !                                                                               
-   !  Copyright (C)  Stichting Deltares, 2011-2022.                                
+   !  Copyright (C)  Stichting Deltares, 2011-2023.                                
    !                                                                               
    !  This library is free software; you can redistribute it and/or                
    !  modify it under the terms of the GNU Lesser General Public                   
@@ -48,18 +48,20 @@ module test_time_module
    contains
 
       subroutine tests_time_module
-         call test( testconversion1,  'Test CalendarYearMonthDayToJulianDateNumber' )
-         call test( testconversion2,  'Test julian' )
+         call test( test_conversion2juliandate, 'Test CalendarYearMonthDayToJulianDate' )
+         call test( test_julian, 'Test julian' )
+         call test( test_date2mjd2date, 'Test CalendarYearMonthDayToModifiedJulianDateAndBack')
+         call test( test_mjd2date, 'Test_ModifiedJulianDateToYearMonthDayHourMinuteSecond' )
          call test( test_split_date_time, 'Test split_date_time' )
          call test( test_split_date_time_invalid, 'Test split_date_time with invalid input')
          call test( test_parse_time_valid, 'Test parse_time with valid input')
          call test( test_parse_time_invalid, 'Test parse_time with invalid input')
-         call test( test_ymd2reduced_jul_string_valid, 'Test ymd2reduced_jul_string with valid input')
-         call test( test_ymd2reduced_jul_string_invalid, 'Test ymd2reduced_jul_string with invalid input')
+         call test( test_ymd2modified_jul_string_valid, 'Test ymd2modified_jul_string with valid input')
+         call test( test_ymd2modified_jul_string_invalid, 'Test ymd2modified_jul_string with invalid input')
       end subroutine tests_time_module
 
-      !> test CalendarYearMonthDayToJulianDateNumber
-      subroutine testConversion1()
+      !> test CalendarYearMonthDayToJulianDate
+      subroutine test_conversion2juliandate()
 
          integer :: jdn1, jdn2, jdn3, jdn4, yyyymmdd, yyyymmdd2, istat
          real(kind=hp) :: mjd, mjd2
@@ -91,10 +93,10 @@ module test_time_module
          call assert_equal (yyyymmdd, yyyymmdd2, 'error for yyyymmdd = 15821004')
          call assert_false (abs(mjd - mjd2 - 1d0) > 1d-4, 'error for jump 15821004 -> 15821015')
 
-      end subroutine testConversion1
+      end subroutine test_conversion2juliandate
 
       !> test julian
-      subroutine testConversion2()
+      subroutine test_julian()
 
          real(kind=hp) :: jdn1, jdn2, jdn3, jdn4
 
@@ -108,7 +110,82 @@ module test_time_module
          call assert_comparable(jdn3, -100840.0_hp, tol, 'error for 15-10-1582')
          call assert_comparable(jdn4, 51910.0_hp, tol, 'error for 1-1-2001')
 
-      end subroutine testConversion2
+      end subroutine test_julian
+
+      !> test yyyymmddToModifieldJulianDateToyyyymmdd
+      subroutine test_date2mjd2date()
+         implicit none
+         logical       :: success_
+         real(kind=hp) :: expected_mjd, refdate_mjd, second
+         integer       :: refdate, returndate, returntime
+         
+         refdate = 20221101
+         expected_mjd = 59884.0_hp
+         success_ = ymd2modified_jul(refdate, refdate_mjd)
+         call assert_comparable(refdate_mjd, expected_mjd, tol, 'error in conversion ymd to modified julian date')
+         success_ = mjd2date(refdate_mjd, returndate)
+         call assert_equal(refdate, returndate,'error in conversion modified julian date to ymd')
+         success_ = mjd2date(refdate_mjd, returndate, returntime)
+         ! check that no time shift was introduced
+         call assert_equal(returntime, 0,'error in mjd2date, unexpected timeshift')
+                  
+      end subroutine test_date2mjd2date
+
+      !> test ModifiedJulianDateToYearMonthDayHourMinuteSecond
+      subroutine test_mjd2date()
+         implicit none
+         integer       :: success
+         integer       :: ymd, ymd_expected
+         integer       :: hms, hms_expected
+         integer       :: year, year_expected
+         integer       :: month, month_expected
+         integer       :: day, day_expected
+         integer       :: hour, hour_expected
+         integer       :: minute, minute_expected, second_expected
+         real(kind=hp) :: second
+         real(kind=hp) :: timestamp_mjd
+ 
+         ! check correct date and hhmmss for 3h30 ie before noon and whole minutes
+         timestamp_mjd = 55833.125_hp + 30./1440.
+         ymd_expected = 20110929
+         hms_expected = 33000
+         success = mjd2date(timestamp_mjd,ymd)
+         call assert_equal(ymd_expected, ymd,'error in conversion modified julian date to yymmdd')
+
+         success = mjd2date(timestamp_mjd, ymd, hms)
+         call assert_equal(hms_expected, hms,'error in conversion modified julian date for hhmmss')
+ 
+         ! check correct date and hour for 18h i.e. after noon and with seconds
+         timestamp_mjd = 55833.80
+         year_expected = 2011
+         month_expected = 9
+         day_expected = 29
+         hour_expected = 19
+         minute_expected = 13
+         second_expected = 7
+         success = mjd2date(timestamp_mjd,year,month,day,hour,minute,second)
+         call assert_equal(year_expected, year,'error in conversion modified julian date: year')
+         call assert_equal(month_expected, month,'error in conversion modified julian date: month')
+         call assert_equal(day_expected, day,'error in conversion modified julian date: day')
+         call assert_equal(hour_expected, hour,'error in conversion modified julian date: hour')
+         call assert_equal(minute_expected, minute,'error in conversion modified julian date: minute')
+         call assert_equal(second_expected, int(second), 'error in conversion modified julian date: second')
+
+         ! check that rounding is correct for end of year
+         ! 20221231 = 59944 in mjd, 1 second = 1.157407E-5
+         timestamp_mjd = 59944.999985_hp
+         ymd_expected = 20221231
+         hms_expected = 235959
+         success = mjd2date(timestamp_mjd, ymd, hms)
+         call assert_equal(hms_expected, hms, 'error in conversion modified julian date: second')
+         
+         timestamp_mjd = 59944.999999_hp
+         ymd_expected = 20230101
+         hms_expected = 0
+         success = mjd2date(timestamp_mjd, ymd, hms)
+         call assert_equal(hms_expected, hms, 'error in conversion modified julian date: second')
+
+      end subroutine test_mjd2date
 
       !> test split_date_time with valid input
       subroutine test_split_date_time
@@ -214,10 +291,10 @@ module test_time_module
          end do
       end subroutine test_parse_time_invalid
 
-      subroutine test_ymd2reduced_jul_string_valid
+      subroutine test_ymd2modified_jul_string_valid
          integer, parameter           :: nr_cases = 9
          character(len=16), parameter :: date(nr_cases) = (/ &
-            "20200904        ", &   ! no separators
+            "20200904        ", &   ! no separat
             "0020200904        ", & ! no separators, six digit year
             "2020-09-04      ", &   ! - separators
             "2020-09-4       ", &   ! - separators, one digit day, two digit month
@@ -226,19 +303,19 @@ module test_time_module
             "2020 9 04       ", &   ! space separator, two digit day, one digit month
             "002020 9 04       ", & ! space separator, six digit year
             "2020/9/04       "/)    ! / separator, one digit day, two digit month
-         real(kind=hp), parameter :: mjd_expected = 59096
+         real(kind=hp), parameter :: mjd_expected = 59096.0_hp
          integer                  :: i
          logical                  :: ok
          real(kind=hp)            :: mjd
 
          do i = 1, nr_cases
-            ok = ymd2reduced_jul(date(i), mjd)
+            ok = ymd2modified_jul(date(i), mjd)
             call assert_true( ok, "unexpected success status (must succeed)")
             call assert_comparable(mjd, mjd_expected, tol, "difference in Modified Julian Day")
          end do
-      end subroutine test_ymd2reduced_jul_string_valid
+      end subroutine test_ymd2modified_jul_string_valid
       
-      subroutine test_ymd2reduced_jul_string_invalid
+      subroutine test_ymd2modified_jul_string_invalid
          integer, parameter           :: nr_cases = 7
          character(len=16), parameter :: date(nr_cases) = (/ &
             "20201904        ", &   ! no separators, month 19
@@ -253,10 +330,10 @@ module test_time_module
          real(kind=hp)            :: mjd
 
          do i = 1, nr_cases
-            ok = ymd2reduced_jul(date(i), mjd)
+            ok = ymd2modified_jul(date(i), mjd)
             call assert_false( ok, "unexpected success status (must fail)")
          end do
-      end subroutine test_ymd2reduced_jul_string_invalid
+      end subroutine test_ymd2modified_jul_string_invalid
       
 
 end module test_time_module

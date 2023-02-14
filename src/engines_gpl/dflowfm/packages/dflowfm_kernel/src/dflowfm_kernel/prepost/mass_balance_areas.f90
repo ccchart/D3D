@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2018-2022.
+!  Copyright (C)  Stichting Deltares, 2018-2023.
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).
 !
 !  Delft3D is free software: you can redistribute it and/or modify
@@ -318,9 +318,9 @@
 
    timembaend = time
 
-   call gregor(refdate_mjd + offset_reduced_jd + timembastart/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
+   call gregor(refdate_mjd + offset_modified_jd + timembastart/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
    write(datembastart, '(i4,"-",i2.2,"-",i2.2," ",i2.2,":",i2.2,":",i2.2)') iyear, imonth, iday, ihour, imin, isec
-   call gregor(refdate_mjd + offset_reduced_jd + timembaend/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
+   call gregor(refdate_mjd + offset_modified_jd + timembaend/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
    write(datembaend, '(i4,"-",i2.2,"-",i2.2," ",i2.2,":",i2.2,":",i2.2)') iyear, imonth, iday, ihour, imin, isec
 
 !  New total volumes and masses
@@ -481,9 +481,9 @@
 
    timembaend = time
 
-   call gregor(refdate_mjd + offset_reduced_jd + timembastarttot/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
+   call gregor(refdate_mjd + offset_modified_jd + timembastarttot/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
    write(datembastart, '(i4,"-",i2.2,"-",i2.2," ",i2.2,":",i2.2,":",i2.2)') iyear, imonth, iday, ihour, imin, isec
-   call gregor(refdate_mjd + offset_reduced_jd + timembaend/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
+   call gregor(refdate_mjd + offset_modified_jd + timembaend/86400.0, iyear, imonth, iday, ihour, imin, isec, sec)
    write(datembaend, '(i4,"-",i2.2,"-",i2.2," ",i2.2,":",i2.2,":",i2.2)') iyear, imonth, iday, ihour, imin, isec
 
    writebalance = .true.

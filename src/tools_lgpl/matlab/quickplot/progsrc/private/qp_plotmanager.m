@@ -3,7 +3,7 @@ function outdata = qp_plotmanager(cmd,UD,logfile,logtype,cmdargs)
 
 %----- LGPL --------------------------------------------------------------------
 %
-%   Copyright (C) 2011-2022 Stichting Deltares.
+%   Copyright (C) 2011-2023 Stichting Deltares.
 %
 %   This library is free software; you can redistribute it and/or
 %   modify it under the terms of the GNU Lesser General Public
@@ -1302,6 +1302,10 @@ switch cmd
 
     case 'selectedaxes'
         AxesHandles=get(UD.PlotMngr.AxList,'userdata');
+        if any(~ishandle(AxesHandles))
+            qp_plotmanager refreshaxes
+            AxesHandles=get(UD.PlotMngr.AxList,'userdata');
+        end
         if get(UD.PlotMngr.AxAll,'value') || get(UD.PlotMngr.FigAll,'value')
             iAx=1:length(AxesHandles);
         else

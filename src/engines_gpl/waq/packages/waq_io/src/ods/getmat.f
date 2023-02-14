@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -114,10 +114,6 @@
       I2 = (LOC(2)-LOC(1))/LOC(3)
       I3 =  LOC(3)*NOTOT - 1
       I4 =  NTT - I1 - ( 1 + I3 ) * I2 - 1
-!     READ ( 10 , ERR=150 , END=200 ) IDUMMY , ( DATA(K) , K=1,NTT)
-!     WRITE ( 20 , * ) I1, I2, I3, I4
-!     WRITE ( 20 , * ) IDUMMY
-!     WRITE ( 20 , '(25E12.6)' ) ( DATA(K),K=1,NTT )
       IF ( ISET+I2+1 .GT. MAXDIM ) GOTO 150
       READ ( 10 , ERR=150 , END=200 ) IDUMMY , ( ADUMMY , K=1,I1 ) ,
      *          ( DATA(ISET+K)    , ( ADUMMY , L=1,I3 ) , K=1,I2 ) ,

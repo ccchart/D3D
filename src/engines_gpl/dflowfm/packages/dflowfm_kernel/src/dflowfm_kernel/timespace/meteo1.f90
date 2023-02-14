@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -362,139 +362,9 @@ contains
      else
         return
      end if
-   
-     transformcoef = -999d0
-   
-     keywrd = 'VALUE'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(1)
-     end if
-   
-     keywrd = 'FACTOR'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(2)
-     end if
-   
-     keywrd = 'LAYER'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(3)
-     end if
 
-     keywrd = 'IFRCTYP'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(3)
-     end if
-   
-     keywrd = 'AVERAGINGTYPE'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(4)
-     end if
+     call readTransformcoefficients(minp, transformcoef)
 
-     keywrd = 'TRACERFALLVELOCITY'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(4)
-     end if
-
-     keywrd = 'TRACERDECAYTIME'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(5)
-     end if
-
-     keywrd = 'RELATIVESEARCHCELLSIZE'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(5)
-     end if
-
-     keywrd = 'EXTRAPOLTOL' 
-     call zoekopt(minp, rec, trim(keywrd), jaopt) 
-     if (jaopt == 1) then 
-         read (rec,*) transformcoef(6) 
-     end if 
-
-     keywrd = 'PERCENTILEMINMAX'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(7)
-     end if
-     
-     ! constant keywrd = 'DISCHARGE'/'SALINITY'/'TEMPERATURE' removed, now always via time series, in future also via new ext [discharge]
-
-     keywrd = 'AREA' ! Area for source-sink pipe
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(4)
-     end if
-     
-     keywrd = 'TREF' ! relaxation time for riemann boundary
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(7)
-     end if
-!
-     
-     keywrd = 'NUMMIN' ! minimum number of points in averaging
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(8)
-     end if
-     
-     keywrd = 'startlevelsuctionside' 
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(4)
-     end if
-
-     keywrd = 'stoplevelsuctionside' 
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(5)
-     end if
-
-     keywrd = 'startleveldeliveryside' 
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(6)
-     end if
-
-     keywrd = 'stopleveldeliveryside' 
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-        read (rec,*) transformcoef(7)
-     end if
-     
-     keywrd = 'UNIFORMSALINITYABOVEZ'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(3)
-     end if
-
-     keywrd = 'UNIFORMSALINITYBELOWZ'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(4)
-     end if
-     
- 
-     keywrd = 'UNIFORMVALUEABOVEZ'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(13)
-     end if
-
-     keywrd = 'UNIFORMVALUEBELOWZ'
-     call zoekopt(minp, rec, trim(keywrd), jaopt)
-     if (jaopt == 1) then
-         read (rec,*) transformcoef(14)
-     end if
-     
     if (qid == 'generalstructure') then 
         do k = 1,numgeneralkeywrd        ! generalstructure 
            call readandchecknextrecord(minp, rec, generalkeywrd_old(k), jaopt)
@@ -513,6 +383,78 @@ contains
    
    end subroutine readprovider
    !
+   subroutine readTransformcoefficients(minp, transformcoef)
+     integer,       intent(in) :: minp
+     real(kind=hp), intent(out) :: transformcoef(:)
+
+     type tKeyInt
+        character(len=32) :: key
+        integer           :: value
+     end type tKeyInt
+
+     character(len=maxnamelen) :: rec
+     integer                   :: jaopt, i, ierr
+     type(tKeyInt)             :: pairs(21)
+
+     ! constant keywrd = 'DISCHARGE'/'SALINITY'/'TEMPERATURE' removed, now always via time series, in future also via new ext [discharge]
+
+     transformcoef = -999d0
+
+     pairs(1)%key =  'VALUE'
+     pairs(1)%value = 1
+     pairs(2)%key =  'FACTOR'
+     pairs(2)%value = 2
+     pairs(3)%key =  'LAYER'
+     pairs(3)%value = 3
+     pairs(4)%key =  'IFRCTYP'
+     pairs(4)%value = 3
+     pairs(5)%key =  'AVERAGINGTYPE'
+     pairs(5)%value = 4
+     pairs(6)%key = 'TRACERFALLVELOCITY'
+     pairs(6)%value = 4
+     pairs(7)%key =  'TRACERDECAYTIME'
+     pairs(7)%value = 5
+     pairs(8)%key =  'RELATIVESEARCHCELLSIZE'
+     pairs(8)%value = 5
+     pairs(9)%key =  'EXTRAPOLTOL'
+     pairs(9)%value = 6
+     pairs(10)%key =  'PERCENTILEMINMAX'
+     pairs(10)%value = 7
+     pairs(11)%key =  'AREA' ! Area for source-sink pipe
+     pairs(11)%value = 4
+     pairs(12)%key =  'TREF' ! relaxation time for riemann boundary
+     pairs(12)%value = 7
+     pairs(13)%key =  'NUMMIN' ! minimum number of points in averaging
+     pairs(13)%value = 8
+     pairs(14)%key =  'startlevelsuctionside'
+     pairs(14)%value = 4
+     pairs(15)%key =  'stoplevelsuctionside'
+     pairs(15)%value = 5
+     pairs(16)%key =  'startleveldeliveryside'
+     pairs(16)%value = 6
+     pairs(17)%key =  'stopleveldeliveryside'
+     pairs(17)%value = 7
+     pairs(18)%key =  'UNIFORMSALINITYABOVEZ'
+     pairs(18)%value = 3
+     pairs(19)%key =  'UNIFORMSALINITYBELOWZ'
+     pairs(19)%value = 4
+     pairs(20)%key =  'UNIFORMVALUEABOVEZ'
+     pairs(20)%value = 13
+     pairs(21)%key =  'UNIFORMVALUEBELOWZ'
+     pairs(21)%value = 14
+
+     do i = 1, size(pairs)
+        call zoekopt(minp, rec, trim(pairs(i)%key), jaopt)
+        if (jaopt == 1) then
+            read (rec,*, iostat=ierr) transformcoef(pairs(i)%value)
+            if (ierr /= 0) then
+                call readerror('reading '//trim(pairs(i)%key)//' but getting ', rec, minp)
+            end if
+        end if
+     end do
+
+    end subroutine readTransformcoefficients
+
    !
    ! ==========================================================================
    !> 
@@ -634,21 +576,24 @@ contains
    !
    ! ==========================================================================
    !> 
-   subroutine meteo_tidepotential(jul0, TIME , xz , yz , Np, TIDEP, ndx, dstart, dstop , eps) ! call schrama's routines on reduced set
+   subroutine meteo_tidepotential(jul0, TIME , dstart, dstop , eps) ! call schrama's routines on reduced set
    use m_sferic
    use m_flowparameters, only: jatidep, jaselfal, jamaptidep
    use m_partitioninfo
-   integer                                             :: jul0, ndx                                       ! interpolate results in ndx 
-   integer,                              intent(in)    :: Np      !< number of potentials in tidep
-   double precision, dimension(Np, Ndx), intent(inout) :: tidep   !< potentials, first is total
-   double precision                                    :: time, dstart, dstop , eps
-   double precision                                    :: xz(ndx), yz(ndx), xx(4), yy(4)!, DAREA, DLENGTH, DLENMX
-                                                       
+   use m_flow
+   use m_flowgeom
+   integer                                             :: jul0    ! interpolate results in ndx 
+   integer                                             :: Np      !< number of potentials in tidep
+ 
+   double precision                                    :: time, dstart, dstop , eps, dxx, dyy
+   double precision                                    :: xx(4), yy(4)!, DAREA, DLENGTH, DLENMX
+                                                     
    double precision, allocatable, save                 :: xz2(:,:),  yz2(:,:), td2(:,:), self(:,:), avhs(:,:)!, area(:,:)
    double precision                                    :: xmn, xmx, ymn, ymx, di, dj, f11,f21,f12,f22  
-                                                       
-   integer                                             :: i,j,n,ierr, m1,m2,n1,n2
-                                                       
+                  
+   double precision, allocatable, save                 :: td2_x(:,:), td2_y(:,:)   
+                                     
+   integer                                             :: i,j,n,ierr, m1,m2,n1,n2 , L                                                       
    integer, save                                       :: ndx2
    integer, save                                       :: i1
    integer, save                                       :: i2
@@ -656,6 +601,8 @@ contains
    integer, save                                       :: j2
    integer, save                                       :: INI    = 0
    
+   np = size(tidep,1)
+
    if (INI == 0 ) then 
        INI = 1  
    
@@ -669,8 +616,12 @@ contains
    
       i1  = floor(xmn); i2 = floor(xmx) + 1
       j1  = floor(ymn); j2 = floor(ymx) + 1
+      if (jatidep == 2) then ! gradient intp., one extra
+         i1 = i1-1 ; i2 = i2+1
+         j1 = j1-1 ; j2 = j2+1
+      endif
       
-      if ( jaselfal .eq.1 > 0 .and. jampi == 1) then
+      if ( jaselfal .eq.1 .and. jampi == 1) then
 !        globally reduce i1, i2, j1, j2
          i1 = -i1
          j1 = -j1
@@ -684,6 +635,13 @@ contains
       allocate ( xz2(i1:i2,j1:j2), stat=ierr)   ! tot aerr 
       allocate ( yz2(i1:i2,j1:j2), stat=ierr)  
       allocate ( td2(i1:i2,j1:j2), stat=ierr)
+
+      if (jatidep > 1) then ! gradient intp.
+         if (allocated(td2_x)) deallocate(td2_x, td2_y)  
+         allocate ( td2_x(i1:i2,j1:j2), stat=ierr)
+         allocate ( td2_y(i1:i2,j1:j2), stat=ierr)
+      endif  
+
       td2 = 0d0
    
       if (jaselfal > 0) then
@@ -760,6 +718,42 @@ contains
       endif
    enddo
    
+   if ( jatidep > 1) then ! gradient intp., get gradient  
+
+      dyy = 2d0*ra*dg2rd
+      do j = j1+1,j2-1 
+         dxx  = dyy*cos(yz2(i1,j))
+         do i = i1+1,i2-1
+            td2_x(i,j) = ( td2(i+1,j) - td2(i-1,j) ) / dxx 
+            td2_y(i,j) = ( td2(i,j+1) - td2(i,j-1) ) / dyy 
+            if (jaselfal >0) then 
+               td2_x(i,j) = td2_x(i,j) + ( self(i+1,j) - self(i-1,j) ) / dxx 
+               td2_y(i,j) = td2_y(i,j) + ( self(i,j+1) - self(i,j-1) ) / dyy 
+            endif 
+         enddo
+      enddo
+
+      do L = 1,Lnx
+         m1  = floor(xu(L))     ; m2 = m1+1 
+         n1  = floor(yu(L))     ; n2 = n1+1
+         di  = xu(L) - m1   
+         dj  = yu(L) - n1
+         f11 = (1d0-di)*(1d0-dj)
+         f21 = (    di)*(1d0-dj)
+         f22 = (    di)*(    dj)
+         f12 = (1d0-di)*(    dj)
+            
+         tidef(L) = csu(L)*( td2_x(m1,n1)*f11 +    &
+                             td2_x(m2,n1)*f21 +    &
+                             td2_x(m2,n2)*f22 +    &
+                             td2_x(m1,n2)*f12 )    &
+                  + snu(L)*( td2_y(m1,n1)*f11 +    &
+                             td2_y(m2,n1)*f21 +    &
+                             td2_y(m2,n2)*f22 +    &
+                             td2_y(m1,n2)*f12 )
+      enddo
+     
+   endif
 
    end subroutine meteo_tidepotential
    

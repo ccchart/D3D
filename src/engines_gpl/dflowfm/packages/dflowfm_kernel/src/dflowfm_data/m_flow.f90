@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -58,7 +58,7 @@
  integer                           :: mxlays            !< max nr of sigma layers in flow domain
  integer                           :: kplot             !< layer nr to be plotted
  integer                           :: nplot             !< vertical profile to be plotted at node nr
- integer                           :: kplotfrombedorsurface = 1 !< up or down k
+ integer                           :: kplotfrombedorsurface = 2 !< up or down k
  integer                           :: kplotordepthaveraged  = 1 !< 1 = kplot, 2 = averaged
  integer                           :: layertype         !< 1= all sigma, 2 = all z, 3 = left sigma, 4 = left z
  integer                           :: numtopsig = 0     !< number of top layers in sigma
@@ -136,6 +136,8 @@
  integer, allocatable              :: laydefnr(:)       !< dim = (ndx), pointer to laydef, if positive to unique laydef, otherwise interpolate in 1,2, and 3
  integer, allocatable              :: laytyp(:)         !< dim = (mxlaydefs), 1 = sigma, 2 = z
  integer, allocatable              :: laymx(:)          !< dim = (mxlaydefs), max nr of layers
+ integer, allocatable              :: nrlayn(:)         !< dim = (ndx), max nr of layers
+ integer, allocatable              :: nlaybn(:)         !< dim = (ndx), bed lay nr
  double precision, allocatable     :: zslay(:,:)        !< dim = (: , maxlaydefs) z or s coordinate,
  double precision, allocatable     :: wflaynod(:,:)     !< dim = (3 , ndx) weight factors to flownodes indlaynod
  integer,          allocatable     :: indlaynod(:,:)    !< dim = (3 , ndx)
@@ -345,10 +347,9 @@
  double precision, allocatable, target    :: viusp(:)   !< [m2/s] user defined spatial eddy viscosity coefficient at u point (m2/s) {"location": "edge", "shape": ["lnx"]}
  double precision, allocatable, target    :: diusp(:)   !< [m2/s] user defined spatial eddy diffusivity coefficient at u point (m2/s) {"location": "edge", "shape": ["lnx"]}
                                                         !< so in transport, total diffusivity = viu*sigdifi + diusp
- real            , allocatable     :: fcori (:)   !< spatially variable fcorio coeff at u point (1/s)
+ real,             allocatable     :: fcori (:)   !< spatially variable fcorio coeff at u point (1/s)
  double precision, allocatable     :: fvcoro (:)  !< 3D adamsbashford u point (m/s2)
 
- real            , allocatable     :: tidgs (:)   !< spatially variable earth tide potential at s point (m2/s2)
  double precision, allocatable     :: plotlin(:)  !< for plotting on u points
  integer         , allocatable     :: numlimdt(:) !< nr of times this point was the timestep limiting point
  integer                           :: numlimdt_baorg = 0  !< nr of times limiting > numlimdt_baorg, keep org ba
