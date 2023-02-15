@@ -174,6 +174,7 @@
  integer                           :: handle_ext      !< timer handle for externalforcings
  integer                           :: handle_extbnd   !< timer handle for externalforcingsonbnd
  integer                           :: handle_extra(90)!< timer handles for extra timers
+ integer                           :: handle_mpi 
 
  double precision                  :: dsetb       !< number of setbacks ()
  double precision                  :: walltime0   !< wall time at start of timeloop (s)
@@ -360,6 +361,7 @@ subroutine reset_timers()
    handle_ext     = 0
    handle_extbnd  = 0
    handle_extra   = 0
+   handle_mpi = 0
 
    call timstrt('All', handle_all)
 end subroutine reset_timers

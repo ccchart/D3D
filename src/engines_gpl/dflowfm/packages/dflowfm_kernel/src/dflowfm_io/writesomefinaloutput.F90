@@ -194,6 +194,7 @@
 #ifdef HAVE_MPI
  if (jampi == 1) then
     write(msgbuf,'(a,i0,a,i0)') 'MPI    : yes.         #processes   : ', numranks, ', my_rank: ', my_rank; call msg_flush()
+    write(msgbuf,'(a,i2,a,f25.10)') 'MPI proc=', my_rank, ' time =', tim_get_wallclock(handle_mpi); call msg_flush()
  else
     write(msgbuf,'(a)')         'MPI    : no.'         ; call msg_flush()
  end if
