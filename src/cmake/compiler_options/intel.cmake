@@ -7,7 +7,7 @@ if (WIN32)
     # Set global Fortran compiler flags that apply for each Fortran project
     set(nologo_flag /nologo)
     set(compiler_flags "/W1 ${nologo_flag} /libs:dll /threads")
-    set(debug_flags "/check:uninit /check:stack /traceback")
+    set(debug_flags "/check:uninit /check:stack /check:pointers /check:bounds /traceback /fpe:0")
 
     # Set optional flags:
     message(STATUS "Setting optional Intel Fortran compiler flags in Windows")
@@ -16,15 +16,22 @@ if (WIN32)
     set(extend_source132_flag /extend-source:132)
     set(heap_arrays_one_flag /heap-arrays:1)
     set(heap_arrays_100_flag /heap-arrays:100)
-    set(real_size_64_flag /real_size:64)
+    set(real_size_64_flag /real-size:64)
 
     set(check_bounds_flag /check:bounds)
     set(linker_debug_flag /debug)
-    set(check_pointer /check:pointer)
+    set(check_pointer /check:pointers)
     set(openmp_flag /Qopenmp)
     set(generate_reentrancy_threaded_flag /reentrancy:threaded)
     set(floating_point_exception_flag /fpe:0)
     set(traceback_flag /traceback)
+    
+    # To prevent Visual Studio compilation failures when trying to write the manifest file
+    # to a blocked .exe
+    set(CMAKE_EXE_LINKER_FLAGS    "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /MANIFEST:NO")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /MANIFEST:NO")
+
 endif(WIN32)
 
 if (UNIX)
@@ -36,19 +43,24 @@ if (UNIX)
     set(CMAKE_C_FLAGS_RELEASE        "-O2 -fPIC")
     set(CMAKE_CXX_FLAGS_DEBUG        "-g -O0 -fPIC")
     set(CMAKE_C_FLAGS_DEBUG          "-g -O0 -fPIC")
-    set (CMAKE_Fortran_FLAGS_RELEASE "-O2 -fPIC")
-    set (CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -fPIC")
+    set(CMAKE_Fortran_FLAGS_RELEASE  "-O2 -fPIC")
+    set(CMAKE_Fortran_FLAGS_DEBUG    "-g -O0 -fPIC")
 
     set(cpp_compiler_flags "-std=c++11")
     set(file_preprocessor_flag -v)
+    set(automatic_local_variable_storage_flag -auto)
     set(extend_source132_flag -extend-source 132)
     set(real_size_64_flag -r8)
 
     set(file_preprocessor_flag -fpp)
     set(check_bounds_flag -check bounds)
+    set(check_pointer -check pointers)
     set(openmp_flag -qopenmp)
+    set(generate_reentrancy_threaded_flag -reentrancy threaded)
+    set(floating_point_exception_flag -fpe0)
+    set(traceback_flag -traceback)
 endif(UNIX)
 
 set(qauto_threaded_flags ${automatic_local_variable_storage_flag} ${generate_reentrancy_threaded_flag})
 set(waq_default_flags ${file_preprocessor_flag} ${extend_source132_flag} ${traceback_flag})
-set(waq_debug_flags   ${floating_point_exception_flag} ${check_bounds_flag} ${check_pointer})
+set(waq_debug_flags) # WAQ specific debug flags are currently empty (moved to general debug flags)
