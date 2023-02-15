@@ -2113,9 +2113,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                   tmpvarptr(1:count_read(var_kxdimpos(iv,itopo)),1:1,1:maxitems)  =>  tmpvar2D(:,:)
                   call realloc( tmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
                else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-                  call realloc(itmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+                  call realloc(itmpvar2D, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
                   itmpvarptr(1:count_read(var_kxdimpos(iv,itopo)),1:1,1:maxitems) => itmpvar2D(:,:)
-                  call realloc(itmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+                  call realloc(itmpvar2D_tmp, (/  count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
                else if (var_types(iv,itopo) == nf90_char) then ! for variables such as mesh1d_node_id
                   call realloc(ctmpvar2D, (/ count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill='')
                   call realloc(ctmpvar2D_tmp, (/ count_read(var_kxdimpos(iv,itopo)), maxitems /), keepExisting=.false., fill='')
@@ -2128,9 +2128,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                tmpvarptr(1:1,1:kmx(itopo,noutfile),1:maxitems)  =>  tmpvar2D(:,:)
                call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
                itmpvarptr(1:1,1:kmx(itopo,noutfile),1:maxitems) => itmpvar2D(:,:)
-               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile), maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
             end if
             tmpvarDim = 2
          else if (var_wdimpos(iv,itopo) /= -1) then
@@ -2139,9 +2139,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                tmpvarptr(1:1,1:kmx(itopo,noutfile)+1,1:maxitems)  =>  tmpvar2D(:,:)
                call    realloc(tmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
             else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
-               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+               call    realloc(itmpvar2D, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
                itmpvarptr(1:1,1:kmx(itopo,noutfile)+1,1:maxitems) => itmpvar2D(:,:)
-               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=varfill_value(iv, itopo))
+               call    realloc(itmpvar2D_tmp, (/  kmx(itopo,noutfile)+1, maxitems /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
             end if
             tmpvarDim = 2
          end if
@@ -2239,9 +2239,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                         end if
                      else if (var_types(iv,itopo) == nf90_int .or. var_types(iv,itopo) == nf90_short) then
                         if (jaread_sep == 1) then
-                           call realloc(itmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=varfill_value(iv, itopo))
+                           call realloc(itmpvar2D_tmpmax, (/  count_read(is), count_read(ie) /), keepExisting=.false., fill=int(varfill_value(iv, itopo)))
                            ierr = nf90_get_var(ncids(ii), varids(ii,iv,itopo), itmpvar2D_tmpmax, count=count_read(is:ie), start=start_idx(is:ie))
-                           itmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = varfill_value(iv, itopo)
+                           itmpvar2D(:,nitemglob0+1:nitemglob0+count_read(ie)) = int(varfill_value(iv, itopo))
                            itmpvar2D(1:netfacemaxnodes(itopo,ii),nitemglob0+1:nitemglob0+count_read(ie)) = itmpvar2D_tmpmax(1:count_read(is),1:count_read(ie))
                            jaread_sep = 0
                         else
