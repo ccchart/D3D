@@ -185,7 +185,7 @@ double precision :: wu_int, au_int
 !double precision, allocatable, dimension(:) :: frcu_mor_fm
 !double precision, allocatable, dimension(:) :: ifrcutp_fm
 
-double precision, allocatable, dimension(:,:) :: wcl_fm
+!double precision, allocatable, dimension(:,:) :: wcl_fm
 !double precision, allocatable, dimension(:,:) :: e_sbcn_fm
 !double precision, allocatable, dimension(:,:) :: e_sbn_fm
 double precision, allocatable, dimension(:,:) :: bodsed_o
@@ -356,6 +356,10 @@ enddo
 !    nd_mor(k)%lnx=nd(k)%lnx
 !    nd_mor(k)%ln=nd(k)%ln
 !enddo
+if (allocated(nd_o)) then
+    deallocate(nd_o)
+endif
+allocate(nd_o(ndx))
 nd_o=nd
 
 !ln_o=ln
@@ -446,6 +450,9 @@ do kd=ndxi+1,ndx
     gridpoint2cross(kd)%num_cross_sections=0 !This prevents it is looped in <fm_update_crosssections>
 enddo
 
+if (allocated(gridpoint2cross_o)) then
+    deallocate(gridpoint2cross_o)
+endif
 
 !
 !BEGIN (LOB)
@@ -698,7 +705,9 @@ ndxi_mor=ndx_mor !there are no ghosts in SRE
 ndkx_mor=ndx_mor
 
 
-
+if (allocated(nd_o)) then
+    deallocate(nd_o)
+endif
 
 
 !ndkx=ndx_mor !used to preallocate <ucxq_mor> and similar. !Cannot be changed because it is used in output data. The only solution is to specifically reallocate these variables. 
@@ -839,25 +848,31 @@ call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,nd
 !it's just changing the local pointer and not the associated target pointer.
 
 !state
+if (allocated(bodsed_o)) then
+    deallocate(bodsed_o)
+endif
+allocate(bodsed_o(lsedtot,ndx))
 bodsed_o=stmpar%morlyr%state%bodsed
-allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
+
+!deallocate(stmpar%morlyr%state%bodsed)
+!allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
 if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     
     msed_o=stmpar%morlyr%state%msed
-    allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
-    
+    !allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
+    !
     thlyr_o=stmpar%morlyr%state%thlyr
-    allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
-    
+    !allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
+    !
     sedshort_o=stmpar%morlyr%state%sedshort
-    allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
-    
+    !allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
+    !
     svfrac_o=stmpar%morlyr%state%svfrac
-    allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
-    
+    !allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
+    !
     preload_o=stmpar%morlyr%state%preload
-    allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
+    !allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
 
 !settings
 !thtrlyr_o=stmpar%morlyr%settings%thtrlyr
@@ -869,10 +884,10 @@ if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
 !call reallocate_fill_manual_2(stmpar%morlyr%state%bodsed  ,bodsed_o  ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
 !call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
 
-call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
-call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+!call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+!call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
 
-call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
+!call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
 
 endif
 
@@ -1003,7 +1018,11 @@ enddo
 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     
+stmpar%morlyr%settings%nmub=ndx_mor
+griddim%nmub=ndx_mor
 call flow_sedmorinit()
+griddim%nmub=ndx
+stmpar%morpar%mornum%pure1d=1 !it is killed in <flow_sedmorinit>
 
 !We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
 !call flow_waveinit()
@@ -1022,6 +1041,7 @@ if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     
     call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
     call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
+    call reallocate_fill_manual_2(stmpar%morlyr%state%preload ,preload_o ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
     
     call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
 
@@ -1057,7 +1077,11 @@ endif
 
 ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 
-stmpar%morlyr%settings%nmub=ndx_mor
+!stmpar%morlyr%settings%nmub=ndx_mor
+
+if (allocated(bodsed_o)) then 
+    deallocate(bodsed_o)
+endif
 
 endif
 
@@ -1173,6 +1197,10 @@ do kn=1,network%nds%Count
           enddo !kd
       enddo !kl
 enddo !kn
+
+if (allocated(grd_fm_sre2)) then 
+    deallocate(grd_fm_sre2)
+endif
 
 !END (FIC)       
         
@@ -1604,6 +1632,10 @@ do kbr=1,nbran
     
 enddo
 
+if (allocated(kcol)) then
+    deallocate(kcol)
+endif 
+
 !FM1DIMP2DO: remove debug
 f1dimppar%fm1dimp_debug_k1=1
 
@@ -1678,11 +1710,11 @@ if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
 !for some strange reason <frac> seems to not be always fine. I do not know why. 
 !if repeating the run in debug mode, the problem is not there. 
     
-if (stmpar%morlyr%SETTINGS%IUNDERLYR==1) then
+!if (stmpar%morlyr%SETTINGS%IUNDERLYR==1) then
    
 do kd=1,ndx_mor
     do ksed=1,lsedtot
-        if (frac(kd,ksed)>1) then
+        if (frac(kd,ksed)>1.00001) then
             write (msgbuf, '(a)') 'Something is wrong with <frac>.'
             call err_flush()
             iresult=1
@@ -1704,7 +1736,7 @@ enddo!kd
 !    enddo !ksed
 !enddo!kd
     
-endif
+!endif
 
 endif !jased
 !

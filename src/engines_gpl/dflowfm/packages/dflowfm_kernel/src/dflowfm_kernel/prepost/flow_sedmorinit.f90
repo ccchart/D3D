@@ -127,6 +127,8 @@ subroutine flow_sedmorinit()
        end select
     end if
 
+    !V: The sizes for morphodynamics are <~_mor>, which are equal to the flow
+    !sizes if not changed.
     if (.not.f1dimp_initialized) then
         ndx_mor=ndx 
         ndxi_mor=ndxi
@@ -137,13 +139,13 @@ subroutine flow_sedmorinit()
         ln_mor=ln
     endif
     
-    if (.not.f1dimp_initialized) then
+    !if (.not.f1dimp_initialized) then
         call rdstm(stmpar, griddim, md_sedfile, md_morfile, filtrn='', lundia=mdia, lsal=jasal, ltem=jatem, ltur=ltur_, lsec=jasecflow, lfbedfrm=bfm_included, julrefday=julrefdat, dtunit='Tunit='//md_tunit, nambnd=nambnd, error=error)
         if (error) then
             call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Error in subroutine rdstm.')
             return
         end if
-    endif
+    !endif
     
     do i = 1, stmpar%lsedtot
        if (stmpar%trapar%iform(i) == 19 .or. stmpar%trapar%iform(i) == 20) then
