@@ -1,6 +1,6 @@
    !----- AGPL --------------------------------------------------------------------
    !
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
    !
    !  This file is part of Delft3D (D-Flow Flexible Mesh component).
    !
@@ -177,7 +177,7 @@
                sphi = -csw*snu(LL)+snw*csu(LL)
                abscos = abs(cphi*uu + sphi*vv) / umod
                call getsoulsbywci(modind, z00, ustc2, ustw2, fw, cdrag, umod, abscos, taubpuLL, taubxuLL)
-               ustbLL = sqrt(umod*taubpuLL)
+               ! ustbLL = sqrt(umod*taubpuLL)
             else if (modind == 9) then                            ! wave-current interaction van Rijn (2004)
                call getvanrijnwci(LL, umod, u2dh, taubpuLL, z0urouL)
                taubxuLL = rhoL*(ustc2+ustw2)                      ! depth-averaged, see taubot

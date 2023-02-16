@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -37,7 +37,7 @@
      &                    vartda , vardag , vartag , varagg , arrpoi ,
      &                    arrknd , arrdm1 , arrdm2 , vgrset , grdnos ,
      &                    grdseg , novar  , a      , nogrid , ndmps  ,
-     &                    pronam , intsrt , owners , ownerq , mypart ,
+     &                    pronam , intsrt ,  
      &                    prvpnt , done   , nrref  , proref , nodef  ,
      &                    surfac , lunrep )
 
@@ -68,8 +68,8 @@
 !     Files               : Monitoring file if needed for messages
 
       use timers
-      use m_couplib
       use iso_c_binding
+      use process_registration
 
       implicit none
 
@@ -162,9 +162,6 @@
       integer( 4), intent(in   ) :: ndmps                       !<
       character(20)              :: pronam(*)                   !< Name of called module
       integer( 4), intent(in   ) :: intsrt                      !< Number of integration routine used
-      integer( 4), intent(in   ) :: owners(noseg)               !< Ownership array for segments
-      integer( 4), intent(in   ) :: ownerq(*)                   !< Ownership array for exchanges
-      integer( 4), intent(in   ) :: mypart                      !< Number of current part/subdomain
       integer( 4), intent(in   ) :: prvpnt(nproc)               !< entry in process pointers OMP
       integer( 4)                   done  (nproc)               !< flag whether a process has ran
       integer( 4), intent(in   ) :: nrref                       !< maximum nr of back references
@@ -265,8 +262,6 @@
       done = 0                                           ! this zeros the whole array
 !
 !     Start timings
-!
-!     call timer_start(timer_proces)
 !
 !     allocate velndt, dspndt
 !
@@ -371,7 +366,7 @@
      &                    iknmrk , noq1   , noq2   , noq3   , noq4   ,
      &                    nproc  , notot  , deriv  , stochi , volume ,
      &                    prondt , ibflag , isdmp  , flxdmp , novar  ,
-     &                    vartag , iiknmr , pronam , owners , mypart ,
+     &                    vartag , iiknmr , pronam ,
      &                    dspndt , velndt , dll_opb)
             done( ipbloo ) = 1
             if ( timon ) call timstop ( ithand2 )
@@ -397,8 +392,7 @@
 !              Construct derivatives for these fluxes on this grid
 
                call prodr2 ( deriv(1,1,igrid) , notot           , noflux , stochi          , iflux (ipbloo) ,
-     &                       nfluxp           , flux(1,1,igrid) , noseg2 , volume(1,igrid) , prondt(ipbloo) ,
-     &                       owners           , mypart          )
+     &                       nfluxp           , flux(1,1,igrid) , noseg2 , volume(1,igrid) , prondt(ipbloo) )
 
 !              For balances store FLXDMP
 
@@ -425,14 +419,13 @@
 !           Scale fluxes and update "processes" accumulation arrays
 
             call dlwq14 ( deriv  , notot  , noseg  , itfact , amass2 ,
-     &                    idt    , iaflag , dmps   , intopt , isdmp  ,
-     &                    owners , mypart )
+     &                    idt    , iaflag , dmps   , intopt , isdmp  )
 
 !           Integration (derivs are zeroed)
 
             call dlwqp0 ( conc   , amass  , deriv  , volume , idt     ,
      &                    nosys  , notot  , noseg  , 0      , 0       ,
-     &                    owners , mypart , surfac )
+     &                    surfac )
 
 !           Integrate the fluxes at dump segments
 
@@ -521,7 +514,7 @@
      &                    iknmrk , noq1   , noq2   , noq3   , noq4   ,
      &                    nproc  , notot  , deriv  , stochi , volume ,
      &                    prondt , ibflag , isdmp  , flxdmp , novar  ,
-     &                    vartag , iiknmr , pronam , owners , mypart ,
+     &                    vartag , iiknmr , pronam ,
      &                    dspndt , velndt , dll_opb)
             done( ipchar ) = 1
             if ( timon ) call timstop ( ithand2 )
@@ -547,8 +540,7 @@
 !              Construct derivatives for these fluxes on this grid
 
                call prodr2 ( deriv(1,1,igrid) , notot           , noflux , stochi          , iflux (ipchar) ,
-     &                       nfluxp           , flux(1,1,igrid) , noseg2 , volume(1,igrid) , prondt(ipchar) ,
-     &                       owners           , mypart          )
+     &                       nfluxp           , flux(1,1,igrid) , noseg2 , volume(1,igrid) , prondt(ipchar) )
 
 !              For balances store FLXDMP
 
@@ -575,14 +567,13 @@
 !           Scale fluxes and update "processes" accumulation arrays
 
             call dlwq14 ( deriv  , notot  , noseg  , itfact , amass2 ,
-     &                    idt    , iaflag , dmps   , intopt , isdmp  ,
-     &                    owners , mypart )
+     &                    idt    , iaflag , dmps   , intopt , isdmp  )
 
 !           Integration (derivs are zeroed)
 
             call dlwqp0 ( conc   , amass  , deriv  , volume , idt     ,
      &                    nosys  , notot  , noseg  , 0      , 0       ,
-     &                    owners , mypart , surfac )
+     &                    surfac )
 
 !           Integrate the fluxes at dump segments
 
@@ -695,7 +686,7 @@
      &                       iknmrk  , noq1         , noq2    , noq3    , noq4    ,
      &                       nproc   , notot        , deriv   , stochi  , volume  ,
      &                       prondt  , ibflag       , isdmp   , flxdmp  , novar   ,
-     &                       vartag  , iiknmr       , pronam  , owners  , mypart  ,
+     &                       vartag  , iiknmr       , pronam  , 
      &                       dspndt  , velndt       , dll_opb )
 
                done(iproc) = 1                           ! this process has resolved its output
@@ -716,31 +707,17 @@
       call twopro ( nproc  , nogrid , noflux , novar  , noseg  ,
      &              notot  , progrd , grdnos , iflux  , vgrset ,
      &              grdseg , volume , deriv  , stochi , flux   ,
-     &              prondt , ibflag , isdmp  , flxdmp , owners ,
-     &              mypart , ipbloo , ipchar , istep  )
+     &              prondt , ibflag , isdmp  , flxdmp , 
+     &              ipbloo , ipchar , istep  )
 
 !     Store fluxes and elaborate mass balances set fractional step
 !     Vraag , doen we nu altijd fractional step? of moeten we als we geen
 !     processen hebben met een grotere tijdstap de integratie samen met het
 !     transport doen.
 
-!grd  IF ( NOFLUX .GT. 0 .AND. NOGRID .GT. 1 ) THEN
       if ( noflux .gt. 0 .and. maxgrid .gt. 1 ) then
          do igrd = 2 , nogrid
-!           DO ISYS = 1 , NOTOT
-!              ISWCUM = 1
-!              NOSEG2 = GRDNOS(IGRD)
-!              IPGR   = NOTOT*NOSEG*(IGRD-1) + 1
-!              CALL DHDAGG( NOSEG         , NOSEG2     ,
-!    +                      NOTOT         , NOTOT      ,
-!    +                      NOTOT         , NOTOT      ,
-!    +                      ISYS          , ISYS       ,
-!    +                      ISYS          , ISYS       ,
-!    +                      GRDSEG(1,IGRD), 2          ,
-!    +                      DERIV(1,1,igrd)   , AMASS      ,
-!    +                      ISWCUM        , AMASS(IPGR),
-!    +                      DERIV         )
-!           ENDDO
+
             iswcum = 1
             noseg2 = grdnos(igrd)
             call dhdag2( noseg   , noseg2           , notot  , notot           , notot  ,
@@ -768,14 +745,13 @@
 !           Scale fluxes and update "processes" accumulation arrays
 
             call dlwq14 ( deriv  , notot  , noseg  , itfact , amass2 ,
-     &                    idt    , iaflag , dmps   , intopt , isdmp  ,
-     &                    owners , mypart )
+     &                    idt    , iaflag , dmps   , intopt , isdmp  )
 
 !           Integration (derivs are zeroed)
 
             call dlwqp0 ( conc   , amass  , deriv  , volume , idt     ,
      &                    nosys  , notot  , noseg  , 0      , 0       ,
-     &                    owners , mypart , surfac )
+     &                    surfac )
 
 !           Integrate the fluxes at dump segments
 
@@ -792,7 +768,7 @@
       if ( ndspn  .gt. 0 ) then
          call provel ( dispnw , ndspn  , idpnew , disper , nodisp ,
      &                 idpnt  , dspx   , ndspx  , dsto   , nosys  ,
-     &                 noq    , ownerq , mypart , dspndt , istep  )
+     &                 noq    , dspndt , istep  )
       endif
 
 !     Calculate new velocities
@@ -800,15 +776,8 @@
       if ( nveln  .gt. 0 ) then
          call provel ( velonw , nveln  , ivpnew , velo   , novelo ,
      &                 ivpnt  , velx   , nvelx  , vsto   , nosys  ,
-     &                 noq    , ownerq , mypart , velndt , istep  )
+     &                 noq    , velndt , istep  )
       endif
-
-!     Update output-data between neighbouring processors
-
-!     call update_data(deriv, notot, 'noseg', 1, 'stc1', ierr)
-!     call update_data(amass, notot, 'noseg', 1, 'stc1', ierr)
-!     if (ndspn.gt.0) call update_data(dispnw, ndspn,'noq',1, 'exchg_for_ownseg', ierr)
-!     if (nveln.gt.0) call update_data(velonw, nveln,'noq',1, 'exchg_for_ownseg', ierr)
 
  9999 if ( timon ) call timstop ( ithandl )
       return
@@ -824,18 +793,17 @@
      +                    IKNMRK, NOQ1  , NOQ2  , NOQ3  , NOQ4  ,
      +                    NPROC , NOTOT , DERIV , STOCHI, VOLUME,
      +                    PRONDT, IBFLAG, ISDMP , FLXDMP, NOVAR ,
-     +                    VARTAG, IIKNMR, PRONAM, OWNERS, MYPART,
+     +                    VARTAG, IIKNMR, PRONAM, 
      +                    DSPNDT, VELNDT, dll_opb)
 !
       use timers
-!     use m_timers_waq
-      use m_couplib
       use iso_c_binding
+      use process_registration
 !
       INTEGER             IPROC , K     , IDT   , ITFACT, NOGRID,
      +                    NOSEG , NOFLUX, NOQ1  , NOQ2  , NOQ3  ,
      +                    NOQ4  , NPROC , NOTOT , IBFLAG, NOVAR ,
-     +                    IIKNMR, MYPART
+     +                    IIKNMR
       INTEGER             PROGRD(*)      , GRDNOS(*)      ,
      +                    PRVNIO(*)      , PRVTYP(*)      ,
      +                    PRVVAR(*)      , VARARR(*)      ,
@@ -848,7 +816,7 @@
      +                    IFLUX (*)      , PROMNR(*)      ,
      +                    IEXPNT(*)      , IKNMRK(*)      ,
      +                    PRONDT(*)      , ISDMP (*)      ,
-     +                    VARTAG(*)      , OWNERS(*)      ,
+     +                    VARTAG(*)      , 
      +                    DSPNDT(*)      , VELNDT(*)
       REAL                A(*)           , FLUX(*)        ,
      +                    DERIV(*)       , STOCHI(*)      ,
@@ -862,7 +830,6 @@
 !
 !     get the general local work array, first index of LOCAL array
 !
-!     call timer_start(timer_proces_grids)
       IX_HLP = 1
       IA_HLP = 33
       CALL DHGVAR( IA_HLP, IX_HLP, IV_HLP)
@@ -1089,7 +1056,6 @@
          ENDIF
 !
       ENDDO
-!     call timer_stop(timer_proces_grids)
 !
 !     compute fluxes
 !
@@ -1177,8 +1143,8 @@
       subroutine twopro ( nproc  , nogrid , noflux , novar  , noseg  ,
      &                    notot  , progrd , grdnos , iflux  , vgrset ,
      &                    grdseg , volume , deriv  , stochi , flux   ,
-     &                    prondt , ibflag , isdmp  , flxdmp , owners ,
-     &                    mypart , ipbloo , ipchar , istep  )
+     &                    prondt , ibflag , isdmp  , flxdmp , 
+     &                    ipbloo , ipchar , istep  )
 
 !     Deltares - Delft Software Department
 
@@ -1225,8 +1191,6 @@
       integer(4), intent(in   ) :: ibflag                          ! If > 0 then balances are required
       integer(4), intent(in   ) :: isdmp (noseg )                  ! Segment to dumped segment pointer
       real   (4), intent(inout) :: flxdmp(noflux, *     )          ! Dumped fluxes
-      integer(4), intent(in   ) :: owners(noseg )                  ! MPI array for parallelism owning nodes of the volumes
-      integer(4), intent(in   ) :: mypart                          ! MPI calling node number
       integer(4), intent(in   ) :: ipbloo                          ! The BLOOM  process if any
       integer(4), intent(in   ) :: ipchar                          ! The CHARON process if any
       integer(4), intent(in   ) :: istep                           ! Time step nr.
@@ -1268,8 +1232,7 @@
 !        Construct derivatives from these fluxes on this grid
 
          call prodr2 ( deriv(1,1,igrid), notot          , noflux , stochi         , iflux (iproc),
-     &                 nfluxp          , flux(1,1,igrid), noseg2 , volume(1,igrid), prondt(iproc),
-     &                 owners          , mypart         )
+     &                 nfluxp          , flux(1,1,igrid), noseg2 , volume(1,igrid), prondt(iproc))
 
 !        For the use in balances, store fluxes in 'flxdmp' using aggregation pointer 'isdmp'
 

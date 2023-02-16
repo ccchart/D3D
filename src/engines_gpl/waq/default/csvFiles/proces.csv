@@ -232,7 +232,7 @@ procid,procco,procfo,procnm
 "SedPhDyn  ",123,"SSEDPH    ","Sum sedimentation of algae - Dynamo               "
 "Sed_MPB1  ",123,"SEDCAR    ","Sedimentation MPB1peli   algae 3d                 "
 "Sed_MPB2  ",123,"SEDCAR    ","Sedimentation MPB2psam   algae 3d                 "
-"Sed_Opal  ",123,"SEDIM    ;","Sedimentation Opal 3d                             "
+"Sed_Opal  ",123,"SEDIM     ","Sedimentation Opal 3d                             "
 "Sed_POC1  ",123,"SEDIM     ","Sedimentation POC1 3d                             "
 "Sed_POC2  ",123,"SEDIM     ","Sedimentation POC2 3d                             "
 "Sed_POC3  ",123,"SEDIM     ","Sedimentation POC3 3d                             "
@@ -742,3 +742,4 @@ procid,procco,procfo,procnm
 "RadioSub1 ",123,"DRADIO    ","Radio-active decay of substance Radio1            "
 "RadioSub2 ",123,"DRADIO    ","Radio-active decay of substance Radio2            "
 "RadioSub3 ",123,"DRADIO    ","Radio-active decay of substance Radio3            "
+"AgeCART   ",123,"AGECAR    ","Water age according to CART method                "

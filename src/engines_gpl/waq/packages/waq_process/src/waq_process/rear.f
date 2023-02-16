@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -162,8 +162,6 @@
       DO 9000 ISEG = 1 , NOSEG
       CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
       IF (IKMRK1.EQ.1) THEN
-!     als ook rekenen voor drooggevallen platen dan :
-!jvb  IF (IKMRK1.EQ.0.OR.IKMRK1.EQ.1) THEN
 
 !         Compute saturation percentage for all layers
 

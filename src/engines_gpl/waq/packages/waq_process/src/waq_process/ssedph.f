@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -83,8 +83,6 @@
               SEDCAR = SEDCAR + SEDSPE
               SEDDM  = SEDDM  + SEDSPE*CTODRY
 
-!              IF ( NALG .GT. 6 ) THEN
-
                  IN = 2 + 2*NALG + IALG
                  NCRAT  = PMSA( IPOINT(IN) + (ISEG-1)*INCREM(IN) )
                  IN = 2 + 3*NALG + IALG
@@ -107,7 +105,6 @@
 
 !         NO LONGER Define fluxes only for Bloom (NALG .GT. 6)
 
-!          IF (NALG.GT.6) THEN
              IF (DEPTH .GT. 0.0) THEN
                 FL(IFLUX+1) = SEDCAR/DEPTH
                 FL(IFLUX+2) = SEDNIT/DEPTH

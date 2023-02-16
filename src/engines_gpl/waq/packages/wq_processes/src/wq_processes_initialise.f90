@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -20,7 +20,7 @@
 !!  All indications and logos of, and references to registered trademarks
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
-      
+
       subroutine wq_processes_initialise ( lunlsp, pdffil, shared_dll_so, blmfil, blmoutfil, sttfil, statprocesdef, outputs, &
                                            nomult, imultp, constants, refday, noinfo, nowarn, ierr)
 
@@ -38,7 +38,8 @@
 
       use processes_input
       use processes_pointers
-      
+      use process_registration
+
       use dlwq_data
       use dlwq0t_data
       use bloom_data_io, only:runnam
@@ -200,7 +201,7 @@
 
       ierr = 0
       ierr2 = 0
-      
+
       ! allocate
 
       call realloc(actlst, nbprm, keepExisting=.false.,Fill=' ')
@@ -230,7 +231,7 @@
       write( lunlsp, '(XA/)') idstr
       call dattim(rundat)
       write (lunlsp,'(A,A/)') ' Execution start: ',rundat
-      
+
       ! Active/inactive substance list
       write ( lunlsp , 2080 ) nosys , notot-nosys , notot
       write ( lunlsp , 2100 )
@@ -245,16 +246,13 @@
 
       ! case sensitivity
       call setzmo ( 0 )
-      ! call setzmo ( 1 )
 
       ! monitoring level
-      !call setmmo ( mlevel )
       call setmmo ( 10     )
 
       ! active processes only switch
       ! only activated processes are switched on
       laswi = .true.
-      ! laswi = .false.
 
       ! initialise statistical processes
       statprocesdef%cursize = 0
@@ -274,9 +272,9 @@
             ierr = ierr + 1
             return
          else
-         endif   
+         endif
       endif
-      
+
       ! read process definition file
 
       call rd_tabs( pdffil, lunlsp , versio, serial, noinfo, nowarn, ierr2 )
@@ -463,7 +461,7 @@
                   endif
                endif
             enddo
-   
+
             ! replace proto with actual processes in constant list
             call actrep( noalg   , noprot   , namprot, nampact, nopralg, nampralg, constants)
          endif
@@ -547,7 +545,6 @@
 
       ! handle output from statistical processes
 
-!      call set_stat_output( statprocesdef, noutp, ioutps, nrvart, outputs)
       noout_statt = 0
       noout_state = 0
 !     first statistics with temporal output
@@ -592,7 +589,7 @@
             enddo
          enddo
       endif
- 
+
       ! replace names of bloom algea with actual names
       if ( l_eco .and. nbpr .gt. 0 ) then
 
@@ -604,7 +601,7 @@
                        noutgrp  , outgrp)
 
          runnam = blmoutfil
-         
+
          ! write the bloom efficiency file
          filnam = trim(runnam)//'.frm'
          open ( newunit=lunfrm, file=filnam )
@@ -796,7 +793,7 @@
       call realloc(nfluxsys, notot, keepExisting=.false.,Fill=0)
       call realloc(ipfluxsys, notot, keepExisting=.false.,Fill=0)
       call realloc(fluxsys, totfluxsys, keepExisting=.false.,Fill=0)
-      
+
       ifluxsys = 0
       do isys = 1 , notot
          do iflx = 1 , nflux

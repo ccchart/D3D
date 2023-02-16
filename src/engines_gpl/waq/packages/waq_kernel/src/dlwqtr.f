@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -27,8 +27,7 @@
      +                    ALENG  , CONC   , DISP   , CONS   , PARAM  ,
      +                    FUNC   , SEGFUN , DISPER , VELO   , ITIME  ,
      +                    IDT    , SYNAME , NOCONS , NOFUN  , CONAME ,
-     +                    PANAME , FUNAME , SFNAME , UPDATR , ILFLAG ,
-     +                    NPARTp )
+     +                    PANAME , FUNAME , SFNAME , UPDATR , ILFLAG )
 !
 !     Deltares     SECTOR WATERRESOURCES AND ENVIRONMENT
 !
@@ -87,7 +86,6 @@
 !                                         part of the matrix and uses integratio
 !                                         option 10.xx .
 !     ILFLAG  INTEGER     1       INPUT   if 0 then 3 length values
-!     NPARTp  INTEGER     1       INPUT   number of subdomains in parallel run
 !
 !     ==================================================================
 !
@@ -122,11 +120,6 @@
 !          Even if not, then the file should be available on all
 !          nodes, as they share the directory.
 !
-!     IF ( NPARTp .GT. 1 ) THEN
-!        WRITE(LUNREP,2060) NPARTp
-!        CALL SRSTOP(1)
-!     ENDIF
-!
 !          check number of parameters
 !
 !     Initialisation set index pointers, read surface areas
@@ -155,8 +148,6 @@
 !
 !              It is assumed the SURF parameter has been set in the input
 !
-!              WRITE (LUNREP,2020)
-!              WRITE (  *   ,2020)
             ELSE
                OPEN ( NEWUNIT = LCCCO, FILE='areachar.dat', FORM  ='UNFORMATTED',
      +                                 STATUS='OLD'       , IOSTAT=IER2         )
@@ -231,9 +222,6 @@
  2040 FORMAT (' Dispersion length in third dir. will be calculated')
  2050 FORMAT (' ERROR: File areachar.dat does not match.',
      +        ' NMA = ',I8,' LAYT= ',I8,' NMT = ',I8,' NOSEG=',I8)
- 2060 FORMAT (' ERROR: User-supplied transport processes (DLWQTR) may n
-     +ot be used',/,
-     +        '        in parallel runs (NPART=',i3,').')
  2070 FORMAT (' End extra functionality DLWQTR')
 !
       END

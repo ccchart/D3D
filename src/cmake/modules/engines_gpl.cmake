@@ -20,6 +20,7 @@ set(delwaq_lib_module "${waq_module_path}/delwaq_lib")
 set(delwaq1_module "${waq_module_path}/delwaq1")
 set(delwaq2_module "${waq_module_path}/delwaq2")
 set(delwaq_lib_examples_module "${waq_module_path}/delwaq_lib_examples")
+set(waq_delftio_module "${waq_module_path}/waq_delftio/packages/waq_delftio")
 
 # Waves
 set(wave_module_path "${engines_gpl_path}/wave/packages")
@@ -31,15 +32,15 @@ set(wave_module "${wave_module_path}/wave")
 
 # Flow2D3D
 set(flow2d3d_module_path "${engines_gpl_path}/flow2d3d/packages")
-set(flow2d3d_data_module "${flow2d3d_module_path}/data")
-set(flow2d3d_plugin_culvert_c_module "${flow2d3d_module_path}/plugin_culvert_c")
-set(flow2d3d_plugin_user_module "${flow2d3d_module_path}/plugin_user")
-set(flow2d3d_io_dol_f_module "${flow2d3d_module_path}/io_dol_f")
-set(flow2d3d_io_module "${flow2d3d_module_path}/io")
-set(flow2d3d_kernel_dd_f_module "${flow2d3d_module_path}/kernel_dd_f")
-set(flow2d3d_kernel_module "${flow2d3d_module_path}/kernel")
-set(flow2d3d_manager_module "${flow2d3d_module_path}/manager")
+set(flow2d3d_data_module "${flow2d3d_module_path}/flow2d3d_data")
+set(flow2d3d_io_dol_f_module "${flow2d3d_module_path}/flow2d3d_io_dol_f")
+set(flow2d3d_io_module "${flow2d3d_module_path}/flow2d3d_io")
+set(flow2d3d_kernel_dd_f_module "${flow2d3d_module_path}/flow2d3d_kernel_dd_f")
+set(flow2d3d_kernel_module "${flow2d3d_module_path}/flow2d3d_kernel")
+set(flow2d3d_manager_module "${flow2d3d_module_path}/flow2d3d_manager")
 set(flow2d3d_module "${flow2d3d_module_path}/flow2d3d")
+set(flow2d3d_plugin_culvert_c_module "${flow2d3d_module_path}/flow2d3d_plugin_culvert_c")
+set(flow2d3d_plugin_user_module "${flow2d3d_module_path}/flow2d3d_plugin_user")
 
 # Part
 set(part_module_path "${engines_gpl_path}/part/packages")
@@ -53,6 +54,10 @@ set(delpar_module "${part_module_path}/delpar")
 set(dimr_module_path "${engines_gpl_path}/dimr/packages")
 set(dimr_lib_module "${dimr_module_path}/dimr_lib")
 set(dimr_module "${dimr_module_path}/dimr")
+
+# d_hydro.exe
+set(d_hydro_module_path "${engines_gpl_path}/d_hydro/packages")
+set(d_hydro_module "${d_hydro_module_path}/d_hydro")
 
 # Agrhyd
 set(agrhyd_module "tools_gpl/agrhyd/packages/agrhyd")
@@ -69,4 +74,6 @@ set(install_waq_module cmake/install_waq)
 set(install_wave_module cmake/install_wave)
 set(install_dimr_module cmake/install_dimr)
 set(install_tests_module cmake/install_tests)
+set(install_d_hydro_module cmake/install_d_hydro)
+set(install_flow2d3d_module cmake/install_flow2d3d)
 

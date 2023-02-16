@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -70,8 +70,7 @@
       IN6 = INCREM(6)
 !
       DO 9000 ISEG = 1 , NOSEG
-!!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!!    IF (IKMRK1.GT.0) THEN
+
       IF (BTEST(IKNMRK(ISEG),0)) THEN
 !
       OXY   = PMSA(IP1)

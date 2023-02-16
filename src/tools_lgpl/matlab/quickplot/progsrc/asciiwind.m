@@ -32,7 +32,7 @@ function varargout = asciiwind(cmd,varargin)
 
 %----- LGPL --------------------------------------------------------------------
 %                                                                               
-%   Copyright (C) 2011-2022 Stichting Deltares.                                     
+%   Copyright (C) 2011-2023 Stichting Deltares.                                     
 %                                                                               
 %   This library is free software; you can redistribute it and/or                
 %   modify it under the terms of the GNU Lesser General Public                   
@@ -104,6 +104,7 @@ elseif any(Quant<0)
 elseif any(Quant>Structure.Header.n_quantity)
     error('Quantity index %i out of range',max(Quant))
 end
+is_direction = strcmp(Structure.Header.quantity(Quant), 'wind_from_direction');
 is_pressure = strcmp(Structure.Header.quantity(Quant), 'p_drop');
 nQuant = length(Quant);
 %
@@ -173,8 +174,12 @@ for i = 1:length(t)
             OneTime = reshape(OneTime,[Structure.Header.n_cols Structure.Header.n_rows nQuant]);
             OneTime = permute(OneTime,[2 1 3]);
             OneTime = OneTime([1 1:end],[1:end 1],:);
-            OneTime(1,:,:) = 0;
-            OneTime(1,:,is_pressure) = Structure.Data(t(i)).p_drop_spw_eye;
+            % fill the eye -- Delft3D approach (FM? also for 4?)
+            OneTime(1,:,:) = 0; % set to zero by default
+            OneTime(1,:,is_direction) = OneTime(2,:,is_direction); % keep direction constant to the eye
+            OneTime(1,:,is_pressure) = Structure.Data(t(i)).p_drop_spw_eye; % use eye pressure for the eye
+            % fill the eye -- SFINCS approach
+            % OneTime(1,:,:) = 2*OneTime(2,:,:) - OneTime(3,:,:); % linearly extrapolate trend of innermost pair of data points
         case {'meteo_on_computational_grid','field_on_computational_grid'}
             %TODO: nQuant>1
             if isfield(Structure.Header,'grid_file')
@@ -346,10 +351,13 @@ while ~feof(fid)
     %
     switch keyw
         case {'nodata_value','n_cols','n_rows','x_llcorner','y_llcorner', ...
-                'x_llcenter','y_llcenter','dx','dy','n_quantity','spw_radius','fileversion'}
+                'x_llcenter','y_llcenter','dx','dy','n_quantity','spw_radius', ...
+                'spw_merge_frac', 'fileversion'}
             value = sscanf(value,'%f');
         case 'time'
-            [Structure.Data(itime).time,Structure.Data(itime).timezone] = value2time_since(value);
+            [Structure.Data(itime).dtime,Structure.Data(itime).timezone,RefDate] = value2time_since(value);
+            Structure.Data(itime).time = RefDate + Structure.Data(itime).dtime;
+            Structure.Header.RefDate = RefDate;
             break
         case ''
             % might still be a time specification in FM format
@@ -357,7 +365,7 @@ while ~feof(fid)
             [key1,rem1] = strtok(value);
             key2 = strtok(rem1);
             if strcmp(key1,'/*') && strcmpi(key2,'time')
-                [Structure.Data(itime).time,Structure.Data(itime).timezone] = value2time_old(value);
+                [Structure.Data(itime).dtime,Structure.Data(itime).timezone,RefDate] = value2time_old(value);
                 fgetl_noncomment(fid); % skip the line, fgetl_keyval reset the reading point to before this line since it didn't contain an equal sign
                 timeformat = 2;
                 break
@@ -584,10 +592,11 @@ while 1
     end
     %
     if timeformat == 1
-        [Structure.Data(itime).time,Structure.Data(itime).timezone] = value2time_since(value);
+        [Structure.Data(itime).dtime,Structure.Data(itime).timezone] = value2time_since(value,RefDate);
     elseif timeformat == 2
-        [Structure.Data(itime).time,Structure.Data(itime).timezone] = value2time_old(value);
+        [Structure.Data(itime).dtime,Structure.Data(itime).timezone] = value2time_old(value,RefDate);
     end
+    Structure.Data(itime).time = RefDate + Structure.Data(itime).dtime;
 end
 %
 Structure.Data(itime+1:end) = [];
@@ -696,16 +705,16 @@ if nargin<3
     wind_opt = 'x+y';
 end
 
+Header = Structure.Header;
 UNLIMITED = netcdf.getConstant('UNLIMITED');
-times = [Structure.Data.time];
-ref_time = min(times);
-times = times - ref_time;
+times = [Structure.Data.dtime]; % time
+ref_time = Header.RefDate; %min(times);
+%times = times - ref_time;
 n_times = length(times);
-n_range = Structure.Header.n_rows;
-ranges = (1:n_range) * Structure.Header.spw_radius / n_range;
-n_azimuth = Structure.Header.n_cols;
+n_range = Header.n_rows;
+ranges = (1:n_range) * Header.spw_radius / n_range;
+n_azimuth = Header.n_cols;
 azimuths = (0:n_azimuth-1) * 360 / n_azimuth;
-p_unit = Structure.Header.unit{3};
 
 time_dim = netcdf.defDim(ncid,'time',UNLIMITED);
 range_dim = netcdf.defDim(ncid,'range',n_range);
@@ -717,7 +726,7 @@ netcdf.putAtt(ncid,time_var,'calendar','gregorian');
 tunits = sprintf('days since %sZ',datestr(ref_time,31));
 netcdf.putAtt(ncid,time_var,'units',tunits);
 
-if strcmp(Structure.Header.grid_unit,'degree')
+if strcmp(Header.grid_unit,'degree')
     x_var = 'longitude_eye';
     x_sname = 'longitude';
     x_descr = 'longitude of eye';
@@ -764,51 +773,98 @@ netcdf.putAtt(ncid,y_eye_id,'standard_name',y_sname);
 netcdf.putAtt(ncid,y_eye_id,'long_name',y_descr);
 netcdf.putAtt(ncid,y_eye_id,'units',y_units);
 
-eye_pressure_id = netcdf.defVar(ncid,'eye_pressure','double',time_dim);
-netcdf.putAtt(ncid,eye_pressure_id,'long_name','air pressure in the eye');
-netcdf.putAtt(ncid,eye_pressure_id,'units',p_unit);
-
+dim_order = [range_dim,azimuth_dim,time_dim];
+reorder = [2 1 3];
+dim_order = dim_order(reorder);
 switch wind_opt
     case 'mag+from' % mag + from_dir
-        wind_mag_id = netcdf.defVar(ncid,'wind_mag','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_mag_id,'standard_name','wind_speed');
-        netcdf.putAtt(ncid,wind_mag_id,'units','m/s');
+        wind1_id = netcdf.defVar(ncid,'wind_mag','double',dim_order);
+        netcdf.putAtt(ncid,wind1_id,'standard_name','wind_speed');
+        netcdf.putAtt(ncid,wind1_id,'units','m/s');
         
-        wind_dir_id = netcdf.defVar(ncid,'wind_dir','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_dir_id,'standard_name','wind_from_direction');
-        netcdf.putAtt(ncid,wind_dir_id,'units','degrees');
+        wind2_id = netcdf.defVar(ncid,'wind_dir','double',dim_order);
+        netcdf.putAtt(ncid,wind2_id,'standard_name','wind_from_direction');
+        netcdf.putAtt(ncid,wind2_id,'units','degrees');
         
     case 'mag+to' % mag + to_dir
-        wind_mag_id = netcdf.defVar(ncid,'wind_mag','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_mag_id,'standard_name','wind_speed');
-        netcdf.putAtt(ncid,wind_mag_id,'units','m/s');
+        wind1_id = netcdf.defVar(ncid,'wind_mag','double',dim_order);
+        netcdf.putAtt(ncid,wind1_id,'standard_name','wind_speed');
+        netcdf.putAtt(ncid,wind1_id,'units','m/s');
         
-        wind_dir_id = netcdf.defVar(ncid,'wind_dir','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_dir_id,'standard_name','wind_to_direction');
-        netcdf.putAtt(ncid,wind_dir_id,'units','degrees');
+        wind2_id = netcdf.defVar(ncid,'wind_dir','double',dim_order);
+        netcdf.putAtt(ncid,wind2_id,'standard_name','wind_to_direction');
+        netcdf.putAtt(ncid,wind2_id,'units','degrees');
         
     case 'x+y' % x + y
-        wind_x_id = netcdf.defVar(ncid,'wind_x','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_x_id,'standard_name','eastward_wind');
-        netcdf.putAtt(ncid,wind_x_id,'units','m/s');
+        wind1_id = netcdf.defVar(ncid,'wind_x','double',dim_order);
+        netcdf.putAtt(ncid,wind1_id,'standard_name','eastward_wind');
+        netcdf.putAtt(ncid,wind1_id,'units','m/s');
         
-        wind_y_id = netcdf.defVar(ncid,'wind_y','double',[range_dim,azimuth_dim,time_dim]);
-        netcdf.putAtt(ncid,wind_y_id,'standard_name','northward_wind');
-        netcdf.putAtt(ncid,wind_y_id,'units','m/s');
+        wind2_id = netcdf.defVar(ncid,'wind_y','double',dim_order);
+        netcdf.putAtt(ncid,wind2_id,'standard_name','northward_wind');
+        netcdf.putAtt(ncid,wind2_id,'units','m/s');
         
     otherwise
         error('Invalid option for storing wind "%s", expecting "mag+from", "mag+to" or "x+y".', var2str(wind_opt))
 end
 
-pressure_id = netcdf.defVar(ncid,'pressure','double',[range_dim,azimuth_dim,time_dim]);
-netcdf.putAtt(ncid,pressure_id,'long_name','atmospheric pressure');
-netcdf.putAtt(ncid,pressure_id,'eye_value','eye_pressure');
-netcdf.putAtt(ncid,pressure_id,'units',p_unit);
+var_id = zeros(1,Header.n_quantity);
+iq_wsp = 1;
+iq_wfd = 2;
+iq_prs = 3;
+for iq = 1:Header.n_quantity
+    switch Header.quantity{iq}
+        case 'wind_speed'
+            iq_wsp = iq;
+            continue
+        case 'wind_from_direction'
+            iq_wfd = iq;
+            continue
+        case 'p_drop'
+            iq_prs = iq;
+            varname = 'pressure';
+            stdname = 'surface_air_pressure';
+            longname = 'pressure at the bottom of the atmosphere';
+            units = Header.unit{iq};
+            p_units = units;
+        otherwise
+            varname = Header.quantity{iq};
+            stdname = '';
+            longname = '';
+            units = Header.unit{iq};
+    end
+
+    var_id(iq) = netcdf.defVar(ncid,varname,'double',dim_order);
+    if ~isempty(stdname)
+        netcdf.putAtt(ncid,var_id(iq),'standard_name',stdname);
+    end
+    if ~isempty(longname)
+        netcdf.putAtt(ncid,var_id(iq),'long_name',longname);
+    end
+    netcdf.putAtt(ncid,var_id(iq),'units',units);
+end
+pressure_id = var_id(iq_prs);
+
+if pressure_id > 0
+    netcdf.putAtt(ncid,pressure_id,'eye_value','eye_pressure');
+    
+    eye_pressure_id = netcdf.defVar(ncid,'eye_pressure','double',time_dim);
+    %netcdf.putAtt(ncid,eye_pressure_id,'standard_name','surface_air_pressure');
+    netcdf.putAtt(ncid,eye_pressure_id,'long_name','surface air pressure in the eye');
+    netcdf.putAtt(ncid,eye_pressure_id,'units',p_units);
+end
+
+% check for precipitation?
 
 NC_GLOBAL = netcdf.getConstant('GLOBAL');
 netcdf.putAtt(ncid,NC_GLOBAL,'date_modified',datestr(now,31));
-netcdf.putAtt(ncid,NC_GLOBAL,'merge_frac','0.0');
-netcdf.putAtt(ncid,NC_GLOBAL,'Conventions','CF-x');
+if isfield(Structure.Header,'spw_merge_frac')
+    spw_merge_frac = Structure.Header.spw_merge_frac;
+else
+    spw_merge_frac = 0.5;
+end
+netcdf.putAtt(ncid,NC_GLOBAL,'spw_merge_frac',spw_merge_frac);
+netcdf.putAtt(ncid,NC_GLOBAL,'Conventions','CF-1.10 Deltares/Radial-0.1');
 
 
 netcdf.putVar(ncid,time_var,0,n_times,times);
@@ -817,32 +873,51 @@ netcdf.putVar(ncid,azimuth_id,0,n_azimuth,azimuths);
 
 x_eye = [Structure.Data.x_spw_eye];
 y_eye = [Structure.Data.y_spw_eye];
-p_eye = [Structure.Data.p_drop_spw_eye];
+netcdf.putVar(ncid,x_eye_id,x_eye);
+netcdf.putVar(ncid,y_eye_id,y_eye);
 
-netcdf.putVar(ncid,y_eye_id,x_eye);
-netcdf.putVar(ncid,x_eye_id,y_eye);
-netcdf.putVar(ncid,eye_pressure_id,p_eye);
+if pressure_id > 0
+    p_eye = [Structure.Data.p_drop_spw_eye];
+    netcdf.putVar(ncid,eye_pressure_id,p_eye);
+end
 
+store_range = 2:n_range+1;
+store_azim = 1:n_azimuth;
 for t = 1:n_times
+    % use Local_read_file to read the data
+    % Note that this adds an index 1 for the eye (range dimension)
+    % Note that this adds an index n_azimuth+1 to complete the circle (azimuth dimension)
     DATA = Local_read_file(Structure,':',t);
+    % remove the extra data lines mentioned above
+    % make sure that the dimension order matches: range, azimuth, time
+    DATA = permute(DATA(1,store_range,store_azim,:),[2 3 1 4]);
     switch wind_opt
         case 'mag+from' % mag + from_dir
-            netcdf.putVar(ncid,wind_mag_id,[0 0 t-1],[n_range n_azimuth 1],DATA(1,2:end,2:end,1))
-            netcdf.putVar(ncid,wind_dir_id,[0 0 t-1],[n_range n_azimuth 1],DATA(1,2:end,2:end,2))
+            u = DATA(:,:,1,iq_wsp);
+            v = DATA(:,:,1,iq_wfd);
             
         case 'mag+to' % mag + to_dir
-            netcdf.putVar(ncid,wind_mag_id,[0 0 t-1],[n_range n_azimuth 1],DATA(1,2:end,2:end,1))
-            netcdf.putVar(ncid,wind_dir_id,[0 0 t-1],[n_range n_azimuth 1],mod(DATA(1,2:end,2:end,2)+180,360))
+            u = DATA(:,:,1,iq_wsp);
+            v = mod(DATA(:,:,1,iq_wfd)+180,360);
             
         case 'x+y' % x + y
-            um = DATA(1,2:end,2:end,1);
-            to_dir_cart = 270 - DATA(1,2:end,2:end,2);
+            um = DATA(:,:,1,iq_wsp);
+            to_dir_cart = 270 - DATA(:,:,1,iq_wfd);
             u = um .* cosd(to_dir_cart);
             v = um .* sind(to_dir_cart);
-            netcdf.putVar(ncid,wind_x_id,[0 0 t-1],[n_range n_azimuth 1],u)
-            netcdf.putVar(ncid,wind_y_id,[0 0 t-1],[n_range n_azimuth 1],v)
     end
-    netcdf.putVar(ncid,pressure_id,[0 0 t-1],[n_range n_azimuth 1],DATA(1,2:end,2:end,3))
+    start = [0 0 t-1];
+    count = [n_range n_azimuth 1];
+    start = start(reorder);
+    count = count(reorder);
+    netcdf.putVar(ncid,wind1_id,start,count,permute(u,reorder))
+    netcdf.putVar(ncid,wind2_id,start,count,permute(v,reorder))
+    
+    for iq = 1:Header.n_quantity
+        if var_id(iq) > 0
+            netcdf.putVar(ncid,var_id(iq),start,count,permute(DATA(:,:,1,iq),reorder))
+        end
+    end
 end
 
 
@@ -876,14 +951,18 @@ else
 end
 
 
-function [Time,TimeZone] = value2time_since(value)
+function [Time,TimeZone,RefDate] = value2time_since(value,RefDate)
 X = sscanf(value,'%f %*s since %4d-%2d-%2d %2d:%2d:%2d %c%2d:%2d');
 [Time,Remainder] = strtok(value);
 tunit = strtok(Remainder);
-[Time,TimeZone] = value2time_core(X,tunit);
+if nargin > 1
+    [Time,TimeZone] = value2time_core(X,tunit,RefDate);
+else
+    [Time,TimeZone,RefDate] = value2time_core(X,tunit);
+end
 
 
-function [Time,TimeZone] = value2time_old(value)
+function [Time,TimeZone,RefDate] = value2time_old(value,RefDate)
 [tunit,~,~,i] = sscanf(lower(value),'/* time (%[^)])');
 X = sscanf(value(i:end),' %f %4d%2d%2d %f');
 if length(X)>4
@@ -894,17 +973,25 @@ if length(X)>4
     X(1) = 0;
 end
 X(10) = 0;
-[Time,TimeZone] = value2time_core(X,tunit);
+if nargin > 1
+    [Time,TimeZone] = value2time_core(X,tunit,RefDate);
+else
+    [Time,TimeZone,RefDate] = value2time_core(X,tunit);
+end
 
 
-function [Time,TimeZone] = value2time_core(X,tunit)
-RefDate = datenum(X(2:7)');
+function [Time,TimeZone,RefDate] = value2time_core(X,tunit,RefDate)
+RefDateNew = datenum(X(2:7)');
+if nargin<3
+    RefDate = RefDateNew;
+end
+dRefDate = RefDateNew - RefDate;
 TimeZone = (X(9)+X(10)/60)*(44-abs(X(8)));
 switch lower(tunit)
     case {'minutes','min','m'}
-        Time = RefDate + X(1)/24/60;
+        Time = dRefDate + X(1)/24/60;
     case {'hours','hrs','h'}
-        Time = RefDate + X(1)/24;
+        Time = dRefDate + X(1)/24;
     otherwise
         warning('Unknown time unit.')
         Time = 0;

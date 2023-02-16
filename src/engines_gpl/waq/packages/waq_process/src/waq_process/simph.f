@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -92,11 +92,8 @@
 !
 !     Eerste kenmerk actief of inactief segment
 !
-!!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!
 !     Alleen actieve en bodem segmenten behandelen
 !
-!!    IF (IKMRK1.EQ.1) THEN
       IF (BTEST(IKNMRK(ISEG),0)) THEN
 !
 !     Map PMSA on local variables

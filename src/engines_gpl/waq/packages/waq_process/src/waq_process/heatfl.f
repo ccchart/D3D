@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -70,7 +70,6 @@
 ! Rho0    R*4 1 I Density of surface water at 4°C                  [kg/m3]
 ! RhoRef  R*4 1 L Density of surface water at reference temperature[kg/m3]
 ! SBC     R*4 1 I StefanBolzman Constant                        [W/m2/K-4]
-! SunFac  R*4 1 I Percentage sunshine                                  [%]
 ! SWEmis  R*4 1 I Switch for calculation of emissivity                 [-]
 ! TempAt  R*4 1 I Air temperature                                     [°C]
 ! TempWa  R*4 1 I Surface water temperature                           [°C]
@@ -98,7 +97,7 @@
      +         IP29, IP30, IP31, IP32, IP33, IP34, IP35, IP36, IP37,
      +         IP38, IP39, IP40
       INTEGER  ISWTEMP, ISWEMIS
-      REAL     Qsw, Fsw, SunFac, Pvap, TempAt, SBC, Fa, EWater,
+      REAL     Qsw, Fsw, Pvap, TempAt, SBC, Fa, EWater,
      j         TempWa, RhoWat, CWindA, CWindB, CWindC, VWindm, K,
      j         PvapWa, Cpa, Patm, Qsn, Cloud, Emiss, Qa, Qan, Qbr, C,
      j         HTVap, Fwind, Ql, Beta, Qsg, Qt, Qrb, Tref,
@@ -154,8 +153,6 @@
 
 !     Heat exchange only for active water segments
 !
-!!    CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!!    IF (IKMRK1.EQ.1) THEN
       IF (BTEST(IKNMRK(ISEG),0)) THEN
 !
 !     Heat exchange only for top layer segments
@@ -202,6 +199,7 @@
 !
             Psvap = 6.131 + 0.467 * TempAt + 0.0089 *
      j               TempAt ** 2.0 + 0.000527 * TempAt ** 3.0
+            Psvap = max(Psvap, 0.001)  ! to avoid values < 0 at very low air temperature
 !
             Pvap = RelHum * Psvap
 !

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -637,12 +637,7 @@
       ! charon coupling
 
       if ( l_chem ) then
-!         call pdfch1 ( lurep   , chemid, nosys , syname, procha,
-!     +                 allitems)
 
-         ! fill in the names of the charon coupling, manipulate stochiometric terms for
-
-!         call pdfch2 ( lurep , procesdef, procha)
       endif
 
       ! add the statistical processes in the structure

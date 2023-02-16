@@ -1,6 +1,6 @@
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2011-2022.                                
+!  Copyright (C)  Stichting Deltares, 2011-2023.                                
 !                                                                               
 !  This program is free software: you can redistribute it and/or modify         
 !  it under the terms of the GNU General Public License as published by         
@@ -544,6 +544,8 @@ contains
              call setECMessage("Unknown time interpolation Block in file "//trim(bc%fname)//", block " &
                                 //trim(bc%bcname)//". Use Block-To or Block-From.")
              return
+          case ('AMOUNTTORATE')
+             bc%timeint = BC_TIMEINT_AMOUNT_TO_RATE
           case default
              call setECMessage("Unknown time interpolation '"//trim(adjustl(hdrvals(ifld)%s))//           &
                                 "' in file "//trim(bc%fname)//", block "//trim(bc%bcname)//".") 

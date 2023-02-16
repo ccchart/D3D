@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -49,8 +49,6 @@
 !
 !     SUBROUTINES CALLED : DLWQTR, user transport routine
 !                          DLWQPP, user postprocessing routine
-!                          DLWQ10, system monitoring routine
-!                          DLWQ11, system dump routine
 !                          DLWQ13, system postpro-dump routine
 !                          DLWQ15, wasteload routine
 !                          DLWQ60, scales water quality
@@ -172,7 +170,7 @@
      *                 J(INRHA), J(INRH2), J(INRFT), NOSEG   , A(IVOL2),
      *                 J(IBULK), LCHAR   , ftype   , ISFLAG  , IVFLAG  ,
      *                 LDUMMY  , J(INISP), A(INRSP), J(INTYP), J(IWORK),
-     *                 LSTREC  , LREWIN  , A(IVOLL), MYPART  , dlwqd   )
+     *                 LSTREC  , LREWIN  , A(IVOLL), dlwqd   )
          CALL DLWQ65 ( A(IVOL2), A(IVOL) , IDT     , NOSEG   )
       ELSE
          CALL ZERO ( A(IVOL2) , NOSEG   )
@@ -195,9 +193,8 @@
      *                 A(ILENG), A(ICONC), A(IDISP), A(ICONS), A(IPARM),
      *                 A(IFUNC), A(ISFUN), A(IDIFF), A(IVELO), ICSYS   ,
      *                 IDT     , C(ISNAM), NOCONS  , NOFUN   , C(ICNAM),
-     *                 C(IPNAM), C(IFNAM), C(ISFNA), LDUMMY  , ILFLAG  ,
-     *                 NPARTp  )
-!
+     *                 C(IPNAM), C(IFNAM), C(ISFNA), LDUMMY  , ILFLAG  ,)
+
 !             do the user water quality processes
 !
          CALL DLWQ60 ( A(IDERV), A(ICONC), NOTOT   , NOSEG   , ITFACT  ,
@@ -213,7 +210,7 @@
      &                 j(inwtyp) , j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv    , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ) , a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp)  , isys     , nsys     , j(iowns ), mypart   )
+     &                 a(iwdmp)  , isys     , nsys     )
 !
 !          fill the matrix
 !
@@ -251,7 +248,7 @@
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , 1       , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
-     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC), 
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC),
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IDERV), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,
@@ -269,7 +266,7 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), NOQ     , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
+     +              A(IWDMP), iknmkv  , isegcol )
 !
 !          close files, except monitor file
 !

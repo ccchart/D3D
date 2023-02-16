@@ -1,5 +1,3 @@
-project(dwaq)
-
 #
 # WAQ
 #=============
@@ -45,6 +43,10 @@ endif()
 
 if(NOT TARGET delwaq_lib_examples)
     add_subdirectory(${checkout_src_root}/${delwaq_lib_examples_module} delwaq_lib_examples)
+endif()
+
+if(NOT TARGET waq_delftio)
+    add_subdirectory(${checkout_src_root}/${waq_delftio_module} waq_delftio)
 endif()
 
 #
@@ -140,7 +142,7 @@ endif(WIN32)
 # Utils
 #=============
 # Deltares_common
-if(NOT TARGET deltares_common) 
+if(NOT TARGET deltares_common)
     add_subdirectory(${checkout_src_root}/${deltares_common_module} deltares_common)
 endif()
 if(NOT TARGET deltares_common_c)
@@ -179,25 +181,6 @@ if(NOT TARGET solvesaphe)
     add_subdirectory(${checkout_src_root}/${solvesaphe_module} solvesaphe)
 endif()
 
-# delftio
-if(NOT TARGET delftio_shm)
-    add_subdirectory(${checkout_src_root}/${delftio_shm_module} delftio_shm)
-endif()
-if(NOT TARGET delftio)
-    add_subdirectory(${checkout_src_root}/${delftio_module} delftio)
-endif()
-
-# esmfsm
-if(NOT TARGET esmfsm_version_number)
-    add_subdirectory(${checkout_src_root}/${esmfsm_version_number_module} esmfsm_version_number)
-endif()
-if(NOT TARGET esmfsm_c)
-    add_subdirectory(${checkout_src_root}/${esmfsm_c_module} esmfsm_c)
-endif()
-if(NOT TARGET esmfsm)
-    add_subdirectory(${checkout_src_root}/${esmfsm_module} esmfsm)
-endif()
-
 # io_hyd
 if(NOT TARGET io_hyd)
     add_subdirectory(${checkout_src_root}/${io_hyd_module} io_hyd)
@@ -209,3 +192,6 @@ endif()
 if(UNIX)
     add_subdirectory(${checkout_src_root}/${install_waq_module} install_waq)
 endif()
+
+# Project name must be at the end of the configuration: it might get a name when including other configurations and needs to overwrite that
+project(dwaq)

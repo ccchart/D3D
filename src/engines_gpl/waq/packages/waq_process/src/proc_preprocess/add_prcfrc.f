@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -107,8 +107,6 @@
                stochi_loop: do istochi = 1 , proc%no_fluxstochi
 
                   ! include also "dummy" rules (factor equal zero)
-
-                  !if ( abs(proc%fluxstochi(istochi)%scale) .gt. 1e-10 ) then
 
                      call zoek( basnam, 1, proc%fluxstochi(istochi)%substance, 10, indx)
                      if ( indx .eq. 1 ) then

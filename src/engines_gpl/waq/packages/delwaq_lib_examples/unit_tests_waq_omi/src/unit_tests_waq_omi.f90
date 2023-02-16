@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -50,7 +50,6 @@ subroutine test_set_get_value
 
     call setup_tests
     call test( test_set_value_no_such_index,         "No such items"      )
-   !call test( test_set_value_apply_operations_todo, "Apply operations"   )
     call test( test_set_value_store_operations,      "Store many operations" )
     call test( test_set_value_apply_operations,      "Apply operations"   )
     call test( test_parse_parameters_file,           "Parse computational parameters file" )

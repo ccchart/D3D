@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !                                                                               
-!  Copyright (C)  Stichting Deltares, 2017-2022.                                
+!  Copyright (C)  Stichting Deltares, 2017-2023.                                
 !                                                                               
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).               
 !                                                                               
@@ -370,9 +370,10 @@ module m_VolumeTables
             if (L > lnxi) then
                L = lbnd1d(L)
             endif
-            
-            if (cross(line2cross(L, 2)%c1)%hasSummerDike() .or. cross(line2cross(L, 2)%c2)%hasSummerDike()) then
-               summerDikeIndex = summerDikeIndex+1
+            if (line2cross(L, 2)%c1 > 0) then
+               if (cross(line2cross(L, 2)%c1)%hasSummerDike() .or. cross(line2cross(L, 2)%c2)%hasSummerDike()) then
+                  summerDikeIndex = summerDikeIndex+1
+               endif
             endif
             
             ! Reset L to original value
@@ -749,7 +750,18 @@ module m_VolumeTables
 
          ! water surface at the highest level is equal to the width*dx of the cross section at the highest level.
          vltb(n)%sur(vltb(n)%count) = vltb(n)%sur(vltb(n)%count) + dxL*width
-         if (present(vltbOnLinks) .and. lorg <= lnxi) then
+         if (present(vltbOnLinks)) then
+            if (L > lnxi) then                      ! for 1D boundary links, refer to attached link
+               L = LBND1D(L)
+            endif
+            if (lorg > lnxi) then
+               nodintern = ln(2,Lorg)
+               if (ln(1, L) == nodintern) then
+                  lindex = 1
+               else
+                  lindex = 2
+               endif
+            endif
             vltbOnLinks(Lindex, L)%sur(vltb(n)%count) = vltbOnLinks(Lindex, L)%sur(vltb(n)%count) + dxL*width
          endif
          

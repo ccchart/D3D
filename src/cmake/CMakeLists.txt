@@ -83,9 +83,6 @@ if (WIN32)
     # Set the petsc path
     set(petsc_path ${checkout_src_root}/third_party_open/petsc/petsc-3.10.2/include)
 
-    # Set the expat path
-    set(expat_path ${checkout_src_root}/third_party_open/expat/x64/include)
-    
     # Set the GDAL path
     set(gisinternals_path ${checkout_src_root}/third_party_open/GISInternals/release-1911-x64/lib)
     
@@ -123,6 +120,14 @@ if (UNIX)
 endif(UNIX)
 
 
+# Expat:
+#     Windows: use prebuild library in ".../expat/x64/x64"
+#     Linux  : compile source code  using ".../expat/cmake_deltares/CMakeLists.txt"
+set(expat_include_path ${checkout_src_root}/third_party_open/expat/x64/include)
+if (WIN32)
+    set(expat_library_path_win ${checkout_src_root}/third_party_open/expat/x64/x64)
+endif(WIN32)
+
 
 # Set the location of the update_version script
 set(update_version_script_path ${checkout_src_root}/${update_version_script})
@@ -146,6 +151,7 @@ set(dwaves_configuration "DWAVES")
 set(swan_configuration "SWAN")
 set(flow2d3d_configuration "FLOW2D3D")
 set(tools_configuration "TOOLS")
+set(tools_gpl_configuration "TOOLS_GPL")
 
 # Combined (multi-component) configurations
 set(delft3dfm_configuration "DELFT3DFM")
@@ -163,6 +169,7 @@ if(NOT (${configuration_type} STREQUAL ${tests_configuration}
      OR ${configuration_type} STREQUAL ${swan_configuration}
      OR ${configuration_type} STREQUAL ${flow2d3d_configuration}
      OR ${configuration_type} STREQUAL ${tools_configuration}
+     OR ${configuration_type} STREQUAL ${tools_gpl_configuration}
      OR ${configuration_type} STREQUAL ${delft3dfm_configuration}
      OR ${configuration_type} STREQUAL ${delft3d4_configuration}
      OR ${configuration_type} STREQUAL ${all_configuration}))
@@ -229,6 +236,12 @@ endif()
 if(${configuration_type} STREQUAL ${tools_configuration})
     message(STATUS "Generating solution for Tools ...")
     include(configurations/tools_configuration.cmake)
+endif()
+
+# Tools_gpl configuration
+if(${configuration_type} STREQUAL ${tools_gpl_configuration})
+    message(STATUS "Generating solution for Tools_GPL ...")
+    include(configurations/tools_gpl_configuration.cmake)
 endif()
 
 ### Composed configurations

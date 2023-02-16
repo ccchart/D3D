@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -202,8 +202,6 @@
          PMSA (IP32)  = 0.0
          PMSA (IP33)  = 0.0
 
-!!       CALL DHKMRK(1,IKNMRK(ISEG),IKMRK1)
-!!       IF (IKMRK1.EQ.1) THEN
          IF (BTEST(IKNMRK(ISEG),0)) THEN
             CALL DHKMRK(2,IKNMRK(ISEG),IKMRK2)
 

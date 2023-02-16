@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -117,8 +117,6 @@ program test_kalman0
     !runidname = 'arjen-ws'
 
     call getarg(1,runidname)
-
-    ! call system('delwaq1.exe arjen-ws.inp')
 
 
     result = MODELINITIALIZE_BY_ID(runidName)

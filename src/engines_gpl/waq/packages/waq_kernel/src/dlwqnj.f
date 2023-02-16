@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -66,10 +66,8 @@
 !                          DLCONV, conversion to TRISULA arrays
 !                          DLDIFU, performs time step
 !                          DLFLUX, computes fluxes for mass balance
-!                          DLFORF, applies Forester filter
 !                          DLINIT, initializes TRISULA arrays
 !                          DLMASB, updates mass balance
-!                          DLWSOL, print concentrations at end of simulation
 !
 !     PARAMETERS    :
 !
@@ -276,8 +274,7 @@
      &                 a(ileng) , a(iconc) , a(idisp) , a(icons) , a(iparm) ,
      &                 a(ifunc) , a(isfun) , a(idiff) , a(ivelo) , itime    ,
      &                 idt      , c(isnam) , nocons   , nofun    , c(icnam) ,
-     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   ,
-     &                 npartp   )
+     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   )
 
 !jvb  Temporary ? set the variables grid-setting for the DELWAQ variables
 
@@ -313,7 +310,7 @@
      &                 j(ivtda) , j(ivdag) , j(ivtag) , j(ivagg) , j(iapoi) ,
      &                 j(iaknd) , j(iadm1) , j(iadm2) , j(ivset) , j(ignos) ,
      &                 j(igseg) , novar    , a        , nogrid   , ndmps    ,
-     &                 c(iprna) , intsrt   , j(iowns) , j(iownq) , mypart   ,
+     &                 c(iprna) , intsrt   ,
      &                 j(iprvpt), j(iprdon), nrref    , j(ipror) , nodef    ,
      &                 surface  , lun(19)  )
 
@@ -355,7 +352,7 @@
      +              A(ICONC), A(ICONS), A(IPARM), A(IFUNC), A(ISFUN),
      +              A(IVOL) , NOCONS  , NOFUN   , IDT     , NOUTP   ,
      +              LCHAR   , LUN     , J(IIOUT), J(IIOPO), A(IRIOB),
-     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC), 
+     +              C(IOSNM), C(IOUNI), C(IODSC), C(ISSNM), C(ISUNI), C(ISDSC),
      +              C(IONAM), NX      , NY      , J(IGRID), C(IEDIT),
      +              NOSYS   , A(IBOUN), J(ILP)  , A(IMASS), A(IMAS2),
      +              A(ISMAS), NFLUX   , A(IFLXI), ISFLAG  , IAFLAG  ,
@@ -373,7 +370,7 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), NOQ     , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
+     +              A(IWDMP), iknmkv  , isegcol )
 
 !          zero cummulative array's
 
@@ -383,7 +380,7 @@
      &                    a(idmpq), a(idmps), noraai  , imflag  , ihflag  ,
      &                    a(itrra), ibflag  , nowst   , a(iwdmp))
          endif
-         if (mypart.eq.1) call write_progress( dlwqd%progress )
+         call write_progress( dlwqd%progress )
 
 !          simulation done ?
 
@@ -421,8 +418,7 @@
 !        add processes
 
          call dlwq14 ( a(iderv), notot   , nosss   , itfact  , a(imas2),
-     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp),
-     &                 j(iowns), mypart )
+     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp))
 
 !        get new volumes
 
@@ -441,7 +437,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivoll),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivol2), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivol2), dlwqd   )
                call dlwqf8 ( noseg   , noq     , j(ixpnt), idt     , iknmkv  ,
      &                       a(ivol ), a(iflow), a(ivoll), a(ivol2))
                updatr = .true.
@@ -452,7 +448,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivol2),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivoll), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivoll), dlwqd   )
          end select
 
 !        update the info on dry volumes with the new volumes
@@ -469,7 +465,7 @@
      &                 j(inwtyp), j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv   , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ), a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp) , 1        , notot    , j(iowns ), mypart   )
+     &                 a(iwdmp) , 1        , notot    )
 
 !        conversion of Delwaq arrays to FLOW arrays
 
@@ -509,17 +505,6 @@
      &                 rscale   , adummy   , eps      , vicmol   , a(idifx) ,
      &                 a(idify) , icentr   , dfluxx   , dfluxy   )
 
-!        Applies forester filter
-
-!             CALL DLFORF (
-!     *              LUN(19) ,
-!     *              NMAX    , 1       , JSTART  , NMMAXJ  ,
-!     *              NMAX*MMAX,KMAX    ,
-!     *              J(IKCS) , J(IKFS) , J(IKFU) , J(IKFV) ,
-!     *              r11     ,
-!     *              A(IWRK1), A(IWRK2),
-!     *              NOSYS   , NOTOT   , A(IVOLB)          )
-
 !        Computes fluxes for mass balance
 
          call dlflux ( jstart   , nmmaxj   , nmax*mmax, kmax     , nosys    ,
@@ -553,17 +538,6 @@
      &                 eqmbc    , eqmbc    , adummy   , a(ivola) , a(ivolb) ,
      &                 rscale   , adummy   , eps      , vicmol   , a(idify) ,
      &                 a(idifx) , icentr   , dfluxx   , dfluxy              )
-!
-! APPLIES FORESTER FILTER
-!
-!             CALL DLFORF (
-!     *              LUN(19) ,
-!     *              NMAX    , 1       , JSTART  , NMMAXJ  ,
-!     *              NMAX*MMAX,KMAX    ,
-!     *              J(IKCS) , J(IKFS) , J(IKFU) , J(IKFV) ,
-!     *              r11     ,
-!     *              A(IWRK1), A(IWRK2),
-!     *              NOSYS   , NOTOT   , A(IVOLB)          )
 
 !        Computes fluxes for mass balance
 
@@ -599,8 +573,7 @@
 !
       IF ( FORESTER .AND. INTSRT .EQ. 19 ) THEN
          CALL DLWQD2 ( LUN(19) , NOSYS   , NOTOT   , NOSEG   , NOQ3    ,
-     *                 KMAX    , A(ICONC), A(LLENG), NOWARN  , J(IOWNS),
-     *                 MYPART )
+     *                 KMAX    , A(ICONC), A(LLENG), NOWARN  )
       ENDIF
 
 !     calculate closure error

@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2022.
+!  Copyright (C)  Stichting Deltares, 2011-2023.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -792,7 +792,7 @@ module m_ec_filereader_read
                end if
             end if
 
-            valid_field = .False.
+            valid_field = (col1 == 0 .and. row1 == 0)
             do while (.not.valid_field)
                ! - 3 - Read a scalar data block.
                if (item%elementSetPtr%nCoordinates == 0) then

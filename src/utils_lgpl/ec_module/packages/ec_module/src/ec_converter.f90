@@ -1,6 +1,6 @@
 !----- LGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2011-2022.
+!  Copyright (C)  Stichting Deltares, 2011-2023.
 !
 !  This library is free software; you can redistribute it and/or
 !  modify it under the terms of the GNU Lesser General Public
@@ -678,6 +678,11 @@ module m_ec_converter
                         connection%sourceItemsPtr(i)%ptr%sourceT0fieldPtr%bbox = (/jjmin,iimin,jjmax,iimax/)
                         connection%sourceItemsPtr(i)%ptr%sourceT1fieldPtr%bbox = (/jjmin,iimin,jjmax,iimax/)
                      end do
+                     if (iimax == 0 .and. jjmax == 0) then
+                         write(*,*) "WARNING: ec_converter: no overlapping points found for quantity:"
+                         write(*,*) trim(connection%sourceItemsPtr(1)%ptr%quantityPtr%name)
+                         write(*,*) "This is allowed in parallel runs"
+                     endif
                   end if
                   ! Final step for gridded providers: when not masked, reset indices to undefined.
                   if (associated(targetElementSet%mask)) then

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -201,7 +201,7 @@
      &                 j(inrha), j(inrh2)  , j(inrft), noseg   , a(ivol2),
      &                 j(ibulk), lchar     , ftype   , isflag  , ivflag  ,
      &                 update  , j(inisp)  , a(inrsp), j(intyp), j(iwork),
-     &                 lstrec  , lrewin    , a(ivoll), mypart  , dlwqd   )
+     &                 lstrec  , lrewin    , a(ivoll), dlwqd   )
          call dlwq65 ( a(ivol2), a(ivol)   , idt     , noseg   )
       else
          call zero   ( a(ivol2), noseg     )
@@ -223,8 +223,7 @@
      &                 a(ileng) , a(iconc) , a(idisp) , a(icons) , a(iparm) ,
      &                 a(ifunc) , a(isfun) , a(idiff) , a(ivelo) , itime    ,
      &                 idt      , c(isnam) , nocons   , nofun    , c(icnam) ,
-     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   ,
-     &                 npartp   )
+     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   )
 
 !jvb  Temporary ? set the variables grid-setting for the DELWAQ variables
 
@@ -251,7 +250,7 @@
      &                 j(ivtda) , j(ivdag) , j(ivtag) , j(ivagg) , j(iapoi) ,
      &                 j(iaknd) , j(iadm1) , j(iadm2) , j(ivset) , j(ignos) ,
      &                 j(igseg) , novar    , a        , nogrid   , ndmps    ,
-     &                 c(iprna) , intsrt   , j(iowns) , j(iownq) , mypart   ,
+     &                 c(iprna) , intsrt   ,
      &                 j(iprvpt), j(iprdon), nrref    , j(ipror) , nodef    ,
      &                 surface  , lun(19)  )
 
@@ -283,7 +282,7 @@
      &                 j(inwtyp), j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv   , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ), a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp) , isys     , 1        , j(iowns ), mypart   )
+     &                 a(iwdmp) , isys     , 1         )
 
 !          fill the diagonal of the matrix, with conc-array and closure error
 
@@ -356,16 +355,8 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), NOQ     , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
-!
-!
-!          printout of results
-!
-!     CALL DLWQ10 ( LUN(19) , J(IDUMP), A(IDERV), A(ICONC), A(IMAS2),
-!    *              ITSTRT  ,    1    , ITSTRT  , ITSTRT+1,    1    ,
-!    *              C(IDNAM), C(ISNAM), C(IMNAM), NODUMP  , NOTOT   ,
-!    *              NOSEG   , J(ILP)  , ISFLAG  , IAFLAG  , IMFLAG  ,
-!    *              A(ISMAS), INTOPT  , NDMPAR  , C(IDANA))
+     +              A(IWDMP), iknmkv  , isegcol )
+
 !
 !          close files, except monitor file
 !

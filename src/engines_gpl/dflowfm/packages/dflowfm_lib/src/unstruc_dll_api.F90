@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2017-2022.
+!  Copyright (C)  Stichting Deltares, 2017-2023.
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).
 !
 !  Delft3D is free software: you can redistribute it and/or modify
@@ -62,6 +62,20 @@ subroutine  dfm_generate_volume_tables(increment) bind(C, name="dfm_generate_vol
    
 end subroutine dfm_generate_volume_tables
 
+!!> DLL handle to unc_write_1D_flowgeom_ugrid, used by volume tool to write 1D flowgeom
+subroutine write_1D_flowgeom_ugrid(ncid) bind(C, name="write_1D_flowgeom_ugrid")
+   !DEC$ ATTRIBUTES DLLEXPORT :: write_1D_flowgeom_ugrid
+
+   use unstruc_netcdf, only: unc_write_1D_flowgeom_ugrid, t_unc_mapids      
+   use messageHandling, only: Idlen
+   use iso_c_utils
+   
+   integer, intent(in) :: ncid !< Handle to open Netcdf file to write the geometry to.
+   type(t_unc_mapids)  :: mapids
+   call unc_write_1D_flowgeom_ugrid(mapids%id_tsp,ncid)
+
+end subroutine write_1D_flowgeom_ugrid
+
 !!> generate the volume table with the given increment
 subroutine  dfm_get_variable_pointer(name_var, x) bind(C, name="dfm_get_variable_pointer")
    !DEC$ ATTRIBUTES DLLEXPORT :: dfm_get_variable_pointer
@@ -71,6 +85,8 @@ subroutine  dfm_get_variable_pointer(name_var, x) bind(C, name="dfm_get_variable
    use m_VolumeTables
    use iso_c_utils
    use m_flowgeom
+   use m_flowexternalforcings
+   use m_cell_geometry
    
    type(c_ptr), intent(inout)  :: x
    character(kind=c_char), intent(in) :: name_var(*)
@@ -84,14 +100,24 @@ subroutine  dfm_get_variable_pointer(name_var, x) bind(C, name="dfm_get_variable
    case('numpoints')
       numpoints = size(vltb)
       x = c_loc(numpoints)
-   case('numlinks')
-      x = c_loc(lnx1d)
+   case('nbndz')
+      x = c_loc(nbndz)
+   case('ln')
+      x = c_loc(ln)
+   case('kbndz')
+      x = c_loc(kbndz)
    case('vltb')
       x = c_loc(vltb)
    case('vltbOnLinks')
       x = c_loc(vltbOnLinks)
    case('network')
       x = c_loc(Network)
+   case('ndx2d')
+      x = c_loc(ndx2d)
+   case ('kcu')
+      x= c_loc(kcu)
+   case default
+      call mess(LEVEL_ERROR, 'invalid pointer target!')
    end select
    
 end subroutine  dfm_get_variable_pointer

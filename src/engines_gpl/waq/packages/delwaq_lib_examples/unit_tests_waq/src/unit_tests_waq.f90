@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -65,9 +65,6 @@ end subroutine prepare_tests
 subroutine show_result
     !character(len=1) :: answer
     !
-    !write(*,*)     'Press ENTER ...'
-    !read(*,'(a)' ) answer
-
     call system( 'ftnunit.html' )
 
 end subroutine show_result

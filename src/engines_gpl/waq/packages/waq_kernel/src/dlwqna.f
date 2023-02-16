@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -74,8 +74,6 @@
 !
       use grids
       use timers
-      use m_couplib
-      use m_timers_waq
       use delwaq2_data
       use m_openda_exchange_items, only : get_openda_buffer
       use report_progress
@@ -230,8 +228,7 @@
      &                 a(ileng) , a(iconc) , a(idisp) , a(icons) , a(iparm) ,
      &                 a(ifunc) , a(isfun) , a(idiff) , a(ivelo) , itime    ,
      &                 idt      , c(isnam) , nocons   , nofun    , c(icnam) ,
-     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   ,
-     &                 npartp   )
+     &                 c(ipnam) , c(ifnam) , c(isfna) , ldummy   , ilflag   )
 
 !jvb     Temporary ? set the variables grid-setting for the DELWAQ variables
 
@@ -267,7 +264,7 @@
      &                 j(ivtda) , j(ivdag) , j(ivtag) , j(ivagg) , j(iapoi) ,
      &                 j(iaknd) , j(iadm1) , j(iadm2) , j(ivset) , j(ignos) ,
      &                 j(igseg) , novar    , a        , nogrid   , ndmps    ,
-     &                 c(iprna) , intsrt   , j(iowns) , j(iownq) , mypart   ,
+     &                 c(iprna) , intsrt   ,
      &                 j(iprvpt), j(iprdon), nrref    , j(ipror) , nodef    ,
      &                 surface  , lun(19)  )
 
@@ -318,7 +315,7 @@
      +              C(IBTYP), J(INTYP), C(ICNAM), noqtt   , J(IXPNT),
      +              INTOPT  , C(IPNAM), C(IFNAM), C(ISFNA), J(IDMPB),
      +              NOWST   , NOWTYP  , C(IWTYP), J(IWAST), J(INWTYP),
-     +              A(IWDMP), iknmkv  , J(IOWNS), MYPART  , isegcol )
+     +              A(IWDMP), iknmkv  , isegcol )
 
 !        zero cumulative arrays
 
@@ -328,7 +325,7 @@
      &                    a(idmpq), a(idmps), noraai  , imflag  , ihflag  ,
      &                    a(itrra), ibflag  , nowst   , a(iwdmp))
          endif
-         if (mypart.eq.1) call write_progress( dlwqd%progress )
+         call write_progress( dlwqd%progress )
 
 !          simulation done ?
 
@@ -338,8 +335,7 @@
 !        add processes
 
          call dlwq14 ( a(iderv), notot   , nosss   , itfact  , a(imas2),
-     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp),
-     &                 j(iowns), mypart )
+     &                 idt     , iaflag  , a(idmps), intopt  , j(isdmp))
 
 !        get new volumes
          itimel = itime
@@ -357,7 +353,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivoll),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivol2), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivol2), dlwqd   )
                if ( lrewin ) call move ( a(ivol2), a(ivoll) , noseg   )
                call dlwqf8 ( noseg   , noq     , j(ixpnt), idt     , iknmkv  ,
      &                       a(ivol ), a(iflow), a(ivoll), a(ivol2))
@@ -369,7 +365,7 @@
      &                       j(inrha), j(inrh2), j(inrft), noseg   , a(ivol2),
      &                       j(ibulk), lchar   , ftype   , isflag  , ivflag  ,
      &                       updatr  , j(inisp), a(inrsp), j(intyp), j(iwork),
-     &                       lstrec  , lrewin  , a(ivoll), mypart  , dlwqd   )
+     &                       lstrec  , lrewin  , a(ivoll), dlwqd   )
          end select
 
 !        update the info on dry volumes with the new volumes
@@ -386,7 +382,7 @@
      &                 j(inwtyp) , j(iwast) , iwstkind , a(iwste) , a(iderv) ,
      &                 iknmkv    , nopa     , c(ipnam) , a(iparm) , nosfun   ,
      &                 c(isfna ) , a(isfun) , j(isdmp) , a(idmps) , a(imas2) ,
-     &                 a(iwdmp)  , 1        , notot    , j(iowns ), mypart   )
+     &                 a(iwdmp)  , 1        , notot     )
 
 
 !          explicit part of the transport step, derivative
@@ -394,13 +390,13 @@
          call dlwq50 ( nosys    , notot    , nosss    , noqt     , nvdim    ,
      &                 a(ivnew) , a(iarea) , a(iflow) , j(ixpnt) , j(ivpnw) ,
      &                 a(iconc) , a(iboun) , idt      , a(iderv) , iaflag   ,
-     &                 a(imas2) , j(iowns) , mypart   )
+     &                 a(imas2)   )
 
 !          set the first guess
 
          call dlwq18 ( nosys    , notot    , nototp   , nosss    , a(ivol2) ,
      &                 surface  , a(imass) , a(itimr) , a(iderv) , idt      ,
-     &                 ivflag   , lun(19)  , j(iowns) , mypart   )
+     &                 ivflag   , lun(19)    )
 
 !          perform the flux correction
 
@@ -410,15 +406,15 @@
      &                 a(ileng) , j(ixpnt) , iknmkv   , j(idpnw) , j(ivpnw) ,
      &                 a(iconc) , a(itimr) , a(iboun) , intopt   , ilflag   ,
      &                 idt      , iaflag   , a(imas2) , ndmpq    , j(iqdmp) ,
-     &                 a(idmpq) , j(iowns) , mypart   )
+     &                 a(idmpq)   )
          call dlwq52 ( nosys    , notot    , nosss    , a(ivol2) , a(imass) ,
-     *                 a(itimr) , a(iconc) , j(iowns) , mypart   )
+     *                 a(itimr) , a(iconc)   )
 
 !          explicit part of transport done, volumes on diagonal
 
          call dlwq42 ( nosys    , notot    , nototp   , nosss    , a(ivol2) ,
      &                 surface  , a(imass) , a(iconc) , a(iderv) , idt      ,
-     &                 ivflag   , lun(19)  , j(iowns) , mypart   )
+     &                 ivflag   , lun(19)    )
 
 !          performs the implicit part of the transport step
 
@@ -427,13 +423,13 @@
      &                 a(larea) , a(lflow) , a(lleng) , j(lxpnt) , iknmkv   ,
      &                 j(idpnw) , j(ivpnw) , a(iconc) , a(iboun) , intopt   ,
      &                 ilflag   , idt      , a(iderv) , iaflag   , a(imas2) ,
-     &                 j(iowns) , mypart   , lun(19)  , ndmpq    , j(lqdmp) ,
+     &                 lun(19)  , ndmpq    , j(lqdmp) ,
      &                 a(idmpq) , arhs     , adiag    , acodia   , bcodia   )
 
 !          update the nescessary arrays
 
          call dlwq44 ( nosys    , notot    , nosss    , a(ivol2) , a(imass) ,
-     &                 a(iconc) , a(iderv) , j(iowns) , mypart   )
+     &                 a(iconc) , a(iderv)   )
 
 !          new time values, volumes excluded
 

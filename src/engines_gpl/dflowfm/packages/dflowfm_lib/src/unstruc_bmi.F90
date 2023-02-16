@@ -1,6 +1,6 @@
 !----- AGPL --------------------------------------------------------------------
 !
-!  Copyright (C)  Stichting Deltares, 2017-2022.
+!  Copyright (C)  Stichting Deltares, 2017-2023.
 !  This file is part of Delft3D (D-Flow Flexible Mesh component).
 !
 !  Delft3D is free software: you can redistribute it and/or modify
@@ -2045,7 +2045,11 @@ subroutine get_compound_field(c_var_name, c_item_name, c_field_name, x) bind(C, 
          case("water_level")
             ! NOTE: Return the "point-value", not an area-averaged water level (in case of lateral polygons).
             k1 = nnlat(n1latsg(item_index))
-            x = c_loc(s1(k1))
+            if (k1 > 0) then
+               x = c_loc(s1(k1))
+            else
+               x = c_null_ptr
+            endif
             return
       end select
    end select ! var_name

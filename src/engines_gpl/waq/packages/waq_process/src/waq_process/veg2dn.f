@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -295,10 +295,6 @@
                 else
                     TIN = 0.0
                 endif
-
-!                if (porewater .le. 1.0e-10 .or. TIN .le. 1.0e-10) then
-!                    TIN = 0.0
-!                endif
 
                 pmsa(ipnt(ioffout+5)) = 0.0
                 pmsa(ipnt(ioffout+6)) = Vini + (Vmax*TIN)/(Km + TIN)

@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2022.
+!!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -119,10 +119,6 @@
          ITO   = IEXPNT(2,IQ)
 
          IF ( IFROM.GT.0 .AND. ITO.GT.0 ) THEN
-
-!           CALL DHKMRK(1,IKNMRK(IFROM),IKMRK1)
-!           CALL DHKMRK(1,IKNMRK(ITO  ),IKMRK2)
-!           IF ( IKMRK1.EQ.1 .AND. IKMRK2.EQ.1 ) THEN
 
                CALL DHKMRK(2,IKNMRK(IFROM),IKMRK)
                IF ((IKMRK.EQ.0).OR.(IKMRK.EQ.1)) THEN
