@@ -30,39 +30,24 @@
 ! $Id$
 ! $HeadURL$
 
- !> Given datetime string, compute time in seconds from refdat
- subroutine maketimeinverse(dateandtime,timsec,stat)
- use m_flowtimes
+ !> Calculates the relative time in seconds since refdat, given an absolute datetime.
+ !! The input datetime is in separate year/month/../seconds values.
+ !! \see datetimestring_to_seconds
+ subroutine seconds_since_refdat(iyear, imonth, iday, ihour, imin, isec, refdat, timsec)
  implicit none
+ integer,          intent(in)  :: iyear, iday, imonth, ihour, imin, isec !< Input absolute date time components
+ character (len=8), intent(in) :: refdat                                 !< reference date
+ double precision, intent(out) :: timsec                                 !< Output seconds since refdate for the specified input datetime.
 
- character, intent(in)         :: dateandtime*(*) !< Input datetime string, format '201201010000', note that seconds are ignored.
- integer, intent(out)          :: stat
+ integer :: jul, jul0, iyear0, imonth0, iday0
+ integer, external :: julday
 
- double precision  :: timmin
- double precision, intent(out) :: timsec
+     read(refdat(1:4),*) iyear0
+     read(refdat(5:6),*) imonth0
+     read(refdat(7:8),*) iday0
 
- integer          :: iday ,imonth ,iyear ,ihour , imin, isec
- integer          :: iostat
+     jul0 = julday(imonth0,iday0,iyear0)
+     jul  = julday(imonth ,iday ,iyear )
 
- ! dateandtime = '20120101000000'
-
- stat = 0
- read(dateandtime( 1:4 ),'(i4)',err=666,iostat=iostat)   iyear
- read(dateandtime( 5:6 ),'(i2.2)',err=666,iostat=iostat) imonth
- read(dateandtime( 7:8 ),'(i2.2)',err=666,iostat=iostat) iday
- read(dateandtime( 9:10),'(i2.2)',err=666,iostat=iostat) ihour
- read(dateandtime(11:12),'(i2.2)',err=666,iostat=iostat) imin
- read(dateandtime(13:14),'(i2.2)',err=666,iostat=iostat) isec
-
-666 if (iostat/=0) then
-       stat=iostat
-       return
-    endif
-
- call seconds_since_refdat(iyear, imonth, iday, ihour, imin, isec, timsec)
-
- timmin  = timsec/60d0
- !timmin = (jul - jul0)*24d0*60d0      + ihour*60d0      + imin
-
- return
- end subroutine maketimeinverse
+     timsec = (jul - jul0)*24d0*3600d0      + ihour*3600d0      + imin*60d0 + isec
+ end subroutine seconds_since_refdat

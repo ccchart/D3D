@@ -72,7 +72,7 @@ character(len=Idlen) :: output_file, grid_output_file
 character(len=Idlen) :: var_name
 type(c_ptr)          :: xptr
 integer              :: numpoints, numlinks, lnx, numbnd
-integer, pointer     :: count
+integer, pointer     :: integer_pointer
 logical              :: computeTotal
 logical              :: computeOnBranches
 logical              :: computeOnGridpoints
@@ -96,13 +96,13 @@ integer,          dimension(:),   allocatable   :: mask, tablecount
 integer,          dimension(:,:), pointer       :: bndindex
 integer,          dimension(:,:), allocatable   :: ln2nd
 integer,          dimension(:,:), pointer       :: lnog !Don't modify this!!!
-integer,          dimension(:)  , pointer       :: kcu2
+integer,          dimension(:)  , pointer       :: kcu2, shapearray
 integer,                          pointer       :: ndx2d
 double precision, dimension(:),   pointer       :: bndvalues
 double precision, dimension(:,:), pointer       :: inslevtube
 double precision, dimension(:,:), pointer       :: gridvolume, gridsurface
 double precision, dimension(:),   allocatable   :: wl_deadstorage, bedlevels, topheights
-
+integer, parameter                              :: maxdims = 6
 ! externals
 
 integer, external  :: open_shared_library, bmi_initialize
@@ -189,37 +189,46 @@ if (ierr==0) then
    call dfm_generate_volume_tables(dfm, increment)
    
    ! Retrieve data from the D-FLOW FM dll
-   call bmi_get_var(dfm, 'lnx1D', numlinks, 1)
-   call bmi_get_var(dfm, 'lnx', lnx, 1)
-   call get_variable_pointer(dfm, string_to_char_array('numpoints'), xptr)
-   call c_f_pointer(xptr, count)
-   numpoints = count
-   call get_variable_pointer(dfm, string_to_char_array('nbndz'), xptr)
-   call c_f_pointer(xptr, count)
-   numbnd = count
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('lnx1D'), xptr)
+   call c_f_pointer(xptr, integer_pointer)
+   numlinks = integer_pointer
+   
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('lnx'), xptr)
+   call c_f_pointer(xptr, integer_pointer)
+   lnx = integer_pointer
+
+   call BMI_GET_VAR_SHAPE(dfm, string_to_char_array('zbndz'), xptr)  
+   allocate(shapearray(MAXDIMS)) 
+   call c_f_pointer(xptr, shapearray)
+   numbnd = shapearray(1)
+   
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('ndx2d'), xptr)
+   call c_f_pointer(xptr, ndx2d)
+   
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('ndx'), xptr)
+   call c_f_pointer(xptr, integer_pointer)
+   
+   numpoints = integer_pointer - ndx2d
    
    allocate(inslevtube(2,lnx), ln2nd(2,lnx), lnog(2,lnx), bndvalues(numbnd), bndindex(6,numbnd),kcu2(lnx))
    call bmi_get_var(dfm, 'bob', inslevtube, 2*lnx)
    if (numbnd > 0) then
       call bmi_get_var(dfm, 'zbndz', bndvalues, numbnd)
-      call get_variable_pointer(dfm, string_to_char_array('kbndz'), xptr)
+      !call get_variable_pointer(dfm, string_to_char_array('kbndz'), xptr)
    endif
-   call get_variable_pointer(dfm, string_to_char_array('kcu'), xptr)
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('kcu'), xptr)
    call c_f_pointer(xptr, kcu2, (/ lnx /))
    
-   call get_variable_pointer(dfm, string_to_char_array('ndx2d'), xptr)
-   call c_f_pointer(xptr, ndx2d)
-   
-   call get_variable_pointer(dfm, string_to_char_array('ln'), xptr)
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('ln'), xptr)
    call c_f_pointer(xptr, lnog, (/2, lnx/))
    
-   call c_f_pointer(xptr, bndindex, (/6, numbnd/))
+   call c_f_pointer(xptr, bndindex, (/MAXDIMS, numbnd/))
    
-   call get_variable_pointer(dfm, string_to_char_array('vltb'), xptr)
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('vltb'), xptr)
    call c_f_pointer(xptr, volumetable, (/numpoints/))
-   call get_variable_pointer(dfm, string_to_char_array('vltbOnLinks'), xptr)
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('vltbOnLinks'), xptr)
    call c_f_pointer(xptr, volumetableOnLinks, (/2, numlinks/))
-   call get_variable_pointer(dfm, string_to_char_array('network'), xptr)
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('network'), xptr)
    call c_f_pointer(xptr, network)
    
    ! Determine the number of levels for the aggregated volume tables

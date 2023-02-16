@@ -30,33 +30,51 @@
 ! $Id$
 ! $HeadURL$
 
- !> Calculate absolute date time values, given a time in seconds since refdat.
- !! \see maketime
- subroutine datetime_from_refdat(timsec, iyear, imonth, iday, ihour, imin, isec)
- use m_flowtimes
- implicit none
- double precision, intent(in)  :: timsec !< Time in seconds since refdate
- integer,          intent(out) :: iyear, imonth, iday, ihour, imin, isec !< Actual date, split up in year/month, etc.
+subroutine dobatch() ! 
+use m_flow
+use m_flowgeom
+use unstruc_api, only: api_loadmodel, flow
+integer :: k, ierr, mout, km(100)
+double precision :: q30, q31, q32, q40, q41, q42
 
- integer :: jul, jul0, iyear0, imonth0, iday0
- double precision :: tnr, tsec
- integer :: ndag
+open (newunit=mout, file = 'tst.out') 
+write(mout,'(a)' ) ' kmx     q30     q40    q31     q41     q32    q42  ' 
 
- integer, external :: julday
+km(1)  = 1
+km(2)  = 2
+km(3)  = 3
+km(4)  = 5
+km(5)  = 8
+km(6)  = 16
+km(7)  = 32
+km(8)  = 64
+km(9)  = 128
+km(10) = 256
+km(11) = 512
+km(12) = 1024
 
- read(refdat(1:4),*) iyear0
- read(refdat(5:6),*) imonth0
- read(refdat(7:8),*) iday0
+do k = 2, 12
 
- jul0  = julday(imonth0,iday0,iyear0)
- tnr   = timsec / 3600d0
- ndag  = tnr / 24d0
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 3 ; jaustarint = 0 ; if (k > 10) dt_max = 1d0
+   ierr = flow()                               ; q30 = q1(1) / 47.434
 
- call caldat(jul0+ndag,imonth,iday,iyear)
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 4 ; jaustarint = 0 ; if (k > 10) dt_max = 1d0 
+   ierr = flow()                               ; q40 = q1(1) / 47.434 
+   
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 3 ; jaustarint = 1 ; if (k > 10) dt_max = 1d0
+   ierr = flow()                               ; q31 = q1(1) / 47.434
+  
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 4 ; jaustarint = 1 ; if (k > 10) dt_max = 1d0
+   ierr = flow()                               ; q41 = q1(1) / 47.434
+   
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 3 ; jaustarint = 2 ; if (k > 10) dt_max = 1d0
+   ierr = flow()                               ; q32 = q1(1) / 47.434
+  
+   call api_loadmodel('tst.mdu') ; kmx = km(k) ; iturbulencemodel = 4 ; jaustarint = 2 ; if (k > 10) dt_max = 1d0
+   ierr = flow()                               ; q42 = q1(1) / 47.434
 
- tsec  =  timsec - ndag*24d0*3600d0
- ihour =   tsec/3600d0
- imin  =  (tsec - ihour*3600d0)/60d0
- isec  =  (tsec - ihour*3600d0 - imin*60d0)
+   write(mout,'(i8,6F8.3)' ) kmx, q30, q40, q31, q41, q32, q42 
+enddo
+close(mout) 
+end subroutine dobatch
 
- end subroutine datetime_from_refdat

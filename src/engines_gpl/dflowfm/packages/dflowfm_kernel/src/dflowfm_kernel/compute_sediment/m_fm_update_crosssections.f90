@@ -372,10 +372,10 @@
                call err_flush()
             endif
          enddo
-         if (ba_mor_tot>0d0) then
-            bl_ave(nm) = href_tot/ba_mor_tot
+         if (ba_mor_tot > 0d0) then
+             bl_ave(nm) = href_tot/ba_mor_tot
          else
-            bl_ave(nm) = bl(nm)
+             bl_ave(nm) = bl(nm)
          endif
    enddo
 
