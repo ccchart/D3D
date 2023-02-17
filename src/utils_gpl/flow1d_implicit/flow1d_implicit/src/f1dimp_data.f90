@@ -153,9 +153,10 @@ module m_f1dimp_data
       !dependent on gridpoints 
       !*******
       integer, allocatable, dimension(:)               :: nlev   !< Number of h-levels for every cross-section.
-      integer, allocatable, dimension(:)               :: grd_sre_fm             !< Map from gridpoint number in SRE to flownode      number in FM.  For <grd_sre_fm(i)> one obtains the FM  flownode     number associated to SRE gridpoint <i>.
-      integer, allocatable, dimension(:)               :: grd_fm_sre             !< Map from flownode  number in FM  to gridpoint     number in SRE. For <grd_fm_sre(i)> one obtains the SRE gridpoint    number associated to FM  flownode  <i>. It includes additional nodes due to multivaluedness starting from ndx.
-      integer, allocatable, dimension(:)               :: grd_sre_cs             !< Map from gridpoint number in SRE to cross-section number in FM.  For <grd_sre_cs(i)> one obtains the FM cross-section number associated to SRE gridpoint <i>.
+      integer, allocatable, dimension(:)               :: grd_sre_fm             !< Map from gridpoint  number in SRE to flownode      number in FM.  For <grd_sre_fm(i)>  one obtains the FM  flownode     associated to SRE gridpoint <i>.
+      integer, allocatable, dimension(:)               :: grd_fm_sre             !< Map from flownode   number in FM  to gridpoint     number in SRE. For <grd_fm_sre(i)>  one obtains the SRE gridpoint    associated to FM  flownode  <i>. It includes additional nodes due to multivaluedness starting from ndx.
+      integer, allocatable, dimension(:)               :: grd_fm_sre2            !< Map from flownode 2 number in FM  to gridpoint     number in SRE. For <grd_fm_sre2(i)> one obtains the SRE gridpoint    associated to FM  flownode  <i>. It includes only the SRE gridpoints of junctions with only 2 branches. 
+      integer, allocatable, dimension(:)               :: grd_sre_cs             !< Map from gridpoint  number in SRE to cross-section number in FM.  For <grd_sre_cs(i)>  one obtains the FM cross-section associated to SRE gridpoint <i>.
       integer, allocatable, dimension(:)               :: grd_ghost_link_closest !< Map from a link in FM to the closest link in FM in the same branch. 
       integer, allocatable, dimension(:)               :: grd_fmmv_fmsv          !< Map from a multivalued-flownode in FM to its associated single-valued flownode in FM. 
       integer, allocatable, dimension(:)               :: kcs_sre      !< <kcs> mask of grid for SRE.
