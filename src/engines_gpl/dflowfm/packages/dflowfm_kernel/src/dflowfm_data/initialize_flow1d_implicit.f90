@@ -189,7 +189,7 @@ double precision :: wu_int, au_int
 !double precision, allocatable, dimension(:,:) :: e_sbcn_fm
 !double precision, allocatable, dimension(:,:) :: e_sbn_fm
 double precision, allocatable, dimension(:,:) :: bodsed_o
-double precision, allocatable, dimension(:,:) :: frac_o
+!double precision, allocatable, dimension(:,:) :: frac_o
 double precision, allocatable, dimension(:,:) :: thlyr_o
 double precision, allocatable, dimension(:,:) :: sedshort_o
 double precision, allocatable, dimension(:,:) :: svfrac_o
@@ -859,18 +859,38 @@ bodsed_o=stmpar%morlyr%state%bodsed
 
 if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     
+    if (allocated(msed_o)) then
+        deallocate(msed_o)
+    endif
+    allocate(msed_o(lsedtot,nlyr,ndx))
     msed_o=stmpar%morlyr%state%msed
     !allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
     !
+    if (allocated(thlyr_o)) then
+        deallocate(thlyr_o)
+    endif
+    allocate(thlyr_o(nlyr,ndx))
     thlyr_o=stmpar%morlyr%state%thlyr
     !allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
     !
+    if (allocated(sedshort_o)) then
+        deallocate(sedshort_o)
+    endif
+    allocate(sedshort_o(lsedtot,ndx))
     sedshort_o=stmpar%morlyr%state%sedshort
     !allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
     !
+    if (allocated(svfrac_o)) then
+        deallocate(svfrac_o)
+    endif
+    allocate(svfrac_o(nlyr,ndx))
     svfrac_o=stmpar%morlyr%state%svfrac
     !allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
     !
+    if (allocated(preload_o)) then
+        deallocate(preload_o)
+    endif
+    allocate(preload_o(nlyr,ndx))
     preload_o=stmpar%morlyr%state%preload
     !allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
 
@@ -1083,6 +1103,26 @@ if (allocated(bodsed_o)) then
     deallocate(bodsed_o)
 endif
 
+if (allocated(msed_o)) then
+    deallocate(msed_o)
+endif
+    
+if (allocated(thlyr_o)) then
+    deallocate(thlyr_o)
+endif
+    
+if (allocated(sedshort_o)) then
+    deallocate(sedshort_o)
+endif
+    
+if (allocated(svfrac_o)) then
+    deallocate(svfrac_o)
+endif
+
+if (allocated(preload_o)) then
+    deallocate(preload_o)
+endif
+    
 endif
 
 !
