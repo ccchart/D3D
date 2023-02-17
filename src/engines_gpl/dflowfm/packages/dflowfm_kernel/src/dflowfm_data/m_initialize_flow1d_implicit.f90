@@ -75,7 +75,7 @@ use m_fm_erosed, only: nd_mor, ln_mor, ndx_mor, lnx_mor
 use unstruc_channel_flow, only: network
 use unstruc_messages
 use m_sediment, only: stmpar, jased, stm_included
-use m_fm_erosed, only: link1, link1sign, link1sign2
+use m_fm_erosed, only: link1sign, link1sign2
 use m_oned_functions, only: gridpoint2cross, t_gridp2cs
 
 implicit none
@@ -314,14 +314,6 @@ do kl=1,lnxi
     link1sign2(kl)=1
 enddo
 
-allocate(link1(ndx_mor)) !we allocate with
-link1=0
-do kl=1,lnx_mor
-    k1=ln_mor(1,kl)
-    !k2 = ln(2,kl)
-    link1(k1)=kl
-enddo
-
 !copy to <gridpoint2cross_o>
 if (allocated(gridpoint2cross_o)) then
     deallocate(gridpoint2cross_o)
@@ -490,7 +482,7 @@ use m_flowgeom, only: ndx, ndxi, lnx, lnx1D, ln, nd, tnode, lnxi, lnx1Db
 use unstruc_channel_flow, only: network
 use unstruc_messages
 use m_flow, only: ndkx_mor
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ln_mor, nd_mor
+use m_fm_erosed, only: link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ln_mor, nd_mor
 use m_oned_functions, only: gridpoint2cross
 
 implicit none
@@ -805,7 +797,7 @@ use m_f1dimp
 use m_flowgeom, only: ndx, bai_mor, ba, bl, dx, lnx, dxi, acl, wu, snu, csu, wu_mor, wcx1, wcx2, wcy1, wcy2, kcu, wcl, lnxi, griddim
 use m_flow, only: s0, s1, u1, au, hu, qa, frcu_mor, frcu, z0urou, ifrcutp
 use m_sediment, only: stmpar, jased, stm_included, kcsmor
-use m_fm_erosed, only: ndx_mor, lsedtot, lnx_mor, pmcrit, ucyq_mor
+use m_fm_erosed, only: ndx_mor, lsedtot, lnx_mor, pmcrit, ucyq_mor, link1, ln_mor
 use m_waves, only: taubxu
 use m_turbulence, only: rhowat
 use m_xbeach_data, only: ktb
@@ -832,7 +824,7 @@ integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 !local
 !
 
-integer :: kl, kd
+integer :: kl, kd, k1   
 
 double precision, allocatable, dimension(:,:) :: bodsed_o
 double precision, allocatable, dimension(:,:) :: thlyr_o
@@ -862,6 +854,15 @@ iresult=0 !no error
 
 !FM1DIMP2DO: If friction varies with time, <frcu_mor> is updated. The subroutine that
 !does that must be modified to also adapt the friction in the ghost links.
+
+!this cannot be in the allocation function because it needs <ln_mor>
+allocate(link1(ndx_mor))
+link1=0
+do kl=1,lnx_mor
+    k1=ln_mor(1,kl)
+    !k2 = ln(2,kl)
+    link1(k1)=kl
+enddo
 
 !nodes
     !allocate
@@ -1103,7 +1104,7 @@ double precision :: wu_int, au_int
 !----------------------------------------
 
 grd_fm_sre             => f1dimppar%grd_fm_sre
-grd_fm_sre             => f1dimppar%grd_fm_sre2
+grd_fm_sre2            => f1dimppar%grd_fm_sre2
 hpack                  => f1dimppar%hpack
 qpack                  => f1dimppar%qpack
 waoft                  => f1dimppar%waoft
