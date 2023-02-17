@@ -63,8 +63,9 @@
  use unstruc_netcdf_map_class
  use unstruc_caching
  use m_monitoring_crosssections, only: ncrs, fill_geometry_arrays_crs
-  use m_setucxcuy_leastsquare, only: reconst2ndini
-
+ use m_setucxcuy_leastsquare, only: reconst2ndini
+ use m_initialize_flow1d_implicit, only: initialize_flow1d_implicit
+ 
  !use m_mormerge
  !
  ! To raise floating-point invalid, divide-by-zero, and overflow exceptions:

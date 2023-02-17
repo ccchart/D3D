@@ -38,7 +38,29 @@
 module m_initialize_flow1d_implicit
 
     contains
-    
+ 
+subroutine initialize_flow1d_implicit(iresult)
+
+implicit none
+
+!output
+integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
+
+!!
+!! CALC
+!!
+
+call inifm1dimp_ini(iresult) !INItialize arrays
+call inifm1dimp_lob(iresult) !Loop On Branches
+call inifm1dimp_faap(iresult)!Fill Arrays that need Additional Point
+call inifm1dimp_fic(iresult) !Fill Initial Condition
+call inifm1dimp_fbrp(iresult)!Fill Branch PRoperties 
+call inifm1dimp_fbc(iresult) !Fill Boundary Conditions
+call inifm1dimp_fnod(iresult)!Fill NODes
+call inifm1dimp_chk(iresult) !CHecK
+
+end subroutine initialize_flow1d_implicit
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !BEGIN inifm1dimp_ini
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
