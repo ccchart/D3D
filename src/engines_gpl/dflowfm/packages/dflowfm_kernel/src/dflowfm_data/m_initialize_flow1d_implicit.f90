@@ -46,9 +46,9 @@ implicit none
 !output
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
-!!
-!! CALC
-!!
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
 
 call inifm1dimp_ini(iresult) !INItialize arrays
 call inifm1dimp_lob(iresult) !Loop On Branches
@@ -68,38 +68,22 @@ end subroutine initialize_flow1d_implicit
 subroutine inifm1dimp_ini(iresult)
 
 use m_f1dimp
-!use m_alloc
 use m_physcoef, only: ag, rhomean
 use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, tnode, lnx1D, ln, lnxi, nd, lnx1Db
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
-!use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
-!use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_fm_erosed, only: nd_mor, ln_mor
+use m_flowexternalforcings, only: nzbnd, nqbnd
+use m_fm_erosed, only: nd_mor, ln_mor, ndx_mor, lnx_mor
 use unstruc_channel_flow, only: network
 use unstruc_messages
-!use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-!use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
 use m_sediment, only: stmpar, jased, stm_included
-!use m_initsedtra, only: initsedtra
 use m_fm_erosed, only: link1, link1sign, link1sign2
 use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-!use m_waves, only: taubxu
-!use morphology_data_module, only: allocsedtra
-!use m_turbulence, only: rhowat
-!use m_xbeach_data, only: ktb
-!use m_bedform, only: bfmpar
 
 implicit none
-
 
 !
 !pointer
 !
-
-!logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-!integer                                  , pointer :: flitmx                 
-!integer                                  , pointer :: iterbc                 
+             
 integer                                  , pointer :: ngrid   
 integer                                  , pointer :: ngridm   
 integer                                  , pointer :: nbran   
@@ -112,97 +96,38 @@ integer                                  , pointer :: ntabm
 integer                                  , pointer :: nbrnod
 integer                                  , pointer :: table_length
 integer                                  , pointer :: juer
-!integer                                  , pointer :: nlyr
 
-!integer, dimension(:)                    , pointer :: nlev
-!integer, dimension(:)                    , pointer :: numnod
-!integer, dimension(:)                    , pointer :: grd_sre_fm
-!integer, dimension(:)                    , pointer :: grd_fm_sre
-!integer, dimension(:)                    , pointer :: grd_sre_cs 
 integer, dimension(:)                    , pointer :: grd_ghost_link_closest
 integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-!integer, dimension(:)                    , pointer :: lin
-!integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-!integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-!integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-!integer, dimension(:,:)                  , pointer :: branch
-!integer, dimension(:,:)                  , pointer :: bfrict
-!integer, dimension(:,:)                  , pointer :: hbdpar
-!integer, dimension(:,:)                  , pointer :: qbdpar
-!integer, dimension(:,:)                  , pointer :: ntab
+
 integer, dimension(:,:)                  , pointer :: node
-!integer, dimension(:,:)                  , pointer :: nodnod
 
-!real                                     , pointer :: g
-!real                                     , pointer :: psi                    
-!real                                     , pointer :: theta                  
-!real                                     , pointer :: epsh                   
-!real                                     , pointer :: epsq                   
-!real                                     , pointer :: rhow                   
-!real                                     , pointer :: omega                  
-!real                                     , pointer :: epsqrl                 
-!real                                     , pointer :: lambda                 
-!real                                     , pointer :: relstr                 
-!real                                     , pointer :: dhstru                 
-!real                                     , pointer :: cflpse                               
-!real                                     , pointer :: overlp                 
-!real                                     , pointer :: omcfl                  
-!real                                     , pointer :: dhtyp                  
-!real                                     , pointer :: exrstp     
-
-!real, dimension(:)                       , pointer :: table
-!real, dimension(:)                       , pointer :: x
 !
-!real, dimension(:,:)                     , pointer :: bfricp
-!real, dimension(:,:)                     , pointer :: wft
-!real, dimension(:,:)                     , pointer :: aft
-!real, dimension(:,:)                     , pointer :: wtt
-!real, dimension(:,:)                     , pointer :: att
-!real, dimension(:,:)                     , pointer :: of
-!real, dimension(:,:)                     , pointer :: waoft
+!allocatable
 !
-!double precision                         , pointer :: time
-!double precision                         , pointer :: dtf
-!double precision                         , pointer :: resid
-!      
-!double precision, dimension(:,:)         , pointer :: hpack
-!double precision, dimension(:,:)         , pointer :: qpack
-!double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
 
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-!type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
 type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
 
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
+!
+
 integer :: kbr, k1, k2, kl, kd
 integer :: ndx_max, lnx_max
-!integer :: n1, n2, nint, nout, pointscount, jpos
-!integer :: table_number
-!integer :: idx_fr, idx_to
-!integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-!integer :: j
 integer :: stat
 
 character(len=512) :: msg
-
-!integer, dimension(1) :: idx_findloc
-!integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
 
 !----------------------------------------
 !BEGIN POINT
 !----------------------------------------
 
-!f1dimppar
 table_length           => f1dimppar%table_length
 maxtab                 => f1dimppar%maxtab
 nnode                  => f1dimppar%nnode
@@ -214,9 +139,8 @@ maxlev                 => f1dimppar%maxlev
 ngridm                 => f1dimppar%ngridm
 nhstat                 => f1dimppar%nhstat
 nqstat                 => f1dimppar%nqstat
-!grd_sre_cs             => f1dimppar%grd_sre_cs
-!grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-!grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
+grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
+grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
 juer                   => f1dimppar%juer
 node                  => f1dimppar%node
 
@@ -224,13 +148,14 @@ node                  => f1dimppar%node
 !BEGIN CALC
 !----------------------------------------
 
+iresult=0 !no error
+
 !file for error
 !FM1DIMP2DO. Ideally we would use the message handlinf of FM. This implies changing all calls in SRE and make sure the message handling error module is accessible. 
 !Furthermore, closing of the file should be dealt with. I am not sure where to place it. 
 open(newunit=juer, file="FM1DIMP.dia", status="replace", action="write", iostat=stat, iomsg=msg)
 
 f1dimp_initialized=.true. !we use this for using <ndx> rather than <ndx_mor> (which is not defined yet) in <flow_sedmorinit>. See comment there. 
-iresult=0 !no error
 
 !parameters in <flwpar> (SRE variable)
 f1dimppar%g=ag 
@@ -273,20 +198,15 @@ table_length=2 !length of each table. All have only 2 times.
 ntabm=maxtab*table_length*2 !last 2 is for <time> and <values> 
 nbrnod=network%NDS%MAXNUMBEROFCONNECTIONS
 
-!construct branches
-
 if (allocated(f1dimppar%grd_sre_fm)) then
     deallocate(f1dimppar%grd_sre_fm)
 endif
 allocate(f1dimppar%grd_sre_fm(ngrid)) 
-!grd_sre_fm => f1dimppar%grd_sre_fm
 
 if (allocated(f1dimppar%grd_fm_sre)) then
     deallocate(f1dimppar%grd_fm_sre)
 endif
 allocate(f1dimppar%grd_fm_sre(ndx_max)) !we allocate more than we need. The maximum number of bifurcations and confluences is less than the number of nodes.
-!grd_fm_sre => f1dimppar%grd_fm_sre
-!grd_fm_sre=0
 f1dimppar%grd_fm_sre=0
 
 if (allocated(f1dimppar%grd_fm_sre2)) then
@@ -299,37 +219,31 @@ if (allocated(f1dimppar%grd_fmL_sre)) then
     deallocate(f1dimppar%grd_fmL_sre)
 endif
 allocate(f1dimppar%grd_fmL_sre(lnx1D,2)) 
-!grd_fmL_sre => f1dimppar%grd_fmL_sre
 
 if (allocated(f1dimppar%branch)) then
     deallocate(f1dimppar%branch)
 endif
 allocate(f1dimppar%branch(4,nbran)) 
-!branch => f1dimppar%branch
 
 if (allocated(f1dimppar%x)) then
     deallocate(f1dimppar%x)
 endif
 allocate(f1dimppar%x(ngrid))
-!x => f1dimppar%x
 
 if (allocated(f1dimppar%grd_sre_cs)) then
     deallocate(f1dimppar%grd_sre_cs)
 endif
 allocate(f1dimppar%grd_sre_cs(ngrid))
-!grd_sre_cs => f1dimppar%grd_sre_cs
 
 if (allocated(f1dimppar%hpack)) then
     deallocate(f1dimppar%hpack)
 endif
 allocate(f1dimppar%hpack(ngrid,3)) 
-!hpack => f1dimppar%hpack
 
 if (allocated(f1dimppar%qpack)) then
     deallocate(f1dimppar%qpack)
 endif
 allocate(f1dimppar%qpack(ngrid,3))
-!qpack => f1dimppar%qpack
 
 if (allocated(f1dimppar%grd_fmLb_sre)) then
     deallocate(f1dimppar%grd_fmLb_sre)
@@ -340,8 +254,6 @@ if (allocated(f1dimppar%waoft)) then
     deallocate(f1dimppar%waoft)
 endif
 allocate(f1dimppar%waoft(ngrid,18))
-!waoft => f1dimppar%waoft
-!swaoft=size(f1dimppar%waoft,dim=2)
 
 if (allocated(f1dimppar%bfrict)) then
     deallocate(f1dimppar%bfrict)
@@ -355,14 +267,6 @@ allocate(nd_mor(ndx_max)) !more than we need
 do kd=1,ndx
     nd_mor(kd)=nd(kd)
 enddo
-
-if (allocated(f1dimppar%kcs_sre)) then
-    deallocate(f1dimppar%kcs_sre)
-endif
-allocate(f1dimppar%kcs_sre(ngrid))
-kcs_sre => f1dimppar%kcs_sre 
-kcs_sre=1
-!f1dimppar%kcs_sre=1
     
 if (allocated(f1dimppar%grd_fmmv_fmsv)) then
     deallocate(f1dimppar%grd_fmmv_fmsv)
@@ -372,27 +276,17 @@ grd_fmmv_fmsv => f1dimppar%grd_fmmv_fmsv
 !allocate every node with itself
 do kd=1,ndx_max
     grd_fmmv_fmsv(kd)=kd
-    !f1dimppar%grd_fmmv_fmsv(kd)=kd
 enddo
 
-!if (allocated(nd_o)) then
-!    deallocate(nd_o)
-!endif
-!allocate(nd_o(ndx))
-!nd_o=nd
-
-!ln_o=ln
 if (allocated(ln_mor)) then
     deallocate(ln_mor)
 endif
 allocate(ln_mor(2,lnx_max))
 do kl=1,lnx
     do kd=1,2
-        !ln(kd,kl)=ln_o(kd,kl)
         ln_mor(kd,kl)=ln(kd,kl)
     enddo
 enddo
-
 
 if (allocated(f1dimppar%grd_ghost_link_closest)) then
     deallocate(f1dimppar%grd_ghost_link_closest)
@@ -401,7 +295,6 @@ allocate(f1dimppar%grd_ghost_link_closest(lnx_max)) !we allocate more than we ne
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 do kl=1,lnx
     grd_ghost_link_closest(kl)=kl
-    !f1dimppar%grd_ghost_link_closest(kl)=kl
 enddo
 
 !FM1DIMP2DO: I am now adapting the input for using the morphodynamic implementation of Pure 1D. However, 
@@ -420,15 +313,14 @@ link1sign2=0
 do kl=1,lnxi
     link1sign2(kl)=1
 enddo
-!do kl=lnxi+1,lnx
-!    link1sign2(kl)=1
-!enddo
 
-!if (allocated(node_processed)) then
-!    deallocate(node_processed)
-!endif
-!allocate(node_processed(ndxi))
-!node_processed=0
+allocate(link1(ndx_mor)) !we allocate with
+link1=0
+do kl=1,lnx_mor
+    k1=ln_mor(1,kl)
+    !k2 = ln(2,kl)
+    link1(k1)=kl
+enddo
 
 !copy to <gridpoint2cross_o>
 if (allocated(gridpoint2cross_o)) then
@@ -456,7 +348,6 @@ if (iresult==1) then
     return
 endif
 
-!allocate
 if (allocated(gridpoint2cross)) then
     deallocate(gridpoint2cross)
 endif
@@ -470,12 +361,14 @@ do kd=ndxi+1,ndx
     gridpoint2cross(kd)%num_cross_sections=0 !This prevents it is looped in <fm_update_crosssections>
 enddo
 
-!dependent on gridpoints 
+!
+!gridpoints 
+!
+
 if (allocated(f1dimppar%bfricp)) then
     deallocate(f1dimppar%bfricp)
 endif
 allocate(f1dimppar%bfricp(6,ngrid)) !needs the part with FP1, FP2
-
 
 if (allocated(f1dimppar%nlev)) then
     deallocate(f1dimppar%nlev)
@@ -487,7 +380,10 @@ if (allocated(f1dimppar%bedlevel)) then
 endif
 allocate(f1dimppar%bedlevel(ngrid))
 
-    !cross-sectional information (gridpoint,level)
+!
+!cross-section (gridpoint,level)
+!
+
 if (allocated(f1dimppar%wft)) then
     deallocate(f1dimppar%wft)
 endif
@@ -518,10 +414,18 @@ if (allocated(f1dimppar%hlev)) then
 endif
 allocate(f1dimppar%hlev(ngrid,maxlev))
 
+!
+!table information 
+!
+
 if (allocated(f1dimppar%ntab)) then
     deallocate(f1dimppar%ntab)
 endif     
 allocate(f1dimppar%ntab(4,maxtab)) 
+
+!
+!BC 
+!
 
 if (allocated(f1dimppar%hbdpar)) then
     deallocate(f1dimppar%hbdpar)
@@ -537,6 +441,10 @@ if (allocated(f1dimppar%table)) then
     deallocate(f1dimppar%table)
 endif
 allocate(f1dimppar%table(ntabm)) 
+
+!
+!node 
+!
 
 if (allocated(f1dimppar%node)) then
     deallocate(f1dimppar%node)
@@ -555,10 +463,15 @@ if (allocated(f1dimppar%nodnod)) then
 endif 
 allocate(f1dimppar%nodnod(nnode,nbrnod+1))
 
-!debug counter
+!
+!debug
+!
+
 f1dimppar%fm1dimp_debug_k1=1
 
-!deallocate
+!
+!deallocate locals
+!
 
 if (allocated(gridpoint2cross_o)) then
     deallocate(gridpoint2cross_o)
@@ -573,24 +486,12 @@ end subroutine inifm1dimp_ini
 subroutine inifm1dimp_lob(iresult)
 
 use m_f1dimp
-!use m_alloc
-!use m_physcoef
-!use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
 use m_flowgeom, only: ndx, ndxi, lnx, lnx1D, ln, nd, tnode, lnxi, lnx1Db
 use unstruc_channel_flow, only: network
 use unstruc_messages
 use m_flow, only: ndkx_mor
-!use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-!use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-!use m_initsedtra, only: initsedtra
-!use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
 use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ln_mor, nd_mor
-use m_oned_functions, only: gridpoint2cross!, t_gridp2cs
-!use m_waves, only: taubxu
-!use morphology_data_module, only: allocsedtra
-!use m_turbulence, only: rhowat
-!use m_xbeach_data, only: ktb
-!use m_bedform, only: bfmpar
+use m_oned_functions, only: gridpoint2cross
 
 implicit none
 
@@ -599,26 +500,8 @@ implicit none
 !BEGIN POINT
 !----------------------------------------
 
-!logical                                  , pointer :: lconv                   
-!logical                                  , pointer :: steady    
-!integer                                  , pointer :: flitmx                 
-!integer                                  , pointer :: iterbc                 
-!integer                                  , pointer :: ngrid   
-!integer                                  , pointer :: ngridm   
 integer                                  , pointer :: nbran   
-!integer                                  , pointer :: maxlev
-!integer                                  , pointer :: nnode
-!integer                                  , pointer :: nhstat
-!integer                                  , pointer :: nqstat
-!integer                                  , pointer :: maxtab
-!integer                                  , pointer :: ntabm
-!integer                                  , pointer :: nbrnod
-!integer                                  , pointer :: table_length
-!integer                                  , pointer :: juer
-!integer                                  , pointer :: nlyr
 
-!integer, dimension(:)                    , pointer :: nlev
-!integer, dimension(:)                    , pointer :: numnod
 integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
 integer, dimension(:)                    , pointer :: grd_fm_sre2
@@ -627,69 +510,25 @@ integer, dimension(:)                    , pointer :: grd_ghost_link_closest
 integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
 integer, dimension(:)                    , pointer :: lin
 integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
     
 integer, dimension(:,:)                  , pointer :: grd_fmL_sre
 integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
 integer, dimension(:,:)                  , pointer :: branch
-!integer, dimension(:,:)                  , pointer :: bfrict
-!integer, dimension(:,:)                  , pointer :: hbdpar
-!integer, dimension(:,:)                  , pointer :: qbdpar
-!integer, dimension(:,:)                  , pointer :: ntab
-!integer, dimension(:,:)                  , pointer :: node
-!integer, dimension(:,:)                  , pointer :: nodnod
 
-!real                                     , pointer :: g
-!real                                     , pointer :: psi                    
-!real                                     , pointer :: theta                  
-!real                                     , pointer :: epsh                   
-!real                                     , pointer :: epsq                   
-!real                                     , pointer :: rhow                   
-!real                                     , pointer :: omega                  
-!real                                     , pointer :: epsqrl                 
-!real                                     , pointer :: lambda                 
-!real                                     , pointer :: relstr                 
-!real                                     , pointer :: dhstru                 
-!real                                     , pointer :: cflpse                               
-!real                                     , pointer :: overlp                 
-!real                                     , pointer :: omcfl                  
-!real                                     , pointer :: dhtyp                  
-!real                                     , pointer :: exrstp     
-
-!real, dimension(:)                       , pointer :: table
 real, dimension(:)                       , pointer :: x
 
-!real, dimension(:,:)                     , pointer :: bfricp
-!real, dimension(:,:)                     , pointer :: wft
-!real, dimension(:,:)                     , pointer :: aft
-!real, dimension(:,:)                     , pointer :: wtt
-!real, dimension(:,:)                     , pointer :: att
-!real, dimension(:,:)                     , pointer :: of
-!real, dimension(:,:)                     , pointer :: waoft
-
-!double precision                         , pointer :: time
-!double precision                         , pointer :: dtf
-!double precision                         , pointer :: resid
-      
-!double precision, dimension(:,:)         , pointer :: hpack
-!double precision, dimension(:,:)         , pointer :: qpack
-!double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
 type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-!type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
 
-!debug
-!integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
+!
+
 integer :: kbr, k1, kn, kl
 integer :: c_lnx, c_ndx !counters
 integer :: idx_sre, idx_fm !indices
@@ -697,74 +536,40 @@ integer :: n1, n2, pointscount, jpos
 integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_n
 integer :: j
 integer :: nint, nout 
+
 !move to function
 integer :: idx_aux
 integer :: min_1, min_2, k2
 
-!integer :: nlink !I don't think I need it global
-
-!integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
-
-!real :: swaoft
-
-!double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-!double precision, allocatable, dimension(:,:) :: bodsed_o
-!!double precision, allocatable, dimension(:,:) :: frac_o
-!double precision, allocatable, dimension(:,:) :: thlyr_o
-!double precision, allocatable, dimension(:,:) :: sedshort_o
-!double precision, allocatable, dimension(:,:) :: svfrac_o
-!double precision, allocatable, dimension(:,:) :: preload_o
-
 double precision, allocatable, dimension(:,:,:) :: msed_o
 
-!!
-!! POINT
-!!
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!f1dimppar
-!table_length           => f1dimppar%table_length
-!maxtab                 => f1dimppar%maxtab
-!nnode                  => f1dimppar%nnode
-!ntabm                  => f1dimppar%ntabm
 nbran                  => f1dimppar%nbran
-!ngrid                  => f1dimppar%ngrid
-!nbrnod                 => f1dimppar%nbrnod
-!maxlev                 => f1dimppar%maxlev
-!ngridm                 => f1dimppar%ngridm
-!nhstat                 => f1dimppar%nhstat
-!nqstat                 => f1dimppar%nqstat
 grd_sre_cs             => f1dimppar%grd_sre_cs
+grd_sre_fm             => f1dimppar%grd_sre_fm
 grd_fm_sre             => f1dimppar%grd_fm_sre
 grd_fm_sre2            => f1dimppar%grd_fm_sre2
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
 grd_fmL_sre            => f1dimppar%grd_fmL_sre
-grd_fmLb_sre => f1dimppar%grd_fmLb_sre
-kcs_sre => f1dimppar%kcs_sre
-!juer                   => f1dimppar%juer
-branch => f1dimppar%branch
+grd_fmLb_sre           => f1dimppar%grd_fmLb_sre
+branch                 => f1dimppar%branch
+x                      => f1dimppar%x
+
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
+
+iresult=0 !no error
 
 if (allocated(nd_o)) then
     deallocate(nd_o)
 endif
 allocate(nd_o(ndx))
 nd_o=nd
-
-!----------------------------------------
-!BEGIN CALC
-!----------------------------------------
-
 
 idx_i=1
 idx_sre=0
@@ -954,6 +759,7 @@ ndx_mor=c_ndx !store new number of flow nodes (considering multivaluedness)
 ndxi_mor=ndx_mor !there are no ghosts in SRE
 ndkx_mor=ndx_mor
 
+!creart
 idx_fm=0
 do L=lnxi+1,lnx1Db !boundary links
     idx_fm=idx_fm+1
@@ -978,7 +784,7 @@ do L=lnxi+1,lnx1Db !boundary links
     grd_fmLb_sre(idx_fm,2)=nout !FM index of the ghost cell centre associated to link <L>
     
     !mask grid
-    kcs_sre(idx_aux)=-1 !FM1DIMP2DO: I am not sure I need this or I better deal with directions in <fm_erosed> and here just set to 1 but the right dimensions.
+    !kcs_sre(idx_aux)=-1 !FM1DIMP2DO: I am not sure I need this or I better deal with directions in <fm_erosed> and here just set to 1 but the right dimensions.
 enddo
 
 !deallocate
@@ -995,22 +801,12 @@ end subroutine inifm1dimp_lob
 
 subroutine inifm1dimp_faap(iresult)
 
-!use m_flowparameters
 use m_f1dimp
-!use m_initialize_flow1d_implicit
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
-use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
-use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
+use m_flowgeom, only: ndx, bai_mor, ba, bl, dx, lnx, dxi, acl, wu, snu, csu, wu_mor, wcx1, wcx2, wcy1, wcy2, kcu, wcl, lnxi, griddim
+use m_flow, only: s0, s1, u1, au, hu, qa, frcu_mor, frcu, z0urou, ifrcutp
+use m_sediment, only: stmpar, jased, stm_included, kcsmor
+use m_fm_erosed, only: ndx_mor, lsedtot, lnx_mor, pmcrit, ucyq_mor
 use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
 use m_turbulence, only: rhowat
 use m_xbeach_data, only: ktb
 use m_bedform, only: bfmpar
@@ -1021,138 +817,24 @@ implicit none
 !
 !pointer
 !
-
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
-integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
-integer                                  , pointer :: nnode
-integer                                  , pointer :: nhstat
-integer                                  , pointer :: nqstat
-integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
-integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
 integer                                  , pointer :: nlyr
 
-integer, dimension(:)                    , pointer :: nlev
-integer, dimension(:)                    , pointer :: numnod
-integer, dimension(:)                    , pointer :: grd_sre_fm
-integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
 integer, dimension(:)                    , pointer :: grd_ghost_link_closest
 integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
-integer, dimension(:,:)                  , pointer :: bfrict
-integer, dimension(:,:)                  , pointer :: hbdpar
-integer, dimension(:,:)                  , pointer :: qbdpar
-integer, dimension(:,:)                  , pointer :: ntab
-integer, dimension(:,:)                  , pointer :: node
-integer, dimension(:,:)                  , pointer :: nodnod
 
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
-
-real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
-real, dimension(:,:)                     , pointer :: waoft
-
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
-integer :: table_number
-integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
+!
 
-character(len=512) :: msg
+integer :: kl, kd
 
-integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
-
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
-
-!integer :: nlink !I don't think I need it global
-
-integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
-
-real :: swaoft
-
-double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
 double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
 double precision, allocatable, dimension(:,:) :: thlyr_o
 double precision, allocatable, dimension(:,:) :: sedshort_o
 double precision, allocatable, dimension(:,:) :: svfrac_o
@@ -1160,49 +842,26 @@ double precision, allocatable, dimension(:,:) :: preload_o
 
 double precision, allocatable, dimension(:,:,:) :: msed_o
 
-!!
-!! POINT
-!!
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
-table_length           => f1dimppar%table_length
-maxtab                 => f1dimppar%maxtab
-nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
-nbran                  => f1dimppar%nbran
-ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
-nhstat                 => f1dimppar%nhstat
-nqstat                 => f1dimppar%nqstat
-grd_sre_cs             => f1dimppar%grd_sre_cs
 grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
 grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
 
 !stmpar
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
 nlyr                   => stmpar%morlyr%SETTINGS%NLYR
 endif
 
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
+
 iresult=0 !no error
 
 !FM1DIMP2DO: If friction varies with time, <frcu_mor> is updated. The subroutine that
 !does that must be modified to also adapt the friction in the ghost links.
-
-allocate(link1(ndx_mor)) !we allocate with
-link1=0
-do L = 1,lnx_mor
-    k1 = ln_mor(1,L)
-    !k2 = ln(2,L)
-    link1(k1) = L
-enddo
-
-!FM1DIMP2DO: When not having a morhodynamic simulation, morpho variables are not initialized. The best
-!would be to <return> in <reallocate_fill>
 
 !nodes
     !allocate
@@ -1220,31 +879,20 @@ call reallocate_fill(bl     ,grd_fmmv_fmsv,ndx,ndx_mor)
 !the cross-sections, which are treated independently. Nevertheless, we could here fill
 !the right value from cross-sections. 
 
-
-
-!call reallocate_fill_pointer(ucxq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
-!call reallocate_fill_pointer(ucyq_mor   ,grd_fmmv_fmsv,ndx,ndx_mor)
-!call reallocate_fill_pointer(hs_mor     ,grd_fmmv_fmsv,ndx,ndx_mor)
-!call reallocate_fill_pointer(dzbdt      ,grd_fmmv_fmsv,ndx,ndx_mor)
 call reallocate_fill_pointer(bfmpar%rksr,grd_fmmv_fmsv,ndx,ndx_mor)
-!call reallocate_fill_pointer(pmcrit     ,grd_fmmv_fmsv,ndx,ndx_mor)
+
+!FM1DIMP2DO: When not having a morhodynamic simulation, morpho variables are not initialized. The best
+!would be to <return> in <reallocate_fill>
 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-call reallocate_fill_pointer(stmpar%morlyr%settings%thtrlyr,grd_fmmv_fmsv,ndx,ndx_mor)
-call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,ndx_mor)
 
-!call reallocate_fill_int_pointer(kfsed  ,grd_fmmv_fmsv,ndx,ndx_mor)
+    call reallocate_fill_pointer(stmpar%morlyr%settings%thtrlyr,grd_fmmv_fmsv,ndx,ndx_mor)
+call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,ndx_mor)
 
 !multidimensional nodes
 
-    !copy arrays to temporary array
-!dbodsd_fm=dbodsd 
-!if (allocated(dbodsd)) then
-!    deallocate(dbodsd)
-!endif
-!allocate(dbodsd(lsedtot,ndx_mor))
-
     !copy pointers to temporary array
+
 !Variables in <stmpar%morlyr%state> with the initial condition need to be reallocated.
 !we cannot check if allocated because these arrays are not <allocatable>. Also, we 
 !cannot work with a pointer and we have to allocate <stmpar%morlyr%state%val> rather 
@@ -1257,15 +905,11 @@ call reallocate_fill_pointer(stmpar%morlyr%settings%thexlyr,grd_fmmv_fmsv,ndx,nd
 !That's the way in which you would write it in C. Then it's immediately clear that 
 !it's just changing the local pointer and not the associated target pointer.
 
-!state
 if (allocated(bodsed_o)) then
     deallocate(bodsed_o)
 endif
 allocate(bodsed_o(lsedtot,ndx))
 bodsed_o=stmpar%morlyr%state%bodsed
-
-!deallocate(stmpar%morlyr%state%bodsed)
-!allocate(stmpar%morlyr%state%bodsed(lsedtot,ndx_mor))
 
 if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     
@@ -1274,87 +918,34 @@ if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     endif
     allocate(msed_o(lsedtot,nlyr,ndx))
     msed_o=stmpar%morlyr%state%msed
-    !allocate(stmpar%morlyr%state%msed(lsedtot,nlyr,ndx_mor))
-    !
+
     if (allocated(thlyr_o)) then
         deallocate(thlyr_o)
     endif
     allocate(thlyr_o(nlyr,ndx))
     thlyr_o=stmpar%morlyr%state%thlyr
-    !allocate(stmpar%morlyr%state%thlyr(nlyr,ndx_mor))
-    !
+
     if (allocated(sedshort_o)) then
         deallocate(sedshort_o)
     endif
     allocate(sedshort_o(lsedtot,ndx))
     sedshort_o=stmpar%morlyr%state%sedshort
-    !allocate(stmpar%morlyr%state%sedshort(lsedtot,ndx_mor))
-    !
+
     if (allocated(svfrac_o)) then
         deallocate(svfrac_o)
     endif
     allocate(svfrac_o(nlyr,ndx))
     svfrac_o=stmpar%morlyr%state%svfrac
-    !allocate(stmpar%morlyr%state%svfrac(nlyr,ndx_mor))
-    !
+
     if (allocated(preload_o)) then
         deallocate(preload_o)
     endif
     allocate(preload_o(nlyr,ndx))
     preload_o=stmpar%morlyr%state%preload
-    !allocate(stmpar%morlyr%state%preload(nlyr,ndx_mor))
 
-!settings
-!thtrlyr_o=stmpar%morlyr%settings%thtrlyr
-!allocate(stmpar%morlyr%settings%thtrlyr(ndx_mor))
-!
-!thexlyr_o=stmpar%morlyr%settings%thexlyr
-!allocate(stmpar%morlyr%settings%thexlyr(ndx_mor))
+endif !underlayer==2
 
-!call reallocate_fill_manual_2(stmpar%morlyr%state%bodsed  ,bodsed_o  ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
-!call reallocate_fill_manual_2(stmpar%morlyr%state%sedshort,sedshort_o,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot)
-
-!call reallocate_fill_manual_2(stmpar%morlyr%state%thlyr   ,thlyr_o   ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
-!call reallocate_fill_manual_2(stmpar%morlyr%state%svfrac  ,svfrac_o  ,grd_fmmv_fmsv,ndx,ndx_mor,nlyr)
-
-!call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
-
-endif
-
-endif
-
-!!allocate
-!    !copy data from nodes existing in FM
-!do kn=1,ndx
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
-!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
-!        do klyr=1,nlyr
-!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
-!            !no sediment index, but we save writing another loop
-!            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
-!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
-!            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,kn)
-!        enddo !klyr
-!    enddo !ksed
-!enddo !kn
-!
-!    !fill
-!do kn=ndx+1,ndx_mor    
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
-!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
-!        do klyr=1,nlyr
-!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
-!            !no sediment index, but we save writing another loop
-!            !stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
-!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn))
-!            stmpar%morlyr%state%preload(klyr,kn)=preload_o(klyr,grd_fmmv_fmsv(kn)) 
-!        enddo !klyr
-!    enddo !ksed
-!enddo !kl
+endif !jased
 
 !links
     !allocate
@@ -1381,12 +972,9 @@ call reallocate_fill(wcy2    ,grd_ghost_link_closest,lnx,lnx_mor)
 call reallocate_fill_int(ifrcutp,grd_ghost_link_closest,lnx,lnx_mor) 
 call reallocate_fill_int(kcu,grd_ghost_link_closest,lnx,lnx_mor)
 
-!call reallocate_fill_pointer(e_dzdn  ,grd_ghost_link_closest,lnx,lnx_mor) 
-
 !multidimensional links
 
     !copy arrays to temporary array
-!wcl_fm=wcl 
 if (allocated(wcl)) then
     deallocate(wcl)
 endif
@@ -1397,64 +985,23 @@ do kl=1,lnx_mor
     enddo
 enddo
 do kl=lnxi+1,lnx
-    wcl(1,kl)=1.0d0
+    wcl(1,kl)=1.0d0 !boundary links are full
 enddo
-
-!ln_fm=ln
-!if (allocated(ln)) then
-!    deallocate(ln)
-!endif
-!allocate(ln(2,lnx_mor))
-
-    !copy pointers to temporary array
-!e_sbcn_fm=e_sbcn 
-!allocate(e_sbcn(lnx_mor,lsedtot))
-!
-!e_sbn_fm=e_sbn
-!allocate(e_sbn(lnx_mor,lsedtot))
-
-    !copy data from links existing in FM
-!do kl=1,lnx
-!    !arrays left-right
-!    do kd=1,2
-!        wcl(kd,kl)=wcl_fm(kd,kl)
-!        !ln(kd,kl)=ln_fm(kd,kl)
-!    enddo !kd
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        !e_sbcn(kl,ksed)=e_sbcn_fm(kl,ksed)
-!        !e_sbn (kl,ksed)=e_sbn_fm (kl,ksed)
-!    enddo !ksed
-!enddo !kl
-!
-!    !fill
-!do kl=lnx+1,lnx_mor    
-!    !arrays left-right
-!    do kd=1,2
-!        wcl(kd,kl)=1-wcl(kd,grd_ghost_link_closest(kl)) !it should be equal to 0.5
-!        !ln(kd,kl)=ln(kd,grd_ghost_link_closest(kl))
-!    enddo !kd
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        !e_sbcn(kl,ksed)=e_sbcn(grd_ghost_link_closest(kl),ksed)
-!        !e_sbn (kl,ksed)=e_sbn (grd_ghost_link_closest(kl),ksed)
-!    enddo !ksed
-!enddo !kl
-
 
 !morphodynamics initialization is done before fm1dimp initialization. Hence, we have to reallocate here using <ndx_mor> and <lnx_mor>
 !It must be before the calls to <reallocate_~> because some variables (e.g., <ucxq_mor>) are set to the wrong size (i.e., <ndkx>) in <allocsedtra>
-!We have to copy <bodsed> before initialization.
+!We have to copy <bodsed> and other state variables before <flow_sedmorinit>.
 
 if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
     
-stmpar%morlyr%settings%nmub=ndx_mor
-griddim%nmub=ndx_mor
+stmpar%morlyr%settings%nmub=ndx_mor !size over which we will loop over morphodynamic variables
+griddim%nmub=ndx_mor !size of the variables when reading morphodynamic input
 call flow_sedmorinit()
-griddim%nmub=ndx
-stmpar%morpar%mornum%pure1d=1 !it is killed in <flow_sedmorinit>
+griddim%nmub=ndx !restore to the original size because it is used for exporting data
 
-!We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
+stmpar%morpar%mornum%pure1d=1 !we have set it for reading <init_1dinfo> but we have to set it again because it is overwritten in <flow_sedmorinit>
+
+!FM1DIMP2DO: We could do the same trick and call <lnx_mor> in <flow_waveinit>, but some variables have been moved to another module after JR merge. Hence, we reallocate in this routine. 
 !call flow_waveinit()
 
 !needs to be after <flow_sedmorinit>, where it is allocated. 
@@ -1475,39 +1022,11 @@ if (stmpar%morlyr%SETTINGS%IUNDERLYR==2) then
     
     call reallocate_fill_manual_3(stmpar%morlyr%state%msed    ,msed_o    ,grd_fmmv_fmsv,ndx,ndx_mor,lsedtot,nlyr)
 
-endif
-!do kn=1,ndx
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,kn)
-!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,kn)
-!       do klyr=1,nlyr
-!           stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,kn)
-!           !no sediment index, but we save writing another loop
-!           stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,kn) 
-!           stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,kn) 
-!       enddo !klyr
-!    enddo !ksed
-!enddo !kn
-!
-!    !fill
-!do kn=ndx+1,ndx_mor    
-!    !arrays sediment
-!    do ksed=1,lsedtot
-!        stmpar%morlyr%state%bodsed(ksed,kn)=bodsed_o(ksed,grd_fmmv_fmsv(kn))
-!        stmpar%morlyr%state%sedshort(ksed,kn)=sedshort_o(ksed,grd_fmmv_fmsv(kn))
-!       do klyr=1,nlyr
-!            stmpar%morlyr%state%msed(ksed,klyr,kn)=msed_o(ksed,klyr,grd_fmmv_fmsv(kn))
-!            !no sediment index, but we save writing another loop
-!            stmpar%morlyr%state%thlyr(klyr,kn)=thlyr_o(klyr,grd_fmmv_fmsv(kn)) 
-!            stmpar%morlyr%state%svfrac(klyr,kn)=svfrac_o(klyr,grd_fmmv_fmsv(kn)) 
-!       enddo !klyr
-!    enddo !ksed
-!enddo !kl
+endif !underlayer=2
 
 ucyq_mor=0d0 !set to 0 once rather than every time step. Somewhere in the code is changed. I have to set it every time step. 
 
-!stmpar%morlyr%settings%nmub=ndx_mor
+!deallocate
 
 if (allocated(bodsed_o)) then 
     deallocate(bodsed_o)
@@ -1543,207 +1062,64 @@ end subroutine inifm1dimp_faap
 
 subroutine inifm1dimp_fic(iresult)
 
-!use m_flowparameters
 use m_f1dimp
-!use m_initialize_flow1d_implicit
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
+use m_flowgeom, only: ndx, ndxi, wu, nd
 use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
-use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
-use m_turbulence, only: rhowat
-use m_xbeach_data, only: ktb
-use m_bedform, only: bfmpar
+use m_flow, only: s1, au, u1
+use m_fm_erosed, only: ndx_mor, nd_mor, ln_mor
 
 implicit none
-
 
 !
 !pointer
 !
 
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
-integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
-integer                                  , pointer :: nnode
-integer                                  , pointer :: nhstat
-integer                                  , pointer :: nqstat
-integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
-integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
-integer                                  , pointer :: nlyr
-
-integer, dimension(:)                    , pointer :: nlev
-integer, dimension(:)                    , pointer :: numnod
-integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
-integer, dimension(:)                    , pointer :: grd_ghost_link_closest
-integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
-integer, dimension(:,:)                  , pointer :: bfrict
-integer, dimension(:,:)                  , pointer :: hbdpar
-integer, dimension(:,:)                  , pointer :: qbdpar
-integer, dimension(:,:)                  , pointer :: ntab
-integer, dimension(:,:)                  , pointer :: node
-integer, dimension(:,:)                  , pointer :: nodnod
+integer, dimension(:)                    , pointer :: grd_fm_sre2
 
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
-
-real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
 real, dimension(:,:)                     , pointer :: waoft
 
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
 double precision, dimension(:,:)         , pointer :: hpack
 double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
 
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
-integer :: table_number
-integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
+!
 
-character(len=512) :: msg
-
-integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
-
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
-
-!integer :: nlink !I don't think I need it global
-
-integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
+integer :: kd, idx_fm, k1, idx_sre, idx_l1, idx_l2, k2, kn, kl, n1, n2, L, idx_n
 
 real :: swaoft
 
 double precision :: wu_int, au_int
 
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
-double precision, allocatable, dimension(:,:) :: thlyr_o
-double precision, allocatable, dimension(:,:) :: sedshort_o
-double precision, allocatable, dimension(:,:) :: svfrac_o
-double precision, allocatable, dimension(:,:) :: preload_o
+grd_fm_sre             => f1dimppar%grd_fm_sre
+grd_fm_sre             => f1dimppar%grd_fm_sre2
+hpack                  => f1dimppar%hpack
+qpack                  => f1dimppar%qpack
+waoft                  => f1dimppar%waoft
 
-double precision, allocatable, dimension(:,:,:) :: msed_o
-
-!!
-!! POINT
-!!
-
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
-table_length           => f1dimppar%table_length
-maxtab                 => f1dimppar%maxtab
-nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
-nbran                  => f1dimppar%nbran
-ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
-nhstat                 => f1dimppar%nhstat
-nqstat                 => f1dimppar%nqstat
-grd_sre_cs             => f1dimppar%grd_sre_cs
-grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
-
-!stmpar
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-endif
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
 
 iresult=0 !no error
+
+swaoft=size(waoft,dim=2)
 
 !Data must be available already at ghost links and nodes
 
 !do ksre=1,ngrid
 do kd=1,ndx_mor
-    !idx_sre=ksre 
-    !idx_fm=grd_sre_fm(idx_sre)
     
     idx_fm=kd
     
@@ -1779,34 +1155,34 @@ do kd=1,ndx_mor
             endif
         end select
 
-    !links connected to a given fm grid node
-    idx_l1=abs(nd_mor(idx_fm)%ln(1))
-    idx_l2=abs(nd_mor(idx_fm)%ln(2))
+        !links connected to a given fm grid node
+        idx_l1=abs(nd_mor(idx_fm)%ln(1))
+        idx_l2=abs(nd_mor(idx_fm)%ln(2))
+            
+        !initial condition
+        do k2=1,3 !< time step in SRE [before, intermediate, after]
+            !water level
+            hpack(idx_sre,k2)=s1(idx_fm)
+            !discharge
+            qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
+        enddo !k2
         
-    !initial condition
-    do k2=1,3 !< time step in SRE [before, intermediate, after]
-        !water level
-        hpack(idx_sre,k2)=s1(idx_fm)
-        !discharge
-        qpack(idx_sre,k2)=0.5*(au(idx_l1)*u1(idx_l1)+au(idx_l2)*u1(idx_l2))
-    enddo !k2
-    
-    !waoft
-    wu_int=0.5*(wu(idx_l1)+wu(idx_l2))
-    au_int=0.5*(au(idx_l1)+au(idx_l2))
-    
-    !FM1DIMP2DO: needs to be separated between flow and total
-    !check right order in <FLNORM> and not in documentation. 
+        !waoft
+        wu_int=0.5*(wu(idx_l1)+wu(idx_l2))
+        au_int=0.5*(au(idx_l1)+au(idx_l2))
+        
+        !FM1DIMP2DO: needs to be separated between flow and total
+        !check right order in <FLNORM> and not in documentation. 
 
-    waoft(idx_sre,1)=real(wu_int) !wf = actual flow width 
-    waoft(idx_sre,2)=real(wu_int) !wt = actual total width
-    waoft(idx_sre,3)=real(au_int) !af = actual flow area
-    waoft(idx_sre,4)=real(au_int) !at = actual total area n
-    waoft(idx_sre,5)=real(au_int) !at = actual total area n+1
-    waoft(idx_sre,6)=real(au_int/wu_int) !o = actual wetted perimeter
-    do k2=7,swaoft
-        waoft(idx_sre,k2)=0
-    enddo !k2
+        waoft(idx_sre,1)=real(wu_int) !wf = actual flow width 
+        waoft(idx_sre,2)=real(wu_int) !wt = actual total width
+        waoft(idx_sre,3)=real(au_int) !af = actual flow area
+        waoft(idx_sre,4)=real(au_int) !at = actual total area n
+        waoft(idx_sre,5)=real(au_int) !at = actual total area n+1
+        waoft(idx_sre,6)=real(au_int/wu_int) !o = actual wetted perimeter
+        do k2=7,swaoft
+            waoft(idx_sre,k2)=0
+        enddo !k2
     enddo !k1
 enddo !ksre
 
@@ -1829,10 +1205,6 @@ do kn=1,network%nds%Count
       enddo !kl
 enddo !kn
 
-if (allocated(grd_fm_sre2)) then 
-    deallocate(grd_fm_sre2)
-endif
-
 end subroutine inifm1dimp_fic
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1842,196 +1214,53 @@ end subroutine inifm1dimp_fic
 subroutine inifm1dimp_fbrp(iresult)
 
 use m_f1dimp
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
 use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
-use m_turbulence, only: rhowat
-use m_xbeach_data, only: ktb
-use m_bedform, only: bfmpar
 
 implicit none
-
 
 !
 !pointer
 !
 
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
-integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
-integer                                  , pointer :: nnode
-integer                                  , pointer :: nhstat
-integer                                  , pointer :: nqstat
-integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
-integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
-integer                                  , pointer :: nlyr
+integer                                  , pointer :: nbran  
+integer                                  , pointer :: ngrid 
 
-integer, dimension(:)                    , pointer :: nlev
-integer, dimension(:)                    , pointer :: numnod
+integer, dimension(:)                    , pointer :: grd_sre_cs
 integer, dimension(:)                    , pointer :: grd_sre_fm
-integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
-integer, dimension(:)                    , pointer :: grd_ghost_link_closest
-integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
+
 integer, dimension(:,:)                  , pointer :: bfrict
-integer, dimension(:,:)                  , pointer :: hbdpar
-integer, dimension(:,:)                  , pointer :: qbdpar
-integer, dimension(:,:)                  , pointer :: ntab
-integer, dimension(:,:)                  , pointer :: node
-integer, dimension(:,:)                  , pointer :: nodnod
-
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
 
 real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
-real, dimension(:,:)                     , pointer :: waoft
 
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
-integer :: table_number
-integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
+!
 
-character(len=512) :: msg
+integer :: kbr, ksre, k2, idx_fm, idx_sre, idx_crs
 
-integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
-
-!integer :: nlink !I don't think I need it global
-
-integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
-
-real :: swaoft
-
-double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
-double precision, allocatable, dimension(:,:) :: thlyr_o
-double precision, allocatable, dimension(:,:) :: sedshort_o
-double precision, allocatable, dimension(:,:) :: svfrac_o
-double precision, allocatable, dimension(:,:) :: preload_o
-
-double precision, allocatable, dimension(:,:,:) :: msed_o
-
-!!
-!! POINT
-!!
-
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
-table_length           => f1dimppar%table_length
-maxtab                 => f1dimppar%maxtab
-nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
 nbran                  => f1dimppar%nbran
 ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
-nhstat                 => f1dimppar%nhstat
-nqstat                 => f1dimppar%nqstat
 grd_sre_cs             => f1dimppar%grd_sre_cs
-grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
-bfrict => f1dimppar%bfrict
+grd_sre_fm             => f1dimppar%grd_sre_fm
+bfrict                 => f1dimppar%bfrict
+bfricp                 => f1dimppar%bfricp
 
-!stmpar
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-endif
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
+
+iresult=0 !no error
 
 do kbr=1,nbran
     
@@ -2058,33 +1287,9 @@ do kbr=1,nbran
 
 enddo !kbr
  
-
-!call fm1dimp_update_network(iresult) !update of the flow variables (change every time step)
-
 do ksre=1,ngrid
     
     idx_fm=grd_sre_fm(ksre) !index of the global grid point in fm for the global gridpoint <k> in SRE
-    
-    !idx_crs
-    !index of the cross-section at grid-node <k>. Should be the same as C2 as there is a cross-section per node, but 
-    !due to precision, <network%ADM%gpnt2cross%F> may not be exactly 1. 
-    !if (network%ADM%gpnt2cross(idx_fm)%F>0.5) then
-    !    if (network%ADM%gpnt2cross(idx_fm)%F<1-1.0e-6) then
-    !       write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
-    !       call err_flush()
-    !       iresult=1
-    !    endif
-    !    idx_crs=network%ADM%gpnt2cross(idx_fm)%C2     
-    !endif
-    !if (network%ADM%gpnt2cross(idx_fm)%F<0.5) then
-    !    if (network%ADM%gpnt2cross(idx_fm)%F>1.0e-6) then
-    !       write (msgbuf, '(a)') 'It seems there is not 1 cross-section per mesh node.'
-    !       call err_flush()
-    !       iresult=1
-    !    endif
-    !    idx_crs=network%ADM%gpnt2cross(idx_fm)%C1    
-    !endif
-    
     
     !bfrictp
     idx_crs=grd_sre_cs(ksre)
@@ -2131,22 +1336,6 @@ do ksre=1,ngrid
 !                             in sub sec 2 (depending on friction
 !                             type) Same definition as bfricp (3,i).
     
-    !x
-    !f1dimppar%x(k)=network%CRS%CROSS(idx_crs)%CHAINAGE !we cannot take the chaninage from the cross-section because when there are several branches, the first cross-section may come from another branch than the one we are dealing.
-    
-    !<hpack>, <qpack>, and <waoft> are saved as <fm1dimp> variables but need to be initialized here. 
-    
-    !dependent variables
-    !
-    !do k2=1,3 !< time step [before, intermediate, after]
-    !    f1dimppar%hpack(k,k2)=s0(idx_fm)
-    !    if (nd(idx_fm)%lnx>2) then
-    !        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
-    !    else
-    !        f1dimppar%qpack(k,k2)=au(idx_fm)*u1(idx_fm) 
-    !    endif
-    !end do !k2
-
 enddo !ksre
     
 end subroutine inifm1dimp_fbrp
@@ -2158,22 +1347,7 @@ end subroutine inifm1dimp_fbrp
 subroutine inifm1dimp_fbc(iresult)
 
 use m_f1dimp
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
-use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
-use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
-use m_turbulence, only: rhowat
-use m_xbeach_data, only: ktb
-use m_bedform, only: bfmpar
+use m_flowexternalforcings, only: kbndz, kbndu
 
 implicit none
 
@@ -2182,180 +1356,50 @@ implicit none
 !pointer
 !
 
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
-integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
-integer                                  , pointer :: nnode
 integer                                  , pointer :: nhstat
 integer                                  , pointer :: nqstat
 integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
 integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
-integer                                  , pointer :: nlyr
 
-integer, dimension(:)                    , pointer :: nlev
-integer, dimension(:)                    , pointer :: numnod
-integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
-integer, dimension(:)                    , pointer :: grd_ghost_link_closest
-integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
-integer, dimension(:,:)                  , pointer :: bfrict
+
 integer, dimension(:,:)                  , pointer :: hbdpar
 integer, dimension(:,:)                  , pointer :: qbdpar
 integer, dimension(:,:)                  , pointer :: ntab
-integer, dimension(:,:)                  , pointer :: node
-integer, dimension(:,:)                  , pointer :: nodnod
 
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
-
-real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
-real, dimension(:,:)                     , pointer :: waoft
-
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
+!
+
+integer :: k1
 integer :: table_number
-integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
-
-character(len=512) :: msg
-
-integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
-
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
-
-!integer :: nlink !I don't think I need it global
 
 integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
 
-real :: swaoft
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
-double precision, allocatable, dimension(:,:) :: thlyr_o
-double precision, allocatable, dimension(:,:) :: sedshort_o
-double precision, allocatable, dimension(:,:) :: svfrac_o
-double precision, allocatable, dimension(:,:) :: preload_o
-
-double precision, allocatable, dimension(:,:,:) :: msed_o
-
-!!
-!! POINT
-!!
-
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
 table_length           => f1dimppar%table_length
 maxtab                 => f1dimppar%maxtab
-nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
-nbran                  => f1dimppar%nbran
-ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
 nhstat                 => f1dimppar%nhstat
+grd_fm_sre             => f1dimppar%grd_fm_sre
 nqstat                 => f1dimppar%nqstat
-grd_sre_cs             => f1dimppar%grd_sre_cs
-grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
-bfrict => f1dimppar%bfrict
-ntab => f1dimppar%ntab
-qbdpar       => f1dimppar%qbdpar
-hbdpar       => f1dimppar%hbdpar
-table => f1dimppar%table
-node => f1dimppar%node
-numnod => f1dimppar%numnod
-nodnod => f1dimppar%nodnod
+ntab                   => f1dimppar%ntab
+qbdpar                 => f1dimppar%qbdpar
+hbdpar                 => f1dimppar%hbdpar
 
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
 
-!stmpar
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-endif
+iresult=0 !no error
 
 !<table> will contain 4 elements per BC:
 !   -X1 (time)
@@ -2366,12 +1410,9 @@ endif
 !   -H-boundaries 
 !   -Q-boundaires
 
-iresult=0 !no error
-
 table_number=0 !counter position in which the BC is saved in the table
 
 !h
-
 do k1=1,nhstat
     table_number=table_number+1
     
@@ -2418,205 +1459,63 @@ end subroutine inifm1dimp_fbc
 
 subroutine inifm1dimp_fnod(iresult)
 
-!use m_flowparameters
 use m_f1dimp
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
 use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
-use m_turbulence, only: rhowat
-use m_xbeach_data, only: ktb
-use m_bedform, only: bfmpar
 
 implicit none
-
 
 !
 !pointer
 !
 
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
 integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
 integer                                  , pointer :: nnode
 integer                                  , pointer :: nhstat
 integer                                  , pointer :: nqstat
-integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
-integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
-integer                                  , pointer :: nlyr
 
-integer, dimension(:)                    , pointer :: nlev
 integer, dimension(:)                    , pointer :: numnod
-integer, dimension(:)                    , pointer :: grd_sre_fm
 integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
-integer, dimension(:)                    , pointer :: grd_ghost_link_closest
-integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
-integer, dimension(:,:)                  , pointer :: bfrict
 integer, dimension(:,:)                  , pointer :: hbdpar
 integer, dimension(:,:)                  , pointer :: qbdpar
-integer, dimension(:,:)                  , pointer :: ntab
 integer, dimension(:,:)                  , pointer :: node
 integer, dimension(:,:)                  , pointer :: nodnod
 
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
-
-real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
-real, dimension(:,:)                     , pointer :: waoft
-
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
-integer :: table_number
+!
+
+integer :: kbr, knod, k2
 integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
 
-character(len=512) :: msg
+integer, allocatable, dimension(:)   :: kcol !saves the index to write in the row of <nonnod>
 
-integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
-
-!integer :: nlink !I don't think I need it global
-
-integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
-
-real :: swaoft
-
-double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
-double precision, allocatable, dimension(:,:) :: thlyr_o
-double precision, allocatable, dimension(:,:) :: sedshort_o
-double precision, allocatable, dimension(:,:) :: svfrac_o
-double precision, allocatable, dimension(:,:) :: preload_o
-
-double precision, allocatable, dimension(:,:,:) :: msed_o
-
-!!
-!! POINT
-!!
-
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
-table_length           => f1dimppar%table_length
-maxtab                 => f1dimppar%maxtab
 nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
 nbran                  => f1dimppar%nbran
-ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
 nhstat                 => f1dimppar%nhstat
 nqstat                 => f1dimppar%nqstat
-grd_sre_cs             => f1dimppar%grd_sre_cs
-grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
-bfrict => f1dimppar%bfrict
-ntab => f1dimppar%ntab
-qbdpar       => f1dimppar%qbdpar
-hbdpar       => f1dimppar%hbdpar
-table => f1dimppar%table
-node => f1dimppar%node
-numnod => f1dimppar%numnod
-nodnod => f1dimppar%nodnod
+grd_fm_sre             => f1dimppar%grd_fm_sre
+qbdpar                 => f1dimppar%qbdpar
+hbdpar                 => f1dimppar%hbdpar
+node                   => f1dimppar%node
+numnod                 => f1dimppar%numnod
+nodnod                 => f1dimppar%nodnod
 
-!stmpar
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-endif
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
+
+iresult=0 !no error
 
 !nodes
 do knod=1,nnode
@@ -2677,20 +1576,12 @@ end do
 
 !nodes
 
-!<kcol> saves the index to write in the row of <nonnod_aux>
+!<kcol> saves the index to write in the row of <nonnod>
 if (allocated(kcol)) then
     deallocate(kcol)
 endif 
 allocate(kcol(nnode))
 kcol=2 !first index is filled with its own node
-
-!nodnod_ncol=20 !preallocating varibales
-!!<nodnod_aux> has the values 
-!if (allocated(nodnod_aux)) then
-!    deallocate(nodnod_aux)
-!endif 
-!allocate(nodnod_aux(nnode,nodnod_ncol)) !we have to be sure it is less than <nodnod_ncol>
-!nodnod_aux=0 !we have to be sure ther is no 0 node
 
 !filling first index with its own node
 do knod=1,nnode
@@ -2723,203 +1614,46 @@ end subroutine inifm1dimp_fnod
 subroutine inifm1dimp_chk(iresult)
 
 use m_f1dimp
-use m_alloc
-use m_physcoef
-use m_flowgeom, only: ndx, ndxi, wu, teta, lnx, lnx1D, lnx1Db, ln, lnxi, nd, kcs, tnode, wcl, dx, kcu, acl, snu, csu, wu_mor, bai_mor, bl, griddim, dxi, wcx1, wcx2, wcy1, wcy2, ba
-use unstruc_channel_flow, only: network
-use m_flowexternalforcings !FM1DIMP2DO: do I need it?
+use m_fm_erosed, only: lsedtot, ndx_mor, frac
+use m_sediment, only: jased, stm_included
 use unstruc_messages
-use m_flow, only: s0, s1, u1, au, hu, u_to_umain, frcu_mor, frcu, ifrcutp, ustb, qa, kmx, ndkx, ndkx_mor, z0urou
-use m_sediment, only: stmpar, jased, stm_included, sedtra, vismol, kcsmor
-use m_initsedtra, only: initsedtra
-use m_fm_erosed, only: link1, link1sign, link1sign2, ndx_mor, lnx_mor, lnxi_mor, ndxi_mor, ucyq_mor, hs_mor, ucxq_mor, kfsed, nd_mor, uuu, vvv, umod, zumod, e_dzdn, e_sbcn, lsedtot, e_sbn, dbodsd, dzbdt, pmcrit, frac, ln_mor
-use m_oned_functions, only: gridpoint2cross, t_gridp2cs
-use m_waves, only: taubxu
-use morphology_data_module, only: allocsedtra
-use m_turbulence, only: rhowat
-use m_xbeach_data, only: ktb
-use m_bedform, only: bfmpar
 
 implicit none
-
 
 !
 !pointer
 !
 
-logical                                  , pointer :: lconv                   
-logical                                  , pointer :: steady    
-integer                                  , pointer :: flitmx                 
-integer                                  , pointer :: iterbc                 
-integer                                  , pointer :: ngrid   
-integer                                  , pointer :: ngridm   
-integer                                  , pointer :: nbran   
-integer                                  , pointer :: maxlev
-integer                                  , pointer :: nnode
-integer                                  , pointer :: nhstat
-integer                                  , pointer :: nqstat
-integer                                  , pointer :: maxtab
-integer                                  , pointer :: ntabm
-integer                                  , pointer :: nbrnod
-integer                                  , pointer :: table_length
-integer                                  , pointer :: juer
-integer                                  , pointer :: nlyr
+integer                                  , pointer :: ngrid 
 
-integer, dimension(:)                    , pointer :: nlev
-integer, dimension(:)                    , pointer :: numnod
-integer, dimension(:)                    , pointer :: grd_sre_fm
-integer, dimension(:)                    , pointer :: grd_fm_sre
-integer, dimension(:)                    , pointer :: grd_sre_cs 
-integer, dimension(:)                    , pointer :: grd_ghost_link_closest
-integer, dimension(:)                    , pointer :: grd_fmmv_fmsv
-integer, dimension(:)                    , pointer :: lin
-integer, dimension(:)                    , pointer :: grd
-integer, dimension(:)                    , pointer :: kcs_sre
-    
-integer, dimension(:,:)                  , pointer :: grd_fmL_sre
-integer, dimension(:,:)                  , pointer :: grd_fmLb_sre
-integer, dimension(:,:)                  , pointer :: branch
-integer, dimension(:,:)                  , pointer :: bfrict
-integer, dimension(:,:)                  , pointer :: hbdpar
-integer, dimension(:,:)                  , pointer :: qbdpar
-integer, dimension(:,:)                  , pointer :: ntab
-integer, dimension(:,:)                  , pointer :: node
-integer, dimension(:,:)                  , pointer :: nodnod
+integer, dimension(:)                    , pointer :: grd_sre_cs
 
-real                                     , pointer :: g
-real                                     , pointer :: psi                    
-real                                     , pointer :: theta                  
-real                                     , pointer :: epsh                   
-real                                     , pointer :: epsq                   
-real                                     , pointer :: rhow                   
-real                                     , pointer :: omega                  
-real                                     , pointer :: epsqrl                 
-real                                     , pointer :: lambda                 
-real                                     , pointer :: relstr                 
-real                                     , pointer :: dhstru                 
-real                                     , pointer :: cflpse                               
-real                                     , pointer :: overlp                 
-real                                     , pointer :: omcfl                  
-real                                     , pointer :: dhtyp                  
-real                                     , pointer :: exrstp     
-
-real, dimension(:)                       , pointer :: table
-real, dimension(:)                       , pointer :: x
-
-real, dimension(:,:)                     , pointer :: bfricp
-real, dimension(:,:)                     , pointer :: wft
-real, dimension(:,:)                     , pointer :: aft
-real, dimension(:,:)                     , pointer :: wtt
-real, dimension(:,:)                     , pointer :: att
-real, dimension(:,:)                     , pointer :: of
-real, dimension(:,:)                     , pointer :: waoft
-
-double precision                         , pointer :: time
-double precision                         , pointer :: dtf
-double precision                         , pointer :: resid
-      
-double precision, dimension(:,:)         , pointer :: hpack
-double precision, dimension(:,:)         , pointer :: qpack
-double precision, dimension(:,:)         , pointer :: hlev
-!double precision, dimension(:,:)         , pointer :: bodsed
-!double precision, dimension(:,:)         , pointer :: thlyr
-
-!double precision, dimension(:,:,:)       , pointer :: msed
-
-type(tnode)    , allocatable :: nd_o(:) !Copy of <nd> for reworking <nd>
-!type(tnode)    , pointer     :: nd_mor(:) !Modified <nd> for <bott3d>
-type(t_gridp2cs), dimension(:), allocatable :: gridpoint2cross_o
-
-!debug
-integer, pointer :: fm1dimp_debug_k1
-
+!
 !output
+!
+
 integer, intent(out) :: iresult !< Error status, DFM_NOERR==0 if succesful.
 
+!
 !local
-integer :: kbr, knod, k1, k2, kbe, klnx, ksre, kn, kl, kd, ksed, klyr !FM1DIMP2DO: make the variables names consistent
-integer :: ndx_max, lnx_max
-integer :: c_lnx, c_ndx !counters
-integer :: idx_crs, idx_sre, idx_fm !indices
-integer :: n1, n2, nint, nout, pointscount, jpos
-integer :: table_number
-integer :: idx_fr, idx_to
-integer :: idx_i, idx_f, nl, L, L2, idx_l1, idx_l2, idx_sre_p, idx_sre_c, idx_n
-integer :: j
-integer :: stat
+!
 
-character(len=512) :: msg
+integer :: kd, ksed
 
 integer, dimension(1) :: idx_findloc
-integer, dimension(:), allocatable :: grd_fm_sre2
-!integer :: lnx_mor 
 
-!move to function
-integer :: idx_aux
-integer :: min_1, min_2
+!----------------------------------------
+!BEGIN POINT
+!----------------------------------------
 
-!integer :: nlink !I don't think I need it global
-
-integer, allocatable, dimension(:)   :: kcol
-!integer, allocatable, dimension(:)   :: grd_ghost_link_closest
-!integer, allocatable, dimension(:)   :: node_fm_processed
-!integer, allocatable, dimension(:)   :: grd_fmmv_fmsv !from FM multi-valued to FM single-valued
-!integer, allocatable, dimension(:,:) :: ln_o
-
-real :: swaoft
-
-double precision :: wu_int, au_int
-
-!double precision, allocatable, dimension(:) :: frcu_mor_fm
-!double precision, allocatable, dimension(:) :: ifrcutp_fm
-
-!double precision, allocatable, dimension(:,:) :: wcl_fm
-!double precision, allocatable, dimension(:,:) :: e_sbcn_fm
-!double precision, allocatable, dimension(:,:) :: e_sbn_fm
-double precision, allocatable, dimension(:,:) :: bodsed_o
-!double precision, allocatable, dimension(:,:) :: frac_o
-double precision, allocatable, dimension(:,:) :: thlyr_o
-double precision, allocatable, dimension(:,:) :: sedshort_o
-double precision, allocatable, dimension(:,:) :: svfrac_o
-double precision, allocatable, dimension(:,:) :: preload_o
-
-double precision, allocatable, dimension(:,:,:) :: msed_o
-
-!!
-!! POINT
-!!
-
-!pointer cannot be before the array is allocated, here only non-allocatable arrays
-
-!f1dimppar
-table_length           => f1dimppar%table_length
-maxtab                 => f1dimppar%maxtab
-nnode                  => f1dimppar%nnode
-ntabm                  => f1dimppar%ntabm
-nbran                  => f1dimppar%nbran
 ngrid                  => f1dimppar%ngrid
-nbrnod                 => f1dimppar%nbrnod
-maxlev                 => f1dimppar%maxlev
-ngridm                 => f1dimppar%ngridm
-nhstat                 => f1dimppar%nhstat
-nqstat                 => f1dimppar%nqstat
 grd_sre_cs             => f1dimppar%grd_sre_cs
-grd_ghost_link_closest => f1dimppar%grd_ghost_link_closest
-grd_fmmv_fmsv          => f1dimppar%grd_fmmv_fmsv
-juer                   => f1dimppar%juer
-bfrict => f1dimppar%bfrict
-ntab => f1dimppar%ntab
-qbdpar       => f1dimppar%qbdpar
-hbdpar       => f1dimppar%hbdpar
-table => f1dimppar%table
-node => f1dimppar%node
-numnod => f1dimppar%numnod
-nodnod => f1dimppar%nodnod
 
-!stmpar
-if (jased > 0 .and. stm_included) then !passing if no morphpdynamics
-nlyr                   => stmpar%morlyr%SETTINGS%NLYR
-endif
+!----------------------------------------
+!BEGIN CALC
+!----------------------------------------
+
+iresult=0 !no error
 
 !all cross-sections must be mapped to an SRE gridpoint
 do kd=1,ngrid
