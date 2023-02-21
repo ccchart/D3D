@@ -702,11 +702,11 @@ subroutine rdsed(lundia    ,error     ,lsal      ,ltem      ,lsed      , &
              else
                 call prop_get(sedblock_ptr, '*', 'SdBUni', sdbuni(l), success)
              endif
-             if (.not. success) then
+             if (.not. success .or. sdbuni(l) == rmissval) then
                 if (inisedunit(l) == 'm') then
-                   errmsg = 'Error in IniSedThick: ' // trim(flsdbd(l)) // ' is not a file and not a value.'
+                   errmsg = 'Error in IniSedThick: "' // trim(flsdbd(l)) // '" is not a file and not a value.'
                 else
-                   errmsg = 'Error in SdBUni.' // trim(flsdbd(l))
+                   errmsg = 'Error in SdBUni: "' // trim(flsdbd(l)) // '" is not a file and not a value.'
                 endif
                 errmsg = FILE_NOT_FOUND // trim(errmsg)
                 call write_error(errmsg, unit=lundia)
