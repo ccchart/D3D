@@ -79,6 +79,7 @@ use m_flowgeom
     double precision               :: DsL, hh, zb, zt, au0, au1, au2, au3
     double precision               :: gatefraction, aulf
     double precision               :: hhi(3), zbi(3), zti(3)
+    double precision               :: u0_local
 
 !
 !! executable statements -------------------------------------------------------
@@ -131,6 +132,8 @@ use m_flowgeom
     !TEM  WRITE (11,*) 'Call structure',istru,'(',m,il,ir,istru,')'
 
     Lf = abs(L)
+    u0_local = u0(Lf) !backup of u0(Lf)
+    
     ! NOTE: Since a single general structure may be crossed by multiple flow links,
     ! pay attention to proper directions: structure parameters are typically determined
     ! by the structure's left-right direction, whereas upwinding and furu-computations
@@ -298,6 +301,8 @@ use m_flowgeom
         endif
     endif
 
+    u0(Lf) = u0_local  ! replace u0 with original value at the start of the loop 
+    
     ! TEMP = laatste statement
     ! strhis(15, istru) = ds + crest     ! waterlevel on crest
 end subroutine flgsfm
