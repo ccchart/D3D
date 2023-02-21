@@ -41,6 +41,8 @@
       use MessageHandling
       implicit none
 
+      character(len=128) :: message
+
       integer :: K1, K2, K3, L, LNX1D, N, NC1, NC2
       integer :: i, ierr, k, kcell
 
@@ -77,6 +79,8 @@
             ENDIF
             IF (NC1 == 0 .and. NC2 == 0) THEN
                call mess(LEVEL_WARN, '1D2D link without valid 2D flowcell detected, discarding!')
+               write(message, '(a,F15.5,a,F15.5,a,F15.5,a,F15.5,a)') '(', XK(K1), ',', YK(K1),') -> (', XK(K2), ',', YK(K2), ')'
+               call mess(LEVEL_WARN, message)               
                cycle
             endif
          endif
@@ -101,6 +105,8 @@
                LNN(L) = LNN(L) + 1
             else
                call mess(LEVEL_WARN, '1D2D link without valid 1D branch detected, discarding!')
+               write(message, '(a,F15.5,a,F15.5,a,F15.5,a,F15.5,a)') '(', XK(K1), ',', YK(K1),') -> (', XK(K2), ',', YK(K2), ')'
+               call mess(LEVEL_WARN, message)               
             endif
          ELSE
             LNE(1,L) =       NC1                ! ALREADY EXISTING 2D CELL
@@ -117,6 +123,8 @@
                LNN(L) = LNN(L) + 1   
             else
                call mess(LEVEL_WARN, '1D2D link without valid 1D branch detected, discarding!')
+               write(message, '(a,F15.5,a,F15.5,a,F15.5,a,F15.5,a)') '(', XK(K1), ',', YK(K1),') -> (', XK(K2), ',', YK(K2), ')'
+               call mess(LEVEL_WARN, message)               
             endif
          ELSE
             LNE(2,L) =       NC2                   ! ALREADY EXISTING 2D CELL
