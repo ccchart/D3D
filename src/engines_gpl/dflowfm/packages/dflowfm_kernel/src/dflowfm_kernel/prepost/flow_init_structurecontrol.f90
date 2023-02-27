@@ -1375,6 +1375,10 @@ if (ndambreaksg > 0) then
    allocate(dambreakNewCrestLevel(lnx))
    dambreakNewCrestLevel = -huge(1d0)
 
+   if (allocated(dambreakMaxCrestHeight)) deallocate(dambreakMaxCrestHeight)
+   allocate(dambreakMaxCrestHeight(ndambreaksg))
+   dambreakMaxCrestHeight = huge(1d0)
+
    if (allocated(dsStartBreach)) deallocate(dsStartBreach)
    allocate(dsStartBreach(ndambreaksg))
    dsStartBreach = 0.0d0
@@ -1398,48 +1402,48 @@ if (ndambreaksg > 0) then
    if (allocated(dambreak_ids)) deallocate(dambreak_ids)
    allocate(dambreak_ids(ndambreaksg))
 
-   if(allocated(activeDambreakLinks)) deallocate(activeDambreakLinks)
+   if (allocated(activeDambreakLinks)) deallocate(activeDambreakLinks)
    allocate(activeDambreakLinks(ndambreak))
    activeDambreakLinks = 0
 
-   if(allocated(normalVelocityDambreak)) deallocate(normalVelocityDambreak)
+   if (allocated(normalVelocityDambreak)) deallocate(normalVelocityDambreak)
    allocate(normalVelocityDambreak(ndambreaksg))
    normalVelocityDambreak = 0.0d0
 
-   if(allocated(dambreakAveraging)) deallocate(dambreakAveraging)
+   if (allocated(dambreakAveraging)) deallocate(dambreakAveraging)
    allocate(dambreakAveraging(3,ndambreaksg, IDB_NQUANT))
    dambreakAveraging = 0.0d0
 
-   if(allocated(dambreakMaximum)) deallocate(dambreakMaximum)
+   if (allocated(dambreakMaximum)) deallocate(dambreakMaximum)
    allocate(dambreakMaximum(ndambreaksg, IDBMAX_NQUANT))
    dambreakMaximum = -huge(1.0d0)
 
-   if(allocated(dambreakLevelsAndWidthsFromTable)) deallocate(dambreakLevelsAndWidthsFromTable)
+   if (allocated(dambreakLevelsAndWidthsFromTable)) deallocate(dambreakLevelsAndWidthsFromTable)
    allocate(dambreakLevelsAndWidthsFromTable(ndambreaksg*2))
    dambreakLevelsAndWidthsFromTable = 0.0d0
 
-   if(allocated(breachWidthDerivativeDambreak)) deallocate(breachWidthDerivativeDambreak)
+   if (allocated(breachWidthDerivativeDambreak)) deallocate(breachWidthDerivativeDambreak)
    allocate(breachWidthDerivativeDambreak(ndambreaksg))
    breachWidthDerivativeDambreak = 0.0d0
 
-   if(allocated(waterLevelJumpDambreak)) deallocate(waterLevelJumpDambreak)
+   if (allocated(waterLevelJumpDambreak)) deallocate(waterLevelJumpDambreak)
    allocate(waterLevelJumpDambreak(ndambreaksg))
    waterLevelJumpDambreak = 0.0d0
 
-   if(allocated(waterLevelJumpDambreak)) deallocate(waterLevelJumpDambreak)
+   if (allocated(waterLevelJumpDambreak)) deallocate(waterLevelJumpDambreak)
    allocate(waterLevelJumpDambreak(ndambreaksg))
    waterLevelJumpDambreak = 0.0d0
 
    ! dambreak upstream
-   if(allocated(dambreakLocationsUpstreamMapping)) deallocate(dambreakLocationsUpstreamMapping)
+   if (allocated(dambreakLocationsUpstreamMapping)) deallocate(dambreakLocationsUpstreamMapping)
    allocate(dambreakLocationsUpstreamMapping(ndambreaksg))
    dambreakLocationsUpstreamMapping = 0.0d0
 
-   if(allocated(dambreakLocationsUpstream)) deallocate(dambreakLocationsUpstream)
+   if (allocated(dambreakLocationsUpstream)) deallocate(dambreakLocationsUpstream)
    allocate(dambreakLocationsUpstream(ndambreaksg))
    dambreakLocationsUpstream = 0.0d0
 
-   if(allocated(dambreakAveragingUpstreamMapping)) deallocate(dambreakAveragingUpstreamMapping)
+   if (allocated(dambreakAveragingUpstreamMapping)) deallocate(dambreakAveragingUpstreamMapping)
    allocate(dambreakAveragingUpstreamMapping(ndambreaksg))
    dambreakAveragingUpstreamMapping = 0.0d0
 
@@ -1447,15 +1451,15 @@ if (ndambreaksg > 0) then
    nDambreakAveragingUpstream = 0
 
    ! dambreak downstream
-   if(allocated(dambreakLocationsDownstreamMapping)) deallocate(dambreakLocationsDownstreamMapping)
+   if (allocated(dambreakLocationsDownstreamMapping)) deallocate(dambreakLocationsDownstreamMapping)
    allocate(dambreakLocationsDownstreamMapping(ndambreaksg))
    dambreakLocationsDownstreamMapping = 0.0d0
 
-   if(allocated(dambreakLocationsDownstream)) deallocate(dambreakLocationsDownstream)
+   if (allocated(dambreakLocationsDownstream)) deallocate(dambreakLocationsDownstream)
    allocate(dambreakLocationsDownstream(ndambreaksg))
    dambreakLocationsDownstream = 0.0d0
 
-   if(allocated(dambreakAveragingDownstreamMapping)) deallocate(dambreakAveragingDownstreamMapping)
+   if (allocated(dambreakAveragingDownstreamMapping)) deallocate(dambreakAveragingDownstreamMapping)
    allocate(dambreakAveragingDownstreamMapping(ndambreaksg))
    dambreakAveragingDownstreamMapping = 0.0d0
 
@@ -1549,7 +1553,7 @@ if (ndambreaksg > 0) then
                success = .false.
             endif
          endif
-
+         
          ! inquire if the water level upstream has to be taken from a location or be a result of averaging
          if (network%sts%struct(istrtmp)%dambreak%algorithm /= ST_DB_VDKNAAP_00) then
             xla = network%sts%struct(istrtmp)%dambreak%upstreamLocationX
@@ -1604,6 +1608,11 @@ if (ndambreaksg > 0) then
                nDambreakAveragingDownstream = nDambreakAveragingDownstream + 1
                dambreakAveragingDownstreamMapping(nDambreakAveragingDownstream) = n
             endif
+         endif
+
+         ! transfer the maxCrestHeight to a linear array
+         if (network%sts%struct(istrtmp)%dambreak%algorithm == ST_DB_FRAGCURVE) then
+            dambreakMaxCrestHeight(n) = network%sts%struct(istrtmp)%dambreak%maxCrestHeight
          endif
 
       else

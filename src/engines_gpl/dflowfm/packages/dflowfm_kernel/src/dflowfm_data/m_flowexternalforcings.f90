@@ -386,6 +386,7 @@
  integer         , allocatable           :: activeDambreakLinks(:)                !< activeDambreakLinks, open dambreak links
  integer         , allocatable           :: LStartBreach(:)                       !< the starting link, the closest to the breach point
  double precision, allocatable           :: dambreakCrestLevel(:)                 !< crest level at starting link LStartBreach
+ double precision, allocatable           :: dambreakMaxCrestHeight(:)             !< maximum height of crest level above bed -- for relative depth [m]
  double precision, allocatable           :: dambreakUpstreamBedLevel(:)           !< upstream ed level at starting link LStartBreach
  double precision, allocatable           :: dambreakDownstreamBedLevel(:)         !< downstream bed level at starting link LStartBreach
  double precision, allocatable           :: dambreakNewCrestLevel(:)              !< crest level for new time step (lnx)

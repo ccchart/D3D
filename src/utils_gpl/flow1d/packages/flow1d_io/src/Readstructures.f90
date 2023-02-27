@@ -1526,7 +1526,19 @@ module m_readstructures
          ! read failFraction, the crest height above surrounding terrain will decrease by a factor of failFraction upon failure of structure
          call prop_get_double(md_ptr, 'Structure', 'failFraction', dambr%failFraction, success)
          if (.not. success) return
+         if (dambr%failFraction < 0d0 .or. dambr%failFraction > 1d0) then
+             write(msgbuf,'(3a)') 'Error Reading Dambreak ''', trim(st_id), ''': failFraction should be in the range 0 to 1.'
+             call setMessage(LEVEL_ERROR, msgbuf)
+             return
+         endif
 
+         ! optional limiter on the maximum crest height, defaults to huge(1d0)
+         call prop_get_double(md_ptr, 'Structure', 'maxCrestHeight', dambr%maxCrestHeight)
+         if (dambr%maxCrestHeight <= 0d0) then
+             write(msgbuf,'(3a)') 'Error Reading Dambreak ''', trim(st_id), ''': maxCrestHeight should be strictly positive.'
+             call setMessage(LEVEL_ERROR, msgbuf)
+             return
+         endif
       endif
 
       ! optional extra fields

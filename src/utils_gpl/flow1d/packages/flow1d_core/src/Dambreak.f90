@@ -50,6 +50,7 @@
       double precision :: startLocationY
       integer          :: algorithm
       double precision :: crestLevelIni                     = -999d0
+      double precision :: maxCrestHeight                    = huge(1d0)
       double precision :: breachWidthIni
       double precision :: crestLevelMin
       double precision :: timeToBreachToMaximumDepth
