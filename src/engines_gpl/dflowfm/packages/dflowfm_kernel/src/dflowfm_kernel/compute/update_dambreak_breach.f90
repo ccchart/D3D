@@ -284,8 +284,13 @@ subroutine update_dambreak_breach(startTime, deltaTime)
             else if (network%sts%struct(istru)%dambreak%algorithm == ST_DB_FRAGCURVE) then ! fragility curve
                if (dambreakMaximum(n, network%sts%struct(istru)%dambreak%failQuantity) > network%sts%struct(istru)%dambreak%failValue) then
                   ! if breaching condition is satisfied, break width completely, but lower structure by failFraction * (initial crest level - bed level)
-                  ! dambreakCrestLevel = dambreakInitialCrestLevel - network%sts%struct(istru)%dambreak%failFraction * max(0d0, dambreakInitialCrestLevel - dambreakBedLevel)
-                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelIni - network%sts%struct(istru)%dambreak%failFraction * max(0d0, network%sts%struct(istru)%dambreak%crestLevelIni - dambreakMaximum(n, ST_FC_BEDLEVEL))
+                  ! the maximum breach level is restricted to at most the dambreakMaxCrestHeight
+                  ! dambreakCrestLevel = dambreakInitialCrestLevel - failFraction * max(0d0, min(dambreakInitialCrestLevel - dambreakBedLevel, dambreakMaxCrestHeight))
+                  network%sts%struct(istru)%dambreak%crl   = network%sts%struct(istru)%dambreak%crestLevelIni &
+                      & - network%sts%struct(istru)%dambreak%failFraction * &
+                      & max(0d0, &
+                      &     min(network%sts%struct(istru)%dambreak%crestLevelIni - dambreakMaximum(n, ST_FC_BEDLEVEL), &
+                      &         dambreakMaxCrestHeight(n)))
                   network%sts%struct(istru)%dambreak%width = maximumDambreakWidths(n)
                endif
 
