@@ -177,8 +177,6 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
    integer                                    :: Nglobal_s          !< total number of global net cells, equals unpartitioned nump1d2d, Ndxi
    integer, dimension(:), allocatable         :: numcells           !< number of active cells per domain, dim(0:ndomains-1)
    
-   double precision, dimension(:), allocatable, private :: work, workrec  !< work array
-   
    double precision, dimension(:,:), allocatable :: workmatbd ! for overlap (solver): matrix (bbr,ddr)
    double precision, dimension(:,:), allocatable :: workmatc  ! for overlap (solver): matrix (ccr)
 
@@ -529,7 +527,7 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
       integer                                 :: idmn
 !      integer                                 ::numlaymax      
       character(len=128)                      :: mesg
-      integer                                 :: i
+      integer                                 :: i, j, overlaps
       ierror = 1
       
       call partition_setghost_params(icgsolver)
@@ -574,7 +572,60 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
    
       call partition_make_sendlists(idmn, md_ident, ierror)
       if ( ierror /= 0 ) goto 1234
-            
+         
+            do i =1,nghostlist_s(ndomains-1)
+          if ( ighostlist_s(i) < 0 ) then
+              write (*,*) 'ighostlist_s, negative2=',i,ighostlist_s(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_s(ndomains-1)
+          if ( isendlist_s(i) < 0 ) then
+              write (*,*) 'isendlist_s, negative2=',i,isendlist_s(i)
+              exit
+          endif
+      enddo
+      do i =1,nghostlist_sall(ndomains-1)
+          if ( ighostlist_sall(i) < 0 ) then
+              write (*,*) 'ighostlist_sall, negative2=',i,ighostlist_sall(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_sall(ndomains-1)
+          if ( isendlist_sall(i) < 0 ) then
+              write (*,*) 'isendlist_sall, negative2=',i,isendlist_sall(i)
+              exit
+          endif
+      enddo
+      do i =1,nghostlist_u(ndomains-1)
+           if ( ighostlist_u(i) < 0 ) then
+              write (*,*) 'ighostlist_u, negative2=',i,ighostlist_u(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_u(ndomains-1)
+           if ( isendlist_u(i) < 0 ) then
+              write (*,*) 'isendlist_u, negative2=',i,isendlist_u(i)
+              exit
+          endif
+      enddo
+      if ( allocated(ighostlist_snonoverlap ) ) then
+      do i =1,nghostlist_snonoverlap(ndomains-1)
+           if ( ighostlist_snonoverlap(i) < 0 ) then
+              write (*,*) 'ighostlist_snonoverlap, negative2=',i,ighostlist_snonoverlap(i)
+              exit
+          endif
+      enddo
+      endif
+      if ( allocated(isendlist_snonoverlap ) ) then
+      do i =1,nsendlist_snonoverlap(ndomains-1)
+           if ( isendlist_snonoverlap(i) < 0 ) then
+              write (*,*) 'isendlist_snonoverlap, negative2=',i,isendlist_snonoverlap(i)
+              exit
+          endif
+      enddo
+      endif
+      
 !     flow links: check and fix orientation of send list
       call partition_fixorientation_ghostlist(ierror)
       if ( ierror /= 0 ) goto 1234
@@ -595,10 +646,148 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
 !     determine overlapping nodes in solver
 !      call partition_getoverlappingnodes()
       
+      do i =1,nghostlist_s(ndomains-1)
+          if ( ighostlist_s(i) < 0 ) then
+              write (*,*) 'ighostlist_s, negative=',i,ighostlist_s(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_s(ndomains-1)
+          if ( isendlist_s(i) < 0 ) then
+              write (*,*) 'isendlist_s, negative=',i,isendlist_s(i)
+              exit
+          endif
+      enddo
+      do i =1,nghostlist_sall(ndomains-1)
+          if ( ighostlist_sall(i) < 0 ) then
+              write (*,*) 'ighostlist_sall, negative=',i,ighostlist_sall(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_sall(ndomains-1)
+          if ( isendlist_sall(i) < 0 ) then
+              write (*,*) 'isendlist_sall, negative=',i,isendlist_sall(i)
+              exit
+          endif
+      enddo
+      do i =1,nghostlist_u(ndomains-1)
+           if ( ighostlist_u(i) < 0 ) then
+              write (*,*) 'ighostlist_u, negative=',i,ighostlist_u(i)
+              exit
+          endif
+      enddo
+      do i =1,nsendlist_u(ndomains-1)
+           if ( isendlist_u(i) < 0 ) then
+              write (*,*) 'isendlist_u, negative=',i,isendlist_u(i)
+              exit
+          endif
+      enddo
+      if ( allocated(ighostlist_snonoverlap ) ) then
+      do i =1,nghostlist_snonoverlap(ndomains-1)
+           if ( ighostlist_snonoverlap(i) < 0 ) then
+              write (*,*) 'ighostlist_snonoverlap, negative=',i,ighostlist_snonoverlap(i)
+              exit
+          endif
+      enddo
+      endif
+      if ( allocated(isendlist_snonoverlap ) ) then
+      do i =1,nsendlist_snonoverlap(ndomains-1)
+           if ( isendlist_snonoverlap(i) < 0 ) then
+              write (*,*) 'isendlist_snonoverlap, negative=',i,isendlist_snonoverlap(i)
+              exit
+          endif
+      enddo
+      endif
+      
+      
 !     make non-overlapping ghost- and sendlists (for solver)      
       call partition_fill_ghostsendlist_nonoverlap(ierror)
       if ( ierror.ne.0 ) goto 1234
-
+      
+            !begin checking
+      overlaps = 0
+      do i =2,nghostlist_s(ndomains-1)
+              if ( ighostlist_s(i) < ighostlist_s(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'ighostlist_s, not-sorted=',overlaps
+      overlaps = 0
+      do i =2,nsendlist_s(ndomains-1)
+              if ( isendlist_s(i) < isendlist_s(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'isendlist_s, not-sorted=',overlaps
+            overlaps = 0
+      do i =2,nghostlist_sall(ndomains-1)
+              if ( ighostlist_sall(i) < ighostlist_sall(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'ighostlist_sall, not-sorted=',overlaps
+      overlaps = 0
+      do i =2,nsendlist_sall(ndomains-1)
+              if ( isendlist_sall(i) < isendlist_sall(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'isendlist_sall, not-sorted=',overlaps
+            overlaps = 0
+      do i =2,nghostlist_u(ndomains-1)
+              if ( iabs(ighostlist_u(i)) < iabs(ighostlist_u(i-1)) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'ighostlist_u, not-sorted=',overlaps
+      overlaps = 0
+      do i =2,nsendlist_u(ndomains-1)
+              if ( isendlist_u(i) < isendlist_u(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'isendlist_u, not-sorted=',overlaps
+      if ( allocated(ighostlist_snonoverlap ) ) then
+            overlaps = 0
+      do i =2,nghostlist_snonoverlap(ndomains-1)
+              if ( ighostlist_snonoverlap(i) < ighostlist_snonoverlap(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'ighostlist_snonoverlap, not-sorted=',overlaps
+      endif
+      if ( allocated(isendlist_snonoverlap ) ) then
+      overlaps = 0
+      do i =2,nsendlist_snonoverlap(ndomains-1)
+              if ( isendlist_snonoverlap(i) < isendlist_snonoverlap(i-1) ) overlaps = overlaps +1 
+      enddo
+      write (*,*) 'isendlist_snonoverlap, not-sorted=',overlaps
+      endif
+      overlaps = 0
+      do i =1,nghostlist_s(ndomains-1)
+          do j = 1, nsendlist_s(ndomains-1)
+              if ( ighostlist_s(i) == isendlist_s(j) ) overlaps = overlaps +1 
+          enddo
+      enddo
+      write (*,*) 'itype_s, overlaps=',overlaps
+      overlaps = 0
+      do i =1,nghostlist_sall(ndomains-1)
+          do j = 1, nsendlist_sall(ndomains-1)
+              if ( ighostlist_sall(i) == isendlist_sall(j) ) overlaps = overlaps +1 
+          enddo
+      enddo 
+      write (*,*) 'itype_sall, overlaps=',overlaps
+      overlaps = 0
+      do i =1,nghostlist_u(ndomains-1)
+          do j = 1, nsendlist_u(ndomains-1)
+              if ( iabs(ighostlist_u(i)) == isendlist_u(j) ) overlaps = overlaps +1 
+          enddo
+      enddo
+      write (*,*) 'itype_u, overlaps=',overlaps
+      if ( allocated(ighostlist_snonoverlap) ) then
+      overlaps = 0
+      do i =1,nghostlist_snonoverlap(ndomains-1)
+          do j = 1, nsendlist_snonoverlap(ndomains-1)
+              if ( ighostlist_snonoverlap(i) == isendlist_snonoverlap(j) ) overlaps = overlaps +1 
+          enddo
+      enddo
+      write (*,*) 'itype_snonoverlap, overlaps=',overlaps
+      endif
+      !end checking
+      
+      call bubble_sort_abs(ndomains, nghostlist_s, nghostlist_s(ndomains-1),ighostlist_s)
+      call bubble_sort_abs(ndomains, nsendlist_s, nsendlist_s(ndomains-1),isendlist_s)
+      call bubble_sort_abs(ndomains, nghostlist_sall, nghostlist_sall(ndomains-1),ighostlist_sall)
+      call bubble_sort_abs(ndomains, nsendlist_sall, nsendlist_sall(ndomains-1),isendlist_sall)
+      call bubble_sort_abs(ndomains, nghostlist_u, nghostlist_u(ndomains-1),ighostlist_u)
+      call bubble_sort_abs(ndomains, nsendlist_u, nsendlist_u(ndomains-1),isendlist_u)
+      
       call partition_make_globalnumbers(ierror)
       if ( ierror /= 0 ) goto 1234
 
@@ -1434,6 +1623,7 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
          end do
       end do
 
+
 !     fill all waterlevel ghostlist
       num = 0
       do i=0,ndomains-1
@@ -2194,7 +2384,6 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
       call realloc(isendlist_s,     max(numsend_s,1),     keepExisting=.true., fill=0)
       call realloc(isendlist_sall,  max(numsend_sall,1),  keepExisting=.true., fill=0)
       call realloc(isendlist_u,     max(numsend_u,1),     keepExisting=.true., fill=0)
-
       ierror = 0
  1234 continue
 
@@ -2884,147 +3073,189 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
       return
     end subroutine partition_fill_ghostsendlist_nonoverlap
    
-   
-   subroutine update_ghosts(itype, NDIM, N, var, ierror, ignore_orientation)
+!> update ghost values with an appropriate itype call
+subroutine update_ghosts(itype, number_of_unknowns_per_point, number_of_points, solution, error, ignore_orientation)
 #ifdef HAVE_MPI   
-      use mpi
-#endif      
-      use m_flowgeom
-      use m_flow, only: kmxn, kmxL, kbot, Lbot, Ndkx, Lnkx
-      use messageHandling
+    use mpi
+#endif
+    use m_flow          , only: kmxn, kmxl, kbot, lbot
+    use messageHandling
 
-      implicit none
+    implicit none
 
-      integer,                                     intent(in)    :: itype        !< type: 0: flownode, 1: flowlink
-      integer,                                     intent(in)    :: NDIM         !< number of unknowns per flownode/link
-      integer,                                     intent(in)    :: N            !< number of flownodes/links
-      double precision, dimension(NDIM*N),         intent(inout) :: var          !< solution
-      integer,                                     intent(out)   :: ierror       !< error (1) or not (0)
-      logical,                                     intent(in), optional :: ignore_orientation !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
+    integer,           intent(in)    :: itype                                !< type: 0: flownode, 1: flowlink, etc.
+    integer,           intent(in)    :: number_of_unknowns_per_point         !< number of unknowns per flownode/link/etc.
+    integer,           intent(in)    :: number_of_points                     !< == flownodes/links/etc.
+    double precision,  intent(inout) :: solution(number_of_unknowns_per_point*number_of_points)  !< solution
+    integer,           intent(out)   :: error                                !< error (1) or not (0)
+    logical, optional, intent(in)    :: ignore_orientation                   !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
 
-      ierror = 1
-      
-      if ( .not.allocated(isendlist_sall) ) goto 1234   ! safety
-      
-      if ( itype.eq.ITYPE_S ) then
-         if ( N.ne.Ndx) then
-            call qnerror('update_ghosts, ITYPE_S: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_s(ndomains-1), ighostlist_s, nghostlist_s, nsendlist_s(ndomains-1), isendlist_s, nsendlist_s, itag_s, ierror, ignore_orientation=ignore_orientation)
-      else if ( itype.eq.ITYPE_SALL ) then
-         if ( N.ne.Ndx) then
-            call qnerror('update_ghosts, ITYPE_Sall: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), isendlist_sall, nsendlist_sall, itag_sall, ierror, ignore_orientation=ignore_orientation)
-      else if ( itype.eq.ITYPE_U ) then
-         if ( N.ne.Lnx) then
-            call qnerror('update_ghosts, ITYPE_U: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_u(ndomains-1), ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, itag_u, ierror, ignore_orientation=ignore_orientation)
-!
-!     3D-extension         
-      else if ( itype.eq.ITYPE_S3D ) then
-         if ( N.ne.Ndkx) then
-            call qnerror('update_ghosts, ITYPE_S3D: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_s(ndomains-1), ighostlist_s, nghostlist_s, nsendlist_s(ndomains-1), isendlist_s, nsendlist_s, itag_s, ierror, nghostlist_s_3D, nsendlist_s_3D, kmxn, kbot, ignore_orientation=ignore_orientation)
-      else if ( itype.eq.ITYPE_SALL3D ) then
-         if ( N.ne.Ndkx) then
-            call qnerror('update_ghosts, ITYPE_Sall3D: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), isendlist_sall, nsendlist_sall, itag_sall, ierror, nghostlist_sall_3D, nsendlist_sall_3D, kmxn, kbot, ignore_orientation=ignore_orientation)
-      else if ( itype.eq.ITYPE_U3D ) then
-         if ( N.ne.Lnkx) then
-            call qnerror('update_ghosts, ITYPE_U3D: numbering error', ' ', ' ')
-            goto 1234
-         end if
-!         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_u(ndomains-1), ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, itag_u, ierror, nghost3d=nghostlist_u_3D, nsend3d=nsendlist_u_3D, kmxnL=kmxL, kbot=Lbot)
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_u(ndomains-1), ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, itag_u, ierror, nghostlist_u_3D, nsendlist_u_3D, kmxL, Lbot, ignore_orientation=ignore_orientation)
-       else if ( itype.eq.ITYPE_U3DW ) then
-         if ( N.ne.Lnkx) then
-            call qnerror('update_ghosts, ITYPE_U3DW: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_u(ndomains-1), ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, itag_u, ierror, nghostlist_u_3Dw, nsendlist_u_3Dw, kmxL+1, Lbot-1, ignore_orientation=ignore_orientation)
-                 
-!     overlap
-      else if ( itype.eq.ITYPE_Snonoverlap ) then
-         if ( N.ne.Ndx ) then
-            call qnerror('update_ghosts, ITYPE_Snonoverlap: numbering error', ' ', ' ')
-            goto 1234
-         end if
-         if ( jaoverlap.eq.1 ) then
-            call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_snonoverlap(ndomains-1), ighostlist_snonoverlap, nghostlist_snonoverlap, nsendlist_snonoverlap(ndomains-1), isendlist_snonoverlap, nsendlist_snonoverlap, itag_snonoverlap, ierror, ignore_orientation=ignore_orientation)
+    error = 1
+
+    if ( allocated(isendlist_sall) .and. is_array_size_and_type_correct(itype, number_of_points) ) then
+      select case(itype)
+        case(ITYPE_S) 
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, &
+              ITYPE_S, nghostlist_s(ndomains-1), ighostlist_s, nghostlist_s, nsendlist_s(ndomains-1), isendlist_s, &
+              nsendlist_s, error, ignore_orientation = ignore_orientation)
+        case(ITYPE_SALL)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_Sall, &
+             nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), &
+             isendlist_sall, nsendlist_sall, error, ignore_orientation = ignore_orientation)
+        case(ITYPE_U)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_U, &
+             nghostlist_u(ndomains-1), ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, &
+             nsendlist_u, error, ignore_orientation = ignore_orientation)        
+        case(ITYPE_S3D)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_S, nghostlist_s(ndomains-1), &
+              ighostlist_s, nghostlist_s, nsendlist_s(ndomains-1), isendlist_s, nsendlist_s, error, nghostlist_s_3D, &
+             nsendlist_s_3D, kmxn, kbot, ignore_orientation = ignore_orientation)
+        case(ITYPE_SALL3D)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_Sall, &
+             nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), isendlist_sall,&
+             nsendlist_sall, error, nghostlist_sall_3D, nsendlist_sall_3D, kmxn, kbot, ignore_orientation= ignore_orientation)
+        case(ITYPE_U3D)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_U, nghostlist_u(ndomains-1), &
+              ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, error, nghostlist_u_3D, &
+              nsendlist_u_3D, kmxl, lbot, ignore_orientation = ignore_orientation)
+        case(ITYPE_U3DW)
+           call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_U, nghostlist_u(ndomains-1), &
+              ighostlist_u, nghostlist_u, nsendlist_u(ndomains-1), isendlist_u, nsendlist_u, error, nghostlist_u_3Dw, &
+              nsendlist_u_3Dw, kmxl+1, lbot-1, ignore_orientation = ignore_orientation)
+        case(ITYPE_Snonoverlap)
+         if ( jaoverlap == 1 ) then
+            call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_Snonoverlap, &
+                    nghostlist_snonoverlap(ndomains-1), ighostlist_snonoverlap, nghostlist_snonoverlap, &
+                    nsendlist_snonoverlap(ndomains-1), isendlist_snonoverlap, nsendlist_snonoverlap, error, &
+                    ignore_orientation = ignore_orientation)
          else  ! no overlap: use sall
-            call update_ghost_loc(ndomains, NDIM, N, var, nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), isendlist_sall, nsendlist_sall, itag_sall, ierror, ignore_orientation=ignore_orientation)
+            call update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, ITYPE_Sall, &
+                nghostlist_sall(ndomains-1), ighostlist_sall, nghostlist_sall, nsendlist_sall(ndomains-1), &
+                isendlist_sall, nsendlist_sall, error, ignore_orientation = ignore_orientation)
          end if
-      else
-         call qnerror('update_ghosts: unknown ghost type', ' ', ' ')
-      end if
+      end select
       
-      ierror = 0
- 1234 continue
+    end if
  
-      if ( ierror /= 0 ) call mess(LEVEL_ERROR, 'update_ghosts gave error')
+    if ( error /= 0 ) call mess(LEVEL_ERROR, 'update_ghosts gave error')
       
-      return
-   end subroutine update_ghosts
+end subroutine update_ghosts
 
-     
+!> check of the array size and itype 
+logical function is_array_size_and_type_correct(itype, number_of_points)     
+    use m_flowgeom     , only: ndx, lnx
+    use m_flow         , only: ndkx, lnkx
+
+    implicit none
+
+    integer,           intent(in)    :: itype                    !< type: 0: flownode, 1: flowlink, etc.
+    integer,           intent(in)    :: number_of_points         !< == flownodes/links/etc.
+
+    is_array_size_and_type_correct = .true.
+    select case(itype)
+      case(ITYPE_S) 
+        if ( number_of_points /= ndx) then
+            call qnerror('update_ghosts, ITYPE_S: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+         end if
+      case(ITYPE_SALL) 
+        if ( number_of_points /= ndx) then
+            call qnerror('update_ghosts, ITYPE_Sall: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case(ITYPE_U) 
+        if ( number_of_points /= lnx) then
+            call qnerror('update_ghosts, ITYPE_U: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if      
+      case(ITYPE_S3D) 
+        if ( number_of_points /= ndkx) then
+            call qnerror('update_ghosts, ITYPE_S3D: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case(ITYPE_SALL3D) 
+        if ( number_of_points /= ndkx) then
+            call qnerror('update_ghosts, ITYPE_Sall3D: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case(ITYPE_U3D) 
+        if ( number_of_points /= lnkx) then
+            call qnerror('update_ghosts, ITYPE_U3D: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case(ITYPE_U3DW) 
+        if ( number_of_points /= lnkx) then
+            call qnerror('update_ghosts, ITYPE_U3DW: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case(ITYPE_Snonoverlap) 
+        if ( number_of_points /= ndx ) then
+            call qnerror('update_ghosts, ITYPE_Snonoverlap: numbering error', ' ', ' ')
+            is_array_size_and_type_correct = .false.
+        end if
+      case default
+         call qnerror('update_ghosts: unknown ghost type', ' ', ' ')
+         is_array_size_and_type_correct = .false.
+    end select
+
+end function is_array_size_and_type_correct
+
 !> update ghost values
 !>   3D extension: we assume that kbot/Lbot and kmxn/kmxL match their counterparts in the other domain(s)
-   subroutine update_ghost_loc(ndomains, NDIM, N, s, numghost, ighost, nghost, numsend, isend, nsend, itag, ierror, nghost3d, nsend3d, kmxnL, kbot, ignore_orientation)
+   subroutine update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, itype, &
+       number_of_ghosts, ghost_list, cumulative_numbers_ghosts, number_of_send_data, send_list, cumulative_numbers_sends, &
+       error, nghost3d, nsend3d, kmxnL, kbot, ignore_orientation)
 #ifdef HAVE_MPI   
       use mpi
 #endif      
       use m_flowgeom
       use m_alloc
+      use m_flowtimes
+      use timers
 
       implicit none
 
-      integer,                                     intent(in)     :: ndomains        !< number of subdomains
-      integer,                                     intent(in)     :: NDIM            !< number of unknowns per flownode/link
-      integer,                                     intent(in)     :: N               !< number of flownodes/links
-      double precision, dimension(NDIM*N),         intent(inout)  :: s               !< Solution. Note: will correct for orientation between ghost and own location if needed (typically only for u-points).
-      integer,                                     intent(in)     :: numghost        !< number of ghost nodes/links
-      integer,          dimension(numghost),       intent(in)     :: ighost          !< ghost nodes/links
-      integer,          dimension(-1:ndomains-1),  intent(in)     :: nghost          !< ghost list pointers
-      integer,                                     intent(in)     :: numsend         !< number of send nodes/links
-      integer,          dimension(numsend),        intent(in)     :: isend           !< ghost nodes/links
-      integer,          dimension(-1:ndomains-1),  intent(in)     :: nsend           !< ghost list pointers
-      integer,                                     intent(in)     :: itag            !< message tag
-      integer,                                     intent(out)    :: ierror          !< error (1) or not (0)
+      integer,           intent(in)     :: number_of_unknowns_per_point 
+      integer,           intent(in)     :: number_of_points  
+      double precision,  intent(inout)  :: solution(number_of_unknowns_per_point*number_of_points) !< Note: will correct for orientation between ghost and own location if needed (typically only for u-points).
+      integer,           intent(in)     :: itype                                    ! it is used also as a tag for mpi functions 
+      integer,           intent(in)     :: number_of_ghosts
+      integer,           intent(in)     :: ghost_list(number_of_ghosts)
+      integer,           intent(in)     :: cumulative_numbers_ghosts(-1:ndomains-1) ! over sub-domains
+      integer,           intent(in)     :: number_of_send_data
+      integer,           intent(in)     :: send_list(number_of_send_data)     
+      integer,           intent(in)     :: cumulative_numbers_sends(-1:ndomains-1)  ! over subdomains
+      integer,           intent(out)    :: error                                    !< error (1) or not (0)
 !     3D-extension
-      integer,          dimension(-1:ndomains-1),  intent(in), optional :: nghost3d  !< number of unknowns to be received per domain
-      integer,          dimension(-1:ndomains-1),  intent(in), optional :: nsend3d   !< number of unknowns to be send     per domain
-      integer,          dimension(N),              intent(in), optional :: kmxnL     !< number of layers
-      integer,          dimension(N),              intent(in), optional :: kbot      !< bottom layer indices
-      logical,                                     intent(in), optional :: ignore_orientation !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
+      integer, optional, intent(in)     :: nghost3d(-1:ndomains-1)                  !< number of cells/links to be received per domain
+      integer, optional, intent(in)     :: nsend3d(-1:ndomains-1)                   !< number of cells/links to be send     per domain
+      integer, optional, intent(in)     :: kmxnL(number_of_points)                  !< number of layers
+      integer, optional, intent(in)     :: kbot(number_of_points)                   !< bottom layer indices
+      logical, optional, intent(in)     :: ignore_orientation                       !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
 
-!      double precision, dimension(:), allocatable                :: work         ! work array
 #ifdef HAVE_MPI
-      integer,          dimension(MPI_STATUS_SIZE)                :: istat
+      integer                              :: status(MPI_STATUS_SIZE)
+      integer                              :: send_requests(ndomains)
+      integer                              :: recv_requests(ndomains)
+         
+      !double precision,  allocatable, save :: work(:), workrec(:)  !< work array
+      integer,           allocatable, save :: displacements(:)
+      integer,           allocatable, save :: blocks(:)
+      integer                              :: send_type(ndomains)
+      integer                              :: recv_type(ndomains)
+      integer                              :: send_counts(ndomains)
+      integer                              :: recv_counts(ndomains)
 
-      integer,          dimension(ndomains)                       :: irequest
-
-      integer                                                     :: other_rank, ierr, i, ii, ib, it, nreq
-      integer                                                     :: i2d, istart, iend, icount, num
-      integer                                                     :: j
-      
-      integer                                                     :: ja3d   ! 3D (1) or not (0)
-
-      integer,          parameter                                 :: INIWORKSIZE=1000
-!      double precision, parameter                                 :: DNOCELL = -1234.5678
-      
-      character(len=1024)                                         :: str
-      logical :: ignore_orientation_
+      integer                              :: other_rank, i, nr_mpi_sends, nr_mpi_recvs, tag, index_recv, index
+      integer                              :: i2d, ii, j, count
+      integer                              :: size_displacements
+      integer                              :: ja3d   ! 3D (1) or not (0)
+      character(len=1024)                  :: str
+      logical                              :: ignore_orientation_
 #endif
-      ierror = 1
+      error = 0
+      call timstrt('Initialise timestep', handle_mpi)
+      
 #ifdef HAVE_MPI
 
 !     check for 3D
@@ -3037,313 +3268,133 @@ use meshdata, only : ug_idsLen, ug_idsLongNamesLen
       if (present(ignore_orientation)) then
          ignore_orientation_ = ignore_orientation
       end if
-         
-!     allocate work array (will be reallocated later)
-      if ( .not.allocated(work) ) allocate(work(INIWORKSIZE))
       
-      if ( ja3d.ne.1 ) then
-         num = nsend(ndomains-1)*NDIM
-      else
-         num = nsend3d(ndomains-1)*NDIM
+      size_displacements = max(maxval(cumulative_numbers_sends), maxval(cumulative_numbers_ghosts))
+      if ( .not.allocated(displacements) ) allocate(displacements(size_displacements))
+      if ( ubound(displacements,1) < size_displacements ) then
+         call realloc(displacements, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.) 
       end if
       
-      if ( ubound(work,1).lt.num ) then
-         call realloc(work, int(1.2d0*dble(num)+1d0))
-      end if
-      
-!     fill work array
-      if ( ja3d.ne.1 ) then
-         if ( NDIM.eq.1 ) then
-            do i=1,nsend(ndomains-1)
-!               if ( isend(i).gt.0 ) then
-                  work(i) = s(isend(i))
-!               else  ! if ( isend(i).lt.0 ) then
-!                  work(i) = -s(-isend(i))
-!!               else  ! no cell was found during the handshake, send missing value
-!!                  work(i) = DNOCELL
-!               end if
-            end do
-         else  ! NDIM.ne.1
-            do i=1,nsend(ndomains-1)
-!               if ( isend(i).gt.0 ) then
-                  do j=1,NDIM
-                     work(NDIM*(i-1)+j) = s(NDIM*(isend(i)-1)+j)
-                  end do
-!               else  ! if ( isend(i).lt.0 ) then
-!                  do j=1,NDIM
-!                     work(NDIM*(i-1)+j) = -s(NDIM*(-isend(i)-1)+j)
-!                  end do
-!               else  ! no cell was found during the handshake, send missing value
-!                  do j=1,NDIM
-!                     work(NDIM*(i-1)+j) = DNOCELL
-!                  end do
-!               end if
-            end do
-         end if
-      else  ! 3D extension
-         if ( NDIM.eq.1 ) then
-            icount = 0
-            do i=1,nsend(ndomains-1)
-               i2d = iabs(isend(i))
-               ib = kbot(i2d)
-               it = ib + kmxnL(i2d) - 1   ! override it
-               do ii=ib,it
-                  icount = icount+1
-!                  if ( isend(i).gt.0 ) then
-                     do j=1,NDIM
-                        work(icount) = s(ii)
-                     end do
-!                  else !   if ( isend(i).lt.0 ) then
-!                     do j=1,NDIM
-!                        work(icount) = -s(-ii)
-!                     end do
-!                  else    ! no cell was found during the handshake, send missing value
-!                     do j=1,NDIM
-!                        work(icount) = DNOCELL
-!                     end do
-!                  end if
-               end do   ! do i=ib,it
-            end do
-         else  ! NDIM.ne.1
-            icount = 0
-            do i=1,nsend(ndomains-1)
-               i2d = iabs(isend(i))
-               ib = kbot(i2d)
-               it = ib + kmxnL(i2d) - 1   ! override it
-               do ii=ib,it
-                  icount = icount+1
- !                 if ( isend(i).gt.0 ) then
-                     do j=1,NDIM
-                        work(NDIM*(icount-1)+j) = s(NDIM*(ii-1)+j)
-                     end do
-!                  else  ! if ( isend(i).lt.0 ) then
-!                     do j=1,NDIM
-!                        work(NDIM*(icount-1)+j) = -s(NDIM*(-ii-1)+j)
-!                     end do
-!                  else    ! no cell was found during the handshake, send missing value
-!                     do j=1,NDIM
-!                        work(NDIM*(icount-1)+j) = DNOCELL
-!                     end do
-!                  end if
-               end do   ! do i=ib,it
-            end do
-         end if
-         if ( icount.ne.nsend3d(ndomains-1) ) then
-            call qnerror('update_ghost_loc: 3d numbering error', ' ', ' ')
-         end if
+      if ( ja3d == 1 ) then
+        if ( .not.allocated(blocks) ) allocate(blocks(size_displacements))
+        if ( ubound(blocks,1) < size_displacements ) then
+           call realloc(blocks, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.)
+        end if
       end if
 
-!     we need to make sure that all processes are at this point right now, since we are using one global work array for sending and receiving
-      call mpi_barrier(DFM_COMM_DFMWORLD,ierr)
+!     send data to other procs 
+      nr_mpi_sends   = 0
+      send_counts(:) = 0
+      do other_rank  = 0, ndomains - 1
+         if ( cumulative_numbers_sends(other_rank) >  cumulative_numbers_sends(other_rank - 1) ) then
+             nr_mpi_sends = nr_mpi_sends + 1
+             if ( ja3d == 0 ) then
+               call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends, &
+                   number_of_send_data, send_list, size_displacements, displacements, send_type(nr_mpi_sends), &
+                   send_counts(nr_mpi_sends), error)
+            else
+               call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends,&
+                   number_of_send_data, send_list, number_of_points, kbot, kmxnL, size_displacements, displacements, &
+                   blocks, send_type(nr_mpi_sends), send_counts(nr_mpi_sends), error)
+           end if
 
-!     send
-      if ( ja3d.eq.0 ) then
-         nreq = 0
-         do other_rank=0,ndomains-1
-            istart = NDIM*nsend(other_rank-1)+1 ! nsend(other_rank-1)+1
-            iend   = NDIM*nsend(other_rank)     ! nsend(other_rank)
-            num    = iend-istart+1
-         
-            if ( num.gt.0 ) then
-               nreq = nreq+1
-               call mpi_isend(work(istart),num,mpi_double_precision,other_rank,itag,DFM_COMM_DFMWORLD,irequest(nreq),ierr)
+           call mpi_type_commit(send_type(nr_mpi_sends), error)
+           tag  = itype
+           call mpi_isend(solution, 1, send_type(nr_mpi_sends), other_rank, tag, DFM_COMM_DFMWORLD, &
+                send_requests(nr_mpi_sends), error)
+        end if
+     end do
+
+!    receive data from other procs 
+     nr_mpi_recvs   = 0
+     recv_counts(:) = 0
+     do other_rank  = 0, ndomains - 1
+        if ( cumulative_numbers_ghosts(other_rank) >  cumulative_numbers_ghosts(other_rank - 1) ) then
+            nr_mpi_recvs = nr_mpi_recvs + 1
+            if ( ja3d == 0 ) then
+                call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts, &
+                    number_of_ghosts, ghost_list, size_displacements, displacements, recv_type(nr_mpi_recvs), &
+                    recv_counts(nr_mpi_recvs), error)
+            else
+                call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts,&
+                    number_of_ghosts, ghost_list, number_of_points, kbot, kmxnL, size_displacements, displacements, blocks,&
+                    recv_type(nr_mpi_recvs), recv_counts(nr_mpi_recvs), error)
             end if
-         end do
-      else
-         nreq = 0
-         do other_rank=0,ndomains-1
-            istart = NDIM*nsend3d(other_rank-1)+1 ! nsend3d(other_rank-1)+1
-            iend   = NDIM*nsend3d(other_rank)     ! nsend3d(other_rank)
-            num    = iend-istart+1
-         
-            if ( num.gt.0 ) then
-!               write(6, "('update_ghost_loc:    send, domain: ', I3, ', other domain: ', I3, ', num: ', I7)") my_rank, other_rank, num
-               nreq = nreq+1
-               call mpi_isend(work(istart),num,mpi_double_precision,other_rank,itag,DFM_COMM_DFMWORLD,irequest(nreq),ierr)
-            end if
-         end do
-      end if
+            
+           call mpi_type_commit(recv_type(nr_mpi_recvs), error)
+           tag  = itype
+           call mpi_irecv(solution, 1, recv_type(nr_mpi_recvs), other_rank, tag, DFM_COMM_DFMWORLD, &
+               recv_requests(nr_mpi_recvs), error)
+        end if
+    end do
 
-!     recieve
-!     allocate work array (will be reallocated later)
-      if ( .not.allocated(workrec) ) allocate(workrec(INIWORKSIZE))
-      
-      if ( ja3d.ne.1 ) then
-         num = NDIM*nghost(ndomains-1)
-      else
-         num = NDIM*nghost3d(ndomains-1)
-      end if
-      
-      if ( ubound(workrec,1).lt.num ) then
-         call realloc(workrec,int(1.2d0*dble(num)+1d0))
-      end if
-      
-      if ( ja3d.ne.1 ) then
-         do other_rank=0,ndomains-1
-            istart = NDIM*nghost(other_rank-1)+1 ! nghost(other_rank-1)+1
-            iend   = NDIM*nghost(other_rank)     ! nghost(other_rank)
-            num    = iend-istart+1
-            if ( num.gt.0 ) then
-               !call mpi_recv(s(ighost(istart)),num,mpi_double_precision,other_rank,itag,DFM_COMM_DFMWORLD,istat,ierr)
-            
-   !           ghost cells are NOT ordered
-               call mpi_recv(workrec(istart), num, mpi_double_precision, other_rank, itag, DFM_COMM_DFMWORLD, istat, ierr)
+    do index = 1, nr_mpi_recvs
+        tag = itype
+        call mpi_waitany(nr_mpi_recvs, recv_requests, index_recv, status, error)
+        call mpi_type_free(recv_type(index_recv), error)
+        other_rank = status(MPI_SOURCE)
+        call mpi_get_count(status, mpi_double_precision, count, error)
+        if ( count /= recv_counts(index_recv) ) then
+            write(str, *) 'update_ghost_values: count /= num, domain: ', my_rank, ', other domain: ', other_rank, ' count: ', count, &
+                          ', num: ', recv_counts(index_recv)
+            call qnerror(str, ' ', ' ')
+            call abort_all()
+        end if
 
-   !           check message size
-               call mpi_get_count(istat, mpi_double_precision, icount, ierr)
-               if ( icount.ne.num ) then
-                  write(str, *) 'update_ghost_loc: icount.ne.num, domain: ', my_rank, ', other domain: ', other_rank, ' icount: ', icount, ', num: ', num
-                  call qnerror(str, ' ', ' ')
-                  goto 1234
-               end if
-            end if
-         end do
-      else
-         do other_rank=0,ndomains-1
-            istart = NDIM*nghost3d(other_rank-1)+1 ! nghost3d(other_rank-1)+1
-            iend   = NDIM*nghost3d(other_rank)     ! nghost3d(other_rank)
-            num    = iend-istart+1
-            
-            if ( num.gt.0 ) then
-               !call mpi_recv(s(ighost(istart)),num,mpi_double_precision,other_rank,itag,DFM_COMM_DFMWORLD,istat,ierr)
-            
-!               write(6, "('update_ghost_loc: recieve, domain: ', I3, ', other domain: ', I3, ', num: ', I7)") my_rank, other_rank, num
-               
-   !           ghost cells are NOT ordered
-               call mpi_recv(workrec(istart), num, mpi_double_precision, other_rank, itag, DFM_COMM_DFMWORLD, istat, ierr)
-
-   !           check message size
-               call mpi_get_count(istat, mpi_double_precision, icount, ierr)
-               if ( icount.ne.num ) then
-                  write(str, *) 'update_ghost_loc: icount.ne.num, domain: ', my_rank, ', other domain: ', other_rank, ' icount: ', icount, ', num: ', num
-                  call qnerror(str, ' ', ' ')
-                  goto 1234
-               end if
-            end if
-         end do
-      end if
-      
-!     copy work array to ghost nodes
-      if ( ja3d.ne.1 ) then
-         if ( NDIM.eq.1 ) then
-            do i=1,nghost(ndomains-1)
-!               if ( workrec(i).ne.DNOCELL ) then
-            
-                if ( ighost(i).gt.0 ) then
-                   s(ighost(i)) = workrec(i)
-                else if ( ighost(i).lt.0 ) then
-                   ! Some quantities may not need an orientation fix on u-points:
-                   if (ignore_orientation_) then
-                      s(-ighost(i)) =  workrec(i)
-                   else
-                      s(-ighost(i)) = -workrec(i)
-                   end if
+!     fix value orientation for ITYPE_U, if needed
+      if ( itype /= ITYPE_U ) cycle
+      if ( ja3d == 0 ) then
+         if ( number_of_unknowns_per_point == 1 ) then
+            do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
+                if ( .not. ignore_orientation_ .and. ghost_list(i) < 0 ) then
+                   solution(iabs(ghost_list(i))) = -solution(iabs(ghost_list(i)))
                 end if
-                  
-!               else  ! no cell was found during handshake
-!!                 do nothing
-!                  continue
-!               end if
             end do
-         else  ! NDIM.ne.1
-            do i=1,nghost(ndomains-1)
-!               if ( workrec(NDIM*(i-1)+1).ne.DNOCELL ) then ! check first element only
-                  if ( ighost(i).gt.0 ) then
-                     do j=1,NDIM
-                        s(NDIM*(ighost(i)-1)+j) = workrec(NDIM*(i-1)+j)
-                     end do
-                  else if ( ighost(i).lt.0 ) then
-                     do j=1,NDIM
-                        s(NDIM*(-ighost(i)-1)+j) = -workrec(NDIM*(i-1)+j)
+         else  ! number_of_unknowns_per_point.ne.1
+            do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
+                  if ( ghost_list(i) < 0 ) then
+                     i2d = iabs(ghost_list(i))
+                     do j = 1, number_of_unknowns_per_point
+                        solution(number_of_unknowns_per_point*(i2d-1)+j) = -solution(number_of_unknowns_per_point*(i2d-1)+j)
                      end do
                   end if
-!               else  ! no cell was found during handshake
-!!                 do nothing
-!               end if
             end do
          end if
       else  ! 3D extension, we assume that bot and top matches the ibotsend in the other subdomain(s)
-         icount = 0
-         if ( NDIM.eq.1 ) then
-            do i=1,nghost(ndomains-1)
-               if ( ighost(i).gt.0 ) then
-                  i2d = ighost(i)
-                  ib = kbot(i2d)
-                  it = ib + kmxnL(i2d) - 1   ! override it
-                  do ii=ib,it
-                     icount = icount+1
-   !                  if ( workrec(icount).ne.DNOCELL ) then
-                        s(ii) = workrec(icount)
-   !                  else  ! no cell was found during handshake
-   !!                    do nothing
-   !                  end if
-                  end do
-               else if ( ighost(i).lt.0 ) then
-                  i2d = -ighost(i)
-                  ib = kbot(i2d)
-                  it = ib + kmxnL(i2d) - 1   ! override it
-                  do ii=ib,it
-                     icount = icount+1
-   !                  if ( workrec(icount).ne.DNOCELL ) then
-                        s(ii) = -workrec(icount)
-   !                  else  ! no cell was found during handshake
-   !!                    do nothing
-   !                  end if
+         if ( number_of_unknowns_per_point == 1 ) then
+            do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
+               if ( ghost_list(i) < 0 ) then
+                  i2d = iabs(ghost_list(i))
+                  do ii = kbot(i2d), kbot(i2d) + kmxnL(i2d) - 1
+                     solution(ii) = -solution(ii)
                   end do
                end if
             end do
-         else  ! NDIM.ne.1
-            do i=1,nghost(ndomains-1)
-               if ( ighost(i).gt.0 ) then
-                  i2d = ighost(i)
-                  ib = kbot(i2d)
-                  it = ib + kmxnL(i2d) - 1   ! override it
-                  do ii=ib,it
-                     icount = icount+1
-   !                  if ( workrec(NDIM*(icount-1)+j).ne.DNOCELL ) then  ! check first element only
-                        do j=1,NDIM
-                           s(NDIM*(ii-1)+j) = workrec(NDIM*(icount-1)+j)
-                        end do
-   !                  else  ! no cell was found during handshake
-   !!                    do nothing
-   !                  end if
-                  end do
-               else if ( ighost(i).lt.0 ) then
-                  i2d = -ighost(i)
-                  ib = kbot(i2d)
-                  it = ib + kmxnL(i2d) - 1   ! override it
-                  do ii=ib,it
-                     icount = icount+1
-   !                  if ( workrec(NDIM*(icount-1)+j).ne.DNOCELL ) then  ! check first element only
-                        do j=1,NDIM
-                           s(NDIM*(ii-1)+j) = -workrec(NDIM*(icount-1)+j)
-                        end do
-   !                  else  ! no cell was found during handshake
-   !!                    do nothing
-   !                  end if
+         else  ! number_of_unknowns_per_point.ne.1
+            do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
+               if ( ghost_list(i) < 0 ) then
+                  i2d = iabs(ghost_list(i))
+                  do ii = kbot(i2d), kbot(i2d) + kmxnL(i2d) - 1
+                     do j = 1, number_of_unknowns_per_point
+                        solution(number_of_unknowns_per_point*(ii-1)+j) = -solution(number_of_unknowns_per_point*(ii-1)+j)
+                     end do
                   end do
                end if
             end do
-         end if
-         
-         if ( icount.ne.nghost3d(ndomains-1) ) then
-            call qnerror('update_ghost_loc: 3d numbering error', ' ', ' ')
          end if
       end if
 
-!     terminate send (safety)
-      do i=1,nreq
-         call mpi_wait(irequest(i),istat,ierr)
-      end do
+    end do 
+	
+    call mpi_waitall(nr_mpi_sends, send_requests, MPI_STATUSES_IGNORE, error)
+    do i = 1, nr_mpi_sends
+        call mpi_type_free(send_type(i), error)
+    end do
 
-      ierror = 0
-1234  continue
-
-!     deallocate
-!      if ( allocated(work) ) deallocate(work)
 #endif
-      return
-   end subroutine update_ghost_loc
+   call timstop(handle_mpi)
+   return
+end subroutine update_ghost_values
 
 
 !> Makes the global flow node numbers for this domain's own flow nodes and links.
@@ -5391,9 +5442,146 @@ end subroutine gatherv_int_data_mpi_dif
 #endif
       return
    end subroutine abort_all
-   end module m_partitioninfo
+    end module m_partitioninfo
+
+!> create a data type for mpi 
+subroutine create_2d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, number_of_list_data, list_data, &
+    size_displacements, displacements, data_type, count, error)
+#ifdef HAVE_MPI
+use mpi
+#endif
+
+implicit none
+integer, intent(in)    :: rank                                    !< processor number
+integer, intent(in)    :: number_of_unknowns_per_point
+integer, intent(in)    :: number_of_domains
+integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< 
+integer, intent(in)    :: number_of_list_data
+integer, intent(in)    :: list_data(number_of_list_data)
+integer, intent(in)    :: size_displacements
+integer, intent(inout) :: displacements(size_displacements)
+integer, intent(inout) :: data_type
+integer, intent(inout) :: count
+integer, intent(inout) :: error
+
+integer :: point, displacement, number_of_data_points
+
+#ifdef HAVE_MPI
+displacement          = cumulative_numbers(rank - 1)
+number_of_data_points = cumulative_numbers(rank) - displacement 
+if ( number_of_unknowns_per_point == 1 ) then
+    do point = 1, number_of_data_points
+        displacements(point) = iabs(list_data(point + displacement)) - 1
+    end do
+else
+    do point = 1, number_of_data_points
+        displacements(point) = number_of_unknowns_per_point * (iabs(list_data(point + displacement)) - 1)
+    end do
+end if
+
+call mpi_type_create_indexed_block(number_of_data_points, number_of_unknowns_per_point, displacements, mpi_double_precision, data_type, error)
+#endif
+count = number_of_data_points * number_of_unknowns_per_point
+end subroutine create_2d_data_type
+    
+subroutine create_3d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, number_of_list_data, list_data, number_of_points, &
+    kbot, kmxnL, size_displacements, displacements, blocks, data_type, count, error)
+#ifdef HAVE_MPI
+use mpi
+#endif
+
+implicit none
+integer, intent(in)    :: rank                                    !< processor number
+integer, intent(in)    :: number_of_unknowns_per_point
+integer, intent(in)    :: number_of_domains
+integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< 
+integer, intent(in)    :: number_of_list_data
+integer, intent(in)    :: list_data(number_of_list_data)
+integer, intent(in)    :: number_of_points
+integer, intent(in)    :: kmxnL(number_of_points)                  !< number of layers
+integer, intent(in)    :: kbot(number_of_points)                   !< bottom layer indices
+integer, intent(in)    :: size_displacements
+integer, intent(inout) :: displacements(size_displacements)
+integer, intent(inout) :: blocks(size_displacements)
+integer, intent(inout) :: data_type
+integer, intent(inout) :: count
+integer, intent(inout) :: error
+
+integer :: point, element, displacement, number_of_data_points, count_local
+
+#ifdef HAVE_MPI
+count_local           = 0
+displacement          = cumulative_numbers(rank - 1)
+number_of_data_points = cumulative_numbers(rank) - displacement 
+if ( number_of_unknowns_per_point == 1 ) then
+    do point = 1, number_of_data_points
+        element              = iabs(list_data(point + displacement))  
+        displacements(point) = kbot(element) - 1
+        blocks(point)        = kmxnL(element)
+        count_local          = count_local + kmxnL(element)
+    end do
+else 
+    do point = 1, number_of_data_points
+        element              = iabs(list_data(point + displacement))
+        displacements(point) = (kbot(element) - 1) * number_of_unknowns_per_point
+        blocks(point)        = kmxnL(element) * number_of_unknowns_per_point
+        count_local          = count_local + kmxnL(element) * number_of_unknowns_per_point
+    end do
+end if
+
+call mpi_type_indexed(number_of_data_points, blocks, displacements, mpi_double_precision, data_type, error)
+count = count_local
+#endif            
+end subroutine create_3d_data_type
+    
+    
+subroutine bubble_sort(n_list,i_list)
+integer, intent(in)    :: n_list
+integer, intent(inout) :: i_list(n_list)
+
+integer :: index, tmp
+logical :: not_sorted
+
+not_sorted = .true. 
+do while (not_sorted) 
+   not_sorted = .false.
+   do index = 2, n_list
+       if ( i_list(index) < i_list(index-1) ) then
+          tmp = i_list(index-1)
+          i_list(index-1) = i_list(index)
+          i_list(index) = tmp
+          not_sorted = .true.
+      end if
+   end do
+end do 
    
-   
+end subroutine bubble_sort
+    
+subroutine bubble_sort_abs(ndomains, nlist, size, list)
+integer, intent(in)    :: ndomains
+integer, intent(in)    :: nlist(-1:ndomains-1)
+integer, intent(in)    :: size
+integer, intent(inout) :: list(size)
+
+integer :: index, domain, tmp
+logical :: not_sorted
+
+do domain = 0, ndomains - 1 
+not_sorted = .true. 
+do while (not_sorted) 
+   not_sorted = .false.
+   do index = nlist(domain-1)+2, nlist(domain)
+       if ( iabs(list(index)) < iabs(list(index-1)) ) then
+          tmp = list(index-1)
+          list(index-1) = list(index)
+          list(index) = tmp
+          not_sorted = .true.
+      end if
+   end do
+end do 
+end do
+end subroutine bubble_sort_abs
+    
    subroutine pressakey()
 #ifdef HAVE_MPI
       use mpi
