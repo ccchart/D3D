@@ -390,9 +390,9 @@ integer                            :: javau3onbnd = 0   !< vert. adv. u1 bnd Upw
 
  integer                           :: jaustarint              !< 1=integral bed layer velocity,  0=velocity at half bed layer
 
- integer                           :: jaPure1D                !< along 1D channels: 0 = vectorial approach, 1 = scalar approach using vol1_f, 2 = scalar approach using vol1
+ integer                           :: jaPure1D                !< along 1D channels: 0 = 2D mom Perot, 1 = 1D mom Perot using vol1_f, 2 = 1D mom Perot using vol1, 3 = 1D mom on links (Sobek 3), 4 = 1D mom on links (energy at nodes)
 
- integer                           :: jaJunction1D            !< at 1D junctions: 0 = vectorial approach, 1 = same approach as along the 1D channels
+ integer                           :: jaJunction1D            !< at 1D junctions: 0 = 2D mom Perot, 1 = same as along the 1D channels
 
  double precision                  :: Eddyviscositybedfacmax  !< eddyviscosityatbed = min(eddyviscosityatbed, eddyviscosityatbedfacmax*eddyviscosityatbed+1 )
 
