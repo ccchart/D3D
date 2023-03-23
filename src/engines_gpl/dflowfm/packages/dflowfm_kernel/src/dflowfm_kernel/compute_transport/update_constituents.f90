@@ -142,12 +142,9 @@ subroutine update_constituents(jarhoonly)
 
    fluxhor    = 0d0  ! not necessary
    sumhorflux = 0d0
-  
-   if (stm_included) then
-      fluxhortot = 0d0
-      sinksetot  = 0d0
-      sinkftot   = 0d0
-   endif
+   fluxhortot = 0d0
+   sinksetot  = 0d0
+   sinkftot   = 0d0
 
    do istep=0,nsubsteps-1
       if ( kmx.gt.0 ) then
@@ -206,6 +203,9 @@ subroutine update_constituents(jarhoonly)
 
       if ( kmx.lt.1 ) then   ! 2D, call to 3D as well for now
          call solve_2D(NUMCONST, Ndkx, Lnkx, vol1, kbot, ktop, Lbot, Ltop, sumhorflux, fluxver, const_sour, const_sink, nsubsteps, jaupdate, ndeltasteps, constituents, rhs)
+         if (jalimitdiff == 3) then
+            call diffusionimplicit2D()
+         endif
       else
          call comp_fluxver( NUMCONST, limtyp, thetavert, Ndkx, kmx, zws, qw, kbot, ktop, constituents, nsubsteps, jaupdate, ndeltasteps, fluxver, wsf)
 
@@ -232,9 +232,6 @@ subroutine update_constituents(jarhoonly)
       call comp_sinktot()
 
    end do
-   if (jalimitdiff == 3 .and. kmx == 0) then
-      call diffusionimplicit2D()
-   endif
 
    if( jased == 4 .and. stmpar%lsedsus > 0 ) then
       do j = ISED1,ISEDN
