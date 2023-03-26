@@ -390,7 +390,7 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
            coef2 = 4.0_fp * Qlong_ice * (tsi + ZERO_DEGC)**3.0_fp
            D_t = (qh_air2ice(n) - coef1 - conduc * tsi / D_ice) / (coef2 + conduc / D_ice)
            tsi = tsi + D_t    
-           if (abs(D_t) < 1e-2_fp ) then
+           if (abs(D_t) < 1e-2_fp) then
               converged = .true.
               if (tsi > 0.0_fp) then
                  ! melting
@@ -403,7 +403,7 @@ subroutine preprocess_icecover(n, Qlong_ice, tempwat, wind, timhr)
               ! apply relaxation for stability reasons
               !
               alpha = 0.5_fp
-              if (snow_h(n) < 0.001 ) then
+              if (snow_h(n) < 0.001_fp) then
                  ice_t(n) = alpha * tsi + (1.0_fp - alpha) * ice_t(n)
               else
                  snow_t(n) = alpha * tsi + (1.0_fp - alpha) * snow_t(n)
