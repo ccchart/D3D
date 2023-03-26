@@ -259,9 +259,8 @@ else if (jatem == 5) then
    !
    if (ja_icecover == ICECOVER_SEMTNER) then
        if (ice_h(n)  > 0.001_fp) then
-           !
-           ! in case of ice (and snow)
-           ch = 0.00232
+           ! in case of ice (and snow) overrule the Stanton number (convective heat flux)
+           ch = 0.00232d0
        endif
    endif 
    

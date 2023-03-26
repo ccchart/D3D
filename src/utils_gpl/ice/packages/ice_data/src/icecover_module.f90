@@ -88,13 +88,13 @@ type icecover_type
     integer  :: areafrac_forcing_available        !> flag indicating whether ice area fraction is available via external forcing
     integer  :: thick_ice_forcing_available       !> flag indicating whether ice thickness is available via external forcing
     !
-    real(fp) :: ice_albedo                        !> albedo of ice
-    real(fp) :: ice_conductivity                  !> conductivity of ice
-    real(fp) :: ice_latentheat                    !> latent heat of ice
-    real(fp) :: ice_dens                          !> ice density
-    real(fp) :: snow_albedo                       !> albedo of snow
-    real(fp) :: snow_conductivity                 !> conductivity of snow
-    real(fp) :: snow_latentheat                   !> latent heat of snow
+    real(fp) :: ice_albedo                        !> albedo of ice (-)
+    real(fp) :: ice_conductivity                  !> conductivity of ice (W m-1 K-1)
+    real(fp) :: ice_latentheat                    !> latent heat of ice (kJ kg-1)
+    real(fp) :: ice_dens                          !> ice density (kg m-3)
+    real(fp) :: snow_albedo                       !> albedo of snow (-)
+    real(fp) :: snow_conductivity                 !> conductivity of snow (W m-1 K-1)
+    real(fp) :: snow_latentheat                   !> latent heat of snow (kJ kg-1)
     real(fp) :: frict_val                         !> friction coefficient of ice cover (unit depends on frict_type)
     !
     ! state
@@ -102,13 +102,13 @@ type icecover_type
     real(fp), dimension(:), pointer :: areafrac   => null() !> area fraction covered by ice (-)
     real(fp), dimension(:), pointer :: thick_ice  => null() !> ice cover thickness (m)
     real(fp), dimension(:), pointer :: thick_snow => null() !> snow cover thickness (m)
-    real(fp), dimension(:), pointer :: temp_ice   => null() !> ice temperature (deg)
-    real(fp), dimension(:), pointer :: temp_snow  => null() !> snow temperature (deg)
+    real(fp), dimension(:), pointer :: temp_ice   => null() !> ice temperature (degC)
+    real(fp), dimension(:), pointer :: temp_snow  => null() !> snow temperature (degC)
     !
     ! extra
     !
-    real(fp), dimension(:), pointer :: qh_air2ice => null() !> heat flux from air to ice (?)
-    real(fp), dimension(:), pointer :: qh_ice2wat => null() !> heat flux from ice to water (?)
+    real(fp), dimension(:), pointer :: qh_air2ice => null() !> heat flux from air to ice (W m-2)
+    real(fp), dimension(:), pointer :: qh_ice2wat => null() !> heat flux from ice to water (W m-2)
     real(fp), dimension(:), pointer :: pressure   => null() !> pressure exerted by the ice cover (Pa)
 end type icecover_type
 
