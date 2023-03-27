@@ -81,7 +81,7 @@
       endif
    else
       if (jasfer3D == 0) then
-         !$OMP PARALLEL DO PRIVATE(L Lb, Lt)
+         !$OMP PARALLEL DO PRIVATE(L, Lb, Lt)
          do LL  = 1,lnx                                                    ! upwind (supq) + limited high order (dsq)
             if ((limtypmom == 6 .and. klnup(1,LL).eq.0) .or. hs(ln(1,LL)) < Chkadvd .or. hs(ln(2,LL)) < Chkadvd) then
                cycle
