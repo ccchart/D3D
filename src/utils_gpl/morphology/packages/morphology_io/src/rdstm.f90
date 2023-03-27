@@ -103,7 +103,8 @@ subroutine rdstm(stm, griddim, filsed, filmor, filtrn, &
     integer                                  :: l
     type(tree_data)               , pointer  :: morfil_tree
     type(tree_data)               , pointer  :: sedfil_tree
-    type(tree_data)               , pointer  :: slufil_tree    integer, dimension(2,NPARDEF)            :: ipardef
+    type(tree_data)               , pointer  :: slufil_tree
+    integer, dimension(2,NPARDEF)            :: ipardef
     real(fp), dimension(NPARDEF)             :: rpardef
     real(fp)                                 :: rhow_dummy    ! To be specified correctly
     real(fp)                                 :: ag_dummy      ! To be specified correctly
