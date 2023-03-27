@@ -109,7 +109,7 @@
                   if (qa (L) > 0) then
                      call setHOAvelocity_pos_Jasfer3D(ucxu(L), ucyu(L), L, LL, Lb)
                   endif
-                  if (qa (L) <)) then
+                  if (qa (L) < 0) then
                      call setHOAvelocity_neg_Jasfer3D(ucxu(L), ucyu(L), L, LL, Lb)
                   endif
                enddo
