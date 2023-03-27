@@ -418,6 +418,8 @@ function getpointer(pntnam, gdp)
     integer(pntrsize) , pointer :: kcscut
     integer(pntrsize) , pointer :: kcu45
     integer(pntrsize) , pointer :: kcv45
+    integer(pntrsize) , pointer :: kfushr
+    integer(pntrsize) , pointer :: kfvshr
     integer(pntrsize) , pointer :: disint
     integer(pntrsize) , pointer :: dismmt
     integer(pntrsize) , pointer :: nambar
@@ -429,6 +431,10 @@ function getpointer(pntnam, gdp)
     integer(pntrsize) , pointer :: tprofu
     integer(pntrsize) , pointer :: typbnd
     integer(pntrsize) , pointer :: zkfs
+    integer(pntrsize) , pointer :: vicmud
+    integer(pntrsize) , pointer :: clyint
+    integer(pntrsize) , pointer :: sltint
+    integer(pntrsize) , pointer :: sndint
 !
 ! Result
 !
@@ -774,6 +780,8 @@ function getpointer(pntnam, gdp)
     kcscut     => gdp%gdr_i_ch%kcscut
     kcu45      => gdp%gdr_i_ch%kcu45
     kcv45      => gdp%gdr_i_ch%kcv45
+    kfushr     => gdp%gdr_i_ch%kfushr
+    kfvshr     => gdp%gdr_i_ch%kfvshr
     disint     => gdp%gdr_i_ch%disint
     dismmt     => gdp%gdr_i_ch%dismmt
     nambar     => gdp%gdr_i_ch%nambar
@@ -827,6 +835,10 @@ function getpointer(pntnam, gdp)
     wrkc3      => gdp%gdaddress%wrkc3
     wrkc4      => gdp%gdaddress%wrkc4
     zwork      => gdp%gdaddress%zwork
+    vicmud     => gdp%gdr_i_ch%vicmud
+    clyint     => gdp%gdr_i_ch%clyint
+    sltint     => gdp%gdr_i_ch%sltint
+    sndint     => gdp%gdr_i_ch%sndint
 !
     arrayname:select case (pntnam)
     case ('alfas')
@@ -1437,6 +1449,10 @@ function getpointer(pntnam, gdp)
        returnval = kzu
     case ('kzv')
        returnval = kzv
+    case ('kfushr')
+       returnval = kfushr
+    case ('kfvshr')
+       returnval = kfvshr
     case ('mnbar')
        returnval = mnbar
     case ('mnbnd')
@@ -1590,6 +1606,14 @@ function getpointer(pntnam, gdp)
        returnval = wrkc4
     case ('zwork')
        returnval = zwork
+    case ('vicmud')
+       returnval = vicmud
+    case ('clyint')
+       returnval = clyint
+    case ('sltint')
+       returnval = sltint
+    case ('sndint')
+       returnval = sndint
     case default
        write(*,*) '*** ERROR parameter ',pntnam,' not found; using water level instead.'
        returnval = s1

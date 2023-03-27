@@ -454,6 +454,9 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
     integer(pntrsize)                    , pointer :: tprofc
     integer(pntrsize)                    , pointer :: tprofu
     integer(pntrsize)                    , pointer :: ubnd
+    integer(pntrsize)                    , pointer :: clyint
+    integer(pntrsize)                    , pointer :: sltint
+    integer(pntrsize)                    , pointer :: sndint
     integer(pntrsize), dimension(:, :)   , pointer :: nprptr
     integer                              , pointer :: rtcact
     real(fp)      , dimension(:)         , pointer :: rhosol
@@ -516,6 +519,7 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
     integer      :: nmaxddb
     integer      :: nreal       ! Pointer to real array RCOUSR for UDF particle wind factor parameters
     integer      :: ifirst_dens !  Flag to initialize the water density array
+    integer      :: ifirst_settle ! Flag to initialize what settling velocity has been used
     logical      :: sscomp    
     logical      :: success      
     character(8) :: stage       ! First or second half time step
@@ -935,6 +939,9 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
     eqmbcsand           => gdp%gdmorpar%eqmbcsand
     eqmbcmud            => gdp%gdmorpar%eqmbcmud
     sedtyp              => gdp%gdsedpar%sedtyp
+    clyint              => gdp%gdr_i_ch%clyint
+    sltint              => gdp%gdr_i_ch%sltint
+    sndint              => gdp%gdr_i_ch%sndint
     !
     icx     = 0
     icy     = 0
@@ -954,6 +961,7 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
     ! ********************** SET USER DEF FUNCT PARAMETERS ****************
     !
     call timer_start(timer_trisol_ini, gdp)
+    ifirst_settle = 0
     if (ifirst == 1) then
        !
        ! initialisation of user defined parameters and array pointers
@@ -1004,6 +1012,7 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
        endif
        !
        ifirst = 0
+       ifirst_settle = 1
        !
     endif
     call timer_stop(timer_trisol_ini, gdp)
@@ -1703,10 +1712,11 @@ subroutine z_trisol_nhfull(dischy    ,solver    ,icreep   ,ithisc    , &
              call fallve(kmax    ,nmmax     ,lsal      ,ltem      ,lsed      , &
                      & i(kcs)    ,i(kfs)    ,r(wrkb1)  ,r(u0)     ,r(v0)     , &
                      & r(wphy)   ,r(r0)     ,r(rtur0)  ,ltur      ,r(thick)  , &
-                     & saleqs    ,temeqs    ,r(rhowat) ,r(ws)     , &
+                     & saleqs    ,temeqs    ,r(rhowat) ,r(ws)     ,ifirst_settle    , &
                      & icx       ,icy       ,lundia    ,d(dps)    ,r(s0)     , &
                      & r(umean)  ,r(vmean)  ,r(z0urou) ,r(z0vrou) ,i(kfu)    , &
                      & i(kfv)    ,zmodel    ,i(kfsmx0) ,i(kfsmn0) ,r(dzs0)   , &
+                     & r(dudz)   ,r(dvdz)   ,r(clyint) ,r(sltint) ,r(sndint) , &
                      & lstsci    ,gdp       )
              call timer_stop(timer_fallve, gdp)
           endif

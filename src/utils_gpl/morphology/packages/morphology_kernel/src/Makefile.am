@@ -62,6 +62,7 @@ libMorphologyKernel_la_SOURCES = \
          santoss_rrr12.f90 \
          santoss_sfltd99.f90 \
          sortindices.f90 \
+         shearsettle.f90 \
          soursin_2d.f90 \
          soursin_3d.f90 \
          termfy.f90 \

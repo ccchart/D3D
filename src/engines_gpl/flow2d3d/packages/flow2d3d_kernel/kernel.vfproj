@@ -204,6 +204,7 @@
 		<File RelativePath="src\compute_sediment\adjust_bedload.f90"/>
 		<File RelativePath="src\compute_sediment\avalan.f90"/>
 		<File RelativePath="src\compute_sediment\bndmorlyr.f90"/>
+		<File RelativePath=".\src\compute_sediment\bngham.f90"/>
 		<File RelativePath="src\compute_sediment\bott3d.f90"/>
 		<File RelativePath="src\compute_sediment\compthick.f90"/>
 		<File RelativePath="src\compute_sediment\dredge_comm.f90"/>

@@ -30,7 +30,8 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
              & wrkb1     ,wrkb2     ,wrkb3     ,wrkb4     ,wrkb5     , &
              & wrkb6     ,wrkb7     ,wrkb8     ,wrkb9     ,wrkb10    , &
              & wrkb11    ,wrkb12    ,wrkb13    ,wrkb14    ,wrkb15    , &
-             & wrkb16    ,sbkol     ,dis_nf    ,precip    ,gdp       )
+             & wrkb16    ,sbkol     ,dis_nf    ,precip    , &
+             & vicmud    ,kfushr    ,kfvshr    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2023.                                
@@ -122,6 +123,9 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)    :: kspv    !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      :: kadu    !  Description and declaration in esm_alloc_int.f90
     integer    , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      :: kadv    !  Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax) , intent(in)  :: kfushr    !  Description and declaration in esm_alloc_int.f90
+    integer    , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax) , intent(in)  :: kfvshr    !  Description and declaration in esm_alloc_int.f90
+
     logical                                                  :: sbkol   !  Description and declaration in procs.igs
     logical                                                  :: zmodel  !  Description and declaration in procs.igs
     real(fp)                                                 :: betac   !  Description and declaration in tricom.igs
@@ -199,6 +203,7 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)               :: wsbodyu !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub)               :: wsbodyv !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)       :: qzk     !  Description and declaration in esm_alloc_real.f90
+    real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)       :: vicmud  !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)       :: vicww   !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)       :: w1      !  Description and declaration in esm_alloc_real.f90
     real(fp), dimension(gdp%d%nmlb:gdp%d%nmub, 3)            :: cfurou  !  Description and declaration in esm_alloc_real.f90
@@ -306,10 +311,10 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
        call timer_start(timer_1stuzd, gdp)
        call uzd(icreep    ,dpdeta    ,s0        ,v0        , &
               & v1        ,u0        ,w1        ,vmean     , &
-              & hv        ,hu        ,gvv       ,guu       ,guv       ,gsqs      , &
+              & hv        ,hu        ,gvv       ,guu       ,guv       ,gvu       ,gsqs      , &
               & gud       ,gvd       ,guz       ,gsqiv     ,qyk       ,qxk       , &
               & disch     ,vmdis     ,dismmt    ,mnksrc    ,kcv       , &
-              & kcs       ,kfv       ,kfu       ,kfs       , &
+              & kcs       ,kfv       ,kfu       ,kfs       ,kfvshr ,kfushr , &
               & kspv      ,kadv      ,kadu      ,nocol     ,icx       ,icy       , &
               & irocol(1, norow + 1) ,j         ,nmmaxj    ,nmmax     ,kmax      , &
               & nsrc      ,lsecfl    ,lstsci    ,betac     ,nst       , &
@@ -319,7 +324,7 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
               & wrkb16    ,taubpv    ,taubsv    ,rho       ,sumrho    , &
               & thick     ,sig       ,dps       ,wsv       ,fyw       ,wsbodyv   , &
               & vicuv     ,vnu2d     ,vicww     ,ryy       ,rxy       , &
-              & dfv       ,deltav    ,tp        ,rlabda    , &
+              & vicmud    ,dfv       ,deltav    ,tp        ,rlabda    , &
               & diapl     ,rnpl      , &
               & cfvrou    ,cfurou    ,rttfv     ,r0        ,windsv    , &
               & patm      ,fcorio    ,ubrlsv    ,hkrv      , &
@@ -377,14 +382,14 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
               & idry      ,crbc(1,1) ,vicuv     ,wrka9     , &
               & vnu2d     ,vicww     ,rxx       ,rxy       ,dfu       , &
               & deltau    ,tp        ,rlabda    ,cfurou    ,cfvrou    , &
-              & rttfu     ,diapl     ,rnpl      , &
+              & vicmud    ,rttfu     ,diapl     ,rnpl      , &
               & windsu    ,patm      ,fcorio    ,evap      ,ubrlsu    , &
               & uwtypu    ,hkru      ,pship     ,tgfsep    ,wrka1     , &
               & wrka2     ,wrka3     ,wrka4     ,wrka5     ,wrka6     , &
               & wrka7     ,wrka8     ,wrka15    ,wrkb1     ,wrkb2     , &
               & wrkb3     ,wrkb4     ,wrkb5     ,wrkb6     ,wrkb7     , &
               & wrkb8     ,wrkb15    ,wrkb16    ,soumud    ,dis_nf    , &
-              & precip    ,ustokes   ,gdp       )
+              & precip    ,ustokes   ,kfushr ,kfvshr ,gdp       )
        call timer_stop(timer_1stsud, gdp)
        call timer_stop(timer_sud, gdp)
        !
@@ -467,10 +472,10 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
        call timer_start(timer_2nduzd, gdp)
        call uzd(icreep    ,dpdksi    ,s0        ,u0        , &
               & u1        ,v0        ,w1        ,umean     , &
-              & hu        ,hv        ,guu       ,gvv       ,gvu       ,gsqs      , &
+              & hu        ,hv        ,guu       ,gvv       ,gvu       ,guv       ,gsqs      , &
               & gvd       ,gud       ,gvz       ,gsqiu     ,qxk       ,qyk       , &
               & disch     ,umdis     ,dismmt    ,mnksrc    ,kcu       , &
-              & kcs       ,kfu       ,kfv       ,kfs       , &
+              & kcs       ,kfu       ,kfv       ,kfs       ,kfushr ,kfvshr , &
               & kspu      ,kadu      ,kadv      ,norow     ,icx       ,icy       , &
               & irocol    ,j         ,nmmaxj    ,nmmax     ,kmax      , &
               & nsrc      ,lsecfl    ,lstsci    ,betac     ,nst       , &
@@ -480,7 +485,7 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
               & wrkb16    ,taubpu    ,taubsu    ,rho       ,sumrho    , &
               & thick     ,sig       ,dps       ,wsu       ,fxw       ,wsbodyu   , &
               & vicuv     ,vnu2d     ,vicww     ,rxx       ,rxy       , &
-              & dfu       ,deltau    ,tp        ,rlabda    , &
+              & vicmud    ,dfu       ,deltau    ,tp        ,rlabda    , &
               & diapl     ,rnpl      , &
               & cfurou    ,cfvrou    ,rttfu     ,r0        ,windsu    , &
               & patm      ,fcorio    ,ubrlsu    ,hkru      , &
@@ -535,14 +540,14 @@ subroutine adi(dischy    ,solver    ,icreep    ,stage     ,nst       , &
               & idry      ,crbc(1, norow + 1)   ,vicuv     ,wrka9     , &
               & vnu2d     ,vicww     ,ryy       ,rxy       ,dfv       , &
               & deltav    ,tp        ,rlabda    ,cfvrou    ,cfurou    , &
-              & rttfv     ,diapl     ,rnpl      , &
+              & vicmud    ,rttfv     ,diapl     ,rnpl      , &
               & windsv    ,patm      ,fcorio    ,evap      ,ubrlsv    , &
               & uwtypv    ,hkrv      ,pship     ,tgfsep    ,wrka1     , &
               & wrka2     ,wrka3     ,wrka4     ,wrka5     ,wrka6     , &
               & wrka7     ,wrka8     ,wrka16    ,wrkb1     ,wrkb2     , &
               & wrkb3     ,wrkb4     ,wrkb5     ,wrkb6     ,wrkb7     , &
               & wrkb8     ,wrkb15    ,wrkb16    ,soumud    ,dis_nf    , &
-              & precip    ,vstokes   ,gdp       )
+              & precip    ,vstokes   ,kfvshr ,kfushr ,gdp       )
        call timer_stop(timer_2ndsud, gdp)
        call timer_stop(timer_sud, gdp)
        !
