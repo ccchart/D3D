@@ -289,6 +289,10 @@ do i=1,nstr
       loc_spec_type = LOCTP_POLYLINE_FILE
       plifile = str_buf
       call resolvePath(plifile, md_structurefile_dir, plifile)
+      write(*,*) 'init_structurecontrol:'
+      write(*,*) 'in:     ', trim(str_buf)
+      write(*,*) 'dir:    ', trim(md_structurefile_dir)
+      write(*,*) 'joined: ', trim(plifile)
    else
       istrtmp = hashsearch(network%sts%hashlist_structure, strid) ! Assumes unique names across all structure types.
       if (istrtmp == -1) then
@@ -582,7 +586,11 @@ end do
 
       plifile = ' '
       call prop_get_string(str_ptr, '', 'polylinefile', plifile, successloc) ! TODO: Remove? This plifile is nowhere used below
+      write(*,*) 'init_structurecontrol 2:'
+      write(*,*) 'in:     ', trim(plifile)
       call resolvePath(plifile, md_structurefile_dir, plifile)
+      write(*,*) 'dir:    ', trim(md_structurefile_dir)
+      write(*,*) 'joined: ', trim(plifile)
 
       ! Start with some general structure default params, and thereafter, make changes depending on actual strtype
       if (strtype /= 'generalstructure') then
@@ -892,6 +900,10 @@ end do
                      qid = 'generalstructure'
                      fnam = trim(rec)
                      call resolvePath(fnam, md_structurefile_dir, fnam)
+                     write(*,*) 'init_structurecontrol 3:'
+                     write(*,*) 'in:     ', trim(rec)
+                     write(*,*) 'dir:    ', trim(md_structurefile_dir)
+                     write(*,*) 'joined: ', trim(fnam)
                      if (index(trim(fnam)//'|','.tim|')>0) then
                          success  = ec_addtimespacerelation(qid, xdum, ydum, kdum, 1, fnam, uniform, spaceandtime, 'O', targetIndex=(n-1)*kx+ifld) ! Hook up 1 component at a time, even when target element set has kx=3
                      endif

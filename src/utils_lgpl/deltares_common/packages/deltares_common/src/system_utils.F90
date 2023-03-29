@@ -300,7 +300,8 @@ logical function is_abs(path)
    idrive = index(path, ':') ! Find piece after drive letter:. When not found, still check from index 1, because it might start with / for Windows UNC paths \\share\etc.
    is_abs = (path(idrive+1:idrive+1) == FILESEP .or. path(idrive+1:idrive+1) == '/') ! On Windows, also allow forward lash.
 #endif
-
+   write(*,*) 'in is_abs for:', trim(path)
+   write(*,*) is_abs
 end function is_abs
 
 !> find the last slash in a string.
