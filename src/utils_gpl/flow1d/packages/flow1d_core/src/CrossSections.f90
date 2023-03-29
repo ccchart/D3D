@@ -973,40 +973,42 @@ subroutine useBranchOrdersCrs(crs, brs)
    integer  minOrdernumber
    integer  minBranchindex
    double precision  minoffset
-   integer, allocatable, dimension(:,:)   :: crsArray       !< first index contains orderNumber, second contains start position for this ordernumber
-   integer, allocatable, dimension(:)     :: crsData
-   integer, allocatable, dimension(:)     :: crsIndices
-   type(t_CrossSection)                   :: cross
-   type(t_CrossSectionSet)                :: tempset
+   integer, allocatable, dimension(:,:)         :: crsArray       !< first index contains orderNumber, second contains start position for this ordernumber
+   double precision, allocatable, dimension(:)  :: crsData
+   integer, allocatable, dimension(:)           :: crsIndices
+   type(t_CrossSection)                         :: cross
+   type(t_CrossSectionSet)                      :: tempset
+   integer                                      :: maxBranchId, maxBranchOrder
+   double precision                             :: maxChainage
+   double precision                             :: F1, F2 !< sorting multiplication factors
 
-   !program code
-!   allocate(crs%crossSectionIndex(crs%count), orderNumber(crs%Count+2,2))
-
-   ! order cross sections, first on order number, then on branch index, last on offset
-   !orderNumberCount = 1
-   !orderNumber(1,1) = -1
-   !orderNumber(1,2) = 1
    crsCount = crs%count
    tempset%count = crsCount
    call reallocCrossSections(tempset)
-   !crs%crossSectionIndex = -1
-   
    allocate(crsData(crsCount),crsIndices(crsCount))
+   
+   maxBranchId    = max(1,maxval(crs%cross(:)%branchId))
+   maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
+   maxChainage    = maxval(crs%cross(:)%chainage)
+   F2 = maxBranchOrder*maxChainage
+   F1 = maxBranchId*F2
+      
    do ics = 1, crsCount
       crsIndices(ics) = ics
-      if (crs%cross(ics)%branchid <= 0 ) then ! crs without branch first
-         crsData(ics) = -1
+      ibr = crs%cross(ics)%branchid
+      if (ibr <= 0 ) then ! crs without branch first
+         crsData(ics) = crs%cross(ics)%chainage
       else
-      crsData(ics) = crs%cross(ics)%branchid!getOrderNumber(brs, crs%cross(ics)%branchid)
+      crsData(ics) = crs%cross(ics)%branchid*F1 + getOrderNumber(brs, ibr)*F2 + crs%cross(ics)%chainage
       endif
    enddo
-   call dpquicksort_integer2(crsData,crsIndices)
-   do ics = 1, crsCount
+   
+   call dpquicksort(crsData,crsIndices)
+   
+   do ics = 1, crsCount !copy data to temp array
       tempset%cross(ics) = crs%cross(crsIndices(ics))
    enddo
-   crs%cross(:) = tempset%cross(:)
-   crsData = crs%cross(:)%branchid
-      
+   crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
    !do ics = 1, crsCount
    !   minindex = ics
@@ -3519,90 +3521,11 @@ subroutine createTablesForTabulatedProfile(crossDef)
 
    end subroutine getSummerDikeData
    
-  !!> dual pivot quicksort integers
-  !recursive subroutine dpquicksort_integer(array,indices)
-  ! integer, intent(inout), target ::array(:)
-  ! integer, intent(inout), target ::indices(:)
-  ! integer, pointer :: ip1,ip2,itemp
-  ! integer          :: temp,p1,p2
-  ! integer :: i,j,last,l,k,g
-  !
-  !  last=size(array)
-  !
-  !  if (last.lt.40) then ! use insertion sort on small arrays
-  !     do i=2,last
-  !        temp=array(i)          ;itemp => indices(i)
-  !        do j=i-1,1,-1
-  !           if (array(j).le.temp) exit
-  !           array(j+1)=array(j) ;indices(j+1)=indices(j)
-  !        enddo
-  !        array(j+1)=temp        ;indices(j+1)=itemp
-  !     enddo
-  !     return
-  !  endif
-  !  p1=array(last/3)    ;ip1 => indices(last/3)
-  !  p2=array(2*last/3)  ;ip2 => indices(2*last/3)
-  !
-  !  if (p2.lt.p1) then
-  !     temp=p1    ;itemp => ip1
-  !     p1=p2      ;ip1 => ip2
-  !     p2=temp    ;ip2 => itemp
-  !  endif
-  !  array(last/3)=array(1)       ;indices(last/3)=indices(1)
-  !  array(1)=p1                  ;indices(1)=ip1
-  !  array(2*last/3)=array(last)  ;indices(2*last/3)=indices(last)
-  !  array(last)=p2               ;indices(last)=ip2
-  !
-  !  g=last
-  !  l=2
-  !  do while (array(l).lt.p1)
-  !     l=l+1
-  !  enddo
-  !  k=l
-  !
-  !  do while(k.lt.g)
-  !     temp=array(k); itemp=>indices(k)
-  !     if (temp.lt.p1) then
-  !        array(k)=array(l)   ;indices(k)=indices(l)
-  !        array(l)=temp       ;indices(l)=itemp
-  !        l=l+1
-  !     else if (temp.gt.p2) then
-  !        do while(array(g-1).gt.p2)
-  !           g=g-1
-  !        enddo
-  !        if (k.ge.g) exit
-  !        g=g-1
-  !        if (array(g).lt.p1) then
-  !           array(k)=array(l) ;indices(k) =indices(l)
-  !           array(l)=array(g) ;indices(l) =indices(g)
-  !           array(g)=temp     ;indices(g) =itemp
-  !           l=l+1
-  !        else
-  !           array(k)=array(g)   ;indices(k)=indices(g)
-  !           array(g)=temp       ;indices(g)=itemp
-  !        endif
-  !     endif
-  !     k=k+1
-  !  enddo
-  !  if (l.gt.2) then
-  !     array(1)=array(l-1) ;indices(1)=indices(l-1)
-  !     array(l-1)=p1       ;indices(l-1)=ip1
-  !     call dpquicksort_integer(array(1:l-2),indices)
-  !  endif
-  !  call dpquicksort_integer(array(l:g-1),indices)
-  !  if (g.lt.last) then
-  !     array(last)=array(g)   ;indices(last)=indices(g)
-  !     array(g)=p2            ;indices(g)=ip2
-  !     call dpquicksort_integer(array(g+1:last),indices)
-  !  endif
-  !
-  ! end subroutine dpquicksort_integer
-   
      !> dual pivot quicksort integers
-  recursive subroutine dpquicksort_integer2(array,indices)
-   integer, intent(inout), target    ::array(:)
-   integer, intent(inout) ::indices(:)
-   integer                        :: ip1,ip2,itemp
+  recursive subroutine dpquicksort(array,indices)
+   double precision, intent(inout)  :: array(:)
+   integer, intent(inout)           :: indices(:)
+   integer                          :: ip1,ip2,itemp
    integer :: i,j,last,l,k,g
 
     last=size(indices)
@@ -3665,14 +3588,14 @@ subroutine createTablesForTabulatedProfile(crossDef)
     if (l.gt.2) then
        indices(1)=indices(l-1)
        indices(l-1)=ip1        
-       call dpquicksort_integer2(array,indices(1:l-2))
+       call dpquicksort(array,indices(1:l-2))
     endif
-    call dpquicksort_integer2(array,indices(l:g-1))
+    call dpquicksort(array,indices(l:g-1))
     if (g.lt.last) then
        indices(last)=indices(g)
        indices(g)=ip2
-       call dpquicksort_integer2(array,indices(g+1:last))
+       call dpquicksort(array,indices(g+1:last))
    endif
-   end subroutine dpquicksort_integer2
+   end subroutine dpquicksort
    
 end module m_CrossSections
