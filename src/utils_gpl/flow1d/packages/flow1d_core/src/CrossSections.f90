@@ -964,16 +964,10 @@ subroutine useBranchOrdersCrs(crs, brs)
    type(t_branchSet)      , intent(in   )          :: brs       !< Set of reaches
 
    ! local variables
-   integer  ibr, orderNumberCount
-   integer  i
-   integer  iorder
-   integer  ics
+   integer  ibr, i
+   integer  ics, iorder, minOrderNumber, OrderNumberCount, currentOrder
    integer  crsCount
-   integer  minindex
-   integer  minOrdernumber
-   integer  minBranchindex
-   double precision  minoffset
-   integer, allocatable, dimension(:,:)         :: crsArray       !< first index contains orderNumber, second contains start position for this ordernumber
+   integer, allocatable, dimension(:,:)         :: orderNumber       !< first index contains orderNumber, second contains start position for this ordernumber
    double precision, allocatable, dimension(:)  :: crsData
    integer, allocatable, dimension(:)           :: crsIndices
    type(t_CrossSection)                         :: cross
@@ -985,21 +979,24 @@ subroutine useBranchOrdersCrs(crs, brs)
    crsCount = crs%count
    tempset%count = crsCount
    call reallocCrossSections(tempset)
-   allocate(crsData(crsCount),crsIndices(crsCount))
+   allocate(crsData(crsCount),crsIndices(crsCount),orderNumber(crsCount+2,2))
    
    maxBranchId    = max(1,maxval(crs%cross(:)%branchId))
    maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
    maxChainage    = maxval(crs%cross(:)%chainage)
-   F2 = maxBranchOrder*maxChainage
-   F1 = maxBranchId*F2
+   
+   F2 = min(maxBranchId,maxBranchOrder)*maxChainage
+   F1 = max(maxBranchId,maxBranchOrder)*F2
       
    do ics = 1, crsCount
       crsIndices(ics) = ics
       ibr = crs%cross(ics)%branchid
-      if (ibr <= 0 ) then ! crs without branch first
+      if (ibr <= 0) then ! crs without branch first
          crsData(ics) = crs%cross(ics)%chainage
-      else
-      crsData(ics) = crs%cross(ics)%branchid*F1 + getOrderNumber(brs, ibr)*F2 + crs%cross(ics)%chainage
+      else if (getOrderNumber(brs, ibr) <= 0) then
+         crsData(ics) = crs%cross(ics)%branchid*F1 + crs%cross(ics)%chainage
+      else   
+         crsData(ics) = crs%cross(ics)%branchid*F1 + getOrderNumber(brs, ibr)*F2 + crs%cross(ics)%chainage
       endif
    enddo
    
@@ -1010,95 +1007,115 @@ subroutine useBranchOrdersCrs(crs, brs)
    enddo
    crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
+   minordernumber = -1
+   do ics = 1, crsCount
+      cross = crs%cross(ics)
+      minOrderNumber = max(minOrderNumber,getOrderNumber(brs, crs%cross(ics)%branchid))
+      if (ics > 1) then
+         if ( crs%cross(ics)%branchid > 0 .and. (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
+            msgbuf = 'Cross section ''' // trim(crs%cross(ics-1)%csid) // ''' and ''' // trim(crs%cross(ics)%csid) // ''' are exactly at the same location.'
+            call err_flush()
+         endif
+      endif
+      if (orderNumber(orderNumberCount,1) /= minOrderNumber) then
+         orderNumberCount = orderNumberCount + 1
+         orderNumber(orderNumberCount, 1) = minOrderNumber
+         orderNumber(orderNumberCount, 2) = ics
+      endif
+   enddo
+
+   orderNumber(orderNumberCount+1,1) = -999
+   orderNumber(orderNumberCount+1,2) = crsCount+1
+   ! Now check all cross sections on branches of the same order (-1 orders can be skipped)
+   do iorder = 2, orderNumberCount
+      ics = orderNumber(iorder, 2)
+      do while (ics < orderNumber(iorder+1,2) )
+         ! ics is now the first cross section on the branch
+         ibr = crs%cross(ics)%branchid
+         
+         ! because crs%cross can be reallocated a copy of the cross section has to be made
+         cross = crs%cross(ics)
+         cross%IsCopy = .true.
+         call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .true., orderNumber, orderNumberCount)
+         ! find last cross section on branch
+         do while (ics < crs%count .and. crs%cross(ics+1)%branchid == ibr)
+            ics = ics+1
+         enddo
+         ! The last cross section in CRS is the last cross section on a branch
+         if (ics < crs%count) then
+            if (crs%cross(ics+1)%branchid == ibr) then
+               ics = ics +1
+            endif
+         endif
+         
+         ! because crs%cross can be reallocated a copy of the cross section has to be made
+         cross = crs%cross(ics)
+         cross%IsCopy = .true.
+         call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .false., orderNumber, orderNumberCount)
+         ics = ics +1
+      enddo
+   enddo
+   
+   !! second sort with BranchOrders first
    !do ics = 1, crsCount
-   !   minindex = ics
-   !   if (crs%cross(ics)%branchid <= 0 ) then ! crs without branch first
-   !      crs%crossSectionIndex(ics) = ics
-   !   else
-   !      ibr = crs%cross(ics)%branchid
-   !      minordernumber = getOrderNumber(brs, ibr)
-   !      minBranchindex = ibr
-   !      minoffset = crs%cross(ics)%chainage
-   !      do i = ics, crsCount
-   !         if (crs%cross(i)%branchid <= 0) then
-   !            minindex = i
-   !            crs%crossSectionIndex(i) = ics
-   !            minOrderNumber = -1
-   !            exit
-   !         else
-   !            ibr = crs%cross(i)%branchid
-   !            if (minOrderNumber > getOrdernumber(brs, ibr)) then
-   !               minOrderNumber =  getOrdernumber(brs, ibr)
-   !               minBranchindex = ibr
-   !               minOffset = crs%cross(i)%chainage
-   !               minIndex = i
-   !            elseif (minOrderNumber == getOrdernumber(brs, ibr))then
-   !               if (minBranchIndex > ibr) then
-   !                  minBranchindex = ibr
-   !                  minOffset = crs%cross(i)%chainage
-   !                  minIndex = i
-   !               elseif (minBranchIndex == ibr) then
-   !                  if (minoffset > crs%cross(i)%chainage) then
-   !                     minOffset = crs%cross(i)%chainage
-   !                     minIndex = i
-   !                  endif
-   !               endif
-   !            endif
-   !         endif
-   !      enddo
-   !   endif
-   !   cross = crs%cross(ics)
-   !   crs%cross(ics) = crs%cross(minindex)
-   !   crs%cross(minindex) = cross
-   !   ! Check for multiple cross sections at one location.
-   !   if (ics > 1) then
-   !      if ( crs%cross(ics)%branchid > 0 .and. (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
-   !         msgbuf = 'Cross section ''' // trim(crs%cross(ics-1)%csid) // ''' and ''' // trim(crs%cross(ics)%csid) // ''' are exactly at the same location.'
-   !         call err_flush()
-   !      endif
-   !   endif
-   !   
-   !   if (orderNumber(orderNumberCount,1) /= minOrderNumber) then
-   !      orderNumberCount = orderNumberCount + 1
-   !      orderNumber(orderNumberCount, 1) = minOrderNumber
-   !      orderNumber(orderNumberCount, 2) = ics
+   !   crsIndices(ics) = ics
+   !   ibr = crs%cross(ics)%branchid
+   !   currentOrder = getOrderNumber(brs, ibr)
+   !   if (ibr <= 0) then ! crs without branch first
+   !      crsData(ics) = crs%cross(ics)%chainage
+   !   else if (currentOrder <= 0) then
+   !      crsData(ics) = crs%cross(ics)%branchid*F2 + crs%cross(ics)%chainage
+   !   else   
+   !      crsData(ics) = currentOrder*F1 + crs%cross(ics)%branchid*F2 + crs%cross(ics)%chainage
    !   endif
    !enddo
-   
    !
+   !call dpquicksort(crsData,crsIndices)
+   !
+   !do ics = 1, crsCount !copy data to temp array
+   !   orderNumber(ics,2) = getOrderNumber(brs, crs%cross(crsIndices(ics))%branchid)
+   !   ordernumber(ics,1) = crsIndices(ics)
+   !enddo
    !orderNumber(orderNumberCount+1,1) = -999
    !orderNumber(orderNumberCount+1,2) = crsCount+1
    !! Now check all cross sections on branches of the same order (-1 orders can be skipped)
-   !do iorder = 2, orderNumberCount
-   !   ics = orderNumber(iorder, 2)
-   !   do while (ics < orderNumber(iorder+1,2) )
+   !currentorder = 0
+   !ibr = 0
+   !do i = 1, crsCount
+   !   ics = orderNumber(i,1)
+   !   iorder = orderNumber(i,2)
+   !   !ics = orderNumber(iorder, 2)
+   !   !do while (ics < orderNumber(iorder+1,2) )
+   !   if (iorder > 0 .and. (iorder > currentorder .or. crs%cross(ics)%branchid /= ibr)) then
    !      ! ics is now the first cross section on the branch
    !      ibr = crs%cross(ics)%branchid
-   !      
+   !      currentorder = iorder
    !      ! because crs%cross can be reallocated a copy of the cross section has to be made
    !      cross = crs%cross(ics)
    !      cross%IsCopy = .true.
    !      call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .true., orderNumber, orderNumberCount)
+   !   else if (currentorder > 0 .and. i < crscount .and. iorder == currentorder .and. crs%cross(orderNumber(i+1,1))%branchid /= ibr) then
+   !      
    !      ! find last cross section on branch
-   !      do while (ics < crs%count .and. crs%cross(ics+1)%branchid == ibr)
-   !         ics = ics+1
-   !      enddo
-   !      ! The last cross section in CRS is the last cross section on a branch
-   !      if (ics < crs%count) then
-   !         if (crs%cross(ics+1)%branchid == ibr) then
-   !            ics = ics +1
-   !         endif
-   !      endif
+   !      !do while (ics < crs%count .and. crs%cross(ics+1)%branchid == ibr)
+   !      !   ics = ics+1
+   !      !enddo
+   !      !! The last cross section in CRS is the last cross section on a branch
+   !      !if (ics < crs%count) then
+   !      !   if (crs%cross(ics+1)%branchid == ibr) then
+   !      !      ics = ics +1
+   !      !   endif
+   !      !endif
    !      
    !      ! because crs%cross can be reallocated a copy of the cross section has to be made
    !      cross = crs%cross(ics)
    !      cross%IsCopy = .true.
    !      call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .false., orderNumber, orderNumberCount)
    !      ics = ics +1
-   !   enddo
+   !   endif
    !enddo
-   !
-   !deallocate(orderNumber)
+   
+   deallocate(orderNumber, crsData, crsIndices)
 
 end subroutine useBranchOrdersCrs
 
@@ -3520,82 +3537,159 @@ subroutine createTablesForTabulatedProfile(crossDef)
        endif
 
    end subroutine getSummerDikeData
-   
-     !> dual pivot quicksort integers
-  recursive subroutine dpquicksort(array,indices)
+
+   !> dual pivot quicksort indices based on array values
+   recursive subroutine dpquicksort(array,indices)
    double precision, intent(inout)  :: array(:)
    integer, intent(inout)           :: indices(:)
    integer                          :: ip1,ip2,itemp
    integer :: i,j,last,l,k,g
 
-    last=size(indices)
+   last=size(indices)
 
-    if (last.lt.40) then ! use insertion sort on small arrays
-       do i=2,last
-          itemp=indices(i)
-          do j=i-1,1,-1
-             if (array(indices(j)).le.array(itemp)) exit
-             indices(j+1)=indices(j)
-          enddo
-          indices(j+1)=itemp
-       enddo
-       return
-    endif
-    ip1 = indices(last/3)  ; 
-    ip2 = indices(2*last/3); 
+   if (last.lt.40) then ! use insertion sort on small arrays
+      do i=2,last
+         itemp=indices(i)
+         do j=i-1,1,-1
+            if (array(indices(j)).le.array(itemp)) exit
+            indices(j+1)=indices(j)
+         enddo
+         indices(j+1)=itemp
+      enddo
+      return
+   endif
+   ip1 = indices(last/3)  ;
+   ip2 = indices(2*last/3);
 
-    if (array(ip2).lt.array(ip1)) then
-       itemp=ip1
-       ip1=ip2
-       ip2=itemp
-    endif
-    indices(last/3)=indices(1)
-    indices(1)=ip1
-    indices(2*last/3)=indices(last)
-    indices(last)=ip2
+   if (array(ip2).lt.array(ip1)) then
+      itemp=ip1
+      ip1=ip2
+      ip2=itemp
+   endif
+   indices(last/3)=indices(1)
+   indices(1)=ip1
+   indices(2*last/3)=indices(last)
+   indices(last)=ip2
 
-    g=last
-    l=2
-    do while (array(indices(l)).lt.array(ip1))
-       l=l+1
-    enddo
-    k=l
+   g=last
+   l=2
+   do while (array(indices(l)).lt.array(ip1))
+      l=l+1
+   enddo
+   k=l
 
-    do while(k.lt.g)
-       itemp=indices(k)
-       if (array(itemp).lt.array(ip1)) then
-          indices(k)=indices(l)
-          indices(l)=itemp
-          l=l+1
-       else if (array(itemp).gt.array(ip2)) then
-          do while(array(indices(g-1)).gt.array(ip2))
-             g=g-1
-          enddo
-          if (k.ge.g) exit
-          g=g-1
-          if (array(indices(g)).lt.array(ip1)) then
-             indices(k)=indices(l)
-             indices(l)=indices(g)
-             indices(g)=itemp      
-             l=l+1
-          else
-             indices(k)=indices(g)
-             indices(g)=itemp            
-          endif
-       endif
-       k=k+1
-    enddo
-    if (l.gt.2) then
-       indices(1)=indices(l-1)
-       indices(l-1)=ip1        
-       call dpquicksort(array,indices(1:l-2))
-    endif
-    call dpquicksort(array,indices(l:g-1))
-    if (g.lt.last) then
-       indices(last)=indices(g)
-       indices(g)=ip2
-       call dpquicksort(array,indices(g+1:last))
+   do while(k.lt.g)
+      itemp=indices(k)
+      if (array(itemp).lt.array(ip1)) then
+         indices(k)=indices(l)
+         indices(l)=itemp
+         l=l+1
+      else if (array(itemp).gt.array(ip2)) then
+         do while(array(indices(g-1)).gt.array(ip2))
+            g=g-1
+         enddo
+         if (k.ge.g) exit
+         g=g-1
+         if (array(indices(g)).lt.array(ip1)) then
+            indices(k)=indices(l)
+            indices(l)=indices(g)
+            indices(g)=itemp
+            l=l+1
+         else
+            indices(k)=indices(g)
+            indices(g)=itemp
+         endif
+      endif
+      k=k+1
+   enddo
+   if (l.gt.2) then
+      indices(1)=indices(l-1)
+      indices(l-1)=ip1
+      call dpquicksort(array,indices(1:l-2))
+   endif
+   call dpquicksort(array,indices(l:g-1))
+   if (g.lt.last) then
+      indices(last)=indices(g)
+      indices(g)=ip2
+      call dpquicksort(array,indices(g+1:last))
    endif
    end subroutine dpquicksort
+   
+      !> dual pivot quicksort indices based on array values
+   recursive subroutine dpquicksort_int(array,indices)
+   integer, intent(inout)           :: array(:)
+   integer, intent(inout)           :: indices(:)
+   integer                          :: ip1,ip2,itemp
+   integer :: i,j,last,l,k,g
+
+   last=size(indices)
+
+   if (last.lt.40) then ! use insertion sort on small arrays
+      do i=2,last
+         itemp=indices(i)
+         do j=i-1,1,-1
+            if (array(indices(j)).le.array(itemp)) exit
+            indices(j+1)=indices(j)
+         enddo
+         indices(j+1)=itemp
+      enddo
+      return
+   endif
+   ip1 = indices(last/3)  ;
+   ip2 = indices(2*last/3);
+
+   if (array(ip2).lt.array(ip1)) then
+      itemp=ip1
+      ip1=ip2
+      ip2=itemp
+   endif
+   indices(last/3)=indices(1)
+   indices(1)=ip1
+   indices(2*last/3)=indices(last)
+   indices(last)=ip2
+
+   g=last
+   l=2
+   do while (array(indices(l)).lt.array(ip1))
+      l=l+1
+   enddo
+   k=l
+
+   do while(k.lt.g)
+      itemp=indices(k)
+      if (array(itemp).lt.array(ip1)) then
+         indices(k)=indices(l)
+         indices(l)=itemp
+         l=l+1
+      else if (array(itemp).gt.array(ip2)) then
+         do while(array(indices(g-1)).gt.array(ip2))
+            g=g-1
+         enddo
+         if (k.ge.g) exit
+         g=g-1
+         if (array(indices(g)).lt.array(ip1)) then
+            indices(k)=indices(l)
+            indices(l)=indices(g)
+            indices(g)=itemp
+            l=l+1
+         else
+            indices(k)=indices(g)
+            indices(g)=itemp
+         endif
+      endif
+      k=k+1
+   enddo
+   if (l.gt.2) then
+      indices(1)=indices(l-1)
+      indices(l-1)=ip1
+      call dpquicksort_int(array,indices(1:l-2))
+   endif
+   call dpquicksort_int(array,indices(l:g-1))
+   if (g.lt.last) then
+      indices(last)=indices(g)
+      indices(g)=ip2
+      call dpquicksort_int(array,indices(g+1:last))
+   endif
+   end subroutine dpquicksort_int
    
 end module m_CrossSections
