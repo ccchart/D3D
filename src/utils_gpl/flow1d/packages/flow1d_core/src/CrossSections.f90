@@ -987,7 +987,7 @@ subroutine  useBranchOrdersCrs(crs, brs)
    F2 = min(maxBranchId,maxBranchOrder)*maxChainage
    F1 = max(maxBranchId,maxBranchOrder)*F2
    
-   allocate(crsData(crsCount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
+   allocate(crsData(crsCount),crs%crossSectionIndex(crscount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
    do ics = 1, crsCount
       crsIndices(ics) = ics
       ibr = crs%cross(ics)%branchid
@@ -1004,6 +1004,7 @@ subroutine  useBranchOrdersCrs(crs, brs)
    
    do ics = 1, crsCount !copy data to temp array
       tempset%cross(ics) = crs%cross(crsIndices(ics))
+      crs%crossSectionIndex(crsIndices(ics)) = ics
    enddo
    crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
