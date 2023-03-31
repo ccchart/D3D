@@ -954,7 +954,7 @@ end subroutine interpolateWidths
 !! branch1: #---C---*------*------*---C---#----------C                                  \n
 !! branch2:                           C---#------*---C---*------*------*------*---C---# \n
 !! As a result the interpolation can be restricted to a branch
-subroutine useBranchOrdersCrs(crs, brs)
+subroutine  useBranchOrdersCrs(crs, brs)
    ! modules
    use messageHandling
 
@@ -979,7 +979,6 @@ subroutine useBranchOrdersCrs(crs, brs)
    crsCount = crs%count
    tempset%count = crsCount
    call reallocCrossSections(tempset)
-   allocate(crsData(crsCount),crsIndices(crsCount),orderNumber(crsCount+2,2))
    
    maxBranchId    = max(1,maxval(crs%cross(:)%branchId))
    maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
@@ -987,7 +986,8 @@ subroutine useBranchOrdersCrs(crs, brs)
    
    F2 = min(maxBranchId,maxBranchOrder)*maxChainage
    F1 = max(maxBranchId,maxBranchOrder)*F2
-      
+   
+   allocate(crsData(crsCount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
    do ics = 1, crsCount
       crsIndices(ics) = ics
       ibr = crs%cross(ics)%branchid
@@ -1008,14 +1008,19 @@ subroutine useBranchOrdersCrs(crs, brs)
    crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
    minordernumber = -1
+   ordernumbercount = 1
+   orderNumber(1,1) = -1
+   orderNumber(1,2) = 1
    do ics = 1, crsCount
       cross = crs%cross(ics)
-      minOrderNumber = max(minOrderNumber,getOrderNumber(brs, crs%cross(ics)%branchid))
       if (ics > 1) then
          if ( crs%cross(ics)%branchid > 0 .and. (crs%cross(ics-1)%branchid == crs%cross(ics)%branchid) .and. (crs%cross(ics-1)%chainage == crs%cross(ics)%chainage) ) then
             msgbuf = 'Cross section ''' // trim(crs%cross(ics-1)%csid) // ''' and ''' // trim(crs%cross(ics)%csid) // ''' are exactly at the same location.'
             call err_flush()
          endif
+      endif
+      if (crs%cross(ics)%branchid > 0) then
+      minOrderNumber = max(minOrderNumber,getOrderNumber(brs, crs%cross(ics)%branchid))
       endif
       if (orderNumber(orderNumberCount,1) /= minOrderNumber) then
          orderNumberCount = orderNumberCount + 1
