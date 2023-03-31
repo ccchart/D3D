@@ -988,6 +988,8 @@ subroutine  useBranchOrdersCrs(crs, brs)
    F1 = max(maxBranchId,maxBranchOrder)*F2
    
    allocate(crsData(crsCount),crs%crossSectionIndex(crscount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
+   ! We want to sort the array on branchid, followed by order number and finally by chainage.
+   ! To this end we multiply branch id by F1 and branch order by F2 to be able to sort them all at once
    do ics = 1, crsCount
       crsIndices(ics) = ics
       ibr = crs%cross(ics)%branchid
@@ -1008,6 +1010,7 @@ subroutine  useBranchOrdersCrs(crs, brs)
    enddo
    crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
+   !check for multiple crossSections on a branch and fill OrderNumber array
    minordernumber = -1
    ordernumbercount = 1
    orderNumber(1,1) = -1
@@ -1061,66 +1064,6 @@ subroutine  useBranchOrdersCrs(crs, brs)
          ics = ics +1
       enddo
    enddo
-   
-   !! second sort with BranchOrders first
-   !do ics = 1, crsCount
-   !   crsIndices(ics) = ics
-   !   ibr = crs%cross(ics)%branchid
-   !   currentOrder = getOrderNumber(brs, ibr)
-   !   if (ibr <= 0) then ! crs without branch first
-   !      crsData(ics) = crs%cross(ics)%chainage
-   !   else if (currentOrder <= 0) then
-   !      crsData(ics) = crs%cross(ics)%branchid*F2 + crs%cross(ics)%chainage
-   !   else   
-   !      crsData(ics) = currentOrder*F1 + crs%cross(ics)%branchid*F2 + crs%cross(ics)%chainage
-   !   endif
-   !enddo
-   !
-   !call dpquicksort(crsData,crsIndices)
-   !
-   !do ics = 1, crsCount !copy data to temp array
-   !   orderNumber(ics,2) = getOrderNumber(brs, crs%cross(crsIndices(ics))%branchid)
-   !   ordernumber(ics,1) = crsIndices(ics)
-   !enddo
-   !orderNumber(orderNumberCount+1,1) = -999
-   !orderNumber(orderNumberCount+1,2) = crsCount+1
-   !! Now check all cross sections on branches of the same order (-1 orders can be skipped)
-   !currentorder = 0
-   !ibr = 0
-   !do i = 1, crsCount
-   !   ics = orderNumber(i,1)
-   !   iorder = orderNumber(i,2)
-   !   !ics = orderNumber(iorder, 2)
-   !   !do while (ics < orderNumber(iorder+1,2) )
-   !   if (iorder > 0 .and. (iorder > currentorder .or. crs%cross(ics)%branchid /= ibr)) then
-   !      ! ics is now the first cross section on the branch
-   !      ibr = crs%cross(ics)%branchid
-   !      currentorder = iorder
-   !      ! because crs%cross can be reallocated a copy of the cross section has to be made
-   !      cross = crs%cross(ics)
-   !      cross%IsCopy = .true.
-   !      call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .true., orderNumber, orderNumberCount)
-   !   else if (currentorder > 0 .and. i < crscount .and. iorder == currentorder .and. crs%cross(orderNumber(i+1,1))%branchid /= ibr) then
-   !      
-   !      ! find last cross section on branch
-   !      !do while (ics < crs%count .and. crs%cross(ics+1)%branchid == ibr)
-   !      !   ics = ics+1
-   !      !enddo
-   !      !! The last cross section in CRS is the last cross section on a branch
-   !      !if (ics < crs%count) then
-   !      !   if (crs%cross(ics+1)%branchid == ibr) then
-   !      !      ics = ics +1
-   !      !   endif
-   !      !endif
-   !      
-   !      ! because crs%cross can be reallocated a copy of the cross section has to be made
-   !      cross = crs%cross(ics)
-   !      cross%IsCopy = .true.
-   !      call findNeighbourAndAddCrossSection(brs, crs, ibr, cross, cross%chainage, .false., orderNumber, orderNumberCount)
-   !      ics = ics +1
-   !   endif
-   !enddo
-   
    deallocate(orderNumber, crsData, crsIndices)
 
 end subroutine useBranchOrdersCrs
