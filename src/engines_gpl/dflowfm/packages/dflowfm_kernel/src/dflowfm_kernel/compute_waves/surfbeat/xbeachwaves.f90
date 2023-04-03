@@ -4448,7 +4448,7 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
    !
    do itheta=1,ntheta
       where(gammax_correct)
-         eestat(:,itheta)=eestat(:,itheta)/(Hstat/(gammaxxb*hhstat))**2
+         eestat(itheta,:)=eestat(itheta,:)/(Hstat/(gammaxxb*hhstat))**2
       endwhere
    enddo
    !
@@ -4511,7 +4511,7 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
       call corner2flownod(kwavstat, numk, kwav, ndxi, ndx, .false., ierr)
       !
       do itheta = 1, ntheta
-         costemp = eestat(:,itheta)  ! stack
+         costemp = eestat(itheta,:)  ! stack
          call corner2flownod(costemp, numk, costemp2, ndxi, ndx, .false., ierr)
          ee1(itheta,:) = costemp2
       enddo
@@ -4656,6 +4656,8 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                                       hh,kwav,cg,ctheta,fw,T,dt,rho,alfa,gamma,hmin,                 &
                                       H,Dw,Df,thetam,uorb,ee)
    
+   use m_partitioninfo
+
    implicit none
 
    ! In/output variables and arrays
@@ -4686,7 +4688,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    real*8, dimension(mn), intent(out)         :: Df                     ! wave friction dissipation
    real*8, dimension(mn), intent(out)         :: thetam                 ! mean wave direction
    real*8, dimension(mn), intent(out)         :: uorb                   ! orbital velocity
-   real*8, dimension(mn,ntheta), intent(out)  :: ee                     ! wave energy distribution
+   real*8, dimension(ntheta,mn), intent(out)  :: ee                     ! wave energy distribution
 
    ! Local variables and arrays
    integer, dimension(:), allocatable         :: ok                     ! mask for fully iterated points
@@ -4702,10 +4704,12 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    real*8, dimension(:), allocatable          :: E                      ! mean wave energy
    real*8, dimension(:), allocatable          :: diff                   ! maximum difference of wave energy relative to previous iteration
    real*8, dimension(:), allocatable          :: ra                     ! coordinate in sweep direction
+   real*8, dimension(:), allocatable          :: mpiok
    integer, dimension(4)                      :: shift
    integer                                    :: iter
    integer                                    :: count
    integer                                    :: itheta
+   integer                                    :: ierr
    real*8                                     :: percok
    real*8                                     :: error
    real*8,parameter                           :: pi=4.d0*atan(1.d0)
@@ -4716,7 +4720,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    ! Allocate local arrays
    allocate(ok(mn))
    allocate(indx(mn,4))
-   allocate(eeold(mn,ntheta)); eeold=0d0
+   allocate(eeold(ntheta,mn)); eeold=0d0
    allocate(dee(mn,ntheta)); dee=0d0
    allocate(eeprev(ntheta)); eeprev=0d0
    allocate(cgprev(ntheta)); cgprev=0d0
@@ -4728,6 +4732,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    allocate(E(mn)); E=0d0
    allocate(diff(mn)); diff=0d0
    allocate(ra(mn)); ra=0d0
+   allocate(mpiok(mn)); mpiok=0d0
 
    ok=0
    indx=0
@@ -4746,7 +4751,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    ! Boundary condition at sea side
    do i=1,noseapts
       k=seapts(i)
-      ee(k,:)=ee0(k,:)
+      ee(:,k)=ee0(k,:)
    enddo
    !
    ! Start iteration
@@ -4768,20 +4773,20 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                   do itheta=1,ntheta
                      k1=prev(k,itheta,1)
                      k2=prev(k,itheta,2)
-                     eeprev(itheta)=w(k,itheta,1)*ee(k1,itheta)+w(k,itheta,2)*ee(k2,itheta)
+                     eeprev(itheta)=w(k,itheta,1)*ee(itheta,k1)+w(k,itheta,2)*ee(itheta,k2)
                      cgprev(itheta)=w(k,itheta,1)*cg(k1)+w(k,itheta,2)*cg(k2)
                   enddo
                   do itheta=2,ntheta-1
                      A(k,itheta)=-ctheta(k,itheta-1)/2/dtheta
                      B(k,itheta)=1/dt+cg(k)/ds(k,itheta)+DoverE(k)
                      C(k,itheta)=ctheta(k,itheta+1)/2/dtheta
-                     R(k,itheta)=ee(k,itheta)/dt+cgprev(itheta)*eeprev(itheta)/ds(k,itheta)
+                     R(k,itheta)=ee(itheta,k)/dt+cgprev(itheta)*eeprev(itheta)/ds(k,itheta)
                   enddo
                   if (ctheta(k,1)<0) then
                      A(k,1)=0.d0
                      B(k,1)=1/dt-ctheta(k,1)/dtheta+cg(k)/ds(k,1)+DoverE(k)
                      C(k,1)=ctheta(k,2)/dtheta
-                     R(k,1)=ee(k,1)/dt+cgprev(itheta)*eeprev(1)/ds(k,1)
+                     R(k,1)=ee(1,k)/dt+cgprev(itheta)*eeprev(1)/ds(k,1)
                   else
                      A(k,1)=0.d0
                      B(k,1)=1.d0/dt
@@ -4792,7 +4797,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                      A(k,ntheta)=-ctheta(k,ntheta-1)/dtheta
                      B(k,ntheta)=1/dt+ctheta(k,ntheta)/dtheta+cg(k)/ds(k,ntheta)+DoverE(k)
                      C(k,ntheta)=0d0
-                     R(k,ntheta)=ee(k,ntheta)/dt+cgprev(itheta)*eeprev(ntheta)/ds(k,ntheta)
+                     R(k,ntheta)=ee(ntheta,k)/dt+cgprev(itheta)*eeprev(ntheta)/ds(k,ntheta)
                   else
                      A(k,ntheta)=0.d0
                      B(k,ntheta)=1.d0/dt
@@ -4800,9 +4805,9 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                      R(k,ntheta)=0.d0
                   endif
                   ! Solve tridiagonal system per point
-                  call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(k,:),ntheta)
-                  ee(k,:)=max(ee(k,:),0.d0)
-                  E(k)=sum(ee(k,:))*dtheta
+                  call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(:,k),ntheta)
+                  ee(:,k)=max(ee(:,k),0.d0)
+                  E(k)=sum(ee(:,k))*dtheta
                   H(k)=sqrt(8*E(k)/rho/g)
                   H(k)=min(H(k),gamma*hh(k))
                   E(k)=0.125d0*rho*g*H(k)**2
@@ -4814,36 +4819,47 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                      B(k,itheta)=1/dt+cg(k)/ds(k,itheta)+DoverE(k)
                   enddo
                   ! Solve tridiagonal system per point
-                  call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(k,:),ntheta)
-                  ee(k,:)=max(ee(k,:),0.d0)
+                  call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(:,k),ntheta)
+                  ee(:,k)=max(ee(:,k),0.d0)
                endif
             else
-               ee(k,:)=0d0
+               ee(:,k)=0d0
             endif
             if (neumannconnected(k)/=0) then
-                ee(neumannconnected(k),:)=ee(k,:)
+                ee(:,neumannconnected(k))=ee(:,k)
             endif            
          endif
       enddo
+      !
+      !if ( jampi.eq.1 ) then
+      !   call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
+      !   call update_ghosts(ITYPE_CN, ntheta, mn, eeold, ierr)
+      !end if
       !      
       do k=1,mn
          ! Compute directionally integrated parameters
-         ee(k,:)=max(ee(k,:),0.d0)
-         E(k)=sum(ee(k,:))*dtheta
+         ee(:,k)=max(ee(:,k),0.d0)
+         E(k)=sum(ee(:,k))*dtheta
          H(k)=sqrt(8*E(k)/rho/g)
          call baldock(g,rho,alfa,gamma,kwav(k),hh(k),H(k),T,1,Dw(k))
          uorb(k)=pi*H(k)/T/sinh(min(kwav(k)*hh(k),10d0))
          Df(k)=0.28d0*rho*fw(k)*uorb(k)**3
          DoverE(k)=(1.d0-fac)*DoverE(k)+fac*(Dw(k)+Df(k))/max(E(k),1.d-6)
-         thetam(k)=atan2(sum(ee(k,:)*sin(theta)),sum(ee(k,:)*cos(theta)))
+         thetam(k)=atan2(sum(ee(:,k)*sin(theta)),sum(ee(:,k)*cos(theta)))
       enddo
       if (sweep==4) then
          ! Check convergence after all 4 sweeps
          do k=1,mn
-            dee(k,:)=ee(k,:)-eeold(k,:)
+            dee(k,:)=ee(:,k)-eeold(:,k)
             diff(k)=maxval(abs(dee(k,:)))
             if (diff(k)/eemax<crit) ok(k)=1
          enddo
+         if ( jampi.eq.1 ) then
+            call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
+            mpiok = ok
+            call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
+            ok=int(mpiok)
+         end if
          ! Percentage of converged points
          percok=sum(ok)/dble(mn)*100.d0;
          eemax=maxval(ee)
@@ -5564,8 +5580,8 @@ subroutine fill_connected_nodes(ierr)
       call aerr('cstat  (numk)', ierr, numk)
       call realloc(cthetastat, (/numk,ntheta_local/), stat=ierr, keepExisting = .false., fill = 0d0)
       call aerr('cthetastat  (numk,ntheta_local)', ierr, numk*ntheta_local)
-      call realloc(eestat, (/numk,ntheta_local/), stat=ierr, keepExisting = .false., fill = 0d0)
-      call aerr('eestat  (numk,ntheta_local)', ierr, numk*ntheta_local)        
+      call realloc(eestat, (/ntheta_local,numk/), stat=ierr, keepExisting = .false., fill = 0d0)
+      call aerr('eestat  (ntheta_local,numk)', ierr, numk*ntheta_local)        
       call realloc(fwstat, numk, stat=ierr, keepExisting = .false., fill = 0d0)
       call aerr('fwstat  (numk)', ierr, numk)  
       call realloc(Hstat, numk, stat=ierr, keepExisting = .false., fill = 0d0)
