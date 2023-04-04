@@ -41,8 +41,12 @@ if !ERRORLEVEL! NEQ 0 exit /B %~1
 call :vcvarsall
 if !ERRORLEVEL! NEQ 0 exit /B %~1
 
+set starttime=%time%
 call :DoCMake !config!
 if !ERRORLEVEL! NEQ 0 exit /B %~1
+set endtime=%time%
+echo "CMake"
+call :PrintDuration
 
 if "!config!" == "dflowfm_interacter" call :set_dflowfm_interacter_link_flag
 if !ERRORLEVEL! NEQ 0 exit /B %~1
@@ -50,11 +54,20 @@ if !ERRORLEVEL! NEQ 0 exit /B %~1
 if !coverage! EQU 1 call :insertCoverage !config!
 if !ERRORLEVEL! NEQ 0 exit /B %~1
 
+set starttime=%time%
 call :Build !config!
 if !ERRORLEVEL! NEQ 0 exit /B %~1
+set endtime=%time%
+echo "Build"
+call :PrintDuration
+set starttime=%time%
 
 call :installall
 if !ERRORLEVEL! NEQ 0 exit /B %~1
+set endtime=%time%
+echo "Install"
+call :PrintDuration
+set starttime=%time%
 
 echo.
 echo Visual Studio sln-files:
@@ -67,21 +80,39 @@ echo Tests     : %root%\build_tests\tests.sln
 echo Delft3D4  : %root%\build_delft3d4\delft3d4.sln
 echo.
 echo Finished
+
+
+
 goto :end
-
-
-
-
-
-
-
-
 
 
 rem ===
 rem === PROCEDURES
 rem ===
 
+:PrintDuration
+
+FOR /F "tokens=1-4 delims=:.," %%a IN ("%STARTTIME%") DO (
+   SET /A "start=(((%%a*60)+1%%b %% 100)*60+1%%c %% 100)*100+1%%d %% 100"
+)
+
+FOR /F "tokens=1-4 delims=:.," %%a IN ("%ENDTIME%") DO (
+   SET /A "end=(((%%a*60)+1%%b %% 100)*60+1%%c %% 100)*100+1%%d %% 100"
+)
+
+REM Calculate the elapsed time by subtracting values
+SET /A elapsed=end-start
+
+REM Format the results for output
+SET /A hh=elapsed/(60*60*100), rest=elapsed%%(60*60*100), mm=rest/(60*100), rest%%=60*100, ss=rest/100, cc=rest%%100
+IF %hh% lss 10 SET hh=0%hh%
+IF %mm% lss 10 SET mm=0%mm%
+IF %ss% lss 10 SET ss=0%ss%
+IF %cc% lss 10 SET cc=0%cc%
+SET DURATION=%hh%:%mm%:%ss%,%cc%
+
+echo Duration : %DURATION%
+goto :endproc
 
 
 rem =================================
