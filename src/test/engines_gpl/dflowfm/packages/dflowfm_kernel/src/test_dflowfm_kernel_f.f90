@@ -31,7 +31,7 @@ program test_dflowfm_kernel
     use test_MDU_File_Version
     use test_storage_nodes
     use test_1d_grid
-    
+    use test_statistical_output
     implicit none
     
     call prepareTests
@@ -40,6 +40,7 @@ program test_dflowfm_kernel
     !
     ! Tests for ZOEK.F
     !
+    call tests_statistical_output
     call tests_roughness
     call tests_cross_sections
     call tests_observations
