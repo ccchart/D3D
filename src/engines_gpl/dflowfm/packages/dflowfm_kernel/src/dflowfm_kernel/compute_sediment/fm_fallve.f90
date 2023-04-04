@@ -143,23 +143,6 @@
    !
    allocate (localpar (npar), stat = istat)
 
-   ! calculate mean velocity in nodes
-   if (kmx>0) then                       ! 3D
-      um = 0d0; vm = 0d0
-      do k = 1, ndx
-         h0 = max(s1(k)-bl(k), epshs)
-         call getkbotktop(k, kb, kt)
-         do kk = kb, kt
-            thick = zws(kk) - zws(kk-1)
-            um(k) = um(k) + thick/h0*ucxq_mor(kk)
-            vm(k) = vm(k) + thick/h0*ucyq_mor(kk)
-         end do
-      end do
-   else
-      um   = ucxq_mor                       ! discharge based velocities
-      vm   = ucyq_mor
-   end if
-
    ! Calculate roughness height at cell centres
    do L=1,lnx
       k1=ln(1,L); k2=ln(2,L)
@@ -167,13 +150,12 @@
       z0rou(k2) = z0rou(k2) + wcl(2,L)*z0urou(L)
    end do
 
-      do k = 1, ndx
-         if (s1(k)-bl(k)<epshs) cycle
-         !
-         h0 = s1(k)-bl(k)
-         !chezy = sag * log( 1.0d0 + h0/max(1d-5,ee*z0rou(k)) ) / vonkar
-         chezy = sag * log(h0/ee/max(epsz0,z0rou(k)) ) / vonkar                       ! consistency with getczz0
-         !
+   do k = 1, ndx
+      if (s1(k)-bl(k)<epshs) cycle
+      !
+      h0 = s1(k)-bl(k)
+      chezy = sag * log(h0/ee/max(epsz0,z0rou(k)) ) / vonkar                       ! consistency with getczz0
+      !
       ! compute depth-averaged velocities
       !
       if (kmx>0) then ! 3D
@@ -190,55 +172,55 @@
          vm = ucyq(k)
       end if
       !
-         ! loop over the interfaces in the vertical
-         !
-         if (kmx > 0) then                ! 3D
-            call getkbotktop(k, kb, kt)
+      ! loop over the interfaces in the vertical
+      !
+      if (kmx > 0) then                ! 3D
+         call getkbotktop(k, kb, kt)
       else ! 2D
          kb = k
          kt = k+1
       endif
       !
-            do kk = kb, kt-1
-               ! HK: is this better than first establish fallvelocity in a cell, next interpolate to interfaces?
+      do kk = kb, kt-1
+         ! HK: is this better than first establish fallvelocity in a cell, next interpolate to interfaces?
 
          if (kmx > 0) then ! 3D
-               tka = zws(kk+1) - zws(kk) ! thickness above
-               tkb = zws(kk) - zws(kk-1)   ! thickness below
-               tkt = tka+tkb
-               if (jasal > 0) then
-                  salint = max(0.0_fp, (tka*constituents(isalt,kk+1) + tkb*constituents(isalt,kk)  ) / tkt )
-               else
-                  salint = backgroundsalinity
-               endif
-               !                !
-               if (jatem > 0) then
-                  temint =             (tka*constituents(itemp,kk+1) + tkb*constituents(itemp,kk)  ) / tkt
-               else
-                  temint = backgroundwatertemperature
-               endif
-               !
-               rhoint = (tka*rhowat(kk+1) + tkb*rhowat(kk)) / tkt
-               !
-               u = (tka*ucx_mor(kk+1)+tkb*ucx_mor(kk)) / tkt   ! x component
-               v = (tka*ucy_mor(kk+1)+tkb*ucy_mor(kk)) / tkt   ! y component
-               w = (tka*ucz(kk+1)+tkb*ucz(kk)) / tkt   ! z component
+            tka = zws(kk+1) - zws(kk) ! thickness above
+            tkb = zws(kk) - zws(kk-1)   ! thickness below
+            tkt = tka+tkb
+            if (jasal > 0) then
+               salint = max(0.0_fp, (tka*constituents(isalt,kk+1) + tkb*constituents(isalt,kk)  ) / tkt )
+            else
+               salint = backgroundsalinity
+            endif
+            !                !
+            if (jatem > 0) then
+               temint =             (tka*constituents(itemp,kk+1) + tkb*constituents(itemp,kk)  ) / tkt
+            else
+               temint = backgroundwatertemperature
+            endif
             !
-               if (iturbulencemodel == 3) then     ! k-eps
-                  tur_k = turkinepsws(1,kk)
-               else
-                  tur_k = -999.0d0
-               endif
-               if (iturbulencemodel == 3) then
-                  tur_eps = turkinepsws(2,kk)
-               else
-                  tur_eps = -999.0d0
-               endif
+            rhoint = (tka*rhowat(kk+1) + tkb*rhowat(kk)) / tkt
+            !
+            u = (tka*ucx_mor(kk+1)+tkb*ucx_mor(kk)) / tkt   ! x component
+            v = (tka*ucy_mor(kk+1)+tkb*ucy_mor(kk)) / tkt   ! y component
+            w = (tka*ucz(kk+1)+tkb*ucz(kk)) / tkt   ! z component
+            
+            if (iturbulencemodel == 3) then     ! k-eps
+               tur_k = turkinepsws(1,kk)
+            else
+               tur_k = -999.0d0
+            endif
+            if (iturbulencemodel == 3) then
+               tur_eps = turkinepsws(2,kk)
+            else
+               tur_eps = -999.0d0
+            endif
             if (iturbulencemodel == 3) then ! k-eps
                call get_tshear_tdiss( tshear, tur_eps, 3, 2, tke = tur_k )
-               else
+            else
                call get_tshear_tdiss( tshear, tur_eps, 3, 0, taub = taub(k), rho_water = rhoint, waterdepth = h0, localdepth = s1(k) - zws(kk))
-               endif
+            endif
             
          else                           ! 2D
             if (jasal > 0) then
@@ -263,7 +245,7 @@
             tur_eps = -999d0
             call get_tshear_tdiss( tshear, tur_eps, 2, taub = taub(k), rho_water = rhoint, waterdepth = h0 )
          endif
-            !
+         !
          ctot = 0d0
          cclay = 0d0
          do ll = 1, lsed
@@ -338,7 +320,7 @@
                call write_error(errmsg, unit=mdia)
                error = .true.
                return
-            endif
+            end if
             !
             ws(kk, ll) = wsloc
          end do ! ll
@@ -347,8 +329,8 @@
          do ll = 1, lsed 
             ws(kb-1,ll) = ws(kb,ll)     ! to check
          end do ! ll
-      endif
-      enddo        ! k
+      end if
+   end do        ! k
 
    deallocate (localpar, stat = istat)
    end subroutine fm_fallve

@@ -1940,7 +1940,6 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
     integer                                                :: istat
     integer                                                :: j
     integer                                                :: lsedbl        !< Number of bedload fractions
-    integer         , dimension(:) , allocatable           :: typsedim      !< Type of the sediments
     integer                                                :: sedtypnr      !< Local sediment type number
     integer                                                :: tratypnr      !< Local transport type number
     integer         , dimension(:) , allocatable           :: typsedim      !< Type of the sediments - sorted by order of sediment blocks
