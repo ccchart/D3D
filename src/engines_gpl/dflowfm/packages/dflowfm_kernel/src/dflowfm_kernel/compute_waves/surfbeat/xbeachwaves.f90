@@ -4732,7 +4732,9 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    allocate(E(mn)); E=0d0
    allocate(diff(mn)); diff=0d0
    allocate(ra(mn)); ra=0d0
-   allocate(mpiok(mn)); mpiok=0d0
+   if (jampi>0) then
+      allocate(mpiok(mn)); mpiok=0d0
+   endif
 
    ok=0
    indx=0
@@ -4877,6 +4879,10 @@ end subroutine solve_energy_balance2Dstat
 !
 subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts,inner,neumannconnected,Er,Dr)
 
+   use m_partitioninfo
+
+   implicit none
+
    integer, intent(in)                      :: mn
    real*8, dimension(mn),intent(in)         :: x,y
    integer, dimension(mn,2),intent(in)      :: prev
@@ -4906,17 +4912,22 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    integer, dimension(:), allocatable        :: ok
    real*8, dimension(:), allocatable         :: ra
    real*8, dimension(:), allocatable         :: F
+   real*8, dimension(:), allocatable         :: mpiok
    integer, dimension(:,:),allocatable       :: indx
-   integer                                   :: niter=200,sweep,k,iter,count,k1,k2
+   integer                                   :: niter=200,sweep,k,iter,count,k1,k2, ierr
    real*8                                    :: tloc, t0,t1,t2
    real*8                                    :: Afac, Bfac,Cfac,Drst,percok
    real*8                                    :: x1,x2,xk,y1,y2,yk
    real*8                                    :: costh1,costh2,costhk,sinth1,sinth2,sinthk
+   real*8                                    :: dtol
    
    allocate(ok(mn))
    allocate(ra(mn))
    allocate(indx(mn,4))
    allocate(F(mn))
+   if (jampi>0) then
+      allocate(mpiok(mn)); mpiok = 0d0
+   endif
    
    pi=4d0*atan(1.d0)
    g=9.81d0
@@ -4995,8 +5006,14 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
              ok(k)=1
          endif
       enddo
-      percok=sum(ok)/dble(mn)*100.d0
       if (sweep==4) then
+         if ( jampi.eq.1 ) then
+            call update_ghosts(ITYPE_CN, 1, mn, Er, ierr)
+            mpiok = ok
+            call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
+            ok=int(mpiok)
+         end if
+         percok=sum(ok)/dble(mn)*100.d0
          write(*,*)'iteration: ',iter/4,'   % ok: ',percok
       endif
       if (percok>99 .and. iter>4) then
