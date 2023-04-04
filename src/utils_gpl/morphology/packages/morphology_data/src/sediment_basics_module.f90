@@ -39,9 +39,20 @@ private
 !
 ! public parameters
 !
-public SEDTYP_NONCOHESIVE_TOTALLOAD
-public SEDTYP_NONCOHESIVE_SUSPENDED
-public SEDTYP_COHESIVE
+! public SEDTYP_NONCOHESIVE_TOTALLOAD -> SEDTYP_SAND, TRA_BEDLOAD
+! public SEDTYP_NONCOHESIVE_SUSPENDED -> SEDTYP_SAND, TRA_COMBINE
+! public SEDTYP_COHESIVE -> SEDTYP_CLAY, TRA_ADVDIFF
+
+public SEDTYP_GRAVEL
+public SEDTYP_SAND
+public SEDTYP_SILT
+public SEDTYP_CLAY
+
+public TRA_NONE     ! no transpor method given
+public TRA_BEDLOAD  ! transport given by an algebraic expression (typically bed load or total load)
+public TRA_ADVDIFF  ! transport determined via advection diffusion equation
+public TRA_COMBINE  ! transport determined via algebraic expression plus advection diffusion equation
+
 public lognormal
 public ilognormal
 
@@ -50,9 +61,15 @@ public dsilt
 public dsand
 public dgravel
 
-integer, parameter :: SEDTYP_NONCOHESIVE_TOTALLOAD = 0
-integer, parameter :: SEDTYP_NONCOHESIVE_SUSPENDED = 1
-integer, parameter :: SEDTYP_COHESIVE              = 2
+integer, parameter :: SEDTYP_CLAY   = 1
+integer, parameter :: SEDTYP_SILT   = 2
+integer, parameter :: SEDTYP_SAND   = 3
+integer, parameter :: SEDTYP_GRAVEL = 4
+
+integer, parameter :: TRA_NONE    = 0
+integer, parameter :: TRA_BEDLOAD = 1
+integer, parameter :: TRA_ADVDIFF = 2
+integer, parameter :: TRA_COMBINE = TRA_BEDLOAD + TRA_ADVDIFF
 
 !
 ! sqrt(2)*erfinv(P/50-1) for P = 1:99

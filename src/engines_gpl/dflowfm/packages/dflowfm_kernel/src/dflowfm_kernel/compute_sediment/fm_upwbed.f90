@@ -37,7 +37,7 @@
    use unstruc_messages
    use m_sediment, only: stmpar, jabndtreatment  
    use sediment_basics_module
-   use m_fm_erosed, only: link1, link1sign, kfsed
+   use m_fm_erosed, only: link1, link1sign, tratyp, kfsed
    implicit none
 
    integer,                                  intent(in)  :: lsedtot        !< number of sediment fractions
@@ -72,7 +72,7 @@
          k2 = ln(2,Lf)
                   
          do l=1,lsedtot
-            if (stmpar%sedpar%sedtyp(l) == SEDTYP_COHESIVE) cycle   ! conform with d3d
+            if (.not.btest(tratyp(l), TRA_BEDLOAD)) cycle   ! cycle if this fraction doesn't include bedload
             !
             ! check for active sediment cell
             if (kfsed(k1)*kfsed(k2)==0) then

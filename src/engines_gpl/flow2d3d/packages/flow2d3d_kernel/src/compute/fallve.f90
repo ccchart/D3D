@@ -1,11 +1,11 @@
 subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
-                & kcs       ,kfs       ,aak       ,u0        ,v0        , &
+                & kcs       ,kfs       ,u0        ,v0        , &
                 & wphy      ,r0        ,rtur0     ,ltur      ,thick     , &
                 & saleqs    ,temeqs    ,rhowat    ,ws        , &
                 & icx       ,icy       ,lundia    ,dps       ,s0        , &
                 & umean     ,vmean     ,z0urou    ,z0vrou    ,kfu       , &
                 & kfv       ,zmodel    ,kfsmx0    ,kfsmn0    ,dzs0      , &
-                & lstsci    ,gdp       )
+                & taubmx    ,lstsci    ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2023.                                
@@ -47,7 +47,9 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
 !!--declarations----------------------------------------------------------------
     use precision
     use mathconsts, only: ee
+    use sediment_basics_module, only: SEDTYP_CLAY
     use morphology_data_module
+    use flocculation, only: get_tshear_tdiss
     use globaldata
     !
     implicit none
@@ -65,6 +67,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)         , dimension(:,:)  , pointer :: dss
     real(fp)           , dimension(:)  , pointer :: sedd50
     real(fp)           , dimension(:)  , pointer :: sedd50fld
+    integer            , dimension(:)  , pointer :: sedtyp
     !
     real(fp)                           , pointer :: timsec
     !
@@ -102,7 +105,6 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     logical                                                 , intent(in)  :: zmodel !  Description and declaration in procs.igs
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: dzs0   !  Description and declaration in rjdim.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax, lsed)            :: ws     !  Description and declaration in esm_alloc_real.f90
-    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, 1:kmax)                  :: aak    !!  Internal work array
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: rhowat !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: u0     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: v0     !  Description and declaration in esm_alloc_real.f90
@@ -111,6 +113,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub,0:kmax,ltur), intent(in)  :: rtur0  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: s0     !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: taubmx !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: umean  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: vmean  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: z0urou !  Description and declaration in esm_alloc_real.f90
@@ -137,7 +140,9 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     integer                     :: nmd
     integer                     :: m
     logical                     :: error
+    real(fp)                    :: cclay
     real(fp)                    :: chezy
+    real(fp)                    :: ctot
     real(fp)                    :: h0
     real(fp)                    :: kn
     real(fp)                    :: rhoint
@@ -147,6 +152,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)                    :: tka
     real(fp)                    :: tkb
     real(fp)                    :: tkt
+    real(fp)                    :: tshear
     real(fp)                    :: tur_eps
     real(fp)                    :: tur_k
     real(fp)                    :: u
@@ -170,6 +176,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     dss                 => gdp%gdsedpar%dss
     sedd50              => gdp%gdsedpar%sedd50
     sedd50fld           => gdp%gdsedpar%sedd50fld
+    sedtyp              => gdp%gdsedpar%sedtyp
     !
     timsec              => gdp%gdinttim%timsec
     !
@@ -189,118 +196,116 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     allocate (localpar (gdp%gdtrapar%npar), stat = istat)
     !
     error = .false.
-    aak   = 0.0_fp
     lst   = max(lsal, ltem)
-    do l = 1, lsed
-       ll = lst + l
-       !
-       ! bulk mass concentration
-       !
-       if (.not. zmodel) then
-          do k = 1, kmax
-             do nm = 1, nmmax
-                if (kfs(nm)==1 .and. kcs(nm)<=2) then
-                   aak(nm, k) = aak(nm, k) + r0(nm, k, ll)
-                endif
-             enddo
-          enddo
-       else
-          do nm = 1, nmmax
-             if (kfs(nm)==1 .and. kcs(nm)<=2) then
-                do k = kfsmn0(nm), kfsmx0(nm)
-                   aak(nm, k) = aak(nm, k) + r0(nm, k, ll)
-                enddo
-             endif
-          enddo
-       endif
-    enddo
     !
     sag = sqrt(ag)
     !
-    do l = 1, lsed
-       ll = lst + l
+    do nm = 1, nmmax
+       if (kfs(nm)==0 .or. kcs(nm)>2) cycle
        !
-       do i = 1,gdp%gdtrapar%npar
-          localpar(i) = par_settle(i,l)
-       enddo
+       nmd  = nm - icx
+       ndm  = nm - icy
        !
-       do nm = 1, nmmax
-          if (kfs(nm)==0 .or. kcs(nm)>2) cycle
+       h0 = s0(nm) + real(dps(nm),fp)
+       um = (umean(nm) + umean(nmd))/2.0_fp
+       vm = (vmean(nm) + vmean(ndm))/2.0_fp
+       !
+       ! Calculate total (possibly wave enhanced) roughness
+       !
+       kn    = max(1, kfu(nm) + kfu(nmd) + kfv(nm) + kfv(ndm))
+       z0rou = (  kfu(nmd)*z0urou(nmd) + kfu(nm)*z0urou(nm) &
+             &  + kfv(ndm)*z0vrou(ndm) + kfv(nm)*z0vrou(nm)  )/kn
+       chezy = sag * log( 1.0_fp + h0/max(1.0e-8_fp,ee*z0rou) ) / vonkar
+       !
+       ! loop over the interfaces in the vertical
+       !
+       if (zmodel) then
+           kstart = kfsmn0(nm)-1
+           kend   = kfsmx0(nm)-1
+       else
+           kstart = 1
+           kend   = kmax
+       endif
+       do k = kstart, kend
           !
-          nmd  = nm - icx
-          ndm  = nm - icy
-          !
-          h0 = s0(nm) + real(dps(nm),fp)
-          um = (umean(nm) + umean(nmd))/2.0_fp
-          vm = (vmean(nm) + vmean(ndm))/2.0_fp
-          !
-          ! Calculate total (possibly wave enhanced) roughness
-          !
-          kn    = max(1, kfu(nm) + kfu(nmd) + kfv(nm) + kfv(ndm))
-          z0rou = (  kfu(nmd)*z0urou(nmd) + kfu(nm)*z0urou(nm) &
-                &  + kfv(ndm)*z0vrou(ndm) + kfv(nm)*z0vrou(nm)  )/kn
-          chezy = sag * log( 1.0_fp + h0/max(1.0e-8_fp,ee*z0rou) ) / vonkar
-          !
-          ! loop over the interfaces in the vertical
+          ! define indices kab and kbe pointing to the layer physically ABove and BElow the interface
+          ! The variables ku/kd for up and down have been avoided because we use those for pos/neg k-index
+          ! directions elsewhere in the Delft3D code.
           !
           if (zmodel) then
-              kstart = kfsmn0(nm)-1
-              kend   = kfsmx0(nm)-1
+             kab = k + 1
+             kbe = max(k, kfsmn0(nm))
+             tka = dzs0(nm,kab)
+             tkb = dzs0(nm,kbe)
           else
-              kstart = 1
-              kend   = kmax
+             kab = k
+             kbe = min(k + 1, kmax)
+             tka = thick(kab)
+             tkb = thick(kbe)
           endif
-          do k = kstart, kend
+          tkt = tka + tkb
+          !
+          ! Input parameters are passed via dll_reals/integers/strings-arrays
+          !
+          if (lsal > 0) then
+             salint = max(0.0_fp, (tka*r0(nm, kbe, lsal) + tkb*r0(nm, kab, lsal)  ) / tkt )
+          else
+             salint = saleqs
+          endif
+          !
+          if (ltem > 0) then
+             temint = (  tka*r0(nm, kbe, ltem) + tkb*r0(nm, kab, ltem)  ) / tkt
+          else
+             temint = temeqs
+          endif
+          !
+          rhoint = (tka*rhowat(nm,kbe) + tkb*rhowat(nm,kab)) / tkt
+          !
+          u = (tka*u0(nm ,kbe) + tkb*u0(nm ,kab) + &
+             & tka*u0(nmd,kbe) + tkb*u0(nmd,kab)) / 2.0_fp / tkt
+          v = (tka*v0(nm ,kbe) + tkb*v0(nm ,kab) + &
+             & tka*v0(ndm,kbe) + tkb*v0(ndm,kab)) / 2.0_fp / tkt
+          w = (tka*wphy(nm,kbe) + tkb*wphy(nm,kab)) / tkt
+          !
+          if (ltur>0) then
+             tur_k = rtur0(nm,k,1)
+          else
+             tur_k = -999.0_fp
+          endif
+          if (ltur>1) then
+             tur_eps = rtur0(nm,k,2)
+          else
+             tur_eps = -999.0_fp
+          endif
+          !
+          if (kmax == 0) then ! 2D
+             call get_tshear_tdiss( tshear, tur_eps, 2, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0 )
+          elseif (ltur == 0) then ! algebraic
+             ! ldepth = sum(thick above interface) or sig*h0
+             !call get_tshear_tdiss( tshear, tur_eps, 3, 0, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0, localdepth = ldepth)
+             tshear = -999.0_fp
+          elseif (ltur == 1) then ! k-L
+             ! L to be computed using Eq (9.101)
+             !call get_tshear_tdiss( tshear, tur_eps, 3, 1, tke = tur_k, tlength = L)
+             tshear = -999.0_fp
+          else ! k-eps
+             call get_tshear_tdiss( tshear, tur_eps, 3, 2, tke = tur_k )
+          endif
+          !
+          ctot = 0.0_fp
+          cclay = 0.0_fp
+          do l = 1, lsed
+             ll = lst + l
+             ctot = ctot + r0(nm, k, ll)
+             if (sedtyp(l) == SEDTYP_CLAY) cclay = cclay + r0(nm, k, ll)
+          enddo
+          !
+          do l = 1, lsed
+             ll = lst + l
              !
-             ! define indices kab and kbe pointing to the layer physically ABove and BElow the interface
-             ! The variables ku/kd for up and down have been avoided because we use those for pos/neg k-index
-             ! directions elsewhere in the Delft3D code.
-             !
-             if (zmodel) then
-                kab = k + 1
-                kbe = max(k, kfsmn0(nm))
-                tka = dzs0(nm,kab)
-                tkb = dzs0(nm,kbe)
-             else
-                kab = k
-                kbe = min(k + 1, kmax)
-                tka = thick(kab)
-                tkb = thick(kbe)
-             endif
-             tkt = tka + tkb
-             !
-             ! Input parameters are passed via dll_reals/integers/strings-arrays
-             !
-             if (lsal > 0) then
-                salint = max(0.0_fp, (tka*r0(nm, kbe, lsal) + tkb*r0(nm, kab, lsal)  ) / tkt )
-             else
-                salint = saleqs
-             endif
-             !
-             if (ltem > 0) then
-                temint = (  tka*r0(nm, kbe, ltem) + tkb*r0(nm, kab, ltem)  ) / tkt
-             else
-                temint = temeqs
-             endif
-             !
-             rhoint = (tka*rhowat(nm,kbe) + tkb*rhowat(nm,kab)) / tkt
-             !
-             u = (tka*u0(nm ,kbe) + tkb*u0(nm ,kab) + &
-                & tka*u0(nmd,kbe) + tkb*u0(nmd,kab)) / 2.0_fp / tkt
-             v = (tka*v0(nm ,kbe) + tkb*v0(nm ,kab) + &
-                & tka*v0(ndm,kbe) + tkb*v0(ndm,kab)) / 2.0_fp / tkt
-             w = (tka*wphy(nm,kbe) + tkb*wphy(nm,kab)) / tkt
-             !
-             if (ltur>0) then
-                tur_k = rtur0(nm,k,1)
-             else
-                tur_k = -999.0_fp
-             endif
-             if (ltur>1) then
-                tur_eps = rtur0(nm,k,2)
-             else
-                tur_eps = -999.0_fp
-             endif
+             do i = 1,gdp%gdtrapar%npar
+                localpar(i) = par_settle(i,l)
+             enddo
              !
              if (max_reals < WS_MAX_RP) then
                 write(errmsg,'(a,a,a)') 'Insufficient space to pass real values to settling routine.'
@@ -316,7 +321,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              dll_reals(WS_RP_TEMP ) = real(temint ,hp)
              dll_reals(WS_RP_RHOWT) = real(rhoint ,hp)
              dll_reals(WS_RP_CFRCB) = real(r0(nm,kbe,ll),hp)
-             dll_reals(WS_RP_CTOT ) = real(aak(nm,kbe),hp)
+             dll_reals(WS_RP_CTOT ) = real(ctot   ,hp)
              dll_reals(WS_RP_KTUR ) = real(tur_k  ,hp)
              dll_reals(WS_RP_EPTUR) = real(tur_eps,hp)
              if (sedd50(l)<0.0_fp) then
@@ -333,6 +338,8 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              dll_reals(WS_RP_UMEAN) = real(um        ,hp)
              dll_reals(WS_RP_VMEAN) = real(vm        ,hp)
              dll_reals(WS_RP_CHEZY) = real(chezy     ,hp)
+             dll_reals(WS_RP_SHTUR) = real(tshear    ,hp)
+             dll_reals(WS_RP_CCLAY) = real(cclay     ,hp)
              !
              if (max_integers < WS_MAX_IP) then
                 write(errmsg,'(a,a,a)') 'Insufficient space to pass integer values to settling routine.'
@@ -362,8 +369,8 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              if (error) call d3stop(1, gdp)
              !
              ws(nm, k, l) = wsloc
-          enddo     ! k
-       enddo        ! nm
-    enddo           ! l
+          enddo     ! l
+       enddo        ! k
+    enddo           ! nm
     deallocate (localpar, stat = istat)
 end subroutine fallve          
