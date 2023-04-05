@@ -984,8 +984,8 @@ subroutine  useBranchOrdersCrs(crs, brs)
    maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
    maxChainage    = maxval(crs%cross(:)%chainage)
    
-   F2 = min(maxBranchId,maxBranchOrder)*maxChainage
-   F1 = max(maxBranchId,maxBranchOrder)*F2
+   F2 = 2*maxChainage
+   F1 = maxBranchId*maxBranchOrder*F2
    
    allocate(crsData(crsCount),crs%crossSectionIndex(crscount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
    ! We want to sort the array on branchid, followed by order number and finally by chainage.
