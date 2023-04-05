@@ -972,7 +972,7 @@ subroutine  useBranchOrdersCrs(crs, brs)
    integer, allocatable, dimension(:)           :: crsIndices
    type(t_CrossSection)                         :: cross
    type(t_CrossSectionSet)                      :: tempset
-   integer                                      :: maxBranchId, maxBranchOrder
+   integer                                      :: maxBranchOrder
    double precision                             :: maxChainage
    double precision                             :: F1, F2 !< sorting multiplication factors
 
@@ -980,12 +980,11 @@ subroutine  useBranchOrdersCrs(crs, brs)
    tempset%count = crsCount
    call reallocCrossSections(tempset)
    
-   maxBranchId    = max(1,maxval(crs%cross(:)%branchId))
    maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
    maxChainage    = maxval(crs%cross(:)%chainage)
    
-   F2 = 2*maxChainage
-   F1 = maxBranchId*maxBranchOrder*F2
+   F2 = maxChainage+1
+   F1 = (maxBranchOrder+1)*F2
    
    allocate(crsData(crsCount),crs%crossSectionIndex(crscount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
    ! We want to sort the array on branchid, followed by order number and finally by chainage.
