@@ -1722,9 +1722,11 @@ implicit none
                 do node = 1, numk
                    if ( dbdistance(x_req(j), y_req(j), xk(node), yk(node), jsferic, jasfer3D, dmiss) < TOLERANCE ) then ! found
                        num = num + 1
-                       temp_list(num) = i
+                       temp_list(num) = node
                        jafound = 1
-                       write (*,*) 'my_rank=', my_rank,' found corner',message3,x_req(j),y_req(j)
+                       !write (*,*) 'found corner: my_rank=', my_rank,' domains:',own_domain_number, other_domain_number
+                       !write (*,*) message3
+                       !write (*,*) 'req:',x_req(j),y_req(j),' node=',node,xk(node), yk(node)
                        exit
                    end if
                 end do  
@@ -1859,6 +1861,9 @@ implicit none
          call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, isendlist_cn, nsendlist_cn)
          nghostlist_cn = nghostlist_cn_temp
          ighostlist_cn = ighostlist_cn_temp
+         
+         !call write_boundary(my_rank,ndomains,nghostlist_cn(ndomains-1),nghostlist_cn,ighostlist_cn,nsendlist_cn(ndomains-1),&
+         !nsendlist_cn,isendlist_cn)
          
 !        communicate sendlist back to obtain (possibly) reduced ghostlist in own domain
 !        deallocate first
@@ -6544,3 +6549,48 @@ subroutine set_idomain_for_open_boundary_points(number_of_boundary_points, links
    end do
    
 end subroutine set_idomain_for_open_boundary_points
+
+!> write send and ghost lists into files for debugging
+subroutine write_boundary(my_rank,ndomains,nghostlist_cns,nghostlist_cn,ighostlist_cn,nsendlist_cns,&
+         nsendlist_cn,isendlist_cn)
+use network_data,    only: numk, xk, yk
+implicit none
+
+integer :: my_rank, ndomains, nghostlist_cns, nsendlist_cns
+integer :: nghostlist_cn(-1:ndomains)
+integer :: ighostlist_cn(nghostlist_cns)
+integer :: nsendlist_cn(-1:ndomains)
+integer ::  isendlist_cn(nsendlist_cns)
+
+integer :: i, j, node
+character(len=80) :: file_name
+
+
+Do i = 0, ndomains-1
+   write(file_name,'("proc_",i1,"_send_to_",i1,".pli")') my_rank,i
+   open(876,file=file_name)
+   Write (876,*) 'send corners'
+   Write (876,*) nsendlist_cn(i)-nsendlist_cn(i-1),' 3'
+    do j = nsendlist_cn(i-1)+1,nsendlist_cn(i)
+        write(876,*) xk(isendlist_cn(j)),yk(isendlist_cn(j)),j-nsendlist_cn(i-1)
+    enddo
+    close(876)
+enddo
+
+
+Do i = 0, ndomains-1
+    write(file_name,'("proc_",i1,"_ghost_from_",i1,".pli")') my_rank,i
+    open(876,file=file_name)
+    Write (876,*) 'ghost corners'
+    Write (876,*) nghostlist_cn(i)-nghostlist_cn(i-1), ' 3'
+    do j = nghostlist_cn(i-1)+1,nghostlist_cn(i)
+        write(876,*) xk(ighostlist_cn(j)),yk(ighostlist_cn(j)),j-nghostlist_cn(i-1)
+    enddo
+    close(876)
+enddo
+
+
+end subroutine write_boundary
+    
+    
+    
