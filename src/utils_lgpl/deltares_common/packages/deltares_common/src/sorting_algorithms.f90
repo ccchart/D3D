@@ -179,6 +179,7 @@
    end subroutine sort
    
    !> dual pivot quicksort indices based on array values
+   ! https://www.geeksforgeeks.org/dual-pivot-quicksort/
    recursive subroutine dpquicksort(array,indices)
    double precision, intent(inout)  :: array(:)
    integer, intent(inout)           :: indices(:)
@@ -198,10 +199,10 @@
       enddo
       return
    endif
-   ip1 = indices(last/3)
-   ip2 = indices(2*last/3)
+   ip1 = indices(last/3)   !pivot 1
+   ip2 = indices(2*last/3) !pivot 2
 
-   if (array(ip2).lt.array(ip1)) then
+   if (array(ip2).lt.array(ip1)) then- !swap pivots if necessary
       itemp=ip1
       ip1=ip2
       ip2=itemp
@@ -213,7 +214,7 @@
 
    g=last
    l=2
-   do while (array(indices(l)).lt.array(ip1))
+   do while (array(indices(l)).lt.array(ip1)) ! check for values smaller than pivot 1
       l=l+1
    enddo
    k=l
@@ -230,7 +231,7 @@
          enddo
          if (k.ge.g) exit
          g=g-1
-         if (array(indices(g)).lt.array(ip1)) then
+         if (array(indices(g)).lt.array(ip1)) then !swap k and g
             indices(k)=indices(l)
             indices(l)=indices(g)
             indices(g)=itemp

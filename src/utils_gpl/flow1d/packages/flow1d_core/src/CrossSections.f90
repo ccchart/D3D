@@ -954,7 +954,7 @@ end subroutine interpolateWidths
 !! branch1: #---C---*------*------*---C---#----------C                                  \n
 !! branch2:                           C---#------*---C---*------*------*------*---C---# \n
 !! As a result the interpolation can be restricted to a branch
-subroutine  useBranchOrdersCrs(crs, brs)
+subroutine useBranchOrdersCrs(crs, brs)
    ! modules
    use messageHandling
    use sorting_algorithms, only: dpquicksort
@@ -983,12 +983,14 @@ subroutine  useBranchOrdersCrs(crs, brs)
    maxBranchOrder = max(1,maxval(brs%branch(:)%ordernumber))
    maxChainage    = maxval(crs%cross(:)%chainage)
    
+   ! Multiplication factors for sorting 
    F2 = maxChainage+1
    F1 = (maxBranchOrder+1)*F2
    
    allocate(crsData(crsCount),crs%crossSectionIndex(crscount),crsIndices(crsCount),orderNumber(maxBranchOrder+2,2))
    ! We want to sort the array on branchid, followed by order number and finally by chainage.
-   ! To this end we multiply branch id by F1 and branch order by F2 to be able to sort them all at once
+   ! To this end we multiply branch id by F1 and branch order by F2 to be able to sort them all at once.
+   ! see: UNST-3680
    do ics = 1, crsCount
       crsIndices(ics) = ics
       ibr = crs%cross(ics)%branchid
@@ -1005,7 +1007,7 @@ subroutine  useBranchOrdersCrs(crs, brs)
    
    do ics = 1, crsCount !copy data to temp array
       tempset%cross(ics) = crs%cross(crsIndices(ics))
-      crs%crossSectionIndex(crsIndices(ics)) = ics
+      crs%crossSectionIndex(crsIndices(ics)) = ics 
    enddo
    crs%cross(:) = tempset%cross(:) !copy temp array to real array
    
