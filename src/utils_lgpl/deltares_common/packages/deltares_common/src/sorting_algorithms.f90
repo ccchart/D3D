@@ -202,7 +202,7 @@
    ip1 = indices(last/3)   !pivot 1
    ip2 = indices(2*last/3) !pivot 2
 
-   if (array(ip2).lt.array(ip1)) then- !swap pivots if necessary
+   if (array(ip2).lt.array(ip1)) then !swap pivots if necessary
       itemp=ip1
       ip1=ip2
       ip2=itemp
