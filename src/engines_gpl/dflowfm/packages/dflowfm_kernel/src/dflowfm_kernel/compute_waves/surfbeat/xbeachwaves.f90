@@ -4758,6 +4758,12 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    !
    ! Start iteration
    do iter=1,niter
+      if ( jampi.eq.1 ) then
+         call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
+         mpiok = ok
+         call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
+         ok=int(mpiok)
+      end if
       sweep=mod(iter,4)
       if (sweep==0) then
          sweep=4;
@@ -4832,11 +4838,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
             endif            
          endif
       enddo
-      !
-      !if ( jampi.eq.1 ) then
-      !   call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
-      !   call update_ghosts(ITYPE_CN, ntheta, mn, eeold, ierr)
-      !end if
       !      
       do k=1,mn
          ! Compute directionally integrated parameters
@@ -4856,12 +4857,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
             diff(k)=maxval(abs(dee(k,:)))
             if (diff(k)/eemax<crit) ok(k)=1
          enddo
-         if ( jampi.eq.1 ) then
-            call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
-            mpiok = ok
-            call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
-            ok=int(mpiok)
-         end if
+         !
          ! Percentage of converged points
          percok=sum(ok)/dble(mn)*100.d0;
          eemax=maxval(ee)
