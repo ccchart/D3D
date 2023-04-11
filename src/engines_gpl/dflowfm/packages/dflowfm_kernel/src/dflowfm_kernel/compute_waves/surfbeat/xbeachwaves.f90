@@ -351,11 +351,11 @@ subroutine xbeach_all_input()
    ! Set taper to non-zero
    taper    = max(taper,1.d-6)
    !
-   ! Exit when MPI enabled with single_dir==1
-   if (single_dir>0 .and. jampi>0) then
-      call writelog('lwse','','Error: single_dir option is not compatible with MPI enabled models.')
-      call xbeach_errorhandler()   
-   endif   
+   !! Exit when MPI enabled with single_dir==1
+   !if (single_dir>0 .and. jampi>0) then
+   !   call writelog('lwse','','Error: single_dir option is not compatible with MPI enabled models.')
+   !   call xbeach_errorhandler()   
+   !endif   
    !
    ! Only allow Baldock in stationary mode and Roelvink in non-stationary
    if (trim(instat) == 'stat' .or. trim(instat) == 'stat_table') then
@@ -4733,9 +4733,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    allocate(E(mn)); E=0d0
    allocate(diff(mn)); diff=0d0
    allocate(ra(mn)); ra=0d0
-   if (jampi>0) then
-      allocate(mpiok(mn)); mpiok=0d0
-   endif
+
 
    ok=0
    indx=0
@@ -4914,7 +4912,7 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    real*8                                    :: gamma=0.55d0
    real*8                                    :: thetamean,sinthmean,costhmean
    integer, dimension(4)                     :: shift
-   integer, dimension(:), allocatable        :: ok
+   real*8, dimension(:), allocatable         :: ok
    real*8, dimension(:), allocatable         :: ra
    real*8, dimension(:), allocatable         :: F
    real*8, dimension(:), allocatable         :: mpiok
@@ -4930,9 +4928,6 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    allocate(ra(mn))
    allocate(indx(mn,4))
    allocate(F(mn))
-   if (jampi>0) then
-      allocate(mpiok(mn)); mpiok = 0d0
-   endif
    
    pi=4d0*atan(1.d0)
    g=9.81d0
@@ -4958,6 +4953,12 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
 
    ! Start iteration
    do iter=1,niter
+      if ( jampi.eq.1 ) then
+         call update_ghosts(ITYPE_CN, 1, mn, Er, ierr)
+         call update_ghosts(ITYPE_CN, 1, mn, Dr, ierr)
+         call update_ghosts(ITYPE_CN, 1, mn, F, ierr)
+         call update_ghosts(ITYPE_CN, 1, mn, ok, ierr)
+      end if
       sweep=mod(iter,4)
       if (sweep==0) then
          sweep=4;
@@ -4967,10 +4968,10 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
          k=indx(count,sweep)
          if (inner(k)) then
             if (hh(k)>1.1d0*hmin) then
-               if (.not. ok(k)) then
+               if (ok(k)<1) then
                   k1=prev(k,1)
                   k2=prev(k,2)
-                  if (ok(k1).and.ok(k2)) then
+                  if (ok(k1)==1.and.ok(k2)==1) then
                      x1=x(k1)
                      y1=y(k1)
                      x2=x(k2)
@@ -5011,16 +5012,13 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
              ok(k)=1
          endif
       enddo
+      !
       if (sweep==4) then
-         if ( jampi.eq.1 ) then
-            call update_ghosts(ITYPE_CN, 1, mn, Er, ierr)
-            mpiok = ok
-            call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
-            ok=int(mpiok)
-         end if
          percok=sum(ok)/dble(mn)*100.d0
          write(*,*)'iteration: ',iter/4,'   % ok: ',percok
+         call reduce_double_min(percok)
       endif
+      !
       if (percok>99 .and. iter>4) then
          write(*,*)'iteration: ',iter/4,'   % ok: ',percok
          write(*,*) 'Stationary roller computation converged, continuing...'
