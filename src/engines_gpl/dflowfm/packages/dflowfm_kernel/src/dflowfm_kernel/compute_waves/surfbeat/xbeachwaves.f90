@@ -4691,7 +4691,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    real*8, dimension(ntheta,mn), intent(out)  :: ee                     ! wave energy distribution
 
    ! Local variables and arrays
-   integer, dimension(:), allocatable         :: ok                     ! mask for fully iterated points
+   real*8, dimension(:), allocatable          :: ok                     ! mask for fully iterated points
    real*8                                     :: eemax,dtheta           ! maximum wave energy density, directional resolution
    integer                                    :: sweep,niter            ! sweep number, number of iterations
    integer                                    :: k,k1,k2,i,ind(1)       ! counters (k is grid index)
@@ -4710,6 +4710,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    integer                                    :: count
    integer                                    :: itheta
    integer                                    :: ierr
+   integer                                    :: nn
    real*8                                     :: percok
    real*8                                     :: error
    real*8,parameter                           :: pi=4.d0*atan(1.d0)
@@ -4760,9 +4761,8 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    do iter=1,niter
       if ( jampi.eq.1 ) then
          call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
-         mpiok = ok
-         call update_ghosts(ITYPE_CN, 1, mn, mpiok, ierr)
-         ok=int(mpiok)
+         call update_ghosts(ITYPE_CN, ntheta, mn, eeold, ierr)
+         call update_ghosts(ITYPE_CN, 1, mn, ok, ierr)
       end if
       sweep=mod(iter,4)
       if (sweep==0) then
@@ -4863,10 +4863,19 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
          eemax=maxval(ee)
          ! Relative maximum error
          error=maxval(diff)/eemax
-         write(*,'(a,i6,a,f10.5,a,f7.2)')'iteration ',iter/4 ,' error = ',error,'   %ok = ',percok
-         if (error<crit .and. iter>4) then
-            write(*,*) 'Stationary wave computation converged, continuing...'
-            exit
+         if (jampi==0) then
+            write(*,'(a,i6,a,f10.5,a,f7.2)')'iteration ',iter/4 ,' error = ',error,'   %ok = ',percok
+            if (error<crit .and. iter>4) then
+               write(*,*) 'Stationary wave computation converged, continuing...'
+               exit
+            endif
+         else
+            write(*,'(a,i6,a,f7.2)')'iteration ',iter/4 ,'   %ok = ',percok
+            call reduce_double_min(percok)
+            if (percok>99.99 .and. iter>4) then
+               write(*,*) 'Stationary wave computation converged, continuing...'
+               exit
+            endif
          endif
       endif
    enddo
