@@ -37,15 +37,13 @@ VN_DIR=$TOPDIR/third_party_open/version_number/packages/version_number/src
 
 #
 # Be sure that BUILD_NUMBER always has a value
-BUILD_NUMBER="000000"; 
+BUILD_NUMBER="000000"
 cd $MODDIR
 if svnversion . >/dev/null 2>/dev/null ; then 
-   BUILD_NUMBER=`svnversion -n $MODDIR`; \
-fi
-
-if [ "$BUILD_NUMBER" = "Unversioned directory" ]; then
-   echo "Build number can not be obtained, reset to 000000"
-   BUILD_NUMBER="000000" 
+   BUILD_NUMBER=`svnversion -n $MODDIR`
+   if [[ "$SVN_VERSION" =~ ^exported.*$ || "$SVN_VERSION" =~ ^Unversioned.*$ ]]; then
+      SVN_VERSION="000000"
+   fi
 fi
 
 #   also write it to file
