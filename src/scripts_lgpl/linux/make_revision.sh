@@ -41,8 +41,8 @@ BUILD_NUMBER="000000"
 cd $MODDIR
 if svnversion . >/dev/null 2>/dev/null ; then 
    BUILD_NUMBER=`svnversion -n $MODDIR`
-   if [[ "$SVN_VERSION" =~ ^exported.*$ || "$SVN_VERSION" =~ ^Unversioned.*$ ]]; then
-      SVN_VERSION="000000"
+   if [[ "$BUILD_NUMBER" =~ ^exported.*$ || "$BUILD_NUMBER" =~ ^Unversioned.*$ ]]; then
+      BUILD_NUMBER="000000"
    fi
 fi
 
