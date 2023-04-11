@@ -41,7 +41,13 @@ BUILD_NUMBER="000000";
 cd $MODDIR
 if svnversion . >/dev/null 2>/dev/null ; then 
    BUILD_NUMBER=`svnversion -n $MODDIR`; \
-fi;
+fi
+
+if [ "$BUILD_NUMBER" = "Unversioned directory" ]; then
+   echo "Build number can not be obtained, reset to 000000"
+   BUILD_NUMBER="000000" 
+fi
+
 #   also write it to file
 # echo $BUILD_NUMBER > $MODDIR/BUILD_NUMBER
 
@@ -62,6 +68,10 @@ ADDLINE="$BUILD_NUMBER"
 
 cd $CURDIR
 
+echo "A3M:buildnumber: $BUILD_NUMBER"
+echo "A3M: arch3     : $3"
+echo "A3M: arch4     : $4"
+echo "A3M: arch5     : $5"
 $VN_DIR/version_number $BUILD_NUMBER $3 $4 $5
 
 #   =====================================
