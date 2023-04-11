@@ -68,10 +68,6 @@ ADDLINE="$BUILD_NUMBER"
 
 cd $CURDIR
 
-echo "A3M:buildnumber: $BUILD_NUMBER"
-echo "A3M: arch3     : $3"
-echo "A3M: arch4     : $4"
-echo "A3M: arch5     : $5"
 $VN_DIR/version_number $BUILD_NUMBER $3 $4 $5
 
 #   =====================================
