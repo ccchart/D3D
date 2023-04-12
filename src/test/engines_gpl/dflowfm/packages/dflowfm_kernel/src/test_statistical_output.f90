@@ -39,7 +39,7 @@ end subroutine tests_statistical_output
 subroutine test_realloc
    use m_statistical_output
   
-   type(t_statistical_output_set) :: stat_output_set
+   type(t_output_variable_set) :: stat_output_set
    integer :: i, n
    double precision, allocatable, target :: s1(:)
 
