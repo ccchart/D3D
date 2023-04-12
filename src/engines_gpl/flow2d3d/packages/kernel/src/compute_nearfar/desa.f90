@@ -267,7 +267,6 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
           m_irow = m_dis(irow)
           k_irow = k_dis(irow)
           disnf_intake(n_irow,m_irow,k_irow,idis) = disnf_intake(n_irow,m_irow,k_irow,idis) - dis_per_intake
-          write(44,*) disnf_intake(n_irow,m_irow,k_irow,idis)
        enddo
        deallocate (n_dis, stat=ierror)
        deallocate (m_dis, stat=ierror)
@@ -683,7 +682,6 @@ subroutine desa(nlb     ,nub     ,mlb     ,mub        ,kmax       , &
                             ! Add it to the concentration at the intake location
                             !
                             conc = nf_const(lcon) + conc_intake(lcon)
-                            write(45,*) conc_intake(lcon)
                          endif
                          sournf(n,m,k,lcon,idis) = nf_q_source * conc &
                                                  & / (thick_tot/(wght*dzs0(n,m,k)*hhi))
