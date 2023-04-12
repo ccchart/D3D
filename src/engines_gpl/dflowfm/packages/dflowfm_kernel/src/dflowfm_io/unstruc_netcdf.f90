@@ -27,8 +27,8 @@
 !
 !-------------------------------------------------------------------------------
 
-! $Id$
-! $HeadURL$
+! 
+! 
 
 ! TODO: FB: #define NC_CHECK if(ierr .ne. 0 ) call mess(LEVEL_ERROR, nf90_strerror(ierr))
 
@@ -2906,7 +2906,7 @@ subroutine unc_write_rst_filepointer(irstfile, tim)
     use m_transport, only: NUMCONST, ISALT, ITEMP, ISED1, ISEDN, ITRA1, ITRAN, ITRAN0, constituents, itrac2const, const_names, const_units
     use m_fm_wq_processes, only: wqbot3D_output, numwqbots, wqbotnames, wqbotunits, wqbot
     use m_xbeach_data, only: E, thetamean, sigmwav
-    use m_flowexternalforcings, only: numtracers  !, trbndnames
+    use m_flowexternalforcings, only: numtracers
     use m_partitioninfo
     use m_missing
     use m_turbulence
@@ -2918,6 +2918,7 @@ subroutine unc_write_rst_filepointer(irstfile, tim)
     use m_1d_structures
     use m_GlobalParameters
     use m_longculverts
+    use m_structures_saved_parameters
     
     integer,           intent(in) :: irstfile
     real(kind=hp),     intent(in) :: tim
@@ -3105,6 +3106,8 @@ subroutine unc_write_rst_filepointer(irstfile, tim)
          enddo
       endif
     endif
+        
+    call process_structures_saved_parameters(DEFINE_NCDF_DATA_ID, irstfile)
 
     ! Definition and attributes of size of latest timestep
     ierr = nf90_def_var(irstfile, 'timestep', nf90_double, id_timedim,  id_timestep)
@@ -4429,6 +4432,8 @@ subroutine unc_write_rst_filepointer(irstfile, tim)
          enddo
       endif
     endif
+    
+    call process_structures_saved_parameters(WRITE_DATA_TO_FILE, irstfile)
 
     ! Write 1D cross sections
     if (ndx1d > 0 .and. stm_included) then
@@ -5227,6 +5232,8 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
       end if
       if (jamap_chezy_links > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_czu , nf90_double, UNC_LOC_U, 'czu'  , '', 'Chezy roughness on flow links', 'm0.5s-1', jabndnd=jabndnd_)
+      end if
+      if (jamap_chezy_input > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_cfu , nf90_double, UNC_LOC_U, 'cfu'  , '', 'Input roughness on flow links', '-', jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_cfutyp , nf90_int, UNC_LOC_U, 'cfutyp'  , '', 'Input roughness type on flow links', '-', jabndnd=jabndnd_)
       end if
@@ -7272,6 +7279,8 @@ if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
    end if
    if (jamap_chezy_links > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_czu , UNC_LOC_U, czu, jabndnd=jabndnd_)
+   end if
+   if (jamap_chezy_input > 0) then
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfu , UNC_LOC_U, frcu, jabndnd=jabndnd_)
       ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_cfutyp , UNC_LOC_U, ifrcutp, jabndnd=jabndnd_)
    end if
@@ -12384,6 +12393,7 @@ subroutine unc_read_map_or_rst(filename, ierr)
     use unstruc_channel_flow, only: network
     use m_GlobalParameters
     use netcdf_utils, only: ncu_get_att
+    use m_structures_saved_parameters
 
     character(len=*),  intent(in)       :: filename   !< Name of NetCDF file.
     integer,           intent(out)      :: ierr       !< Return status (NetCDF operations)
@@ -13459,6 +13469,8 @@ subroutine unc_read_map_or_rst(filename, ierr)
     ! Read structure
     call read_structures_from_rst(imapfile, filename, it_read)
 
+    call process_structures_saved_parameters(READ_DATA_FROM_FILE, imapfile)
+    
     call readyy('Reading map data',0.95d0)
 
     ! Read hysteresis_for_summerdike
@@ -17296,6 +17308,5 @@ do n = 1,ndxndxi
    end do
 end do
 end subroutine linktonode2
-
 
 end module unstruc_netcdf
