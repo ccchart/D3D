@@ -2786,158 +2786,157 @@ end function is_array_size_and_type_correct
 
 !> update ghost values
 !>   3D extension: we assume that kbot/Lbot and kmxn/kmxL match their counterparts in the other domain(s)
-   subroutine update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, itype, &
-       number_of_ghosts, ghost_list, cumulative_numbers_ghosts, number_of_send_data, send_list, cumulative_numbers_sends, &
-       error, nghost3d, nsend3d, kmxnL, kbot, ignore_orientation)
+subroutine update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, itype, &
+    number_of_ghosts, ghost_list, cumulative_numbers_ghosts, number_of_send_data, send_list, cumulative_numbers_sends, &
+    error, nghost3d, nsend3d, kmxnL, kbot, ignore_orientation)
 #ifdef HAVE_MPI   
-      use mpi
+    use mpi
 #endif      
-      use m_flowgeom
-      use m_alloc
-      use m_flowtimes
-      use timers
+    use m_flowgeom
+    use m_alloc
+    use m_flowtimes
+    use timers
 
-      implicit none
+    implicit none
 
-      integer,           intent(in)     :: number_of_unknowns_per_point 
-      integer,           intent(in)     :: number_of_points  
-      double precision,  intent(inout)  :: solution(number_of_unknowns_per_point*number_of_points) !< Note: will correct for orientation between ghost and own location if needed (typically only for u-points).
-      integer,           intent(in)     :: itype                                    ! it is used also as a tag for mpi functions 
-      integer,           intent(in)     :: number_of_ghosts
-      integer,           intent(in)     :: ghost_list(number_of_ghosts)
-      integer,           intent(in)     :: cumulative_numbers_ghosts(-1:ndomains-1) ! over sub-domains
-      integer,           intent(in)     :: number_of_send_data
-      integer,           intent(in)     :: send_list(number_of_send_data)     
-      integer,           intent(in)     :: cumulative_numbers_sends(-1:ndomains-1)  ! over subdomains
-      integer,           intent(out)    :: error                                    !< error (1) or not (0)
-!     3D-extension
-      integer, optional, intent(in)     :: nghost3d(-1:ndomains-1)                  !< number of cells/links to be received per domain
-      integer, optional, intent(in)     :: nsend3d(-1:ndomains-1)                   !< number of cells/links to be send     per domain
-      integer, optional, intent(in)     :: kmxnL(number_of_points)                  !< number of layers
-      integer, optional, intent(in)     :: kbot(number_of_points)                   !< bottom layer indices
-      logical, optional, intent(in)     :: ignore_orientation                       !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
+    integer,           intent(in)     :: number_of_unknowns_per_point             !< number of unknowns per point
+    integer,           intent(in)     :: number_of_points                         !< number of points in the solution array
+    double precision,  intent(inout)  :: solution(number_of_unknowns_per_point*number_of_points) !< Note: will correct for orientation between ghost and own location if needed (typically only for u-points).
+    integer,           intent(in)     :: itype                                    !< it is used also as a tag for mpi functions 
+    integer,           intent(in)     :: number_of_ghosts                         !< number of ghost cells/links/corners
+    integer,           intent(in)     :: ghost_list(number_of_ghosts)             !< list of ghost cells/links/corners
+    integer,           intent(in)     :: cumulative_numbers_ghosts(-1:ndomains-1) !< cumulative numbers of ghosts over sub-domains
+    integer,           intent(in)     :: number_of_send_data                      !< number of send data: cells/links/corners
+    integer,           intent(in)     :: send_list(number_of_send_data)           !< send list of cells/links/corners
+    integer,           intent(in)     :: cumulative_numbers_sends(-1:ndomains-1)  !< cumulative numbers of send data over subdomains
+    integer,           intent(out)    :: error                                    !< error (1) or not (0)
+!   3D-extension
+    integer, optional, intent(in)     :: nghost3d(-1:ndomains-1)                  !< number of cells/links to be received per domain
+    integer, optional, intent(in)     :: nsend3d(-1:ndomains-1)                   !< number of cells/links to be send     per domain
+    integer, optional, intent(in)     :: kmxnL(number_of_points)                  !< number of layers
+    integer, optional, intent(in)     :: kbot(number_of_points)                   !< bottom layer indices
+    logical, optional, intent(in)     :: ignore_orientation                       !< Ignore orientation of ghost and own location, useful for directionless quantities on u-points. Default: .false.
 
 #ifdef HAVE_MPI
-      integer                              :: status(MPI_STATUS_SIZE)
-      integer                              :: send_requests(ndomains)
-      integer                              :: recv_requests(ndomains)
-         
-      !double precision,  allocatable, save :: work(:), workrec(:)  !< work array
-      integer,           allocatable, save :: displacements(:)
-      integer,           allocatable, save :: blocks(:)
-      integer                              :: send_type(ndomains)
-      integer                              :: recv_type(ndomains)
-      integer                              :: send_counts(ndomains)
-      integer                              :: recv_counts(ndomains)
+    integer                           :: status(MPI_STATUS_SIZE)
+    integer                           :: send_requests(ndomains)
+    integer                           :: recv_requests(ndomains)
 
-      integer                              :: other_rank, i, nr_mpi_sends, nr_mpi_recvs, tag, index_recv, index
-      integer                              :: i2d, ii, j, count
-      integer                              :: size_displacements
-      integer                              :: ja3d   ! 3D (1) or not (0)
-      character(len=1024)                  :: str
-      logical                              :: ignore_orientation_
+    integer,        allocatable, save :: displacements(:)
+    integer,        allocatable, save :: blocks(:)
+    integer                           :: send_type(ndomains)
+    integer                           :: recv_type(ndomains)
+    integer                           :: send_counts(ndomains)
+    integer                           :: recv_counts(ndomains)
+
+    integer                           :: other_rank, i, nr_mpi_sends, nr_mpi_recvs, tag, index_recv, index
+    integer                           :: i2d, ii, j, count
+    integer                           :: size_displacements
+    integer                           :: ja3d   ! 3D (1) or not (0)
+    character(len=1024)               :: str
+    logical                           :: ignore_orientation_
 #endif
-      error = 0
-      call timstrt('Initialise timestep', handle_mpi)
+    error = 0
+    call timstrt('Initialise timestep', handle_mpi)
       
 #ifdef HAVE_MPI
 
-!     check for 3D
-      ja3d = 0
-      if ( present(nghost3d) .and. present(nsend3d) .and. present(kmxnL) .and. present(kbot) ) then
-         ja3d = 1
-      end if
+!   check for 3D
+    ja3d = 0
+    if ( present(nghost3d) .and. present(nsend3d) .and. present(kmxnL) .and. present(kbot) ) then
+       ja3d = 1
+    end if
 
-      ignore_orientation_ = .false.
-      if (present(ignore_orientation)) then
-         ignore_orientation_ = ignore_orientation
-      end if
+    ignore_orientation_ = .false.
+    if (present(ignore_orientation)) then
+       ignore_orientation_ = ignore_orientation
+    end if
       
-      size_displacements = max(maxval(cumulative_numbers_sends), maxval(cumulative_numbers_ghosts))
-      if ( .not.allocated(displacements) ) allocate(displacements(size_displacements))
-      if ( ubound(displacements,1) < size_displacements ) then
-         call realloc(displacements, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.) 
-      end if
+    size_displacements = max(maxval(cumulative_numbers_sends), maxval(cumulative_numbers_ghosts))
+    if ( .not.allocated(displacements) ) allocate(displacements(size_displacements))
+    if ( ubound(displacements,1) < size_displacements ) then
+      call realloc(displacements, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.) 
+    end if
       
-      if ( ja3d == 1 ) then
-        if ( .not.allocated(blocks) ) allocate(blocks(size_displacements))
-        if ( ubound(blocks,1) < size_displacements ) then
-           call realloc(blocks, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.)
-        end if
-      end if
+    if ( ja3d == 1 ) then
+       if ( .not.allocated(blocks) ) allocate(blocks(size_displacements))
+       if ( ubound(blocks,1) < size_displacements ) then
+          call realloc(blocks, int(1.2d0*dble(size_displacements)+1d0), keepExisting=.false.)
+       end if
+    end if
 
-!     send data to other procs 
-      nr_mpi_sends   = 0
-      send_counts(:) = 0
-      do other_rank  = 0, ndomains - 1
-         if ( cumulative_numbers_sends(other_rank) >  cumulative_numbers_sends(other_rank - 1) ) then
-             nr_mpi_sends = nr_mpi_sends + 1
-             if ( ja3d == 0 ) then
-               call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends, &
-                   number_of_send_data, send_list, size_displacements, displacements, send_type(nr_mpi_sends), &
-                   send_counts(nr_mpi_sends), error)
-            else
-               call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends,&
-                   number_of_send_data, send_list, number_of_points, kbot, kmxnL, size_displacements, displacements, &
-                   blocks, send_type(nr_mpi_sends), send_counts(nr_mpi_sends), error)
+!   send data to other procs 
+    nr_mpi_sends   = 0
+    send_counts(:) = 0
+    do other_rank  = 0, ndomains - 1
+       if ( cumulative_numbers_sends(other_rank) >  cumulative_numbers_sends(other_rank - 1) ) then
+          nr_mpi_sends = nr_mpi_sends + 1
+          if ( ja3d == 0 ) then
+             call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends, &
+                number_of_send_data, send_list, size_displacements, displacements, send_type(nr_mpi_sends), &
+                send_counts(nr_mpi_sends), error)
+          else
+             call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_sends,&
+                number_of_send_data, send_list, number_of_points, kbot, kmxnL, size_displacements, displacements, &
+                blocks, send_type(nr_mpi_sends), send_counts(nr_mpi_sends), error)
+          end if
+
+          call mpi_type_commit(send_type(nr_mpi_sends), error)
+          tag  = itype
+          call mpi_isend(solution, 1, send_type(nr_mpi_sends), other_rank, tag, DFM_COMM_DFMWORLD, &
+               send_requests(nr_mpi_sends), error)
+       end if
+    end do
+
+!   receive data from other procs 
+    nr_mpi_recvs   = 0
+    recv_counts(:) = 0
+    do other_rank  = 0, ndomains - 1
+       if ( cumulative_numbers_ghosts(other_rank) >  cumulative_numbers_ghosts(other_rank - 1) ) then
+           nr_mpi_recvs = nr_mpi_recvs + 1
+           if ( ja3d == 0 ) then
+               call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts, &
+                   number_of_ghosts, ghost_list, size_displacements, displacements, recv_type(nr_mpi_recvs), &
+                   recv_counts(nr_mpi_recvs), error)
+           else
+               call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts,&
+                   number_of_ghosts, ghost_list, number_of_points, kbot, kmxnL, size_displacements, displacements, blocks,&
+                   recv_type(nr_mpi_recvs), recv_counts(nr_mpi_recvs), error)
            end if
-
-           call mpi_type_commit(send_type(nr_mpi_sends), error)
-           tag  = itype
-           call mpi_isend(solution, 1, send_type(nr_mpi_sends), other_rank, tag, DFM_COMM_DFMWORLD, &
-                send_requests(nr_mpi_sends), error)
-        end if
-     end do
-
-!    receive data from other procs 
-     nr_mpi_recvs   = 0
-     recv_counts(:) = 0
-     do other_rank  = 0, ndomains - 1
-        if ( cumulative_numbers_ghosts(other_rank) >  cumulative_numbers_ghosts(other_rank - 1) ) then
-            nr_mpi_recvs = nr_mpi_recvs + 1
-            if ( ja3d == 0 ) then
-                call create_2d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts, &
-                    number_of_ghosts, ghost_list, size_displacements, displacements, recv_type(nr_mpi_recvs), &
-                    recv_counts(nr_mpi_recvs), error)
-            else
-                call create_3d_data_type(other_rank, number_of_unknowns_per_point, ndomains, cumulative_numbers_ghosts,&
-                    number_of_ghosts, ghost_list, number_of_points, kbot, kmxnL, size_displacements, displacements, blocks,&
-                    recv_type(nr_mpi_recvs), recv_counts(nr_mpi_recvs), error)
-            end if
             
-           call mpi_type_commit(recv_type(nr_mpi_recvs), error)
-           tag  = itype
-           call mpi_irecv(solution, 1, recv_type(nr_mpi_recvs), other_rank, tag, DFM_COMM_DFMWORLD, &
-               recv_requests(nr_mpi_recvs), error)
-        end if
+          call mpi_type_commit(recv_type(nr_mpi_recvs), error)
+          tag  = itype
+          call mpi_irecv(solution, 1, recv_type(nr_mpi_recvs), other_rank, tag, DFM_COMM_DFMWORLD, &
+              recv_requests(nr_mpi_recvs), error)
+       end if
     end do
 
     do index = 1, nr_mpi_recvs
-        tag = itype
-        call mpi_waitany(nr_mpi_recvs, recv_requests, index_recv, status, error)
-        call mpi_type_free(recv_type(index_recv), error)
-        other_rank = status(MPI_SOURCE)
-        call mpi_get_count(status, mpi_double_precision, count, error)
-        if ( count /= recv_counts(index_recv) ) then
-            write(str, *) 'update_ghost_values: count /= num, domain: ', my_rank, ', other domain: ', other_rank, ' count: ', count, &
-                          ', num: ', recv_counts(index_recv)
-            call qnerror(str, ' ', ' ')
-            call abort_all()
-        end if
+       tag = itype
+       call mpi_waitany(nr_mpi_recvs, recv_requests, index_recv, status, error)
+       call mpi_type_free(recv_type(index_recv), error)
+       other_rank = status(MPI_SOURCE)
+       call mpi_get_count(status, mpi_double_precision, count, error)
+       if ( count /= recv_counts(index_recv) ) then
+           write(str, *) 'update_ghost_values: count /= num, domain: ', my_rank, ', other domain: ', other_rank, ' count: ', count, &
+                         ', num: ', recv_counts(index_recv)
+           call qnerror(str, ' ', ' ')
+           call abort_all()
+       end if
 
 !     fix value orientation for ITYPE_U, if needed
-      if ( itype /= ITYPE_U ) cycle
+      if ( itype /= ITYPE_U .or. ignore_orientation_) cycle
       if ( ja3d == 0 ) then
          if ( number_of_unknowns_per_point == 1 ) then
             do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
-                if ( .not. ignore_orientation_ .and. ghost_list(i) < 0 ) then
-                   solution(iabs(ghost_list(i))) = -solution(iabs(ghost_list(i)))
+                if ( ghost_list(i) < 0 ) then
+                   solution(abs(ghost_list(i))) = -solution(abs(ghost_list(i)))
                 end if
             end do
-         else  ! number_of_unknowns_per_point.ne.1
+         else  
             do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
                   if ( ghost_list(i) < 0 ) then
-                     i2d = iabs(ghost_list(i))
+                     i2d  = abs(ghost_list(i))
                      do j = 1, number_of_unknowns_per_point
                         solution(number_of_unknowns_per_point*(i2d-1)+j) = -solution(number_of_unknowns_per_point*(i2d-1)+j)
                      end do
@@ -2948,16 +2947,16 @@ end function is_array_size_and_type_correct
          if ( number_of_unknowns_per_point == 1 ) then
             do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
                if ( ghost_list(i) < 0 ) then
-                  i2d = iabs(ghost_list(i))
+                  i2d   = abs(ghost_list(i))
                   do ii = kbot(i2d), kbot(i2d) + kmxnL(i2d) - 1
                      solution(ii) = -solution(ii)
                   end do
                end if
             end do
-         else  ! number_of_unknowns_per_point.ne.1
+         else  
             do i = cumulative_numbers_ghosts(other_rank - 1) + 1, cumulative_numbers_ghosts(other_rank)
                if ( ghost_list(i) < 0 ) then
-                  i2d = iabs(ghost_list(i))
+                  i2d   = abs(ghost_list(i))
                   do ii = kbot(i2d), kbot(i2d) + kmxnL(i2d) - 1
                      do j = 1, number_of_unknowns_per_point
                         solution(number_of_unknowns_per_point*(ii-1)+j) = -solution(number_of_unknowns_per_point*(ii-1)+j)
@@ -2976,8 +2975,8 @@ end function is_array_size_and_type_correct
     end do
 
 #endif
-   call timstop(handle_mpi)
-   return
+    call timstop(handle_mpi)
+    return
 end subroutine update_ghost_values
 
 
