@@ -4704,7 +4704,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    real*8, dimension(:), allocatable          :: E                      ! mean wave energy
    real*8, dimension(:), allocatable          :: diff                   ! maximum difference of wave energy relative to previous iteration
    real*8, dimension(:), allocatable          :: ra                     ! coordinate in sweep direction
-   real*8, dimension(:), allocatable          :: mpiok
    integer, dimension(4)                      :: shift
    integer                                    :: iter
    integer                                    :: count
@@ -4759,7 +4758,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    do iter=1,niter
       if ( jampi.eq.1 ) then
          call update_ghosts(ITYPE_CN, ntheta, mn, ee, ierr)
-         call update_ghosts(ITYPE_CN, ntheta, mn, eeold, ierr)
+         call update_ghosts(ITYPE_CN, 1, mn, DoverE, ierr)
          call update_ghosts(ITYPE_CN, 1, mn, ok, ierr)
       end if
       sweep=mod(iter,4)
@@ -4934,6 +4933,7 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    rho=1025.d0
    indx=0
    dtol = 1d-6
+   percok = 0d0
    
    sinthmean=sum(sin(thetam(seapts)))
    costhmean=sum(cos(thetam(seapts)))
@@ -5016,7 +5016,9 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
       if (sweep==4) then
          percok=sum(ok)/dble(mn)*100.d0
          write(*,*)'iteration: ',iter/4,'   % ok: ',percok
-         call reduce_double_min(percok)
+         if (jampi>0) then
+            call reduce_double_min(percok)
+         endif
       endif
       !
       if (percok>99 .and. iter>4) then
