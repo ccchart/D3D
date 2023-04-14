@@ -45,6 +45,7 @@ subroutine setbedlevelfromextfile()    ! setbedlevels()  ! check presence of old
  use dfm_error
  use unstruc_netcdf
  use m_flowparameters, only: jadpsopt 
+ use m_flowexternalforcings, only: zbndu, zbndq, kbndz
  
  implicit none
 
@@ -258,13 +259,15 @@ bft:do ibathyfiletype=1,2
         k2 = ln(2,L)
         bl(k1) = bl(k2) !original
         if (jaextrbl.eq.1) then 
+            !add a check that izbndpos must be 0 (i.e., D3D4 style). 
+            !
             !we first copy and then add a correction to `bl(k1)`
             dxz=xz(k1)-xz(k2)
             dyz=yz(k1)-yz(k2)
             !m_fm_erosed::e_dzdn check if this can be somehow used
             bedslopex=-0.007d0/9.81d0 !AD-HOC make input or read from some existing variable.
             bedslopey=0d0 !AD-HOC make input or read from some existing variable.
-            if (L.ne.101) then !downstream boundary (H-boundary) mega ad-hoc 1D case!!!!
+            if (L.ne.101) then !H-boundary mega ad-hoc 1D case!!!!
                 !we want that at an H-boundary the bed level of the ghost cell is
                 !the correct one, as if the sloping bed would continue. In this 
                 !way, when computing the mean of the bed levels at cell centres,
@@ -272,8 +275,9 @@ bft:do ibathyfiletype=1,2
                 !`hu` will be correct if the water level at the cell centre of the 
                 !ghost cell (i.e., using `izbndpos=0` is `\Delta x` down from the 
                 !correct value. Note that it is `\Delta x` and not `\Delta x/2`.
-                bl(k1)=bl(k2)+bedslopex*dxz+bedslopey*dyz
-            else !upstream boundary (u-boundary)
+                bl(k1)=bl(k2)+bedslopex*dxz+bedslopey*dyz !u/s Q
+                !bl(k1)=bl(k2)-bedslopex*dxz+bedslopey*dyz !u/s etaw
+            else !u-boundary
                 !we want that at a u-boundary the bed level of the ghost cell is 
                 !the same as that of the second-inside cell. In this way, when 
                 !computing the mean of the bed levels at cell centres, the elevation
@@ -285,7 +289,11 @@ bft:do ibathyfiletype=1,2
                 !For a case of a sloping bed in the positive x direction and a u-boundary
                 !imposed upstream, `dxz` will be negative upstream, hence obtaining the
                 !elevation of the second inside cell. 
-                bl(k1)=bl(k2)-bedslopex*dxz+bedslopey*dyz
+                !bl(k1)=bl(k2)-bedslopex*dxz+bedslopey*dyz !d/s etaw
+                !
+                !When the u-boundary is at the downstream end (check on negative velocity)
+                !then we simply have to extrapolate the bed level to the correct value.
+                bl(k1)=bl(k2)+bedslopex*dxz+bedslopey*dyz !d/s Q
             endif
         endif
         
