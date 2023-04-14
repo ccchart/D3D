@@ -914,7 +914,6 @@ subroutine readMDUFile(filename, istat)
     call prop_get_double ( md_ptr, 'geometry', 'Slotw2D'     , slotw2D)
     call prop_get_double ( md_ptr, 'geometry', 'Slotw1D'     , slotw1D)
     call prop_get_integer( md_ptr, 'geometry', 'Dpsopt'      , jadpsopt)
-    call prop_get_integer( md_ptr, 'geometry', 'ExtrBl'      , jaextrbl)
     ! use slotw1d also in getcspars routines
     sl = slotw1D
 
