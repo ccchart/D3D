@@ -284,8 +284,8 @@
 
      n1       = ln(1,L) ; n2  = ln(2,L)
      if (jaupdbndbl == 1) then
-         !if `jadpsopt=1`, the bed level at the boundaries has been extrapolated in `setbedlevelfromextfile` and we do not want to overwrite it.
-         if (jadpsopt.eq.1) then
+         !if `jaextrbl=1`, the bed level at the boundaries has been extrapolated in `setbedlevelfromextfile` and we do not want to overwrite it.
+         if (jaextrbl.eq.0) then
             bl(n1)   = bl(n2) !original
          endif
      endif
