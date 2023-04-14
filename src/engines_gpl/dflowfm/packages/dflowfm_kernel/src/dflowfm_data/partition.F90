@@ -516,10 +516,9 @@ implicit none
 
 !> initialize partitioning
    subroutine partition_init_1D2D(md_ident, ierror)
-!      use unstruc_model, only: md_ident  !<---- circular dependency
-      use network_data, only : nump1d2d
-      use m_flowgeom,   only : Ndx, Ndxi
-      use m_flowparameters, only: icgsolver
+      use network_data,     only : nump1d2d
+      use m_flowgeom,       only : Ndx, Ndxi
+      use m_flowparameters, only : icgsolver
       use m_polygon
       use m_missing
       use m_alloc
@@ -567,206 +566,11 @@ implicit none
       if ( ierror /= 0 ) goto 1234
    
       call partition_make_sendlists(idmn, md_ident, ierror)
-      if ( ierror /= 0 ) goto 1234
-         
-            do i =1,nghostlist_s(ndomains-1)
-          if ( ighostlist_s(i) < 0 ) then
-              write (*,*) 'ighostlist_s, negative2=',i,ighostlist_s(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_s(ndomains-1)
-          if ( isendlist_s(i) < 0 ) then
-              write (*,*) 'isendlist_s, negative2=',i,isendlist_s(i)
-              exit
-          endif
-      enddo
-      do i =1,nghostlist_sall(ndomains-1)
-          if ( ighostlist_sall(i) < 0 ) then
-              write (*,*) 'ighostlist_sall, negative2=',i,ighostlist_sall(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_sall(ndomains-1)
-          if ( isendlist_sall(i) < 0 ) then
-              write (*,*) 'isendlist_sall, negative2=',i,isendlist_sall(i)
-              exit
-          endif
-      enddo
-      do i =1,nghostlist_u(ndomains-1)
-           if ( ighostlist_u(i) < 0 ) then
-              write (*,*) 'ighostlist_u, negative2=',i,ighostlist_u(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_u(ndomains-1)
-           if ( isendlist_u(i) < 0 ) then
-              write (*,*) 'isendlist_u, negative2=',i,isendlist_u(i)
-              exit
-          endif
-      enddo
-      if ( allocated(ighostlist_snonoverlap ) ) then
-      do i =1,nghostlist_snonoverlap(ndomains-1)
-           if ( ighostlist_snonoverlap(i) < 0 ) then
-              write (*,*) 'ighostlist_snonoverlap, negative2=',i,ighostlist_snonoverlap(i)
-              exit
-          endif
-      enddo
-      endif
-      if ( allocated(isendlist_snonoverlap ) ) then
-      do i =1,nsendlist_snonoverlap(ndomains-1)
-           if ( isendlist_snonoverlap(i) < 0 ) then
-              write (*,*) 'isendlist_snonoverlap, negative2=',i,isendlist_snonoverlap(i)
-              exit
-          endif
-      enddo
-      endif
-      
-!     flow links: check and fix orientation of send list
-      call partition_fixorientation_ghostlist(ierror)
-      if ( ierror /= 0 ) goto 1234
-      
-      do i =1,nghostlist_s(ndomains-1)
-          if ( ighostlist_s(i) < 0 ) then
-              write (*,*) 'ighostlist_s, negative=',i,ighostlist_s(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_s(ndomains-1)
-          if ( isendlist_s(i) < 0 ) then
-              write (*,*) 'isendlist_s, negative=',i,isendlist_s(i)
-              exit
-          endif
-      enddo
-      do i =1,nghostlist_sall(ndomains-1)
-          if ( ighostlist_sall(i) < 0 ) then
-              write (*,*) 'ighostlist_sall, negative=',i,ighostlist_sall(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_sall(ndomains-1)
-          if ( isendlist_sall(i) < 0 ) then
-              write (*,*) 'isendlist_sall, negative=',i,isendlist_sall(i)
-              exit
-          endif
-      enddo
-      do i =1,nghostlist_u(ndomains-1)
-           if ( ighostlist_u(i) < 0 ) then
-              write (*,*) 'ighostlist_u, negative=',i,ighostlist_u(i)
-              exit
-          endif
-      enddo
-      do i =1,nsendlist_u(ndomains-1)
-           if ( isendlist_u(i) < 0 ) then
-              write (*,*) 'isendlist_u, negative=',i,isendlist_u(i)
-              exit
-          endif
-      enddo
-      if ( allocated(ighostlist_snonoverlap ) ) then
-      do i =1,nghostlist_snonoverlap(ndomains-1)
-           if ( ighostlist_snonoverlap(i) < 0 ) then
-              write (*,*) 'ighostlist_snonoverlap, negative=',i,ighostlist_snonoverlap(i)
-              exit
-          endif
-      enddo
-      endif
-      if ( allocated(isendlist_snonoverlap ) ) then
-      do i =1,nsendlist_snonoverlap(ndomains-1)
-           if ( isendlist_snonoverlap(i) < 0 ) then
-              write (*,*) 'isendlist_snonoverlap, negative=',i,isendlist_snonoverlap(i)
-              exit
-          endif
-      enddo
-      endif
-      
+      if ( ierror /= 0 ) goto 1234   
       
 !     make non-overlapping ghost- and sendlists (for solver)      
       call partition_fill_ghostsendlist_nonoverlap(ierror)
-      if ( ierror.ne.0 ) goto 1234
-      
-            !begin checking
-      overlaps = 0
-      do i =2,nghostlist_s(ndomains-1)
-              if ( ighostlist_s(i) < ighostlist_s(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'ighostlist_s, not-sorted=',overlaps
-      overlaps = 0
-      do i =2,nsendlist_s(ndomains-1)
-              if ( isendlist_s(i) < isendlist_s(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'isendlist_s, not-sorted=',overlaps
-            overlaps = 0
-      do i =2,nghostlist_sall(ndomains-1)
-              if ( ighostlist_sall(i) < ighostlist_sall(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'ighostlist_sall, not-sorted=',overlaps
-      overlaps = 0
-      do i =2,nsendlist_sall(ndomains-1)
-              if ( isendlist_sall(i) < isendlist_sall(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'isendlist_sall, not-sorted=',overlaps
-            overlaps = 0
-      do i =2,nghostlist_u(ndomains-1)
-              if ( iabs(ighostlist_u(i)) < iabs(ighostlist_u(i-1)) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'ighostlist_u, not-sorted=',overlaps
-      overlaps = 0
-      do i =2,nsendlist_u(ndomains-1)
-              if ( isendlist_u(i) < isendlist_u(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'isendlist_u, not-sorted=',overlaps
-      if ( allocated(ighostlist_snonoverlap ) ) then
-            overlaps = 0
-      do i =2,nghostlist_snonoverlap(ndomains-1)
-              if ( ighostlist_snonoverlap(i) < ighostlist_snonoverlap(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'ighostlist_snonoverlap, not-sorted=',overlaps
-      endif
-      if ( allocated(isendlist_snonoverlap ) ) then
-      overlaps = 0
-      do i =2,nsendlist_snonoverlap(ndomains-1)
-              if ( isendlist_snonoverlap(i) < isendlist_snonoverlap(i-1) ) overlaps = overlaps +1 
-      enddo
-      write (*,*) 'isendlist_snonoverlap, not-sorted=',overlaps
-      endif
-      overlaps = 0
-      do i =1,nghostlist_s(ndomains-1)
-          do j = 1, nsendlist_s(ndomains-1)
-              if ( ighostlist_s(i) == isendlist_s(j) ) overlaps = overlaps +1 
-          enddo
-      enddo
-      write (*,*) 'itype_s, overlaps=',overlaps
-      overlaps = 0
-      do i =1,nghostlist_sall(ndomains-1)
-          do j = 1, nsendlist_sall(ndomains-1)
-              if ( ighostlist_sall(i) == isendlist_sall(j) ) overlaps = overlaps +1 
-          enddo
-      enddo 
-      write (*,*) 'itype_sall, overlaps=',overlaps
-      overlaps = 0
-      do i =1,nghostlist_u(ndomains-1)
-          do j = 1, nsendlist_u(ndomains-1)
-              if ( iabs(ighostlist_u(i)) == isendlist_u(j) ) overlaps = overlaps +1 
-          enddo
-      enddo
-      write (*,*) 'itype_u, overlaps=',overlaps
-      if ( allocated(ighostlist_snonoverlap) ) then
-      overlaps = 0
-      do i =1,nghostlist_snonoverlap(ndomains-1)
-          do j = 1, nsendlist_snonoverlap(ndomains-1)
-              if ( ighostlist_snonoverlap(i) == isendlist_snonoverlap(j) ) overlaps = overlaps +1 
-          enddo
-      enddo
-      write (*,*) 'itype_snonoverlap, overlaps=',overlaps
-      endif
-      !end checking
-      
-      call bubble_sort_abs(ndomains, nghostlist_s, nghostlist_s(ndomains-1),ighostlist_s)
-      call bubble_sort_abs(ndomains, nsendlist_s, nsendlist_s(ndomains-1),isendlist_s)
-      call bubble_sort_abs(ndomains, nghostlist_sall, nghostlist_sall(ndomains-1),ighostlist_sall)
-      call bubble_sort_abs(ndomains, nsendlist_sall, nsendlist_sall(ndomains-1),isendlist_sall)
-      call bubble_sort_abs(ndomains, nghostlist_u, nghostlist_u(ndomains-1),ighostlist_u)
-      call bubble_sort_abs(ndomains, nsendlist_u, nsendlist_u(ndomains-1),isendlist_u)
+      if ( ierror /= 0 ) goto 1234
       
       call partition_make_globalnumbers(ierror)
       if ( ierror /= 0 ) goto 1234
@@ -2785,7 +2589,7 @@ logical function is_array_size_and_type_correct(itype, number_of_points)
 end function is_array_size_and_type_correct
 
 !> update ghost values
-!>   3D extension: we assume that kbot/Lbot and kmxn/kmxL match their counterparts in the other domain(s)
+!!   3D extension: we assume that kbot/Lbot and kmxn/kmxL match their counterparts in the other domain(s)
 subroutine update_ghost_values(number_of_unknowns_per_point, number_of_points, solution, itype, &
     number_of_ghosts, ghost_list, cumulative_numbers_ghosts, number_of_send_data, send_list, cumulative_numbers_sends, &
     error, nghost3d, nsend3d, kmxnL, kbot, ignore_orientation)
@@ -5358,25 +5162,25 @@ end function  get_list_size
 
 end module m_partitioninfo
 
-!> create a data type for mpi 
-subroutine create_2d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, number_of_list_data, list_data, &
-    size_displacements, displacements, data_type, count, error)
+!> create 2D data mpi type 
+subroutine create_2d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, &
+    number_of_list_data, list_data, & size_displacements, displacements, data_type, count, error)
 #ifdef HAVE_MPI
 use mpi
 #endif
 
 implicit none
-integer, intent(in)    :: rank                                    !< processor number
-integer, intent(in)    :: number_of_unknowns_per_point
-integer, intent(in)    :: number_of_domains
-integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< 
-integer, intent(in)    :: number_of_list_data
-integer, intent(in)    :: list_data(number_of_list_data)
-integer, intent(in)    :: size_displacements
-integer, intent(inout) :: displacements(size_displacements)
-integer, intent(inout) :: data_type
-integer, intent(inout) :: count
-integer, intent(inout) :: error
+integer, intent(in)    :: rank                                       !< processor number
+integer, intent(in)    :: number_of_unknowns_per_point               !< number_of_unknowns_per_point
+integer, intent(in)    :: number_of_domains                          !< number_of_domains
+integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< cumulative_numbers 
+integer, intent(in)    :: number_of_list_data                        !< number_of_list_data  
+integer, intent(in)    :: list_data(number_of_list_data)             !< list_data
+integer, intent(in)    :: size_displacements                         !< size of displacements array
+integer, intent(inout) :: displacements(size_displacements)          !< displacements
+integer, intent(inout) :: data_type                                  !< data_type
+integer, intent(inout) :: count                                      !< count
+integer, intent(inout) :: error                                      !< error if not 0 
 
 integer :: point, displacement, number_of_data_points
 
@@ -5393,33 +5197,36 @@ else
     end do
 end if
 
-call mpi_type_create_indexed_block(number_of_data_points, number_of_unknowns_per_point, displacements, mpi_double_precision, data_type, error)
+call mpi_type_create_indexed_block(number_of_data_points, number_of_unknowns_per_point, displacements, &
+    mpi_double_precision, data_type, error)
 #endif
 count = number_of_data_points * number_of_unknowns_per_point
 end subroutine create_2d_data_type
-    
-subroutine create_3d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, number_of_list_data, list_data, number_of_points, &
+
+!> create 3D data mpi type
+subroutine create_3d_data_type(rank, number_of_unknowns_per_point, number_of_domains, cumulative_numbers, &
+    number_of_list_data, list_data, number_of_points, &
     kbot, kmxnL, size_displacements, displacements, blocks, data_type, count, error)
 #ifdef HAVE_MPI
 use mpi
 #endif
 
 implicit none
-integer, intent(in)    :: rank                                    !< processor number
-integer, intent(in)    :: number_of_unknowns_per_point
-integer, intent(in)    :: number_of_domains
-integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< 
-integer, intent(in)    :: number_of_list_data
-integer, intent(in)    :: list_data(number_of_list_data)
-integer, intent(in)    :: number_of_points
-integer, intent(in)    :: kmxnL(number_of_points)                  !< number of layers
-integer, intent(in)    :: kbot(number_of_points)                   !< bottom layer indices
-integer, intent(in)    :: size_displacements
-integer, intent(inout) :: displacements(size_displacements)
-integer, intent(inout) :: blocks(size_displacements)
-integer, intent(inout) :: data_type
-integer, intent(inout) :: count
-integer, intent(inout) :: error
+integer, intent(in)    :: rank                                       !< processor number
+integer, intent(in)    :: number_of_unknowns_per_point               !< number_of_unknowns_per_point
+integer, intent(in)    :: number_of_domains                          !< number_of_domains
+integer, intent(in)    :: cumulative_numbers(-1:number_of_domains-1) !< cumulative_numbers
+integer, intent(in)    :: number_of_list_data                        !< number_of_list_data
+integer, intent(in)    :: list_data(number_of_list_data)             !< list_data
+integer, intent(in)    :: number_of_points                           !< number_of_points
+integer, intent(in)    :: kmxnL(number_of_points)                    !< number of layers
+integer, intent(in)    :: kbot(number_of_points)                     !< bottom layer indices
+integer, intent(in)    :: size_displacements                         !< size of displacements array
+integer, intent(inout) :: displacements(size_displacements)          !< displacements
+integer, intent(inout) :: blocks(size_displacements)                 !< blocks 
+integer, intent(inout) :: data_type                                  !< data_type
+integer, intent(inout) :: count                                      !< count
+integer, intent(inout) :: error                                      !< error if not 0
 
 integer :: point, element, displacement, number_of_data_points, count_local
 
@@ -5447,54 +5254,6 @@ call mpi_type_indexed(number_of_data_points, blocks, displacements, mpi_double_p
 count = count_local
 #endif            
 end subroutine create_3d_data_type
-    
-    
-subroutine bubble_sort(n_list,i_list)
-integer, intent(in)    :: n_list
-integer, intent(inout) :: i_list(n_list)
-
-integer :: index, tmp
-logical :: not_sorted
-
-not_sorted = .true. 
-do while (not_sorted) 
-   not_sorted = .false.
-   do index = 2, n_list
-       if ( i_list(index) < i_list(index-1) ) then
-          tmp = i_list(index-1)
-          i_list(index-1) = i_list(index)
-          i_list(index) = tmp
-          not_sorted = .true.
-      end if
-   end do
-end do 
-   
-end subroutine bubble_sort
-    
-subroutine bubble_sort_abs(ndomains, nlist, size, list)
-integer, intent(in)    :: ndomains
-integer, intent(in)    :: nlist(-1:ndomains-1)
-integer, intent(in)    :: size
-integer, intent(inout) :: list(size)
-
-integer :: index, domain, tmp
-logical :: not_sorted
-
-do domain = 0, ndomains - 1 
-not_sorted = .true. 
-do while (not_sorted) 
-   not_sorted = .false.
-   do index = nlist(domain-1)+2, nlist(domain)
-       if ( iabs(list(index)) < iabs(list(index-1)) ) then
-          tmp = list(index-1)
-          list(index-1) = list(index)
-          list(index) = tmp
-          not_sorted = .true.
-      end if
-   end do
-end do 
-end do
-end subroutine bubble_sort_abs
     
    subroutine pressakey()
 #ifdef HAVE_MPI
