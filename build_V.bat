@@ -1,0 +1,1 @@
+call build.bat all -prepareonly -vs 2019 -ifort 21
