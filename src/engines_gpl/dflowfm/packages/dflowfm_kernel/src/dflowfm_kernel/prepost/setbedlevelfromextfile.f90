@@ -257,7 +257,7 @@ bft:do ibathyfiletype=1,2
         k1 = ln(1,L)
         k2 = ln(2,L)
         bl(k1) = bl(k2) !original
-        if (jadpsopt.eq.2) then !this should be in a different flag
+        if (jaextrbl.eq.1) then 
             !we first copy and then add a correction to `bl(k1)`
             dxz=xz(k1)-xz(k2)
             dyz=yz(k1)-yz(k2)
