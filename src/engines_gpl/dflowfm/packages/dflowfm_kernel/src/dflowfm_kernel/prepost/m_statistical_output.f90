@@ -1,4 +1,4 @@
-!!  Copyright (C)  Stichting Deltares, 2012-2023.
+ !!  Copyright (C)  Stichting Deltares, 2012-2023.
 !!
 !!  This program is free software: you can redistribute it and/or modify
 !!  it under the terms of the GNU General Public License version 3,
@@ -58,6 +58,7 @@ private
                                                                         !< Otherwise during the simulation the intermediate results are stored.
       double precision, pointer, dimension(:)   :: stat_input           !< In case a statistical operation is requested. This pointer points to the
                                                                         !< basic variable.
+      double precision, pointer, dimension(:)   :: source_input         !< pointer to the basic variable
       double precision, pointer, dimension(:,:) :: samples              !< In case a moving average is requested. This pointer points to the
                                                                         !< work array, where the different samples are stored.
       double precision, pointer, dimension(:)   :: moving_average_sum !< In case a moving average is requested. This pointer points to the
@@ -135,25 +136,40 @@ i%timestep_sum = i%timestep_sum - timesteps(jold) + timesteps(jnew)
 
 end subroutine update_moving_average
 
+subroutine add_statistical_output_sample(i,timestep)
+
+type(t_output_variable_item), intent(inout) :: i
+double precision, intent(in)                :: timestep
+
+i%timesteps(i%current_timestep) = timestep
+i%samples(:,i%current_timestep) = i%source_input
+
+end subroutine add_statistical_output_sample
+
 subroutine update_statistical_output(i)
 
 type(t_output_variable_item), intent(inout) :: i
+use m_flowtimes, only: dts !<current timestep
 
-if (i%operation_id >= 2) then ! max/min of moving average requested
+if (i%operation_id > 2) then ! max/min of moving average requested
+   call add_statistical_output_sample(i,dts)
    call update_moving_average(i)
 endif
 
 select case (i%operation_id)
 case (1) !SO_CURRENT
-   i%stat_output = i%stat_input
+   i%stat_output => i%stat_input
 case (2) !SO_AVERAGE
-   i%stat_output = i%stat_output + i%stat_input * i%timesteps(i%current_step)
-   i%timestep_sum = i%timestep_sum + i%timesteps(i%current_step)
+   i%stat_output = i%stat_output + i%stat_input * dts
+   i%timestep_sum = i%timestep_sum + dts
 case (3) !SO_MAX
    i%stat_output = max(i%stat_output,i%moving_average_sum/i%timestep_sum)
 case (4) !SO_MIN
    i%stat_output = min(i%stat_output,i%moving_average_sum/i%timestep_sum)
 end select
+
+!increase current step
+i%current_step = mod(i%current_step+1,i%total_steps_count)
 
 end subroutine update_statistical_output
 
@@ -173,7 +189,7 @@ type(t_output_variable_item), intent(inout) :: i
 
 i%stat_output = 0
 if (i%operation_id == 2) then !SO_AVERAGE
-   i%timestep_sum = 0 
+   i%timestep_sum = 0 !new sum every output interval
 endif
 
 end subroutine reset_statistical_output
