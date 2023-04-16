@@ -94,7 +94,6 @@
 
    !     sedpar
    integer                              , pointer :: nmudfrac
-   integer                              , pointer :: max_mud_sedtyp
    logical          , dimension(:)      , pointer :: cmpupdfrac
    real(fp)         , dimension(:)      , pointer :: rhosol
    real(fp)         , dimension(:)      , pointer :: cdryb
@@ -119,6 +118,8 @@
    real(fp)         , dimension(:)      , pointer :: tpsnumber
    real(fp)         , dimension(:, :)   , pointer :: dss
 
+   integer                              , pointer :: max_mud_sedtyp
+   integer                              , pointer :: min_dxx_sedtyp
    integer                              , pointer :: flocmod
    integer                              , pointer :: nflocpop
    integer                              , pointer :: nflocsizes

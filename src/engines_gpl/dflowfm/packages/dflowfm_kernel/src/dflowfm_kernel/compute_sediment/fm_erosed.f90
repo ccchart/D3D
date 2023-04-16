@@ -550,8 +550,8 @@
       !
       call compdiam(frac      ,sedd50    ,sedd50    ,sedtyp    ,lsedtot   , &
          & logsedsig ,nseddia   ,logseddia ,ndx       ,1         , &
-         & ndx       ,xx        ,nxx       ,sedd50fld ,dm        , &
-         & dg        ,dxx       ,dgsd      )
+         & ndx       ,xx        ,nxx       ,max_mud_sedtyp, min_dxx_sedtyp, &
+         & sedd50fld ,dm        ,dg        ,dxx       ,dgsd      )
       !
       ! determine hiding & exposure factors
       !

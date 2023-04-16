@@ -82,6 +82,8 @@
    tpsnumber           => stmpar%sedpar%tpsnumber
    dss                 => stmpar%sedpar%dss
    !
+   max_mud_sedtyp      => stmpar%sedpar%max_mud_sedtyp
+   min_dxx_sedtyp      => stmpar%sedpar%min_dxx_sedtyp
    flocmod             => stmpar%sedpar%flocmod
    nflocpop            => stmpar%sedpar%nflocpop
    nflocsizes          => stmpar%sedpar%nflocsizes
