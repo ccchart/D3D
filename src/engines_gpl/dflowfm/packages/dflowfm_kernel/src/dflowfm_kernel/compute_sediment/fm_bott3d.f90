@@ -410,7 +410,7 @@
                !
                ! bed load transport only for fractions with bedload component
                !
-               if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
+               if (.not. btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle
                li = li + 1
                !
                do ib = 1, morbnd(jb)%npnt
@@ -459,7 +459,7 @@
                   !
                   ! bed load transport only for fractions with bedload component
                   !
-                  if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
+                  if (.not. btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle
                   li = li + 1
                   !
                   if (morbnd(jb)%ibcmt(3) == lsedbed) then

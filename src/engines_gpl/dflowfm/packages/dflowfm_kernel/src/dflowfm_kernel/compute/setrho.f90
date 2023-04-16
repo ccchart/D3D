@@ -62,7 +62,7 @@ double precision function setrho(k,p0)
 use m_physcoef
 use m_flow
 use m_sediment
-use sediment_basics_module, only: TRA_ADVDIFF
+use sediment_basics_module, only: TRA_ADVDIFF_BIT
 use m_transport
 use m_turbulence, only: rhowat
 
@@ -99,7 +99,7 @@ if (jased > 0 .and. stm_included) then
       l = ISED1
       rhom = setrho
       do lsed = 1,stmpar%lsedtot
-         if (btest(stmpar%sedpar%tratyp(lsed), TRA_ADVDIFF)) then ! has suspended component
+         if (btest(stmpar%sedpar%tratyp(lsed), TRA_ADVDIFF_BIT)) then ! has suspended component
             setrho = setrho + constituents(l,k)*(stmpar%sedpar%rhosol(lsed) - rhom)/stmpar%sedpar%rhosol(lsed)
             l = l+1
          end if

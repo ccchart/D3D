@@ -1872,6 +1872,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
        error = .true.
        return
     end if
+    parnames = ' '
     do j = 1, nto
        txtput1 = 'Boundary name'
        write (lundia, '(2a,a20)') txtput1, ':', trim(nambnd(j))
@@ -1961,7 +1962,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (btest(tratyp(l), TRA_BEDLOAD)) then
+                      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
                          i = i + 1
                          parnames(i) = trim(parname) // ' ' // trim(namsed(l))
                       end if
@@ -1988,7 +1989,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (btest(tratyp(l), TRA_BEDLOAD)) then
+                      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
                          i = i + 1
                          parnames(i)      = trim(parname) // ' ' // trim(namsed(l)) // ' end A'
                          parnames(nval+i) = trim(parname) // ' ' // trim(namsed(l)) // ' end B'

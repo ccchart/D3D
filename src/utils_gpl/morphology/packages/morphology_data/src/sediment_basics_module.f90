@@ -53,6 +53,9 @@ public TRA_BEDLOAD  ! transport given by an algebraic expression (typically bed 
 public TRA_ADVDIFF  ! transport determined via advection diffusion equation
 public TRA_COMBINE  ! transport determined via algebraic expression plus advection diffusion equation
 
+public TRA_BEDLOAD_BIT ! bit to check for bed load contribution
+public TRA_ADVDIFF_BIT ! bit to check for suspended load contribution
+
 public lognormal
 public ilognormal
 
@@ -70,6 +73,9 @@ integer, parameter :: TRA_NONE    = 0
 integer, parameter :: TRA_BEDLOAD = 1
 integer, parameter :: TRA_ADVDIFF = 2
 integer, parameter :: TRA_COMBINE = TRA_BEDLOAD + TRA_ADVDIFF
+
+integer, parameter :: TRA_BEDLOAD_BIT = 0 ! the first bit is used for flagging bed load
+integer, parameter :: TRA_ADVDIFf_BIT = 1 ! the second bit is used for flagging suspended load
 
 !
 ! sqrt(2)*erfinv(P/50-1) for P = 1:99
