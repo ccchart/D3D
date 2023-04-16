@@ -859,7 +859,7 @@
       if (iconsolidate > 0) then
          dll_reals(RP_POROS) = real(poros(nm) ,hp)
       else
-         dll_reals(RP_POROS) = real(tporos    ,hp)
+         dll_reals(RP_POROS) = 0d0 ! RP_POROS will be set later
       endif
       dll_reals(RP_BLCHG) = real(dzbdt(nm) ,hp)   ! for dilatancy
       dll_reals(RP_DZDX)  = real(dzdx(nm)  ,hp)   ! for dilatancy
@@ -1056,10 +1056,12 @@
          dll_reals(RP_DSTAR) = real(dstar(l),hp)
          dll_reals(RP_SETVL) = real(twsk    ,hp) ! Settling velocity near bedlevel
          !
-         ! Calculate bed porosity for dilatancy
+         ! Calculate bed porosity for dilatancy when consolidation is not dynamically modelled
          !
-         tporos = 1d0-cdryb(l)/rhosol(l)
-         dll_reals(RP_POROS) = real(tporos  ,hp)
+         if (iconsolidate == 0) then
+            tporos = 1d0 - cdryb(l)/rhosol(l)
+            dll_reals(RP_POROS) = real(tporos  ,hp)
+         endif
          !
          localpar(1) = ag
          localpar(2) = rhowat(kbed) ! rhow
