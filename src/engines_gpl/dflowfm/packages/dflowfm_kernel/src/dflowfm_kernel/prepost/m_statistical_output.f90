@@ -30,6 +30,7 @@ private
 
    public realloc
    public dealloc
+   public update_output_set
 
    !> Realloc memory cross-section definition or cross-sections
    interface realloc
