@@ -121,85 +121,85 @@ contains
       endif
    end subroutine dealloc_stat_output
 
-elemental subroutine update_moving_average(i)
+   elemental subroutine update_moving_average(i)
 
-type(t_output_variable_item), intent(inout) :: i
-integer :: jnew, jold !< Index to newest and oldest timestep in samples array
+      type(t_output_variable_item), intent(inout) :: i
+      integer :: jnew, jold !< Index to newest and oldest timestep in samples array
 
-jnew = i%current_step
-jold = MOD(i%current_step,i%total_steps_count)+1
+      jnew = i%current_step
+      jold = MOD(i%current_step,i%total_steps_count)+1
+   
+      !when timestep < windowsize, no samples need to be removed. The timesteps array and samples array will be initialized to 0 so that we can keep the same expression.
+      i%moving_average_sum = i%moving_average_sum - i%samples(:,jold)*i%timesteps(jold) + i%samples(:,jnew)*i%timesteps(jnew)
+      i%timestep_sum = i%timestep_sum - i%timesteps(jold) + i%timesteps(jnew)
+   
+   end subroutine update_moving_average
 
-!when timestep < windowsize, no samples need to be removed. The timesteps array and samples array will be initialized to 0 so that we can keep the same expression.
-i%moving_average_sum = i%moving_average_sum - i%samples(:,jold)*i%timesteps(jold) + i%samples(:,jnew)*i%timesteps(jnew)
-i%timestep_sum = i%timestep_sum - i%timesteps(jold) + i%timesteps(jnew)
+   elemental subroutine add_statistical_output_sample(i,timestep)
 
-end subroutine update_moving_average
+      type(t_output_variable_item), intent(inout) :: i
+      double precision, intent(in)                :: timestep
 
-elemental subroutine add_statistical_output_sample(i,timestep)
+      i%timesteps(i%current_step) = timestep
+      i%samples(:,i%current_step) = i%source_input
 
-type(t_output_variable_item), intent(inout) :: i
-double precision, intent(in)                :: timestep
+      end subroutine add_statistical_output_sample
 
-i%timesteps(i%current_step) = timestep
-i%samples(:,i%current_step) = i%source_input
+      subroutine update_output_set(output_set)
 
-end subroutine add_statistical_output_sample
+      type(t_output_variable_set), intent(inout) :: output_set
+      integer :: i
 
-subroutine update_output_set(output_set)
+      call update_statistical_output(output_set%statout)
+   
+   end subroutine update_output_set
 
-type(t_output_variable_set), intent(inout) :: output_set
-integer :: i
+   elemental subroutine update_statistical_output(i)
 
-call update_statistical_output(output_set%statout)
+      use m_flowtimes, only: dts !<current timestep
+      type(t_output_variable_item), intent(inout) :: i
 
-end subroutine update_output_set
+      if (i%operation_id > 2) then ! max/min of moving average requested
+         call add_statistical_output_sample(i,dts)
+         call update_moving_average(i)
+      endif
 
-elemental subroutine update_statistical_output(i)
+      select case (i%operation_id)
+      case (1) !SO_CURRENT
+         i%stat_output => i%stat_input
+      case (2) !SO_AVERAGE
+         i%stat_output = i%stat_output + i%stat_input * dts
+         i%timestep_sum = i%timestep_sum + dts
+      case (3) !SO_MAX
+         i%stat_output = max(i%stat_output,i%moving_average_sum/i%timestep_sum)
+      case (4) !SO_MIN
+         i%stat_output = min(i%stat_output,i%moving_average_sum/i%timestep_sum)
+      end select
 
-use m_flowtimes, only: dts !<current timestep
-type(t_output_variable_item), intent(inout) :: i
+      !increase current step
+      i%current_step = mod(i%current_step+1,i%total_steps_count)
 
-if (i%operation_id > 2) then ! max/min of moving average requested
-   call add_statistical_output_sample(i,dts)
-   call update_moving_average(i)
-endif
+   end subroutine update_statistical_output
 
-select case (i%operation_id)
-case (1) !SO_CURRENT
-   i%stat_output => i%stat_input
-case (2) !SO_AVERAGE
-   i%stat_output = i%stat_output + i%stat_input * dts
-   i%timestep_sum = i%timestep_sum + dts
-case (3) !SO_MAX
-   i%stat_output = max(i%stat_output,i%moving_average_sum/i%timestep_sum)
-case (4) !SO_MIN
-   i%stat_output = min(i%stat_output,i%moving_average_sum/i%timestep_sum)
-end select
+   subroutine prepare_write_statistical_output(i)
 
-!increase current step
-i%current_step = mod(i%current_step+1,i%total_steps_count)
+      type(t_output_variable_item), intent(inout) :: i
 
-end subroutine update_statistical_output
+      if (i%operation_id == 2) then !SO_AVERAGE
+         i%stat_output = i%stat_output/i%timestep_sum
+      endif
 
-subroutine prepare_write_statistical_output(i)
+      end subroutine prepare_write_statistical_output
 
-type(t_output_variable_item), intent(inout) :: i
+      subroutine reset_statistical_output(i)
 
-if (i%operation_id == 2) then !SO_AVERAGE
-   i%stat_output = i%stat_output/i%timestep_sum
-endif
+      type(t_output_variable_item), intent(inout) :: i
 
-end subroutine prepare_write_statistical_output
+      i%stat_output = 0
+      if (i%operation_id == 2) then !SO_AVERAGE
+         i%timestep_sum = 0 !new sum every output interval
+      endif
 
-subroutine reset_statistical_output(i)
-
-type(t_output_variable_item), intent(inout) :: i
-
-i%stat_output = 0
-if (i%operation_id == 2) then !SO_AVERAGE
-   i%timestep_sum = 0 !new sum every output interval
-endif
-
-end subroutine reset_statistical_output
+   end subroutine reset_statistical_output
 
 end module
