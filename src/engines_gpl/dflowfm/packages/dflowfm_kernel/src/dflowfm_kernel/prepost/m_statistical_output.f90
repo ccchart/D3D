@@ -121,7 +121,7 @@ contains
       endif
    end subroutine dealloc_stat_output
 
-subroutine update_moving_average(i)
+elemental subroutine update_moving_average(i)
 
 type(t_output_variable_item), intent(inout) :: i
 integer :: jnew, jold !< Index to newest and oldest timestep in samples array
@@ -131,25 +131,33 @@ jold = MOD(i%current_step,i%total_steps_count)+1
 
 !when timestep < windowsize, no samples need to be removed. The timesteps array and samples array will be initialized to 0 so that we can keep the same expression.
 i%moving_average_sum = i%moving_average_sum - i%samples(:,jold)*i%timesteps(jold) + i%samples(:,jnew)*i%timesteps(jnew)
-i%timestep_sum = i%timestep_sum - timesteps(jold) + timesteps(jnew)
-
+i%timestep_sum = i%timestep_sum - i%timesteps(jold) + i%timesteps(jnew)
 
 end subroutine update_moving_average
 
-subroutine add_statistical_output_sample(i,timestep)
+elemental subroutine add_statistical_output_sample(i,timestep)
 
 type(t_output_variable_item), intent(inout) :: i
 double precision, intent(in)                :: timestep
 
-i%timesteps(i%current_timestep) = timestep
-i%samples(:,i%current_timestep) = i%source_input
+i%timesteps(i%current_step) = timestep
+i%samples(:,i%current_step) = i%source_input
 
 end subroutine add_statistical_output_sample
 
-subroutine update_statistical_output(i)
+subroutine update_output_set(output_set)
 
-type(t_output_variable_item), intent(inout) :: i
+type(t_output_variable_set), intent(inout) :: output_set
+integer :: i
+
+call update_statistical_output(output_set%statout)
+
+end subroutine update_output_set
+
+elemental subroutine update_statistical_output(i)
+
 use m_flowtimes, only: dts !<current timestep
+type(t_output_variable_item), intent(inout) :: i
 
 if (i%operation_id > 2) then ! max/min of moving average requested
    call add_statistical_output_sample(i,dts)
