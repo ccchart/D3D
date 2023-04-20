@@ -39,7 +39,8 @@ endif()
 
 if (WIN32)
     message(STATUS "Setting compiler flags in windows")
-    set(CMAKE_Fortran_FLAGS "/W1 /nologo /libs:dll")
+    set(CMAKE_C_FLAGS "/MP")
+    set(CMAKE_Fortran_FLAGS "/W1 /nologo /libs:dll /MP")
     set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${check_uninit_flag} ${check_stack_flag} ${check_bounds_flag} ${traceback}")
 endif(WIN32)
 
