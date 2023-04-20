@@ -47,6 +47,8 @@ private
    integer, parameter :: SO_MAX     = 3
    integer, parameter :: SO_MIN     = 4
    
+   integer :: window_size !< The size of the moving average window, in samples.
+   
    !> Derived type for the statistical output items. 
    type, public :: t_output_variable_item
       type(t_output_quantity_config), pointer   :: output_config        !< Pointer to output configuration item.
@@ -149,7 +151,6 @@ contains
    subroutine update_output_set(output_set)
 
       type(t_output_variable_set), intent(inout) :: output_set
-      integer :: i
 
       call update_statistical_output(output_set%statout)
    
@@ -163,11 +164,10 @@ contains
       if (i%operation_id > 2) then ! max/min of moving average requested
          call add_statistical_output_sample(i,dts)
          call update_moving_average(i)
+         i%current_step = mod(i%current_step+1,i%total_steps_count)
       endif
 
       select case (i%operation_id)
-      case (1) !SO_CURRENT
-         i%stat_output => i%stat_input
       case (2) !SO_AVERAGE
          i%stat_output = i%stat_output + i%stat_input * dts
          i%timestep_sum = i%timestep_sum + dts
@@ -176,9 +176,6 @@ contains
       case (4) !SO_MIN
          i%stat_output = min(i%stat_output,i%moving_average_sum/i%timestep_sum)
       end select
-
-      !increase current step
-      i%current_step = mod(i%current_step+1,i%total_steps_count)
 
    end subroutine update_statistical_output
 
@@ -195,12 +192,54 @@ contains
       subroutine reset_statistical_output(i)
 
       type(t_output_variable_item), intent(inout) :: i
-
-      i%stat_output = 0
+      if (i%operation_id >= 2) then
+         i%stat_output = 0
+      endif
       if (i%operation_id == 2) then !SO_AVERAGE
          i%timestep_sum = 0 !new sum every output interval
       endif
 
    end subroutine reset_statistical_output
+      
+   subroutine initialize_statistical_output(output_set)
+   
+      type(t_output_variable_set), intent(inout) :: output_set
+      integer :: inputsize
+      type(t_output_variable_item), pointer  :: i
+      integer :: j
+      
+      input_size = size(i%source_input)
+      do j = 1, output_set%count
+         i => output_set%statout(j)
+         !call set_statistical_output_pointer(output_i)
+         select case (i%operation_id)
+         case (1)
+            i%stat_output => i%stat_input
+         case (2)
+            allocate(i%stat_output(input_size))
+            i%stat_input => i%source_input
+         case default
+            allocate(i%stat_output(input_size),i%moving_average_sum(input_size),i%samples(input_size,window_size),i%timesteps(window_size))
+            i%stat_input => i%moving_average_sum
+            
+            i%moving_average_sum = 0
+            i%samples = 0
+            i%timesteps = 0
+            i%timestep_sum = 0
+         end select
+
+         call reset_statistical_output(i)
+      enddo
+      
+   end subroutine initialize_statistical_output
+   
+   subroutine set_statistical_input_pointer(i,success)
+   
+      type(t_output_variable_item), intent(inout)  :: i
+      logical, intent(out)                         :: success
+      success = .true.
+      
+   end subroutine set_statistical_input_pointer
+   
 
 end module
