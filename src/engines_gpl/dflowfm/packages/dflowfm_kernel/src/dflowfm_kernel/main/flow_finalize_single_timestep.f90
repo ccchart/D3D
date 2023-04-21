@@ -161,8 +161,8 @@ integer, intent(out) :: iresult
       call postpr_fourier(time0, dts)
    endif
    
-call update_output_set(out_variable_set_his)
-call update_output_set(out_variable_set_map)
-call update_output_set(out_variable_set_classmap)
+call update_output_set(out_variable_set_his,dts)
+call update_output_set(out_variable_set_map,dts)
+call update_output_set(out_variable_set_classmap,dts)
 
 end subroutine flow_finalize_single_timestep
