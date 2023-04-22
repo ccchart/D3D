@@ -78,6 +78,7 @@ implicit none
    !! MPI_Fint MPI_Comm_c2f(MPI_Comm comm) to convert the C comm handle
    !! to a FORTRAN comm handle.
    integer, target :: DFM_COMM_DFMWORLD = NAMECLASH_MPI_COMM_WORLD !< [-] The MPI communicator for dflowfm (FORTRAN handle). {"rank": 0}
+   integer         :: DFM_COMM_ALLWORLD                             !< [-] The MPI communicator for dflowfm including the fetch proc (FORTRAN handle). {"rank": 0}#endif
 #endif
    type tghost
       integer, allocatable       :: list(:)            !< list of ghost nodes or links, in order of their corresponding other domain, dim(1:number of ghost nodes/links)
@@ -91,6 +92,9 @@ implicit none
    integer                       :: ndomains = 0       !< number of domains
    integer                       :: numranks = 1       !< number of ranks
    integer                       :: my_rank            !< own rank
+   
+   integer                       :: use_fetch_proc = 0   !< if 1, then a separate proc is dedicated to calculate fetch parlength and depth
+   integer                       :: fetch_proc_rank = -1 !< the rank of the fetch proc. it is the last proc of the entire proc group when it is active 
    
    character(len=4)              :: sdmn               !< domain number string
 
@@ -140,6 +144,7 @@ implicit none
    integer, parameter            :: ITAG_U=2           !< communication tag
    integer, parameter            :: ITAG_SALL=3        !< communication tag
    integer, parameter            :: ITAG_SNONOVERLAP=4 !< communication tag
+   integer, parameter            :: ITAG_CN=5          !< communication tag
    
    integer                       :: numghost_s            !< number of water-level ghost nodes
    integer, allocatable, target  :: ighostlist_s(:)       !< list of water-level ghost nodes, in order of their corresponding domain
@@ -1646,7 +1651,7 @@ implicit none
        send_list, nr_send_list, ierror)
       
       use m_alloc
-      use network_data,    only: xzw, yzw, xk, yk
+      use network_data,    only: numk,xzw, yzw, xk, yk
       use m_flowgeom,      only: xu, yu
       use geometry_module, only: dbdistance
       use m_missing,       only: dmiss
@@ -1668,6 +1673,7 @@ implicit none
       double precision, pointer           :: x_local(:), y_local(:)       !< pointers on flow nodes/links/corners
       integer                             :: i, ii, j, ghost_level, num, numnew
       integer                             :: numdomains, idum
+      integer                             :: node
       
       integer                             :: jafound
       double precision, parameter         :: TOLERANCE=1d-4
@@ -1726,9 +1732,9 @@ implicit none
                    end if
                 end do  
                if ( jafound == 0 ) then
-            call qnerror('partition_fill_sendlist: numbering error', message2, message3)
-            goto 1234
-         endif
+                  call qnerror('partition_fill_sendlist: numbering error', message2, message3)
+                  goto 1234
+               endif
             end if
          endif
       end do
@@ -2512,7 +2518,7 @@ implicit none
             goto 1234
          end if
          call update_ghost_loc(ndomains, ndim, n, solution, nghostlist_cn(ndomains-1), ighostlist_cn, &
-             nghostlist_cn, nsendlist_cn(ndomains-1), isendlist_cn, nsendlist_cn, ITAG_U, error)
+             nghostlist_cn, nsendlist_cn(ndomains-1), isendlist_cn, nsendlist_cn, ITAG_CN, error)
 !
 !     3D-extension         
       else if ( itype == ITYPE_S3D ) then
@@ -4987,7 +4993,7 @@ end subroutine gatherv_int_data_mpi_dif
       implicit none
       integer :: ierr
 #ifdef HAVE_MPI      
-      call MPI_Abort(DFM_COMM_DFMWORLD, DFM_GENERICERROR, ierr)
+      call MPI_Abort(DFM_COMM_ALLWORLD, DFM_GENERICERROR, ierr)
 #endif
       return
    end subroutine abort_all
@@ -5277,7 +5283,7 @@ loop_over_nodes: &
         end if  
     end do
     
-    if ( min_ghost_level <= max_ghost_level) then
+    if ( min_ghost_level_for_cell <= max_ghost_level) then
         call add_data_to_ghost_list(ghost_level(cell), idomain(cell), ghost_list, node)
     end if
 end do loop_over_nodes
@@ -5334,14 +5340,14 @@ end module m_partitioninfo
 
       integer             :: ierr
 
-      call MPI_barrier(DFM_COMM_DFMWORLD,ierr)
+      call MPI_barrier(DFM_COMM_ALLWORLD,ierr)
 
       if ( my_rank.eq.0 ) then
          write(6,*) "press a key from rank 0..."
          read(5,*)
       end if
 
-      call MPI_barrier(DFM_COMM_DFMWORLD,ierr)
+      call MPI_barrier(DFM_COMM_ALLWORLD,ierr)
 #else
       write(6,*) "press a key..."
       read(5,*)
