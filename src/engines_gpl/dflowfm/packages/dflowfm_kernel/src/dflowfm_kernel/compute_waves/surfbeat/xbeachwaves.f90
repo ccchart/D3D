@@ -4300,13 +4300,15 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
    use m_xbeach_paramsconst, only: TURB_NONE
    use m_xbeach_data, m_xbeach_data_hminlw=>hminlw
    use m_flowgeom
-   use m_flow, only: s1, epshs, kmx
+   use m_flowtimes, only: dnt
+   use m_flow, only: s1, epshs, kmx, flowwithoutwaves
    use network_data, only: xk, yk, numk
    use m_sferic, only: pi, dg2rd, rd2dg
    use m_physcoef, only: ag, rhomean
    use m_waves, only: hwav, twav, phiwav, ustokes, vstokes, uorb, rlabda, ustx_cc, usty_cc
    use m_flowexternalforcings, only: nbndw, kbndw
    use m_alloc
+   use unstruc_display
    
    implicit none
    
@@ -4527,12 +4529,19 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
       rlabda = 2d0*pi/kwav
    endif
   !
-   call wave_makeplotvars()
+  ! this part is for online interacter visualisation
+  if ( jaGUI == 1 .and. .not. flowWithoutWaves) then
+     if (ntek > 0) then
+        if (mod(int(dnt),ntek)  ==  0) then
+           call wave_makeplotvars()
+        end if
+     endif
+  endif
    !
    call timer(t4)
    !
    write(*,*) 'Stationary wave action computation:        ',t2-t1,' seconds'
-   if (roller>0) then
+   if (roller>0 .and. callType==callTypeStationary) then
       write(*,*) 'Stationary roller computation:          ',t3-t2,' seconds'
    endif
    write(*,*) 'Total time stationary wave computation:    ',t4-t0,' seconds'
@@ -6134,9 +6143,9 @@ subroutine xbeach_compute_stokesdrift()
             urf(k) = ustr(k)*cos(thetamean(k))
             vrf(k) = ustr(k)*sin(thetamean(k))
          endif
-         ustx_cc(k) = uwf(k)+urf(k); usty_cc(k)=vwf(k)+vrf(k)
-      else
-         ustx_cc(k) = 0d0; usty_cc(k) = 0d0
+         !ustx_cc(k) = uwf(k)+urf(k); usty_cc(k)=vwf(k)+vrf(k) ! commented out for now, done in make_plotvars afaik
+      !else
+      !   ustx_cc(k) = 0d0; usty_cc(k) = 0d0
       endif
    end do
 
