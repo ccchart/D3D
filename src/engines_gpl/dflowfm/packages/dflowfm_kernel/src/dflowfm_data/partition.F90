@@ -1855,13 +1855,7 @@ implicit none
          call partition_make_sendlist_MPI(ITYPE_S,   numlay_cellbased+1,numlay_nodebased+1, isendlist_s, nsendlist_s)
          call partition_make_sendlist_MPI(ITYPE_Sall,numlay_cellbased+1,numlay_nodebased+1, isendlist_sall, nsendlist_sall)
          call partition_make_sendlist_MPI(ITYPE_U,   numlay_cellbased+1,numlay_nodebased+1, isendlist_u, nsendlist_u)
-         
-         nghostlist_cn_temp = nghostlist_cn
-         ighostlist_cn_temp = ighostlist_cn
-         call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, isendlist_cn, nsendlist_cn)
-         nghostlist_cn = nghostlist_cn_temp
-         ighostlist_cn = ighostlist_cn_temp
-         
+                  
          !call write_boundary(my_rank,ndomains,nghostlist_cn(ndomains-1),nghostlist_cn,ighostlist_cn,nsendlist_cn(ndomains-1),&
          !nsendlist_cn,isendlist_cn)
          
@@ -1872,13 +1866,18 @@ implicit none
          nghostlist_sall = 0
          if ( allocated(ighostlist_sall) ) deallocate(ighostlist_sall)   
          nghostlist_u = 0
-         if ( allocated(ighostlist_u)    ) deallocate(ighostlist_u)
+         if ( allocated(ighostlist_u)    ) deallocate(ighostlist_u) 
          
 !        fill ghostlists
          call partition_make_sendlist_MPI(ITYPE_S,   numlay_cellbased+1,numlay_nodebased+1, ighostlist_s, nghostlist_s, ifromto=1)
          call partition_make_sendlist_MPI(ITYPE_Sall,numlay_cellbased+1,numlay_nodebased+1, ighostlist_sall, nghostlist_sall, ifromto=1)
          call partition_make_sendlist_MPI(ITYPE_u,   numlay_cellbased+1,numlay_nodebased+1, ighostlist_u, nghostlist_u, ifromto=1)
          !call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, ighostlist_cn, nghostlist_cn, ifromto=1)
+         nghostlist_cn_temp = nghostlist_cn
+         ighostlist_cn_temp = ighostlist_cn
+         call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, isendlist_cn, nsendlist_cn)
+         nghostlist_cn = nghostlist_cn_temp
+         ighostlist_cn = ighostlist_cn_temp
       end if
       
 !     set number of send nodes/links

@@ -153,6 +153,7 @@ module m_xbeach_data
    double precision, dimension(:,:,:) , allocatable         :: wmean        ! weights stationary roller model
    integer         , dimension(:,:,:) , allocatable         :: prevmean     ! two upwind grid points per grid point roller model
    double precision, dimension(:,:)   , allocatable         :: dsmean       ! distance to interpolated upwind point, per grid point roller model
+   double precision, dimension(:)     , allocatable         :: Hmx          ! Maximum expected wave height in corner point
    integer         , dimension(:,:)   , allocatable         :: kp           ! computational kernel around all numk net nodes
 
    !< Relaxated depth and velocities

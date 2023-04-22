@@ -383,12 +383,6 @@ subroutine xbeach_all_input()
       endif
    endif
    !
-   if (trim(instat)=='stat' .or. trim(instat)=='stat_table') then
-      thetanaut = 1
-      thetamin = dir0-90d0
-      thetamax = dir0+90d0
-      call writelog('lws','','Warning: Calculating with stationary bc. Thetamin and thetamax reset to -/+90 degrees from dir0.')
-   endif   
    !facmax = 0.25d0*sqrt(ag)*rhomean*gamma**2
    !
    !
@@ -4357,7 +4351,7 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
    cthetalocal    = 0d0
    !
    call timer(t0)
-   wavdir = mod((270d0-dir0)*dg2rd,360d0)  ! cartesisch, in rad
+   wavdir = mod(270d0-dir0,360d0)*dg2rd  ! cartesisch, in rad
    !
    select case (callType)
       case (callTypeStationary)
@@ -4405,7 +4399,7 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
    !
    call flownod2corner(fw, ndx, fwstat, numk, ierr)
    where (hhstat>fwcutoff)
-      fw = 0d0   
+      fwstat = 0d0   
    endwhere
    !
    ! Assign wave boundary signal to boundary cell corners
@@ -4430,12 +4424,14 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
          enddo
    end select  
    !
+   Hmx=0.88/kwavstat*tanh(gamma*kwavstat*hhstat/0.88d0)
+   !
    call timer(t1)
    !
    ! Solve the directional wave energy balance on an unstructured grid
    call solve_energy_balance2Dstat (xk,yk,numk,w,ds,inner,prev,seapts,noseapts,nmmask,       &
                                     eebc,thetabinlocal,nthetalocal,wavdir,                                    &
-                                    hhstat,kwavstat,cgstat,cthetastat,fwstat,Trep,dtmaximp,rhomean,alpha,gamma,m_xbeach_data_hminlw,                     &
+                                    hhstat,kwavstat,cgstat,cthetastat,fwstat,Hmx,Trep,dtmaximp,rhomean,ag,alpha,gamma,m_xbeach_data_hminlw, maxiter,                    &
                                     Hstat,Dwstat,Dfstat,thetam,uorbstat,eestat)
    call timer(t2)
    !
@@ -4459,15 +4455,15 @@ subroutine xbeach_solve_wave_stationary(callType,ierr)
    !
    ! Recompute dissipation after limiting wave energy by gammax
    do k = 1, numk
-      call baldock(ag,rhomean,alpha,gamma,kwavstat(k),hhstat(k),Hstat(k),Trep,1,Dwstat(k))
+      call baldock(ag,rhomean,alpha,gamma,kwavstat(k),hhstat(k),Hstat(k),Hmx(k),Trep,1,Dwstat(k))
       uorbstat(k)=pi*Hstat(k)/Trep/sinh(min(kwavstat(k)*hhstat(k),10d0))
       Dfstat(k)=0.28d0*rhomean*fwstat(k)*uorbstat(k)**3
    enddo
    !
-   if (roller>0) then
+   if (roller>0 .and. callType==callTypeStationary) then
       !
       call find_upwind_neighbours(xk,yk,numk,thetam,1,kp,np,wmean,prevmean,dsmean,ierr)
-      call solve_roller_balance(xk,yk,numk,prevmean,hhstat,cstat,Dwstat,thetam,beta,seapts,noseapts,inner,nmmask,Erstat,Drstat)
+      call solve_roller_balance(xk,yk,numk,prevmean,hhstat,cstat,Dwstat,thetam,beta,ag, rhomean,maxiter, seapts,noseapts,inner,nmmask,Erstat,Drstat)
       !
       ! Add influence of gammax on roller energy
       if (rollergammax==1) then
@@ -4653,7 +4649,7 @@ end subroutine intersect_angle
 !
 subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neumannconnected,       &
                                       ee0,theta,ntheta,thetamean,                                    &
-                                      hh,kwav,cg,ctheta,fw,T,dt,rho,alfa,gamma,hmin,                 &
+                                      hh,kwav,cg,ctheta,fw,Hmx,T,dt,rho,ag,alfa,gamma,hmin,maxiter,                 &
                                       H,Dw,Df,thetam,uorb,ee)
    
    use m_partitioninfo
@@ -4661,34 +4657,37 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    implicit none
 
    ! In/output variables and arrays
-   integer, intent(in)                        :: mn,ntheta              ! number of grid points, number of directions
-   real*8, dimension(mn),intent(in)           :: x,y                    ! x,y coordinates of grid
-   real*8,  dimension(mn,ntheta,2),intent(in) :: w                      ! weights of upwind grid points, 2 per grid point and per wave direction
-   real*8, dimension(mn,ntheta), intent(in)   :: ds                     ! distance to interpolated upwind point, per grid point and direction
-   real*8, dimension(mn,ntheta), intent(in)   :: ee0                    ! distribution of wave energy density
-   real*8, intent(in)                         :: thetamean              ! mean offshore wave direction (rad)
-   real*8, dimension(ntheta), intent(in)      :: theta                  ! distribution of wave angles
-   logical, dimension(mn), intent(in)         :: inner                  ! mask of inner grid points (not on boundary)
-   integer, dimension(mn,ntheta,2),intent(in) :: prev                   ! two upwind grid points per grid point and wave direction
-   integer, intent(in)                        :: noseapts               ! number of offshore wave boundary points
-   integer, dimension(noseapts)               :: seapts                 ! indices of offshore wave boundary points
-   integer, dimension(mn),intent(in)          :: neumannconnected       ! number of neumann boundary point if connected to inner point
-   real*8, dimension(mn), intent(in)          :: hh                     ! water depth
-   real*8, dimension(mn), intent(in)          :: kwav                   ! wave number
-   real*8, dimension(mn), intent(in)          :: cg                     ! group velocity
-   real*8, dimension(mn,ntheta), intent(in)   :: ctheta                 ! refraction speed
-   real*8, dimension(mn), intent(in)          :: fw                     ! wave friction factor
-   real*8, intent(in)                         :: T                      ! wave period
-   real*8, intent(in)                         :: dt                     ! time step (s)
-   real*8, intent(in)                         :: rho                    ! water density
-   real*8, intent(in)                         :: alfa,gamma             ! coefficients in Baldock wave breaking dissipation
-   real*8, intent(in)                         :: hmin                   ! limiting depth for wet points in system
-   real*8, dimension(mn), intent(out)         :: H                      ! wave height
-   real*8, dimension(mn), intent(out)         :: Dw                     ! wave breaking dissipation
-   real*8, dimension(mn), intent(out)         :: Df                     ! wave friction dissipation
-   real*8, dimension(mn), intent(out)         :: thetam                 ! mean wave direction
-   real*8, dimension(mn), intent(out)         :: uorb                   ! orbital velocity
-   real*8, dimension(ntheta,mn), intent(out)  :: ee                     ! wave energy distribution
+   integer, intent(in)                        :: mn,ntheta              !< number of grid points, number of directions
+   real*8, dimension(mn),intent(in)           :: x,y                    !< x,y coordinates of grid
+   real*8,  dimension(mn,ntheta,2),intent(in) :: w                      !< weights of upwind grid points, 2 per grid point and per wave direction
+   real*8, dimension(mn,ntheta), intent(in)   :: ds                     !< distance to interpolated upwind point, per grid point and direction
+   real*8, dimension(mn,ntheta), intent(in)   :: ee0                    !< distribution of wave energy density
+   real*8, intent(in)                         :: thetamean              !< mean offshore wave direction (rad)
+   real*8, dimension(ntheta), intent(in)      :: theta                  !< distribution of wave angles
+   logical, dimension(mn), intent(in)         :: inner                  !< mask of inner grid points (not on boundary)
+   integer, dimension(mn,ntheta,2),intent(in) :: prev                   !< two upwind grid points per grid point and wave direction
+   integer, intent(in)                        :: noseapts               !< number of offshore wave boundary points
+   integer, dimension(noseapts)               :: seapts                 !< indices of offshore wave boundary points
+   integer, dimension(mn),intent(in)          :: neumannconnected       !< number of neumann boundary point if connected to inner point
+   real*8, dimension(mn), intent(in)          :: hh                     !< water depth
+   real*8, dimension(mn), intent(in)          :: kwav                   !< wave number
+   real*8, dimension(mn), intent(in)          :: cg                     !< group velocity
+   real*8, dimension(mn,ntheta), intent(in)   :: ctheta                 !< refraction speed
+   real*8, dimension(mn), intent(in)          :: fw                     !< wave friction factor
+   real*8, intent(in)                         :: T                      !< wave period
+   real*8, intent(in)                         :: dt                     !< time step (s)
+   real*8, intent(in)                         :: rho                    !< water density
+   real*8, intent(in)                         :: ag                     !< grav acceleration
+   real*8, intent(in)                         :: alfa,gamma             !< coefficients in Baldock wave breaking dissipation
+   real*8, intent(in)                         :: hmin                   !< limiting depth for wet points in system
+   integer, intent(in)                        :: maxiter                !< maximun no of iterations
+   real*8, dimension(mn), intent(in)          :: Hmx                    !< max wave height (Miche)
+   real*8, dimension(mn), intent(out)         :: H                      !< wave height
+   real*8, dimension(mn), intent(out)         :: Dw                     !< wave breaking dissipation
+   real*8, dimension(mn), intent(out)         :: Df                     !< wave friction dissipation
+   real*8, dimension(mn), intent(out)         :: thetam                 !< mean wave direction
+   real*8, dimension(mn), intent(out)         :: uorb                   !< orbital velocity
+   real*8, dimension(ntheta,mn), intent(out)  :: ee                     !< wave energy distribution
 
    ! Local variables and arrays
    real*8, dimension(:), allocatable          :: ok                     ! mask for fully iterated points
@@ -4701,7 +4700,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    real*8, dimension(:), allocatable          :: eeprev, cgprev         ! energy density and group velocity at upwind intersection point
    real*8, dimension(:,:),allocatable         :: A,B,C,R                ! coefficients in the tridiagonal matrix solved per point
    real*8, dimension(:), allocatable          :: DoverE                 ! ratio of mean wave dissipation over mean wave energy
-   real*8, dimension(:), allocatable          :: E                      ! mean wave energy
    real*8, dimension(:), allocatable          :: diff                   ! maximum difference of wave energy relative to previous iteration
    real*8, dimension(:), allocatable          :: ra                     ! coordinate in sweep direction
    integer, dimension(4)                      :: shift
@@ -4712,8 +4710,12 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    integer                                    :: nn
    real*8                                     :: percok
    real*8                                     :: error
+   real*8                                     :: Ek
+   real*8                                     :: Hk
+   real*8                                     :: Dfk
+   real*8                                     :: Dwk
+   real*8                                     :: uorbk
    real*8,parameter                           :: pi=4.d0*atan(1.d0)
-   real*8,parameter                           :: g=9.81d0
    real*8,parameter                           :: fac=0.25d0             ! underrelaxation factor for DoverE
    real*8,parameter                           :: crit=0.0001            ! relative accuracy
 
@@ -4729,7 +4731,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    allocate(C(mn,ntheta)); C=0d0
    allocate(R(mn,ntheta)); R=0d0
    allocate(DoverE(mn)); DoverE=0d0
-   allocate(E(mn)); E=0d0
    allocate(diff(mn)); diff=0d0
    allocate(ra(mn)); ra=0d0
 
@@ -4739,7 +4740,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
    ee=0d0
    eemax=1.d0;
    dtheta=theta(2)-theta(1)
-   niter=400
+   niter=min(maxiter,400)
    
    ! Sort coordinates in sweep directions
    shift=[0,1,-1,2]
@@ -4771,6 +4772,7 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
       !  Loop over all points depending on sweep direction
       do count=1,mn
          k=indx(count,sweep)
+         !
          if (inner(k)) then
             if (hh(k)>1.1*hmin) then
                if (ok(k) == 0) then
@@ -4781,10 +4783,22 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                      eeprev(itheta)=w(k,itheta,1)*ee(itheta,k1)+w(k,itheta,2)*ee(itheta,k2)
                      cgprev(itheta)=w(k,itheta,1)*cg(k1)+w(k,itheta,2)*cg(k2)
                   enddo
+                  !
+                  Ek=sum(ee(:,k))*dtheta
+                  Hk=sqrt(8*Ek/rho/ag)
+                  if (Hk>0.2d0*Hmx(k)) then
+                     call baldock(ag,rho,alfa,gamma,kwav(k),hh(k),Hk,Hmx(k),T,1,Dwk)
+                  else
+                     Dwk=0d0
+                  endif
+                  uorbk=pi*Hk/T/sinh(min(kwav(k)*hh(k),10d0))
+                  Dfk=0.28d0*rho*fw(k)*uorbk**3
+                  DoverE(k)=(Dwk+Dfk)/max(Ek,1.d-6)
+                  !
                   do itheta=2,ntheta-1
                      A(k,itheta)=-ctheta(k,itheta-1)/2/dtheta
                      B(k,itheta)=1/dt+cg(k)/ds(k,itheta)+DoverE(k)
-                     C(k,itheta)=ctheta(k,itheta+1)/2/dtheta
+                     C(k,itheta)=ctheta(k,itheta+1)/2.0/dtheta
                      R(k,itheta)=ee(itheta,k)/dt+cgprev(itheta)*eeprev(itheta)/ds(k,itheta)
                   enddo
                   if (ctheta(k,1)<0) then
@@ -4812,20 +4826,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
                   ! Solve tridiagonal system per point
                   call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(:,k),ntheta)
                   ee(:,k)=max(ee(:,k),0.d0)
-                  E(k)=sum(ee(:,k))*dtheta
-                  H(k)=sqrt(8*E(k)/rho/g)
-                  H(k)=min(H(k),gamma*hh(k))
-                  E(k)=0.125d0*rho*g*H(k)**2
-                  call baldock(g,rho,alfa,gamma,kwav(k),hh(k),H(k),T,1,Dw(k))
-                  uorb(k)=pi*H(k)/T/sinh(min(kwav(k)*hh(k),10d0))
-                  Df(k)=0.28d0*rho*fw(k)*uorb(k)**3
-                  DoverE(k)=(1.d0-fac)*DoverE(k)+fac*(Dw(k)+Df(k))/max(E(k),1.d-6)
-                  do itheta=1,ntheta
-                     B(k,itheta)=1/dt+cg(k)/ds(k,itheta)+DoverE(k)
-                  enddo
-                  ! Solve tridiagonal system per point
-                  call solve_tridiag(A(k,:),B(k,:),C(k,:),R(k,:),ee(:,k),ntheta)
-                  ee(:,k)=max(ee(:,k),0.d0)
                endif
             else
                ee(:,k)=0d0
@@ -4836,17 +4836,6 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
          endif
       enddo
       !      
-      do k=1,mn
-         ! Compute directionally integrated parameters
-         ee(:,k)=max(ee(:,k),0.d0)
-         E(k)=sum(ee(:,k))*dtheta
-         H(k)=sqrt(8*E(k)/rho/g)
-         call baldock(g,rho,alfa,gamma,kwav(k),hh(k),H(k),T,1,Dw(k))
-         uorb(k)=pi*H(k)/T/sinh(min(kwav(k)*hh(k),10d0))
-         Df(k)=0.28d0*rho*fw(k)*uorb(k)**3
-         DoverE(k)=(1.d0-fac)*DoverE(k)+fac*(Dw(k)+Df(k))/max(E(k),1.d-6)
-         thetam(k)=atan2(sum(ee(:,k)*sin(theta)),sum(ee(:,k)*cos(theta)))
-      enddo
       if (sweep==4) then
          ! Check convergence after all 4 sweeps
          do k=1,mn
@@ -4877,22 +4866,36 @@ subroutine solve_energy_balance2Dstat(x,y,mn,w,ds,inner,prev,seapts,noseapts,neu
       endif
    enddo
 
+   do k=1,mn
+      ! Compute directionally integrated parameters
+      ee(:,k)=max(ee(:,k),0.d0)
+      Ek=sum(ee(:,k))*dtheta
+      H(k)=sqrt(8*Ek/rho/ag)
+      call baldock(ag,rho,alfa,gamma,kwav(k),hh(k),H(k),Hmx(k),T,1,Dw(k))
+      uorb(k)=pi*H(k)/T/sinh(min(kwav(k)*hh(k),10d0))
+      Df(k)=0.28d0*rho*fw(k)*uorb(k)**3
+      thetam(k)=atan2(sum(ee(:,k)*sin(theta)),sum(ee(:,k)*cos(theta)))
+   enddo
+
 end subroutine solve_energy_balance2Dstat
 !
-subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts,inner,neumannconnected,Er,Dr)
+subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,ag,rhomean,maxiter,seapts,noseapts,inner,neumannconnected,Er,Dr)
 
    use m_partitioninfo
 
    implicit none
 
-   integer, intent(in)                      :: mn
-   real*8, dimension(mn),intent(in)         :: x,y
-   integer, dimension(mn,2),intent(in)      :: prev
-   real*8, dimension(mn),intent(in)         :: hh
-   real*8, dimension(mn),intent(in)         :: c
-   real*8, dimension(mn),intent(in)         :: Dw
-   real*8, dimension(mn),intent(in)         :: thetam
-   real*8,               intent(in)         :: beta                   ! roller slope
+   integer,              intent(in)         :: mn                     !< no nodes
+   real*8, dimension(mn),intent(in)         :: x,y                    !< node coordinates
+   integer, dimension(mn,2),intent(in)      :: prev                   !< upwind indexes
+   real*8, dimension(mn),intent(in)         :: hh                     !< water depth
+   real*8, dimension(mn),intent(in)         :: c                      !< wave celerity
+   real*8, dimension(mn),intent(in)         :: Dw                     !< wave breaker dissipation
+   real*8, dimension(mn),intent(in)         :: thetam                 !< mean wave direction
+   real*8,               intent(in)         :: beta                   !< roller slope
+   real*8,               intent(in)         :: ag                     !< grav acceleration
+   real*8,               intent(in)         :: rhomean                !< water density
+   integer,              intent(in)         :: maxiter
    integer,dimension(noseapts),intent(in)   :: seapts
    integer, intent(in)                      :: noseapts
    logical, dimension(mn),  intent(in)      :: inner
@@ -4902,13 +4905,7 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    
 
 ! Local constants
-   real*8                                    :: rho             ! water density
-   real*8                                    :: g               ! acceleration of gravity
-   real*8                                    :: pi              ! pi
    real*8                                    :: hmin=0.1d0
-   real*8                                    :: alfa=1.0d0
-   real*8                                    :: npow=10.d0
-   real*8                                    :: gamma=0.55d0
    real*8                                    :: thetamean,sinthmean,costhmean
    integer, dimension(4)                     :: shift
    real*8, dimension(:), allocatable         :: ok
@@ -4916,21 +4913,22 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
    real*8, dimension(:), allocatable         :: F
    real*8, dimension(:), allocatable         :: mpiok
    integer, dimension(:,:),allocatable       :: indx
-   integer                                   :: niter=200,sweep,k,iter,count,k1,k2, ierr
+   integer                                   :: niter
+   integer                                   :: sweep,k,iter,count,k1,k2, ierr
    real*8                                    :: tloc, t0,t1,t2
    real*8                                    :: Afac, Bfac,Cfac,Drst,percok
    real*8                                    :: x1,x2,xk,y1,y2,yk
    real*8                                    :: costh1,costh2,costhk,sinth1,sinth2,sinthk
    real*8                                    :: dtol
+   real*8                                    :: pi
    
    allocate(ok(mn))
    allocate(ra(mn))
    allocate(indx(mn,4))
    allocate(F(mn))
    
+   niter = min(maxiter,200)
    pi=4d0*atan(1.d0)
-   g=9.81d0
-   rho=1025.d0
    indx=0
    dtol = 1d-6
    percok = 0d0
@@ -4988,7 +4986,7 @@ subroutine solve_roller_balance (x,y,mn,prev,hh,c,Dw,thetam,beta,seapts,noseapts
                      Afac=(F(k1)*costh1*(y2-yk)+F(k2)*costh2*(yk-y1)  &
                           -F(k1)*sinth1*(x2-xk)-F(k2)*sinth2*(xk-x1))/max(Cfac,dtol)
                      Bfac=(costhk*(y1-y2)-sinthk*(x1-x2))/sign(max(abs(Cfac),dtol),Cfac)
-                     Drst=2.d0*g*beta/c(k)**2
+                     Drst=2.d0*ag*beta/c(k)**2
                      F(k)=(Dw(k)-Afac)/(Bfac+Drst)
                      Er(k)=F(k)/c(k)
                      Er(k)=max(Er(k),0d0)
@@ -5067,7 +5065,7 @@ subroutine solve_tridiag(a,b,c,d,x,n)
 
 end subroutine solve_tridiag
 !
-subroutine baldock (rho,g,alfa,gamma,k,hh,H,T,opt,Dw)
+subroutine baldock (rho,g,alfa,gamma,k,hh,H,Hmax,T,opt,Dw)
 
   implicit none  
 
@@ -5078,12 +5076,12 @@ subroutine baldock (rho,g,alfa,gamma,k,hh,H,T,opt,Dw)
   double precision, intent(in)                :: k
   double precision, intent(in)                :: hh
   double precision, intent(in)                :: H
+  double precision, intent(in)                :: Hmax
   double precision, intent(in)                :: T
   integer, intent(in)                         :: opt
   double precision, intent(out)               :: Dw
   
   double precision                            :: dtol
-  double precision                            :: Hmax
 
   dtol = 1d-8
   if (H<dtol) then
@@ -5091,7 +5089,6 @@ subroutine baldock (rho,g,alfa,gamma,k,hh,H,T,opt,Dw)
      return
   endif   
    ! Compute dissipation according to Baldock
-   Hmax=0.88/k*tanh(gamma*k*hh/0.88d0)
    if (opt==1) then
       Dw=0.25*alfa*rho*g/T*exp(-(Hmax/H)**2)*(Hmax**2+H**2)
    else
@@ -5628,6 +5625,8 @@ subroutine fill_connected_nodes(ierr)
       call aerr('nmmask  (numk)', ierr, numk)
       call realloc(kp, (/numk,12/), stat=ierr, keepExisting = .false., fill = 0)
       call aerr('kp  (numk,12)', ierr, numk*12)
+      call realloc(Hmx, numk, stat=ierr, keepExisting = .false., fill = 0d0)
+      call aerr('Hmx  (numk)', ierr, numk)
       !
       if (roller>0) then
          call realloc(Erstat, numk, stat=ierr, keepExisting = .false., fill = 0d0)
@@ -5917,7 +5916,7 @@ subroutine xbeach_wave_stationary(callType)
    use m_xbeach_data
    use m_flowgeom, only: dtheta, ntheta, dtheta_s, ntheta_s, ndx
    use m_flow, only: ucx, ucy
-   use m_flowparameters, only: epshs
+   use m_flowparameters, only: epshu, epshs
 
    implicit none
 
@@ -5990,11 +5989,11 @@ subroutine xbeach_wave_stationary(callType)
    !
    ! all dry cells have zero energy
    do itheta=1,ntheta_local
-      where(hhwlocal<epshs)
+      where(hhwlocal<=epshu)
          ee_local(itheta,:) = 0.d0
      endwhere
    enddo
-   where(hhwlocal<epshs)
+   where(hhwlocal<=epshu)
        E=0.d0
        H=0.d0
    endwhere
@@ -6002,12 +6001,12 @@ subroutine xbeach_wave_stationary(callType)
    ! wave directions
    select case (callType)
       case(callTypeStationary)
-         forall (k=1:ndx,hhwlocal(k)>epshs)
+         forall (k=1:ndx,hhwlocal(k)>epshu)
             thetamean(k)=(sum(ee_local(:,k)*thet(:,k))/ntheta_local) / &
                              (max(sum(ee_local(:,k)),0.00001d0)/ntheta_local)
          endforall
       case(callTypeDirections)
-          forall (k=1:ndx,hhwlocal(k)>epshs)
+          forall (k=1:ndx,hhwlocal(k)>epshu)
             thetamean(k)=(sum(ee_local(:,k)*thet_s(:,k))/ntheta_local) / &
                              (max(sum(ee_local(:,k)),0.00001d0)/ntheta_local)
           endforall
