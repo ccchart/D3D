@@ -140,7 +140,6 @@ implicit none
    integer, parameter            :: ITAG_U=2           !< communication tag
    integer, parameter            :: ITAG_SALL=3        !< communication tag
    integer, parameter            :: ITAG_SNONOVERLAP=4 !< communication tag
-   integer, parameter            :: ITAG_CN=5          !< communication tag
    
    integer                       :: numghost_s            !< number of water-level ghost nodes
    integer, allocatable, target  :: ighostlist_s(:)       !< list of water-level ghost nodes, in order of their corresponding domain
@@ -1647,7 +1646,7 @@ implicit none
        send_list, nr_send_list, ierror)
       
       use m_alloc
-      use network_data,    only: numk, xzw, yzw, xk, yk
+      use network_data,    only: xzw, yzw, xk, yk
       use m_flowgeom,      only: xu, yu
       use geometry_module, only: dbdistance
       use m_missing,       only: dmiss
@@ -1671,7 +1670,6 @@ implicit none
       integer                             :: numdomains, idum
       
       integer                             :: jafound
-      integer                             :: node
       double precision, parameter         :: TOLERANCE=1d-4
       character(len=80)                   :: message2, message3
 
@@ -1724,16 +1722,13 @@ implicit none
                        num = num + 1
                        temp_list(num) = node
                        jafound = 1
-                       !write (*,*) 'found corner: my_rank=', my_rank,' domains:',own_domain_number, other_domain_number
-                       !write (*,*) message3
-                       !write (*,*) 'req:',x_req(j),y_req(j),' node=',node,xk(node), yk(node)
                        exit
                    end if
                 end do  
                if ( jafound == 0 ) then
-                  call qnerror('partition_fill_sendlist: numbering error', message2, message3)
-                  goto 1234
-               end if
+            call qnerror('partition_fill_sendlist: numbering error', message2, message3)
+            goto 1234
+         endif
             end if
          endif
       end do
@@ -1802,9 +1797,9 @@ implicit none
       integer                                 :: idmn_other, minp
       
       character(len=MAXNAMELEN)               :: filename
-      character(len=4)                        :: sdmn       ! domain number string.
-      integer, allocatable  :: nghostlist_cn_temp(:)
-      integer, allocatable  :: ighostlist_cn_temp(:)
+      character(len=4)                        :: sdmn       ! domain number string
+      integer, allocatable                    :: nghostlist_cn_temp(:) !< temporal storige of ghost list reference data
+      integer, allocatable                    :: ighostlist_cn_temp(:) !< temporal storige of ghost list
 
       ierror = 1
 
@@ -1855,9 +1850,6 @@ implicit none
          call partition_make_sendlist_MPI(ITYPE_S,   numlay_cellbased+1,numlay_nodebased+1, isendlist_s, nsendlist_s)
          call partition_make_sendlist_MPI(ITYPE_Sall,numlay_cellbased+1,numlay_nodebased+1, isendlist_sall, nsendlist_sall)
          call partition_make_sendlist_MPI(ITYPE_U,   numlay_cellbased+1,numlay_nodebased+1, isendlist_u, nsendlist_u)
-                  
-         !call write_boundary(my_rank,ndomains,nghostlist_cn(ndomains-1),nghostlist_cn,ighostlist_cn,nsendlist_cn(ndomains-1),&
-         !nsendlist_cn,isendlist_cn)
          
 !        communicate sendlist back to obtain (possibly) reduced ghostlist in own domain
 !        deallocate first
@@ -1866,18 +1858,19 @@ implicit none
          nghostlist_sall = 0
          if ( allocated(ighostlist_sall) ) deallocate(ighostlist_sall)   
          nghostlist_u = 0
-         if ( allocated(ighostlist_u)    ) deallocate(ighostlist_u) 
+         if ( allocated(ighostlist_u)    ) deallocate(ighostlist_u)
          
 !        fill ghostlists
          call partition_make_sendlist_MPI(ITYPE_S,   numlay_cellbased+1,numlay_nodebased+1, ighostlist_s, nghostlist_s, ifromto=1)
          call partition_make_sendlist_MPI(ITYPE_Sall,numlay_cellbased+1,numlay_nodebased+1, ighostlist_sall, nghostlist_sall, ifromto=1)
          call partition_make_sendlist_MPI(ITYPE_u,   numlay_cellbased+1,numlay_nodebased+1, ighostlist_u, nghostlist_u, ifromto=1)
-         !call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, ighostlist_cn, nghostlist_cn, ifromto=1)
+         
          nghostlist_cn_temp = nghostlist_cn
          ighostlist_cn_temp = ighostlist_cn
          call partition_make_sendlist_MPI(ITYPE_CN,  numlay_cellbased+1,numlay_nodebased+1, isendlist_cn, nsendlist_cn)
          nghostlist_cn = nghostlist_cn_temp
          ighostlist_cn = ighostlist_cn_temp
+         
       end if
       
 !     set number of send nodes/links
@@ -2519,7 +2512,7 @@ implicit none
             goto 1234
          end if
          call update_ghost_loc(ndomains, ndim, n, solution, nghostlist_cn(ndomains-1), ighostlist_cn, &
-             nghostlist_cn, nsendlist_cn(ndomains-1), isendlist_cn, nsendlist_cn, ITAG_CN, error)
+             nghostlist_cn, nsendlist_cn(ndomains-1), isendlist_cn, nsendlist_cn, ITAG_U, error)
 !
 !     3D-extension         
       else if ( itype == ITYPE_S3D ) then
@@ -5284,7 +5277,7 @@ loop_over_nodes: &
         end if  
     end do
     
-    if ( min_ghost_level_for_cell <= max_ghost_level) then
+    if ( min_ghost_level <= max_ghost_level) then
         call add_data_to_ghost_list(ghost_level(cell), idomain(cell), ghost_list, node)
     end if
 end do loop_over_nodes
@@ -6548,48 +6541,3 @@ subroutine set_idomain_for_open_boundary_points(number_of_boundary_points, links
    end do
    
 end subroutine set_idomain_for_open_boundary_points
-
-!> write send and ghost lists into files for debugging
-subroutine write_boundary(my_rank,ndomains,nghostlist_cns,nghostlist_cn,ighostlist_cn,nsendlist_cns,&
-         nsendlist_cn,isendlist_cn)
-use network_data,    only: numk, xk, yk
-implicit none
-
-integer :: my_rank, ndomains, nghostlist_cns, nsendlist_cns
-integer :: nghostlist_cn(-1:ndomains)
-integer :: ighostlist_cn(nghostlist_cns)
-integer :: nsendlist_cn(-1:ndomains)
-integer ::  isendlist_cn(nsendlist_cns)
-
-integer :: i, j, node
-character(len=80) :: file_name
-
-
-Do i = 0, ndomains-1
-   write(file_name,'("proc_",i1,"_send_to_",i1,".pli")') my_rank,i
-   open(876,file=file_name)
-   Write (876,*) 'send corners'
-   Write (876,*) nsendlist_cn(i)-nsendlist_cn(i-1),' 3'
-    do j = nsendlist_cn(i-1)+1,nsendlist_cn(i)
-        write(876,*) xk(isendlist_cn(j)),yk(isendlist_cn(j)),j-nsendlist_cn(i-1)
-    enddo
-    close(876)
-enddo
-
-
-Do i = 0, ndomains-1
-    write(file_name,'("proc_",i1,"_ghost_from_",i1,".pli")') my_rank,i
-    open(876,file=file_name)
-    Write (876,*) 'ghost corners'
-    Write (876,*) nghostlist_cn(i)-nghostlist_cn(i-1), ' 3'
-    do j = nghostlist_cn(i-1)+1,nghostlist_cn(i)
-        write(876,*) xk(ighostlist_cn(j)),yk(ighostlist_cn(j)),j-nghostlist_cn(i-1)
-    enddo
-    close(876)
-enddo
-
-
-end subroutine write_boundary
-    
-    
-    
