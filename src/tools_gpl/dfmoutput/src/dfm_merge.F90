@@ -73,7 +73,8 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
    integer, parameter :: mapclass_time_buffer_size =   1
    integer, parameter :: netnodemaxface = 12
 
-   integer, allocatable :: id_facedim(:,:), id_edgedim(:,:), id_laydim(:,:), id_wdim(:,:), id_nodedim(:,:), id_sedtotdim(:,:), id_sedsusdim(:,:), &
+   integer, allocatable :: id_facedim(:,:), id_edgedim(:,:), id_laydim(:,:), id_wdim(:,:), id_nodedim(:,:), &
+                                   id_sedtotdim(:,:), id_sedsusdim(:,:), id_bedlayersdim(:,:),&
                                    id_netedgedim(:,:), id_netfacedim(:,:), id_netfacemaxnodesdim(:,:), id_bnddim(:,:) !< dim and var ids, maintained for all input files + 1 output file.
    integer, dimension(nfiles+1) :: ncids, id_time, id_timestep, id_mappingVar
    integer, allocatable :: id_timedim(:,:)
@@ -422,6 +423,7 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
    call realloc(id_netfacedim,         (/maxTopodim,nfiles+1/), keepExisting = .false., fill = -1)
    call realloc(id_netfacemaxnodesdim, (/maxTopodim,nfiles+1/), keepExisting = .false., fill = -1)
    call realloc(id_bnddim,             (/maxTopodim,nfiles+1/), keepExisting = .false., fill = -1)
+   call realloc(id_bedlayersdim,       (/maxTopodim,nfiles+1/), keepExisting = .false., fill = -1)
 
    call realloc(nt,              nfiles+1,                keepExisting = .false., fill = 0)
    call realloc(ndx,             (/maxTopodim,nfiles+1/), keepExisting = .false., fill = 0)
@@ -623,6 +625,10 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                      id_sedsusdim(itopo,ii) = id
                      dimids(id,itopo,ii) = id
                      cycle
+                  else if (strcmpi(dimname, 'nBedLayers')) then
+                     id_bedlayersdim(itopo,ii) = id
+                     dimids(id,itopo,ii) = id
+                     cycle
                   end if
                   ! Check if this dimension is related to mesh imesh
                   isOnMesh = ionc_check_dim_on_a_mesh(ioncids(ii), imesh, topodimTmp, id)
@@ -714,6 +720,8 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                      id_sedtotdim(itopo,ii) = id
                   else if (strcmpi(dimname, 'nSedSus')) then
                      id_sedsusdim(itopo,ii) = id
+                  else if (strcmpi(dimname, 'nBedLayers')) then
+                     id_bedlayersdim(itopo,ii) = id
                   end if
                end if
             end do ! id
@@ -906,7 +914,9 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
                   ! count how many times this dimension is used
                   id_infile = tmpdimids(id)
                   dimids_uses(id_infile,itopo) = dimids_uses(id_infile,itopo) + 1
-                  if (tmpdimids(id) == id_sedtotdim(itopo,ifileScan) .or. tmpdimids(id) == id_sedsusdim(itopo,ifileScan)) then
+                  if (tmpdimids(id) == id_sedtotdim(itopo,ifileScan) .or. & 
+                      tmpdimids(id) == id_sedsusdim(itopo,ifileScan) .or. & 
+                      tmpdimids(id) == id_bedlayersdim(itopo,ifileScan)) then
                      var_seddimpos(ivarcandidate,itopo) = ifirstdim
                   end if
                else
@@ -1665,8 +1675,12 @@ function dfm_merge_mapfiles(infiles, nfiles, outfile, force) result(ierr)
          if (dimids(id,itopo,ifileScan) > 0) then ! For now, just copy the vectormax dimids (if any) from file #1 to output file. Assume same length in all files.
             ierr = nf90_inquire_dimension(ncids(ifileScan), dimids(id,itopo,ifileScan), name = dimname, len = nlen)
             if (dimids_uses(id,itopo) == 0) then
-               write (*,'(a)') 'Info: mapmerge: Dimension `'//trim(dimname)//''' is not merged because no merged variable uses it. '
-               cycle
+               if (dimname == 'nSedSus' .or. dimname == 'nBedLayers') then
+                  ! although this dimension is not used in any variable we need it for proper restarting in the case of sediment
+               else
+                  write (*,'(a)') 'Info: mapmerge: Dimension `'//trim(dimname)//''' is not merged because no merged variable uses it. '
+                  cycle
+               endif
             endif
             ! When one file has only triangular mesh and one file has only rectangular mesh, then a variable, e.g. 'NetElemNode'
             ! has dimension 3 and 4, respectively. Then this variable in the target merged map should have dimension nlen=4,
