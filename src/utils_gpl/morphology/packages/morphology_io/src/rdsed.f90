@@ -1834,7 +1834,7 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        call echotrafrm(lundia      ,trapar     ,l         )
        !
-       if (l > lsed) then
+       if (l <= lsed) then
           txtput1 = '  Settling velocity formula'
           select case (iform_settle(l))
           case (WS_FORM_FUNCTION_SALTEMCON)

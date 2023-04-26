@@ -197,9 +197,9 @@ subroutine initsedtra(sedtra, sedpar, trapar, morpar, morlyr, rhow, ag, vicmol, 
        hidexp = 1.0
     endif
     !
-    call compsandfrac(frac      ,sedd50       ,nmmax     ,lsedtot   , &
-                    & sedtyp    ,sandfrac     ,sedd50fld , &
-                    & nmlb      ,nmub         )  
+    call compsandfrac(frac, sedd50, nmmax, lsedtot, sedtyp, &
+                    & sedpar%max_mud_sedtyp, sandfrac, sedd50fld, &
+                    & nmlb, nmub)  
 end subroutine initsedtra
 
 end module m_initsedtra

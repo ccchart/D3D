@@ -676,7 +676,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        !
        call compdiam(frac      ,sedd50    ,sedd50    ,sedtyp    ,lsedtot   , &
                    & logsedsig ,nseddia   ,logseddia ,nmmax     ,gdp%d%nmlb, &
-                   & gdp%d%nmub,xx        ,nxx       ,sedd50fld ,dm        , &
+                   & gdp%d%nmub,xx        ,nxx       ,max_mud_sedtyp, min_dxx_sedtyp, sedd50fld ,dm        , &
                    & dg        ,dxx       ,dgsd      )
        !
        ! determine hiding & exposure factors
@@ -687,9 +687,9 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        !
        ! compute sand fraction
        !
-       call compsandfrac(frac   ,sedd50       ,nmmax     ,lsedtot   , &
-                    & sedtyp    ,sandfrac     ,sedd50fld , &
-                    & gdp%d%nmlb,gdp%d%nmub)
+       call compsandfrac(frac, sedd50, nmmax, lsedtot, sedtyp, &
+                    & max_mud_sedtyp, sandfrac, sedd50fld, &
+                    & gdp%d%nmlb, gdp%d%nmub)
     endif
     !
     do nm = 1, nmmax

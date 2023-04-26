@@ -566,9 +566,9 @@
       !
       ! compute sand fraction
       !
-      call compsandfrac(frac      ,sedd50       ,ndx       ,lsedtot   , &
-                      & sedtyp    ,sandfrac     ,sedd50fld , &
-                      & 1         ,ndx         )   
+      call compsandfrac(frac, sedd50, ndx, lsedtot, sedtyp, &
+                      & max_mud_sedtyp, sandfrac, sedd50fld, &
+                      & 1, ndx)   
    endif   
    !
    ! compute normal component of bed slopes at edges    (e_xxx refers to edges)
