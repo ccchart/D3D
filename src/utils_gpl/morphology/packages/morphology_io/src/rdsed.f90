@@ -1834,68 +1834,70 @@ subroutine echosed(lundia    ,error     ,lsed      ,lsedtot   , &
        !
        call echotrafrm(lundia      ,trapar     ,l         )
        !
-       txtput1 = '  Settling velocity formula'
-       select case (iform_settle(l))
-       case (WS_FORM_FUNCTION_SALTEMCON)
-          write (lundia, '(2a)') txtput1, ':  function of salinity, temperature and concentration'
-          txtput1 = '  SALMAX'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
-          txtput1 = '  WS0'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
-          txtput1 = '  WSM'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(3,l)
-          txtput1 = '  TCoefWS'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(4,l)
-          txtput1 = '  CFlocCr'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(5,l)
-          txtput1 = '  CPowWS'
-          write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(6,l)
-
-       case (WS_FORM_FUNCTION_DSS)
-          write (lundia, '(2a)') txtput1, ':  computed from grain size'
-          if (iform(l) == -2 .or. iform(l) == -4) then
-             iform_settle(l) = WS_FORM_FUNCTION_DSS_2004
+       if (l > lsed) then
+          txtput1 = '  Settling velocity formula'
+          select case (iform_settle(l))
+          case (WS_FORM_FUNCTION_SALTEMCON)
+             write (lundia, '(2a)') txtput1, ':  function of salinity, temperature and concentration'
              txtput1 = '  SALMAX'
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
-             txtput1 = '  Flocculation factor GamFloc'
+             txtput1 = '  WS0'
              write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
-          endif
-
-       case (WS_FORM_MANNING_DYER_MACRO)
-          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro flocs)'
-
-       case (WS_FORM_MANNING_DYER_MICRO)
-          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (micro flocs)'
-
-       case (WS_FORM_MANNING_DYER)
-          write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro/micro floc equilibrium)'
-
-       case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
-          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro flocs)'
-
-       case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
-          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (micro flocs)'
-
-       case (WS_FORM_CHASSAGNE_SAFAR)
-          write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro/micro floc equilibrium)'
-
-       case (WS_FORM_USER_ROUTINE)
-          write (lundia, '(2a)') txtput1, ':  user specified library'
-          !
-          ! User defined settling velocity function
-          !
-          txtput1 = '  Settle library'
-          write (lundia, '(3a)') txtput1, ': ', trim(dll_name_settle(l))
-          txtput1 = '  Function in Settle lib'
-          write (lundia, '(3a)') txtput1, ': ', trim(dll_function_settle(l))
-          if (dll_usrfil_settle(l) /= ' ') then
-             txtput1 = '  Input for Settle function'
-             write (lundia, '(3a)') txtput1, ': ', trim(dll_usrfil_settle(l))
-          endif
-
-       case default
-          write (lundia, '(2a)') txtput1, ':  UNKNOWN'
-       end select
+             txtput1 = '  WSM'
+             write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(3,l)
+             txtput1 = '  TCoefWS'
+             write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(4,l)
+             txtput1 = '  CFlocCr'
+             write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(5,l)
+             txtput1 = '  CPowWS'
+             write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(6,l)
+          
+          case (WS_FORM_FUNCTION_DSS)
+             write (lundia, '(2a)') txtput1, ':  computed from grain size'
+             if (iform(l) == -2 .or. iform(l) == -4) then
+                iform_settle(l) = WS_FORM_FUNCTION_DSS_2004
+                txtput1 = '  SALMAX'
+                write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(1,l)
+                txtput1 = '  Flocculation factor GamFloc'
+                write (lundia, '(2a,e12.4)') txtput1, ':', par_settle(2,l)
+             endif
+          
+          case (WS_FORM_MANNING_DYER_MACRO)
+             write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro flocs)'
+          
+          case (WS_FORM_MANNING_DYER_MICRO)
+             write (lundia, '(2a)') txtput1, ':  Manning & Dyer (micro flocs)'
+          
+          case (WS_FORM_MANNING_DYER)
+             write (lundia, '(2a)') txtput1, ':  Manning & Dyer (macro/micro floc equilibrium)'
+          
+          case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
+             write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro flocs)'
+          
+          case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
+             write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (micro flocs)'
+          
+          case (WS_FORM_CHASSAGNE_SAFAR)
+             write (lundia, '(2a)') txtput1, ':  Chassagne & Safar (macro/micro floc equilibrium)'
+          
+          case (WS_FORM_USER_ROUTINE)
+             write (lundia, '(2a)') txtput1, ':  user specified library'
+             !
+             ! User defined settling velocity function
+             !
+             txtput1 = '  Settle library'
+             write (lundia, '(3a)') txtput1, ': ', trim(dll_name_settle(l))
+             txtput1 = '  Function in Settle lib'
+             write (lundia, '(3a)') txtput1, ': ', trim(dll_function_settle(l))
+             if (dll_usrfil_settle(l) /= ' ') then
+                txtput1 = '  Input for Settle function'
+                write (lundia, '(3a)') txtput1, ': ', trim(dll_usrfil_settle(l))
+             endif
+          
+          case default
+             write (lundia, '(2a,i0,a)') txtput1, ':  UNKNOWN (',iform_settle(l),')'
+          end select
+       endif
 
        if (sedpar%flnrd(l) /= ' ') then
           txtput1 = '  1D nodal relations for bed/total load'

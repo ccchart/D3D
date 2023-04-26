@@ -150,8 +150,6 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        ! simple flocculation effect
        !
        wsloc = wsloc * min((ctot/cflocc)**npow, 1.0_fp)
-       cflocc = 0.1 ! kg/m3
-       npow = 0.0
 
     case (WS_FORM_FUNCTION_DSS, WS_FORM_FUNCTION_DSS_2004)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
@@ -213,8 +211,10 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
           endif
           !
           wsloc = ffloc * wsloc * hinset**5
-          apply_hinset = .false.
+       else
+          call hinset_Richardson_and_Zaki()
        endif
+       apply_hinset = .false.
 
     case (WS_FORM_MANNING_DYER_MACRO)
        !
@@ -235,7 +235,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity based on flocculation model by Manning and Dyer
        !
-       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp ! convert kg/m3 to g/m3
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        call floc_manning( cclay, tshear, wsloc, macro_frac, ws_macro, ws_micro )
 
@@ -243,7 +243,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity for macro flocs according Chassagne and Safar
        !
-       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp ! convert kg/m3 to g/m3
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
@@ -266,7 +266,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        ! Settling velocity based on flocculation model by Chassagne and Safar
        !
-       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
+       cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp ! convert kg/m3 to g/m3
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        tdiss  = real(dll_reals(WS_RP_EPTUR),fp)
@@ -326,12 +326,18 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
     end select
     
     if (apply_hinset) then
+        call hinset_Richardson_and_Zaki()
+    endif
+
+    contains
+
+    subroutine hinset_Richardson_and_Zaki()
        !
        ! hindered settling Richardson and Zaki/Mehta
        !
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)
-       csoil  = real(dll_reals(WS_RP_CSOIL),fp) ! TODO: change to cgel, local renaming is easy, but also check manual
+       csoil  = real(dll_reals(WS_RP_CSOIL),fp) ! TODO: in Van Rijn (2005) csoil = cgel/0.65, can we make this consistent?
        hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil))
        wsloc = wsloc * hinset**5
-    endif
+    end subroutine hinset_Richardson_and_Zaki
 end subroutine eqsettle
