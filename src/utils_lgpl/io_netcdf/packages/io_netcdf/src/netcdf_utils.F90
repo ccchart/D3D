@@ -68,6 +68,16 @@ interface ncu_inq_var_fill
    module procedure ncu_inq_var_fill_real8
 end interface ncu_inq_var_fill
 
+interface ncu_add_att
+   module procedure ncu_add_att_string
+   module procedure ncu_add_att_int
+   module procedure ncu_add_att_ints
+   module procedure ncu_add_att_dble
+   module procedure ncu_add_att_dbles
+   module procedure ncu_add_att_flt
+   module procedure ncu_add_att_flts
+end interface
+
 abstract interface
    function ncu_apply_to_att(attname, attvalue) result(ierr)
       character(len=*),              intent(in   ) :: attname  !< Name of the attribute, cannot be changed.
@@ -740,5 +750,88 @@ function ncu_copy_var_atts( ncidin, ncidout, varidin, varidout ) result(ierr)
 
 end function ncu_copy_var_atts
 
+subroutine ncu_add_att_string(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=nf90_max_name), intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%strvalue(len_trim(attvalue)))
+   att%strvalue = trim(attvalue)
+end subroutine ncu_add_att_string
+
+subroutine ncu_add_att_int(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   integer,                      intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%intvalue(1))
+   att%intvalue(1) = attvalue
+end subroutine ncu_add_att_int
+
+subroutine ncu_add_att_ints(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   integer, dimension(:),        intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%intvalue(size(attvalue)))
+   att%intvalue = attvalue
+end subroutine ncu_add_att_ints
+
+subroutine ncu_add_att_dble(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   double precision,             intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%dblvalue(1))
+   att%dblvalue(1) = attvalue
+end subroutine ncu_add_att_dble
+
+subroutine ncu_add_att_dbles(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),              intent(  out) :: att
+   character(len=nf90_max_name),    intent(in   ) :: attname
+   double precision, dimension(:),  intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%dblvalue(size(attvalue)))
+   att%dblvalue = attvalue
+end subroutine ncu_add_att_dbles
+
+subroutine ncu_add_att_flt(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   real,                         intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%fltvalue(1))
+   att%fltvalue(1) = attvalue
+end subroutine ncu_add_att_flt
+
+subroutine ncu_add_att_flts(att, attname, attvalue)
+   use coordinate_reference_system
+
+   type(nc_attribute),           intent(  out) :: att
+   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=nf90_max_name), intent(in   ) :: attvalue
+
+   att%attname = attname
+   allocate(att%fltvalue(size(attvalue)))
+   att%fltvalue = attvalue
+end subroutine ncu_add_att_flts
 
 end module netcdf_utils

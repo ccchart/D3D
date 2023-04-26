@@ -83,14 +83,6 @@ integer            :: unc_writeopts !< Default write options (currently only: UG
 integer            :: unc_uuidgen        !< Generate UUID and store into each newly created NetCDF file.
 
 ! The following location codes generalize for 1D/2D/3D models. See function unc_def_var_map for the details.
-integer, parameter :: UNC_LOC_CN  = 1  !< Data location: corner point.
-integer, parameter :: UNC_LOC_S   = 2  !< Data location: pressure point.
-integer, parameter :: UNC_LOC_U   = 3  !< Data location: horizontal velocity point.
-integer, parameter :: UNC_LOC_L   = 13 !< Data location: horizontal net link.
-integer, parameter :: UNC_LOC_S3D = 4  !< Data location: pressure point in all layers.
-integer, parameter :: UNC_LOC_U3D = 5  !< Data location: horizontal velocity point in all layers.
-integer, parameter :: UNC_LOC_W   = 6  !< Data location: vertical velocity point on all layer interfaces.
-integer, parameter :: UNC_LOC_WU  = 16 !< Data location: vertical viscosity point on all layer interfaces.
 
 integer, parameter :: MAX_ID_VAR = 4   !< Maximum dimension for id_var arrays
 
