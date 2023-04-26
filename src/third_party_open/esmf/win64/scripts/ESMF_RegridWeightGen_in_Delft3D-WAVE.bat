@@ -29,7 +29,10 @@ if [%4] EQU [] (
     set addflags=-m bilinear
 ) else (
     if [%4] EQU [CARTESIAN] (
-        set addflags=-m bilinear --src_type ESMF --dst_type ESMF 
+	# Changed 2023-04-26 Source-type flag not supported anymore
+	# and we have to define corner/center loc
+        #set addflags=-m bilinear --src_type ESMF --dst_type ESMF 
+        set addflags=-m bilinear --src-loc corner --dst-loc corner
     )
 )
 
