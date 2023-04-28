@@ -345,12 +345,6 @@ subroutine xbeach_all_input()
    ! Set taper to non-zero
    taper    = max(taper,1.d-6)
    !
-   !! Exit when MPI enabled with single_dir==1
-   !if (single_dir>0 .and. jampi>0) then
-   !   call writelog('lwse','','Error: single_dir option is not compatible with MPI enabled models.')
-   !   call xbeach_errorhandler()   
-   !endif   
-   !
    ! Only allow Baldock in stationary mode and Roelvink in non-stationary
    if (trim(instat) == 'stat' .or. trim(instat) == 'stat_table') then
       if (trim(break) .ne. 'baldock' .and. trim(break) .ne. 'janssen') then
