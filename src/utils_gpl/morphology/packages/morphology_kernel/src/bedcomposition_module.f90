@@ -117,7 +117,8 @@ integer, parameter :: BDIFF_ACTIVE      = 1 !  1: diffusion
 integer, parameter :: EROS_CONST        = 0 !  0: cohesive sediment erodibility doesn't depend on bed composition
 integer, parameter :: EROS_WHITEHOUSE   = 1 !  1: Whitehouse (2001)
 integer, parameter :: EROS_LE_HIR       = 2 !  2: Le Hir (2011)
-integer, parameter :: EROS_WINTERWERP   = 3 !  3: Winterwerp (2013)
+integer, parameter :: EROS_MODIFIED     = 3 !  3: ...
+integer, parameter :: EROS_WINTERWERP   = 4 !  4: Winterwerp (2013)
 
 integer, parameter :: FRAC_BACKWARDS    = 0 !  0: backward compatibility option
 integer, parameter :: FRAC_MASS         = 1 !  1: mass fractions (sum of all fractions equals 1)
@@ -147,7 +148,7 @@ type bedcomp_settings
     !
     ! reals
     real(fp) :: ag                                   !< gravity
-    real(fp) :: dtcon                                !< time interval to call consoldiation [s]
+    real(fp) :: dtdecon                              !< time interval to call consolidation for DECON [s]
     real(fp) :: dzprofile                            !< m, resolution of equilibrium concentration profile for Dynamic Equilibrium CONsolidation (DECON)
     real(fp) :: nf                                   !< fractal dimension nf
     real(fp) :: kbioturb                             !< bioturbation induced diffusion coefficient [m2/s]
@@ -155,7 +156,7 @@ type bedcomp_settings
     real(fp) :: ksigma                               !< effective stress coefficient [Pa]
     real(fp) :: ksigma0                              !< effective stress coefficient (usually set as 0) [Pa]
     real(fp) :: ky                                   !< strength coefficient [Pa]
-    real(fp) :: rtcontmor                            !< ratio between consolidation and morphological time scale 
+    real(fp) :: confac                               !< ratio between consolidation and morphological time scales [-]
     real(fp) :: svfrac0                              !< user-input initial solids volume fraction for newly deposited sediments (general)
     real(fp) :: svfrac0m                             !< user-input initial solids volume fraction for newly deposited mud fractions
     real(fp) :: svfrac0s                             !< user-input initial solids volume fraction for newly deposited sand fractions
@@ -195,8 +196,6 @@ type bedcomp_settings
     !
     ! integers
     !
-    integer :: iupdtaucr                             !< flag of choosing the method to update erodibility of transport layer
-                                                     !       = 1, default (just use 1st layer); = 2, use both 1st and 2nd layer.
     integer :: imixtr                                !< flag define whether we consider to mix the transport layer with layers below
                                                      !       for replenish step, default = 1, mix.
     integer :: nconlyr                               !< number of consolidating layers used, user defined
@@ -439,7 +438,7 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
                 call_consolidate = .false.
             else
                 ! consolidate now and set the next consolidation time
-                this%state%tdecon = morft + this%settings%dtcon/86400.0_fp
+                this%state%tdecon = morft + this%settings%dtdecon/86400.0_fp
                 call_consolidate = .true.
             endif
         else
@@ -548,7 +547,7 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
                 ! In case of Dynamic Equilibrium CONsolidation (DECON), we erode the top layer until
                 ! it runs out of sediment and then push the administration of the top NCONLYR layers
                 ! up. In case of sedimentation, the sediment is added to the top layer and
-                ! redistributed over the top NCONLYR layers once every DTCON.
+                ! redistributed over the top NCONLYR layers once every DTDECON.
                 !
                 if (thick < thtrempty) then
                     !
@@ -2072,7 +2071,7 @@ subroutine getbedprop(this, nmfrom, nmto, poros, tcrero, eropar)
                         eropar(nm) = this%settings%alpha_me / phi_term
                     endif
                     
-                case (EROS_WINTERWERP)
+                case (EROS_MODIFIED)
                     !
                     ! NEW Critical Bed Shear Stress for Erosion & Maximum Erosion Rate of cohesive sediment (tcrero and Me compilation by van Rijn, 2020 and Me from process-based by Winterwerp et al., 2013)
                     !
@@ -2103,7 +2102,7 @@ subroutine getbedprop(this, nmfrom, nmto, poros, tcrero, eropar)
                         eropar(nm) = this%settings%alpha_me / phi_term
                     endif
                     
-                case (4)
+                case (EROS_WINTERWERP)
                     !
                     ! Critical bed shear stress and maximum erosion rate of cohesive sediment (Winterwerp et al., 2013)
                     !
@@ -2509,7 +2508,7 @@ function initmorlyr(this) result (istat)
     settings%iconsolidate = CONSOL_NONE            !< by default, consolidation is switched off
     settings%ierosion     = EROS_CONST             !< by default, critical bed shear stress for erosion is determined using empirical relation between mud fraction and bed strength.
     settings%ag           = 9.81_fp                !< gravitational acceleration [m/s2] (default value on Earth; to be overruled by calling component)
-    settings%dtcon        = 1209600.0_fp           !< seconds, default 2 week to update consolidation once
+    settings%dtdecon      = 1209600.0_fp           !< seconds, default 2 week to update consolidation once
     settings%svgel        = 0.158_fp               !< volume fraction of pure sediment at gelling point
     settings%svmax        = 0.6_fp                 !< if svfrac > svmax, consolidation stops
     settings%nf           = 2.69!2.605_fp               !< fractal dimension [-]
@@ -2524,10 +2523,9 @@ function initmorlyr(this) result (istat)
     settings%svfrac0s     = 0.6_fp                 !< depositional svfrac for sand
     settings%minporm      = 0.05_fp                !< compacted porosity for mud
     settings%minpors      = 0.25_fp                !< compacted porosity for sand
-    settings%rtcontmor    = 1.0_fp                 !< default consider consolidation occurs at morpho time scale
+    settings%confac       = 1.0_fp                 !< default consider consolidation occurs at morphological time scale
     settings%thtrconcr    = 1.0E-6_fp              !< default very small value to avoid numerical problems
     settings%thtrempty    = 0.0001_fp
-    settings%iupdtaucr    = 1                      !< default 1, can also changed to 2 by external input
     settings%imixtr       = 1                      !< default 1
     !settings%minpor       = 0.25_fp                !< overburden porosity of sand fraction at depth ~1.5 km
     settings%crmud        = 0.001_fp               !< consolidation rate of clay [m]
@@ -3303,7 +3301,7 @@ subroutine bedcomp_use_bodsed(this)
           enddo
           !
           call getporosity(this, mfrac, poros)
-          svf = (1.0_fp - poros) * this%settings%ptr
+          svf = (1.0_fp - poros) !* this%settings%ptr
           !
           thsed = 0.0_fp
           do ised = 1, this%settings%nfrac
@@ -3581,7 +3579,7 @@ subroutine consolidate(this, nm, morft, dtmor)
     
     case (CONSOL_DECON) ! Dynamic Equilibrium CONsolidation (DECON)
         ! The actual consolidation step is only executed once every x time steps
-        if (morft < this%state%tdecon + this%settings%dtcon/86400.0_fp) return
+        if (morft < this%state%tdecon + this%settings%dtdecon/86400.0_fp) return
 
         call consolidate_decon(this, nm, dtmor)
 
@@ -3673,7 +3671,7 @@ subroutine consolidate_gibson(this, nm, dtmor)
     !! ---> more variables used
     integer, pointer  :: nlyr
     real(fp), pointer :: ag
-    real(fp), pointer :: dtcon
+    real(fp)          :: dtcon !< consolidation time step [s]
     
     integer, pointer  :: nconlyr                           ! number of consolidating layers
     real(fp), pointer :: ksigma                            ! effective stress coefficient, Pa
@@ -3777,7 +3775,6 @@ subroutine consolidate_gibson(this, nm, dtmor)
 
     nlyr           => this%settings%nlyr 
     ag             => this%settings%ag
-    dtcon          => this%settings%dtcon 
     nconlyr        => this%settings%nconlyr  
     ksigma         => this%settings%ksigma
     kk             => this%settings%kk
@@ -3792,6 +3789,7 @@ subroutine consolidate_gibson(this, nm, dtmor)
     thtemp   = 0.0_fp                              ! temporary thickness used for transition calculation
     temp1    = 0.0_fp                              ! temporary variable
     temp2    = 0.0_fp                              ! temporary variable
+    dtcon    = this%settings%confac * dtmor
     
     ! Compute svfracsand and svfracmud per layer
     do k = 1, nlyr
@@ -3919,15 +3917,11 @@ subroutine consolidate_gibson(this, nm, dtmor)
             ! Identify the first non-empty layer above it.
             do j = k,1,-1
                 if (svfrac0p5(j)> 0.0_fp .and. thsedlyr(k) > 1.0e-6_fp) then
-                    ! explicit scheme
-                    svfrac2(k) = svfrac(k,nm)-this%settings%rtcontmor*dtcon*svfrac(k,nm)*svfrac(k,nm)*(vs0p5(k+1)-vs0p5(j))/thsedlyr(k)
-                    !! implicit schemes, not validated!
-                    ! svfrac2(k)=svfrac(k,nm)/(this%settings%rtcontmor*dtcon)/(1.0/this%settings%rtcontmor*dtcon+svfrac(k,nm)*(vs0p5(j)-vs0p5(k)/thsedlyr(k)))
-                    ! svfrac2(k)=(svfrac(k,nm)/(this%settings%rtcontmor*dtcon)-svfrac(k,nm)*svfrac(k,nm)/2*(vs0p5(j)-vs0p5(k)/thsedlyr(k)))/(1.0/(this%settings%rtcontmor*dtcon)+0.5*svfrac(k,nm)*(vs0p5(k+1)-vs0p5(k)/thsedlyr(k)))  
+                    svfrac2(k) = svfrac(k,nm) - dtcon*svfrac(k,nm)*svfrac(k,nm)*(vs0p5(k+1)-vs0p5(j))/thsedlyr(k)
                     exit
                 endif
                 ! if all the layers below the transport layer have 0.0 thickness
-                svfrac2(k) = svfrac(k,nm)-this%settings%rtcontmor*dtcon*svfrac(k,nm)*svfrac(k,nm)*(vs0p5(nlyr+1)-vs0p5(k))/thsedlyr(k)
+                svfrac2(k) = svfrac(k,nm) - dtcon*svfrac(k,nm)*svfrac(k,nm)*(vs0p5(nlyr+1)-vs0p5(k))/thsedlyr(k)
             enddo
             
             ! Make sure that the solid volume fraction doesn't decrease during consolidation, or increase beyond the maximum.
@@ -4047,7 +4041,6 @@ subroutine consolidate_decon(this, nm, dtmor)
     !! ---> more variables used
     integer, pointer  :: nlyr
     real(fp), pointer :: ag
-    real(fp), pointer :: dtcon
     
     integer, pointer  :: nconlyr                           ! number of consolidating layers
     real(fp), pointer :: ksigma                            ! effective stress coefficient, Pa
@@ -4151,7 +4144,6 @@ subroutine consolidate_decon(this, nm, dtmor)
 
     nlyr           => this%settings%nlyr 
     ag             => this%settings%ag
-    dtcon          => this%settings%dtcon 
     nconlyr        => this%settings%nconlyr  
     ksigma         => this%settings%ksigma
     kk             => this%settings%kk
@@ -4488,7 +4480,6 @@ subroutine consolidate_terzaghi_peat(this, nm, morft, dtmor)
     !! ---> more variables used
     integer, pointer  :: nlyr
     real(fp), pointer :: ag
-    real(fp), pointer :: dtcon
     
     integer, pointer  :: nconlyr                           ! number of consolidating layers
     real(fp), pointer :: ksigma                            ! effective stress coefficient, Pa
@@ -4592,7 +4583,6 @@ subroutine consolidate_terzaghi_peat(this, nm, morft, dtmor)
 
     nlyr           => this%settings%nlyr 
     ag             => this%settings%ag
-    dtcon          => this%settings%dtcon 
     nconlyr        => this%settings%nconlyr  
     ksigma         => this%settings%ksigma
     kk             => this%settings%kk

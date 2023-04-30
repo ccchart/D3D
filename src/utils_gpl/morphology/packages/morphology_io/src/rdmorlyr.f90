@@ -868,154 +868,129 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
         txtput1 = 'Permeability coeff., kk'
         write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kk
         
+        select case (iconsolidate)
+        case (1) ! Gibson model parameters
+            
+            call prop_get(mor_ptr, 'Consolidate', 'ksigma0', morlyr%settings%ksigma0)
+            txtput1 = 'Effective stress coeff., ksigma0'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%ksigma0 
+            
+            call prop_get(mor_ptr, 'Consolidate', 'kbioturb', morlyr%settings%kbioturb)
+            txtput1 = 'Bioturbation coeff., kb'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kbioturb
+            
+            call prop_get(mor_ptr, 'Consolidate', 'rtcontmor', morlyr%settings%rtcontmor)
+            call prop_get(mor_ptr, 'Consolidate', 'confac', morlyr%settings%confac)
+            txtput1 = 'ratio con/mor time scales, confac'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%confac 
+            
+            call prop_get(mor_ptr, 'Consolidate', 'thtrconcr', morlyr%settings%thtrconcr)
+            txtput1 = '1st lyr thick call cons, thtrconcr'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%thtrconcr
+            
+            call prop_get(mor_ptr, 'Consolidate', 'imixtr', morlyr%settings%imixtr)
+            txtput1 = 'replenish mix 2nd layer, imixtr'
+            write (lundia, '(2a,i2)') txtput1, ':', morlyr%settings%imixtr
         
-        if (iconsolidate==1 .or. iconsolidate==2) then
-            
-            call prop_get(mor_ptr, 'Consolidate', 'dtcon', morlyr%settings%dtcon)
-            txtput1 = 'Consolidate time step (s)'
-            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%dtcon
-            
             call prop_get(mor_ptr, 'Consolidate', 'svgel', morlyr%settings%svgel)
             txtput1 = 'Gelling volume fraction, svgel'
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%svgel
-            
+        
             call prop_get(mor_ptr, 'Consolidate', 'svmax', morlyr%settings%svmax)
             txtput1 = 'Maximum volume fraction, svmax'
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%svmax 
             
-            !call prop_get(mor_ptr, 'Consolidate', 'nf', morlyr%settings%nf)
-            !txtput1 = 'Fractal dimension, nf'
-            !write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%nf 
+        case (2) ! Dynamic Equilibrium CONsolidation (DECON) parameters
+            call prop_get(mor_ptr, 'Consolidate', 'dtcon', morlyr%settings%dtdecon)
+            call prop_get(mor_ptr, 'Consolidate', 'dtdecon', morlyr%settings%dtdecon)
+            txtput1 = 'DECON consolidation update time step (s)'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%dtdecon
             
-            !call prop_get(mor_ptr, 'Consolidate', 'ksigma', morlyr%settings%ksigma)
-            !txtput1 = 'Effective stress coeff., ksigma'
-            !write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%ksigma           
+            call prop_get_integer(mor_ptr, 'Underlayer', 'NConLyr', nconlyr)
+            txtput1 = 'Number of consolidating layers'
+            write (lundia, '(2a,i3)') txtput1, ':', nconlyr
+            if (nconlyr<1 .or. nconlyr>mxnulyr) then
+               write(errmsg,'(a,i0,2a)') 'Number of consolidating under layers should be in range 1 to ',mxnulyr,' in ',trim(filmor)
+               call write_error(errmsg, unit=lundia)
+               error = .true.
+               return
+            endif
             
-            !call prop_get(mor_ptr, 'Consolidate', 'kk', morlyr%settings%kk)
-            !txtput1 = 'Permeability coeff., kk'
-            !write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kk
+            call prop_get(mor_ptr, 'Consolidate', 'dzprofile', morlyr%settings%dzprofile)
+            txtput1 = 'Resolution density profile, dzprofile'
+            write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%dzprofile 
             
+            call prop_get_string(mor_ptr, 'Consolidate', 'plyrstr', morlyr%settings%plyrstr)
+            txtput1 = 'Percentage of each layer'
+            plyrstr = morlyr%settings%plyrstr
+            write (lundia, '(2a,999a)') txtput1, ':', plyrstr
             
-            select case (iconsolidate)
-            case (1) ! Gibson model parameters
-                
-                call prop_get(mor_ptr, 'Consolidate', 'ksigma0', morlyr%settings%ksigma0)
-                txtput1 = 'Effective stress coeff., ksigma0'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%ksigma0 
-                
-                call prop_get(mor_ptr, 'Consolidate', 'kk', morlyr%settings%kk)
-                txtput1 = 'Permeability coeff., kk'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kk
-                
-                call prop_get(mor_ptr, 'Consolidate', 'kbioturb', morlyr%settings%kbioturb)
-                txtput1 = 'Bioturbation coeff., kb'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kbioturb
-                
-                call prop_get(mor_ptr, 'Consolidate', 'rtcontmor', morlyr%settings%rtcontmor)
-                txtput1 = 'ratio con/mor timescales, rtcontmor'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%rtcontmor 
-                
-                call prop_get(mor_ptr, 'Consolidate', 'thtrconcr', morlyr%settings%thtrconcr)
-                txtput1 = '1st lyr thick call cons, thtrconcr'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%thtrconcr
-                
-                call prop_get(mor_ptr, 'Consolidate', 'imixtr', morlyr%settings%imixtr)
-                txtput1 = 'replenish mix 2nd layer, imixtr'
-                write (lundia, '(2a,i2)') txtput1, ':', morlyr%settings%imixtr
-                
-                call prop_get(mor_ptr, 'Consolidate', 'iupdtaucr', morlyr%settings%iupdtaucr)
-                txtput1 = 'Updtaucr meth, iupdtaucr'
-                write (lundia, '(2a,i2)') txtput1, ':', morlyr%settings%iupdtaucr 
-                
-                !call prop_get(mor_ptr, 'Consolidate', 'ky', morlyr%settings%ky)
-                !txtput1 = 'Strength coeffi.'
-                !write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%ky
-                
-            case (2) ! Dynamic Equilibrium CONsolidation (DECON) parameters
-                call prop_get_integer(mor_ptr, 'Underlayer', 'NConLyr', nconlyr)
-                txtput1 = 'Number of consolidating layers'
-                write (lundia, '(2a,i3)') txtput1, ':', nconlyr
-                if (nconlyr<1 .or. nconlyr>mxnulyr) then
-                   write(errmsg,'(a,i0,2a)') 'Number of consolidating under layers should be in range 1 to ',mxnulyr,' in ',trim(filmor)
-                   call write_error(errmsg, unit=lundia)
-                   error = .true.
-                   return
-                endif
-                
-                call prop_get(mor_ptr, 'Consolidate', 'dzprofile', morlyr%settings%dzprofile)
-                txtput1 = 'Resolution density profile, dzprofile'
-                write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%dzprofile 
-                
-                call prop_get_string(mor_ptr, 'Consolidate', 'plyrstr', morlyr%settings%plyrstr)
-                txtput1 = 'Percentage of each layer'
-                plyrstr = morlyr%settings%plyrstr
-                write (lundia, '(2a,999a)') txtput1, ':', plyrstr
-                
-                !! read in plyrthk from string 'plyrstr' in *.mor file
-                lenc = 999
-                call str_lower(plyrstr, lenc)
-                call remove_leading_spaces(plyrstr, lenc)
-                !
-                ! Process string
-                !
-                call scannr( plyrstr,       1,      len(plyrstr), nxxuser,   itype, &
-                          &  ifield,  rfield,  cfield,  lenchr,  maxfld,  .true., &
-                          & .false., .false.)
-                
-                if (nxxuser < 0) then
-                   errmsg = 'Cannot interpret Plyrstr string in '//trim(filmor)
-                   call write_error(errmsg, unit=lundia)
-                   error = .true.
-                   return
-                endif
-                do i = 1, nxxuser
-                   if (itype(i) == 1) then
-                      rfield(i) = ifield(i)
-                   elseif (itype(i) == 3) then
-                      errmsg = 'Cannot interpret Plyrstr string in '//trim(filmor)
-                      call write_error(errmsg, unit=lundia)
-                      error = .true.
-                      return
-                   endif
-                enddo
-                !
-                ! allocate memory for percentages of layer thickness
-                !
-                allocate (morlyr%settings%plyrthk(morlyr%settings%nconlyr), stat = istat)
-                !
-                ! Update local pointer
-                !
-                if (istat == 0) istat = bedcomp_getpointer_realfp(morlyr, 'PLyrThk'             , plyrthk)
-                plyrthksum = 0.0_fp
-                !
-                ! Copy percentages
-                !
-                do i = 1, morlyr%settings%nconlyr
-                   !
-                   plyrthk(i) = rfield(i)/100.0_fp
-                   if (plyrthk(i) <= 0.0_fp .or. plyrthk(i) >= 1.0_fp) then
-                      errmsg = 'Percentage of lyr should lie between 0 and 100'
-                      call write_error(errmsg, unit=lundia)
-                      error = .true.
-                      return
-                   endif
-                   plyrthksum = plyrthksum + plyrthk(i)
-                enddo
-                ! check if plyrthksum == 1.0
-                if (comparereal(plyrthksum,1.0_fp) /= 0.0_fp) then
-                    errmsg = 'Sum values in keyword plyrstr in *.mor file and should equal 1.0'
-                    call write_error(errmsg, unit=lundia)
-                    error = .true.
-                    return
-                endif
-                !
-                deallocate(itype)
-                deallocate(ifield)
-                deallocate(lenchr)
-                deallocate(rfield)
-                deallocate(cfield)
-            end select
-        elseif (iconsolidate>=3) then
+            !! read in plyrthk from string 'plyrstr' in *.mor file
+            lenc = 999
+            call str_lower(plyrstr, lenc)
+            call remove_leading_spaces(plyrstr, lenc)
+            !
+            ! Process string
+            !
+            call scannr( plyrstr,       1,      len(plyrstr), nxxuser,   itype, &
+                      &  ifield,  rfield,  cfield,  lenchr,  maxfld,  .true., &
+                      & .false., .false.)
+            
+            if (nxxuser < 0) then
+               errmsg = 'Cannot interpret Plyrstr string in '//trim(filmor)
+               call write_error(errmsg, unit=lundia)
+               error = .true.
+               return
+            endif
+            do i = 1, nxxuser
+               if (itype(i) == 1) then
+                  rfield(i) = ifield(i)
+               elseif (itype(i) == 3) then
+                  errmsg = 'Cannot interpret Plyrstr string in '//trim(filmor)
+                  call write_error(errmsg, unit=lundia)
+                  error = .true.
+                  return
+               endif
+            enddo
+            !
+            ! allocate memory for percentages of layer thickness
+            !
+            allocate (morlyr%settings%plyrthk(morlyr%settings%nconlyr), stat = istat)
+            !
+            ! Update local pointer
+            !
+            if (istat == 0) istat = bedcomp_getpointer_realfp(morlyr, 'PLyrThk'             , plyrthk)
+            plyrthksum = 0.0_fp
+            !
+            ! Copy percentages
+            !
+            do i = 1, morlyr%settings%nconlyr
+               !
+               plyrthk(i) = rfield(i)/100.0_fp
+               if (plyrthk(i) <= 0.0_fp .or. plyrthk(i) >= 1.0_fp) then
+                  errmsg = 'Percentage of lyr should lie between 0 and 100'
+                  call write_error(errmsg, unit=lundia)
+                  error = .true.
+                  return
+               endif
+               plyrthksum = plyrthksum + plyrthk(i)
+            enddo
+            ! check if plyrthksum == 1.0
+            if (comparereal(plyrthksum,1.0_fp) /= 0.0_fp) then
+                errmsg = 'Sum values in keyword plyrstr in *.mor file and should equal 1.0'
+                call write_error(errmsg, unit=lundia)
+                error = .true.
+                return
+            endif
+            !
+            deallocate(itype)
+            deallocate(ifield)
+            deallocate(lenchr)
+            deallocate(rfield)
+            deallocate(cfield)
+        end select
+        
+        if (iconsolidate>=3) then
             call prop_get(mor_ptr, 'peat', 'ymodpeat', morlyr%settings%ymodpeat)
             txtput1 = 'ymod'
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%ymodpeat
@@ -1065,6 +1040,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%d50sed
             
             call prop_get(mor_ptr, 'Consolidate', 'iero', morlyr%settings%ierosion)
+            call prop_get(mor_ptr, 'Consolidate', 'ierosion', morlyr%settings%ierosion)
             txtput1 = 'switch on method to determined critical bed shear stress'
             write (lundia, '(2a,i2)') txtput1, ':', morlyr%settings%ierosion
             
