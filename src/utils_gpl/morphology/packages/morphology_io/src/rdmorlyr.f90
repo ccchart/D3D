@@ -879,7 +879,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
             txtput1 = 'Bioturbation coeff., kb'
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%kbioturb
             
-            call prop_get(mor_ptr, 'Consolidate', 'rtcontmor', morlyr%settings%rtcontmor)
+            call prop_get(mor_ptr, 'Consolidate', 'rtcontmor', morlyr%settings%confac)
             call prop_get(mor_ptr, 'Consolidate', 'confac', morlyr%settings%confac)
             txtput1 = 'ratio con/mor time scales, confac'
             write (lundia, '(2a,ES20.4)') txtput1, ':', morlyr%settings%confac 
