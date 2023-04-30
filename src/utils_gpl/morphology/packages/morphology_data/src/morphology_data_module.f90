@@ -761,8 +761,7 @@ type sedtra_type
     real(fp)         , dimension(:,:)    , pointer :: statqnt  !(nc1:nc2,nstatistics)
 end type sedtra_type
 
-contains
-
+    contains
 
 !> Nullify/initialize a sedtra_type data structure.
 subroutine nullsedtra(sedtra)

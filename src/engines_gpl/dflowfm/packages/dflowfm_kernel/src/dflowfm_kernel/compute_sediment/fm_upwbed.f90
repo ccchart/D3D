@@ -72,7 +72,7 @@
          k2 = ln(2,Lf)
                   
          do l=1,lsedtot
-            if (.not.btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle   ! cycle if this fraction doesn't include bedload
+            if (.not.has_bedload(tratyp(l))) cycle   ! cycle if this fraction doesn't include bedload
             !
             ! check for active sediment cell
             if (kfsed(k1)*kfsed(k2)==0) then
@@ -147,7 +147,7 @@
             k2 = ln(2,Lf)  ! internal node
             !
             do l=1,lsedtot
-               if (.not.btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle   ! cycle if this fraction doesn't include bedload
+               if (.not.has_bedload(tratyp(l))) cycle   ! cycle if this fraction doesn't include bedload
                !
                if (kfsed(k1)*kfsed(k2)==0) then
                   e_sn(Lf,l) = 0d0
@@ -170,14 +170,14 @@
          ! cross-check next statements below with Bert
          else if (hu(Lf)<=epshu) then   ! dry
             do l=1,lsedtot
-               if (.not.btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle   ! cycle if this fraction doesn't include bedload
+               if (.not.has_bedload(tratyp(l))) cycle   ! cycle if this fraction doesn't include bedload
                !
                e_sn(Lf,l) = 0d0
                e_st(Lf,l) = 0d0
             end do
          else   ! inflow and wet
             do l=1,lsedtot
-               if (.not.btest(tratyp(l), TRA_BEDLOAD_BIT)) cycle   ! cycle if this fraction doesn't include bedload
+               if (.not.has_bedload(tratyp(l))) cycle   ! cycle if this fraction doesn't include bedload
                !
                if (kfsed(k1)*kfsed(k2)==0) then
                   e_sn(Lf,l) = 0d0

@@ -53,9 +53,6 @@ public TRA_BEDLOAD  ! transport given by an algebraic expression (typically bed 
 public TRA_ADVDIFF  ! transport determined via advection diffusion equation
 public TRA_COMBINE  ! transport determined via algebraic expression plus advection diffusion equation
 
-public TRA_BEDLOAD_BIT ! bit to check for bed load contribution
-public TRA_ADVDIFF_BIT ! bit to check for suspended load contribution
-
 public lognormal
 public ilognormal
 
@@ -63,6 +60,9 @@ public dclay
 public dsilt
 public dsand
 public dgravel
+
+public has_advdiff
+public has_bedload
 
 integer, parameter :: SEDTYP_CLAY   = 1
 integer, parameter :: SEDTYP_SILT   = 2
@@ -102,5 +102,25 @@ real(fp), parameter :: dclay   =  8.0e-6_fp   !  grain size threshold clay   (vR
 real(fp), parameter :: dsilt   = 32.0e-6_fp   !  grain size threshold silt   (vRijn:   32um)  
 real(fp), parameter :: dsand   = 64.0e-6_fp   !  grain size threshold sand   (vRijn:   62um)  
 real(fp), parameter :: dgravel =  2.0e-3_fp   !  grain size threshold gravel (vRijn: 2000um)
+
+    contains
+
+!> Check if fraction should include advection-diffusion component.    
+function has_advdiff(tratyp) result (bool)
+    implicit none
+    !
+    integer, intent(in) :: tratyp  !< transport type to be checked
+    logical             :: bool    !< logical result of tratyp check
+    bool = btest(tratyp, TRA_ADVDIFF_BIT)
+end function has_advdiff
+
+!> Check if fraction should include bedload component.    
+function has_bedload(tratyp) result (bool)
+    implicit none
+    !
+    integer, intent(in) :: tratyp  !< transport type to be checked
+    logical             :: bool    !< logical result of tratyp check
+    bool = btest(tratyp, TRA_BEDLOAD_BIT)
+end function has_bedload
 
 end module sediment_basics_module

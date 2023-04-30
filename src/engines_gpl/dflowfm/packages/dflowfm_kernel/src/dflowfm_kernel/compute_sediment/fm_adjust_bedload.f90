@@ -85,7 +85,7 @@
          call getLbotLtop(Lf, Lb, Lt)
          if (Lt<Lb) cycle
          do l = 1, lsedtot
-            if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
+            if (has_bedload(tratyp(l))) then
                di50 = sedd50(l)
                di50spatial = .false.
                if (di50<0.0_fp .and. lsedtot==1) di50spatial = .true.

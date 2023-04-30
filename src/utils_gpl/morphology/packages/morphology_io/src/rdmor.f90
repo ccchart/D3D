@@ -1962,7 +1962,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
+                      if (has_bedload(tratyp(l))) then
                          i = i + 1
                          parnames(i) = trim(parname) // ' ' // trim(namsed(l))
                       end if
@@ -1989,7 +1989,7 @@ subroutine echomor(lundia    ,error     ,lsec      ,lsedtot   ,nto       , &
                 else
                    i = 0
                    do l = 1, lsedtot
-                      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
+                      if (has_bedload(tratyp(l))) then
                          i = i + 1
                          parnames(i)      = trim(parname) // ' ' // trim(namsed(l)) // ' end A'
                          parnames(nval+i) = trim(parname) // ' ' // trim(namsed(l)) // ' end B'

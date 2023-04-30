@@ -687,8 +687,8 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
        !
        call compdiam(frac      ,sedd50    ,sedd50    ,sedtyp    ,lsedtot   , &
                    & logsedsig ,nseddia   ,logseddia ,nmmax     ,gdp%d%nmlb, &
-                   & gdp%d%nmub,xx        ,nxx       ,max_mud_sedtyp, min_dxx_sedtyp, sedd50fld, dm        , &
-                   & dg        ,dxx       ,dgsd      )
+                   & gdp%d%nmub,xx        ,nxx       ,max_mud_sedtyp, min_dxx_sedtyp, &
+                   & sedd50fld, dm        ,dg        ,dxx       ,dgsd      )
        !
        ! determine hiding & exposure factors
        !
@@ -1112,7 +1112,7 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
           !
           ! sediment transport not governed by Partheniades-Krone
           !
-          suspfrac = btest(tratyp(l), TRA_ADVDIFF)
+          suspfrac = has_advdiff(tratyp(l))
           !
           ! (Re)set of Prandtl-Schmidt number moved to TKECOF
           tsd  = -999.0_fp

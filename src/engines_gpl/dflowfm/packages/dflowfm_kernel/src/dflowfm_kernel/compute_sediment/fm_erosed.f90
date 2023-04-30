@@ -991,7 +991,7 @@
          !
          ! sediment transport not governed by Partheniades-Krone
          !
-         suspfrac = btest(tratyp(l), TRA_ADVDIFF_BIT)
+         suspfrac = has_advdiff(tratyp(l))
          !
          tsd  = -999.0_fp
          di50 = sedd50(l)
@@ -1236,7 +1236,7 @@
    call fm_red_soursin()
 
    do l = 1,lsedtot                                   ! this is necessary for next calls to upwbed
-      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
+      if (has_bedload(tratyp(l))) then
          do nm = 1, ndx
             sxtot(nm, l) = sbcx(nm, l) + sbwx(nm, l) + sswx(nm, l)
             sytot(nm, l) = sbcy(nm, l) + sbwy(nm, l) + sswy(nm, l)
@@ -1469,7 +1469,7 @@
    e_sbn = 0d0
    e_sbt = 0d0
    do l = 1,lsedtot
-      if (btest(tratyp(l), TRA_BEDLOAD_BIT)) then
+      if (has_bedload(tratyp(l))) then
          do nm = 1, lnx
             e_sbn(nm, l) = e_sbcn(nm, l) + e_sbwn(nm, l) + e_sswn(nm, l)
             e_sbt(nm, l) = e_sbct(nm, l) + e_sbwt(nm, l) + e_sswt(nm, l)
