@@ -204,6 +204,8 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     logical                              , pointer :: flmd2l
     real(prec)       , dimension(:,:)    , pointer :: bodsed 
     real(fp)         , dimension(:)      , pointer :: sedtrcfac
+    integer                              , pointer :: max_mud_sedtyp
+    integer                              , pointer :: min_dxx_sedtyp
     integer                              , pointer :: iflufflyr
     integer                              , pointer :: iunderlyr
     real(fp)         , dimension(:,:)    , pointer :: depfac
@@ -412,6 +414,8 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     tratyp              => gdp%gdsedpar%tratyp
     anymud              => gdp%gdsedpar%anymud
     sedtrcfac           => gdp%gdsedpar%sedtrcfac
+    max_mud_sedtyp      => gdp%gdsedpar%max_mud_sedtyp
+    min_dxx_sedtyp      => gdp%gdsedpar%min_dxx_sedtyp
     thresh              => gdp%gdmorpar%thresh
     sedthr              => gdp%gdmorpar%sedthr
     i10                 => gdp%gdmorpar%i10
