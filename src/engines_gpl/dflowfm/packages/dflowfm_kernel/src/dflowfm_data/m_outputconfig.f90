@@ -15,6 +15,8 @@ module m_output_config
    integer, parameter, public :: UNC_LOC_WB        = 21 !< Data location: his file water balance
    integer, parameter, public :: UNC_LOC_SOSI      = 22 !< Data location: his file sources and sinks
    integer, parameter, public :: UNC_LOC_GENSTRU   = 23 !< Data location: his file general structure data
+   integer, parameter, public :: UNC_LOC_DAMBREAK  = 24 !< Data location: his file dambreak data
+   integer, parameter, public :: UNC_LOC_PUMP      = 24 !< Data location: his file pump data
    
    public t_output_quantity_config
 private
