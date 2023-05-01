@@ -58,18 +58,6 @@ function(prebuild_version_number library_name fortran_version_file svn_version_p
     message(STATUS "Adding prebuild event step for ${library_name}")
 
     if (UNIX)
-        #       if(EXISTS ${fortran_version_file})
-        #           file(READ ${fortran_version_file} version_file_content)
-        #           file(READ ${version_file} version_content)
-        #           string(FIND "${version_file_content}" "${version_content}" versions_found)
-        #
-        #           message(STATUS ${versions_found})
-        #
-        #           if(${versions_found} GREATER_EQUAL 0)
-        #               message(STATUS "file and version match found, returning because no update is needed")
-        #               return()
-        #           endif()
-        #       endif()
         execute_process(COMMAND /bin/bash ${update_version_script_path} ${fortran_version_file} ${svn_version_path} ${version_file} ${checkout_src_root} ${CMAKE_BINARY_DIR})
     endif(UNIX)
     if (WIN32)
