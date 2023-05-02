@@ -1221,6 +1221,7 @@ subroutine nullsedpar(sedpar)
     !
     sedpar%anymud   = .false.
     sedpar%bsskin   = .false.
+    sedpar%used50fld= .false.
     !
     sedpar%flsdia   = ' '
     sedpar%flsmdc   = ' '

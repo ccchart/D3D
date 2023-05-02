@@ -110,6 +110,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     real(fp)         , dimension(:)     , pointer :: zdiff
     integer                             , pointer :: iconsolidate
     integer                             , pointer :: idiffusion
+    integer                             , pointer :: ifractions
     integer                             , pointer :: iporosity
     integer                             , pointer :: iunderlyr
     integer                             , pointer :: maxwarn
@@ -122,6 +123,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     integer                             , pointer :: nconlyr    
     integer                             , pointer :: ttlform
     integer                             , pointer :: telform
+    integer                             , pointer :: updtoplyr
     integer                             , pointer :: updbaselyr
     type(handletype)                    , pointer :: bcmfile
     type(cmpbndtype) , dimension(:)     , pointer :: cmpbnd
@@ -167,6 +169,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     telfil              => morpar%telfil
     !
     istat = bedcomp_getpointer_integer(morlyr, 'IUnderLyr', iunderlyr)
+    if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'IFractions'          , ifractions)
     if (istat == 0) istat = bedcomp_getpointer_logical(morlyr, 'ExchLyr'             , exchlyr)
     if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'NLaLyr'              , nlalyr)
     if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'NEuLyr'              , neulyr)
@@ -176,6 +179,7 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'nmUb'                , nmub)
     if (istat == 0) istat = bedcomp_getpointer_realfp (morlyr, 'ThEuLyr'             , theulyr)
     if (istat == 0) istat = bedcomp_getpointer_realfp (morlyr, 'ThLaLyr'             , thlalyr)
+    if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'UpdTopLyr'           , updtoplyr)
     if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'UpdBaseLyr'          , updbaselyr)
     if (istat == 0) istat = bedcomp_getpointer_realfp (morlyr, 'MinMassShortWarning' , minmass)
     if (istat == 0) istat = bedcomp_getpointer_integer(morlyr, 'MaxNumShortWarning'  , maxwarn)
@@ -246,6 +250,15 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
     endif
     txtput1 = 'Underlayer mechanism'
     write (lundia, '(2a,i20)') txtput1, ':', iunderlyr
+    !
+    call set_default_fractions(morlyr)
+    call prop_get_integer(mor_ptr, 'Underlayer', 'IFractions', ifractions)
+    if (ifractions < 1 .or. ifractions > 2) then
+       errmsg = 'IFractions should be 1 or 2 in ' // trim(filmor)
+       call write_error(errmsg, unit=lundia)
+       error = .true.
+       return
+    endif
     !
     ! underlayer mechanism parameters
     !
@@ -402,6 +415,14 @@ subroutine rdmorlyr(lundia    ,error     ,filmor    , &
                 return
              endif
           endif
+       endif
+       !
+       call prop_get_integer(mor_ptr, 'Underlayer', 'UpdTopLyr', updtoplyr)
+       if (updtoplyr < 1 .or. updtoplyr > 2) then
+          errmsg = 'UpdTopLyr should be 1-2 in ' // trim(filmor)
+          call write_error(errmsg, unit=lundia)
+          error = .true.
+          return
        endif
        !
        call prop_get_integer(mor_ptr, 'Underlayer', 'UpdBaseLyr', updbaselyr)
@@ -1139,12 +1160,12 @@ subroutine rdinidiff(lundia    ,fildiff   ,ndiff     ,kdiff    , &
 ! Global variables
 !
     type(griddimtype)                        , target   , intent(in)  :: griddim
-    integer                                             , intent(in)  :: lundia  !< Description and declaration in inout.igs
-    integer                                             , intent(in)  :: ndiff   !< Description and declaration in bedcomposition module
-    real(fp), dimension(ndiff)                          , intent(out) :: zdiff   !< Description and declaration in bedcomposition module
-    real(fp), dimension(ndiff,griddim%nmlb:griddim%nmub), intent(out) :: kdiff   !< Description and declaration in bedcomposition module
-    character(*)                                        , intent(out) :: fildiff
-    logical                                             , intent(out) :: error
+    integer                                             , intent(in)  :: lundia  !< Diagnostic output file
+    character(*)                                        , intent(in)  :: fildiff !< Name of the diffusion coefficients file
+    integer                                             , intent(in)  :: ndiff   !< (Maximum) number of diffusion coefficients
+    real(fp), dimension(ndiff)                          , intent(out) :: zdiff   !< Vertical position of the diffusion coefficient
+    real(fp), dimension(ndiff,griddim%nmlb:griddim%nmub), intent(out) :: kdiff   !< Diffusion coefficient
+    logical                                             , intent(out) :: error   !< Error flag
 !
 ! Local variables
 !

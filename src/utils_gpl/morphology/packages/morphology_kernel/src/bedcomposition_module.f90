@@ -69,6 +69,7 @@ public  clrmorlyr
 public  bedcomp_use_bodsed
 public  initpreload
 public  lyrdiffusion
+public  set_default_fractions
 !
 public bedcomp_getpointer_integer
 public bedcomp_getpointer_logical
@@ -104,6 +105,7 @@ type morlyrnumericstype
     integer  :: MaxNumShortWarning   ! maximum number of shortage warnings remaining
 end type morlyrnumericstype
 
+! iconsolidate
 integer, parameter :: CONSOL_NONE       = 0 !  0: no consolidation
 integer, parameter :: CONSOL_GIBSON     = 1 !  1: full Gibson model
 integer, parameter :: CONSOL_DECON      = 2 !  2: Dynamic Equilibrium CONsolidation (DECON)
@@ -111,33 +113,43 @@ integer, parameter :: CONSOL_TERZAGHI   = 3 !  3: simple loading model (Terzaghi
 integer, parameter :: CONSOL_TERZ_PEAT  = 4 !  4: simple loading including peat (Terzaghi)
 integer, parameter :: CONSOL_NOCOMP     = 5 !  5: No Compaction
 
+! idiffusion
 integer, parameter :: BDIFF_NONE        = 0 !  0: no diffusion
 integer, parameter :: BDIFF_ACTIVE      = 1 !  1: diffusion
 
+! ierosion
 integer, parameter :: EROS_CONST        = 0 !  0: cohesive sediment erodibility doesn't depend on bed composition
 integer, parameter :: EROS_WHITEHOUSE   = 1 !  1: Whitehouse (2001)
 integer, parameter :: EROS_LE_HIR       = 2 !  2: Le Hir (2011)
 integer, parameter :: EROS_MODIFIED     = 3 !  3: ...
 integer, parameter :: EROS_WINTERWERP   = 4 !  4: Winterwerp (2013)
 
-integer, parameter :: FRAC_BACKWARDS    = 0 !  0: backward compatibility option
+! ifracdef
 integer, parameter :: FRAC_MASS         = 1 !  1: mass fractions (sum of all fractions equals 1)
 integer, parameter :: FRAC_VOLUME       = 2 !  2: solid volume fractions (sum of all fractions equals 1)
 
+! iporosity
 integer, parameter :: POROS_IN_DENSITY  = 0 !  0: porosity included in densities, set porosity to 0
 integer, parameter :: POROS_FRINGS      = 1 !  1: Frings (May 2009)
 integer, parameter :: POROS_WELTJE      = 2 !  2: Weltje based on data by Beard & Weyl (AAPG Bull., 1973)
 integer, parameter :: POROS_SVFRAC0     = 3 !  3: svfrac0
 integer, parameter :: POROS_SVFRAC0SM   = 4 !  4: weight average of svfrac0m and svfrac0s
+integer, parameter :: POROS_CDRYB       = 5 !  5: similar to 0, but with porosity shared
 
+! iunderlyr
 integer, parameter :: BED_MIXED         = 1 !  1: standard fully mixed concept
 integer, parameter :: BED_LAYERED       = 2 !  2: layered bed concept
 
+! updbaselyr
 integer, parameter :: BASELYR_UPDATED   = 1 !  1: base layer is an independent layer (both composition and thickness computed like any other layer)
 integer, parameter :: BASELYR_CONST_FRC = 2 !  2: base layer composition is kept fixed (thickness is computed - total mass conserved)
 integer, parameter :: BASELYR_COPY_FRC  = 3 !  3: base layer composition is set equal to the composition of layer above it (thickness computed - total mass conserved)
 integer, parameter :: BASELYR_CONST     = 4 !  4: base layer composition and thickness constant (no change whatsoever)
 integer, parameter :: BASELYR_CONST_THK = 5 !  5: base layer composition is updated, but thickness is kept constant
+
+! updtoplyr
+integer, parameter :: TOPLYR_POR_RESET  = 1 !  1: top layer porosity is recomputed based on new mixture
+integer, parameter :: TOPLYR_POR_UPDATE = 2 !  2: top layer porosity is updated based on newly added sediment
 
 type bedcomp_settings
     !
@@ -214,35 +226,38 @@ type bedcomp_settings
                                                      !  1: Whitehouse (2001)
                                                      !  2: Le Hir (2011)
                                                      !  3: Winterwerp (2013)
-    integer :: ifracdef                              !< switch for fractions returned by getfrac
+    integer :: ifractions                            !< switch for fractions returned by getfrac
                                                      !  1: mass fractions (sum of all fractions equals 1)
                                                      !  2: solid volume fractions (sum of all fractions equals 1)
-    integer :: iporosity                             ! switch for porosity (simulate porosity if iporosity > 0)
+    integer :: iporosity                             !< switch for porosity (simulate porosity if iporosity > 0)
                                                      !  0: porosity included in densities, set porosity to 0
                                                      !  1: Frings (May 2009)
                                                      !  2: Weltje based on data by Beard & Weyl (AAPG Bull., 1973)
                                                      !  3: svfrac0
                                                      !  4: weight average
-    integer :: iunderlyr                             ! switch for underlayer concept
+    integer :: iunderlyr                             !< switch for underlayer concept
                                                      !  1: standard fully mixed concept
                                                      !  2: graded sediment concept
-    integer :: keuler                                ! index of first Eulerian (i.e. non-moving) layer
+    integer :: keuler                                !< index of first Eulerian (i.e. non-moving) layer
                                                      !  2   : standard Eulerian, only top layer moves with bed level
                                                      !  nlyr: fully Lagrangian (all layers move with bed level)
-    integer :: nfrac                                 ! number of sediment fractions
-    integer :: neulyr                                ! number of Eulerian underlayers
-    integer :: nlalyr                                ! number of Lagrangian underlayers
-    integer :: nlyr                                  ! number of layers (transport + exchange + under layers)
-    integer :: ndiff                                 ! number of diffusion coefficients in vertical direction
-    integer :: nmlb                                  ! start index of segments
-    integer :: nmub                                  ! nm end index
-    integer :: updbaselyr                            ! switch for computing composition of base layer
+    integer :: nfrac                                 !< number of sediment fractions
+    integer :: neulyr                                !< number of Eulerian underlayers
+    integer :: nlalyr                                !< number of Lagrangian underlayers
+    integer :: nlyr                                  !< number of layers (transport + exchange + under layers)
+    integer :: ndiff                                 !< number of diffusion coefficients in vertical direction
+    integer :: nmlb                                  !< start index of segments
+    integer :: nmub                                  !< nm end index
+    integer :: updtoplyr                             !< switch for top layer porosity updating
+                                                     !  1: top layer porosity is recomputed based on new mixture
+                                                     !  2: top layer porosity is updated based on newly added sediment
+    integer :: updbaselyr                            !< switch for computing composition of base layer
                                                      !  1: base layer is an independent layer (both composition and thickness computed like any other layer)
                                                      !  2: base layer composition is kept fixed (thickness is computed - total mass conserved)
                                                      !  3: base layer composition is set equal to the composition of layer above it (thickness computed - total mass conserved)
                                                      !  4: base layer composition and thickness constant (no change whatsoever)
                                                      !  5: base layer composition is updated, but thickness is kept constant
-    integer  :: peatfrac                             ! peat flag (no peat growth, peat thickness is homogeneous)
+    integer  :: peatfrac                             !< peat flag (no peat growth, peat thickness is homogeneous)
     !
     ! pointers
     !
@@ -336,6 +351,25 @@ subroutine bedcomposition_module_info(messages)
 end subroutine bedcomposition_module_info
 
 
+subroutine set_default_fractions(this)
+    implicit none
+    !
+    ! Call variables
+    !
+    type(bedcomp_data)                                                                           :: this     !< bed composition object
+    !
+    ! Local variables
+    !
+!
+!! executable statements -------------------------------------------------------
+!
+    if (this%settings%iunderlyr == BED_MIXED) then
+        this%settings%ifractions = FRAC_MASS
+    else
+        this%settings%ifractions = FRAC_VOLUME
+    endif
+end subroutine set_default_fractions
+
 !> Update underlayer bookkeeping system for given erosion/sedimentation flux
 function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
     use precision
@@ -402,8 +436,9 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
     real(fp) , dimension(:,:)  , pointer    :: preload
     real(fp), dimension(this%settings%nfrac):: mfrac
     real(fp)                                :: totmassd     !< total mass of deposited sediment
-    real(fp)                                :: totsvd       !< total solid volume of deposited sediment
-    real(fp)                                :: totsve       !< total solid volume of eroded sediment
+    real(fp)                                :: totsv        !< total sediment volume in top layer
+    real(fp)                                :: totsvd       !< total sediment volume of deposited sediment
+    real(fp)                                :: totsve       !< total sediment volume of eroded sediment
     logical                                 :: call_consolidate !< flag indicating whether consolidate should be called
 !
 !! executable statements -------------------------------------------------------
@@ -447,7 +482,21 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
         
         do nm = this%settings%nmlb,this%settings%nmub
             call getsedthick_1point(this, nm, seddep0)
+            !
+            totmassd = 0.0_fp ! total deposited mass
+            totsvd   = 0.0_fp ! total deposited volume
+            totsve   = 0.0_fp ! total eroded volume
+            totsv    = 0.0_fp ! total sediment volume
             do l = 1, this%settings%nfrac
+                if (dbodsd(l,nm) > 0.0_fp) then
+                    ! fraction being deposited
+                    totmassd = totmassd + dbodsd(l,nm)
+                    totsvd   = totsvd   + dbodsd(l,nm) / rhofrac(l)
+                else
+                    ! fraction being eroded
+                    totsve   = totsve   - dbodsd(l,nm) / rhofrac(l)
+                endif
+                !
                 temp  = msed(l, 1, nm) + dbodsd(l, nm)
                 if (temp < 0.0_fp) then
                     if (temp < -morlyrnum%MinMassShortWarning .and. morlyrnum%MaxNumShortWarning>0) then
@@ -474,6 +523,7 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
                     endif
                 endif
                 msed(l, 1, nm) = temp
+                totsv = totsv + temp / rhofrac(l)
             enddo
             !
             ! get new requested transport layer thickness.
@@ -482,64 +532,53 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
             !
             ! compute actual current thickness of top layer
             !
-            if (iconsolidate == CONSOL_NONE) then
-                call updateporosity(this, nm, 1)
-            endif
-            !
-            ! svfrac and thickness of newly deposited sediment
-            !
-            totmassd = 0.0_fp
-            totsvd   = 0.0_fp
-            do l = 1, this%settings%nfrac
-                if (dbodsd(l,nm) > 0.0_fp) then
-                    totmassd = totmassd + dbodsd(l,nm)
-                    totsvd   = totsvd   + dbodsd(l,nm) / rhofrac(l)
+            if (this%settings%updtoplyr == TOPLYR_POR_RESET) then
+                ! thickness of top layer based on the porosity
+                ! formula for the complete mixture of sediment
+                ! irrespective age (i.e. freshly deposited or
+                ! remnant of previous top layer composition).
+                if (iconsolidate == CONSOL_NONE) then
+                    call updateporosity(this, nm, 1)
                 endif
-            enddo
-            if (totmassd > 0.0_fp) then
-                do l = 1, this%settings%nfrac
-                    if (dbodsd(l,nm) > 0.0_fp) then
-                        mfrac(l) = dbodsd(l,nm) / totmassd
-                    else
-                        mfrac(l) = 0.0_fp
-                    endif
-                enddo
-                call getporosity(this, mfrac, poros)
-                svfracd = 1.0_fp - poros
-                thickd = totsvd / svfracd
+                thick = totsv/svfrac(1, nm)
             else
-                svfracd = 0.0_fp
-                thickd = 0.0_fp
-            endif
-            !
-            ! thickness of eroded sediment
-            !
-            totsve   = 0.0_fp
-            do l = 1, this%settings%nfrac
-                if (dbodsd(l,nm) <= 0.0_fp) then
-                    totsve   = totsve   - dbodsd(l,nm) / rhofrac(l)
+                ! thickness of transport layer based on a combination
+                ! of freshly deposited sediment (using porosity formula)
+                ! and the remainder of the original top layer.
+
+                ! reduce thickness by eroded volume
+                thicke = totsve / svfrac(1,nm)
+                thick = thlyr(1,nm) - thicke
+
+                if (totmassd > 0.0_fp) then
+                    ! some deposition occurred (maybe also some erosion)
+                    ! determine porosity and thickness of added mixture
+                    do l = 1, this%settings%nfrac
+                        if (dbodsd(l,nm) > 0.0_fp) then
+                            mfrac(l) = dbodsd(l,nm) / totmassd
+                        else
+                            mfrac(l) = 0.0_fp
+                        endif
+                    enddo
+                    call getporosity(this, mfrac, poros)
+                    svfracd = 1.0_fp - poros
+                    thickd = totsvd / svfracd
+                    
+                    ! new sediment comes without preload history
+                    preload0 = 0.0_fp
+                                    
+                    ! some deposition (maybe also some erosion)
+                    preload(1,nm) = (thick * preload(1,nm) + thickd * preload0) / (thick + thickd)
+                    svfrac(1,nm) = (thick * svfrac(1,nm) + thickd * svfracd) / (thick + thickd)
+                    !
+                    ! new transport layer thickness takes into account deposition
+                    !
+                    thick = thick + thickd
+                else
+                    !
+                    ! only erosion … preload and svfrac don’t need updating
+                    !
                 endif
-            enddo
-            thicke = totsve / svfrac(1,nm)
-            thick = thlyr(1,nm) - thicke
-            !
-            ! Deposition and Erosion
-            !
-            preload0 = 0.0_fp
-            if (thickd > 0.0_fp) then
-                !
-                ! some deposition (maybe also some erosion)
-                !
-                preload(1,nm) = (thick * preload(1,nm) + thickd * preload0) / (thick + thickd)
-                svfrac(1,nm) = (thick * svfrac(1,nm) + thickd * svfracd) / (thick + thickd)
-                !
-                ! new transport layer thickness takes into account deposition
-                !
-                thick = thick + thickd
-            else
-                !
-                ! only erosion … preload and svfrac don’t need updating
-                !
             endif
             !
             if (iconsolidate == CONSOL_DECON) then
@@ -1830,7 +1869,7 @@ end subroutine getalluvthick
 !! on the solid volume. This second definition of the volume
 !! fraction is equal to the mass fraction if the specific densities
 !! of all sediment fractions are the same.
-subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto, ifracdef)
+subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto, ifracreq)
     use precision 
     use sediment_basics_module
     !
@@ -1842,14 +1881,14 @@ subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto, ifracdef)
     integer                                                           , intent(in)  :: nmfrom   !< first index requested
     integer                                                           , intent(in)  :: nmto     !< last index requested
     logical                                                           , intent(in)  :: anymud   !< flag indicating whether any cohesive sediment class is included in the simulation
-    integer                                                 ,optional , intent(in)  :: ifracdef !< switch to request mass or volume fractions (overrules the default)
+    integer                                                 ,optional , intent(in)  :: ifracreq !< switch to request mass or volume fractions (overrules the default)
     real(fp), dimension(nmfrom:nmto)                                  , intent(in)  :: mudcnt   !< local (non-simulated) cohesive sediment class
     real(fp), dimension(nmfrom:nmto, this%settings%nfrac)             , intent(out) :: frac     !< mass or volume fraction per sediment class [-]
     real(fp), dimension(nmfrom:nmto)                                  , intent(out) :: mudfrac  !< total cohesive sediment fraction [-]
     !
     ! Local variables
     !
-    integer  :: ifracdef_     !< type of fraction to be returned (mass or volume)
+    integer  :: ifracreq_     !< type of fraction to be returned (mass or volume)
     integer  :: l             !< fraction index
     integer  :: nm            !< spatial index
     real(fp) :: nonmud        !< fraction of non-cohesive sediment [-]
@@ -1858,23 +1897,16 @@ subroutine getfrac(this, frac, anymud, mudcnt, mudfrac, nmfrom, nmto, ifracdef)
     !
     ! Determine whether to return mass or volume fractions
     !
-    if (present(ifracdef)) then
-        ifracdef_ = ifracdef
+    if (present(ifracreq)) then
+        ifracreq_ = ifracreq
     else
-        ifracdef_ = this%settings%ifracdef
-    endif
-    if (ifracdef_ == FRAC_BACKWARDS) then
-       if (this%settings%iunderlyr == BED_MIXED) then
-           ifracdef_ = FRAC_MASS
-       else
-           ifracdef_ = FRAC_VOLUME
-       endif
+        ifracreq_ = this%settings%ifractions
     endif
     
     !
     ! Call the appropriate routine
     !
-    select case (ifracdef_)
+    select case (ifracreq_)
     case (FRAC_MASS)
        call getmfrac(this ,frac, nmfrom, nmto)
     case default ! FRAC_VOLUME
@@ -2495,70 +2527,71 @@ function initmorlyr(this) result (istat)
     settings%nmub       = 0
     settings%idiffusion = BDIFF_NONE
     settings%iunderlyr  = BED_MIXED
-    settings%ifracdef   = FRAC_BACKWARDS
+    settings%ifractions = FRAC_VOLUME
     settings%iporosity  = POROS_IN_DENSITY
     settings%exchlyr    = .false.
     settings%neulyr     = 0
     settings%nlalyr     = 0
     settings%theulyr    = rmissval
     settings%thlalyr    = rmissval
-    settings%updbaselyr = BASELYR_UPDATED
+    settings%updtoplyr  = TOPLYR_POR_RESET         ! by default, the top layer porosity is reset
+    settings%updbaselyr = BASELYR_UPDATED          ! 
     
-    !!  --> default values, based on Merchelbach et al. (2000, 2004a, b)
-    settings%iconsolidate = CONSOL_NONE            !< by default, consolidation is switched off
-    settings%ierosion     = EROS_CONST             !< by default, critical bed shear stress for erosion is determined using empirical relation between mud fraction and bed strength.
-    settings%ag           = 9.81_fp                !< gravitational acceleration [m/s2] (default value on Earth; to be overruled by calling component)
-    settings%dtdecon      = 1209600.0_fp           !< seconds, default 2 week to update consolidation once
-    settings%svgel        = 0.158_fp               !< volume fraction of pure sediment at gelling point
-    settings%svmax        = 0.6_fp                 !< if svfrac > svmax, consolidation stops
-    settings%nf           = 2.69!2.605_fp               !< fractal dimension [-]
-    settings%ky           = 1.0E3_fp               !< [Pa]
-    settings%ksigma       = 1.99E7_fp!7.1E7_fp               !< effective stress coefficient [Pa]
-    settings%ksigma0      = 0.0_fp                 !< effective stress coefficient (usually set as 0) [Pa]
-    settings%kk           = 1.59E-13_fp!7.6E-13_fp             !< permeability coefficient [m/s]
-    settings%kbioturb     = 0.0_fp                 !< bioturbation coefficient [m2/s]
-    !settings%svfrac0      = 500.0/2650.0           !< example from Townsend&MeVay1990
-    settings%svfrac0      = 1600.0/2650.0          !< Example from Townsend&MeVay1990, svfrac is around 0.18, which is reasonable for unconsolidated sediment
-    settings%svfrac0m     = 0.2_fp                 !< depositional svfrac for mud
-    settings%svfrac0s     = 0.6_fp                 !< depositional svfrac for sand
-    settings%minporm      = 0.05_fp                !< compacted porosity for mud
-    settings%minpors      = 0.25_fp                !< compacted porosity for sand
-    settings%confac       = 1.0_fp                 !< default consider consolidation occurs at morphological time scale
-    settings%thtrconcr    = 1.0E-6_fp              !< default very small value to avoid numerical problems
+    !!  --> default values, based on Merckelbach et al. (2000, 2004a, b)
+    settings%iconsolidate = CONSOL_NONE            ! by default, consolidation is switched off
+    settings%ierosion     = EROS_CONST             ! by default, critical bed shear stress for erosion is determined using empirical relation between mud fraction and bed strength.
+    settings%ag           = 9.81_fp                ! gravitational acceleration [m/s2] (default value on Earth; to be overruled by calling component)
+    settings%dtdecon      = 1209600.0_fp           ! seconds, default 2 week to update consolidation once
+    settings%svgel        = 0.158_fp               ! volume fraction of pure sediment at gelling point
+    settings%svmax        = 0.6_fp                 ! if svfrac > svmax, consolidation stops
+    settings%nf           = 2.69!2.605_fp               ! fractal dimension [-]
+    settings%ky           = 1.0E3_fp               ! [Pa]
+    settings%ksigma       = 1.99E7_fp!7.1E7_fp               ! effective stress coefficient [Pa]
+    settings%ksigma0      = 0.0_fp                 ! effective stress coefficient (usually set as 0) [Pa]
+    settings%kk           = 1.59E-13_fp!7.6E-13_fp             ! permeability coefficient [m/s]
+    settings%kbioturb     = 0.0_fp                 ! bioturbation coefficient [m2/s]
+    !settings%svfrac0      = 500.0/2650.0           ! example from Townsend&MeVay1990
+    settings%svfrac0      = 1600.0/2650.0          ! Example from Townsend&MeVay1990, svfrac is around 0.18, which is reasonable for unconsolidated sediment
+    settings%svfrac0m     = 0.2_fp                 ! depositional svfrac for mud
+    settings%svfrac0s     = 0.6_fp                 ! depositional svfrac for sand
+    settings%minporm      = 0.05_fp                ! compacted porosity for mud
+    settings%minpors      = 0.25_fp                ! compacted porosity for sand
+    settings%confac       = 1.0_fp                 ! default consider consolidation occurs at morphological time scale
+    settings%thtrconcr    = 1.0E-6_fp              ! default very small value to avoid numerical problems
     settings%thtrempty    = 0.0001_fp
-    settings%imixtr       = 1                      !< default 1
-    !settings%minpor       = 0.25_fp                !< overburden porosity of sand fraction at depth ~1.5 km
-    settings%crmud        = 0.001_fp               !< consolidation rate of clay [m]
-    settings%crsand       = 0.01_fp                !< consolidation rate of sand [m]
-    settings%crmsec       = 3.0E-02_fp             !< secondary consolidation of mud
-    settings%porini       = 0.75_fp                !< 
+    settings%imixtr       = 1                      ! 
+    !settings%minpor       = 0.25_fp                ! overburden porosity of sand fraction at depth ~1.5 km
+    settings%crmud        = 0.001_fp               ! consolidation rate of clay [m]
+    settings%crsand       = 0.01_fp                ! consolidation rate of sand [m]
+    settings%crmsec       = 3.0E-02_fp             ! secondary consolidation of mud
+    settings%porini       = 0.75_fp                ! 
     !critical bed shear stress
-    settings%rhow_const   = 1000.0_fp              !< water density [kg/m3]
-    settings%ky           = 1.0E3_fp               !< vertical permeability [Pa]
-    settings%d50sed       = 3.0E-5_fp              !< median sediment diameter [m]
-    settings%alpha        = 0.7_fp                 !< default value for cohesive sediment [-]
-    settings%beta         = 0.2_fp                 !< default value for cohesive sediment [-]
-    settings%alpha_mix    = 0.2205_fp              !< tuning parameter for cohesionless mixture [-]
-    settings%beta_mix     = 0.9125_fp              !< tuning parameter for cohesionless mixture [-]
-    settings%alpha_lehir  = 1.0_fp                 !< tuning parameter of le hir tcrero equation [-]
-    settings%alpha_winterwerp = 10.0_fp            !< tuning parameter of Winterwerp Me equation [-]
-    settings%alpha_me     = 1.0_fp                 !< tuning parameter of simple Me equation [-]
-    settings%C0           = 0.07_fp                !< default value for cohesive sediment [%]
-    settings%A            = 2.67_fp                !< default value for cohesive sediment [-]
+    settings%rhow_const   = 1000.0_fp              ! water density [kg/m3]
+    settings%ky           = 1.0E3_fp               ! vertical permeability [Pa]
+    settings%d50sed       = 3.0E-5_fp              ! median sediment diameter [m]
+    settings%alpha        = 0.7_fp                 ! default value for cohesive sediment [-]
+    settings%beta         = 0.2_fp                 ! default value for cohesive sediment [-]
+    settings%alpha_mix    = 0.2205_fp              ! tuning parameter for cohesionless mixture [-]
+    settings%beta_mix     = 0.9125_fp              ! tuning parameter for cohesionless mixture [-]
+    settings%alpha_lehir  = 1.0_fp                 ! tuning parameter of le hir tcrero equation [-]
+    settings%alpha_winterwerp = 10.0_fp            ! tuning parameter of Winterwerp Me equation [-]
+    settings%alpha_me     = 1.0_fp                 ! tuning parameter of simple Me equation [-]
+    settings%C0           = 0.07_fp                ! default value for cohesive sediment [%]
+    settings%A            = 2.67_fp                ! default value for cohesive sediment [-]
     !! input parameters for Dynamic Equilibrium CONsolidation (DECON)
-    settings%nconlyr      = 6                      !< 
-    settings%dzprofile    = 0.0001                 !< resolution [m]
+    settings%nconlyr      = 6                      ! 
+    settings%dzprofile    = 0.0001                 ! resolution [m]
     settings%plyrstr      = '0.05 0.05 0.10 0.15 0.20 0.45'
-    settings%ptr          = 0.0_fp                 !< percentage of thickness reduction
+    settings%ptr          = 0.0_fp                 ! percentage of thickness reduction
     !! Peat 
-    settings%ccpeat       = 0.0_fp                 !< 
-    settings%ymodpeat     = 0.0_fp                 !< 
-    settings%peatfrac     = 0                      !< 
-    settings%peatloi      = 0.0_fp                 !< 
-    settings%parb         = 0.009_fp               !< 
-    settings%parc         = 0.08_fp                !< 
-    settings%pard         = 0.05_fp                !< 
-    settings%peatthick    = 4.0_fp                 !< 
+    settings%ccpeat       = 0.0_fp                 ! 
+    settings%ymodpeat     = 0.0_fp                 ! 
+    settings%peatfrac     = 0                      ! 
+    settings%peatloi      = 0.0_fp                 ! 
+    settings%parb         = 0.009_fp               ! 
+    settings%parc         = 0.08_fp                ! 
+    settings%pard         = 0.05_fp                ! 
+    settings%peatthick    = 4.0_fp                 ! 
 
     !
     nullify(settings%kdiff)
@@ -2991,8 +3024,8 @@ function bedcomp_getpointer_integer_scalar(this, variable, val) result (istat)
        val => this%settings%idiffusion
     case ('bed_layering_type','iunderlyr')
        val => this%settings%iunderlyr
-    case ('definition_of_fraction','ifracdef')
-       val => this%settings%ifracdef
+    case ('definition_of_fraction','ifractions')
+       val => this%settings%ifractions
     case ('porosity_model_type','iporosity')
        val => this%settings%iporosity
     case ('consolidation_model_type','iconsolidate')
@@ -3017,6 +3050,8 @@ function bedcomp_getpointer_integer_scalar(this, variable, val) result (istat)
        val => this%settings%nmlb
     case ('last_column_number','nmub')
        val => this%settings%nmub
+    case ('top_layer_updating_type','updtoplyr')
+       val => this%settings%updtoplyr
     case ('base_layer_updating_type','updbaselyr')
        val => this%settings%updbaselyr
     case ('erosion_type','ierosion','iero')
