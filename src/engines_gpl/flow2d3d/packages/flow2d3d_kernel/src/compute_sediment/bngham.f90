@@ -413,15 +413,6 @@ subroutine bngham(j         ,nmmaxj    ,kmax      ,nmmax     ,lstsci    , &
            endif
            !
            if ( clyint(nm) <= eps_fp) exit  ! if clay concentration close to zero, exit from the loop.
-           if (claycnt > 0 ) then
-              clyint(nm) = clyint(nm) / real(claycnt,fp)
-           endif
-           if (silcnt > 0 ) then
-              sltint(nm) = sltint(nm) / real(silcnt,fp)
-           endif
-           if (sandcnt > 0) then
-              sndint(nm) = sndint(nm) / real(sandcnt,fp)
-           endif
            clyint(nm)   = max (0.0_fp,clyint(nm))
            sltint(nm)   = max (0.0_fp,sltint(nm) )
            sndint(nm)   = max (0.0_fp,sndint(nm))
