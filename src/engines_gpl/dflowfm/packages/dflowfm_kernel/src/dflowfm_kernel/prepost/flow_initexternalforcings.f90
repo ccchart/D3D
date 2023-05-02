@@ -2445,8 +2445,7 @@ end if
  if (allocated (kdd))      deallocate (kdd)
  if (allocated (kdgen))    deallocate (kdgen)
  if (allocated (kdp))      deallocate (kdp)
- if (allocated (kdss))     deallocate (kdss)
-
+ 
  if (allocated (xy2gate) ) deallocate (xy2gate)
  if (allocated (xy2cdam) ) deallocate (xy2cdam)
  if (allocated (xy2cgen) ) deallocate (xy2cgen)

@@ -31,35 +31,25 @@
 ! 
 
 !> Initializes controllers that force structures.
-!! Currently only time series files, in the future also realtime control (RTC).
 function flow_init_structurecontrol() result (status)
 use dfm_error
-use m_1d_structures
-use m_flowexternalforcings
 use m_hash_search
 use m_alloc
 use m_flowgeom
 use m_netw
-use unstruc_messages
 use unstruc_boundaries, only : checkCombinationOldNewKeywordsGeneralStructure, adduniformtimerelation_objects
 use unstruc_channel_flow
 use m_structures ! Jan's channel_flow for Sobek's generalstructure (TODO)
 use m_strucs     ! Herman's generalstructure
-use tree_structures
-! use unstruc_files
 use timespace
-use m_missing
-! use m_ship
-! use m_alloc
 use m_meteo
 use m_readstructures
 use m_sferic
 use geometry_module
-USE gridoperations, only: incells
+use gridoperations, only: incells
 use unstruc_model, only: md_structurefile_dir
 use unstruc_files, only: resolvePath
 use string_module, only: str_lower, strcmpi
-use iso_c_binding
 use m_inquire_flowgeom
 use m_longculverts, only: nlongculverts
 use m_partitioninfo, only: jampi
@@ -67,17 +57,16 @@ use m_partitioninfo, only: jampi
 implicit none
 logical                       :: status
 character(len=256)            :: plifile
-integer                       :: i, L, Lf, kb, LL, ierr, k, kbi, n, ifld, k1, k2
+integer                       :: i, L, Lf, kb, ierr, k, kbi, n, ifld, k1, k2
 integer                       :: nstr
-character (len=256)           :: fnam, rec, key, rec_old
+character (len=256)           :: fnam, rec, key
 integer, allocatable          :: pumpidx(:), gateidx(:), cdamidx(:), cgenidx(:), dambridx(:) ! temp
 double precision              :: tmpval
-integer                       :: istru, istrtype, itmp, janewformat
-integer                       :: numg, numd, npum, ngs, numgen, numgs, ilinstr, ndambr
+integer                       :: istrtype, itmp, janewformat
+integer                       :: numg, numd, npum, ngs, numgen, ndambr
 type(TREE_DATA), pointer      :: str_ptr
 double precision, allocatable :: widths(:)
 double precision              :: widthtot
-integer, allocatable          :: strnums(:)
 double precision, allocatable :: xdum(:), ydum(:)
 integer, allocatable          :: kdum(:)
 character(len=IdLen)          :: strid ! TODO: where to put IdLen (now in MessageHandling)
@@ -94,21 +83,18 @@ double precision, allocatable :: hulp(:,:) ! hulp
 type(c_ptr) :: cptr
 
 ! dambreak
-double precision              :: x_breach, y_breach, distemp
-double precision              :: xc, yc, xn, yn
-integer                       :: nDambreakCoordinates, k3, k4, kpol, indexInStructure, indexInPliset, indexLink, ja, Lstart
-double precision              :: xla, xlb, yla, ylb, rn, rt
+double precision              :: x_breach, y_breach
+double precision              :: xn, yn
+integer                       :: nDambreakCoordinates, k3, k4, kpol, indexInStructure, indexInPliset, indexLink, Lstart
+double precision              :: xla, xlb, yla, ylb
 integer, allocatable          :: lftopol(:)
 double precision, allocatable :: xl(:,:), yl(:,:)
-integer                       :: branchIndex
 integer                       :: istat
-double precision              :: chainage
-double precision, pointer :: tgtarr(:)
+double precision, pointer     :: tgtarr(:)
 integer :: loc_spec_type
-!! if (jatimespace == 0) goto 888                      ! Just cleanup and close ext file.
 
+! initialize exit status
 status = .False.
-
 !
 ! Some structures may have already been read by flow1d's readStructures into network.
 !
@@ -128,8 +114,6 @@ do i=1,network%forcinglist%Count
    success = adduniformtimerelation_objects(qid, '', trim(pfrc%object_type), trim(pfrc%object_id), trim(pfrc%param_name), trim(fnam), 1, 1, tgtarr)
 
 end do
-
-
 !
 ! Hereafter, conventional dflowfm structures.
 !
@@ -141,11 +125,9 @@ if (nstr > 0) then
 else
    jaoldstr = 1
    status = .True.
-   RETURN ! DEZE SUBROUTINE IS EEN KOPIE VAN MIJN CODE EN DAT BRENGT ME IN DE WAR
-                         ! DAAROM VOORLOPIG UIT UNSTRUC.F90 VERPLAATST
+   return
 end if
 
-if (allocated(strnums)) deallocate(strnums)
 if (allocated(widths)) deallocate(widths)
 if (allocated(lftopol)) deallocate(lftopol)
 if (allocated(dambreakLinksEffectiveLength)) deallocate(dambreakLinksEffectiveLength)
@@ -157,7 +139,6 @@ if (allocated(cgenidx)) deallocate(cgenidx)
 if (allocated(dambridx)) deallocate(dambridx)
 if (allocated(dambreakPolygons)) deallocate(dambreakPolygons)
 
-allocate(strnums(numl))
 allocate(widths(numl))
 allocate(lftopol(numl))
 allocate(dambreakLinksEffectiveLength(numl))
@@ -313,33 +294,6 @@ do i=1,nstr
 
    end if
 
-   ! TODO: remove branchIndex code for pumps below, use above loc_spec_type instead.
-   !branchIndex = -1
-   !call prop_get_string(str_ptr, '', 'branchid', branchid, success)
-   !if (success .and. strtype == 'pump') then
-   !   branchIndex = hashsearch(network%brs%hashlist, branchid)
-   !   if (branchIndex <= 0) then
-   !      msgbuf ='Branch ' // trim(branchid) // ' in structure ' // trim(strid)//' does not exist.'
-   !      call warn_flush()
-   !      cycle
-   !   endif
-   !   call prop_get_double(str_ptr, '', 'chainage', chainage, success)
-   !   if (.not. success) then
-   !      write(msgbuf, '(a,a,a)') 'Required field ''chainage'' is missing in '//trim(strtype)//' ''', trim(strid), '''.'
-   !      call warn_flush()
-   !      cycle
-   !   endif
-   !else
-   !   plifile = ' '
-   !   call prop_get_string(str_ptr, '', 'polylinefile', plifile, success)
-   !   if (.not. success .or. len_trim(plifile) == 0) then
-   !      write(msgbuf, '(a,a,a)') 'Required field ''polylinefile'' missing in '//trim(strtype)//' ''', trim(strid), '''.'
-   !      call warn_flush()
-   !      cycle
-   !   else
-   !      call resolvePath(plifile, md_structurefile_dir, plifile)
-   !   end if
-   !endif
    select case (strtype)
    case ('gateloweredgelevel')  ! Old-style controllable gateloweredgelevel
         !else if (qid == 'gateloweredgelevel' ) then
@@ -472,38 +426,32 @@ do i=1,nstr
    end select
 end do
 
-!if (ngate == 0) ngatesg = 0
-!if (ncdam == 0) ncdamsg = 0
-!if (npump == 0) npumpsg = 0
-!if (ncgen == 0) ncgensg = 0
-!if (ngs   == 0) ncgensg = 0 ! genstru sobek?
+allocate ( xdum(1), ydum(1), kdum(1) , stat=ierr)
+call aerr('xdum(1), ydum(1), kdum(1)', ierr, 3)
+xdum = 1d0 ; ydum = 1d0; kdum = 1
 
- allocate ( xdum(1), ydum(1), kdum(1) , stat=ierr)
- call aerr('xdum(1), ydum(1), kdum(1)', ierr, 3)
- xdum = 1d0 ; ydum = 1d0; kdum = 1
+if (ncgensg > 0) then  ! All generalstructure, i.e., the weir/gate/generalstructure user input
+   if (allocated   (zcgen)   ) deallocate( zcgen)
+   if (allocated   (kcgen)   ) deallocate( kcgen)
+   kx = 3 ! 1: crest/sill, 2: gateloweredge, 3: width (?)
+   allocate ( zcgen(ncgensg*kx), kcgen(4,ncgen) , stat=ierr     )
+   call aerr('zcgen(ncgensg*kx), kcgen(4,ncgen)',ierr, ncgen*(2*kx+3) )
+   kcgen = 0d0; zcgen = 1d10
 
- if (ncgensg > 0) then  ! All generalstructure, i.e., the weir/gate/generalstructure user input
-    if (allocated   (zcgen)   ) deallocate( zcgen)
-    if (allocated   (kcgen)   ) deallocate( kcgen)
-    kx = 3 ! 1: crest/sill, 2: gateloweredge, 3: width (?)
-    allocate ( zcgen(ncgensg*kx), kcgen(4,ncgen) , stat=ierr     )
-    call aerr('zcgen(ncgensg*kx), kcgen(4,ncgen)',ierr, ncgen*(2*kx+3) )
-    kcgen = 0d0; zcgen = 1d10
+   if (allocated(cgen_ids))     deallocate(cgen_ids)
+   if (allocated(cgen_type))    deallocate(cgen_type)
+   if (allocated(cgen2str))     deallocate(cgen2str)
+   if (allocated(weir2cgen))    deallocate(weir2cgen)
+   if (allocated(gate2cgen))    deallocate(gate2cgen)
+   if (allocated(genstru2cgen)) deallocate(genstru2cgen)
+   allocate(cgen_ids(ncgensg), cgen_type(ncgensg), cgen2str(ncgensg))
+   allocate(weir2cgen(nweirgen), gate2cgen(ngategen), genstru2cgen(ngenstru))
+   if (allocated(gates))        deallocate(gates)
+   allocate (gates(ngategen) )
 
-    if (allocated(cgen_ids))     deallocate(cgen_ids)
-    if (allocated(cgen_type))    deallocate(cgen_type)
-    if (allocated(cgen2str))     deallocate(cgen2str)
-    if (allocated(weir2cgen))    deallocate(weir2cgen)
-    if (allocated(gate2cgen))    deallocate(gate2cgen)
-    if (allocated(genstru2cgen)) deallocate(genstru2cgen)
-    allocate(cgen_ids(ncgensg), cgen_type(ncgensg), cgen2str(ncgensg))
-    allocate(weir2cgen(nweirgen), gate2cgen(ngategen), genstru2cgen(ngenstru))
-    if (allocated(gates))        deallocate(gates)
-    allocate (gates(ngategen) )
-
-    nweirgen = 0
-    ngategen = 0
-    ngenstru = 0
+   nweirgen = 0
+   ngategen = 0
+   ngenstru = 0
 
    if (allocated(fusav)) deallocate(fusav)
    if (allocated(rusav)) deallocate(rusav)
@@ -512,64 +460,59 @@ end do
 
    do n = 1, ncgensg
 
-       do k = L1cgensg(n), L2cgensg(n)
-          Lf           = iabs(kegen(k))
-          kb           = ln(1,Lf)
-          kbi          = ln(2,Lf)
-          if (kegen(k) > 0) then
-             kcgen(1,k)   = kb
-             kcgen(2,k)   = kbi
-          else
-             kcgen(1,k)   = kbi
-             kcgen(2,k)   = kb
-          end if
+      do k = L1cgensg(n), L2cgensg(n)
+         Lf           = iabs(kegen(k))
+         kb           = ln(1,Lf)
+         kbi          = ln(2,Lf)
+         if (kegen(k) > 0) then
+            kcgen(1,k)   = kb
+            kcgen(2,k)   = kbi
+         else
+            kcgen(1,k)   = kbi
+            kcgen(2,k)   = kb
+         end if
 
-          kcgen(3,k)   = Lf
-          kcgen(4,k)   = n              ! pointer to general structure signal nr n
+         kcgen(3,k)   = Lf
+         kcgen(4,k)   = n              ! pointer to general structure signal nr n
+         call setfixedweirscheme3onlink(Lf)
+         iadv(Lf)     = 22             ! iadv = general
 
-          call setfixedweirscheme3onlink(Lf)
-          iadv(Lf)     = 22             ! iadv = general
+      enddo
 
-       enddo
+   enddo
 
-    enddo
+   allocate( hulp(numgeneralkeywrd,ncgensg) )
+   hulp(1,1:ncgensg)  = 10  ! widthleftW1=10
+   hulp(2,1:ncgensg)  = 0.0 ! levelleftZb1=0.0
+   hulp(3,1:ncgensg)  = 10  ! widthleftWsdl=10
+   hulp(4,1:ncgensg)  = 0.0 ! levelleftZbsl=0.0
+   hulp(5,1:ncgensg)  = 10  ! widthcenter=10
+   hulp(6,1:ncgensg)  = 0.0 ! levelcenter=0.0
+   hulp(7,1:ncgensg)  = 10  ! widthrightWsdr=10
+   hulp(8,1:ncgensg)  = 0.0 ! levelrightZbsr=0.0
+   hulp(9,1:ncgensg)  = 10  ! widthrightW2=10
+   hulp(10,1:ncgensg) = 0.0 ! levelrightZb2=0.0
+   hulp(11,1:ncgensg) = 0.0d0  ! GateLowerEdgeLevel
+   hulp(12,1:ncgensg) = 1d10  ! gateheightintervalcntrl=12
+   hulp(13,1:ncgensg) = 1   ! pos_freegateflowcoeff=1
+   hulp(14,1:ncgensg) = 1   ! pos_drowngateflowcoeff=1
+   hulp(15,1:ncgensg) = 1   ! pos_freeweirflowcoeff=1
+   hulp(16,1:ncgensg) = 1.0 ! pos_drownweirflowcoeff=1.0
+   hulp(17,1:ncgensg) = 1.0 ! pos_contrcoeffreegate=0.6
+   hulp(18,1:ncgensg) = 1   ! neg_freegateflowcoeff=1
+   hulp(19,1:ncgensg) = 1   ! neg_drowngateflowcoeff=1
+   hulp(20,1:ncgensg) = 1   ! neg_freeweirflowcoeff=1
+   hulp(21,1:ncgensg) = 1.0 ! neg_drownweirflowcoeff=1.0
+   hulp(22,1:ncgensg) = 1.0 ! neg_contrcoeffreegate=0.6
+   hulp(23,1:ncgensg) = 0   ! extraresistance=0
+   hulp(24,1:ncgensg) = 1.  ! dynstructext=1.
+   hulp(25,1:ncgensg) = 1d10! gatedoorheight
+   hulp(26,1:ncgensg) = 0.  ! door_opening_width=0
 
-    allocate( hulp(numgeneralkeywrd,ncgensg) )
-    hulp(1,1:ncgensg)  = 10  ! widthleftW1=10
-    hulp(2,1:ncgensg)  = 0.0 ! levelleftZb1=0.0
-    hulp(3,1:ncgensg)  = 10  ! widthleftWsdl=10
-    hulp(4,1:ncgensg)  = 0.0 ! levelleftZbsl=0.0
-    hulp(5,1:ncgensg)  = 10  ! widthcenter=10
-    hulp(6,1:ncgensg)  = 0.0 ! levelcenter=0.0
-    hulp(7,1:ncgensg)  = 10  ! widthrightWsdr=10
-    hulp(8,1:ncgensg)  = 0.0 ! levelrightZbsr=0.0
-    hulp(9,1:ncgensg)  = 10  ! widthrightW2=10
-    hulp(10,1:ncgensg) = 0.0 ! levelrightZb2=0.0
-    hulp(11,1:ncgensg) = 0.0d0  ! GateLowerEdgeLevel
-    hulp(12,1:ncgensg) = 1d10  ! gateheightintervalcntrl=12
-    hulp(13,1:ncgensg) = 1   ! pos_freegateflowcoeff=1
-    hulp(14,1:ncgensg) = 1   ! pos_drowngateflowcoeff=1
-    hulp(15,1:ncgensg) = 1   ! pos_freeweirflowcoeff=1
-    hulp(16,1:ncgensg) = 1.0 ! pos_drownweirflowcoeff=1.0
-    hulp(17,1:ncgensg) = 1.0 ! pos_contrcoeffreegate=0.6
-    hulp(18,1:ncgensg) = 1   ! neg_freegateflowcoeff=1
-    hulp(19,1:ncgensg) = 1   ! neg_drowngateflowcoeff=1
-    hulp(20,1:ncgensg) = 1   ! neg_freeweirflowcoeff=1
-    hulp(21,1:ncgensg) = 1.0 ! neg_drownweirflowcoeff=1.0
-    hulp(22,1:ncgensg) = 1.0 ! neg_contrcoeffreegate=0.6
-    hulp(23,1:ncgensg) = 0   ! extraresistance=0
-    hulp(24,1:ncgensg) = 1.  ! dynstructext=1.
-    hulp(25,1:ncgensg) = 1d10! gatedoorheight
-    hulp(26,1:ncgensg) = 0.  ! door_opening_width=0
+   if ( allocated(generalstruc) )   deallocate (generalstruc)
+   allocate (generalstruc(ncgensg) )
 
-    if ( allocated(generalstruc) )   deallocate (generalstruc)
-    allocate (generalstruc(ncgensg) )
-
-    do n = 1, ncgensg
-       if (L1cgensg(n) > L2cgensg(n)) then
-          ! 0 flow links found for this gens, so cycle
-!!!          cycle
-       endif
+   do n = 1, ncgensg
 
       str_ptr => strs_ptr%child_nodes(cgenidx(n))%node_ptr
 
@@ -613,7 +556,6 @@ end do
          hulp(25,n) = 1d10! gatedoorheight
          hulp(26,n) = 0d0 ! door_opening_width
       end if
-
 
       select case (strtype)
       !! WEIR !!
@@ -928,9 +870,9 @@ end do
 
       call togeneral(n, hulp(:,n), numgen, widths(1:numgen))
 
-    enddo
+   enddo
 
-    deallocate( hulp )
+   deallocate( hulp )
 
 endif ! generalstructure: weir, gate, or true generalstructure
 
@@ -962,7 +904,7 @@ if (ngate > 0) then ! Old-style controllable gateloweredgelevel
 
    enddo
 
- do n = 1, ngatesg ! and now add it (poly_tim xys have just been prepared in separate loop)
+   do n = 1, ngatesg ! and now add it (poly_tim xys have just been prepared in separate loop)
       str_ptr => strs_ptr%child_nodes(gateidx(n))%node_ptr
 
       strid = ' '
@@ -1565,18 +1507,11 @@ end if
 ! Cleanup:
 888 continue
 
- if (mext /= 0) then
-!    call doclose(mext) ! close ext file
-!    deallocate ( keg, ked, kep, kegs) ! TODO: AvD: cleanup now still done in initexternalforcings. Split off later, or not?
- end if
-
- if (allocated (xdum))     deallocate (xdum, ydum, kdum)
- if (allocated (kdss))     deallocate (kdss)
-
- if (allocated (strnums) ) deallocate (strnums)
- if (allocated (widths) )  deallocate (widths)
- if (allocated (pumpidx) ) deallocate (pumpidx)
- if (allocated (gateidx) ) deallocate (gateidx)
- if (allocated (cdamidx) ) deallocate (cdamidx)
- if (allocated (cgenidx) ) deallocate (cgenidx)
+if (allocated (xdum))     deallocate (xdum, ydum, kdum)
+if (allocated (widths) )  deallocate (widths)
+if (allocated (pumpidx) ) deallocate (pumpidx)
+if (allocated (gateidx) ) deallocate (gateidx)
+if (allocated (cdamidx) ) deallocate (cdamidx)
+if (allocated (cgenidx) ) deallocate (cgenidx)
+ 
 end function flow_init_structurecontrol
