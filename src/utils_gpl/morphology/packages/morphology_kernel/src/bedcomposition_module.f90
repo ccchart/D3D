@@ -301,7 +301,7 @@ type bedcomp_state
     real(fp)   , dimension(:,:)  , pointer :: thlyrtprev   !< overburden thickness of previous time step
     !peat
     real(fp)   , dimension(:,:)  , pointer :: strain       !<
-    real(fp)                               :: tdecon       !< latest morphological time (morft) of consolidation [days since reference date]
+    real(hp)                               :: tdecon       !< latest morphological time (morft) of consolidation [days since reference date]
 end type bedcomp_state
 !
 type bedcomp_work
@@ -382,6 +382,8 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
     real(fp), dimension(this%settings%nfrac, this%settings%nmlb:this%settings%nmub), intent(in)  :: dbodsd   !< change in sediment composition, units : kg/m2
     real(fp), dimension(this%settings%nmlb:this%settings%nmub)                     , intent(out) :: dz       !< change in bed level, units : m
     type(message_stack)                                                                          :: messages !< message stack
+    real(hp)                                                                       , intent(in)  :: morft    !< morphological time [days since reference date]
+    real(fp)                                                                       , intent(in)  :: dtmor    !< morphological time step [s]
     integer                                                                                      :: istat    !< function status
     !
     ! Local variables
@@ -391,8 +393,6 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
     integer                                 :: k
     integer                                 :: kk
     integer                                 :: ktemp
-    real(fp)                  , intent(in)  :: dtmor     !< morphological time step [s]
-    real(fp)                  , intent(in)  :: morft     !< morphological time [days since reference date]
     !
     real(fp)                                :: mmudlyr1
     real(fp)                                :: msandlyr1
@@ -473,7 +473,7 @@ function updmorlyr(this, dbodsd, dz, messages, morft, dtmor) result (istat)
                 call_consolidate = .false.
             else
                 ! consolidate now and set the next consolidation time
-                this%state%tdecon = morft + this%settings%dtdecon/86400.0_fp
+                this%state%tdecon = morft + real(this%settings%dtdecon,hp)/86400.0_hp
                 call_consolidate = .true.
             endif
         else
@@ -2622,7 +2622,7 @@ function initmorlyr(this) result (istat)
     ! Peat
     nullify(state%strain)
     ! trigger the first bed consolidation by setting DECON time to a large negative value
-    state%tdecon = -huge(1d0)
+    state%tdecon = -huge(1.0_hp)
     !
     nullify(work%msed2)
     nullify(work%thlyr2)
@@ -3594,7 +3594,7 @@ subroutine consolidate(this, nm, morft, dtmor)
     !
     type(bedcomp_data)                                                              :: this     !< bed composition object
     integer                                                           , intent(in)  :: nm
-    real(fp)                                                          , intent(in)  :: morft ! morphological time [days since reference date]
+    real(hp)                                                          , intent(in)  :: morft ! morphological time [days since reference date]
     real(fp)                                                          , intent(in)  :: dtmor ! morphological time step [s]
     
     !
@@ -3614,7 +3614,7 @@ subroutine consolidate(this, nm, morft, dtmor)
     
     case (CONSOL_DECON) ! Dynamic Equilibrium CONsolidation (DECON)
         ! The actual consolidation step is only executed once every x time steps
-        if (morft < this%state%tdecon + this%settings%dtdecon/86400.0_fp) return
+        if (morft < this%state%tdecon + real(this%settings%dtdecon,hp)/86400.0_hp) return
 
         call consolidate_decon(this, nm, dtmor)
 
@@ -4303,7 +4303,7 @@ subroutine consolidate_terzaghi(this, nm, morft, dtmor)
     !
     type(bedcomp_data)                                                              :: this  !< bed composition object
     integer                                                           , intent(in)  :: nm
-    real(fp)                                                          , intent(in)  :: morft !< morphological time [days since reference date]
+    real(hp)                                                          , intent(in)  :: morft !< morphological time [days since reference date]
     real(fp)                                                          , intent(in)  :: dtmor !< morphological time step [s]
     
     !
@@ -4422,7 +4422,7 @@ subroutine consolidate_terzaghi(this, nm, morft, dtmor)
                 do l = 1, this%settings%nfrac
                     if (this%settings%sedtyp(l) == SEDTYP_COHESIVE) then
                         frac = msed(l,k,nm)/rhofrac(l)/thlyr(k,nm)/svfrac(k,nm)
-                        dzl(l) = cc(l) * this%settings%crmsec * thlyr(k,nm) * frac * log(max(1.0_fp, morft)) / (2.0_fp - svfrac(k,nm))
+                        dzl(l) = cc(l) * this%settings%crmsec * thlyr(k,nm) * frac * log(max(1.0_fp, real(morft,fp))) / (2.0_fp - svfrac(k,nm))
                     endif
                     dzc(nm) = dzc(nm) + dzl(l)
                 enddo
@@ -4453,7 +4453,7 @@ subroutine consolidate_terzaghi_peat(this, nm, morft, dtmor)
     !
     type(bedcomp_data)                                                              :: this     !< bed composition object
     integer                                                           , intent(in)  :: nm
-    real(fp)                                                          , intent(in)  :: morft ! morphological time [days since reference date]
+    real(hp)                                                          , intent(in)  :: morft ! morphological time [days since reference date]
     real(fp)                                                          , intent(in)  :: dtmor ! morphological time step [s]
     
     integer                              :: istat
@@ -4660,7 +4660,7 @@ subroutine consolidate_terzaghi_peat(this, nm, morft, dtmor)
                         thnew = thlyr(k, nm)
                         preload(k, nm) = load
                     else
-                        strain(k, nm) = para * log(load*ag/1000) + parb * log(morft*86400.0_fp)
+                        strain(k, nm) = para * log(load*ag/1000) + parb * log(real(morft,fp)*86400.0_fp)
                         thnew = peatthick * exp(-1 * strain(k, nm))
                         preload(k, nm) = load
                     endif
@@ -4669,7 +4669,7 @@ subroutine consolidate_terzaghi_peat(this, nm, morft, dtmor)
                         thnew = thlyr(k, nm)
                         preload(k, nm) = preload(k, nm)
                     else 
-                        strain(k, nm) = para * log(preload(k, nm)*ag/1000) + parb * log(morft*86400.0_fp)
+                        strain(k, nm) = para * log(preload(k, nm)*ag/1000) + parb * log(real(morft,fp)*86400.0_fp)
                         thnew =  peatthick * exp(-1 * strain(k, nm))
                         preload(k, nm) = preload(k, nm)
                     endif
