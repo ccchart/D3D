@@ -153,6 +153,8 @@ module m_readstructures
       minor = 0
       call prop_get_version_number(md_ptr, major = major, minor = minor, success = success1)
       if (.not. success1) then
+         msgbuf = ' Early return, file '//trim(structurefile)//' is read by function flow_init_structurecontrol (2D3D).'
+         call msg_flush()
          return
       endif
       ! For now majorVersion = 2.xx is supported for all structures, except for the bridge. 
