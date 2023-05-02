@@ -121,7 +121,7 @@ subroutine dredge_d3d4(dps, s1, timhr, nst, gdp)
        endif   
        ! update morlyr but do not perform any time dependent development (dt = 0.0_fp)
        ! such developments only occur during call from bott3d
-       if (updmorlyr(gdmorlyr, dbodsd, dz_dummy, messages, -999.0_fp, 0.0_fp) /= 0) then
+       if (updmorlyr(gdmorlyr, dbodsd, dz_dummy, messages, -999.0_hp, 0.0_fp) /= 0) then
            call writemessages(messages, lundia)
            error = .true.
        endif
