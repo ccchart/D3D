@@ -827,7 +827,7 @@ subroutine ncu_add_att_flts(att, attname, attvalue)
 
    type(nc_attribute),           intent(  out) :: att
    character(len=nf90_max_name), intent(in   ) :: attname
-   character(len=nf90_max_name), intent(in   ) :: attvalue
+   real, dimension(:),           intent(in   ) :: attvalue
 
    att%attname = attname
    allocate(att%fltvalue(size(attvalue)))
