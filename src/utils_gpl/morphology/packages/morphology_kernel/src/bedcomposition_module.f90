@@ -126,7 +126,7 @@ integer, parameter :: EROS_WINTERWERP   = 4 !  4: Winterwerp (2013)
 
 ! ifracdef
 integer, parameter :: FRAC_MASS         = 1 !  1: mass fractions (sum of all fractions equals 1)
-integer, parameter :: FRAC_VOLUME       = 2 !  2: solid volume fractions (sum of all fractions equals 1)
+integer, parameter :: FRAC_VOLUME       = 2 !  2: (solid) volume fractions (sum of all fractions equals 1)
 
 ! iporosity
 integer, parameter :: POROS_IN_DENSITY  = 0 !  0: porosity included in densities, set porosity to 0
