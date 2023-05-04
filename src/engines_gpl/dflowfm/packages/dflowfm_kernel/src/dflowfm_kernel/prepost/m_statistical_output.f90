@@ -155,10 +155,9 @@ contains
    !> wrapper routine to update all stat_output_items in an output_set
    subroutine update_output_set(output_set,dts)
 
-      type(t_output_variable_set), intent(inout) :: output_set !< statistical output variable set to update
-      double precision,            intent(in)    :: dts        !< current timestep
-      
-      call update_statistical_output(output_set%statout,dts)
+      type(t_output_variable_set), intent(inout) :: output_set
+
+      call update_statistical_output(output_set%statout)
    
    end subroutine update_output_set
 
@@ -176,9 +175,7 @@ contains
       endif
 
       select case (i%operation_id)
-      case (SO_CURRENT)
-         continue
-      case (SO_AVERAGE) 
+      case (2) !SO_AVERAGE
          i%stat_output = i%stat_output + i%stat_input * dts
          i%timestep_sum = i%timestep_sum + dts
       case (SO_MAX) 
@@ -205,13 +202,11 @@ contains
    ! every output interval the stat_output needs to be reset.
    subroutine reset_statistical_output(i)
 
-      type(t_output_variable_item), intent(inout) :: i !< statistical output item to reset
-      
-      select case (i%operation_id)
-      case (SO_CURRENT)
-         continue
-      case (SO_AVERAGE)
-         i%stat_output = 0 
+      type(t_output_variable_item), intent(inout) :: i
+      if (i%operation_id >= 2) then
+         i%stat_output = 0
+      endif
+      if (i%operation_id == 2) then !SO_AVERAGE
          i%timestep_sum = 0 !new sum every output interval
       case (SO_MAX)
          i%stat_output = -huge
