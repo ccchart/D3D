@@ -1471,6 +1471,7 @@ end subroutine setfoustandardname
         use unstruc_netcdf
         use m_sferic, only: jsferic
         use m_transport, only : namcon => const_names
+        use m_output_config
         !
         implicit none
         !
