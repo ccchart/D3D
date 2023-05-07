@@ -113,23 +113,6 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
     real(fp) :: depeff        !> coefficient determining mud sedimentation (to fluff layer or bed) (-)
     real(fp) :: powern        !> exponent in the erosion rate formulation (-)
     
-    !real(fp) :: betapi
-    !real(fp) :: gammacr
-    !real(fp) :: alphatau
-    !real(fp) :: acalpi      ! calibration factor in PI formula
-    !real(fp) :: plastidx    ! plasticity index
-    !real(fp) :: claycr      ! 
-    !real(fp) :: alphaclay
-    !real(fp) :: fd                         ! fractal dimension, i.e., D
-    !real(fp) :: kk                         ! permeability coeff., m/s
-    !real(fp) :: ksigma                     ! effective stress coeff., Pa
-    !real(fp) :: ky
-    !
-    !real(fp) :: di50
-    !real(fp) :: mudfrac     ! mud content
-    !real(fp) :: phi_mud     ! mud volume fraction
-    !real(fp) :: phi_nonm    ! non-mud sediment volume fraction
-    !real(fp) :: poros       ! void volume fraction
     !
     ! Interface to dll is in High precision!
     !
@@ -182,42 +165,17 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
           sink = 0.0
        endif
     else
-       if (iform == -3) then
-          if (eropar_bed > 0.0_fp) then
-             eropar = par(11)
-             eropar = eropar_bed * eropar
-            ! eropar = eropar_bed
-          else
-             eropar = par(11)
-          endif
+       if (iform == -3 .or. iform == -5) then
+          eropar = eropar_bed * par(11)
           tcrdep = par(12)
-          if (tcrero_bed > 0) then
-             tcrero = par(13)
-             tcrero = tcrero_bed * tcrero
-             !tcrero = tcrero_bed
-          else
-             tcrero = par(13)
-          endif
+          tcrero = tcrero_bed * par(13)
           tcrflf = par(14)
           parfl0 = par(15)
           parfl1 = par(16)
           depeff = par(17)
           powern = par(18)
-          !ierosion = int(par(18))
-          !betapi    = par(19)
-          !gammacr   = par(20)
-          !alphatau  = par(21)
-          !acalpi    = par(22)
-          !claycr    = par(23)
-          !alphaclay = par(24)
           !
-          ! di50      = real(realpar(RP_D50)  ,fp)
-          ! poros     = real(realpar(RP_POROS),fp)
-          ! mudfrac   = real(realpar(RP_MUDFR),fp) 
-          ! phi_mud   = mudfrac * (1.0_fp - poros)
-          ! phi_nonm  = (1.0_fp - mudfrac) * (1.0_fp - poros)
-          !
-          ! Default Partheniades-Krone formula
+          ! Partheniades-Krone formula
           !
           if (maxslope>wetslope) then
              !
@@ -230,17 +188,20 @@ subroutine erosilt(thick    ,kmax      ,ws        ,lundia   , &
              tcrero = max(tcrero, taucrmin)
           endif
           !
-          taum = max(0.0_fp, taub - tcrero)
-          !taum = max(0.0_fp, taub/tcrero - 1.0_fp)
-          sour = eropar * taum**powern
+          if (iform == -3) then
+             taum = max(0.0_fp, taub/tcrero - 1.0_fp)**powern
+          else ! iform == -5
+             taum = max(0.0_fp, taub - tcrero)
+          endif
+          sour = eropar * taum
           !
           ! Erosion from fluff layer
           !
           if (iflufflyr>0) then
-            taum       = max(0.0_fp, taub - tcrflf)
-            sour_fluff = min(mflufftot*parfl1,parfl0)*taum
+             taum       = max(0.0_fp, taub - tcrflf)
+             sour_fluff = min(mflufftot*parfl1,parfl0)*taum
           else
-            sour_fluff = 0.0_fp
+             sour_fluff = 0.0_fp
           endif
           !
           if (comparereal(depeff,-1.0_fp)==0) then

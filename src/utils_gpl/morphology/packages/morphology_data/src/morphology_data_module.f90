@@ -1034,8 +1034,8 @@ subroutine allocsedtra(sedtra, moroutput, kmax, lsed, lsedtot, nc1, nc2, nu1, nu
     sedtra%dgsd     = 0.0_fp
     sedtra%dxx      = 0.0_fp
     sedtra%hidexp   = 1.0_fp
-    sedtra%tcrero_bed = -999.0_fp
-    sedtra%eropar_bed = -999.0_fp
+    sedtra%tcrero_bed = 1.0_fp
+    sedtra%eropar_bed = 1.0_fp
     !
     sedtra%ust2     = 0.0_fp
     sedtra%uuu      = 0.0_fp

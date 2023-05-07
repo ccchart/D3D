@@ -2016,9 +2016,8 @@ subroutine getbedprop(this, nmfrom, nmto, poros, tcrero, eropar)
     svfrac         => this%state%svfrac
     thlyr          => this%state%thlyr
     
-    tcrero(nmfrom:nmto) = -999.0_fp
-    eropar(nmfrom:nmto) = -999.0_fp
-    !
+    ! tcrero and eropar initialized to 1. Only change if varying.
+
     select case(this%settings%iunderlyr)
     case (BED_MIXED)
         !
@@ -2055,28 +2054,6 @@ subroutine getbedprop(this, nmfrom, nmto, poros, tcrero, eropar)
                         phi_sand  = phi_sand + (msed(l,1,nm)/rhofrac(l)/thlyr(1,nm))
                     endif
                 enddo
-                !<--- looks old comment and code to me ...
-                !     porosity is already determined above based on top layer
-                !     phi_mud and phi_sand were indeed still based on the layer below the active layer
-                !     but that's inconsistent with the porosity
-                !
-                ! Porosity is obtained based on the first non-empty layer below the active
-                ! layer since the top layer doesn't properly consolidate.
-                !
-                !do k = 1, this%settings%nlyr-1
-                !    if (comparereal(this%state%thlyr(k,nm),0.0_fp) > 0) then
-                !        do l = 1, this%settings%nfrac
-                !            if (this%settings%sedtyp(l) == SEDTYP_COHESIVE) then
-                !                phi_mud   = phi_mud + (msed(l,k,nm)/rhofrac(l)/thlyr(k,nm))
-                !            else
-                !                phi_sand  = phi_sand + (msed(l,k,nm)/rhofrac(l)/thlyr(k,nm))
-                !            endif
-                !        enddo
-                !        exit
-                !    endif
-                !enddo
-                !
-                !<----- end of old code
                 
                 select case(ierosion)
                 case (EROS_WHITEHOUSE)

@@ -424,6 +424,7 @@ type t_unc_mapids
    integer :: id_dg(MAX_ID_VAR)         = -1 !
    integer :: id_dgsd(MAX_ID_VAR)       = -1 !
    integer, allocatable, dimension(:,:) :: id_dxx
+   integer, allocatable, dimension(:,:,:) :: id_sedpar
    integer :: id_frac(MAX_ID_VAR)       = -1
    integer :: id_mudfrac(MAX_ID_VAR)    = -1
    integer :: id_sandfrac(MAX_ID_VAR)   = -1
@@ -4948,6 +4949,9 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    integer, save                                 :: jmax, nCrs
    double precision, dimension(:,:), allocatable :: work1d_z, work1d_n
    double precision, dimension(:,:,:), allocatable :: work3d, work3d2
+   character(3)                                  :: sednr
+   character(256)                                :: varname
+   character(1024)                               :: longname
 
    if (ndxi <= 0) then
       call mess(LEVEL_WARN, 'No flow elements in model, will not write flow geometry.')
@@ -5522,11 +5526,23 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
             !
          endif
 
+         ! intermediate output for sediment formulas
+         if (stmpar%morpar%moroutput%sedpar) then
+            call realloc(mapids%id_sedpar, (/3, stmpar%trapar%npar, stmpar%lsedtot/), keepExisting=.false.)
+            do l = 1, stmpar%lsedtot
+               write(sednr,'(I3.3)') l
+               do k = 1, stmpar%trapar%noutpar(l)
+                  varname = trim(stmpar%trapar%outpar_name(k,l))//trim(sednr)
+                  longname = trim(stmpar%trapar%outpar_longname(k,l))//' for '//trim(stmpar%sedpar%namsed(l))
+                  ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sedpar(:,k,l), nf90_double, UNC_LOC_S, trim(varname), '', trim(longname) , '', dimids = (/ -2, -1 /), jabndnd=jabndnd_)
+               enddo
+            enddo
+         endif
+
          ! default sediment transport output (suspended and bedload) on flow links
          if (stmpar%lsedsus > 0) then
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_ssn   , nf90_double, UNC_LOC_U, 'ssn'  , '', 'Suspended load transport, n-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
             ierr = unc_def_var_map(mapids%ncid, mapids%id_tsp  , mapids%id_sst   , nf90_double, UNC_LOC_U, 'sst'  , '', 'Suspended load transport, t-component'   , transpunit, dimids = (/ -2, mapids%id_tsp%id_sedsusdim, -1 /), jabndnd=jabndnd_)
-
          endif
 
          if (stmpar%lsedtot > 0) then
@@ -6387,6 +6403,18 @@ if (jamapz0>0) then
 endif
 
 if (jamapsed > 0 .and. jased > 0 .and. stm_included) then
+
+   ! intermediate output for sediment formulas
+   if (stmpar%morpar%moroutput%sedpar) then
+      call realloc(toutput, ndx)
+      do l = 1, stmpar%lsedtot
+         do k = 1, stmpar%trapar%noutpar(l)
+            i = stmpar%trapar%ioutpar(k,l)
+            toutput = stmpar%trapar%outpar(i,:)
+            ierr = unc_put_var_map(mapids%ncid, mapids%id_tsp, mapids%id_sedpar(:,k,l), UNC_LOC_S, toutput, jabndnd=jabndnd_)
+         enddo
+      enddo
+   endif
 
    if (stmpar%lsedsus > 0) then
       if (kmx>0) then

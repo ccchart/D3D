@@ -1096,8 +1096,12 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
           outpar_name(24)     = 'ak'
           outpar_longname(24) = 'asymmetry' ! -
        endif
-    elseif (iform == -3) then
-       name       = 'Partheniades-Krone'
+    elseif (iform == -3 .or. iform == -5) then
+       if (iform == -3) then
+          name       = 'Partheniades-Krone (t/tcr-1)'
+       else
+          name       = 'Partheniades-Krone (t-tcr)'
+       endif
        nparreq    = 3
        parkeyw(1) = 'EroPar'
        pardef(1)  = 0.0_fp

@@ -584,8 +584,6 @@ subroutine z_erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     !                        
     taub   = 0.0_fp
     taurat = 0.0_fp
-    tcrero_bed = -999.0_fp
-    eropar_bed = -999.0_fp
     !
     ! Set zero bedload transport for all nm and l = 1:lsedtot
     !

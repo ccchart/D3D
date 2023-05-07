@@ -215,7 +215,7 @@ subroutine wrmfluff(lundia    ,error     ,mmax      ,nmaxus    ,lsed      , &
     endselect
     !
 9999 continue
-    if (associated(rbuff3)) then
+    if (allocated(rbuff3)) then
        deallocate(rbuff3)
     endif
     if (ierror/= 0) error = .true.
