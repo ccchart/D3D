@@ -52,7 +52,7 @@ use unstruc_channel_flow, only : network
 use m_sedtrails_stats, st_is_numndvals=>is_numndvals
 use m_update_wl_at_links, only : update_wl_at_links
 use fm_statistical_output
-use m_statistical_output, only: update_output_set
+use m_statistical_output, only: update_statistical_output
 
 implicit none
 integer, intent(out) :: iresult
@@ -161,8 +161,8 @@ integer, intent(out) :: iresult
       call postpr_fourier(time0, dts)
    endif
    
-call update_output_set(out_variable_set_his)
-call update_output_set(out_variable_set_map)
-call update_output_set(out_variable_set_classmap)
+call update_statistical_output(out_variable_set_his%statout)
+call update_statistical_output(out_variable_set_map%statout)
+call update_statistical_output(out_variable_set_classmap%statout)
 
 end subroutine flow_finalize_single_timestep

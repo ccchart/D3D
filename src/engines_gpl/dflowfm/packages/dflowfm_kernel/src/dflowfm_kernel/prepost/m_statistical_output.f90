@@ -30,7 +30,7 @@ private
 
    public realloc
    public dealloc
-   public update_output_set
+   public update_statistical_output
 
    !> Realloc memory cross-section definition or cross-sections
    interface realloc
@@ -147,14 +147,6 @@ contains
       i%samples(:,i%current_step) = i%source_input
 
    end subroutine add_statistical_output_sample
-
-   subroutine update_output_set(output_set)
-
-      type(t_output_variable_set), intent(inout) :: output_set
-
-      call update_statistical_output(output_set%statout)
-   
-   end subroutine update_output_set
 
    elemental subroutine update_statistical_output(i)
 
