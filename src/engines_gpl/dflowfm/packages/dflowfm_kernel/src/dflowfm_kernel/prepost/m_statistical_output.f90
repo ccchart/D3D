@@ -30,7 +30,7 @@ private
 
    public realloc
    public dealloc
-   public update_output_set
+   public update_statistical_output
 
    !> Realloc memory cross-section definition or cross-sections
    interface realloc
@@ -151,16 +151,6 @@ contains
       i%samples(:,i%current_step) = i%source_input
 
    end subroutine add_statistical_output_sample
-
-   !> wrapper routine to update all stat_output_items in an output_set
-   subroutine update_output_set(output_set,dts)
-
-      type(t_output_variable_set), intent(inout) :: output_set !< statistical output variable set to update
-      double precision,            intent(in)    :: dts        !< current timestep
-      
-      call update_statistical_output(output_set%statout,dts)
-   
-   end subroutine update_output_set
 
    !> updates a stat_output_item using the stat_input array, depending on the operation_id
    !  stat_input is filled elsewhere and can be a moving average or a pointer to an input variable.
