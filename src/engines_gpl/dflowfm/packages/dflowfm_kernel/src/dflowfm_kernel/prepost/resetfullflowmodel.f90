@@ -68,6 +68,8 @@
  use unstruc_caching
  use m_subsidence
  use m_sferic, only : default_sferic
+ use fm_statistical_output
+ 
  implicit none
 
     ! Only reset counters and other scalars, allocatables should be
@@ -134,6 +136,8 @@
     call default_xbeach_avgoutput()
 
     call default_save_ugrid_state()
+
+    call default_fm_statistical_output()
 
     !Reset samples:
     ns = 0
