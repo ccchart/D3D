@@ -119,7 +119,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
 !! executable statements -------------------------------------------------------
 !
     error = .false.
-    apply_hinset = .true.
+    apply_hinset = .false.
     select case (iform_settle)
     case (WS_FORM_FUNCTION_SALTEMCON)
        salint = real(dll_reals(WS_RP_SALIN),fp)
@@ -150,6 +150,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        ! simple flocculation effect
        !
        wsloc = wsloc * min((ctot/cflocc)**npow, 1.0_fp)
+       apply_hinset = .true.
 
     case (WS_FORM_FUNCTION_DSS, WS_FORM_FUNCTION_DSS_2004)
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
@@ -160,6 +161,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        ag     = real(dll_reals(WS_RP_GRAV ),fp)
        d50    = real(dll_reals(WS_RP_D50  ),fp)
        ctot   = real(dll_reals(WS_RP_CTOT ),fp)
+       csoil  = real(dll_reals(WS_RP_CSOIL),fp)
        salmax = parloc(1)
        gamflc = parloc(2)
        !
@@ -184,6 +186,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
           wsloc = 1.1_fp * sqrt((s-1.0_fp)*ag*dss)
        endif
        !
+       ffloc = 1.0_fp
        if (  iform_settle == WS_FORM_FUNCTION_DSS_2004 &
            & .and. d50 < dsand                         &
            & .and. salint > 0.0_fp                     ) then
@@ -206,14 +209,12 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
              ffloc = ffloc * gamflc
              !
              ffloc = max(min(ffloc , 10.0_fp) , 1.0_fp)
-          else
-             ffloc = 1.0_fp
           endif
-          !
-          wsloc = ffloc * wsloc * hinset**5
        else
-          call hinset_Richardson_and_Zaki()
+          ! call hinset_Richardson_and_Zaki()
+          hinset = max(0.0_fp , (1.0_fp - max(0.0_fp , ctot)/csoil)) 
        endif
+       wsloc = ffloc * wsloc * hinset**5
        apply_hinset = .false.
 
     case (WS_FORM_MANNING_DYER_MACRO)
@@ -223,6 +224,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        call macro_floc_settling_manning( cclay, tshear, wsloc )
+       apply_hinset = .true.
 
     case (WS_FORM_MANNING_DYER_MICRO)
        !
@@ -230,6 +232,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        !
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        call micro_floc_settling_manning( tshear, wsloc )
+       apply_hinset = .true.
 
     case (WS_FORM_MANNING_DYER)
        !
@@ -238,6 +241,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        cclay  = real(dll_reals(WS_RP_CCLAY),fp) * 1000.0_fp ! convert kg/m3 to g/m3
        tshear = real(dll_reals(WS_RP_SHTUR),fp)
        call floc_manning( cclay, tshear, wsloc, macro_frac, ws_macro, ws_micro )
+       apply_hinset = .true.
 
     case (WS_FORM_CHASSAGNE_SAFAR_MACRO)
        !
@@ -250,6 +254,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
        call macro_floc_settling_chassagne( cclay, tshear, tdiss, ag, vcmol, rhow, wsloc )
+       apply_hinset = .true.
 
     case (WS_FORM_CHASSAGNE_SAFAR_MICRO)
        !
@@ -261,6 +266,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
        call micro_floc_settling_chassagne( tshear, tdiss, ag, vcmol, rhow, wsloc )
+       apply_hinset = .true.
 
     case (WS_FORM_CHASSAGNE_SAFAR)
        !
@@ -273,6 +279,7 @@ subroutine eqsettle(dll_function, dll_handle, max_integers, max_reals, max_strin
        rhow   = real(dll_reals(WS_RP_RHOWT),fp)
        vcmol  = real(dll_reals(WS_RP_VICML),fp)
        call floc_chassagne( cclay, tshear, tdiss, ag, vcmol, rhow, wsloc, macro_frac, ws_macro, ws_micro )
+       apply_hinset = .true.
 
     case (WS_FORM_USER_ROUTINE)
        !

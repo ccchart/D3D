@@ -2101,6 +2101,8 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
        lsedbl = 0
        call count_sed01(lundia    ,error     ,lsed      ,filsed    , &
                       & namsedim  ,typsedim  )
+       allocate(typtrans(lsed))
+       !
        do j = 1, lsed
           if (typsedim(j) == SEDTYP_SAND) then
              typtrans(j) = TRA_COMBINE
