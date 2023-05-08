@@ -403,7 +403,13 @@ module m_output_config
    integer, public :: IDX_MAP_CUMULATIVE_TOTAL_NET_INFLOW_LATERAL
    integer, public :: IDX_MAP_WATER_LEVEL_GRADIENT
    integer, public :: IDX_MAP_QIN
-
+   integer, public :: IDX_CLS_S1         
+   integer, public :: IDX_CLS_WATERDEPTH
+   integer, public :: IDX_CLS_UCMAG  
+   integer, public :: IDX_CLS_UCMAG_EULER
+   integer, public :: IDX_CLS_UCDIR 
+   integer, public :: IDX_CLS_UCDIR_EULER
+   
    public t_output_quantity_config
 private
    

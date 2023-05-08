@@ -49,6 +49,7 @@ public :: ncu_put_var_attset
 public :: ncu_att_to_varid
 public :: ncu_att_to_dimid
 public :: ncu_apply_to_att
+public :: ncu_add_att
 
 integer, parameter :: maxMessageLen = 1024  ! copy taken from io_ugrid
 character(len=maxMessageLen) :: ncu_messagestr !< Placeholder string for storing diagnostic messages. /see{ug_get_message}
@@ -754,8 +755,8 @@ subroutine ncu_add_att_string(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
-   character(len=nf90_max_name), intent(in   ) :: attvalue
+   character(len=*),             intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attvalue
 
    att%attname = attname
    allocate(att%strvalue(len_trim(attvalue)))
@@ -766,7 +767,7 @@ subroutine ncu_add_att_int(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attname
    integer,                      intent(in   ) :: attvalue
 
    att%attname = attname
@@ -778,7 +779,7 @@ subroutine ncu_add_att_ints(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attname
    integer, dimension(:),        intent(in   ) :: attvalue
 
    att%attname = attname
@@ -790,7 +791,7 @@ subroutine ncu_add_att_dble(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attname
    double precision,             intent(in   ) :: attvalue
 
    att%attname = attname
@@ -802,7 +803,7 @@ subroutine ncu_add_att_dbles(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),              intent(  out) :: att
-   character(len=nf90_max_name),    intent(in   ) :: attname
+   character(len=*),                intent(in   ) :: attname
    double precision, dimension(:),  intent(in   ) :: attvalue
 
    att%attname = attname
@@ -814,7 +815,7 @@ subroutine ncu_add_att_flt(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attname
    real,                         intent(in   ) :: attvalue
 
    att%attname = attname
@@ -826,7 +827,7 @@ subroutine ncu_add_att_flts(att, attname, attvalue)
    use coordinate_reference_system
 
    type(nc_attribute),           intent(  out) :: att
-   character(len=nf90_max_name), intent(in   ) :: attname
+   character(len=*),             intent(in   ) :: attname
    real, dimension(:),           intent(in   ) :: attvalue
 
    att%attname = attname
