@@ -47,7 +47,6 @@ subroutine unc_write_his(tim)            ! wrihis
     use unstruc_files, only: defaultFilename
     use unstruc_netcdf, only: unc_create, unc_close, unc_addcoordatts, unc_addcoordmapping, unc_def_var_nonspatial, definencvar, unc_meta_add_user_defined
     use unstruc_netcdf, only: ihisfile
-    use unstruc_netcdf, only: UNC_LOC_S3D, UNC_LOC_WU, UNC_LOC_W
     use unstruc_netcdf, only: unc_writeopts, unc_noforcedflush, UG_WRITE_LATLON
     use unstruc_netcdf, only: unc_add_time_coverage
     use unstruc_netcdf, only: unc_write_struc_input_coordinates

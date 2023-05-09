@@ -83,14 +83,6 @@ integer            :: unc_writeopts !< Default write options (currently only: UG
 integer            :: unc_uuidgen        !< Generate UUID and store into each newly created NetCDF file.
 
 ! The following location codes generalize for 1D/2D/3D models. See function unc_def_var_map for the details.
-integer, parameter :: UNC_LOC_CN  = 1  !< Data location: corner point.
-integer, parameter :: UNC_LOC_S   = 2  !< Data location: pressure point.
-integer, parameter :: UNC_LOC_U   = 3  !< Data location: horizontal velocity point.
-integer, parameter :: UNC_LOC_L   = 13 !< Data location: horizontal net link.
-integer, parameter :: UNC_LOC_S3D = 4  !< Data location: pressure point in all layers.
-integer, parameter :: UNC_LOC_U3D = 5  !< Data location: horizontal velocity point in all layers.
-integer, parameter :: UNC_LOC_W   = 6  !< Data location: vertical velocity point on all layer interfaces.
-integer, parameter :: UNC_LOC_WU  = 16 !< Data location: vertical viscosity point on all layer interfaces.
 
 integer, parameter :: MAX_ID_VAR = 4   !< Maximum dimension for id_var arrays
 
@@ -796,6 +788,8 @@ use m_flowparameters, only: jamapvol1, jamapau, jamaphs, jamaphu, jamapanc
 use network_data, only: numl, numl1d
 use dfm_error
 use m_missing
+use m_output_config
+
 use string_module, only: strcmpi
 implicit none
 integer,            intent(in)  :: ncid
@@ -1348,6 +1342,8 @@ use dfm_error
 use m_alloc
 use m_missing
 use m_save_ugrid_state
+use m_output_config
+
 implicit none
 
 integer, intent(in)                     :: ncid
@@ -1639,6 +1635,7 @@ use m_flow, only: kmx
 use dfm_error
 use m_alloc
 use m_missing
+use m_output_config
 implicit none
 integer, intent(in)                     :: ncid
 type(t_unc_timespace_id),         intent(in)  :: id_tsp        !< Map file and other NetCDF ids.
@@ -1926,6 +1923,7 @@ use m_flowgeom
 use dfm_error
 use m_alloc
 use m_missing
+use m_output_config
 implicit none
 integer, intent(in)                     :: ncid
 type(t_unc_timespace_id),         intent(in)  :: id_tsp        !< Map file and other NetCDF ids.
@@ -1990,6 +1988,7 @@ use network_data, only: numl, numl1d
 use dfm_error
 use m_alloc
 use m_missing
+use m_output_config
 implicit none
 integer, intent(in)                     :: ncid
 type(t_unc_timespace_id),         intent(in)  :: id_tsp        !< Map file and other NetCDF ids.
@@ -2150,6 +2149,7 @@ use network_data, only: numl, numl1d
 use dfm_error
 use m_alloc
 use m_missing
+use m_output_config
 implicit none
 integer, intent(in)                     :: ncid
 type(t_unc_timespace_id),   intent(in)  :: id_tsp        !< Map file and other NetCDF ids.
@@ -4896,6 +4896,7 @@ subroutine unc_write_map_filepointer_ugrid(mapids, tim, jabndnd) ! wrimap
    use m_hydrology_data, only : jadhyd, ActEvap, PotEvap, interceptionmodel, DFM_HYD_NOINTERCEPT, InterceptHs
    use m_subsidence, only: jasubsupl, subsout, subsupl, subsupl_t0
    use Timers
+   use m_output_config
    implicit none
 
    type(t_unc_mapids), intent(inout) :: mapids   !< Set of file and variable ids for this map-type file.
@@ -10866,6 +10867,7 @@ subroutine unc_write_net_ugrid2(ncid, id_tsp, janetcell, jaidomain, jaiglobal_s)
    use geometry_module
    use m_save_ugrid_state
    use gridoperations
+   use m_output_config
 
    implicit none
 
@@ -11465,6 +11467,7 @@ subroutine unc_read_net_ugrid(filename, numk_keep, numl_keep, numk_read, numl_re
    use m_1d_networkreader
    use m_flow1d_reader
    use m_profiles
+   use m_output_config
 
    character(len=*), intent(in)    :: filename           !< Name of NetCDF file.
    integer,          intent(inout) :: numk_keep          !< Number of netnodes to keep in existing net (0 to replace all).
@@ -12238,6 +12241,7 @@ end subroutine assign_restart_data_to_local_array
 !! The calling routine should later call update_ghosts, such that ghost locations are filled as well.
 function get_var_and_shift(ncid, varname, targetarr, tmparr, loctype, kmx, locstart, loccount, it_read, jamergedmap, iloc_own, iloc_merge) result(ierr)
 use dfm_error
+use m_output_config
    integer, intent(in)             :: ncid !< Open NetCDF data set
    character(len=*), intent(in)    :: varname !< Variable name in file.
    double precision, intent(inout) :: targetarr(:)  !< Data will be stored in this array.
@@ -12394,6 +12398,7 @@ subroutine unc_read_map_or_rst(filename, ierr)
     use m_GlobalParameters
     use netcdf_utils, only: ncu_get_att
     use m_structures_saved_parameters
+    use m_output_config
 
     character(len=*),  intent(in)       :: filename   !< Name of NetCDF file.
     integer,           intent(out)      :: ierr       !< Return status (NetCDF operations)
@@ -14395,6 +14400,7 @@ subroutine unc_write_flowgeom_filepointer_ugrid(ncid,id_tsp, jabndnd,jafou, ja2D
    use Timers
    use m_modelbounds
    use io_netcdf_acdd, only: ionc_add_geospatial_bounds
+   use m_output_config
    implicit none
 
    integer, intent(in)                     :: ncid

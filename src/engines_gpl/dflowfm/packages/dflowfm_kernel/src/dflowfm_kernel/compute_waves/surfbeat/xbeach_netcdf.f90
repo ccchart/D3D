@@ -222,6 +222,7 @@ subroutine unc_write_wav_filepointer_ugrid(wavids, tim)
    use m_sferic, only: pi
    use m_flowtimes, only: Tudunitstr
    use m_flowparameters, only: jamombal
+   use m_output_config
    
    implicit none
    
