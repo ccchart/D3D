@@ -5,7 +5,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
                 & icx       ,icy       ,lundia    ,dps       ,s0        , &
                 & umean     ,vmean     ,z0urou    ,z0vrou    ,kfu       , &
                 & kfv       ,zmodel    ,kfsmx0    ,kfsmn0    ,dzs0      , &
-                & taubmx    ,lstsci    ,gdp       )
+                & taubmx    ,lstsci    ,rich      ,gdp       )
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2023.                                
@@ -109,8 +109,9 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: u0     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: v0     !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax)      , intent(in)  :: wphy   !  Description and declaration in esm_alloc_real.f90
-    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci) , intent(in)  :: r0     !  Description and declaration in esm_alloc_real.f90
-    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub,0:kmax,ltur), intent(in)  :: rtur0  !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, kmax, lstsci) , intent(in):: r0    !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax)                  :: rich   !  Description and declaration in esm_alloc_real.f90
+    real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub, 0:kmax, ltur), intent(in):: rtur0  !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: s0     !  Description and declaration in esm_alloc_real.f90
     real(prec), dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: dps    !  Description and declaration in esm_alloc_real.f90
     real(fp)  , dimension(gdp%d%nmlb:gdp%d%nmub)            , intent(in)  :: taubmx !  Description and declaration in esm_alloc_real.f90
@@ -143,8 +144,10 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)                    :: cclay
     real(fp)                    :: chezy
     real(fp)                    :: ctot
+    real(fp)                    :: fl
     real(fp)                    :: h0
     real(fp)                    :: kn
+    real(fp)                    :: ldepth
     real(fp)                    :: rhoint
     real(fp)                    :: sag
     real(fp)                    :: salint
@@ -155,6 +158,7 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
     real(fp)                    :: tshear
     real(fp)                    :: tur_eps
     real(fp)                    :: tur_k
+    real(fp)                    :: tur_l
     real(fp)                    :: u
     real(fp)                    :: um
     real(fp)                    :: v
@@ -222,9 +226,11 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
        if (zmodel) then
            kstart = kfsmn0(nm)-1
            kend   = kfsmx0(nm)-1
+           ldepth = h0 ! from bottom to top, so start with total water depth
        else
            kstart = 1
            kend   = kmax
+           ldepth = 0.0_fp ! from top to bottom, so start at surface
        endif
        do k = kstart, kend
           !
@@ -233,15 +239,17 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
           ! directions elsewhere in the Delft3D code.
           !
           if (zmodel) then
-             kab = k + 1
-             kbe = max(k, kfsmn0(nm))
-             tka = dzs0(nm,kab)
-             tkb = dzs0(nm,kbe)
+             kab    = k + 1
+             kbe    = max(k, kfsmn0(nm))
+             tka    = dzs0(nm,kab)
+             tkb    = dzs0(nm,kbe)
+             ldepth = ldepth - tkb
           else
-             kab = k
-             kbe = min(k + 1, kmax)
-             tka = thick(kab)
-             tkb = thick(kbe)
+             kab    = k
+             kbe    = min(k + 1, kmax)
+             tka    = thick(kab)
+             tkb    = thick(kbe)
+             ldepth = ldepth + tka*h0 ! tka/tkb relative for sigma model
           endif
           tkt = tka + tkb
           !
@@ -267,29 +275,32 @@ subroutine fallve(kmax      ,nmmax     ,lsal      ,ltem      ,lsed      , &
              & tka*v0(ndm,kbe) + tkb*v0(ndm,kab)) / 2.0_fp / tkt
           w = (tka*wphy(nm,kbe) + tkb*wphy(nm,kab)) / tkt
           !
-          if (ltur>0) then
-             tur_k = rtur0(nm,k,1)
-          else
-             tur_k = -999.0_fp
-          endif
-          if (ltur>1) then
+          if (ltur == 2) then ! k-eps
+             tur_k   = rtur0(nm,k,1)
              tur_eps = rtur0(nm,k,2)
-          else
+          elseif (ltur == 1) then ! k-L
+             tur_k   = rtur0(nm,k,1)
+             tur_eps = -999.0_fp
+          else ! algebraic or constant
+             tur_k   = -999.0_fp
              tur_eps = -999.0_fp
           endif
           !
           if (kmax == 0) then ! 2D
-             call get_tshear_tdiss( tshear, tur_eps, 2, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0 )
-          elseif (ltur == 0) then ! algebraic
-             ! ldepth = sum(thick above interface) or sig*h0
-             !call get_tshear_tdiss( tshear, tur_eps, 3, 0, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0, localdepth = ldepth)
-             tshear = -999.0_fp
+             call get_tshear_tdiss( tshear, tur_eps, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0, vonkar = vonkar )
+          elseif (ltur == 0) then ! algebraic or constant
+             call get_tshear_tdiss( tshear, tur_eps, taub = taubmx(nm), rho_water = rhoint, waterdepth = h0, localdepth = ldepth)
           elseif (ltur == 1) then ! k-L
-             ! L to be computed using Eq (9.101)
-             !call get_tshear_tdiss( tshear, tur_eps, 3, 1, tke = tur_k, tlength = L)
-             tshear = -999.0_fp
+             ! compute mixing length analogous to rl in turclo
+             if (rich(nm, k)>=0.0) then
+                fl = exp(-2.3_fp * min(rich(nm, k), 30.0_fp))
+             else
+                fl = (1.0_fp - 14.0_fp*rich(nm, k))**0.25_fp
+             endif
+             tur_l = vonkar * (h0 - ldepth) * sqrt(ldepth/h0) * fl
+             call get_tshear_tdiss( tshear, tur_eps, tke = tur_k, tlength = tur_l, vonkar = vonkar)
           else ! k-eps
-             call get_tshear_tdiss( tshear, tur_eps, 3, 2, tke = tur_k )
+             call get_tshear_tdiss( tshear, tur_eps, tke = tur_k )
           endif
           !
           ctot = 0.0_fp

@@ -482,65 +482,58 @@ subroutine flocculate(cfloc, flocdt, breakdt, flocmod)
 end subroutine flocculate
 
 
-subroutine get_tshear_tdiss( tshear, tdiss, i2d3d, iturb, taub, rho_water, waterdepth, localdepth, tke, tlength, timtur )
+subroutine get_tshear_tdiss( tshear, tdiss, tke, tlength, timtur, taub, rho_water, waterdepth, localdepth, vonkar )
 
 !!--description-----------------------------------------------------------------
 !
 ! Calculate the turbulent shear and dissipation for different flow models
 !
-!!--pseudo code and references--------------------------------------------------
 !!--declarations----------------------------------------------------------------
 !
 ! Global variables
 !
     real(fp), intent(out)           :: tshear     !< Turbulent shear stress [N/m2)
     real(fp), intent(inout)         :: tdiss      !< Turbulent dissipation epsilon [m2/s3]
-    integer, intent(in)             :: i2d3d      !< Flag indicating whether the model runs in 2D (i2d3d = 2) or 3D (= 3)
-    integer, optional, intent(in)   :: iturb      !< Flag indicating turbulence model: algebraic (0), k-L (1), k-eps (2)
+    real(fp), optional, intent(in)  :: tke        !< Turbulent kinetic energy lk [N/m2]
+    real(fp), optional, intent(in)  :: tlength    !< Turbulent length scale L [m]
+    real(fp), optional, intent(in)  :: timtur     !< Turbulent time scale tau [s]
     real(fp), optional, intent(in)  :: taub       !< Bed shear stress [N/m2]
     real(fp), optional, intent(in)  :: rho_water  !< Water density [kg/m3]
     real(fp), optional, intent(in)  :: waterdepth !< Total water depth [m]
     real(fp), optional, intent(in)  :: localdepth !< Depth below water surface [m]
-    real(fp), optional, intent(in)  :: tke        !< Turbulent kinetic energy lk [N/m2]
-    real(fp), optional, intent(in)  :: tlength    !< Turbulent length scale L [m]
-    real(fp), optional, intent(in)  :: timtur     !< Turbulent time scale tau [s]
+    real(fp), optional, intent(in)  :: vonkar     !< Von Karman constant [-]
 
 !
 ! Local variables 
 !
-    real(fp), parameter :: kappa = 0.4   ! von Karman constant [-]
     real(fp), parameter :: cd = 0.1925   ! turbulence constant [-]
     
     real(fp) :: ustar         ! shear velocity [m/s]
     real(fp) :: z             ! height above the bed [m]
     real(fp) :: xi            ! relative depth [-]
 
-    if (i2d3d == 2) then ! 2D
-       ustar = sqrt(taub / rho_water)
-       tshear = 0.5_fp * taub
-       tdiss = ustar ** 3 / (kappa * waterdepth)
-        
-    else ! 3D
-       if (iturb == 0) then ! no turbulence model or algebraic
-          z = waterdepth - localdepth
-          xi = localdepth/waterdepth
-          ustar = sqrt(taub / rho_water)
-          tshear = xi * taub
-          tdiss = (xi * ustar ** 3) / (kappa * z)
-          
-       elseif (iturb == 1) then ! k-L model --> k (tke) and L (tlength) provided
-          tshear = PARAM_SOULSBY * tke
-          tdiss = cd * tke ** 1.5_fp / tlength
-          
-       elseif (iturb == 2) then ! k-epsilon model --> k (tke) and epsilon (tdiss) provided
-          tshear = PARAM_SOULSBY * tke
-          ! tdiss already set
-          
-       elseif (iturb == 3) then ! k-tau model --> k (tke) and tau (timtur) provided
+    if (present(tke)) then
+       if (present(timtur)) then ! k-tau
           tshear = PARAM_SOULSBY * tke
           tdiss = tke * timtur
-          
+       elseif (present(tlength)) then ! k-L
+          tshear = PARAM_SOULSBY * tke
+          tdiss = cd * tke ** 1.5_fp / tlength
+       else ! k-eps
+          tshear = PARAM_SOULSBY * tke
+          ! tdiss already set
        endif
+    elseif (present(waterdepth) .and. present(rho_water) .and. present(taub) .and. present(vonkar)) then
+       if (present(localdepth)) then ! algebraic
+          z = waterdepth - localdepth
+          xi = localdepth/waterdepth
+       else ! 2D
+          z  = 0.5_fp * waterdepth
+          xi = 0.5_fp
+       endif
+       ustar = sqrt(taub / rho_water)
+       tshear = xi * taub
+       tdiss = (xi * ustar ** 3) / (vonkar * z)
     endif
 end subroutine get_tshear_tdiss
 
