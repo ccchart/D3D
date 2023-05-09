@@ -49,7 +49,13 @@ use m_oned_functions, only: updateTimeWetOnGround, updateTotalInflow1d2d, update
                             updateFreeboard, updateDepthOnGround, updateVolOnGround
 use unstruc_channel_flow, only : network
 use m_sedtrails_stats, st_is_numndvals=>is_numndvals
+<<<<<<< src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/main/flow_finalize_single_timestep.f90
 use m_update_fourier, only : update_fourier
+=======
+use m_update_wl_at_links, only : update_wl_at_links
+use fm_statistical_output
+use m_statistical_output, only: update_statistical_output
+>>>>>>> src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/main/flow_finalize_single_timestep.f90
 
 implicit none
 integer, intent(out) :: iresult
@@ -69,23 +75,8 @@ integer, intent(out) :: iresult
  call flow_f0isf1()                                  ! mass balance and vol0 = vol1
 
  ! Update water depth at pressure points (for output).
- ! TODO: UNST-3415: investigate if this statement can be moved to step_reduce.
  hs = s1 - bl
-
- ! The subroutine below is called in every time step.
- ! TODO: consider to treat it as the cross section, that the mpi reduction is made at his-output time step.
  call structure_parameters()
-
- dnt    = dnt + 1
- time0  = time1                                      ! idem
- dtprev = dts                                        ! save previous timestep
-
- if ( jatimer.eq.1 ) then ! TODO: AvD: consider moving timers to flow_perform_*
-   call stoptimer(ITIMESTEP)
-   numtsteps = numtsteps + 1
- end if
-
- ! call wriinc(time1)
 
   if (jaQext > 0) then
      call updateCumulativeInflow(dts)
@@ -103,7 +94,6 @@ integer, intent(out) :: iresult
     call updateValuesOnLaterals(time1, dts)
  end if
 
-
  ! for 1D only
  if (network%loaded .and. ndxi-ndx2d > 0) then
     if (jamapTimeWetOnGround > 0) then
@@ -116,7 +106,6 @@ integer, intent(out) :: iresult
        call updateTotalInflowLat(dts)
     end if
  end if
- ! note updateValuesOnObservationStations() in flow_usertimestep
 
  ! Time-integral statistics on all flow nodes.
  if (is_is_numndvals > 0) then
@@ -132,6 +121,15 @@ integer, intent(out) :: iresult
  if ( jaGUI.eq.1 ) then
     call TEXTFLOW()
  end if
+ 
+ dnt    = dnt + 1
+ time0  = time1                                      ! idem
+ dtprev = dts                                        ! save previous timestep
+
+ if ( jatimer.eq.1 ) then ! TODO: AvD: consider moving timers to flow_perform_*
+   call stoptimer(ITIMESTEP)
+   numtsteps = numtsteps + 1
+ end if
 
  call timstop(handle_steps)
  iresult = dfm_check_signals()                      ! Abort when Ctrl-C was pressed
@@ -145,8 +143,35 @@ integer, intent(out) :: iresult
 
 888 continue
 
+<<<<<<< src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/main/flow_finalize_single_timestep.f90
    if (md_fou_step == 1) then
       call update_fourier(dts)
    end if
+=======
+   if (fourierIsActive() .and. md_fou_step == 1) then
+      if (fourierWithUc()) then
+         call getucxucyeulmag(ndkx, workx, worky, ucmag, jaeulervel, 1)
+      endif
+      if (fourierWithSul()) then
+         call update_wl_at_links()
+      end if
+      if (network%loaded) then
+         if (fourierWithFb()) then
+            call updateFreeboard(network)
+         end if
+         if (fourierWithWdog()) then
+            call updateDepthOnGround(network)
+         end if
+         if (fourierWithVog()) then
+            call updateVolOnGround(network)
+         end if
+      end if
+      call postpr_fourier(time0, dts)
+   endif
+   
+call update_statistical_output(out_variable_set_his%statout,dts)
+call update_statistical_output(out_variable_set_map%statout,dts)
+call update_statistical_output(out_variable_set_classmap%statout,dts)
+>>>>>>> src/engines_gpl/dflowfm/packages/dflowfm_kernel/src/dflowfm_kernel/main/flow_finalize_single_timestep.f90
 
 end subroutine flow_finalize_single_timestep

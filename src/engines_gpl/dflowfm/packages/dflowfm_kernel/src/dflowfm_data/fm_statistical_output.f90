@@ -10,9 +10,9 @@ module fm_statistical_output
    type(t_output_quantity_config), allocatable, public, dimension(:) :: out_quan_conf_map
    type(t_output_quantity_config), allocatable, public, dimension(:) :: out_quan_conf_classmap
 
-   type(t_output_variable_set), allocatable, public, dimension(:) :: out_variable_set_his
-   type(t_output_variable_set), allocatable, public, dimension(:) :: out_variable_set_map
-   type(t_output_variable_set), allocatable, public, dimension(:) :: out_variable_set_classmap
+   type(t_output_variable_set), allocatable :: out_variable_set_his
+   type(t_output_variable_set), allocatable :: out_variable_set_map
+   type(t_output_variable_set), allocatable :: out_variable_set_classmap
    
    public default_fm_statistical_output
 
