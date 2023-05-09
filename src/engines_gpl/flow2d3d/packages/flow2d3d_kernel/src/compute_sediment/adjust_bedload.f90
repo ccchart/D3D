@@ -187,7 +187,7 @@ subroutine adjust_bedload(nmmax     ,icx       ,icy       ,kcs       , &
     tphi = tan(phi)
     !
     do l = 1, lsedtot
-       if (btest(tratyp(l), TRA_BEDLOAD)) then
+       if (has_bedload(tratyp(l))) then
           di50        = sedd50(l)
           di50spatial = .false.
           if (di50<0 .and. lsedtot==1) di50spatial = .true.

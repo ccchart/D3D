@@ -645,7 +645,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
                    !
                    ! bed load transport only for fractions with bedload component
                    !
-                   if (.not. btest(tratyp(l), TRA_BEDLOAD)) cycle
+                   if (.not. has_bedload(tratyp(l))) cycle
                    li = li + 1
                    !
                    if (morbnd(jb)%ibcmt(3) == lsedbed) then
@@ -693,7 +693,7 @@ subroutine bott3d(nmmax     ,kmax      ,lsed      ,lsedtot  , &
        !
        bedchangemesscount = 0
        do l = 1, lsedtot
-          bedload = tratyp(l) == TRA_BEDLOAD
+          bedload = is_bedload(tratyp(l))
           ll = lstart + l
           do nm = 1, nmmax
              !

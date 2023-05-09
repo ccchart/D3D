@@ -1947,7 +1947,7 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
     integer         , dimension(:) , allocatable           :: typsedim      !< Type of the sediments - sorted by order of sediment blocks
     integer         , dimension(:) , allocatable           :: typtrans      !< (Initial) transport type - sorted by order of sediment blocks (TRA_BEDLOAD or TRA_COMBINE)
     logical                                                :: found
-    logical                                                :: isbedload
+    logical                                                :: totalload
     character(20)                                          :: versionstring
     character(20)   , dimension(:) , allocatable           :: namsedim      !< Names of the sediments as read from sed-file
     character(20)                                          :: sedtyptmp     !< Sediment type in sed-file
@@ -2072,9 +2072,9 @@ subroutine count_sed(lundia    ,error     ,lsed      ,lsedtot   , &
              !
              ! Determine sediment type
              !
-             isbedload = .false.
-             call prop_get_logical(asedblock_ptr, '*', 'TotalLoad', isbedload)
-             if (isbedload) tratypnr = TRA_BEDLOAD
+             totalload = .false.
+             call prop_get_logical(asedblock_ptr, '*', 'TotalLoad', totalload)
+             if (totalload) tratypnr = TRA_BEDLOAD
              !
              if (tratypnr == TRA_BEDLOAD) then
                  ! change transport type from combined to bedload if possible

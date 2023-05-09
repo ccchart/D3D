@@ -28,8 +28,8 @@ subroutine compdiam(frac, seddm, sedd50, sedtyp, lsedtot, &
 !  Stichting Deltares. All rights reserved.                                     
 !                                                                               
 !-------------------------------------------------------------------------------
-!  $Id: compdiam.f90 878 2011-10-07 12:58:46Z mourits $
-!  : https://svn.oss.deltares.nl/repos/delft3d/branches/research/Deltares/20110420_OnlineVisualisation/src/engines_gpl/flow2d3d/packages/kernel/src/compute_sediment/compdiam.f90 $
+!
+!
 !!--description-----------------------------------------------------------------
 !
 ! Function: Determines the characteristic diameters of the sediment mixtures
@@ -110,7 +110,7 @@ subroutine compdiam(frac, seddm, sedd50, sedtyp, lsedtot, &
 !
 !! executable statements -------------------------------------------------------
 !
-    if (lsedtot==1 .and. seddm(1)<0.0_fp .and. sedtyp(1) > max_mud_sedtyp) then
+    if (lsedtot==1 .and. seddm(1)<0.0_fp) then
        !
        ! Handle case with spatially varying sediment diameter
        ! separately using the same approximation of the lognormal
@@ -184,7 +184,7 @@ subroutine compdiam(frac, seddm, sedd50, sedtyp, lsedtot, &
              ! separate loop required as dg needs to be calculated first
              !
              do l = 1, lsedtot
-                if ((sedtyp(l) >= min_dxx_sedtyp) .and. (frac(nm,l) > 0.0_fp)) then
+                if ((sedtyp(l) >= min_dxx_sedtyp) .and. (comparereal(frac(nm,l),0.0_fp) == 1)) then
                    dgsd(nm) = dgsd(nm) + (frac(nm,l)/fracnonmud)*(log(sedd50(l))-log(dg(nm)))**2
                 endif
              enddo

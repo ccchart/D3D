@@ -39,7 +39,7 @@ subroutine upwbed(su        ,sv        ,suu       ,svv       ,kfu       , &
 ! NONE
 !!--declarations----------------------------------------------------------------
     use precision
-    use sediment_basics_module, only: TRA_BEDLOAD
+    use sediment_basics_module, only: has_bedload
     !
     use globaldata
     !
@@ -97,7 +97,7 @@ subroutine upwbed(su        ,sv        ,suu       ,svv       ,kfu       , &
     !
     do l = 1, lsedtot
        ! if the transport of the fraction may include a bedload component
-       if (btest(tratyp(l), TRA_BEDLOAD)) then
+       if (has_bedload(tratyp(l))) then
           do nm = 1, nmmax
              !
              ! Try a scheme that reverts to central if transport directions oppose (G. Lesser) 

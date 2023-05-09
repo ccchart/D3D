@@ -1310,7 +1310,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     ! Fill sutot and svtot
     !
     do l = 1,lsedtot
-       if (btest(tratyp(l), TRA_BEDLOAD)) then
+       if (has_bedload(tratyp(l))) then
           do nm = 1, nmmax
              sutot(nm, l) = sbcu(nm, l) + sbwu(nm, l) + sswu(nm, l)
              svtot(nm, l) = sbcv(nm, l) + sbwv(nm, l) + sswv(nm, l)
@@ -1398,7 +1398,7 @@ subroutine erosed(nmmax     ,kmax      ,icx       ,icy       ,lundia    , &
     ! Summation of current-related and wave-related transports
     !
     do l = 1,lsedtot
-       if (btest(tratyp(l), TRA_BEDLOAD)) then
+       if (has_bedload(tratyp(l))) then
           do nm = 1, nmmax
              sbuu(nm, l) = sbcuu(nm, l) + sbwuu(nm, l) + sswuu(nm, l)
              sbvv(nm, l) = sbcvv(nm, l) + sbwvv(nm, l) + sswvv(nm, l)

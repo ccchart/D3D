@@ -63,6 +63,7 @@ public dgravel
 
 public has_advdiff
 public has_bedload
+public is_bedload
 
 integer, parameter :: SEDTYP_CLAY   = 1
 integer, parameter :: SEDTYP_SILT   = 2
@@ -111,6 +112,7 @@ function has_advdiff(tratyp) result (bool)
     !
     integer, intent(in) :: tratyp  !< transport type to be checked
     logical             :: bool    !< logical result of tratyp check
+    !
     bool = btest(tratyp, TRA_ADVDIFF_BIT)
 end function has_advdiff
 
@@ -120,7 +122,18 @@ function has_bedload(tratyp) result (bool)
     !
     integer, intent(in) :: tratyp  !< transport type to be checked
     logical             :: bool    !< logical result of tratyp check
+    !
     bool = btest(tratyp, TRA_BEDLOAD_BIT)
 end function has_bedload
+
+!> Check if fraction is only governed by bedload component.    
+function is_bedload(tratyp) result (bool)
+    implicit none
+    !
+    integer, intent(in) :: tratyp  !< transport type to be checked
+    logical             :: bool    !< logical result of tratyp check
+    !
+    bool = tratyp == TRA_BEDLOAD
+end function is_bedload
 
 end module sediment_basics_module

@@ -355,15 +355,16 @@ subroutine rdtrafrm(lundia    ,error     ,filtrn    ,lsedtot   , &
     iformdef = iform(1)
     do ll=2, lsedtot
        if (iform(ll)==-999 .and. flstrn(ll)==' ') then
-          name        (ll) = name(1)
-          dll_handle  (ll) = dll_handle(1)
-          dll_function(ll) = dll_function(1)
-          dll_usrfil  (ll) = dll_usrfil(1)
-          do i = 1,npar
-             par(i,ll)     = par(i,1)
-             parfil(i,ll)  = parfil(i,1)
-             iparfld(i,ll) = iparfld(i,1)
-          enddo
+          name(ll)              = name(1)
+          dll_handle(ll)        = dll_handle(1)
+          dll_function(ll)      = dll_function(1)
+          dll_usrfil(ll)        = dll_usrfil(1)
+          par(:,ll)             = par(:,1)
+          parfil(:,ll)          = parfil(:,1)
+          iparfld(:,ll)         = iparfld(:,1)
+          noutpar(ll)           = noutpar(1)
+          outpar_name(:,ll)     = outpar_name(:,1)
+          outpar_longname(:,ll) = outpar_longname(:,1)
        endif
     enddo
     !
@@ -1340,6 +1341,21 @@ subroutine traparams(iform     ,name      ,nparreq   ,nparopt   ,parkeyw   , &
        nparopt    = 1
        parkeyw(1) = 'ACal'
        pardef(1)  = 1.0_fp
+       if (present(noutpar)) then
+          noutpar = 6
+          outpar_name( 1)     = 'wistar'
+          outpar_longname( 1) = 'dimensionless bedload transport rate' ! -
+          outpar_name( 2)     = 'ustar'
+          outpar_longname( 2) = 'shear velocity' ! m/s
+          outpar_name( 3)     = 'phi'
+          outpar_longname( 3) = 'ratio of shear stress over ref shear stress' ! -
+          outpar_name( 4)     = 'tauri'
+          outpar_longname( 4) = 'ref shear stress at fraction mean diameter' ! kg/(m s2)
+          outpar_name( 5)     = 'taurm'
+          outpar_longname( 5) = 'ref shear stress at geometric mean diameter' ! kg/(m s2)
+          outpar_name( 6)     = 'b'
+          outpar_longname( 6) = 'exponent b' ! -
+       endif
     elseif (iform == 17) then
        name       = 'Gaeuman et. al. (2009) lab calibration'
        nparreq    = 2
