@@ -3,6 +3,10 @@
 module m_output_config
    use MessageHandling
    use coordinate_reference_system
+   
+private
+   
+   public scan_input_tree
 
    integer, parameter, public :: UNC_LOC_CN  = 1  !< Data location: corner point.
    integer, parameter, public :: UNC_LOC_S   = 2  !< Data location: pressure point.
@@ -411,9 +415,7 @@ module m_output_config
    integer, public :: IDX_CLS_UCDIR_EULER
    
    public t_output_quantity_config
-private
-   
-   !> Derived type for the input itemsdefining one entry [output] section of the MDU file. 
+   !> Derived type for the input items, defining one entry [output] section of the MDU file. 
    type t_output_quantity_config
       character(len=Idlen)             :: key             !< Key of the input item in the MDU file (e.g. wrimap_s1).                       
       character(len=Idlen)             :: name            !< Name of the output item on the NETCDF file.      
@@ -422,7 +424,7 @@ private
       character(len=Idlen)             :: standard_name   !< Standard name of the output item on the NETCDF file.                     
       character(len=Idlen)             :: input_value     !< Original user-provided input valuestring (unparsed) (<<key>> = <<input value>>.         
       integer                          :: location_specifier !< Specifies the locationwhere the variable is specified (One of UNC_LOC_CNUNC_LOC_S
-                                                             !< UNC_LOC_UUNC_LOC_LUNC_LOC_S3DUNC_LOC_U3DUNC_LOC_WUNC_LOC_WU)
+                                                             !< UNC_LOC_U, UNC_LOC_L, UNC_LOC_S3D, UNC_LOC_U3, DUNC_LOC_W, UNC_LOC_WU, ...)
       integer                          :: num_additional_attributes  !< number of additional attributes
       type(nc_attribute), pointer      :: additional_attributes(:)   !< optional additional attributes for this entity
    end type t_output_quantity_config

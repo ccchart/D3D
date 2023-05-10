@@ -136,6 +136,8 @@
     call default_xbeach_avgoutput()
 
     call default_save_ugrid_state()
+    
+    call default_fm_statistical_output()
 
     call default_fm_statistical_output()
 

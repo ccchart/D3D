@@ -73,10 +73,10 @@ interface ncu_add_att
    module procedure ncu_add_att_string
    module procedure ncu_add_att_int
    module procedure ncu_add_att_ints
-   module procedure ncu_add_att_dble
-   module procedure ncu_add_att_dbles
-   module procedure ncu_add_att_flt
-   module procedure ncu_add_att_flts
+   module procedure ncu_add_att_double
+   module procedure ncu_add_att_doubles
+   module procedure ncu_add_att_real
+   module procedure ncu_add_att_reals
 end interface
 
 abstract interface
@@ -751,88 +751,95 @@ function ncu_copy_var_atts( ncidin, ncidout, varidin, varidout ) result(ierr)
 
 end function ncu_copy_var_atts
 
+!> Define a NETCDF attribute, using a single string value.
 subroutine ncu_add_att_string(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   character(len=*),             intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   character(len=*),             intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%strvalue(len_trim(attvalue)))
    att%strvalue = trim(attvalue)
 end subroutine ncu_add_att_string
 
+!> Define a NETCDF attribute, using a single integer value
 subroutine ncu_add_att_int(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   integer,                      intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   integer,                      intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%intvalue(1))
    att%intvalue(1) = attvalue
 end subroutine ncu_add_att_int
 
+!> Define a NETCDF attribute, using a array of integer values
 subroutine ncu_add_att_ints(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   integer, dimension(:),        intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   integer, dimension(:),        intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%intvalue(size(attvalue)))
    att%intvalue = attvalue
 end subroutine ncu_add_att_ints
 
-subroutine ncu_add_att_dble(att, attname, attvalue)
+!> Define a NETCDF attribute, using a single double precision value
+subroutine ncu_add_att_double(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   double precision,             intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   double precision,             intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%dblvalue(1))
    att%dblvalue(1) = attvalue
-end subroutine ncu_add_att_dble
+end subroutine ncu_add_att_double
 
-subroutine ncu_add_att_dbles(att, attname, attvalue)
+!> Define a NETCDF attribute, using a array of double precision values
+subroutine ncu_add_att_doubles(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),              intent(  out) :: att
-   character(len=*),                intent(in   ) :: attname
-   double precision, dimension(:),  intent(in   ) :: attvalue
+   type(nc_attribute),              intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),                intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   double precision, dimension(:),  intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%dblvalue(size(attvalue)))
    att%dblvalue = attvalue
-end subroutine ncu_add_att_dbles
+end subroutine ncu_add_att_doubles
 
-subroutine ncu_add_att_flt(att, attname, attvalue)
+!> Define a NETCDF attribute, using a single real value
+subroutine ncu_add_att_real(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   real,                         intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   real,                         intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%fltvalue(1))
    att%fltvalue(1) = attvalue
-end subroutine ncu_add_att_flt
+end subroutine ncu_add_att_real
 
-subroutine ncu_add_att_flts(att, attname, attvalue)
+!> Define a NETCDF attribute, using a array of real values
+subroutine ncu_add_att_reals(att, attname, attvalue)
    use coordinate_reference_system
 
-   type(nc_attribute),           intent(  out) :: att
-   character(len=*),             intent(in   ) :: attname
-   real, dimension(:),           intent(in   ) :: attvalue
+   type(nc_attribute),           intent(  out) :: att             !< NETCDF attribute item.
+   character(len=*),             intent(in   ) :: attname         !< Name of the NETCDF attribute.
+   real, dimension(:),           intent(in   ) :: attvalue        !< Value of the NETCDF attribute.
 
    att%attname = attname
    allocate(att%fltvalue(size(attvalue)))
    att%fltvalue = attvalue
-end subroutine ncu_add_att_flts
+end subroutine ncu_add_att_reals
 
 end module netcdf_utils
