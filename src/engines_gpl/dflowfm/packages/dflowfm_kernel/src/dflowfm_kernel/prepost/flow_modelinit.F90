@@ -341,6 +341,8 @@
  end if
  call timstop(handle_extra(23)) ! end flow init
 
+call extrapolate_bedlevel_at_boundaries()
+ 
  if (jadhyd == 1) then
     call init_hydrology()                          ! initialise the hydrology module (after flow_flowinit())
  end if
