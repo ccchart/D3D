@@ -73,7 +73,7 @@ subroutine merge (inputfile, workdir, runid)
     integer                                             :: scanmode
     integer, external                                   :: createstream
     integer       , dimension(:)  , allocatable         :: handles         ! data stream handles
-    real(hp)                                            :: dim_real
+    double precision                                    :: dim_real
     real(hp)                                            :: totalweight
     real(hp)                                            :: timestep
     real(hp)                                            :: timestep_min
@@ -224,7 +224,7 @@ subroutine merge (inputfile, workdir, runid)
       write(*,'(a)') '   Connection established, continuing...'
    enddo
    !
-   ! Get dimensions from Delft3D-FLOW
+   ! Get dimensions for the arrays
    !
    do icond=1,ncond
       call getarray(handles(icond),rn,2)
@@ -272,7 +272,7 @@ subroutine merge (inputfile, workdir, runid)
       !
       !
       !
-      if (dim_real < 1.5_hp) then
+      if (dim_real < 1.5d0 ) then
          !
          ! dim=1: Assuming that the size of the new time step is going to be sent
          ! Use min-operator

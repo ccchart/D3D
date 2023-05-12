@@ -1,8 +1,3 @@
-module m_mormerge
-
-contains
-    
-subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
 !----- GPL ---------------------------------------------------------------------
 !                                                                               
 !  Copyright (C)  Stichting Deltares, 2011-2023.                                
@@ -33,9 +28,11 @@ subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
 !  
 !!--description-----------------------------------------------------------------
 !
-!
-!!--pseudo code and references--------------------------------------------------
-! NONE
+module m_mormerge
+
+contains
+    
+subroutine initialize_mormerge (iresult, nmmax, lsed, runidIn, gdmorpar)
 !!--declarations----------------------------------------------------------------
     use precision
     use string_module
@@ -66,8 +63,6 @@ subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
     character(256)                                 :: streamfile
     character(256)                                 :: filhand
     character(256)                                 :: runid
-    integer                              , pointer :: mergehandle
-    real(hp)              , dimension(:) , pointer :: mergebuf
     character(256)                       , pointer :: mmsyncfilnam
     character(256)                                 :: tmpstring
 !
@@ -76,8 +71,6 @@ subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
     iresult = 0
     runid   = runidIn
     !
-    mergehandle         => gdmorpar%mergehandle
-    mergebuf            => gdmorpar%mergebuf
     mmsyncfilnam        => gdmorpar%mmsyncfilnam
     !
     write(*,'(10x,a)')'- Waiting for connection with mormerge...'
@@ -138,7 +131,7 @@ subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
        !
        ! This is the actual connection with mormerge
        !
-       mergehandle = getstream(filhand)
+       gdmorpar%mergehandle = getstream(filhand)
     else
        write(*,*) 'ERROR: File named "streamfile" or "../streamfile" not found'
        iresult = 1
@@ -146,16 +139,37 @@ subroutine initmerge (iresult, nmmax, lsed, runidIn, gdmorpar)
     endif
     rn(1) = nmmax * 1.0_hp
     rn(2) = lsed  * 1.0_hp
-    call putarray(mergehandle, rn, 2)
+    call putarray(gdmorpar%mergehandle, rn, 2)
     !
-    ! allocate buffer array 
-    !
-    allocate (gdmorpar%mergebuf(nmmax*lsed), stat = istat)
-    if (istat /= 0) then
-       write(*,*) 'ERROR: Initmerge: memory alloc error'
-       iresult = 1
-       return
-    endif
-end subroutine initmerge
+end subroutine initialize_mormerge
 
+!> send to stream and receives back time step
+subroutine put_get_time_step(mergehandle, time_step)
+   implicit none
+
+   integer,          intent(in)           :: mergehandle !<  stream handle for communication with mormerge
+   double precision, intent(inout)        :: time_step   !< User specified or internal time step (s) for external forcing update.
+
+   double precision, parameter           :: DIM_REAL = 1.0d0
+   
+   call putarray (mergehandle, DIM_REAL, 1)
+   call putarray (mergehandle, time_step, 1)
+   call getarray (mergehandle, time_step, 1)
+   
+end subroutine put_get_time_step
+
+subroutine put_get_mergebuffer(mergehandle, buffer_size, mergebuffer)
+   use precision
+   implicit none
+
+   integer,          intent(in)      :: mergehandle              !<  stream handle for communication with mormerge
+   integer        ,  intent(in)      :: buffer_size              !< size of merge buffer
+   real(hp)       ,  intent(inout)   :: mergebuffer(buffer_size) !< a buffer for mormerge data 
+
+   call putarray (mergehandle, real(buffer_size,hp), 1)
+   call putarray (mergehandle, mergebuffer, buffer_size)
+   call getarray (mergehandle, mergebuffer, buffer_size)
+    
+end subroutine put_get_mergebuffer
+            
 end module m_mormerge

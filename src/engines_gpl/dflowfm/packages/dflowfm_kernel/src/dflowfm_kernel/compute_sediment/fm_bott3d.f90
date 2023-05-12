@@ -54,7 +54,7 @@
    use m_flowexternalforcings, only: nopenbndsect
    use m_flowparameters, only: epshs, epshu, eps10, jasal, flowWithoutWaves, jawaveswartdelwaq
    use m_sediment,  only: stmpar, sedtra, mtd, m_sediment_sed=>sed, avalflux, botcrit, kcsmor, jamormergedtuser, mergebodsed
-   use m_flowtimes, only: dts, tstart_user, time1, dnt, julrefdat, tfac, ti_sed, ti_seds, time_user
+   use m_flowtimes, only: dts, tstart_user, time1, dnt, julrefdat, tfac, ti_sed, ti_seds, time_user, dt_user
    use m_transport, only: fluxhortot, ised1, constituents, sinksetot, sinkftot, itra1, itran, numconst, isalt
    use unstruc_files, only: mdia, close_all_files
    use m_fm_erosed
@@ -68,6 +68,9 @@
    use m_fm_update_crosssections
    use m_fm_morstatistics, only: morstats, morstatt0
    use precision_basics
+   use m_mormerge
+   use m_alloc
+   use mpi
    !
    implicit none
    !
@@ -122,7 +125,21 @@
    double precision                            :: r1avg
    double precision                            :: z
    double precision                            :: timhr
-   real(hp)                                    :: dim_real
+   
+   integer                                     :: number_points_over_procs(ndomains)  !< number of points (ndxi*lsedtot) over domains/procs
+   integer                                     :: displacement_over_procs(ndomains)   !< displacement array for merge buffer over procs
+   integer                                     :: domain, size_mergebuffer
+   double precision, allocatable               :: mergebuffer(:)
+   
+   integer :: mpi_type_real_fp
+
+!use precision
+if (fp == hp) then
+    mpi_type_real_fp = MPI_DOUBLE_PRECISION
+else
+    mpi_type_real_fp = MPI_REAL
+end if
+
    !!
    !!! executable statements -------------------------------------------------------
    !!
@@ -147,7 +164,6 @@
    error = .false.
    timhr = time1 / 3600.0d0
    nto    = nopenbndsect
-   dim_real = real(ndxi*lsedtot,hp)
    blchg = 0d0
    !
    !   Calculate suspended sediment transport correction vector (for SAND)
@@ -773,7 +789,6 @@
       !
       ! Modifications for running parallel conditions (mormerge)
       !
-      !
       if (stmpar%morpar%multi) then
          jamerge = .false.
          if (jamormergedtuser>0) then
@@ -787,7 +802,6 @@
             dbodsd = 0d0
             jamerge = .true.
          endif
-
          if (jamerge) then
             ii = 0
             do ll = 1, lsedtot
@@ -796,12 +810,34 @@
                   stmpar%morpar%mergebuf(ii) = real(mergebodsed(ll, nm) * kcsmor(nm),hp)
                enddo
             enddo
-            !write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg before merge (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
-            !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
-            !call mess(LEVEL_INFO, msg)
-            call putarray (stmpar%morpar%mergehandle,dim_real,1)
-            call putarray (stmpar%morpar%mergehandle,stmpar%morpar%mergebuf(1:ndxi*lsedtot),ndxi*lsedtot)
-            call getarray (stmpar%morpar%mergehandle,stmpar%morpar%mergebuf(1:ndxi*lsedtot),ndxi*lsedtot)
+            write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg before merge (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
+                                            &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
+            call mess(LEVEL_INFO, msg)
+            if ( jampi == 0 ) then
+               call put_get_mergebuffer(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf)
+            else
+               call mpi_gather(ndxi*lsedtot, 1, mpi_integer, number_points_over_procs, 1, mpi_integer, 0, DFM_COMM_DFMWORLD, ierror)
+               if ( my_rank == 0 ) then
+                   displacement_over_procs(1) = 0
+                   do domain = 1, ndomains - 1
+                       displacement_over_procs(domain + 1) = displacement_over_procs(domain) + number_points_over_procs(domain)
+                   end do 
+                   size_mergebuffer = sum(number_points_over_procs)
+                   allocate(mergebuffer(size_mergebuffer), stat=ierror)
+                   call aerr('merbuffer', ierror, size_mergebuffer)
+               else
+                   allocate(mergebuffer(1))
+               end if
+                call mpi_gatherv(stmpar%morpar%mergebuf, ndxi*lsedtot, mpi_double_precision, mergebuffer, &
+                        number_points_over_procs, displacement_over_procs, mpi_double_precision, 0, DFM_COMM_DFMWORLD, ierror)
+                if ( my_rank == 0 ) then
+                    call put_get_mergebuffer(stmpar%morpar%mergehandle, size_mergebuffer, mergebuffer)
+                end if
+                call mpi_scatterv(mergebuffer, number_points_over_procs, displacement_over_procs, mpi_double_precision, &
+                       stmpar%morpar%mergebuf, ndxi*lsedtot, mpi_double_precision, 0, DFM_COMM_DFMWORLD, ierror)
+                deallocate(mergebuffer)
+            end if
+
             ii = 0
             do ll = 1, lsedtot
                do nm = 1, ndxi
@@ -809,15 +845,12 @@
                   dbodsd(ll, nm) = real(stmpar%morpar%mergebuf(ii),fp)
                enddo
             enddo
-            !write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg after merge (time=', time1/dt_user, ' usertimesteps):', maxval(dbodsd)/cdryb(1), &
-            !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
-            !call mess(LEVEL_INFO, msg)
+            write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg after  merge (time=', time1/dt_user, ' usertimesteps):', maxval(dbodsd)/cdryb(1), &
+                                            &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
+            call mess(LEVEL_INFO, msg)
             mergebodsed = 0d0
          endif
       else
-         !write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
-         !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
-         !call mess(LEVEL_INFO, msg)
          do ll = 1, lsedtot
             dbodsd(ll,:) = dbodsd(ll,:)*kcsmor
          end do
