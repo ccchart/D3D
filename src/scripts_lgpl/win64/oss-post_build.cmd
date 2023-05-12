@@ -819,7 +819,7 @@ rem ==========================
     if "%configuration%" == "Debug" (
 
         echo "Debug postbuild"
-        set dest_bin=    "!install_dir!\x64\Debug\"
+        set dest_bin=	 "%install_dir%\x64\Debug"
         set dest_default="!install_dir!\x64\Debug\"
         set dest_scripts="!install_dir!\x64\Debug\"
         set dest_plugins="!install_dir!\x64\Debug\"
