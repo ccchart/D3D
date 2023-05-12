@@ -58,8 +58,8 @@ subroutine flow_sedmorinit()
     use MessageHandling
     use dfm_error
     use m_mormerge
+    use m_mormerge_mpi
     use m_partitioninfo, only: jampi, my_rank, DFM_COMM_DFMWORLD
-    use mpi
 
     implicit none
 
@@ -429,13 +429,7 @@ subroutine flow_sedmorinit()
     end if
 
     if (stmpar%morpar%multi) then
-       !
-       if ( jampi == 1 ) then
-           call mpi_reduce(ndxi, ndxi_total, 1, MPI_integer, MPI_Sum, 0, DFM_COMM_DFMWORLD, ierr )
-       else
-           ndxi_total = ndxi 
-       end if 
-
+       ndxi_total = total_number_of_cells(jampi, ndxi, DFM_COMM_DFMWORLD) 
        if ( my_rank == 0 ) then
            call initialize_mormerge(ierr, ndxi_total, stmpar%lsedtot, "singledomain", stmpar%morpar)
            if (ierr /= DFM_NOERR) then

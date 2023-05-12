@@ -68,9 +68,7 @@
    use m_fm_update_crosssections
    use m_fm_morstatistics, only: morstats, morstatt0
    use precision_basics
-   use m_mormerge
-   use m_alloc
-   use mpi
+   use m_mormerge_mpi
    !
    implicit none
    !
@@ -125,21 +123,6 @@
    double precision                            :: r1avg
    double precision                            :: z
    double precision                            :: timhr
-   
-   integer                                     :: number_points_over_procs(ndomains)  !< number of points (ndxi*lsedtot) over domains/procs
-   integer                                     :: displacement_over_procs(ndomains)   !< displacement array for merge buffer over procs
-   integer                                     :: domain, size_mergebuffer
-   double precision, allocatable               :: mergebuffer(:)
-   
-   integer :: mpi_type_real_fp
-
-!use precision
-if (fp == hp) then
-    mpi_type_real_fp = MPI_DOUBLE_PRECISION
-else
-    mpi_type_real_fp = MPI_REAL
-end if
-
    !!
    !!! executable statements -------------------------------------------------------
    !!
@@ -813,30 +796,8 @@ end if
             write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg before merge (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
                                             &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
             call mess(LEVEL_INFO, msg)
-            if ( jampi == 0 ) then
-               call put_get_mergebuffer(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf)
-            else
-               call mpi_gather(ndxi*lsedtot, 1, mpi_integer, number_points_over_procs, 1, mpi_integer, 0, DFM_COMM_DFMWORLD, ierror)
-               if ( my_rank == 0 ) then
-                   displacement_over_procs(1) = 0
-                   do domain = 1, ndomains - 1
-                       displacement_over_procs(domain + 1) = displacement_over_procs(domain) + number_points_over_procs(domain)
-                   end do 
-                   size_mergebuffer = sum(number_points_over_procs)
-                   allocate(mergebuffer(size_mergebuffer), stat=ierror)
-                   call aerr('merbuffer', ierror, size_mergebuffer)
-               else
-                   allocate(mergebuffer(1))
-               end if
-                call mpi_gatherv(stmpar%morpar%mergebuf, ndxi*lsedtot, mpi_double_precision, mergebuffer, &
-                        number_points_over_procs, displacement_over_procs, mpi_double_precision, 0, DFM_COMM_DFMWORLD, ierror)
-                if ( my_rank == 0 ) then
-                    call put_get_mergebuffer(stmpar%morpar%mergehandle, size_mergebuffer, mergebuffer)
-                end if
-                call mpi_scatterv(mergebuffer, number_points_over_procs, displacement_over_procs, mpi_double_precision, &
-                       stmpar%morpar%mergebuf, ndxi*lsedtot, mpi_double_precision, 0, DFM_COMM_DFMWORLD, ierror)
-                deallocate(mergebuffer)
-            end if
+            call update_mergebuffer_over_subdomains(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf, &
+                jampi, my_rank, ndomains, DFM_COMM_DFMWORLD)
 
             ii = 0
             do ll = 1, lsedtot
