@@ -73,7 +73,7 @@ subroutine merge (inputfile, workdir, runid)
     integer                                             :: scanmode
     integer, external                                   :: createstream
     integer       , dimension(:)  , allocatable         :: handles         ! data stream handles
-    double precision                                    :: dim_real
+    real(hp)                                            :: dim_real
     real(hp)                                            :: totalweight
     real(hp)                                            :: timestep
     real(hp)                                            :: timestep_min
@@ -272,7 +272,7 @@ subroutine merge (inputfile, workdir, runid)
       !
       !
       !
-      if (dim_real < 1.5d0 ) then
+      if (dim_real < 1.5_hp ) then
          !
          ! dim=1: Assuming that the size of the new time step is going to be sent
          ! Use min-operator

@@ -31,7 +31,8 @@
 module m_mormerge
 
 contains
-    
+
+!> initilize mormerge
 subroutine initialize_mormerge (iresult, nmmax, lsed, runidIn, gdmorpar)
 !!--declarations----------------------------------------------------------------
     use precision
@@ -158,6 +159,7 @@ subroutine put_get_time_step(mergehandle, time_step)
    
 end subroutine put_get_time_step
 
+!> put merge buffer to mormerge then gets it back
 subroutine put_get_mergebuffer(mergehandle, buffer_size, mergebuffer)
    use precision
    implicit none

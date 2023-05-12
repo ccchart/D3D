@@ -54,7 +54,7 @@
    use m_flowexternalforcings, only: nopenbndsect
    use m_flowparameters, only: epshs, epshu, eps10, jasal, flowWithoutWaves, jawaveswartdelwaq
    use m_sediment,  only: stmpar, sedtra, mtd, m_sediment_sed=>sed, avalflux, botcrit, kcsmor, jamormergedtuser, mergebodsed
-   use m_flowtimes, only: dts, tstart_user, time1, dnt, julrefdat, tfac, ti_sed, ti_seds, time_user, dt_user
+   use m_flowtimes, only: dts, tstart_user, time1, dnt, julrefdat, tfac, ti_sed, ti_seds, time_user
    use m_transport, only: fluxhortot, ised1, constituents, sinksetot, sinkftot, itra1, itran, numconst, isalt
    use unstruc_files, only: mdia, close_all_files
    use m_fm_erosed
@@ -793,10 +793,10 @@
                   stmpar%morpar%mergebuf(ii) = real(mergebodsed(ll, nm) * kcsmor(nm),hp)
                enddo
             enddo
-            write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg before merge (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
-                                            &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
-            call mess(LEVEL_INFO, msg)
-            call update_mergebuffer_over_subdomains(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf, &
+            !write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg before merge (time=', time1/dt_user, ' usertimesteps):', maxval(mergebodsed)/cdryb(1), &
+            !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
+            !call mess(LEVEL_INFO, msg)
+            call update_mergebuffer(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf, &
                 jampi, my_rank, ndomains, DFM_COMM_DFMWORLD)
 
             ii = 0
@@ -806,9 +806,9 @@
                   dbodsd(ll, nm) = real(stmpar%morpar%mergebuf(ii),fp)
                enddo
             enddo
-            write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg after  merge (time=', time1/dt_user, ' usertimesteps):', maxval(dbodsd)/cdryb(1), &
-                                            &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
-            call mess(LEVEL_INFO, msg)
+            !write(msg,'(i3,a,f10.5,a,f10.5,a,f10.3,a,f10.3,a)') stmpar%morpar%mergehandle, ' maxval blchg after  merge (time=', time1/dt_user, ' usertimesteps):', maxval(dbodsd)/cdryb(1), &
+            !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
+            !call mess(LEVEL_INFO, msg)
             mergebodsed = 0d0
          endif
       else
