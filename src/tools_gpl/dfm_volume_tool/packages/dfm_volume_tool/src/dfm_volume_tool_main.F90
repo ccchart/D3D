@@ -114,16 +114,16 @@ integer(I4P)                      :: ierr         !< Error trapping flag.
 open(newunit = dia, file='dfm_volume_tool.dia')
 call SetMessageHandling(write2screen = .true., lunmessages = dia)
 
-call get_full_versionstring_dfm_volume_tool_full(msgbuf)
+call getfullversionstring_dfm_volume_tool(msgbuf)
 call msg_flush()
-call get_dfm_volume_tool_source(msgbuf)
+call getbranch_dfm_volume_tool(msgbuf)
 call msg_flush()
 
 numids = 0
 !-----------------------------------------------------------------------------------------------------------------------------------
 !! initializing Command Line Interface
-call cli%init(progname    = dfm_volume_tool_basename,                                            &
-              version     = dfm_volume_tool_version,                                             &
+call cli%init(progname    = base_name,                                            &
+              version     = version,                                             &
               description = 'Tool for generating volume output for D-Flow FM') 
 !
 !! setting Command Line Arguments
@@ -223,6 +223,7 @@ if (ierr==0) then
    call BMI_GET_VAR_POINTER(dfm, string_to_char_array('ln'), xptr)
    call c_f_pointer(xptr, lnog, (/2, lnx/))
    
+   call BMI_GET_VAR_POINTER(dfm, string_to_char_array('kbndz'), xptr)
    call c_f_pointer(xptr, bndindex, (/MAXDIMS, numbnd/))
    
    call BMI_GET_VAR_POINTER(dfm, string_to_char_array('vltb'), xptr)
