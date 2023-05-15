@@ -139,8 +139,6 @@
     
     call default_fm_statistical_output()
 
-    call default_fm_statistical_output()
-
     !Reset samples:
     ns = 0
 
