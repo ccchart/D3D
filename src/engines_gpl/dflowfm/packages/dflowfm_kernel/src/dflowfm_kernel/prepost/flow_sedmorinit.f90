@@ -59,7 +59,7 @@ subroutine flow_sedmorinit()
     use dfm_error
     use m_mormerge
     use m_mormerge_mpi
-    use m_partitioninfo, only: jampi, my_rank, DFM_COMM_DFMWORLD
+    use m_partitioninfo, only: jampi, my_rank, ndomains, DFM_COMM_DFMWORLD
 
     implicit none
 
@@ -79,7 +79,6 @@ subroutine flow_sedmorinit()
     integer, dimension(:), allocatable        :: node_processed !< flag (connection) nodes processed while checking cross sections
     type(t_branch), pointer                   :: pbr
     integer                                   :: outmorphopol !opposite of inmorphopol
-    integer                                   :: ndxi_total   ! total number of cells over all procs
 
 !! executable statements -------------------------------------------------------
 !
@@ -429,14 +428,11 @@ subroutine flow_sedmorinit()
     end if
 
     if (stmpar%morpar%multi) then
-       ndxi_total = total_number_of_cells(jampi, ndxi, DFM_COMM_DFMWORLD) 
-       if ( my_rank == 0 ) then
-           call initialize_mormerge(ierr, ndxi_total, stmpar%lsedtot, "singledomain", stmpar%morpar)
-           if (ierr /= DFM_NOERR) then
-              call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Mormerge initialization failed')
-              goto 1234
-           end if 
-       endif
+       if (initialize_mormerge_mpi(stmpar%morpar, stmpar%lsedtot, ndxi, jampi, my_rank, ndomains, DFM_COMM_DFMWORLD) &
+           /= DFM_NOERR) then
+          call mess(LEVEL_FATAL, 'unstruc::flow_sedmorinit - Mormerge initialization failed')
+          goto 1234
+       end if 
 
        allocate (stmpar%morpar%mergebuf(ndxi*stmpar%lsedtot), stat = ierr)
        if (ierr /= 0) then

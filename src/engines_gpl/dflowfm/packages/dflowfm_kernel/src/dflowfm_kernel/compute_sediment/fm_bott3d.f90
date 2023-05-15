@@ -797,7 +797,7 @@
             !                                &  ' at (', xz(maxloc(dbodsd,dim=2)), ',', yz(maxloc(dbodsd,dim=2)),')'
             !call mess(LEVEL_INFO, msg)
             call update_mergebuffer(stmpar%morpar%mergehandle, ndxi*lsedtot, stmpar%morpar%mergebuf, &
-                jampi, my_rank, ndomains, DFM_COMM_DFMWORLD)
+                jampi, my_rank, DFM_COMM_DFMWORLD)
 
             ii = 0
             do ll = 1, lsedtot
