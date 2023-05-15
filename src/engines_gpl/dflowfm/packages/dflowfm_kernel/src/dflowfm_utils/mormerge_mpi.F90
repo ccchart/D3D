@@ -138,6 +138,7 @@ function initialize_mormerge_mpi(gdmorpar, lsedtot, ndxi, jampi, my_rank, ndomai
    end if
            
 #ifdef HAVE_MPI
+   if ( jampi > 0 ) then
       allocate(buffers_sizes(ndomains), displacement_over_procs(ndomains), stat=error)
       call aerr('buffers_sizes, displacement_over_procs', error, ndomains)
       
@@ -159,6 +160,7 @@ function initialize_mormerge_mpi(gdmorpar, lsedtot, ndxi, jampi, my_rank, ndomai
       else
          mpi_type_real_fp = MPI_REAL
       end if
+   end if
 #endif
 
 end function initialize_mormerge_mpi
