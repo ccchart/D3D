@@ -433,7 +433,7 @@ private
       character(len=Idlen)             :: unit            !< unit of the output item on the NETCDF file.      
       character(len=Idlen)             :: standard_name   !< Standard name of the output item on the NETCDF file.                     
       character(len=Idlen)             :: input_value     !< Original user-provided input valuestring (unparsed) (<<key>> = <<input value>>.         
-      integer                          :: location_specifier !< Specifies the locationwhere the variable is specified (One of UNC_LOC_CNUNC_LOC_S
+      integer                          :: location_specifier !< Specifies the locationwhere the variable is specified (One of UNC_LOC_CN, UNC_LOC_S
                                                              !< UNC_LOC_U, UNC_LOC_L, UNC_LOC_S3D, UNC_LOC_U3, DUNC_LOC_W, UNC_LOC_WU, ...)
       integer                          :: num_additional_attributes  !< number of additional attributes
       type(nc_attribute), pointer      :: additional_attributes(:)   !< optional additional attributes for this entity
