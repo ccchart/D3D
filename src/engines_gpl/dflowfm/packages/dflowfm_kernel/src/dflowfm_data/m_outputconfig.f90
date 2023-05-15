@@ -7,6 +7,16 @@ module m_output_config
 private
    
    public scan_input_tree
+   public addoutval
+   public realloc
+   public dealloc
+   
+   interface realloc
+      module procedure realloc_config_output
+   end interface
+   interface dealloc
+      module procedure dealloc_config_output
+   end interface
 
    integer, parameter, public :: UNC_LOC_CN  = 1  !< Data location: corner point.
    integer, parameter, public :: UNC_LOC_S   = 2  !< Data location: pressure point.
@@ -429,6 +439,86 @@ private
       type(nc_attribute), pointer      :: additional_attributes(:)   !< optional additional attributes for this entity
    end type t_output_quantity_config
 
+   type, public :: t_output_quantity_config_set
+      integer                                                :: size = 0                  !< Actual size of cross-section set
+      integer                                                :: growsby = 200             !< Increment for cross-section set
+      integer                                                :: count= 0                  !< Actual number of cross-section sets
+      type(t_output_quantity_config), pointer, dimension(:)    :: statout                   !< Current cross-section
+   end type t_output_quantity_config_set
+
 contains
+
+!> Reallocate config set.
+subroutine realloc_config_output(confoutput)
+   ! Modules
+   use m_alloc
+
+   implicit none
+   ! Input/output parameters
+   type(t_output_quantity_config_set), intent(inout)   :: confoutput !< Output configuration set.
+   
+
+   ! Local variables
+   integer                   :: ierr
+   type(t_output_quantity_config), pointer, dimension(:)    :: oldstats
+
+   ! Program code
+
+   if (confoutput%size > 0) then
+      oldstats=>confoutput%statout
+   endif
+
+   if (confoutput%growsBy <=0) then
+      confoutput%growsBy = 200
+   endif
+   allocate(confoutput%statout(confoutput%size+confoutput%growsBy),stat=ierr)
+   call aerr('statoutput%statout(statoutput%size+statoutput%growsBy)',ierr,confoutput%size+confoutput%growsBy)
+
+   if (confoutput%size > 0) then
+      confoutput%statout(1:confoutput%size) = oldstats(1:confoutput%size)
+      deallocate(oldstats)
+   endif
+   confoutput%size = confoutput%size+confoutput%growsBy
+end subroutine realloc_config_output
+
+!> Deallocate config set.
+subroutine dealloc_config_output(confoutput)
+   implicit none
+   ! Input/output parameters
+   type(t_output_quantity_config_set), intent(inout)   :: confoutput !< Output configuration set.
+
+   if (confoutput%size> 0) then
+      deallocate(confoutput%statout)
+   endif
+end subroutine dealloc_config_output
+
+   !> Define an output configuration quantity. And set the IDX variable to the current entry
+subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit, location_specifier)
+   type(t_output_quantity_config_set),  intent(inout) :: config_set         !< Array containing all output quantity configs.
+   integer,                         intent(inout) :: idx                 !< Index for the current variable.
+   character(len=*),                intent(in   ) :: key                 !< Key in the MDU file.
+   character(len=*),                intent(in   ) :: name                !< Name of the variable on the NETCDF file.
+   character(len=*),                intent(in   ) :: long_name           !< Long name of the variable on the NETCDF file.
+   character(len=*),                intent(in   ) :: standard_name       !< Standard name of the variable on the NETCDF file.
+   character(len=*),                intent(in   ) :: unit                !< Unit of the variable on the NETCDF file.
+   integer,                         intent(in   ) :: location_specifier  !< Location specifier of the variable.
+
+   integer :: numentries
+
+   config_set%count = config_set%count+1
+   if (config_set%count > config_set%size) then
+      call realloc(config_set)
+   endif
+   numentries = config_set%count
+   idx = numentries
+   config_set%statout(numentries)%key                = key             
+   config_set%statout(numentries)%name               = name            
+   config_set%statout(numentries)%long_name          = long_name       
+   config_set%statout(numentries)%standard_name      = standard_name   
+   config_set%statout(numentries)%unit               = unit            
+   config_set%statout(numentries)%location_specifier = location_specifier
+   config_set%statout(numentries)%num_additional_attributes = 0
+
+end subroutine addoutval
 
 end module m_output_config

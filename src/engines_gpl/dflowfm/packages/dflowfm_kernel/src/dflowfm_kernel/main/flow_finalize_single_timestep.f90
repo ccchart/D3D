@@ -163,6 +163,6 @@ integer, intent(out) :: iresult
    
 call update_statistical_output(out_variable_set_his%statout,dts)
 call update_statistical_output(out_variable_set_map%statout,dts)
-call update_statistical_output(out_variable_set_classmap%statout,dts)
+call update_statistical_output(out_variable_set_clm%statout,dts)
 
 end subroutine flow_finalize_single_timestep
