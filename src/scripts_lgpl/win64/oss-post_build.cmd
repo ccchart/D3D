@@ -681,7 +681,7 @@ rem ==========================
 
         rem copy binaries and dll
         call :copyFile "!build_dir!\dflowfm_lib\!configuration!\dflowfm.*"                                           !dest_bin!
-    )
+)
 
     if "%configuration%" == "Release" (
 
