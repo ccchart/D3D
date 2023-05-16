@@ -20,6 +20,11 @@
 !!  All indications and logos of, and references to registered trademarks
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
+module m_delwaq1_allocate_workspace
+
+implicit none
+
+contains
 
 
 !>\file
@@ -28,15 +33,15 @@
 subroutine delwaq1_allocate_workspace(argc, argv, errorcode)
     use m_getcom
     use m_delwaq1_data
-      
+
     implicit none
-      
+
     integer, intent(in)                           :: argc
     character(len=*), dimension(argc), intent(in) :: argv
     integer, intent(inout)                        :: errorcode
-    
 
-      
+
+
     !
     !     allocate workspace
     !
@@ -102,3 +107,4 @@ subroutine delwaq1_allocate_workspace(argc, argv, errorcode)
     endif
 
 end subroutine delwaq1_allocate_workspace
+end module m_delwaq1_allocate_workspace
