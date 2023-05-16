@@ -521,4 +521,21 @@ subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit,
 
 end subroutine addoutval
 
+subroutine scan_input_tree(tree, paragraph, statout, numentries)
+   use properties
+   
+   type(tree_data), pointer,                    intent(in   )     :: tree   !< processed input file
+   character(len=*),                            intent(in   )     :: paragraph
+   type(t_output_quantity_config), dimension(:),intent(inout)     :: statout
+   integer,                                     intent(in   )     :: numentries
+   
+   integer i
+
+   do i = 1, numentries
+      statout(i)%input_value = ''
+      call prop_get_string(tree, paragraph, statout(i)%key, statout(i)%input_value)
+   enddo
+
+end subroutine scan_input_tree
+
 end module m_output_config

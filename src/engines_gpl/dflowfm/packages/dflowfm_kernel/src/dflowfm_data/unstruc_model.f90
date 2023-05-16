@@ -730,7 +730,9 @@ subroutine readMDUFile(filename, istat)
     use m_waves, only: hwavuni, twavuni, phiwavuni
     use m_sedtrails_data, only: sedtrails_analysis
     use unstruc_display,  only: jaGUI 
-
+    use m_output_config, only: scan_input_tree
+    use fm_statistical_output, only: out_quan_conf_his, out_quan_conf_map, out_quan_conf_clm
+    
     character(*), intent(in)  :: filename !< Name of file to be read (the MDU file must be in current working directory).
     integer,      intent(out) :: istat    !< Return status (0=success)
 
@@ -1716,6 +1718,10 @@ subroutine readMDUFile(filename, istat)
 
 ! Output
     ! [output] OutputDir was read earlier already.
+    call scan_input_tree(md_ptr, 'Output', out_quan_conf_his)
+    call scan_input_tree(md_ptr, 'Output', out_quan_conf_map)
+    call scan_input_tree(md_ptr, 'Output', out_quan_conf_clm)
+
     call prop_get_string(md_ptr, 'output', 'ObsFile', md_obsfile, success)
     call prop_get_string(md_ptr, 'output', 'CrsFile', md_crsfile, success)
     call prop_get_string(md_ptr, 'output', 'RugFile', md_rugfile, success)
