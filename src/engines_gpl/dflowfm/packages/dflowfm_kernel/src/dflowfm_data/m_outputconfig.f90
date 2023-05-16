@@ -521,12 +521,13 @@ subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit,
 
 end subroutine addoutval
 
+!> scan the input tree, using the keys in the statout_set
 subroutine scan_input_tree(tree, paragraph, statout_set)
    use properties
    
-   type(tree_data), pointer,                    intent(in   )     :: tree   !< processed input file
-   character(len=*),                            intent(in   )     :: paragraph
-   type(t_output_quantity_config_set),          intent(inout)     :: statout_set
+   type(tree_data), pointer,                    intent(in   )     :: tree        !< Processed input file.
+   character(len=*),                            intent(in   )     :: paragraph   !< Paragraph of the location of the input data.
+   type(t_output_quantity_config_set),          intent(inout)     :: statout_set !< Contains the keys and configuration information on the output variables.
 
    integer i
    type(t_output_quantity_config), pointer, dimension(:) :: statout
