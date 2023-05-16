@@ -22,6 +22,7 @@
 !!  rights reserved.
 module m_delwaq1
 
+use m_delwaq1_close_lunfiles
 use m_delwaq1_allocate_workspace
 
 implicit none
