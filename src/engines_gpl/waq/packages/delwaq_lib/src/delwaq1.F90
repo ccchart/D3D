@@ -22,6 +22,7 @@
 !!  rights reserved.
 module m_delwaq1
 
+use m_delwaq1_startup_screen
 use m_delwaq1_read_input_data
 use m_delwaq1_init
 use m_delwaq1_close_lunfiles
