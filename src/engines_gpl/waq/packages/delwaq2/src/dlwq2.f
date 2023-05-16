@@ -24,6 +24,7 @@
       program dlwq2
 
       use delwaq2_version_module
+      use m_delwaq2
 
       implicit none
 
