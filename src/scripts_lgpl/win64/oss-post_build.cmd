@@ -681,7 +681,8 @@ rem ==========================
 
         rem copy binaries and dll
         call :copyFile "!build_dir!\dflowfm_lib\!configuration!\dflowfm.*"                                           !dest_bin!
-    )
+        call :copyFile "!build_dir!\dflowfm_lib\!configuration!\dflowfm.dll" "c:\checkouts\delft3d\build_all\x64\Debug"
+)
 
     if "%configuration%" == "Release" (
 
@@ -703,6 +704,7 @@ rem ==========================
 
         rem copy binaries and dll
         call :copyFile "!build_dir!\dflowfm_lib\!configuration!\dflowfm.dll"                                           !dest_bin!
+        call :copyFile "!build_dir!\dflowfm_lib\!configuration!\dflowfm.dll" "d:\checkouts\dscTestBench\trunk\scripts\data\engines\teamcity_artifacts\x64\dflowfm\bin\dflowfm.dll"
 
     )
 
