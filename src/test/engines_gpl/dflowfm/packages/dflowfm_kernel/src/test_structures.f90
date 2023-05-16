@@ -90,13 +90,13 @@ subroutine test_structurefile
       call read_required_property(str_ptr%child_nodes(i), "id", idvalue, dblvalue, is_double, 'block structures.ini', success)
       call assert_equal(success, .TRUE., "Something wrong reading 'id'.") 
 
-      ! for reach block read GateLowerEdgeLevel either as string or as double
+      ! for each block read GateLowerEdgeLevel either as string or as double
       call read_required_property(str_ptr%child_nodes(i), 'GateLowerEdgeLevel', strvalue, dblvalue, is_double, 'first block structures.ini', success)
       if (success) then 
          select case(trim(idvalue))
          case ('full_block')
             call assert_equal(is_double, .TRUE., "Block 'full_block' in structures.ini: expected a value.") 
-            call assert_comparable(dblvalue, 1.d0, eps_hp, "Read GateLowerEdgeLevel as a avlue.")
+            call assert_comparable(dblvalue, 1.d0, eps_hp, "Read GateLowerEdgeLevel as a value.")
          case ('local')
             call assert_equal(is_double, .FALSE., "Block 'local': expected a string.")          
             call assert_equal(strvalue,'filename.tim','Unexpected string.')
@@ -108,6 +108,7 @@ subroutine test_structurefile
             call assert_equal(strvalue,'c:\dirname\0000\filename.tim','Unexpected string.')
          case ('linux')
             call assert_equal(is_double, .FALSE., "Block 'linux' in structures.ini: expected a string.") 
+            call assert_equal(strvalue, '/home/UNST_5890/filename.tim', "/home/UNST_5890/filename.tim: Unexpected string.")    
          end select
       else
          ! raise an error message when .not. success

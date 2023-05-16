@@ -58,11 +58,14 @@ subroutine read_required_property(prop_ptr, key, strvalue, dblvalue, is_double, 
       call warn_flush()
       goto 888
    else
-      read(strvalue, *, iostat = ierr) tmpvalue
-      if (ierr == 0) then
-         dblvalue = tmpvalue
-         is_double = .true.
-      end if
+      ! strvalue is now filled. Check that it does not start with a /
+      if (index(strvalue,'/') /= 1) then 
+         read(strvalue, *, iostat = ierr) tmpvalue
+         if (ierr == 0) then
+            dblvalue = tmpvalue
+            is_double = .true.
+         end if
+      endif
    end if
 
    success = .true.
