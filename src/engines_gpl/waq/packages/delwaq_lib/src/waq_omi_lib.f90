@@ -31,6 +31,7 @@
 
 !> Utilities for the routines here (effectively a private module)
 module waq_omi_utils
+    use m_delwaq2_main
     use m_dhopnf
 
     integer, parameter :: LEVEL_FATAL   = 1
@@ -1509,6 +1510,7 @@ integer function ModelPerformTimeStep ()
     !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELPERFORMTIMESTEP' :: ModelPerformTimeStep
 
     use delwaq2_global_data
+    use m_delwaq2_main
     use m_actions
 
     implicit none
@@ -2237,7 +2239,7 @@ integer function ModelFinalize( )
     !DEC$ ATTRIBUTES DECORATE, ALIAS : 'MODELFINALIZE' :: ModelFinalize
 
     use delwaq2_global_data
-!    use m_delwaq_2_openda
+    use m_delwaq2_main
     use m_actions
 
     implicit none
