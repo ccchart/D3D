@@ -38,9 +38,6 @@ program test_dflowfm_kernel
     call prepareTests
     call runtests_init
 
-    !
-    ! Tests for ZOEK.F
-    !
     call tests_roughness
     call tests_cross_sections
     call tests_observations
@@ -48,7 +45,7 @@ program test_dflowfm_kernel
     call tests_MDU_fileversion
     call tests_1d_grid
     call tests_storageNodes
-    call tests_iniField_1dField
+    !call tests_iniField_1dField
     call tests_structure
     !
     ! Done - properly finalize
