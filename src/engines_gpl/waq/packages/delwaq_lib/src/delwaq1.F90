@@ -20,6 +20,12 @@
 !!  All indications and logos of, and references to registered trademarks
 !!  of Stichting Deltares remain the property of Stichting Deltares. All
 !!  rights reserved.
+module m_delwaq1
+
+implicit none
+
+contains
+
 
 subroutine delwaq1(argc, argv, errorcode)
 
@@ -59,3 +65,4 @@ subroutine delwaq1(argc, argv, errorcode)
     ! Delwaq1_lib should never use a stop, but must be modified to return an error code instead (0 = normal end)
     return
 end subroutine delwaq1
+end module m_delwaq1
