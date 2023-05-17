@@ -493,7 +493,7 @@ subroutine dealloc_config_output(confoutput)
 end subroutine dealloc_config_output
 
    !> Define an output configuration quantity. And set the IDX variable to the current entry
-subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit, location_specifier)
+subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit, location_specifier, description)
    type(t_output_quantity_config_set),  intent(inout) :: config_set         !< Array containing all output quantity configs.
    integer,                         intent(inout) :: idx                 !< Index for the current variable.
    character(len=*),                intent(in   ) :: key                 !< Key in the MDU file.
@@ -502,6 +502,7 @@ subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit,
    character(len=*),                intent(in   ) :: standard_name       !< Standard name of the variable on the NETCDF file.
    character(len=*),                intent(in   ) :: unit                !< Unit of the variable on the NETCDF file.
    integer,                         intent(in   ) :: location_specifier  !< Location specifier of the variable.
+   character(len=*), optional       intent(in   ) :: description         !< Description for the 
 
    integer :: numentries
 
@@ -518,6 +519,11 @@ subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit,
    config_set%statout(numentries)%unit               = unit            
    config_set%statout(numentries)%location_specifier = location_specifier
    config_set%statout(numentries)%num_additional_attributes = 0
+   if (present(description)) then
+      config_set%statout(numentries)%description = description
+   else
+      config_set%statout(numentries)%description = ''
+   endif
 
 end subroutine addoutval
 
