@@ -127,7 +127,11 @@ fi
 
 
 echo "Export environment variables"
-if [ "$1" == "intel21" ]; then
+if [ "$1" == "intel23" ]; then
+     export FC=ifx
+     export CXX=icx
+     export CC=icc
+elif [ "$1" == "intel21" ]; then
      export FC=mpiifort
      export CXX=mpiicpc
      export CC=mpiicc
