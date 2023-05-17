@@ -4,6 +4,7 @@ Description: Network Path Data Class
 Copyright (C)  Stichting Deltares, 2013
 '''
 
+from typing import Optional
 from src.Config.Type import PathType
 from src.Config.Credentials import Credentials
 
@@ -12,54 +13,75 @@ class Location(object):
 
    # constructor: always initialize variables
    def __init__(self):
-      self.__name = ""
-      self.__type = PathType.NONE
-      self.__credentials = Credentials()
-      self.__root = ""
-      self.__from = ""
-      self.__to = ""
-      self.__version = None
-   
-   # name of path
-   def getName(self):
-      return self.__name   
-   def setName(self, value):
+      self.__name: str = ""
+      self.__type: PathType = PathType.NONE
+      self.__credentials:Credentials = Credentials()
+      self.__root: str = ""
+      self.__from: str = ""
+      self.__to: str = ""
+      self.__version: Optional[str] = None
+
+   @property
+   def name(self) -> str:
+      """name of path"""
+      return self.__name
+
+   @name.setter
+   def name(self, value: str):
       self.__name = value
-   
-   # type object definition for network (check, reference or input)
-   def getType(self):
+
+   @property
+   def type(self) -> PathType:
+      """type object definition for network (check, reference or input)"""
       return self.__type
-   def setType(self, value):
+
+   @type.setter
+   def type(self, value: PathType):
       self.__type = value
 
-   # credentials object
-   def getCredentials(self):
+   @property
+   def credentials(self) -> Credentials:
+      """credentials object"""
       return self.__credentials
-   def setCredentials(self, value):
+
+   @credentials.setter
+   def credentials(self, value: Credentials):
       self.__credentials = value
 
-   # root of the network path (http(s), net, disk, svn)
-   def getRoot(self):
+   @property
+   def root(self) -> str:
+      """root of the network path (http(s), net, disk, svn)"""
       return self.__root
-   def setRoot(self, value):
+
+   @root.setter
+   def root(self, value: str):
       self.__root = value
-   
-   # from subpath including trailing escape character (e.g. /)
-   def getFrom(self):
+
+   @property
+   def from_path(self) -> str:
+      """from subpath including trailing escape character (e.g. /)"""
       return self.__from
-   def setFrom(self, value):
+
+   @from_path.setter
+   def from_path(self, value: str):
       self.__from = value
-   
-   # path the root + from is copied to, sub directory of specified local path
-   def getTo(self):
+
+   @property
+   def to_path(self) -> str:
+      """path the root + from is copied to, sub directory of specified local path"""
       if (self.__to == ""):
          return self.__from
       return self.__to
-   def setTo(self, value):
+
+   @to_path.setter
+   def to_path(self, value: str):
       self.__to = value
-   
-   # version of application (mainly used for subversion)
-   def getVersion(self):
+
+   @property
+   def version(self) -> Optional[str]:
+      """version of application (mainly used for subversion)"""
       return self.__version
-   def setVersion(self, value):
+
+   @version.setter
+   def version(self, value: Optional[str]):
       self.__version = value

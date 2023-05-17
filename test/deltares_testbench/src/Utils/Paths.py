@@ -5,7 +5,6 @@ Copyright (C)  Stichting Deltares, 2013
 '''
 
 import os, re
-import codecs
 
 
 # Path helpers

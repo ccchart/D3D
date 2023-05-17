@@ -8,21 +8,24 @@ Copyright (C)  Stichting Deltares, 2013
 class LocalPaths(object):
 
    def __init__(self):
-      self.__casespath = "cases"
-      self.__enginespath = "engines"
-      self.__referencepath = "references"
-   
-   def getCasesPath(self):
+      self.__casespath: str = "cases"
+      self.__enginespath: str = "engines"
+      self.__referencepath: str = "references"
+
+   def getCasesPath(self) -> str:
       return self.__casespath
-   def setCasesPath(self, value):
+
+   def setCasesPath(self, value: str):
       self.__casespath = value
-   
-   def getEnginesPath(self):
+
+   def getEnginesPath(self) -> str:
       return self.__enginespath
-   def setEnginesPath(self, value):
+
+   def setEnginesPath(self, value: str):
       self.__enginespath = value
-      
-   def setReferencePath(self, value):
+
+   def setReferencePath(self, value: str):
       self.__referencepath = value
-   def getReferencePath(self):
+
+   def getReferencePath(self) -> str:
       return self.__referencepath

@@ -6,10 +6,8 @@ Copyright (C)  Stichting Deltares, 2013
 
 import copy, re
 
-import sys
-import pprint as pp
-import traceback
 import logging
+from typing import Any, Iterable, List
 
 from lxml import etree
 from src.Config.Credentials import Credentials
@@ -23,7 +21,7 @@ from src.Config.FileCheck import Parameter
 from src.Config.FileCheck import SkipLine
 
 
-def loop(dict, key):
+def loop(dict: dict[str, Any], key: str) -> List:
     if (key in dict):
         if type(dict[key]) == list:
             return dict[key]
@@ -35,160 +33,195 @@ def loop(dict, key):
         return []
 
 
-def branch(xmltree, prefix):
-    newtree = {"txt": xmltree.text}
-    for ch in xmltree.getchildren():
+def branch(xml_tree: etree._ElementTree, prefix: str) -> dict[str, Any]:
+    new_tree = {"txt": xml_tree.text}
+
+    for ch in xml_tree.getchildren():
         if (type(ch.tag) == str):
-            branchname = ch.tag.replace(prefix, "")
-            if branchname not in newtree:
-                newtree[branchname] = []
-            newtree[branchname].append(branch(ch, prefix))
-    for key, val in xmltree.attrib.items():
-        newtree[key.replace(prefix, "")] = [val]
-    return (newtree)
+            branch_name = ch.tag.replace(prefix, "")
+
+            if branch_name not in new_tree:
+                new_tree[branch_name] = []
+
+            new_tree[branch_name].append(branch(ch, prefix))
+
+    for key, val in xml_tree.attrib.items():
+        new_tree[key.replace(prefix, "")] = [val]
+
+    return new_tree
 
 
 # Parse the xml configuration file
 class XmlConfigParser(object):
-    # load the config file
-    # input: path (relative or absolute), overwritten roots (if any)
-    #        cred: credential from the command line
-    # ouput: loglevel, local paths, program configs and test case configs
-    def load(self, path, rstr, cred):
-        self.__path = path
-        self.__rstr = rstr
+
+    def load(self, path: str, rstr: str, cred: Credentials) -> tuple[LocalPaths, List[ProgramConfig], list]:
+        """load the config file
+
+        Args:
+            path (str): (relative or absolute), overwritten roots (if any)
+            rstr (str): ??
+            cred (Credentials): credential from the command line
+
+        Returns:
+            tuple[LocalPaths, List[ProgramConfig], list]: local paths, program configs and test case configs
+        """
+        self.__path: str = path
+        self.__rstr: str = rstr
         self.__validate__()
         self.__initialize__()
         self.__credentials.append(cred)
+
         return self.__parse__()
 
     def __maketree__(self, path):
         global schema
-        mytree = etree.parse(path)
-        mytree.xinclude()
-        myroot = mytree.getroot()
-        schema = myroot.nsmap[None]
-        prefix = "{%s}" % schema
-        rtname = myroot.tag.replace(prefix, "")
-        mytree = branch(myroot, prefix)
-        return (mytree, schema, rtname)
+        parser = etree.XMLParser(remove_blank_text=True, attribute_defaults=False)
+        parsed_tree: etree._ElementTree = etree.parse(path, parser)
 
-    # validate Xml file format
+        parsed_tree.xinclude()
+        root_node: etree._Element = parsed_tree.getroot()
+
+        schema = root_node.nsmap[None]
+        prefix = "{%s}" % schema
+        root_name = root_node.tag.replace(prefix, "")
+
+        parsed_tree = branch(root_node, prefix)
+        return (parsed_tree, schema, root_name)
+
     def __validate__(self):
+        """validate Xml file format"""
         # parser = make_parser()
         # parser.setContentHandler(ContentHandler())
         # parser.parse(self.__path)
         pass
 
-        # initialize defaults
-
     def __initialize__(self):
-        self.__credentials = []
-        self.__locations = []
-        self.__programconfigs = []
-        self.__defaultcases = []
+        """initialize defaults"""
+        self.__credentials: List[Credentials] = []
+        self.__locations: List[Location] = []
+        self.__program_configs: List[ProgramConfig] = []
+        self.__default_cases: List[TestCaseConfig] = []
 
     # parse the xml file
     # output: loglevel, local paths, program configs and test case configs
     def __parse__(self):
-        xmldoc, schema, rootname = self.__maketree__(self.__path)
-        loglevel = None
-        lcpaths = LocalPaths()
-        tbconfigs = xmldoc["config"]
-        for tbconfig in tbconfigs:
+        xml_doc, schema, root_name = self.__maketree__(self.__path)
+
+        config_tags = xml_doc["config"]
+
+        for config_tag in config_tags:
             #
             # The following for-loop should be deleted (when preparations are finished)
-            for creds in loop(tbconfig, "credentials"):
-                for cred in creds["credential"]:
-                    c = Credentials()
-                    c.setName(str(cred["name"][0]))
-                    c.setUsername(str(cred["username"][0]["txt"]))
-                    c.setPassword(str(cred["password"][0]["txt"]))
-                    self.__credentials.append(c)
-            for lcl in loop(tbconfig, "localPaths"):
-                lcpaths.setCasesPath(str(lcl["testCasesDir"][0]["txt"]))
-                lcpaths.setEnginesPath(str(lcl["enginesDir"][0]["txt"]))
-                lcpaths.setReferencePath(str(lcl["referenceDir"][0]["txt"]))
-            for nwps in loop(tbconfig, "locations"):
-                for nwp in nwps["location"]:
-                    self.__locations.append(self.__fillLocation__(nwp))
-        for programs in loop(xmldoc, "programs"):
-            if rootname == "deltaresTestbench_v3":
+            self.__credentials =  self.__credentials + list(self.__parse_credentials(config_tag))
+            local_paths = self.__parse_local_paths(config_tag)
+            self.__locations = list(self.__parse_locations(config_tag))
+
+        for programs in loop(xml_doc, "programs"):
+            if root_name == "deltaresTestbench_v3":
                 for program in programs["program"]:
                     programInstance = self.__fillProgram__(program)
                     if programInstance is not None:
-                        self.__programconfigs.append(programInstance)
-        for defaultCases in loop(xmldoc, "defaultTestCases"):
+                        self.__program_configs.append(programInstance)
+
+        for defaultCases in loop(xml_doc, "defaultTestCases"):
             for case in defaultCases["testCase"]:
-                self.__defaultcases.append(self.__fillCase__(case))
+                self.__default_cases.append(self.__fillCase__(case))
+
         result = []
         caseNr = -1
-        for cases in loop(xmldoc, "testCases"):
+        for cases in loop(xml_doc, "testCases"):
             for case in loop(cases, "testCase"):
                 caseNr = caseNr + 1
                 try:
-                    self.__defaultcases.append(self.__fillCase__(case))
+                    self.__default_cases.append(self.__fillCase__(case))
                     result.append(self.__fillCase__(case))
                 except:
                     logging.warning("Something is wrong with test case: " + str(cases['testCase'][caseNr]['path'][0]['txt']) + ", test case will be ignored")
-        return lcpaths, self.__programconfigs, result
+        return local_paths, self.__program_configs, result
+
+    def __parse_locations(self, config_tag: dict[str, Any]) -> Iterable[Location]:
+        for locations_tags in loop(config_tag, "locations"):
+            for location_tag in locations_tags["location"]:
+                yield self.__fillLocation__(location_tag)
+
+    def __parse_local_paths(self, config_tag) -> LocalPaths:
+        local_paths = LocalPaths()
+
+        get_text = lambda d: str(d[0]["txt"])
+
+        for lcl in loop(config_tag, "localPaths"):
+            local_paths.setCasesPath(get_text(lcl["testCasesDir"]))
+            local_paths.setEnginesPath(get_text(lcl["enginesDir"]))
+            local_paths.setReferencePath(get_text(lcl["referenceDir"]))
+
+        return local_paths
+
+    def __parse_credentials(self, config_tag) -> Iterable[Credentials]:
+
+        for credentials_tag in loop(config_tag, "credentials"):
+            for credential_tag in credentials_tag["credential"]:
+                new_credentials = Credentials()
+                new_credentials.name = str(credential_tag["name"][0])
+                new_credentials.username = str(credential_tag["username"][0]["txt"])
+                new_credentials.password = str(credential_tag["password"][0]["txt"])
+                yield new_credentials
 
     # fill network path (including default)
     # input: XmlElement
     # output: Location
-    def __fillLocation__(self, element):
+    def __fillLocation__(self, element: dict[str, Any]) -> Location:
         if not "ref" in element and not "name" in element:
             return None
         if not "ref" in element:
-            nwp = Location()
-            nwp.setName(str(element["name"][0]))
+            new_location = Location()
+            new_location.name = str(element["name"][0])
             if "credential" in element:
                 c = self.__getCredentials__(str(element["credential"][0]["ref"][0]))
                 if not c:
-                    raise XmlError("invalid credential reference value in " + nwp.getName())
-                nwp.setCredentials(c)
+                    raise XmlError("invalid credential reference value in " + new_location.name)
+                new_location.credentials = c
             # overwrite roots if specified
-            newroot = self.__getOverwritePaths__(self.__rstr, nwp.getName(), "root")
+            newroot = self.__getOverwritePaths__(self.__rstr, new_location.name, "root")
             if newroot:
-                nwp.setRoot(newroot)
+                new_location.root = newroot
             else:
-                nwp.setRoot(str(element["root"][0]["txt"].strip()))
+                new_location.root = str(element["root"][0]["txt"].strip())
         else:
-            nwp = copy.deepcopy(self.__getLocations__(element["ref"][0]))
-            if not nwp:
+            new_location = copy.deepcopy(self.__getLocations__(element["ref"][0]))
+            if not new_location:
                 raise XmlError("invalid network path reference value in " + element["ref"][0])
         if "type" in element:
             if str(element["type"][0]).lower() == "input":
-                nwp.setType(PathType.INPUT)
+                new_location.type = PathType.INPUT
             if str(element["type"][0]).lower() == "check":
-                nwp.setType(PathType.CHECK)
+                new_location.type = PathType.CHECK
             if str(element["type"][0]).lower() == "reference":
-                nwp.setType(PathType.REFERENCE)
+                new_location.type = PathType.REFERENCE
         if "path" in element:
             #  overwrite paths if specified
-            newpath = self.__getOverwritePaths__(self.__rstr, nwp.getName(), "path")
+            newpath = self.__getOverwritePaths__(self.__rstr, new_location.name, "path")
             if newpath:
-                nwp.setPath(newpath)
+                new_location.setPath(newpath)
             else:
-                nwp.setPath(str(element["path"][0]["txt"]))
+                new_location.setPath(str(element["path"][0]["txt"]))
         if "version" in element:
-            nwp.setVersion(str(element["version"][0]["txt"]))
+            new_location.setVersion = str(element["version"][0]["txt"])
         if "from" in element:
             # overwrite from if specified
-            newfrom = self.__getOverwritePaths__(self.__rstr, nwp.getName(), "from")
+            newfrom = self.__getOverwritePaths__(self.__rstr, new_location.name, "from")
             if newfrom:
-                nwp.setFrom(newfrom)
+                new_location.from_path = newfrom
             else:
                 # Remove leading/trailing slashes; they mess up the building of the path
-                nwp.setFrom(str(element["from"][0]["txt"]).strip('/\\'))
+                new_location.from_path = str(element["from"][0]["txt"]).strip('/\\')
         if "to" in element:
             # overwrite to if specified
-            newto = self.__getOverwritePaths__(self.__rstr, nwp.getName(), "to")
+            newto = self.__getOverwritePaths__(self.__rstr, new_location.name, "to")
             if newto:
-                nwp.setTo(newto)
+                new_location.to_path = newto
             else:
-                nwp.setTo(str(element["to"][0]["txt"]))
-        return nwp
+                new_location.to_path = str(element["to"][0]["txt"])
+        return new_location
 
     # fill program (including defaults)
     # input: XmlElement
@@ -239,7 +272,7 @@ class XmlConfigParser(object):
             if nwp:
                 nwpExists = False
                 for enp in p.getLocations():
-                    if enp.getName() == nwp.getName() and enp.getType() == nwp.getType():
+                    if enp.name == nwp.name and enp.type() == nwp.type():
                         enp = nwp
                         nwpExists = True
                 if not nwpExists:
@@ -367,7 +400,7 @@ class XmlConfigParser(object):
             if nwp:
                 nwpExists = False
                 for enp in c.getLocations():
-                    if enp.getType() == nwp.getType():
+                    if enp.type == nwp.type:
                         enp = nwp
                         nwpExists = True
                 if not nwpExists:
@@ -428,27 +461,27 @@ class XmlConfigParser(object):
     # get reference value if exists
     def __getCredentials__(self, name):
         for credential in self.__credentials:
-            if credential.getName() == name:
+            if credential.name == name:
                 return credential
         return None
 
     # get reference value if exists
     def __getLocations__(self, name):
         for location in self.__locations:
-            if location.getName() == name:
+            if location.name == name:
                 return location
         return None
 
     # get reference value if exists
     def __getPrograms__(self, name):
-        for program in self.__programconfigs:
+        for program in self.__program_configs:
             if program.getName() == name:
                 return program
         return None
 
     # get reference value if exists
     def __getCase__(self, name):
-        for case in self.__defaultcases:
+        for case in self.__default_cases:
             if case.getName() == name:
                 return case
         return None

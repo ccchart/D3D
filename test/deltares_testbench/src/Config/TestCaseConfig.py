@@ -1,18 +1,23 @@
-'''
+"""
 Description: Test Config Data Class
 -----------------------------------------------------
 Copyright (C)  Stichting Deltares, 2013
-'''
+"""
 
 
 # Test case configuration
+from typing import List
+
+from src.Config.Location import Location
+
+
 class TestCaseConfig(object):
     # constructor: initialize variables
     def __init__(self):
-        self.__name = ""
-        self.__path = ""
-        self.__locations = []
-        self.__searchPaths = []
+        self.__name: str = ""
+        self.__path: str = ""
+        self.__locations: List[Location] = []
+        self.__searchPaths: List[str] = []
         self.__environmentvars = {}
         self.__shell = None
         self.__shellArguments = []
@@ -23,38 +28,38 @@ class TestCaseConfig(object):
         self.__refRunTime = -1
         self.__runTime = 0
         self.__OverruleRefMaxRunTime = False
-        self.__absTestCasePath = ""
-        self.__absTestCaseRefPath = ""
+        self.__absTestCasePath: str = ""
+        self.__absTestCaseRefPath: str = ""
         self.__maxdiff = -1
         self.__runfile = None
         self.__ignore = False
 
     # name of the test case
-    def getName(self):
+    def getName(self) -> str:
         return self.__name
 
-    def setName(self, value):
+    def setName(self, value: str):
         self.__name = value
 
     # relative paths for test case
-    def getPath(self):
+    def getPath(self) -> str:
         return self.__path
 
-    def setPath(self, value):
+    def setPath(self, value: str):
         self.__path = value
 
     # network paths for test case (reference and input)
-    def getLocations(self):
+    def getLocations(self) -> List[Location]:
         return self.__locations
 
-    def setLocations(self, value):
+    def setLocations(self, value: List[Location]):
         self.__locations = value
 
     # get absolute search paths
-    def getSearchPaths(self):
+    def getSearchPaths(self) -> List[str]:
         return self.__searchPaths
 
-    def setSearchPaths(self, value):
+    def setSearchPaths(self, value: List[str]):
         self.__searchPaths = value
 
     # get the environment variables for the program

@@ -1,12 +1,16 @@
-'''
+"""
 Description: FTP handler
 -----------------------------------------------------
 Copyright (C)  Stichting Deltares, 2013
-'''
+"""
 
 import logging
 import os
 import sys
+from typing import Optional
+
+from src.Config.Credentials import Credentials
+from src.Utils.IHandler import IHandler
 
 if sys.version_info.major == 2:
     import urlparse as parse
@@ -18,45 +22,44 @@ from ftplib import error_perm
 
 
 # Upload and download for ftp paths
-class FTPHandler(object):
-
-    def prepare_upload(self, frompath, topath, credentials):
+class FTPHandler(IHandler):
+    def prepare_upload(self, from_path: str, to_path: str, credentials: Credentials) -> None:
         pass
 
     # Upload data to location
     # input: from, to and credentials
-    def upload(self, frompath, topath, credentials):
-        logging.debug("setting up connection to FTP: %s", topath)
-        url = parse.urlparse(topath)
+    def upload(self, from_path: str, to_path: str, credentials: Credentials) -> None:
+        logging.debug("setting up connection to FTP: %s", to_path)
+        url = parse.urlparse(to_path)
         ftp = FTP(url.netloc)
         if credentials:
-            ftp.login(credentials.getUsername(), credentials.getPassword())
-            logging.debug("connecting as: %s", credentials.getUsername())
+            ftp.login(credentials.username, credentials.password)
+            logging.debug("connecting as: %s", credentials.username)
         else:
             ftp.login()
         ftp.cwd(url.path)
         logging.debug("going to root: %s", url.path)
-        self.__traverseDirectoryUpload__(ftp, frompath, "", url.path, "")
+        self.__traverseDirectoryUpload__(ftp, from_path, "", url.path, "")
         ftp.close()
 
     # Download data from location
     # input: from, to and credentials
-    def download(self, frompath, topath, credentials, version):
-        logging.debug("setting up connection to FTP: %s", frompath)
-        url = parse.urlparse(frompath)
+    def download(self, from_path: str, to_path: str, credentials: Credentials, version: str):
+        logging.debug("setting up connection to FTP: %s", from_path)
+        url = parse.urlparse(from_path)
         ftp = FTP(url.netloc)
         if credentials:
-            ftp.login(credentials.getUsername(), credentials.getPassword())
-            logging.debug("connecting as: %s", credentials.getUsername())
+            ftp.login(credentials.username, credentials.password)
+            logging.debug("connecting as: %s", credentials.username)
         else:
             ftp.login()
         ftp.cwd(url.path)
         logging.debug("going to root: %s", url.path)
         # create root on filesystem
-        if not os.path.exists(topath):
-            os.makedirs(topath)
+        if not os.path.exists(to_path):
+            os.makedirs(to_path)
         logging.debug("analysing directory structure on ftp")
-        self.__traverseDirectoryDownload__(ftp, "/", topath)
+        self.__traverseDirectoryDownload__(ftp, "/", to_path)
         ftp.close()
 
     # recursive traverse, fills ftpdirs array
@@ -85,7 +88,9 @@ class FTPHandler(object):
                     if parts:
                         for part in parts:
                             topath = topath + part + "/"
-                self.__traverseDirectoryUpload__(ftp, cwd, os.path.join(frompath, locfile), destination, topath)
+                self.__traverseDirectoryUpload__(
+                    ftp, cwd, os.path.join(frompath, locfile), destination, topath
+                )
             else:
                 ftp.cwd("/" + destination + frompath.replace(os.sep, "/"))
                 with open(os.path.join(cwd, frompath, locfile)) as lf:
@@ -117,7 +122,9 @@ class FTPHandler(object):
                 # this will check if ftpfile is folder:
                 ftp.cwd(path + ftpfile + "/")
                 # if so, explore it:
-                self.__traverseDirectoryDownload__(ftp, path + ftpfile + "/", destination)
+                self.__traverseDirectoryDownload__(
+                    ftp, path + ftpfile + "/", destination
+                )
             except error_perm:
                 # possibly need a permission exception catch:
                 with open(os.path.join(topath, ftpfile), "wb") as ff:

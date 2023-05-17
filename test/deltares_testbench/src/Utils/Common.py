@@ -12,6 +12,7 @@ import os
 from os import path as p
 import logging
 import logging.handlers as handlers
+from src.Config.Credentials import Credentials
 from src.Utils.Paths import Paths
 import settings as settings
 
@@ -164,7 +165,7 @@ def detachFileLogger(name):
 # mount a network drive in linux or windows
 # input: server name, folder name, optional credentials
 # output: mount point, boolean specifying if we created it or if it already exists
-def mountNetworkDrive(server, folder, credentials):
+def mountNetworkDrive(server, folder, credentials: Credentials):
    if platform.system() == "Windows":
       pmp = checkIfAlreadyMounted(server, folder)
       if  pmp != "":
@@ -175,12 +176,12 @@ def mountNetworkDrive(server, folder, credentials):
       mountpoint = dl + ":"
       cmd = "net use " + mountpoint + " \\\\" + server + "\\" + folder
       if credentials:
-         cmd = cmd + " /user:" + credentials.getUsername() +" " + credentials.getPassword()
+         cmd = cmd + " /user:" + credentials.username +" " + credentials.password
    else:
       mountpoint = tempfile.mkdtemp()
       cmd = "mount -t smbfs //" + server + "/" + folder + " " + mountpoint
       if credentials:
-         cmd = cmd + " -o username=" + credentials.getUsername() + ",password=" + credentials.getPassword()
+         cmd = cmd + " -o username=" + credentials.username + ",password=" + credentials.password
    subprocess.check_call(cmd, shell=True)
    return mountpoint, True
 

@@ -8,21 +8,30 @@ Copyright (C)  Stichting Deltares, 2013
 class Credentials(object):
 
    def __init__(self):
-      self.__name = ""
-      self.__username = ""
-      self.__password = ""
-   
-   def getName(self):
+      self.__name: str = ""
+      self.__username: str = ""
+      self.__password: str = ""
+
+   @property
+   def name(self) -> str:
       return self.__name
-   def setName(self, value):
+
+   @name.setter
+   def name(self, value: str):
       self.__name = value
-   
-   def getUsername(self):
+
+   @property
+   def username(self) -> str:
       return self.__username
-   def setUsername(self, value):
+
+   @username.setter
+   def username(self, value: str):
       self.__username = value
 
-   def getPassword(self):
+   @property
+   def password(self) -> str:
       return self.__password
-   def setPassword(self, value):
+
+   @password.setter
+   def password(self, value):
       self.__password = value

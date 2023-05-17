@@ -5,8 +5,13 @@ Copyright (C)  Stichting Deltares, 2013
 '''
 
 # Program configuration
+from typing import List
+
+from src.Config.Location import Location
+
+
 class ProgramConfig(object):
-   
+
    # constructor: always initialize variables
    def __init__(self):
       self.__shell = None
@@ -32,19 +37,19 @@ class ProgramConfig(object):
       self.__delay = 0
       self.__maxRunTime = 0
       self.__storeOutput = False
-   
+
    # optional shell statement
    def getShell(self):
       return self.__shell
    def setShell(self, value):
       self.__shell = value
-   
+
    # optional program remove quotes statement
    def getProgramRemoveQuotes(self):
       return self.__programRemoveQuotes
    def setProgramRemoveQuotes(self, value):
       self.__programRemoveQuotes = value
-   
+
    # optional shell remove quotes statement
    def getShellRemoveQuotes(self):
       return self.__shellRemoveQuotes
@@ -76,9 +81,10 @@ class ProgramConfig(object):
       self.__name = value
 
    # network paths for program (reference and current)
-   def getLocations(self):
+   def getLocations(self) -> List[Location]:
       return self.__locations
-   def setLocations(self, value):
+
+   def setLocations(self, value: List[Location]):
       self.__locations = value
 
    # path for program
@@ -108,7 +114,7 @@ class ProgramConfig(object):
       return self.__environmentvars
    def setEnvironmentVariables(self, value):
       self.__environmentvars = value
- 
+
    # get the operating environment
    def getEnvironment(self):
       return self.__environment
@@ -126,25 +132,25 @@ class ProgramConfig(object):
       return self.__absBinPath
    def setAbsoluteBinPath(self, value):
       self.__absBinPath = value
-      
+
    # set the working directory
    def getWorkingDirectory(self):
       return self.__workingDirectory
    def setWorkingDirectory(self, value):
       self.__workingDirectory = value
- 
+
    # arguments to pass to program
    def getArguments(self):
       return self.__arguments
    def setArguments(self, value):
       self.__arguments = value
-   
+
    # sequence group identifier to pass to program
    def getSequence(self):
       return self.__sequence
    def setSequence(self, value):
       self.__sequence = value
-   
+
    # given delay before start
    def getDelay(self):
       return self.__delay

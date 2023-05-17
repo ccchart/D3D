@@ -8,6 +8,8 @@ import os
 import logging
 import sys
 import abc
+from src.Config.HandlerType import HandlerType
+from src.Config.Location import Location
 from src.Config.Type import PathType
 from src.Config.Mode import Mode
 from src.Config.TestCaseConfig import TestCaseFailure
@@ -17,11 +19,11 @@ from src.Suite.Program import Program
 from src.Utils.Paths import Paths
 from src.Utils.HandlerFactory import HandlerFactory
 from src.Utils.Common import stripEscapeCharacters
-from src.Utils.ResolveHandler import Handler, ResolveHandler
+from src.Utils.ResolveHandler import ResolveHandler
 import settings as settings
 
 
-# Run test cases in reference or compare mode 
+# Run test cases in reference or compare mode
 class TestSetRunner(object):
     __metaclass__ = abc.ABCMeta
 
@@ -150,13 +152,13 @@ class TestSetRunner(object):
             if len(pcnf.getLocations()) > 0:
                 for loc in pcnf.getLocations():
                     # check type of program
-                    if (settings.run_mode == Mode.REFERENCE and loc.getType() == PathType.REFERENCE) or (
-                            settings.run_mode == Mode.COMPARE and loc.getType() == PathType.CHECK):
+                    if (settings.run_mode == Mode.REFERENCE and loc.type == PathType.REFERENCE) or (
+                            settings.run_mode == Mode.COMPARE and loc.type == PathType.CHECK):
                         # if the program is local, use the existing location
-                        sourceLocation = Paths().mergeFullPath(loc.getRoot(), loc.getFrom())
+                        sourceLocation = Paths().mergeFullPath(loc.root, loc.from_path)
                         if Paths().isPath(sourceLocation):
                             absLocation = os.path.abspath(Paths().mergeFullPath(sourceLocation, pcnf.getPath()))
-                            if ResolveHandler().detect(absLocation, None) == Handler.PATH:
+                            if ResolveHandler().detect(absLocation, None) == HandlerType.PATH:
                                 if not os.path.exists(absLocation):
                                     logging.warning("could not yet detect specified program %s", absLocation)
 #                                   raise SystemExit("Program does not exist")
@@ -165,15 +167,16 @@ class TestSetRunner(object):
                                 pcnf.setAbsoluteBinPath(absLocation)
                         # else download it from a remote location
                         else:
-                            if loc.getVersion():
-                                to = loc.getTo() + "_" + loc.getVersion()
+                            if loc.version:
+                                to = loc.to_path + "_" + loc.version
                             else:
-                                to = loc.getTo()
+                                to = loc.to_path
                             programLocalPath = Paths().rebuildToLocalPath(os.path.join(settings.local_paths.getEnginesPath(), to))
+
                             # if the program is remote (network or other) and it does not exist locally, download it
                             if not os.path.exists(programLocalPath):
                                 logging.debug("Downloading program, %s from %s", pcnf.getName(), sourceLocation)
-                                HandlerFactory().download(sourceLocation, programLocalPath, loc.getCredentials(), loc.getVersion())
+                                HandlerFactory().download(sourceLocation, programLocalPath, loc.credentials, loc.version)
                             pcnf.setAbsoluteBinPath(os.path.abspath(Paths().mergeFullPath(programLocalPath, pcnf.getPath())))
 
             # If a program does not have a network path, and path is not a relative or absolute path, we assume the system can find it
@@ -235,30 +238,29 @@ class TestSetRunner(object):
     # Update test cases
     def __updateTestCases__(self):
         logging.info("Updating cases")
+
         for testCaseConfig in settings.configs:
+
             logging.info("Updating case: %s ", testCaseConfig.getName())
-            networkPaths = testCaseConfig.getLocations()
-            if len(networkPaths) == 0:
-                if settings.teamcity:
-                    sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
-                    sys.stderr.write("##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
-                raise SystemExit("Could not update case %s, no network paths given", testCaseConfig.getName())
-                continue
-            for nwp in networkPaths:
-                if nwp.getRoot() == "" or nwp.getFrom() == "":
-                    if settings.teamcity:
-                        sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
-                        sys.stderr.write("##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
-                    raise SystemExit("Could not update case %s, invalid network input path part (root:%s, from:%s) given",
-                                     testCaseConfig.getName(), nwp.getRoot(), nwp.getFrom())
+            locations = testCaseConfig.getLocations()
+
+            if len(locations) == 0:
+                self.raise_system_error("Could not update case %s, no network paths given", testCaseConfig.getName())
+
+            for location in locations:
+                if location.root == "" or location.from_path == "":
+                    self.raise_system_error("Could not update case %s, invalid network input path part (root:%s, from:%s) given",
+                                     testCaseConfig.getName(), location.root, location.from_path)
 
                 # Build the path to download from: Root+From+testcasePath:
                 # Root: https://repos.deltares.nl/repos/DSCTestbench/cases
                 # From: trunk/win32_hp
                 # testcasePath: e01_d3dflow\f01_general\c03-f34
-                netloc = Paths().mergeFullPath(nwp.getRoot(), nwp.getFrom(), testCaseConfig.getPath())
-                if Paths().isPath(netloc):
-                    netloc = os.path.abspath(netloc)
+                remote_path = Paths().mergeFullPath(location.root, location.from_path, testCaseConfig.getPath())
+
+                if Paths().isPath(remote_path):
+                    remote_path = os.path.abspath(remote_path)
+
                 # Downloading the testcase input/refdata may fail when it is already present and have to be
                 # deleted first. This probably has to do with TortoiseSVNCache, accessing that directory.
                 # When trying a second time it normally works. Safe side: try 3 times.
@@ -267,53 +269,54 @@ class TestSetRunner(object):
                 while attempts < 3 and not success:
                     attempts += 1
                     try:
-                        if nwp.getType() == PathType.INPUT:
-                            # Build localPath to download to: casesPath+To+testcasePath
-                            localPath = Paths().rebuildToLocalPath(
-                                Paths().mergeFullPath(settings.local_paths.getCasesPath(), nwp.getTo(), testCaseConfig.getPath()))
-                            if settings.only_post:
-                                logging.info("Skipping testcase download (postprocess only)")
-                            else:
-                                logging.debug("Downloading input of case, %s from %s", localPath, netloc)
-                                # Download location on local system is always cleaned before start
-                                try:
-                                    HandlerFactory().download(netloc, localPath, nwp.getCredentials(), nwp.getVersion())
-                                except:
-                                    # We need always case input data
-                                    logging.warning("Could not download from %s", netloc)
-                                    if settings.teamcity:
-                                        sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
-                                        sys.stderr.write(
-                                            "##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
-                                    raise SystemExit("Could not download from " + netloc)
+
+                        destination_dir = None
+                        input_description = ""
+
+                        if location.type == PathType.INPUT:
+                            destination_dir = settings.local_paths.getCasesPath()
+                            input_description = "input of case"
+
+                        if location.type == PathType.REFERENCE:
+                            destination_dir = settings.local_paths.getReferencePath()
+                            input_description = "reference result"
+
+                        if (destination_dir != None):
+                            # Build localPath to download to: To+testcasePath
+                            localPath = Paths().rebuildToLocalPath(Paths().mergeFullPath(destination_dir, location.to_path, testCaseConfig.getPath()))
+                            self.download_file(location, remote_path, localPath, input_description)
+
                             # Add the local path to the downloaded test case to the actual test case configuration
                             testCaseConfig.setAbsoluteTestCasePath(localPath)
-                        if nwp.getType() == PathType.REFERENCE:
-                            # Build localPath to download to: referencePath+To+testcasePath
-                            localPath = Paths().rebuildToLocalPath(
-                                Paths().mergeFullPath(settings.local_paths.getReferencePath(), nwp.getTo(), testCaseConfig.getPath()))
-                            # Download location on local system is always cleaned before start
-                            if settings.only_post:
-                                logging.info("Skipping download of reference results (postprocess only)")
-                            else:
-                                logging.debug("Downloading reference result, %s from %s", localPath, netloc)
-                                try:
-                                    HandlerFactory().download(netloc, localPath, nwp.getCredentials(), nwp.getVersion(), autocommit=settings.autocommit)
-                                except:
-                                    logging.warning("Could not download from %s", netloc)
-                                    # If in comparison mode, we need reference data
-                            #       if settings.run_mode == Mode.COMPARE:
-                            #           if settings.teamcity:
-                            #               sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
-                            #               sys.stderr.write(
-                            #                   "##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
-                            #           raise SystemExit("Could not download from " + netloc)
-                            # Add the local path to the downloaded test case reference to the actual test case configuration
-                            testCaseConfig.setAbsoluteTestCaseReferencePath(localPath)
+
                         success = True
-                    except Exception:
+                    except Exception as e:
                         logging.warning("Unable to download testcase (attempt %s)", attempts + 1)
+
                         if attempts >= 3:
                             sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
                             if settings.teamcity:
                                 sys.stderr.write("##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
+
+    def download_file(self, location_data: Location, remote_path: str, localPath: str, location_description: str):
+        if settings.only_post:
+            logging.info("Skipping testcase download (postprocess only)")
+        else:
+            logging.debug(f"Downloading {location_description}, {localPath} from {remote_path}")
+
+            # Download location on local system is always cleaned before start
+            try:
+                HandlerFactory().download(remote_path, localPath, location_data.credentials, location_data.version)
+            except:
+                                    # We need always case input data
+                logging.warning("Could not download from %s", remote_path)
+                self.raise_system_error("Could not download from " + remote_path)
+
+
+    def raise_system_error(self, message:str ):
+
+        if settings.teamcity:
+            sys.stderr.write("##teamcity[testStarted name='Update testcases']\n")
+            sys.stderr.write("##teamcity[testFailed name='Update testcases' message='Download exception occurred']\n")
+
+        raise SystemExit(message)

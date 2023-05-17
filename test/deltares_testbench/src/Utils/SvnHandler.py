@@ -1,48 +1,51 @@
-'''
+"""
 Description: Executes SVN commands
 -----------------------------------------------------
 Copyright (C)  Stichting Deltares, 2013
-'''
+"""
 
 import logging
+from src.Config.Credentials import Credentials
 from src.Config.ProgramConfig import ProgramConfig
 from src.Suite.Program import Programs
+from src.Utils.IHandler import IHandler
 
 
 # SVN wrapper, has handler interface
-class SvnHandler(object):
+class SvnHandler(IHandler):
     def __init__(self, autocommit=False):
         self.autocommit = autocommit
 
-    def prepare_upload(self, frompath, topath, credentials):
-        logging.debug("Preparing svn upload from %s to %s", frompath, topath)
+    def prepare_upload(self, from_path: str, to_path: str, credentials: Credentials) -> None:
+        logging.debug("Preparing svn upload from %s to %s", from_path, to_path)
 
         # Prepare svn and its configuration.
         pcnf = ProgramConfig()
-        pcnf.setWorkingDirectory(frompath)
+        pcnf.setWorkingDirectory(from_path)
         prg = Programs().get("svn")
 
         # Use the mkdir command to make sure that the reference directory exists.
         arguments = self.__buildInitialArguments__(["mkdir", "--parents"], credentials)
-        arguments.extend([topath])
+        arguments.extend([to_path])
         arguments.extend(['-m"Automated_creation_of_reference_directory_by_TestBench"'])
         pcnf.setArguments(arguments)
         pcnf.setIgnoreReturnValue(
-            True)  # In case the folder already exists in SVN, a reference run has already been executed. Suppress warnings and error return value.
+            True
+        )  # In case the folder already exists in SVN, a reference run has already been executed. Suppress warnings and error return value.
         pcnf.setIgnoreStandardError(True)
         prg.overwriteConfiguration(pcnf)
         prg.run()
 
-        self.download(topath, frompath, credentials, "HEAD")
+        self.download(to_path, from_path, credentials, "HEAD")
 
     # upload to svn
     # input: local path, svn path, credentials
-    def upload(self, frompath, topath, credentials):
-        logging.debug("Uploading from  %s to %s", frompath, topath)
+    def upload(self, from_path: str, to_path: str, credentials: Credentials) -> None:
+        logging.debug("Uploading from  %s to %s", from_path, to_path)
 
         # Prepare svn and its configuration.
         pcnf = ProgramConfig()
-        pcnf.setWorkingDirectory(frompath)
+        pcnf.setWorkingDirectory(from_path)
         prg = Programs().get("svn")
 
         # Add the new files
@@ -57,7 +60,7 @@ class SvnHandler(object):
             logging.debug("Auto-committing changes...")
             arguments = self.__buildInitialArguments__(["commit"], credentials)
             arguments.extend(["."])
-            arguments.extend(["-m\"Automated_commit_from_TestBench\""])
+            arguments.extend(['-m"Automated_commit_from_TestBench"'])
             pcnf.setArguments(arguments)
             prg.overwriteConfiguration(pcnf)
             prg.run()
@@ -66,23 +69,29 @@ class SvnHandler(object):
 
     # download from svn
     # input: svn path, local path, credentials, version
-    def download(self, frompath, topath, credentials, version):
-        logging.debug("downloading from svn: %s", frompath)
-        logging.debug("-                 to: %s", topath)
+    def download(
+        self, from_path: str, to_path: str, credentials: Credentials, version: str
+    ):
+        logging.debug("downloading from svn: %s", from_path)
+        logging.debug("-                 to: %s", to_path)
         arguments = None
         revision = "-r HEAD"
         if version and version != "":
             revision = "-r " + version
+            logging.debug(f"-                 revison: {version}")
+
         svn_io = "export"
         if self.autocommit:
             svn_io = "checkout"
 
         # Even the "checkout" has the option "--force", to be sure that the files on teamcity are those from SVN
-        arguments = self.__buildInitialArguments__([svn_io, "--force", revision], credentials)
-        arguments.extend([frompath, "."])
+        arguments = self.__buildInitialArguments__(
+            [svn_io, "--force", revision], credentials
+        )
+        arguments.extend([from_path, "."])
         prg = Programs().get("svn")
         pcnf = ProgramConfig()
-        pcnf.setWorkingDirectory(topath)
+        pcnf.setWorkingDirectory(to_path)
         pcnf.setArguments(arguments)
         prg.overwriteConfiguration(pcnf)
         prg.run()
@@ -92,9 +101,13 @@ class SvnHandler(object):
     # default svn arguments
     # input: initial command, credentials
     # output: argument string
-    def __buildInitialArguments__(self, initial, credentials):
+    def __buildInitialArguments__(self, initial, credentials: Credentials):
         arguments = initial
-        arguments.extend(["--no-auth-cache", "--non-interactive", "--trust-server-cert"])
+        arguments.extend(
+            ["--no-auth-cache", "--non-interactive", "--trust-server-cert"]
+        )
         if credentials:
-            arguments.extend(["--username", credentials.getUsername(), "--password", credentials.getPassword()])
+            arguments.extend(
+                ["--username", credentials.username, "--password", credentials.password]
+            )
         return arguments
