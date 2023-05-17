@@ -24,8 +24,8 @@ if [ "$1" == "intel23" ]; then
      #module load    metis/5.1.0_intel21.2.0
      #module display metis/5.1.0_intel21.2.0
   
-     module load    cmake/3.26.1_intel2023 
-     module display cmake/3.26.1_intel2023
+     module load    cmake/3.26.1_intel2023.1.0
+     module display cmake/3.26.1_intel2023.1.0
 
      module load    gcc/12.2.0_gcc12.2.0
      module display gcc/12.2.0_gcc12.2.0
@@ -33,8 +33,8 @@ if [ "$1" == "intel23" ]; then
      module load    proj/9.2.0_intel2023.1.0
      module display proj/9.2.0_intel2023.1.0
 
-     module load    gdal/3.6.3._intel2023.1.0
-     module display gdal/3.6.3._intel2023.1.0
+     module load    gdal/3.6.3_intel2023.1.0
+     module display gdal/3.6.3_intel2023.1.0
 
      module load    svn/1.14.2_gcc12.2.0
      module display svn/1.14.2_gcc12.2.0
