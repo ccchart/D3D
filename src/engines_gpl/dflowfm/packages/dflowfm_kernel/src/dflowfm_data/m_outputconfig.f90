@@ -7,6 +7,7 @@ module m_output_config
 private
    
    public scan_input_tree
+   public set_properties
    public addoutval
    public realloc
    public dealloc
@@ -433,6 +434,7 @@ private
       character(len=Idlen)             :: unit            !< unit of the output item on the NETCDF file.      
       character(len=Idlen)             :: standard_name   !< Standard name of the output item on the NETCDF file.                     
       character(len=Idlen)             :: input_value     !< Original user-provided input valuestring (unparsed) (<<key>> = <<input value>>.         
+      character(len=Idlen)             :: description     !< Description of the input paragraph, key combination.
       integer                          :: location_specifier !< Specifies the locationwhere the variable is specified (One of UNC_LOC_CN, UNC_LOC_S
                                                              !< UNC_LOC_U, UNC_LOC_L, UNC_LOC_S3D, UNC_LOC_U3, DUNC_LOC_W, UNC_LOC_WU, ...)
       integer                          :: num_additional_attributes  !< number of additional attributes
@@ -502,7 +504,7 @@ subroutine addoutval(config_set, idx, key, name, long_name, standard_name, unit,
    character(len=*),                intent(in   ) :: standard_name       !< Standard name of the variable on the NETCDF file.
    character(len=*),                intent(in   ) :: unit                !< Unit of the variable on the NETCDF file.
    integer,                         intent(in   ) :: location_specifier  !< Location specifier of the variable.
-   character(len=*), optional       intent(in   ) :: description         !< Description for the 
+   character(len=*), optional,      intent(in   ) :: description         !< Description for the 
 
    integer :: numentries
 
@@ -546,5 +548,26 @@ subroutine scan_input_tree(tree, paragraph, statout_set)
    enddo
 
 end subroutine scan_input_tree
+
+!> Set the properties for the diagnostics file
+subroutine set_properties(tree, paragraph, statout_set)
+   use properties
+
+   type(tree_data), pointer,                    intent(in   )     :: tree        !< Property tree
+   character(len=*),                            intent(in   )     :: paragraph   !< Paragraph of the location of the input data.
+   type(t_output_quantity_config_set),          intent(inout)     :: statout_set !< Contains the keys and configuration information on the output variables.
+
+   integer i
+   type(t_output_quantity_config), pointer, dimension(:) :: statout
+   
+   statout => statout_set%statout
+
+   do i = 1, statout_set%count
+      if (len_trim(statout(i)%description)>0) then
+         call prop_set(tree, trim(paragraph), trim(statout(i)%key), trim(statout(i)%input_value), trim(statout(i)%description))
+      endif
+   enddo
+
+end subroutine set_properties
 
 end module m_output_config
