@@ -2636,6 +2636,8 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     use m_xbeach_data, only: swave
     use unstruc_channel_flow
     use m_sedtrails_data
+    use m_output_config, only: set_properties
+    use fm_statistical_output, only: out_quan_conf_his, out_quan_conf_map, out_quan_conf_clm
 
     integer, intent(in)  :: mout  !< File pointer where to write to.
     logical, intent(in)  :: writeall !< Write all fields, including default values
@@ -3676,6 +3678,7 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     end if
 
 ! Output
+
     call prop_set(prop_ptr, 'output', 'OutputDir',   trim(md_OutputDir),    'Output directory of map-, his-, rst-, dat- and timings-files, default: DFM_OUTPUT_<modelname>. Set to . for current dir.')
     call prop_set(prop_ptr, 'output', 'FlowGeomFile',trim(md_flowgeomfile), 'Flow geometry NetCDF *_flowgeom.nc')
 
@@ -3786,280 +3789,21 @@ subroutine writeMDUFilepointer(mout, writeall, istat)
     if (writeall .or. unc_uuidgen /= 0) then
        call prop_set(prop_ptr, 'output', 'GenerateUUID', unc_uuidgen, 'Generate UUID as unique dataset identifier and include in output NetCDF files.')
     end if
+    
+    call set_properties(prop_ptr, 'Output', out_quan_conf_his)
+    call set_properties(prop_ptr, 'Output', out_quan_conf_map)
+    call set_properties(prop_ptr, 'Output', out_quan_conf_clm)
 
-    if (writeall .or. jahisbal /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_balance', jahisbal, 'Write mass balance totals to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahissourcesink /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_sourcesink', jahissourcesink, 'Write sources-sinks statistics to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiscgen /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_gen', jahiscgen, 'Write general structure parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiscdam /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_dam', jahiscdam, 'Write dam parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahispump /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_pump', jahispump, 'Write pump parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisgate /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_gate', jahisgate, 'Write gate parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisweir /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_weir', jahisweir, 'Write weir parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisorif /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_orifice', jahisorif, 'Write orifice parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisbridge /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_bridge', jahisbridge, 'Write bridge parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisculv /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_culvert', jahisculv, 'Write culvert parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisdambreak /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_damBreak', jahisdambreak, 'Write dam break parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisuniweir /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_uniWeir', jahisuniweir, 'Write universal weir parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiscmpstru /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_compound', jahiscmpstru, 'Write compound structure parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahislongculv /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_structure_longculvert', jahislongculv, 'Write long culvert parameters to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahistur /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_turbulence', jahistur, 'Write k, eps and vicww to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiswind /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_wind', jahiswind, 'Write wind velocities to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisrain /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_rain', jahisrain, 'Write precipitation to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisinfilt /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_infiltration', jahisinfilt, 'Write infiltration to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahistem /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_temperature', jahistem, 'Write temperature to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiswav /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_waves', jahiswav, 'Write wave data to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisheatflux /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_heat_fluxes', jahisheatflux, 'Write heat fluxes to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahissal /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_salinity', jahissal, 'Write salinity to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisrho /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_density', jahisrho, 'Write density to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiswatlev /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_waterlevel_s1', jahiswatlev, 'Write water level to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisbedlev == 0) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_bedlevel', jahisbedlev, 'Write bed level to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahiswatdep /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_waterdepth', jahiswatdep, 'Write water depth to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisvelvec /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_velocity_vector', jahisvelvec, 'Write velocity vectors to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisww /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_upward_velocity_component', jahisww, 'Write upward velocity to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahissed /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_sediment', jahissed, 'Write sediment transport to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisconst /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_constituents', jahisconst, 'Write tracers to his file (1: yes, 0: no)' )
-    endif
     if (writeall .or. jahiszcor /= 1) then
        call prop_set(prop_ptr, 'output', 'Wrihis_zcor', jahiszcor, 'Write vertical coordinates to his file (1: yes, 0: no)' )
     endif
-    if (writeall .or. jahislateral /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_lateral', jahislateral, 'Write lateral data to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahistaucurrent /= 1) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_taucurrent', jahistaucurrent, 'Write mean bed shear stress to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisvelocity /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_velocity', jahisvelocity, 'Write velocity magnitude to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jahisdischarge /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrihis_discharge', jahisdischarge, 'Write discharge magnitude to his file (1: yes, 0: no)' )
-    endif
-    if (writeall .or. jamaps0 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_waterlevel_s0', jamaps0, 'Write water levels for previous time step to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamaps1 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_waterlevel_s1', jamaps1, 'Write water levels to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapFlowAnalysis /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_flow_analysis', jamapFlowAnalysis, 'Write flow analysis data to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapevap /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_evaporation', jamapevap, 'Write evaporation to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapvol1 > 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_volume1', jamapvol1, 'Write volumes to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamaphs /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_waterdepth', jamaphs, 'Write water depths to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamaphu > 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_waterdepth_hu', jamaphu, 'Write water depths on u-points to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapanc > 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_ancillary_variables', jamapanc, 'Write ancillary_variables attributes to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapau > 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_flowarea_au', jamapau, 'Write flow areas au to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapu0 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_velocity_component_u0', jamapu0, 'Write velocity component for previous time step to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapu1 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_velocity_component_u1', jamapu1, 'Write velocity component to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapucvec /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_velocity_vector', jamapucvec, 'Write cell-center velocity vectors to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapucmag /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_velocity_magnitude', jamapucmag, 'Write cell-center velocity vector magnitude to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapucqvec /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_velocity_vectorq', jamapucqvec, 'Write cell-center velocity vectors (discharge-based) to map file (1: yes, 0: no)')
-    endif
-    if(writeall .or. jamapww1 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_upward_velocity_component', jamapww1, 'Write upward velocity component on cell interfaces (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamaprho /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_density_rho', jamaprho, 'Write flow density to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapviu /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_horizontal_viscosity_viu', jamapviu, 'Write horizontal viscosity to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapdiu /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_horizontal_diffusivity_diu', jamapdiu, 'Write horizontal diffusivity to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapq1 /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_flow_flux_q1', jamapq1, 'Write flow flux to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapq1main /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_flow_flux_q1_main', jamapq1main, 'Write flow flux in main channel to map file (1: yes, 0: no)')
-    endif
-    if (jamapfw /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_fixed_weir_energy_loss', jamapfw, 'Write fixed weir energy loss to map file (1: yes, 0: no)')
-    endif
-    if ( jasecflow > 0 .and. (writeall .or. jamapspir /= 1)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_spiral_flow', jamapspir, 'Write spiral flow to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamapnumlimdt /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_numlimdt', jamapnumlimdt, 'Write the number times a cell was Courant limiting to map file (1: yes, 0: no). (Consider using Wrimap_flow_analysis instead.)')
-    endif
-    if (writeall .or. jamaptaucurrent /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_taucurrent', jamaptaucurrent, 'Write the shear stress to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamap_chezy_elements /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_chezy', jamap_chezy_elements, 'Write the chezy values in flow elements to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamap_chezy_links /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_chezy_on_flow_links', jamap_chezy_links, 'Write the chezy values on flow links to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. jamap_chezy_input /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_input_roughness', jamap_chezy_input, 'Write the input roughness on flow links to map file (1: yes, 0: no)')
-    endif
-    if(jasal > 0 .and. (writeall .or. jamapsal /= 1)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_salinity', jamapsal, 'Write salinity to map file (1: yes, 0: no)')
-    endif
-    if(jatem > 0 .and. (writeall .or. jamaptem /= 1)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_temperature', jamaptem, 'Write temperature to map file (1: yes, 0: no)')
-    endif
-    if ((jased > 0 .or. stm_included) .and. (writeall .or. jamapsed /= 1) ) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_sediment', jamapsed, 'Write sediment fractions to map file (1: yes, 0: no)')
-    endif
-    if (kmx > 0 .or. (writeall .or. jamaptur /= 1) ) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_turbulence', jamaptur, 'Write vicww, k and eps to map file (1: yes, 0: no)')
-    endif
-    if(ITRA1 > 0 .and. (writeall .or. jamapconst /= 1) ) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_constituents', jamapconst, 'Write constituents to map file (1: yes, 0: no)')
-    endif
-    if(jatrt > 0 .and. (writeall .or. jamaptrachy /= 1)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_trachytopes', jamaptrachy, 'Write trachytope roughnesses to map file (1: yes, 0: no)')
-    endif
-    if(jacali > 0 .and. (writeall .or. jamapcali /= 1)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_calibration', jamapcali, 'Write roughness calibration factors to map file (1: yes, 0: no)')
-    endif
-    if(writeall .or. jamaprain /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_rain', jamaprain, 'Write rainfall rates to map file (1: yes, 0: no)')
-    endif
-    if (writeall .or. (interceptionmodel /= DFM_HYD_NOINTERCEPT .and. jamapicept /= 0)) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_interception', jamapicept, 'Write interception to map file (1: yes, 0: no)')
-    endif
-    if(writeall .or. jamapwind /= 1) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_wind', jamapwind, 'Write wind velocities to map file (1: yes, 0: no)')
-    endif
-    if(writeall .or. jamapwindstress /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_windstress', jamapwindstress, 'Write wind stress to map file (1: yes, 0: no)')
-    endif
+
     if(writeall .or. jatekcd /= 0) then
-        call prop_set(prop_ptr, 'output', 'Writek_CdWind', jatekcd, 'Write wind friction coeffs to tek file (1: yes, 0: no)')
+       call prop_set(prop_ptr, 'output', 'Writek_CdWind', jatekcd, 'Write wind friction coeffs to tek file (1: yes, 0: no)')
     endif
-    if (jatem > 1 .and. (writeall .or. jamapheatflux > 0)) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_heat_fluxes', jamapheatflux, 'Write heat fluxes to map file (1: yes, 0: no)' )
-    endif
-
-    if(writeall .or. jamapdtcell /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_DTcell', jamapdtcell, 'Write time step per cell based on CFL (1: yes, 0: no)')
-    endif
-
 
     if (writeall .or. epswetout /= 0.1d0) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_wet_waterdepth_threshold', epswetout, 'Waterdepth threshold above which a grid point counts as ''wet''. Used for Wrimap_time_water_on_ground.')
-    end if
-
-    if (writeall .or. jamapTimeWetOnGround /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_time_water_on_ground', jamapTimeWetOnGround, 'Write cumulative time when water is above ground level to map file, only for 1D nodes (1: yes, 0: no)')
-    endif
-
-    if (writeall .or. jamapFreeboard /= 0) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_freeboard', jamapFreeboard, 'Write freeboard to map file, only for 1D nodes (1: yes, 0: no)')
-    end if
-
-    if (writeall .or. jamapDepthOnGround /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_waterdepth_on_ground', jamapDepthOnGround, 'Write waterdepth that is above ground level to map file, only for 1D nodes (1: yes, 0: no)')
-    endif
-
-    if (writeall .or. jamapVolOnGround /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_volume_on_ground', jamapVolOnGround, 'Write volume that is above ground level to map file, only for 1D nodes (1: yes, 0: no)')
-    endif
-
-    if (writeall .or. jamapTotalInflow1d2d /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_total_net_inflow_1d2d', jamapTotalInflow1d2d, 'Write current total 1d2d net inflow (discharge) and cumulative total 1d2d net inflow (volume) to map file, only for 1D nodes (1: yes, 0: no)')
-    endif
-
-    if (writeall .or. jamapTotalInflowLat /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_total_net_inflow_lateral', jamapTotalInflowLat, 'Write current total lateral net inflow (discharge) and cumulative total net lateral inflow (volume) to map file, only for 1D nodes (1: yes, 0: no)')
-    endif
-
-    if (writeall .or. jamapS1Gradient /= 0) then
-        call prop_set(prop_ptr, 'output', 'Wrimap_water_level_gradient', jamapS1Gradient, 'Write water level gradient to map file, only on 1D links (1: yes, 0: no)')
-    endif
-
-    if (jatidep > 0 .and. (writeall .or. jamaptidep /= 1)) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_tidal_potential', jamaptidep, 'Write tidal potential to map file (1: yes, 0: no)')
-    end if
-
-    if (jaselfal > 0 .and. (writeall .or. jamapselfal /= 1)) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_sal_potential', jamapselfal, 'Write self attraction and loading potential to map file (1: yes, 0: no)')
-    end if
-
-    if (jaFrcInternalTides2D > 0 .and. (writeall .or. jamapIntTidesDiss /=1 )) then
-       call prop_set(prop_ptr, 'output', 'Wrimap_internal_tides_dissipation', jamapIntTidesDiss, 'Write internal tides dissipation to map file (1: yes, 0: no)')
+      call prop_set(prop_ptr, 'output', 'Wrimap_wet_waterdepth_threshold', epswetout, 'Waterdepth threshold above which a grid point counts as ''wet''. Used for Wrimap_time_water_on_ground.')
     end if
 
     call prop_set(prop_ptr, 'output', 'Writepart_domain', japartdomain, 'Write partition domain info. for postprocessing')
