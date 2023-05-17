@@ -8,8 +8,8 @@ import platform
 import subprocess
 import string
 import tempfile
-import re
 import os
+from os import path as p
 import logging
 import logging.handlers as handlers
 from src.Utils.Paths import Paths
@@ -24,18 +24,18 @@ if platform.system() == "Windows":
 # initialize the root logger and set default logging level
 root_logger = logging.getLogger('')
 root_logger.setLevel(logging.DEBUG)
-   
+
 # Formatter around the default logging.Formatter,
 # especially for TeamCity messages
 # It mainly uses the default logging.Formatter,
 # and additional performs a stripEscapeCharacters call on the msg string and all string arguments
 class LogFormatter(logging.Formatter):
    __defaultFormatter = None # Referencing the default logging.Formatter
-   
+
    def __init__(self, formatString):
       # Call the default logging.Formatter constructor and store the instance in self.__defaultFormatter
       self.__defaultFormatter = logging.Formatter(formatString)
-   
+
    def format(self, record):
       # Replace msg by stripEscapeCharacters(msg)
       record.msg = stripEscapeCharacters(record.msg).strip()
@@ -52,7 +52,7 @@ class LogFormatter(logging.Formatter):
       record.args = tuple(newArgs)
       # Finally, call the defaultFormatter.format with the changed record
       return self.__defaultFormatter.format(record)
-   
+
 # add search path to environment
 # input: environment to add search path to, path
 def addSearchPath(environment, sp):
@@ -76,7 +76,7 @@ def stripEscapeCharacters(cstr):
    # The decode method messes up the string completely on Linux
    # vstr = vstr.decode('utf-8')
    return vstr
- 
+
 # Replace a word by "***" when it follows a word containing the string "password"
 # Needed when logging a command containing a password
 def stripPassword(cstr):
@@ -93,7 +93,7 @@ def stripPassword(cstr):
    # The decode method messes up the string completely on Linux
    # vstr = vstr.decode('utf-8')
    return vstr
-  
+
 # parse log level string to enum
 def getLogLevel(level):
    if not level or str(level) == "":
@@ -105,15 +105,21 @@ def getLogLevel(level):
    if "err" in str(level).lower():
       return logging.ERROR
    return logging.DEBUG
-   
+
 # create a system logger (log to file)
 def setLogFileHandler():
-   handler = handlers.RotatingFileHandler(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "logs", "testbench.log"), backupCount=10)
+   testbench_folder = p.join(p.dirname(p.realpath(__file__)), "..", "..")
+   log_folder = p.join(testbench_folder, "logs")
+
+   if not p.exists(log_folder):
+      os.mkdir(log_folder)
+
+   handler = handlers.RotatingFileHandler(p.join(log_folder, "testbench.log"), backupCount=10)
    handler.doRollover()
    handler.setLevel(logging.DEBUG)
    formatter = LogFormatter('%(asctime)s [%(levelname)-7s] %(module)s.%(funcName)s : %(message)s')
    handler.setFormatter(formatter)
-   root_logger.addHandler(handler)  
+   root_logger.addHandler(handler)
 
 # set default logging output to TeamCity logging
 def setTcLogHandler(level):
@@ -128,7 +134,7 @@ def setTcLogHandler(level):
    root_logger.isEnabledFor(level)
    setLogFileHandler()
 
-# set default logging output to raw message logging 
+# set default logging output to raw message logging
 def setRawLogHandler(level):
    handlers = root_logger.handlers
    for handler in handlers:
@@ -137,7 +143,7 @@ def setRawLogHandler(level):
    ch.setLevel(level)
    formatter = LogFormatter('%(asctime)s [%(levelname)-7s] %(module)s.%(funcName)s : %(message)s')
    ch.setFormatter(formatter)
-   root_logger.addHandler(ch)   
+   root_logger.addHandler(ch)
    setLogFileHandler()
 
 # attach a logger that appends output to a log file, specified by path
@@ -157,13 +163,13 @@ def detachFileLogger(name):
 
 # mount a network drive in linux or windows
 # input: server name, folder name, optional credentials
-# output: mount point, boolean specifying if we created it or if it already exists  
+# output: mount point, boolean specifying if we created it or if it already exists
 def mountNetworkDrive(server, folder, credentials):
    if platform.system() == "Windows":
       pmp = checkIfAlreadyMounted(server, folder)
       if  pmp != "":
          return pmp, False
-      dl = getAvailableWindowsDriveLetter() 
+      dl = getAvailableWindowsDriveLetter()
       if not dl:
          raise OSError("no drive letters available")
       mountpoint = dl + ":"
@@ -177,15 +183,15 @@ def mountNetworkDrive(server, folder, credentials):
          cmd = cmd + " -o username=" + credentials.getUsername() + ",password=" + credentials.getPassword()
    subprocess.check_call(cmd, shell=True)
    return mountpoint, True
-     
-# unmount a network drive in linux or windows 
+
+# unmount a network drive in linux or windows
 def unmountNetworkDrive(mountpoint):
    if platform.system() == "Windows":
       cmd = "net use " + mountpoint + " /DELETE /YES"
    else:
       cmd = "umount -l " + mountpoint
    subprocess.check_call(cmd, shell = True)
-      
+
 # detect available windows drive letter for mounting
 def getAvailableWindowsDriveLetter():
    drives = []
@@ -204,7 +210,7 @@ def getAvailableWindowsDriveLetter():
 def checkIfAlreadyMounted(server, folder):
    if platform.system() == "Windows":
       process = subprocess.Popen(['net', 'use'], stdout=subprocess.PIPE)
-      while True:  
+      while True:
          line = process.stdout.readline()
          if line == '' and process.poll() != None:
             break
@@ -221,7 +227,7 @@ def checkIfAlreadyMounted(server, folder):
 class Singleton(type):
 
    _instances = {}
-   
+
    # singleton constructor instance
    def __call__(self, *args, **kwargs):
       if self not in self._instances:
