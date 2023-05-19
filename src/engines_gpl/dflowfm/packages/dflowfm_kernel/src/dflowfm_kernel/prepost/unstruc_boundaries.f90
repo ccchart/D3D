@@ -1088,6 +1088,8 @@ logical function initboundaryblocksforcings(filename)
           cycle
        end if
 
+       oper = '-'
+       call prop_get_string(node_ptr, '', 'operand ', oper , retVal)
 
        num_items_in_block = 0
        if (associated(node_ptr%child_nodes)) then
@@ -1109,46 +1111,8 @@ logical function initboundaryblocksforcings(filename)
              else if (property_name == 'forcingfile') then
                 forcingfile = property_value
                 call resolvePath(forcingfile, basedir, forcingfile)
-                oper = 'O'
-                if (quantity_pli_combination_is_registered(quantity, locationfile)) then
-                   oper = '+'
-                endif
-                call register_quantity_pli_combination(quantity, locationfile)
-                if (filetype == node_id .or. quantity == 'qhbnd') then
-                   select case(quantity)
-                   case ('waterlevelbnd')
-                      targetIndex = itpenzr(ib)
-                   case ('qhbnd')
-                      ibqh = ibqh + 1
-                      targetindex = (/ibqh/)
-                      if (filetype/=node_id) then
-                          locationfile = qhpliname(ibqh)
-                      end if
-                   case ('dischargebnd')
-                      targetIndex = itpenur(ib)
-                   case default
-                      targetindex = (/-1/)
-                   end select
-
-                   if (targetindex(1) <= 0) then
-                      ! This boundary has been skipped in an earlier phase (findexternalboundarypoints),
-                      ! so, also do *not* connect it as a spacetimerelation here.
-                      retVal = .true. ! No failure: boundaries are allowed to remain disconnected.
-                   else if (forcingfile == '-') then
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, operand=oper, &
-                                                               targetindex=targetindex(1))
-                   else
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, operand=oper, forcingfile = forcingfile, &
-                                                               targetindex=targetindex(1))
-                   endif
-                else
-                   if (forcingfile == '-') then
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, operand=oper)
-                   else
-                      retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, operand=oper, forcingfile = forcingfile)
-                   endif
-                endif
-                initboundaryblocksforcings = initboundaryblocksforcings .and. retVal ! Remember any previous errors.
+             else if (property_name == 'operand') then
+                oper = property_value  ! We already knew this
              else if (property_name == 'returntime' .or. property_name == 'return_time') then
                 continue                   ! used elsewhere to set Thatcher-Harleman delay
              else if (property_name == 'openboundarytolerance') then
@@ -1167,6 +1131,53 @@ logical function initboundaryblocksforcings(filename)
              endif
           endif
        enddo
+	   
+	   if (retVal) then
+	      if ( oper /= 'O' .and. oper /= '+' ) then
+	         oper = 'O'
+             if (quantity_pli_combination_is_registered(quantity, locationfile)) then
+               oper = '+'
+             endif
+		  end if 
+          call register_quantity_pli_combination(quantity, locationfile)
+          if (filetype == node_id .or. quantity == 'qhbnd') then
+             select case(quantity)
+                case ('waterlevelbnd')
+                   targetIndex = itpenzr(ib)
+                case ('qhbnd')
+                   ibqh = ibqh + 1
+                   targetindex = (/ibqh/)
+                   if (filetype/=node_id) then
+                       locationfile = qhpliname(ibqh)
+                   end if
+                case ('dischargebnd')
+                   targetIndex = itpenur(ib)
+                case default
+                   targetindex = (/-1/)
+             end select
+
+             if (targetindex(1) <= 0) then
+                ! This boundary has been skipped in an earlier phase (findexternalboundarypoints),
+                ! so, also do *not* connect it as a spacetimerelation here.
+                retVal = .true. ! No failure: boundaries are allowed to remain disconnected.
+             else if (forcingfile == '-') then
+                retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, &
+                       operand=oper, targetindex=targetindex(1))
+             else
+                retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=node_id, method=fmmethod, &
+                       operand=oper, forcingfile = forcingfile, targetindex=targetindex(1))
+             endif
+          else
+             if (forcingfile == '-') then
+                retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, &
+                       operand=oper)
+             else
+                retVal = addtimespacerelation_boundaries(quantity, locationfile, filetype=filetype, method=fmmethod, &
+                       operand=oper, forcingfile = forcingfile)
+             endif
+          endif
+          initboundaryblocksforcings = initboundaryblocksforcings .and. retVal ! Remember any previous errors.
+       end if 				
        if (.not. retVal) then ! This addtimespace was not successful
           rec = getmeteoerror()
           if (len_trim(rec)>0) then
@@ -1174,6 +1185,7 @@ logical function initboundaryblocksforcings(filename)
           endif
           call mess(LEVEL_WARN, 'initboundaryblockforcings: Error while initializing quantity '''//trim(quantity)//'''. Check preceding log lines for details.')
        end if
+       
     case ('lateral')
        ! [Lateral]
        ! Id = ...
