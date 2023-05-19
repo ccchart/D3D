@@ -5677,16 +5677,10 @@ contains
                     end if
                  end if
 
-                 if (usemask .and. kc(m) .eq. -1 ) then
-                   write(errormessage,'(a,i8.8,a,f12.4,a,f12.4,a)') 'Boundary link ',m,' already claimed [',(x(m)+xyen(1,m))/2.,',',(y(m)+xyen(2,m))/2.,']'
-                    call mess(LEVEL_WARN, errormessage)
-                    cycle
-                 else
-                    num     =  num + 1
-                    ki(num) =  m
-                    if (usemask) then ! If we don't use the mask, also don't administer this opened bnd location (e.g. for salinitybnd)
-                       kc(m)   = -1                ! this tells you this point is already claimed by some bnd
-                    end if
+                 num     =  num + 1
+                 ki(num) =  m
+                 if (usemask) then ! If we don't use the mask, also don't administer this opened bnd location (e.g. for salinitybnd)
+                    kc(m)   = -1                ! this tells you this point is already claimed by some bnd
                  end if
               end if
            end if
