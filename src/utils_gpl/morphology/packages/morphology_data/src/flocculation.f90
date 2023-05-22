@@ -36,11 +36,6 @@ module flocculation
     implicit none
     private
     
-    public FLOC_NONE
-    public FLOC_MANNING_DYER
-    public FLOC_CHASSAGNE_SAFAR
-    public FLOC_VERNEY_ETAL
-    
     public macro_floc_settling_manning
     public micro_floc_settling_manning
     public macro_floc_frac_manning
