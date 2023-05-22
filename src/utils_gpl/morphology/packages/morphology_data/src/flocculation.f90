@@ -34,6 +34,25 @@
 module flocculation
     use precision
     implicit none
+    private
+    
+    public FLOC_NONE
+    public FLOC_MANNING_DYER
+    public FLOC_CHASSAGNE_SAFAR
+    public FLOC_VERNEY_ETAL
+    
+    public macro_floc_settling_manning
+    public micro_floc_settling_manning
+    public macro_floc_frac_manning
+    public floc_manning
+    
+    public macro_floc_settling_chassagne
+    public micro_floc_settling_chassagne
+    public macro_floc_frac_chassagne
+    public floc_chassagne
+    
+    public flocculate
+    public get_tshear_tdiss
 
     integer, parameter, public :: FLOC_NONE                 = 0 ! no flocculation
     integer, parameter, public :: FLOC_MANNING_DYER         = 1 ! flocculation based on Manning and Dyer (2007)
