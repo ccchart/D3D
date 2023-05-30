@@ -97,6 +97,12 @@ if (UNIX)
     #MPI
     find_package(MPI REQUIRED)
     add_definitions(-DHAVE_MPI)
+
+    #Metis
+    link_directories($ENV{METIS_DIR}/lib)
+    
+    find_package(GDAL REQUIRED)
+    find_package(PROJ REQUIRED)
     
     #NetCDF
     pkg_check_modules(NETCDF     REQUIRED IMPORTED_TARGET netcdf)

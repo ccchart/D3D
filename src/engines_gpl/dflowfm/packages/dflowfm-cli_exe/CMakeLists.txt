@@ -60,6 +60,7 @@ if(UNIX)
     pkg_check_modules(NETCDF     REQUIRED IMPORTED_TARGET netcdf)
     pkg_check_modules(NETCDF_FTN REQUIRED IMPORTED_TARGET netcdf-fortran)
     pkg_check_modules(PETSC      REQUIRED IMPORTED_TARGET PETSc)
+    pkg_check_modules(PROJ       REQUIRED IMPORTED_TARGET proj)
 
     set(oss_dependencies    deltares_common
                             deltares_common_c
@@ -99,6 +100,7 @@ if(UNIX)
          PkgConfig::NETCDF
          PkgConfig::NETCDF_FTN
          PkgConfig::PETSC
+         PkgConfig::PROJ
          "metis")
 endif(UNIX)
 
@@ -155,6 +157,7 @@ oss_include_libraries(${executable_name} oss_dependencies)
 if(UNIX)
     message(STATUS "netcdf lib dir is ${NETCDF_LIBRARY_DIRS}")
     target_link_directories(${executable_name} PRIVATE ${NETCDF_LIBRARY_DIRS})
+    target_link_directories(${executable_name} PRIVATE ${PROJ_LIBRARY_DIRS})
     
     message(STATUS "Setting target_compile_definitions in Unix")    
     target_compile_definitions(${executable_name} PRIVATE "HAVE_DISPLAY=0;HAVE_METIS;HAVE_POLYPACK;HAVE_MPI;HAVE_PETSC")
@@ -175,6 +178,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${src_path}/net_main.F90
 
 
 target_link_libraries(${executable_name} netcdf)
+target_link_libraries(${executable_name} proj)
 
 if (WIN32)
     include_directories(${mpi_include_path}
