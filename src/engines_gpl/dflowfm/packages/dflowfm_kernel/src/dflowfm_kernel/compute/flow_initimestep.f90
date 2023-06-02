@@ -42,6 +42,8 @@
  use MessageHandling
  use m_partitioninfo
  use m_sediment, only: stm_included
+ use m_rdturbine
+ use m_structures, only: turbines
 
  implicit none
 
@@ -144,6 +146,7 @@
  endif
 
  ! TIDAL TURBINES: Insert equivalent calls to updturbine and applyturbines here
+ call updturbine(turbines)
 
  call timstrt('setdt', handle_extra(40)) ! Start setdt
  if (jazws0.eq.0 .and. nshiptxy == 0)  then

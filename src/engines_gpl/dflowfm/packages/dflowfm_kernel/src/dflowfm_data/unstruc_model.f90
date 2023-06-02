@@ -133,6 +133,8 @@ implicit none
 
     character(len=255) :: md_restartfile   = ' ' !< File containing map-files to restart a computation          (e.g., *_map.nc), input only, NOT used for storing the names of output restart files.
 
+    character(len=255) :: md_trbfile       = ' ' !< Turbine File
+
     character(len=255) :: md_extfile       = ' ' !< External forcing specification file (e.g., *.ext)
     character(len=255) :: md_extfile_new   = ' ' !< External forcing specification file new style (bct format), (e.g., *.ext)
     character(len=255) :: md_extfile_dir   = ' ' !< Directory containing the old-style external forcing specification file (e.g., *.ext) (relative to MDU/current working dir)
@@ -728,6 +730,7 @@ subroutine readMDUFile(filename, istat)
     use m_bedform, only: bfm_included
 
     use m_sediment
+    use m_rdturbine
     use m_waves, only: hwavuni, twavuni, phiwavuni
     use m_sedtrails_data, only: sedtrails_analysis
     use unstruc_display,  only: jaGUI 
@@ -1663,6 +1666,8 @@ subroutine readMDUFile(filename, istat)
     endif
     !
     ! TIDAL TURBINES: Insert calls to rdturbine and echoturbine here (use the structure_turbines variable defined in m_structures)
+    call prop_get_string(md_ptr, 'Turbines', 'TurbineFile', md_trbfile, success)
+    
     !
 ! Restart information
     call prop_get_string(md_ptr, 'restart', 'RestartFile', md_restartfile, success)

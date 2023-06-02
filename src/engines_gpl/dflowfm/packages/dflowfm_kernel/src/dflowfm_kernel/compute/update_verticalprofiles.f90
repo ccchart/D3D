@@ -52,6 +52,7 @@ subroutine update_verticalprofiles()
  use m_ship
  use m_sferic
  use m_missing
+ use m_structures, only: structure_turbines, structure_turbine, turbines
 
  implicit none
 
@@ -77,6 +78,16 @@ subroutine update_verticalprofiles()
 
 double precision, external :: setrhofixedp
 
+ !! SNL
+ double precision  :: cs, sn, uuu
+ double precision  :: duxdn, duydn, duxdt, duydt, dundn, dutdn, dundt, dutdt, shearvar
+ double precision  :: dudz, dvdz, s11, s12, s13, s22, s23, s33
+ double precision, external :: nod2linx, nod2liny, cor2linx, cor2liny
+
+ type(structure_turbine)                  , pointer :: turbine
+ integer :: numcrossedlinks
+ integer :: j, il, k3, k4
+ double precision :: Ct, Cd
 
  if (iturbulencemodel <= 0 .or. kmx == 0) return
 
@@ -514,6 +525,55 @@ double precision, external :: setrhofixedp
            dijdij(k) = ( ( u1(Lu) - u1(L) ) ** 2 + ( v(Lu) - v(L) ) ** 2 ) / dzw(k)**2
         endif
 
+        !! SNL -- calculate full shear term (rather than just in the vertical direction)
+        cs = csu(LL)  ; sn = snu(LL)
+        
+        k1 = ln(1,L) ; k2 = ln(2,L)
+        k3 = lncn(1,L) ; k4 = lncn(2,L)
+        
+        if ( jasfer3D == 1 ) then
+           duxdn = ( nod2linx(LL,2,ucx(k2),ucy(k2)) - nod2linx(LL,1,ucx(k1),ucy(k1)) )*dxi(LL)
+           duydn = ( nod2liny(LL,2,ucx(k2),ucy(k2)) - nod2liny(LL,1,ucx(k1),ucy(k1)) )*dxi(LL)
+           duxdt = ( cor2linx(LL,2,ucnx(k4),ucny(k4)) - cor2linx(LL,1,ucnx(k3),ucny(k3)) ) * wui(LL)
+           duydt = ( cor2liny(LL,2,ucnx(k4),ucny(k4)) - cor2liny(LL,1,ucnx(k3),ucny(k3)) ) * wui(LL)
+        else    
+           duxdn =  ( ucx(k2) -  ucx(k1)) * dxi(LL) 
+           duydn =  ( ucy(k2) -  ucy(k1)) * dxi(LL) 
+           duxdt =  (ucnx(k4) - ucnx(k3)) * wui(LL)
+           duydt =  (ucny(k4) - ucny(k3)) * wui(LL)
+        endif 
+           
+        dundn    =  cs*duxdn + sn*duydn
+        dutdn    = -sn*duxdn + cs*duydn
+        dundt    =  cs*duxdt + sn*duydt
+        dutdt    = -sn*duxdt + cs*duydt
+        
+        dudz     = ( u1(Lu) - u1(L) ) / dzw(k)
+        dvdz     = ( v(Lu) - v(L) ) / dzw(k)
+
+
+        ! SNL version, which one is correct?
+        ! production is 2*nut*sijsij
+        s11 = dundn
+        s12 = 0.5*(dundt+dutdn)
+        s13 = 0.5*dudz ! + dwdx
+        s22 = dutdt
+        s23 = 0.5*dvdz ! + dwdy
+        s33 = -dundn -dutdt  ! continuity equation
+        ! this is 2*SijSij
+        shearvar = 2d0*(s11*s11 + 2d0*s12*s12 + 2d0*s13*s13 + s22*s22 + 2d0*s23*s23 + s33*s33)
+        ! dijdij was equal to  dudz**2+dvdz**2,
+        ! which is 2.0*( 2.0*s13s13 + 2.0*s23*s23 )
+        ! a subset of SijSij stuff
+
+        ! equation in smagorinsky model
+        !shearvar = 2d0*(dundn*dundn + dutdt*dutdt + dundt*dutdn) + dundt*dundt + dutdn*dutdn
+        !shearvar =            (s11*s11 + s22*s22 + s33*s33)      +  ????
+
+        ! replace dijdij with new variable
+        dijdij(k) = shearvar
+        !! SNL
+
         if (jarichardsononoutput > 0) then                ! save richardson nr to output
             rich(L) = sigrho*bruva(k)/max(1d-8,dijdij(k)) ! sigrho because bruva premultiplied by 1/sigrho
         endif
@@ -689,6 +749,32 @@ double precision, external :: setrhofixedp
         endif
      endif
 
+     if (associated(turbines%nr)) then
+       do j = 1, size(turbines%nr)
+         turbine => turbines%nr(j)
+         if (turbine%turbulencemodel == 1) then
+           numcrossedlinks = turbine%numedges  ! size(turbine%edgelist)
+!          get hub coordinates
+           !Ct = 0.8    ! hard coded hack
+           Ct = turbine%thrustcoef
+           ! F = 0.5*A*rho*Cd*Ud^2
+           Cd = 4.0*(1.0 - sqrt(1.0-Ct))/(1.0 + sqrt(1.0-Ct))
+
+           do il = 1,numcrossedlinks
+              if (LL == turbine%edgelist(il)) then
+                do L=Lb,Lt
+                   k = L - Lb + 1
+                   uuu = sqrt( u0(L)*u0(L) + v(L)*v(L) )
+                   dk(k) = dk(k) + 0.5*Cd*dxi(LL)*( turbine%beta_p*uuu**3 - turbine%beta_d*uuu*turkin0(L) ) *turbine%blockfrac(il,k)
+                end do
+              end if
+            end do
+         endif
+       enddo
+     endif
+
+
+     
      call tridag(ak,bk,ck,dk,ek,turkin1(Lb0:Lt),kxL+1)                    ! solve k
      turkin1(Lb0:Lt) = max(epstke, turkin1(Lb0:Lt)   )
      do L = Lt+1 , Lb + kmxL(LL) - 1                           ! copy to surface for z-layers
@@ -885,6 +971,35 @@ double precision, external :: setrhofixedp
         enddo
     endif
 
+
+     if (associated(turbines%nr)) then
+       do j = 1, size(turbines%nr)
+         turbine => turbines%nr(j)
+         if (turbine%turbulencemodel == 1) then
+           numcrossedlinks = turbine%numedges  ! size(turbine%edgelist)
+!          get hub coordinates
+           !Ct = 0.8    ! hard coded hack
+           Ct = turbine%thrustcoef
+           ! F = 0.5*A*rho*Cd*Ud^2
+           Cd = 4.0*(1.0 - sqrt(1.0-Ct))/(1.0 + sqrt(1.0-Ct))
+
+           do il = 1,numcrossedlinks
+              if (LL == turbine%edgelist(il)) then
+                do L=Lb,Lt
+                   k = L - Lb + 1
+                   uuu = sqrt( u0(L)*u0(L) + v(L)*v(L) )
+                   dk(k) = dk(k) + 0.5*Cd*dxi(LL)*(  turbine%cep4*turbine%beta_p*tureps0(L)/turkin0(L)*uuu**3  &
+                                                   - turbine%cep5*turbine%beta_d*tureps0(L)*uuu  ) *turbine%blockfrac(il, k)
+                end do
+              end if
+            end do
+         endif
+       enddo
+     endif
+
+    
+
+
     call tridag(ak,bk,ck,dk,ek,tureps1(Lb0:Lt),kxL+1)         ! solve eps
     tureps1(Lb0:Lt) = max(epseps, tureps1(Lb0:Lt) )
     do L = Lt+1 , Lb + kmxL(LL) - 1                           ! copy to surface for z-layers
@@ -1006,6 +1121,29 @@ double precision, external :: setrhofixedp
     turkin1(Lb0:Lb + kmxL(LL) - 1 ) = epstke
 
    endif  ! if (hu(L) > 0) then
+
+      
+   !! SNL
+   !! Terrible hack for turbulent inflow, all complaints to ccchart@sandia.gov
+   !! if (LL > lnxi) then
+   !!     !!tke              = max(3./2.*(0.8*0.15)**2,1e-6)  ! 15 percent turbulent intensity of 0.8 m/s inflow
+   !!     !tke              = 0.041334
+   !!     !turkin1(Lb-1:Lt) = tke
+   !!     !!eps    = max(cmukep*tke*tke / vicwmax, 1e-9)
+   !!     !eps    = 0.00108045
+   !!     !tureps1(Lb-1:Lt) = eps
+   !!     
+   !!     do L    = Lb-1,Lt-1      ! TKE and epsilon at layer interfaces:
+   !!        tke  = max(3./2.*(U1(L+1)*0.20)**2,1e-6)  ! 10% TI
+   !!        eps  = max(cmukep*tke*tke / vicwmax, 1e-9)
+   !!        
+   !!        turkin1(L) = tke
+   !!        tureps1(L) = eps
+   !!     enddo
+   !!     turkin1(Lt) = tke
+   !!     tureps1(Lt) = eps
+   !! endif
+
   enddo   ! links loop
 
   !$xOMP END PARALLEL DO
